@@ -77,20 +77,48 @@ let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def svml_cos_native     : OclBuiltin<"__ocl_svml_$Target_cos$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_divide_native  : OclBuiltin<"__ocl_svml_$Target_divide$SVMLSuffix_native",  (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def svml_exp_native     : OclBuiltin<"__ocl_svml_$Target_exp$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_exp2_native    : OclBuiltin<"__ocl_svml_$Target_exp2$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_exp10_native   : OclBuiltin<"__ocl_svml_$Target_exp10$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log_native     : OclBuiltin<"__ocl_svml_$Target_log$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log2_native    : OclBuiltin<"__ocl_svml_$Target_log2$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log10_native   : OclBuiltin<"__ocl_svml_$Target_log10$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_powr_native    : OclBuiltin<"__ocl_svml_$Target_powr$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def svml_recip_native   : OclBuiltin<"__ocl_svml_$Target_recip$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_rsqrt_native   : OclBuiltin<"__ocl_svml_$Target_rsqrt$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_sin_native     : OclBuiltin<"__ocl_svml_$Target_sin$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_sqrt_native    : OclBuiltin<"__ocl_svml_$Target_sqrt$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_tan_native     : OclBuiltin<"__ocl_svml_$Target_tan$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_acos_native    : OclBuiltin<"__ocl_svml_$Target_acos$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_acosh_native   : OclBuiltin<"__ocl_svml_$Target_acosh$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_acospi_native  : OclBuiltin<"__ocl_svml_$Target_acospi$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_asin_native    : OclBuiltin<"__ocl_svml_$Target_asin$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_asinh_native   : OclBuiltin<"__ocl_svml_$Target_asinh$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_asinpi_native  : OclBuiltin<"__ocl_svml_$Target_asinpi$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_atan_native    : OclBuiltin<"__ocl_svml_$Target_atan$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_atan2_native   : OclBuiltin<"__ocl_svml_$Target_atan2$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_atanh_native   : OclBuiltin<"__ocl_svml_$Target_atanh$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_atanpi_native  : OclBuiltin<"__ocl_svml_$Target_atanpi$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_atan2pi_native : OclBuiltin<"__ocl_svml_$Target_atan2pi$SVMLSuffix_native",  (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_cbrt_native    : OclBuiltin<"__ocl_svml_$Target_cbrt$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cos_native     : OclBuiltin<"__ocl_svml_$Target_cos$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cosh_native    : OclBuiltin<"__ocl_svml_$Target_cosh$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cospi_native   : OclBuiltin<"__ocl_svml_$Target_cospi$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_div_native     : OclBuiltin<"__ocl_svml_$Target_div$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_erfc_native    : OclBuiltin<"__ocl_svml_$Target_erfc$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_erf_native     : OclBuiltin<"__ocl_svml_$Target_erf$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_exp_native     : OclBuiltin<"__ocl_svml_$Target_exp$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_exp2_native    : OclBuiltin<"__ocl_svml_$Target_exp2$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_exp10_native   : OclBuiltin<"__ocl_svml_$Target_exp10$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_expm1_native   : OclBuiltin<"__ocl_svml_$Target_expm1$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_hypot_native   : OclBuiltin<"__ocl_svml_$Target_hypot$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_inv_native     : OclBuiltin<"__ocl_svml_$Target_inv$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_log_native     : OclBuiltin<"__ocl_svml_$Target_log$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_log2_native    : OclBuiltin<"__ocl_svml_$Target_log2$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_log10_native   : OclBuiltin<"__ocl_svml_$Target_log10$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_log1p_native   : OclBuiltin<"__ocl_svml_$Target_log1p$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_pow_native     : OclBuiltin<"__ocl_svml_$Target_pow$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_pown_native    : OclBuiltin<"__ocl_svml_$Target_pown$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], []>;
+def svml_powr_native    : OclBuiltin<"__ocl_svml_$Target_powr$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def svml_rcbrt_native   : OclBuiltin<"__ocl_svml_$Target_rcbrt$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_rootn_native   : OclBuiltin<"__ocl_svml_$Target_rootn$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], []>;
+def svml_rsqrt_native   : OclBuiltin<"__ocl_svml_$Target_rsqrt$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_sincos_native  : OclBuiltin<"__ocl_svml_$Target_sincos$SVMLSuffix_native",   (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>;
+def svml_sin_native     : OclBuiltin<"__ocl_svml_$Target_sin$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_sinh_native    : OclBuiltin<"__ocl_svml_$Target_sinh$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_sinpi_native   : OclBuiltin<"__ocl_svml_$Target_sinpi$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_sqrt_native    : OclBuiltin<"__ocl_svml_$Target_sqrt$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_tan_native     : OclBuiltin<"__ocl_svml_$Target_tan$SVMLSuffix_native",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_tanh_native    : OclBuiltin<"__ocl_svml_$Target_tanh$SVMLSuffix_native",     (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_tanpi_native   : OclBuiltin<"__ocl_svml_$Target_tanpi$SVMLSuffix_native",    (outs gentype:$ret), (ins gentype:$x), [], []>;
 }
 
 let Types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],

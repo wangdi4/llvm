@@ -361,7 +361,7 @@ OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, half_cos.Types, 0, [{
 
 // half_divide
 OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, half_divide.Types, 0, [{
-    return __ocl_svml_$Target_divide$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+    return __ocl_svml_$Target_div$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_exp
@@ -401,7 +401,7 @@ OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, half_powr.Types, 0, [{
 
 // half_recip
 OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
-    return __ocl_svml_$Target_recip$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // half_rsqrt
@@ -431,7 +431,7 @@ OclBuiltinImpl native_cos_svml = OclBuiltinImpl<native_cos, native_cos.Types, 0,
 
 // native_divide
 OclBuiltinImpl native_divide_svml = OclBuiltinImpl<native_divide, native_divide.Types, 0, [{
-    return __ocl_svml_$Target_divide$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+    return __ocl_svml_$Target_div$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_exp
@@ -471,7 +471,7 @@ OclBuiltinImpl native_powr_svml = OclBuiltinImpl<native_powr, native_powr.Types,
 
 // native_recip
 OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, native_recip.Types, 0, [{
-    return __ocl_svml_$Target_recip$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
@@ -492,4 +492,147 @@ OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, native_sqrt.Types,
 // native_tan
 OclBuiltinImpl native_tan_svml = OclBuiltinImpl<native_tan, native_tan.Types, 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_acos
+OclBuiltinImpl native_acos_svml = OclBuiltinImpl<native_acos, native_acos.Types, 0, [{
+    return __ocl_svml_$Target_acos$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_acosh
+OclBuiltinImpl native_acosh_svml = OclBuiltinImpl<native_acosh, native_acosh.Types, 0, [{
+    return __ocl_svml_$Target_acosh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_acospi
+OclBuiltinImpl native_acospi_svml = OclBuiltinImpl<native_acospi, native_acospi.Types, 0, [{
+    return __ocl_svml_$Target_acospi$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_asin
+OclBuiltinImpl native_asin_svml = OclBuiltinImpl<native_asin, native_asin.Types, 0, [{
+    return __ocl_svml_$Target_asin$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_asinh
+OclBuiltinImpl native_asinh_svml = OclBuiltinImpl<native_asinh, native_asinh.Types, 0, [{
+    return __ocl_svml_$Target_asinh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_asinpi
+OclBuiltinImpl native_asinpi_svml = OclBuiltinImpl<native_asinpi, native_asinpi.Types, 0, [{
+    return __ocl_svml_$Target_asinpi$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_atan
+OclBuiltinImpl native_atan_svml = OclBuiltinImpl<native_atan, native_atan.Types, 0, [{
+    return __ocl_svml_$Target_atan$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_atan2
+OclBuiltinImpl native_atan2_svml = OclBuiltinImpl<native_atan2, native_atan2.Types, 0, [{
+    return __ocl_svml_$Target_atan2$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_atanh
+OclBuiltinImpl native_atanh_svml = OclBuiltinImpl<native_atanh, native_atanh.Types, 0, [{
+    return __ocl_svml_$Target_atanh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_atanpi
+OclBuiltinImpl native_atanpi_svml = OclBuiltinImpl<native_atanpi, native_atanpi.Types, 0, [{
+    return __ocl_svml_$Target_atanpi$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_atan2pi
+OclBuiltinImpl native_atan2pi_svml = OclBuiltinImpl<native_atan2pi, native_atan2pi.Types, 0, [{
+    return __ocl_svml_$Target_atan2pi$SVMLSuffix_native($Arg0VarName, $Arg0VarName);
+  }]>;
+
+// native_cbrt
+OclBuiltinImpl native_cbrt_svml = OclBuiltinImpl<native_cbrt, native_cbrt.Types, 0, [{
+    return __ocl_svml_$Target_cbrt$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_cosh
+OclBuiltinImpl native_cosh_svml = OclBuiltinImpl<native_cosh, native_cosh.Types, 0, [{
+    return __ocl_svml_$Target_cosh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_cospi
+OclBuiltinImpl native_cospi_svml = OclBuiltinImpl<native_cospi, native_cospi.Types, 0, [{
+    return __ocl_svml_$Target_cospi$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_erfc
+OclBuiltinImpl native_erfc_svml = OclBuiltinImpl<native_erfc, native_erfc.Types, 0, [{
+    return __ocl_svml_$Target_erfc$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_erf
+OclBuiltinImpl native_erf_svml = OclBuiltinImpl<native_erf, native_erf.Types, 0, [{
+    return __ocl_svml_$Target_erf$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_expm1
+OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, native_expm1.Types, 0, [{
+    return __ocl_svml_$Target_expm1$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_hypot
+OclBuiltinImpl native_hypot_svml = OclBuiltinImpl<native_hypot, native_hypot.Types, 0, [{
+    return __ocl_svml_$Target_hypot$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_log1p
+OclBuiltinImpl native_log1p_svml = OclBuiltinImpl<native_log1p, native_log1p.Types, 0, [{
+    return __ocl_svml_$Target_log1p$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_pow
+OclBuiltinImpl native_pow_svml = OclBuiltinImpl<native_pow, native_pow.Types, 0, [{
+    return __ocl_svml_$Target_pow$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_pown
+OclBuiltinImpl native_pown_svml = OclBuiltinImpl<native_pown, native_pown.Types, 0, [{
+    return __ocl_svml_$Target_pown$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_rcbrt
+OclBuiltinImpl native_rcbrt_svml = OclBuiltinImpl<native_rcbrt, native_rcbrt.Types, 0, [{
+    return __ocl_svml_$Target_rcbrt$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_rootn
+OclBuiltinImpl native_rootn_svml = OclBuiltinImpl<native_rootn, native_rootn.Types, 0, [{
+    return __ocl_svml_$Target_rootn$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_sincos
+code native_sincos_svml = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_native($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, native_sincos_pas.Types, 0, native_sincos_svml>;
+OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, native_sincos_las.Types, 0, native_sincos_svml>;
+OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, native_sincos_gas.Types, 0, native_sincos_svml>;
+
+// native_sinh
+OclBuiltinImpl native_sinh_svml = OclBuiltinImpl<native_sinh, native_sinh.Types, 0, [{
+    return __ocl_svml_$Target_sinh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_sinpi
+OclBuiltinImpl native_sinpi_svml = OclBuiltinImpl<native_sinpi, native_sinpi.Types, 0, [{
+    return __ocl_svml_$Target_sinpi$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_tanh
+OclBuiltinImpl native_tanh_svml = OclBuiltinImpl<native_tanh, native_tanh.Types, 0, [{
+    return __ocl_svml_$Target_tanh$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_tanpi
+OclBuiltinImpl native_tanpi_svml = OclBuiltinImpl<native_tanpi, native_tanpi.Types, 0, [{
+    return __ocl_svml_$Target_tanpi$SVMLSuffix_native($Arg0VarName);
   }]>;
