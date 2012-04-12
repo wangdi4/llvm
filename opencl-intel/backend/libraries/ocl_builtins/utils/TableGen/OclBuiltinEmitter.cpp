@@ -104,6 +104,8 @@ OclType::getCType(const OclBuiltin* OB, bool NoAS) const
 
   if (OB->hasConst())
     Ret += (Ret.empty() ? "" : " ") + std::string("const");
+  if (OB->hasVolatile())
+    Ret += (Ret.empty() ? "" : " ") + std::string("volatile");
 
   Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
   Ret += (Ret.empty() ? "" : " ") + m_CType + " *";
@@ -244,6 +246,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 , m_IsDeclOnly(R->getValueAsBit("IsDeclOnly"))
 , m_NeedForwardDecl(R->getValueAsBit("NeedForwardDecl"))
 , m_HasConst(0)
+, m_HasVolatile(0)
 {
   // Types
   {
@@ -327,6 +330,9 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
   // Optional HasConst
   if (R->getValue("HasConst"))
     m_HasConst = R->getValueAsBit("HasConst");
+  // Optional HasVolatile
+  if (R->getValue("HasVolatile"))
+    m_HasVolatile = R->getValueAsBit("HasVolatile");
 }
 
 

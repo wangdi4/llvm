@@ -889,6 +889,175 @@ length4_up_convert(float4 x, float4 y, float4 z, float4 w)
   return res.lo;
 }
 
+// Below atomic functions are replicated from CPU implementation
+// as defined in atom_function.cpp. The only difference is that MIC
+// implementation removes _mm_mfence() since there is equivalent native
+// support due to its in-order execution pipe. Any bug found here shall also trace
+// back its origin in CPU implementation for certanity.
+//#define VATOMICS_FUNC_DECL
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+typedef int intrin_type;
+
+/**
+ * Implementation NOTICE:
+ *
+ * This implementation assumes that local pool (workgroup threads) are executed by
+ * only ONE phyiscal thread, this means that the operations in local memory will be 
+ * invoked in a serial way, thus there's no need to synchronize the access to the 
+ * local memory;
+ * 
+ * In the following implementation there's a helper functions there are two versions
+ * of this:
+ *  one for global memory (with _global postfix)
+ *  one for local  memory (with _local  postfix)
+ */
+
+// global calls implementations
+int __inline__ __attribute__((always_inline)) atomicInc_global(volatile int* p)
+{
+  return __sync_fetch_and_add(p, 1);
+}
+
+int __inline__ __attribute__((always_inline)) atomicDec_global(volatile int* p)
+{
+  return __sync_fetch_and_sub(p, 1);
+}
+
+int __inline__ __attribute__((always_inline)) atomicAdd_global(volatile int* p, int val)
+{
+  return __sync_fetch_and_add(p, val);
+}
+
+int __inline__ __attribute__((always_inline)) atomicSub_global(volatile int* p, int val)
+{
+  return __sync_fetch_and_sub(p, val);
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedCompareExchange_global(volatile int * const Destination, const int Comperand, const int Exchange)
+{
+  return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
+}
+
+__inline__ __attribute__((always_inline)) int InterlockedExchange_global(volatile int * const Target, const int Value)
+{
+  //_mm_mfence();
+  return __sync_lock_test_and_set(Target, Value);
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedAnd_global(volatile int * const value, const int mask)
+{
+  return __sync_fetch_and_and(value, mask);
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedOr_global(volatile int * const value, const int mask)
+{
+  return __sync_fetch_and_or(value, mask);
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedXor_global(volatile int * const value, const int mask)
+{
+  return __sync_fetch_and_xor(value, mask);
+}
+
+// local calls implementations
+int __inline__ __attribute__((always_inline)) atomicInc_local(volatile int* p)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *p;
+    *p = oldValue + 1;
+    return oldValue;
+}
+
+int __inline__ __attribute__((always_inline)) atomicDec_local(volatile int* p)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *p;
+    *p = oldValue - 1;
+    return oldValue;
+}
+
+int __inline__ __attribute__((always_inline)) atomicAdd_local(volatile int* p, int val)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *p;
+    *p = oldValue + val;
+    return oldValue;
+}
+
+int __inline__ __attribute__((always_inline)) atomicSub_local(volatile int* p, int val)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *p;
+    *p = oldValue - val;
+    return oldValue;
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedCompareExchange_local(volatile int * const Destination, const int Comperand, const int Exchange)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *Destination;
+    if (oldValue == Comperand)
+    {
+        *Destination = Exchange;
+    }
+    return oldValue;
+}
+
+__inline__ __attribute__((always_inline)) int InterlockedExchange_local(volatile int * const Target, const int Value)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *Target;
+    *Target = Value;
+    return oldValue;
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedAnd_local(volatile int * const value, const int mask)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *value;
+    *value = oldValue & mask;
+    return oldValue;
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedOr_local(volatile int * const value, const int mask)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *value;
+    *value = oldValue | mask;
+    return oldValue;
+}
+
+__inline__ __attribute__((always_inline)) int _InterlockedXor_local(volatile int * const value, const int mask)
+{
+    // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
+    int oldValue = *value;
+    *value = oldValue ^ mask;
+    return oldValue;
+}
+
+// helper min, max implementations (not syncronized)
+int __inline__ __attribute__((always_inline)) unsigned_min(unsigned int p0, unsigned int p1)
+{
+    return (p0 < p1) ? p0 : p1;
+}
+
+int __inline__ __attribute__((always_inline)) unsigned_max(unsigned int p0, unsigned int p1)
+{
+    return (p0 > p1) ? p0 : p1;
+}
+
+int __inline__ __attribute__((always_inline)) signed_min(int p0, int p1)
+{
+    return (p0 < p1) ? p0 : p1;
+}
+
+int __inline__ __attribute__((always_inline)) signed_max(int p0, int p1)
+{
+    return (p0 > p1) ? p0 : p1;
+}
+
 #ifdef __cplusplus
 }
 #endif

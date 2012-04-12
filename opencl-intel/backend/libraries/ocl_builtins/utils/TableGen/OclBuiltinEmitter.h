@@ -179,6 +179,8 @@ public:
 
   bool hasConst() const { return m_HasConst; }
 
+  bool hasVolatile() const { return m_HasVolatile; }
+
 protected:
   const OclBuiltinDB& m_DB;
   const Record* m_Record;
@@ -188,6 +190,7 @@ protected:
   bool m_NeedForwardDecl;
   std::string m_AS;
   bool m_HasConst;
+  bool m_HasVolatile;
   std::vector<const OclType*> m_Types;
   std::vector<const OclBuiltinAttr*> m_Attrs;
   std::vector<std::pair<const OclType*, std::string> > m_Outputs;

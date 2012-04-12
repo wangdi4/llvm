@@ -577,17 +577,22 @@ class PlusAttr<list<OclBuiltinAttr> attrs> {
 }
 
 // Special property for the pointer type in OCLBuiltin prototype.
-class OclAddressSpace<string name, bit hasConst> {
+class OclAddressSpace<string name, bit hasConst, bit hasVolatile> {
   string ASQualifier = name;
   bit HasConst = hasConst;
+  bit HasVolatile = hasVolatile;
 }
-class PRIVATE       : OclAddressSpace<"__private",  0>;
-class LOCAL         : OclAddressSpace<"__local",    0>;
-class GLOBAL        : OclAddressSpace<"__global",   0>;
-class CONSTANT      : OclAddressSpace<"__constant", 1>;
-class CONST_PRIVATE : OclAddressSpace<"__private",  1>;
-class CONST_LOCAL   : OclAddressSpace<"__local",    1>;
-class CONST_GLOBAL  : OclAddressSpace<"__global",   1>;
+class PRIVATE       : OclAddressSpace<"__private",  0, 0>;
+class LOCAL         : OclAddressSpace<"__local",    0, 0>;
+class GLOBAL        : OclAddressSpace<"__global",   0, 0>;
+class CONSTANT      : OclAddressSpace<"__constant", 1, 0>;
+class CONST_PRIVATE : OclAddressSpace<"__private",  1, 0>;
+class CONST_LOCAL   : OclAddressSpace<"__local",    1, 0>;
+class CONST_GLOBAL  : OclAddressSpace<"__global",   1, 0>;
+class VOLATILE_PRIVATE : OclAddressSpace<"__private",  0, 1>;
+class VOLATILE_LOCAL   : OclAddressSpace<"__local",    0, 1>;
+class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;
+
 
 // OclBuiltinImpl
 class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl> {
