@@ -11,7 +11,7 @@ declare <16 x i32> @llvm.x86.mic.mask.sbb.pi(<16 x i32>, i16, i16, <16 x i32>, i
 
 define <16 x i32> @f_mask_sbb_pi(<16 x i32> %arg0, i16 %arg1, i16 %arg2, <16 x i32> %arg3, i8 * %arg4) {
 ; KNF: f_mask_sbb_pi:
-; KNF: vsbbpi
+; KNF: vsbbpi    %v{{[0-9]*}}, %k{{[0-9]*}}, %v{{[0-9]*}}{%k{{[0-9]*}}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.mask.sbb.pi(<16 x i32> %arg0, i16 %arg1, i16 %arg2, <16 x i32> %arg3, i8 * %arg4)
 

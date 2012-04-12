@@ -11,7 +11,7 @@ declare <16 x i32> @llvm.x86.mic.adc.pi(<16 x i32>, i16, <16 x i32>, i8 *)
 
 define <16 x i32> @f_adc_pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, i8 * %arg3) {
 ; KNF: f_adc_pi:
-; KNF: vadcpi
+; KNF: vadcpi    %v{{[0-9]*}}, %k{{[0-9]*}}, %v{{[0-9]*}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.adc.pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, i8 * %arg3)
 

@@ -11,7 +11,7 @@ declare <16 x i32> @llvm.x86.mic.sbb.pi(<16 x i32>, i16, <16 x i32>, i8 *)
 
 define <16 x i32> @f_sbb_pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, i8 * %arg3) {
 ; KNF: f_sbb_pi:
-; KNF: vsbbpi
+; KNF: vsbbpi    %v{{[0-9]*}}, %k{{[0-9]*}}, %v{{[0-9]*}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.sbb.pi(<16 x i32> %arg0, i16 %arg1, <16 x i32> %arg2, i8 * %arg3)
 

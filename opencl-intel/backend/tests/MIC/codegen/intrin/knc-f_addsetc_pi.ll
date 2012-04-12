@@ -11,7 +11,7 @@ declare <16 x i32> @llvm.x86.mic.addsetc.pi(<16 x i32>, <16 x i32>, i8 *)
 
 define <16 x i32> @f_addsetc_pi(<16 x i32> %arg0, <16 x i32> %arg1, i8 * %arg2) {
 ; KNF: f_addsetc_pi:
-; KNF: vaddsetcpi
+; KNF: vaddsetcpi %v{{[0-9]*}}, %k{{[0-9]*}}, %v{{[0-9]*}}
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.addsetc.pi(<16 x i32> %arg0, <16 x i32> %arg1, i8 * %arg2)
 
