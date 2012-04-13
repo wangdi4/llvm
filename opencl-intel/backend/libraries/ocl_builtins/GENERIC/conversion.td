@@ -1156,3 +1156,117 @@ OclBuiltinImpl rtn_cvt_f64_u64 = OclBuiltinImpl<convert_f64_rtn,
                                                 [v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, [{
     return __ocl_svml_$Target_cvtu64tofpdown$SVMLSuffix($Arg0VarName);
   }]>;
+
+// int2int conversion with rounding make no sense but we add here for completeness.
+//
+
+code _int2int_rounding = [{
+    return convert_$ReturnType($Arg0VarName);
+  }];
+
+code _int2int_rounding_sat = [{
+    return convert_$ReturnType_sat($Arg0VarName);
+  }];
+
+OclBuiltinImpl impl_convert_i8_rte      = OclBuiltinImpl<_convert_i8_rte,      _convert_i8_rte.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i8_rtz      = OclBuiltinImpl<_convert_i8_rtz,      _convert_i8_rtz.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i8_rtp      = OclBuiltinImpl<_convert_i8_rtp,      _convert_i8_rtp.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i8_rtn      = OclBuiltinImpl<_convert_i8_rtn,      _convert_i8_rtn.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i8_sat_rte  = OclBuiltinImpl<_convert_i8_sat_rte,  _convert_i8_sat_rte.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i8_sat_rtz  = OclBuiltinImpl<_convert_i8_sat_rtz,  _convert_i8_sat_rtz.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i8_sat_rtp  = OclBuiltinImpl<_convert_i8_sat_rtp,  _convert_i8_sat_rtp.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i8_sat_rtn  = OclBuiltinImpl<_convert_i8_sat_rtn,  _convert_i8_sat_rtn.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u8_rte      = OclBuiltinImpl<_convert_u8_rte,      _convert_u8_rte.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u8_rtz      = OclBuiltinImpl<_convert_u8_rtz,      _convert_u8_rtz.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u8_rtp      = OclBuiltinImpl<_convert_u8_rtp,      _convert_u8_rtp.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u8_rtn      = OclBuiltinImpl<_convert_u8_rtn,      _convert_u8_rtn.Types,     0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u8_sat_rte  = OclBuiltinImpl<_convert_u8_sat_rte,  _convert_u8_sat_rte.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u8_sat_rtz  = OclBuiltinImpl<_convert_u8_sat_rtz,  _convert_u8_sat_rtz.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u8_sat_rtp  = OclBuiltinImpl<_convert_u8_sat_rtp,  _convert_u8_sat_rtp.Types, 0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u8_sat_rtn  = OclBuiltinImpl<_convert_u8_sat_rtn,  _convert_u8_sat_rtn.Types, 0, _int2int_rounding_sat>;
+
+OclBuiltinImpl impl_convert_i16_rte     = OclBuiltinImpl<_convert_i16_rte,     _convert_i16_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i16_rtz     = OclBuiltinImpl<_convert_i16_rtz,     _convert_i16_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i16_rtp     = OclBuiltinImpl<_convert_i16_rtp,     _convert_i16_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i16_rtn     = OclBuiltinImpl<_convert_i16_rtn,     _convert_i16_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i16_sat_rte = OclBuiltinImpl<_convert_i16_sat_rte, _convert_i16_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i16_sat_rtz = OclBuiltinImpl<_convert_i16_sat_rtz, _convert_i16_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i16_sat_rtp = OclBuiltinImpl<_convert_i16_sat_rtp, _convert_i16_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i16_sat_rtn = OclBuiltinImpl<_convert_i16_sat_rtn, _convert_i16_sat_rtn.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u16_rte     = OclBuiltinImpl<_convert_u16_rte,     _convert_u16_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u16_rtz     = OclBuiltinImpl<_convert_u16_rtz,     _convert_u16_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u16_rtp     = OclBuiltinImpl<_convert_u16_rtp,     _convert_u16_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u16_rtn     = OclBuiltinImpl<_convert_u16_rtn,     _convert_u16_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u16_sat_rte = OclBuiltinImpl<_convert_u16_sat_rte, _convert_u16_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u16_sat_rtz = OclBuiltinImpl<_convert_u16_sat_rtz, _convert_u16_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u16_sat_rtp = OclBuiltinImpl<_convert_u16_sat_rtp, _convert_u16_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u16_sat_rtn = OclBuiltinImpl<_convert_u16_sat_rtn, _convert_u16_sat_rtn.Types,0, _int2int_rounding_sat>;
+
+OclBuiltinImpl impl_convert_i32_rte     = OclBuiltinImpl<_convert_i32_rte,     _convert_i32_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i32_rtz     = OclBuiltinImpl<_convert_i32_rtz,     _convert_i32_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i32_rtp     = OclBuiltinImpl<_convert_i32_rtp,     _convert_i32_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i32_rtn     = OclBuiltinImpl<_convert_i32_rtn,     _convert_i32_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i32_sat_rte = OclBuiltinImpl<_convert_i32_sat_rte, _convert_i32_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i32_sat_rtz = OclBuiltinImpl<_convert_i32_sat_rtz, _convert_i32_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i32_sat_rtp = OclBuiltinImpl<_convert_i32_sat_rtp, _convert_i32_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i32_sat_rtn = OclBuiltinImpl<_convert_i32_sat_rtn, _convert_i32_sat_rtn.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u32_rte     = OclBuiltinImpl<_convert_u32_rte,     _convert_u32_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u32_rtz     = OclBuiltinImpl<_convert_u32_rtz,     _convert_u32_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u32_rtp     = OclBuiltinImpl<_convert_u32_rtp,     _convert_u32_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u32_rtn     = OclBuiltinImpl<_convert_u32_rtn,     _convert_u32_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u32_sat_rte = OclBuiltinImpl<_convert_u32_sat_rte, _convert_u32_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u32_sat_rtz = OclBuiltinImpl<_convert_u32_sat_rtz, _convert_u32_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u32_sat_rtp = OclBuiltinImpl<_convert_u32_sat_rtp, _convert_u32_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u32_sat_rtn = OclBuiltinImpl<_convert_u32_sat_rtn, _convert_u32_sat_rtn.Types,0, _int2int_rounding_sat>;
+
+OclBuiltinImpl impl_convert_i64_rte     = OclBuiltinImpl<_convert_i64_rte,     _convert_i64_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i64_rtz     = OclBuiltinImpl<_convert_i64_rtz,     _convert_i64_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i64_rtp     = OclBuiltinImpl<_convert_i64_rtp,     _convert_i64_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i64_rtn     = OclBuiltinImpl<_convert_i64_rtn,     _convert_i64_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_i64_sat_rte = OclBuiltinImpl<_convert_i64_sat_rte, _convert_i64_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i64_sat_rtz = OclBuiltinImpl<_convert_i64_sat_rtz, _convert_i64_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i64_sat_rtp = OclBuiltinImpl<_convert_i64_sat_rtp, _convert_i64_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_i64_sat_rtn = OclBuiltinImpl<_convert_i64_sat_rtn, _convert_i64_sat_rtn.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u64_rte     = OclBuiltinImpl<_convert_u64_rte,     _convert_u64_rte.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u64_rtz     = OclBuiltinImpl<_convert_u64_rtz,     _convert_u64_rtz.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u64_rtp     = OclBuiltinImpl<_convert_u64_rtp,     _convert_u64_rtp.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u64_rtn     = OclBuiltinImpl<_convert_u64_rtn,     _convert_u64_rtn.Types,    0, _int2int_rounding>;
+OclBuiltinImpl impl_convert_u64_sat_rte = OclBuiltinImpl<_convert_u64_sat_rte, _convert_u64_sat_rte.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u64_sat_rtz = OclBuiltinImpl<_convert_u64_sat_rtz, _convert_u64_sat_rtz.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u64_sat_rtp = OclBuiltinImpl<_convert_u64_sat_rtp, _convert_u64_sat_rtp.Types,0, _int2int_rounding_sat>;
+OclBuiltinImpl impl_convert_u64_sat_rtn = OclBuiltinImpl<_convert_u64_sat_rtn, _convert_u64_sat_rtn.Types,0, _int2int_rounding_sat>;
+
+// fp2 conversion with rounding make no sense but we add here for completeness.
+//
+
+code _2fp_sat = [{
+    return convert_$ReturnType($Arg0VarName);
+  }];
+
+code _2fp_sat_rte = [{
+    return convert_$ReturnType_rte($Arg0VarName);
+  }];
+
+code _2fp_sat_rtz = [{
+    return convert_$ReturnType_rtz($Arg0VarName);
+  }];
+
+code _2fp_sat_rtp = [{
+    return convert_$ReturnType_rtp($Arg0VarName);
+  }];
+
+code _2fp_sat_rtn = [{
+    return convert_$ReturnType_rtn($Arg0VarName);
+  }];
+
+OclBuiltinImpl impl_convert_f32_sat     = OclBuiltinImpl<_convert_f32_sat,     _convert_f32_sat.Types,     0, _2fp_sat>;
+OclBuiltinImpl impl_convert_f32_sat_rte = OclBuiltinImpl<_convert_f32_sat_rte, _convert_f32_sat_rte.Types, 0, _2fp_sat_rte>;
+OclBuiltinImpl impl_convert_f32_sat_rtz = OclBuiltinImpl<_convert_f32_sat_rtz, _convert_f32_sat_rtz.Types, 0, _2fp_sat_rtz>;
+OclBuiltinImpl impl_convert_f32_sat_rtp = OclBuiltinImpl<_convert_f32_sat_rtp, _convert_f32_sat_rtp.Types, 0, _2fp_sat_rtp>;
+OclBuiltinImpl impl_convert_f32_sat_rtn = OclBuiltinImpl<_convert_f32_sat_rtn, _convert_f32_sat_rtn.Types, 0, _2fp_sat_rtn>;
+
+OclBuiltinImpl impl_convert_f64_sat     = OclBuiltinImpl<_convert_f64_sat,     _convert_f64_sat.Types,     0, _2fp_sat>;
+OclBuiltinImpl impl_convert_f64_sat_rte = OclBuiltinImpl<_convert_f64_sat_rte, _convert_f64_sat_rte.Types, 0, _2fp_sat_rte>;
+OclBuiltinImpl impl_convert_f64_sat_rtz = OclBuiltinImpl<_convert_f64_sat_rtz, _convert_f64_sat_rtz.Types, 0, _2fp_sat_rtz>;
+OclBuiltinImpl impl_convert_f64_sat_rtp = OclBuiltinImpl<_convert_f64_sat_rtp, _convert_f64_sat_rtp.Types, 0, _2fp_sat_rtp>;
+OclBuiltinImpl impl_convert_f64_sat_rtn = OclBuiltinImpl<_convert_f64_sat_rtn, _convert_f64_sat_rtn.Types, 0, _2fp_sat_rtn>;
