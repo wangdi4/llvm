@@ -1822,10 +1822,6 @@ TYPED_TEST(NEATDivTestRun, half_divide)
     divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::HALF_DIVIDE_ERROR));
 }
 
-
-// seed taken from command line
-uint64_t seedForValidation;
-
 template <typename T>
 static bool TestExpandInterval(T firstIn, T secondIn, float ulps) {
 
@@ -1897,7 +1893,6 @@ TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
     float ulps[NUM_TESTS];
 
     VectorWidth curWidth = V8;
-    uint64_t seedRnd = SetSeed(seedForValidation);
 
     this->dataTypeVal = GetDataTypeVal<TypeP>();
 
@@ -1941,7 +1936,7 @@ TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
             {
                TypeP acc = firstFloat[testIdx*wrap.GetSize()+i];
                bool res = TestExpandInterval(acc,acc,ulps[i]);
-               EXPECT_TRUE(res)<<" seedRnd "<<seedRnd<<"\n";
+               EXPECT_TRUE(res);
             }
 
             {
@@ -1956,7 +1951,7 @@ TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
                    first = secondFloat[testIdx*wrap.GetSize()+i];
                }
                bool res = TestExpandInterval(first,second,ulps[i]);
-               EXPECT_TRUE(res)<<" seedRnd "<<seedRnd<<"\n";
+               EXPECT_TRUE(res);
             }
         }
 
@@ -1965,7 +1960,7 @@ TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
         {
             {
                TypeP acc = firstFloatRanged[testIdx*wrap.GetSize()+i];
-               EXPECT_TRUE(TestExpandInterval(acc,acc,ulps[i]))<<" seedRnd "<<seedRnd<<"\n";
+               EXPECT_TRUE(TestExpandInterval(acc,acc,ulps[i]));
             }
 
             {
@@ -1980,7 +1975,7 @@ TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
                    first = secondFloatRanged[testIdx*wrap.GetSize()+i];
                }
                bool res = TestExpandInterval(first,second,ulps[i]);
-               EXPECT_TRUE(res)<<" seedRnd "<<seedRnd<<"\n";
+               EXPECT_TRUE(res);
             }
         }
      }
