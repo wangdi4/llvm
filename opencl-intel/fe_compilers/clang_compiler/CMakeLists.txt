@@ -12,7 +12,11 @@ include_directories( AFTER
             ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/include
             ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/tools/clang/include
             ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/include
+            ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+            ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
+            ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             )
+
 			
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
@@ -103,7 +107,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  LLVMSelectionDAG
 									  LLVMTarget
 									  LLVMMC
-									  LLVMipa)
+									  LLVMipa
+                    OclPluginManager)
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1
@@ -112,7 +117,8 @@ set( COMPILER_OPTIONS -cc1
 					  -emit-pch 
 					  -I ${OCL_CLANG_HEADERS}
 					  )
-set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h )
+set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
+)
 	
 add_custom_command( TARGET clang_compiler
 					PRE_BUILD
@@ -135,3 +141,5 @@ endif(WIN32)
 
 add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 add_llvm_definitions( -D__STDC_CONSTANT_MACROS )
+add_definitions(-DOCLBACKEND_PLUGINS)
+add_definitions(-DOCLFRONTEND_PLUGINS)

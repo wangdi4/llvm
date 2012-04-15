@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2011, 2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -18,16 +18,23 @@ File Name:  DynamicLib.h
 
 #pragma once
 
-#include "exceptions.h"
-#include "llvm/Support/Errno.h"
-#include "llvm/Support/system_error.h"
+#include <stdexcept>
+#include "cl_device_api.h"
 
 
 
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend { 
+namespace Exceptions{
+class DynamicLibException: public std::runtime_error
+{
+public:
+  virtual ~DynamicLibException() throw(){}
+  DynamicLibException(std::string dllname) : runtime_error(dllname){
+  }
+};
 
-DEFINE_EXCEPTION(DynamicLibException)
+}//namespace Exceptions
 
 namespace Utils {
 
@@ -40,9 +47,6 @@ public:
 	// Loads a dynamically link library into process address space
 	// Input
 	//		pLibName	- A pointer to null tirminated string that describes library file name
-	// Returns
-	//		true - if succesully loaded
-	//		false - if file doesn't exists or other error has occured
 	void Load(const char* pLibName);
 
 	// Release all allocated resourses and unloads the library

@@ -8,6 +8,9 @@ project(${TARGET_NAME})
 
 cmake_minimum_required(VERSION 2.8.4)
 
+#clang include directories, injected for the OCL source recorder
+add_definitions(-DCLANG_HEADERS="${BACKEND_ROOT_DIR}/clang_headers")
+
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
 	# 32 bit
 	set (PLATFORM 32)
@@ -33,14 +36,18 @@ set (OCL_NEAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/NEAT)
 
 set (OCL_RECORDER_INCLUDE_FILES
 	ocl_recorder.h
+  ocl_source_recorder.h
 	stdafx.h
 	targetver.h
+  md5.h
   )
   
 set (OCL_RECORDER_SOURCE_FILES
 	dllmain.cpp
 	ocl_recorder.cpp
+  ocl_source_recorder.cpp
 	stdafx.cpp
+  md5.cpp
   )
 
 # Resources
@@ -85,6 +92,7 @@ set (LLVM_LIBS
 set (OCL_RECORDER_DEPS
 	tinyxml_STL
 	DataManager
+  OclPluginManager 
 	${LLVM_LIBS}
 	) 	
 
@@ -92,6 +100,7 @@ set (OCL_RECORDER_DEPS
 include_directories(${OCL_RECORDER_IMPORT_DIR} ${OCL_RECORDER_EXPORT_DIR} )
 include_directories(${OCL_BACKEND_IMPORTS_DIR} ${OCL_BACKEND_EXPORTS_DIR} )
 include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEAT_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/backend/plugin_manager)
 
 # Add additional lib direcories
 link_directories (${OCL_RECORDER_LIB_DIR}) 

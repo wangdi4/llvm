@@ -17,10 +17,16 @@ add_llvm_executable(${TARGET_NAME}
   NEATMathTest.cpp
   OCLBuiltinParserTest.cpp
   NEATALUImageTest.cpp
+  SourceRecorder.cpp
   )
+
+add_subdirectory(fe_plugin_mock)
 
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 include_directories(${BACKEND_ROOT_DIR}/../cl_api)
+include_directories(${BACKEND_ROOT_DIR}/plugin_manager)
+include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)
+include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export)
 include_directories(${VALIDATIONS_ROOT}/Common)
 include_directories(${VALIDATIONS_ROOT}/DataManager)
 include_directories(${VALIDATIONS_ROOT}/Comparator)
@@ -46,8 +52,19 @@ set(UNIT_TEST_LIBS
   LLVMSupport # gtest needs it for raw_ostream.
 )
 
-target_link_libraries(${TARGET_NAME} ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
+target_link_libraries(${TARGET_NAME} 
+  ${DATA_MANAGER_LIBS} 
+  ${COMPARATOR_LIBS} 
+  ${DATA_GENERATOR_LIBS}
+  ${UNIT_TEST_LIBS} 
+  ${NEAT_ALU_LIBS} 
+  ${PLUGIN_NEAT_LIBS}
+  OclPluginManager
+  dynamic_load
+)
+
 add_dependencies(${TARGET_NAME} ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
+add_dependencies(${TARGET_NAME} OclPluginManager)
 add_dependencies(UnitTests ${TARGET_NAME})
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 

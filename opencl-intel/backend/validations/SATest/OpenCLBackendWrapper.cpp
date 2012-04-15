@@ -18,6 +18,7 @@ File Name:  OpenCLBackendWrapper.cpp
 #include <assert.h>
 #include "OpenCLBackendWrapper.h"
 #include "SATestException.h"
+#include "DynamicLib.h"
 
 #if defined(_WIN32)
 const char* szOclCpuBackendDllName = "OclCpuBackEnd.dll";
@@ -56,7 +57,7 @@ OpenCLBackendWrapper::~OpenCLBackendWrapper(void)
 void OpenCLBackendWrapper::LoadDll()
 {
     try
-    {
+    {                                        
         m_dll.Load(szOclCpuBackendDllName);
 
         m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("InitDeviceBackend");
@@ -65,9 +66,9 @@ void OpenCLBackendWrapper::LoadDll()
 
         m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("GetDeviceBackendFactory");
     }
-    catch( Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException& e )
+    catch(Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException& ex )
     {
-        throw Exception::GeneralException(e.what());
+        throw Exception::GeneralException(ex.what());
     }
 }
 

@@ -44,19 +44,20 @@ File Name:  ocl_recorder.h
 #include "cl_types.h"
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "ocl_source_recorder.h"
 #define TIXML_USE_STL
 #include "tinyxml.h"
 
-using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::OpenCL;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 ///\brief exported creator method - used to create the OCLRecorder plug-in
-OCL_RECORDER_API ICLDevBackendPlugin* CreatePlugin(void);
+OCL_RECORDER_API IPlugin* CreatePlugin(void);
 ///\brief exported destructor method - used to delete the OCLRecorder plug-in
-OCL_RECORDER_API void ReleasePlugin(ICLDevBackendPlugin* pPlugin);
+OCL_RECORDER_API void ReleasePlugin(IPlugin* pPlugin);
 #ifdef __cplusplus
 }
 #endif
@@ -65,7 +66,6 @@ namespace llvm
 {
     class Function;
 }
-
 
 namespace Validation
 {
@@ -278,11 +278,16 @@ namespace Validation
                                      const ICLDevBackendProgram_* pProgram);
 
         virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram);
+    
+        void SetSourceRecorder(const OclSourceRecorder* recorder);
 
     private: // Internal method
         void RecordByteCode(const _cl_prog_container_header* pContainer, const RecorderContext& context);
 
         void RecordProgramConfig(RecorderContext& context);
+
+        void RecordSourceCode(RecorderContext& context,
+                              const Frontend::SourceFile& sourceFile);
 
         void RecordKernelConfig(RecorderContext& programContext,
                                 const KernelContext& kernelContext,
@@ -297,7 +302,7 @@ namespace Validation
     private: // Utility methods
 
         // XML configuration handling helper
-        void AddChildTextNode( TiXmlElement* pParentNode, const char* childName, const std::string& value);
+        TiXmlElement* AddChildTextNode( TiXmlElement* pParentNode, const char* childName, const std::string& value);
 
         // context map synchronized manipulation methods
         RecorderContext* GetProgramContext(const ICLDevBackendProgram_* pProgram);
@@ -311,15 +316,15 @@ namespace Validation
         // kernel context methods
 
         BinaryContext* GetKernelContext(ICLDevBackendKernel_* pKernel);
-
-#if 0
-        void AddNewKernelContext(RecorderContext& context,
-                                 const char *name,
-                                 size_t dim,
-                                 const size_t *globalSize,
-                                 const size_t *localSize,
-                                 const size_t *globalOffset);
-#endif
+        
+        //Parameter(s): 
+        // (in): code- the md5 hash code of the bytecode that serves as an
+        // entry point for the program.
+        // (out): pSourceFile- source file ebing compiled, to be purged to the
+        // configuration file. (valid pointer only if this method returns true).
+        //Returns true, if we have a all the pre-requisits for source-level recordings.
+        bool NeedSourceRecording(const MD5Code& code,
+                                 OUT Frontend::SourceFile* pSourceFile) const;
 
     private: // Data members
         typedef std::map<const ICLDevBackendProgram_*,  RecorderContext*> RecorderContextMap;
@@ -329,6 +334,7 @@ namespace Validation
         std::string        m_logsDir;      // optional path to log directory
         std::string        m_prefix;       // optional prefix to add to generated files
         llvm::LLVMContext* m_pLLVMContext; // context used to re-parse the recorder modules
+        const OclSourceRecorder* m_pSourceRecorder; //holds source-level recording data
     };
 }
 

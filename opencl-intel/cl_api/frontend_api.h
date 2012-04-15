@@ -44,15 +44,15 @@ public:
 // Compile task descriptor, contains FE compilation info
 struct	FECompileProgramDescriptor
 {
-    // A pointer to main program's source (assumed one nullterminated string)
-	const char*		pProgramSource;		
-    // the number of input headers in pInputHeaders
-    unsigned int    uiNumInputHeaders; 
-    // array of additional input headers to be passed in memory
-    const char**    pInputHeaders;
-    // array of input headers names corresponding to pInputHeaders
-    const char**    pszInputHeadersNames;  
-        // A string for compile options
+  // A pointer to main program's source (assumed one nullterminated string)
+  const char*		pProgramSource;		
+  // the number of input headers in pInputHeaders
+  unsigned int    uiNumInputHeaders; 
+  // array of additional input headers to be passed in memory
+  const char**    pInputHeaders;
+  // array of input headers names corresponding to pInputHeaders
+  const char**    pszInputHeadersNames;  
+  // A string for compile options
 	const char *	pszOptions;	
 };
 

@@ -76,6 +76,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/../ocl_cpu_backend
     ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
     ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}/dynamic_lib
     ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
     ${VALIDATIONS_ROOT}/InterpreterPluggable
     ${VALIDATIONS_ROOT}/PlugInNEAT
@@ -175,7 +176,7 @@ add_executable(SATest
 
 if (INCLUDE_MIC_DEVICE)
 set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
-target_link_libraries(SATest coi_host)
+target_link_libraries(SATest coi_host dynamic_load)
 # Copy libcoi_host.so and libcoi_host.so.0 to the bin directory, so no need
 # adding ${COI_DIR}/host-linux-release/lib to the LD_LIBRARY_PATH directory.
 install(FILES ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION bin)
@@ -215,15 +216,18 @@ set (SATest_DEPS
     ${LLVM_LIBS}
     NEAT
     PlugInNEAT
+    dynamic_load
     )
 
 target_link_libraries(SATest
     ${SATest_DEPS}
+    dynamic_load
     )
 
 add_dependencies(SATest
     ${SATest_DEPS}
     OclCpuBackEnd
+    dynamic_load
     )
 
 if (INCLUDE_MIC_DEVICE)

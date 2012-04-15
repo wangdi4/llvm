@@ -4,6 +4,12 @@
 #include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
+#ifdef OCLFRONTEND_PLUGINS 
+#include "compile_data.h"
+#include "link_data.h"
+#include "source_file.h"
+#include "plugin_manager.h"
+#endif //OCLFRONTEND_PLUGINS
 
 #include <Logger.h>
 #include <cl_sys_defines.h>
@@ -15,7 +21,10 @@
 #if defined (_WIN32)
 #include<windows.h>
 #endif
-#include<string.h>
+#include <string.h>
+#include <memory>
+#include <sstream>
+#include <ctime>
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
@@ -62,16 +71,18 @@ extern DECLARE_LOGGER_CLIENT;
 
 int InitClangDriver()
 {
-	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
+  INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
 
 	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
-	
+#ifdef OCLFRONTEND_PLUGINS 
+  Intel::OpenCL::PluginManager::Init();
+#endif //OCLFRONTEND_PLUGINS
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
 
 	llvm::InitializeAllTargets();
 	llvm::InitializeAllAsmPrinters();
 	llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllTargetMCs();
 
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
 	return 0;
@@ -115,11 +126,49 @@ ClangFECompiler::~ClangFECompiler()
 	}
 }
 
+#ifdef OCLFRONTEND_PLUGINS
+//
+//Creates a source file object from a given contents string, and a serial identifier.
+//
+static Intel::OpenCL::Frontend::SourceFile createSourceFile(
+  const char* contents,
+  const char* options,
+  unsigned serial,
+  IOCLFEBinaryResult* pBinary = NULL)
+{
+  //composing a file name based on the current time
+  time_t now = time(0);
+  tm* localtm = localtime(&now);
+  std::stringstream fileName;
+  const char* strPrefix = getenv("OCLRECORDER_DUMPPREFIX");
+  if (strPrefix)
+    fileName << strPrefix;
+  fileName << localtm->tm_yday << "_" << localtm->tm_hour;
+  fileName << "_" << localtm->tm_min << "_" << localtm->tm_sec;
+  fileName << "_" <<  clock() << serial << ".cl";
+  std::string strContents(contents);
+  Intel::OpenCL::Frontend::SourceFile ret= Intel::OpenCL::Frontend::SourceFile(
+    std::string(fileName.str()),
+    std::string(strContents),
+    std::string(options) );
+  if (pBinary) {
+    Intel::OpenCL::Frontend::BinaryBuffer buffer;
+    //the length (in bytes) of the bytecode headers. We leave that out of the
+    //hashcode computation, since the header(s) might change during the
+    //the compilation process.
+    const size_t bufferLen = sizeof(_cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+    buffer.binary = (char*)pBinary->GetIR() + bufferLen;
+    buffer.size   = pBinary->GetIRSize() - bufferLen;
+    ret.setBinaryBuffer(buffer);
+  }
+  return ret;
+}
+#endif //OCLFRONTEND_PLUGINS
+
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
 {
 	assert(NULL != pProgDesc);
 	assert(NULL != pBinaryResult);
-
 	// Create new compile task
 	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_pszDeviceExtensions);
 	if ( NULL == pCompileTask )
@@ -127,16 +176,34 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLF
 		*pBinaryResult = NULL;
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-
-    cl_err_code ret = pCompileTask->Compile();
+  cl_err_code ret = pCompileTask->Compile();
 	*pBinaryResult = pCompileTask;
+#ifdef OCLFRONTEND_PLUGINS
+  if (getenv("OCLBACKEND_PLUGINS") && NULL == getenv("OCL_DISABLE_SOURCE_RECORDER")){
+    Intel::OpenCL::Frontend::CompileData compileData;
+    Intel::OpenCL::Frontend::SourceFile sourceFile = createSourceFile(
+      pProgDesc->pProgramSource,
+      pProgDesc->pszOptions,
+      0,
+      *pBinaryResult
+    );
+    compileData.sourceFile(sourceFile);
+    for (unsigned headerCount=0 ; headerCount < pProgDesc->uiNumInputHeaders ; headerCount++)
+      compileData.addIncludeFile(createSourceFile(
+        pProgDesc->pszInputHeadersNames[headerCount],
+        "", //include files comes without compliation flags
+        headerCount+1
+      ));
+    Intel::OpenCL::PluginManager::Instance().OnCompile(&compileData);
+  }
+#endif //OCLFRONTEND_PLUGINS
 	return ret;
 }
 
 int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
                          Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult)
 {
-    assert(NULL != pProgDesc);
+  assert(NULL != pProgDesc);
 	assert(NULL != pBinaryResult);
 
 	// Create new link task

@@ -133,7 +133,7 @@ extern "C"
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
 #ifdef OCL_DEV_BACKEND_PLUGINS
-            PluginManager::Init();
+            Intel::OpenCL::PluginManager::Init();
 #endif
             DefaultJITMemoryManager::Init();
             // Attempt to initialize the debug service. If debugging is 
@@ -172,7 +172,7 @@ extern "C"
 
         DefaultJITMemoryManager::Terminate();
 #ifdef OCL_DEV_BACKEND_PLUGINS
-        PluginManager::Terminate();
+        Intel::OpenCL::PluginManager::Terminate();
 #endif
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();

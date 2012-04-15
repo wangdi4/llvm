@@ -199,7 +199,6 @@ set (OCL_UTILS_INCLUDE_FILES
     AddImplicitArgs.h
     CompilationUtils.h
     CPUDetect.h
-    DynamicLib.h
     exceptions.h
     ExplicitArgument.h
     ExplicitLocalMemArgument.h
@@ -227,7 +226,6 @@ set (OCL_UTILS_SOURCE_FILES
     BuiltInFunctionImport.cpp
     CompilationUtils.cpp
     CPUDetect.cpp
-    DynamicLib.cpp
     FunctionArgument.cpp
     ImplicitArgsUtils.cpp
     LocalBuffers.cpp
@@ -257,7 +255,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     Compiler.h
     CPUCompiler.h
     MICCompiler.h
-    plugin_manager.h
     ServiceFactory.h
     CompileService.h
     CPUCompileService.h
@@ -314,7 +311,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl_printf_ext.cpp
     RelaxedPass.cpp
     Logger.cpp
-    plugin_manager.cpp
     ServiceFactory.cpp
     CompileService.cpp
     CPUCompileService.cpp
@@ -397,7 +393,10 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
     ${OCL_CPU_BACKEND_EXPORT_DIR}
-    ..)
+    ..
+    ../plugin_manager
+    ../dynamic_lib
+)
 
 # Add additional lib direcories
 if( LLVM_USE_INTEL_JITEVENTS )
@@ -495,6 +494,8 @@ endif (WIN32)
 set( JITPROFLIB jitprofiling)
 
 target_link_libraries (${TARGET_NAME}
+    dynamic_load 
+
     # Utils lib
     ${TARGET_UTILS_NAME}
 
@@ -504,7 +505,8 @@ target_link_libraries (${TARGET_NAME}
     # Internal libs
     ${JITPROFLIB}
 
-    )
+    OclPluginManager
+)
 
 add_dependencies(${TARGET_NAME}
     # Utils lib
@@ -512,8 +514,11 @@ add_dependencies(${TARGET_NAME}
 
     # LLVM PROJECTS
     ${LLVM_LIBS}
-    )
+  
+    dynamic_load
 
+    OclPluginManager
+)
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 

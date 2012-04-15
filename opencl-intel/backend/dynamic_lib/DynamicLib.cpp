@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2011, 2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -25,7 +25,7 @@ File Name:  DynamicLib.cpp
 #include <dlfcn.h>
 #endif
 
-using namespace Intel::OpenCL::DeviceBackend::Utils;
+namespace Intel{ namespace OpenCL { namespace DeviceBackend { namespace Utils{
 
 DynamicLib::DynamicLib(void) :
 m_hLibrary(NULL)
@@ -34,71 +34,74 @@ m_hLibrary(NULL)
 
 DynamicLib::~DynamicLib(void) 
 {
-	Close();
+  Close();
 }
 
 void DynamicLib::Load(const char* pLibName)
 {
-	if ( NULL != m_hLibrary )
-	{
-		return;
-	}
-
-	// Load library
+  if ( NULL != m_hLibrary )
+  {
+    return;
+  }
+  // Load library
 #if defined(_WIN32)
-	m_hLibrary = LoadLibraryA(pLibName);
+  m_hLibrary = LoadLibraryA(pLibName);
 #else
-    m_hLibrary = dlopen( pLibName, RTLD_NOW);
+  m_hLibrary = dlopen( pLibName, RTLD_NOW);
 #endif
-
-	if ( NULL == m_hLibrary )
-	{
-        throw Exceptions::DynamicLibException(
-            std::string("Can't load dynamic library:") + pLibName
+  if ( NULL == m_hLibrary )
+  {
+    std::string errMsg("Can't load dynamic library:");
+    errMsg += std::string(pLibName);
+    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
+      errMsg
 #if !defined(_WIN32)
-            + std::string(":") + dlerror()
+      + std::string(":") + dlerror()
 #endif
-              );
-	}
+    );
+  }
 }
 
 void* DynamicLib::GetFuncPtr(const char* funcName)
 {
-	if ( NULL == m_hLibrary )
-	{
-        throw Exceptions::DynamicLibException("Dynamic library is not loaded");
-	}
-
-    void* fp = 
+  if ( NULL == m_hLibrary )
+  {
+    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
+      "Dynamic library is not loaded");
+  }
+  void* fp =
 #if defined(_WIN32)
-    GetProcAddress((HMODULE)m_hLibrary, funcName);
+  GetProcAddress((HMODULE)m_hLibrary, funcName);
 #else
-    dlsym(m_hLibrary, funcName);
+  dlsym(m_hLibrary, funcName);
 #endif
 
-    if( NULL == fp )
-    {
-        throw Exceptions::DynamicLibException(
-            std::string("Can't get address for:") + funcName
+  if( NULL == fp )
+  {
+  std::string errMsg("Can't get address for:");
+  errMsg += funcName;
+    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
+      errMsg
 #if !defined(_WIN32)
-            + std::string(":") + dlerror()
+      + std::string(":") + dlerror()
 #endif
-              );
-    }
-
-    return fp;
+    );
+  }
+  return fp;
 }
 
 void DynamicLib::Close()
 {
-	if ( NULL == m_hLibrary )
-	{
-		return;
-	}
+  if ( NULL == m_hLibrary )
+  {
+    return;
+  }
 #if defined(_WIN32)
-	FreeLibrary((HMODULE)m_hLibrary);
+  FreeLibrary((HMODULE)m_hLibrary);
 #else
-    dlclose( m_hLibrary);
+  dlclose( m_hLibrary);
 #endif
+  m_hLibrary = NULL;
 }
 
+}}}}

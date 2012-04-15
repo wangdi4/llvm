@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010,2011).
+Copyright (c) Intel Corporation (2011,2012).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -21,6 +21,7 @@ File Name:  ocl_recorder.cpp
 #include "cl_device_api.h"
 #include <memory>
 #include <sstream>
+#include <assert.h>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
@@ -443,7 +444,8 @@ namespace Validation
     OCLRecorder::OCLRecorder( const std::string& logsDir, const std::string& prefix ):
         m_logsDir(logsDir),
         m_prefix(prefix),
-        m_pLLVMContext(new llvm::LLVMContext)
+        m_pLLVMContext(new llvm::LLVMContext),
+        m_pSourceRecorder(NULL)
     {
     }
 
@@ -498,6 +500,20 @@ namespace Validation
 
         m_contexts.erase( itContext );
     }
+    
+    bool OCLRecorder::NeedSourceRecording(
+      const MD5Code& code,
+      OUT Frontend::SourceFile* pSourceFile) const
+    {
+        if ( NULL == m_pSourceRecorder || NULL != getenv("OCL_DISABLE_SOURCE_RECORDER") )
+          return false;
+        FileIter fileIter = m_pSourceRecorder->begin(code);
+        if (fileIter == m_pSourceRecorder->end())
+          return false;
+        Frontend::SourceFile sourceFile = fileIter->second;
+        *pSourceFile = sourceFile;
+        return true;
+    }
 
     void OCLRecorder::OnCreateBinary(const ICLDevBackendKernel_* pKernel,
                                      const _cl_work_description_type* pWorkDesc,
@@ -536,9 +552,6 @@ namespace Validation
     {
         assert( m_contexts.end()== m_contexts.find(pProgram));
         std::auto_ptr<RecorderContext> spContext(new RecorderContext(m_logsDir, m_prefix));
-
-        RecordByteCode(pContainer, *spContext);
-
         // Create target data object.
         char * fileData = (char*)pContainer + sizeof(_cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
         size_t fileDataSize = pContainer->container_size - sizeof(cl_llvm_prog_header);
@@ -555,9 +568,19 @@ namespace Validation
             throw Exception::ValidationExceptionBase("Failed to parse IR");
         }
         spContext->m_TD = new llvm::TargetData(pModule);
-
-        RecordProgramConfig(*spContext);
-
+        //checking whehter we need source or byte-level recording
+        MD5 md5((unsigned char*)fileData, fileDataSize);
+        MD5Code code = md5.digest();
+        Frontend::SourceFile sourceFile;
+        if (NeedSourceRecording(code, OUT &sourceFile))
+        {
+            RecordSourceCode(*spContext, sourceFile);
+        } 
+        else 
+        {
+            RecordByteCode(pContainer, *spContext);
+            RecordProgramConfig(*spContext);
+        }
         AddNewProgramContext(pProgram, spContext.release());
     }
 
@@ -570,19 +593,54 @@ namespace Validation
         RemoveProgramContext(pProgram);
     }
 
+    void OCLRecorder::SetSourceRecorder(const OclSourceRecorder* recorder){
+        assert (recorder && "NULL recorder was passed.");
+        m_pSourceRecorder = recorder;
+    }
+
     void OCLRecorder::RecordProgramConfig(RecorderContext& context)
     {
         AddChildTextNode(context.m_pRunConfig, "ByteCodeFile", context.getByteCodeFileName());
         context.Flush();
     }
 
+    void OCLRecorder::RecordSourceCode(RecorderContext& context,
+                                       const Frontend::SourceFile& sourceFile)
+    {
+        assert (m_pSourceRecorder && "NULL source recorder!");
+        std::string error;
+        std::string fileName = m_prefix + sourceFile.getName();
+        llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
+        path.appendComponent (fileName.c_str());
+        llvm::raw_fd_ostream clStream(path.c_str(), error);
+        clStream << sourceFile.getContents();
+        clStream.close();
+        TiXmlElement* pSourceNode = AddChildTextNode(
+          context.m_pRunConfig, //configuration file
+          "ProgramFile",        //the name of the node to be added
+          fileName              //file name is the text in the node
+        );
+        std::string compilationFlags = sourceFile.getCompilationFlags();
+        pSourceNode->SetAttribute(std::string("compilation_flags"),
+          compilationFlags);
+        AddChildTextNode(context.m_pRunConfig,
+          "ProgramFileType",
+          "CL");
+        TiXmlElement* includeDirsNode = AddChildTextNode(context.m_pRunConfig,
+          "IncludeDirs",
+          ""
+        );
+        std::string headers(CLANG_HEADERS);
+        AddChildTextNode(includeDirsNode, "IncludeDir", headers);
+    }
 
-    void OCLRecorder::AddChildTextNode( TiXmlElement* pParentNode, const char* childName, const std::string& value)
+    TiXmlElement* OCLRecorder::AddChildTextNode( TiXmlElement* pParentNode, const char* childName, const std::string& value)
     {
         TiXmlText *pText = new TiXmlText( value );
         TiXmlElement *pNode = new TiXmlElement(childName);
         pNode->LinkEndChild(pText);
         pParentNode->LinkEndChild(pNode);
+        return pNode;
     }
 
     void OCLRecorder::RecordKernelConfig(RecorderContext& programContext,
@@ -770,8 +828,81 @@ namespace Validation
         size_t fileDataSize = pContainer->container_size - sizeof(cl_llvm_prog_header);
         binStream.write( fileData, fileDataSize );
     }
+    // 
+    //OclRecorderPlugin
+    //
+    class OclRecorderPlugin: public IPlugin{
+      public:
+        ~OclRecorderPlugin(){
+            if(pOclRecorder)
+                delete pOclRecorder;
+            if(pSourceRecorder)
+                delete pSourceRecorder;
+        }
+        //returns a pointer to the singleton instance of this class
+        static OclRecorderPlugin* Instance(){
+            {
+                llvm::MutexGuard mutex(lock);
+                if(NULL == instance)
+                    instance = new OclRecorderPlugin();
+            }
+            return instance;
+        }
+        //lazy-semantic getter for the BE plugin
+        DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(){
+            {
+                llvm::MutexGuard mutex(lock);
+                if (pOclRecorder)
+                    return pOclRecorder;
+                char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
+                char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
+                llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ?
+                  llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str()):
+                  llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
+                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
+                                                         : sz_dumpprefix;
+                llvm::sys::fs::make_absolute(logpath);
+                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), prefix);
+            }
+            assignSourceRecorder();
+            return pOclRecorder;
+        }
+        //lazy-semantic getter for the FE plugin
+        Frontend::ICLFrontendPlugin* getFrontendPlugin(){
+            {
+                llvm::MutexGuard mutex(lock);
+                if (pSourceRecorder)
+                    return pSourceRecorder;
+                pSourceRecorder = new OclSourceRecorder();
+            }
+            assignSourceRecorder();
+            return pSourceRecorder;
+        }
+    private:
+        //a pointer for the bytecode-level recorder.
+        OCLRecorder* pOclRecorder;
+        //a pointer for the source-level recorder.
+        OclSourceRecorder* pSourceRecorder;
+        //a lock to ensure the singularity of the plugin instance
+        static llvm::sys::Mutex lock;
+        //a pointer to the plugin instance
+        static OclRecorderPlugin* instance;
+        
+        //Assigns a reference to the source recorder, whithin the backend recorder
+        //Note: should be only called once, after the instanciation of the second recorder.
+        void assignSourceRecorder(){
+            if (pOclRecorder && pSourceRecorder)
+                pOclRecorder->SetSourceRecorder(pSourceRecorder);
+        }
 
+        OclRecorderPlugin() : pOclRecorder(NULL), pSourceRecorder(NULL){
+        }
 
+    };//End IPlugin
+
+    OclRecorderPlugin* OclRecorderPlugin::instance = NULL;
+
+    llvm::sys::Mutex OclRecorderPlugin::lock;
 }
 
 // Defines the exported functions for the DLL application.
@@ -779,21 +910,12 @@ namespace Validation
 extern "C"
 {
 #endif
-    OCL_RECORDER_API ICLDevBackendPlugin* CreatePlugin(void)
+    OCL_RECORDER_API IPlugin* CreatePlugin(void)
     {
-        char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
-        char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
-
-        llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ? llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str())
-                                                      : llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
-        std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
-                                                     : sz_dumpprefix;
-        llvm::sys::fs::make_absolute(logpath);
-
-        return new Validation::OCLRecorder(std::string(logpath.c_str()), prefix);
+        return Validation::OclRecorderPlugin::Instance();
     }
 
-    OCL_RECORDER_API void ReleasePlugin(ICLDevBackendPlugin* pPlugin)
+    OCL_RECORDER_API void ReleasePlugin(IPlugin* pPlugin)
     {
         delete pPlugin;
     }
