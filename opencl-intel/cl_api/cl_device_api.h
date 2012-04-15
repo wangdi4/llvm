@@ -768,7 +768,7 @@ public:
 
         \param[in]  dev_error   Error code (CL_DEV_SUCCESS, etc for errors)
     */
-    virtual void BackingStoreUpdateFinished( void* handle, cl_dev_err_code *dev_error ) = 0;
+    virtual void BackingStoreUpdateFinished( void* handle, cl_dev_err_code dev_error ) = 0;
 };
 
 /*!

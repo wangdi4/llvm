@@ -126,7 +126,7 @@ public:
         return m_memObjType;
     }
 
-    void BackingStoreUpdateFinished(void* handle, cl_dev_err_code* dev_error) {};
+    void BackingStoreUpdateFinished(void* handle, cl_dev_err_code dev_error) {};
         
 private:
 	const cl_image_format*	m_pclImageFormat;

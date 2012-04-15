@@ -96,6 +96,7 @@ public:
     cl_dev_err_code                     Init();
 
     const DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
+    NotificationPort&                   GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
 
     static cl_dev_err_code   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 

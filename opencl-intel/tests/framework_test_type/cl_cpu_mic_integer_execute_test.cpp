@@ -59,10 +59,10 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	const char *ocl_test_program[] = {\
 	"__kernel void int_test(__global long* pValues)\n"\
 	"{\n"\
-	"size_t x = get_global_id(0);\n"\
-	"long val = pValues[x];\n"\
-	"long res = val + 10;\n"\
-	"pValues[x] = res;\n"\
+	"   size_t x = get_global_id(0);\n"\
+	"   long val = pValues[x];\n"\
+	"   long res = val + 10;\n"\
+	"   pValues[x] = res;\n"\
 	"}"
 	};
 
@@ -163,6 +163,7 @@ bool cl_CPU_MIC_IntegerExecuteTest()
         
         
 		// Execute kernel
+		printf("...NDRange(%ls)...\n",  dev_name );
 		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
 		bResult &= SilentCheck(TITLE(L"clEnqueueNDRangeKernel for "), CL_SUCCESS, iRet);    
         if (!bResult) break;
@@ -177,8 +178,9 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	//
 	// Verification phase
 	//
-	iRet = clEnqueueReadBuffer( clCpuQueue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-	bResult &= SilentCheck(L"clEnqueueReadBuffer - Dst for Cpu", CL_SUCCESS, iRet);
+    printf("...ReadBuffer(Mic)...\n" );
+	iRet = clEnqueueReadBuffer( clMicQueue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
+	bResult &= SilentCheck(L"clEnqueueReadBuffer - Dst for Mic", CL_SUCCESS, iRet);
 	if (!bResult) goto main_error_exit;
 
 	for( unsigned y=0; y < stBuffSize; ++y )

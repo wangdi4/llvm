@@ -143,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_mem_object_type GetMemObjectType() const { return GetType(); }
         // Device Agent should notify when long update to/from backing store operations finished.
         //      Pass HANDLE value that was provided to Device Agent when update API was called
-        void BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code *dev_error );
+        void BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code dev_error );
 
     protected:
 		

@@ -490,7 +490,7 @@ void GenericMemObject::UnLockOnDevice( IN const FissionableDevice* dev )
 
 // Device Agent should notify when long update to/from backing store operations finished.
 //      Pass HANDLE value that was provided to Device Agent when update API was called
-void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code *dev_error )
+void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code dev_error )
 {
     assert( (m_active_groups_count > 1) && "Asynch GenericMemObject::BackingStoreUpdateFinished is called for single-shraing group mem object" ); 
     
@@ -503,14 +503,12 @@ void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_c
         return;
     }
 
-    assert( (NULL != dev_error) && "Device Agent called GenericMemObject::BackingStoreUpdateFinished without dev_error" );
-
     SharingGroup&  grp = m_sharing_groups[to_grp_id];
     DataCopyEvent* returned_event = NULL;
 
-    if (CL_DEV_FAILED(*dev_error))
+    if (CL_DEV_FAILED(dev_error))
     {
-        LOG_ERROR(TEXT("Device Object returned error 0x%X during asynchronous updating %s Backing Store"), *dev_error, 
+        LOG_ERROR(TEXT("Device Object returned error 0x%X during asynchronous updating %s Backing Store"), dev_error, 
                             (DATA_COPY_STATE_TO_BS == grp.m_data_copy_state) ? TEXT("to") : TEXT("from") );
     }
 

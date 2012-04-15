@@ -35,10 +35,12 @@
 #include <map>
 #include <set>
 #include <list>
+#include <vector>
 #include <common/COITypes_common.h>
 
 #include "cl_synch_objects.h"
 #include "mic_config.h"
+#include "notification_port.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -137,6 +139,7 @@ private:
 
 
 class DeviceServiceCommunication;
+class MICDevice;
 
 class MemoryAllocator
 {
@@ -198,7 +201,7 @@ private:
     static StaticInitializer init_statics;
 };
 
-class MICDevMemoryObject : public IOCLDevMemoryObject
+class MICDevMemoryObject : public IOCLDevMemoryObject, public NotificationPort::CallBack
 {
 public:
     friend class MICDevMemorySubObject;
@@ -231,6 +234,9 @@ public:
 
 	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
+    // NotificationPort::CallBack
+    void fireCallBack(void* arg);
+
     //
     // internal methods
     //
@@ -259,6 +265,10 @@ protected:
 
     COIBUFFER                   m_coi_buffer;
     AtomicCounter               m_write_maps_count;
+
+    typedef vector<COIPROCESS>  COI_ProcessesArray;
+    COI_ProcessesArray          get_active_processes( void );
+    MICDevice*                  get_owning_device( void );
 
 private:
     ~MICDevMemoryObject() {};

@@ -35,6 +35,7 @@
 #include "mic_common_macros.h"
 
 #include <source/COIBuffer_source.h>
+#include <source/COIProcess_source.h>
 
 #include<stdlib.h>
 #include <alloca.h>
@@ -266,6 +267,45 @@ size_t MemoryAllocator::CalculateOffset(cl_uint dim_count, const size_t* origin,
 //-----------------------------------------------------------------------------------------------------
 // MICDevMemoryObject
 //-----------------------------------------------------------------------------------------------------
+MICDevMemoryObject::COI_ProcessesArray MICDevMemoryObject::get_active_processes( void )
+{
+    COI_ProcessesArray coi_processes;
+    
+    // we will need to filter MIC DAs from all devices supported by current memory object
+    size_t rt_allocated_devices_count         = m_pRTMemObjService->GetDeviceAgentListSize();
+    const IOCLDeviceAgent* const * rt_devices = m_pRTMemObjService->GetDeviceAgentList();
+
+    MICDevice::TMicsSet  active_mics = MICDevice::FilterMicDevices(rt_allocated_devices_count, rt_devices);
+    size_t               active_procs_count = active_mics.size();
+    assert( active_procs_count > 0 && "Creating MIC buffer without active devices" );
+
+    coi_processes.resize( active_procs_count );
+
+    MICDevice::TMicsSet::iterator mic_it  = active_mics.begin();
+    MICDevice::TMicsSet::iterator mic_end = active_mics.end();
+
+    for(unsigned int i = 0; mic_it != mic_end; ++mic_it, ++i)
+    {
+        coi_processes[i] = (*mic_it)->GetDeviceService().getDeviceProcessHandle();
+    }
+
+    return coi_processes;
+}
+
+MICDevice* MICDevMemoryObject::get_owning_device( void )
+{
+    // we will need to filter MIC DAs from all devices supported by current memory object
+    size_t rt_allocated_devices_count         = m_pRTMemObjService->GetDeviceAgentListSize();
+    const IOCLDeviceAgent* const * rt_devices = m_pRTMemObjService->GetDeviceAgentList();
+
+    MICDevice::TMicsSet  active_mics = MICDevice::FilterMicDevices(rt_allocated_devices_count, rt_devices);
+    size_t               active_procs_count = active_mics.size();
+    assert( active_procs_count > 0 && "Creating MIC buffer without active devices" );
+
+    MICDevice::TMicsSet::iterator mic_it  = active_mics.begin();
+
+    return (active_procs_count > 0) ? *mic_it : NULL;
+}
 
 MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
                    cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
@@ -322,24 +362,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // create COI buffer on top of allocated memory
 
     // we will need to filter MIC DAs from all devices supported by current memory object
-    size_t rt_allocated_devices_count         = m_pRTMemObjService->GetDeviceAgentListSize();
-    const IOCLDeviceAgent* const * rt_devices = m_pRTMemObjService->GetDeviceAgentList();
-
-    MICDevice::TMicsSet  active_mics = MICDevice::FilterMicDevices(rt_allocated_devices_count, rt_devices);
-    size_t               active_procs_count = active_mics.size();
-    assert( active_procs_count > 0 && "Creating MIC buffer without active devices" );
-
-    // allocate array on stack for simplicity - it will be very small
-    COIPROCESS*  coi_processes = (COIPROCESS*)alloca( active_procs_count * sizeof(COIPROCESS) );
-    assert( NULL != coi_processes && "Cannot allocate small array on a stack" );
-
-    MICDevice::TMicsSet::iterator mic_it  = active_mics.begin();
-    MICDevice::TMicsSet::iterator mic_end = active_mics.end();
-
-    for(unsigned int i = 0; mic_it != mic_end; ++mic_it, ++i)
-    {
-        coi_processes[i] = (*mic_it)->GetDeviceService().getDeviceProcessHandle();
-    }
+    COI_ProcessesArray coi_processes = get_active_processes();
 
     //
     // COI can use 2 different resource pools - 2MB pages and 4K pages. It may be that one of pools is already 
@@ -356,7 +379,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
                                 m_raw_size, COI_BUFFER_NORMAL, 
 								flags[i],
                                 m_objDescr.pData,
-                                active_procs_count, coi_processes,
+                                coi_processes.size(), &(coi_processes[0]),
                                 &m_coi_buffer);
 
         if (COI_RESOURCE_EXHAUSTED != coi_err)
@@ -489,35 +512,114 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
         return CL_DEV_ERROR_FAIL;
     }
 
-    // TODO: DK: Change implementation!!!!!!
     assert( NULL != pUpdateState );
-    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+
+    COIEVENT  completion_event;
+    COIRESULT coi_err = COIBufferSetState(  m_coi_buffer, 
+                                            COI_PROCESS_SOURCE, COI_BUFFER_VALID, COI_BUFFER_MOVE, 
+                                            0, NULL, 
+                                            &completion_event );
+
+    assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, MOVE ) failed" );
+
+    if (COI_SUCCESS != coi_err)
+    {
+        *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    // Here races in reporting to framework from this thread and notification port thread may occur
+    // We do not need lock here because we know that state update inside framework is done inside lock and we are 
+    // called from inside lock.
+    // More than this, taking lock here may result in deadlock if this function is called from inside lock.
+
+    MICDevice* owner = get_owning_device();
+    assert( NULL != owner );
+
+    if (NULL == owner)
+    {
+        *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    owner->GetDeviceNotificationPort().addBarrier(completion_event, this, operation_handle);
+    *pUpdateState = CL_DEV_BS_UPDATE_LAUNCHED;
     return CL_DEV_SUCCESS;
+}
+
+void MICDevMemoryObject::fireCallBack(void* arg)
+{
+     if (MICDevice::isDeviceLibraryUnloaded())
+     {
+        return;
+     }
+
+     m_pRTMemObjService->BackingStoreUpdateFinished(arg, CL_DEV_SUCCESS );
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
+    bool all_is_ok = true;
+    
     if (MICDevice::isDeviceLibraryUnloaded())
     {
         return CL_DEV_ERROR_FAIL;
     }
 
-    // TODO: DK: Change implementation!!!!!!
     assert( NULL != pUpdateState );
+
+    COIRESULT coi_err = COIBufferSetState(  m_coi_buffer, 
+                                            COI_PROCESS_SOURCE, COI_BUFFER_VALID, COI_BUFFER_NO_MOVE, 
+                                            0, NULL, 
+                                            NULL);
+
+    assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, NO_MOVE ) failed" );
+    all_is_ok = (COI_SUCCESS == coi_err);
+
+    COI_ProcessesArray coi_processes = get_active_processes();
+
+    // TODO: DK: Change implementation!!!!!!
+    for (unsigned int i = 0; i < coi_processes.size(); ++i)
+    {
+        coi_err = COIBufferSetState(  m_coi_buffer, 
+                                      coi_processes[i], COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
+                                      0, NULL, 
+                                      NULL);
+
+        assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, INVALID, NO_MOVE ) failed" );
+        all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
+    }
+
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
-    return CL_DEV_SUCCESS;
+    return (all_is_ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
 {
+    bool all_is_ok = true;
+    COIRESULT coi_err;
+
     if (MICDevice::isDeviceLibraryUnloaded())
     {
         return CL_DEV_ERROR_FAIL;
     }
 
+    COI_ProcessesArray coi_processes = get_active_processes();
+
     // TODO: DK: Change implementation!!!!!!
-    return CL_DEV_SUCCESS;
+    for (unsigned int i = 0; i < coi_processes.size(); ++i)
+    {
+        coi_err = COIBufferSetState(  m_coi_buffer, 
+                                      coi_processes[i], COI_BUFFER_INVALID /*COI_BUFFER_VALID_MAYDROP*/, COI_BUFFER_NO_MOVE, 
+                                      0, NULL, 
+                                      NULL);
+
+        assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, VALID_MAYDROP, NO_MOVE ) failed" );
+        all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
+    }
+
+    return (all_is_ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
