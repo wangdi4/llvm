@@ -116,11 +116,12 @@ TargetIntVector NOOPTIMIZE sat(const __m128i &intVal)
 // short/ushort 16 bits
 template<> cl_short4 NOOPTIMIZE sat<cl_short4>(const __m128i &intVal)
 {
-	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
+    cl_short4 target;
 
-    cl_short4 t = {{0,0,0,0}};
-    _mm_storel_epi64((__m128i*)&t, shortVal);
-	return t;
+	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
+    _mm_storel_epi64((__m128i*)&target, shortVal);
+
+	return target;
 }
 
 template<> cl_ushort4 NOOPTIMIZE sat<cl_ushort4>(const __m128i &intVal)

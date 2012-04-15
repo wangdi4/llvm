@@ -121,6 +121,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueWriteBuffer = (KHRpfn_clEnqueueWriteBuffer)GET_ALIAS(clEnqueueWriteBuffer);
     ICDDispatchTable.clEnqueueCopyBuffer = (KHRpfn_clEnqueueCopyBuffer)GET_ALIAS(clEnqueueCopyBuffer);
     ICDDispatchTable.clEnqueueFillBuffer = (KHRpfn_clEnqueueFillBuffer)GET_ALIAS(clEnqueueFillBuffer);
+    ICDDispatchTable.clEnqueueFillImage  = (KHRpfn_clEnqueueFillImage)GET_ALIAS(clEnqueueFillImage);
     ICDDispatchTable.clEnqueueReadImage = (KHRpfn_clEnqueueReadImage)GET_ALIAS(clEnqueueReadImage);
     ICDDispatchTable.clEnqueueWriteImage = (KHRpfn_clEnqueueWriteImage)GET_ALIAS(clEnqueueWriteImage);
     ICDDispatchTable.clEnqueueCopyImage = (KHRpfn_clEnqueueCopyImage)GET_ALIAS(clEnqueueCopyImage);
