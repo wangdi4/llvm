@@ -68,10 +68,13 @@ namespace Validation
                 "::Read Input object is NULL");
 
             TiXmlDocument XMLDoc;
-            if (!XMLDoc.LoadFile(m_fileName.c_str()))
-                throw Exception::IOError("XMLBufferContainerListReader::"
-                "XMLBufferContainerListReader cannot open file");
-
+            if (!XMLDoc.LoadFile(m_fileName.c_str())){
+                std::stringstream ss;
+                ss << "at line " << XMLDoc.ErrorRow();
+                ss << ", column " << XMLDoc.ErrorCol();
+                ss << ", " <<  XMLDoc.ErrorDesc() << std::endl;
+                throw Exception::IOError(ss.str());
+            }
 
             TiXmlHandle h(&XMLDoc);
             TiXmlElement* pXMLNode = h.FirstChild("ICSCData").ToElement();
