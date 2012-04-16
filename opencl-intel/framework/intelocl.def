@@ -1,6 +1,7 @@
 LIBRARY	"intelocl"
 EXPORTS
 	clGetExtensionFunctionAddress
+	clGetExtensionFunctionAddressForPlatform
 	clGetPlatformIDs
 	clGetPlatformInfo
 	clGetDeviceIDs

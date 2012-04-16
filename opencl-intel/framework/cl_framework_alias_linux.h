@@ -96,6 +96,7 @@ DECLARE_ALIAS(clEnqueueMarker);
 DECLARE_ALIAS(clEnqueueWaitForEvents);
 DECLARE_ALIAS(clEnqueueBarrier);
 DECLARE_ALIAS(clGetExtensionFunctionAddress);
+DECLARE_ALIAS(clGetExtensionFunctionAddressForPlatform);
 DECLARE_ALIAS(clCreateFromGLBuffer);
 DECLARE_ALIAS(clCreateFromGLTexture2D);
 DECLARE_ALIAS(clCreateFromGLTexture3D);

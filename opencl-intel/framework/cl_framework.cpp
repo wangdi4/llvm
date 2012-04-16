@@ -66,6 +66,16 @@ void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
 }
 SET_ALIAS(clGetExtensionFunctionAddress);
 
+void* CL_API_CALL clGetExtensionFunctionAddressForPlatform(cl_platform_id platform, const char* funcname)
+{
+    if (!PLATFORM_MODULE->CheckPlatformId(platform))
+    {
+        return NULL;
+    }
+    return clGetExtensionFunctionAddress(funcname);
+}
+SET_ALIAS(clGetExtensionFunctionAddressForPlatform);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Platform APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////

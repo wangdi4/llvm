@@ -303,7 +303,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
  * the dynamically allocated data should be kept.
  */
 #define PROV_RETURN_AND_KEEP(retval) \
-    finalizeMalloc(&PROV_ARRAY_NAME, TRUE); \
+    finalizeMalloc(&PROV_ARRAY_NAME, true); \
     return retval;
 
 /**
@@ -311,7 +311,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
  * the dynamically allocated data should be deleted/freed.
  */
 #define PROV_RETURN_AND_ABANDON(retval) \
-    finalizeMalloc(&PROV_ARRAY_NAME, FALSE); \
+    finalizeMalloc(&PROV_ARRAY_NAME, false); \
     return retval;
 
 #ifdef __cplusplus
