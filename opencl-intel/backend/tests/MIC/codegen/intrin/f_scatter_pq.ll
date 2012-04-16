@@ -6,9 +6,9 @@
 
 target datalayout = "e-p:64:64"
 
-declare void @llvm.x86.mic.scatter.pq(i8 *, <8 x i64>, <8 x i64>, i32, i32, i32)
+declare void @llvm.x86.mic.scatter.pq(i8 *, <16 x i32>, <8 x i64>, i32, i32, i32)
 
-define void @f_scatter_pq(i8 * %arg0, <8 x i64> %arg1, <8 x i64> %arg2) {
+define void @f_scatter_pq(i8 * %arg0, <16 x i32> %arg1, <8 x i64> %arg2) {
 ; KNF: f_scatter_pq:
 ; KNF: vshuf128x32 $80, $80, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNF: vshuf128x32 $250, $80, %v{{[0-9]*}}, %v{{[0-9]*}}{%k{{[0-9]*}}}
@@ -16,7 +16,7 @@ define void @f_scatter_pq(i8 * %arg0, <8 x i64> %arg1, <8 x i64> %arg2) {
 ; KNF: vscatterd %v{{[0-9]*}}, (%{{[a-z]*}},%v{{[0-9]*}},4){%k{{[0-9]*}}}
 ; KNF: vkortest %k{{[0-9]*}}, %k{{[0-9]*}}
 entry:
-  call void @llvm.x86.mic.scatter.pq(i8 * %arg0, <8 x i64> %arg1, <8 x i64> %arg2, i32 0, i32 8, i32 0)
+  call void @llvm.x86.mic.scatter.pq(i8 * %arg0, <16 x i32> %arg1, <8 x i64> %arg2, i32 0, i32 8, i32 0)
 
  ret void 
 }
