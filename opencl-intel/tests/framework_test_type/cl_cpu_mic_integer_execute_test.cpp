@@ -36,10 +36,16 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     cl_device_id clMicDeviceId;
     cl_command_queue clCpuQueue = NULL;
     cl_command_queue clMicQueue = NULL;
-    
-    cl_device_id   devices[3];
-    const wchar_t* dev_names[] = { L"Cpu", L"Mic", L"Cpu" };    
-    cl_command_queue dev_queue[3];
+
+    const unsigned int number_of_rounds = 2;
+    cl_device_id   devices[number_of_rounds*2];
+    const wchar_t* dev_names[number_of_rounds*2];    
+    cl_command_queue dev_queue[number_of_rounds*2];
+
+	const unsigned int verification_device = 0;
+    cl_device_id     device;
+    const wchar_t*   dev_name;
+    cl_command_queue queue;
     
     wchar_t title[1024];
     size_t global_work_size[1];
@@ -138,10 +144,15 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     if (!bResult) goto release_kernel;
     
     global_work_size[0] = stBuffSize;
-    
-    devices[0] = clCpuDeviceId;
-    devices[1] = clMicDeviceId;
-    devices[2] = clCpuDeviceId;
+
+    for (unsigned int i = 0; i < number_of_rounds; ++i)
+    {
+        devices[2*i]   = clCpuDeviceId;
+        devices[2*i+1] = clMicDeviceId;
+
+        dev_names[2*i]   = L"Cpu";
+        dev_names[2*i+1] = L"Mic";    
+    }
 
     clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, 0 /*no properties*/, &iRet);
     bResult &= SilentCheck(L"clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
@@ -151,16 +162,17 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     bResult &= SilentCheck(L"clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
     if (!bResult) goto release_queues;
 
-    dev_queue[0] = clCpuQueue;
-    dev_queue[1] = clMicQueue;
-    dev_queue[2] = clCpuQueue;
+    for (unsigned int i = 0; i < number_of_rounds; ++i)
+    {
+        dev_queue[2*i]   = clCpuQueue;
+        dev_queue[2*i+1] = clMicQueue;
+    }
 
     for (unsigned int curr_dev = 0; curr_dev < sizeof(devices)/sizeof(devices[0]); ++curr_dev )
 	{
-        cl_device_id     device   = devices[curr_dev];
-        const wchar_t*   dev_name = dev_names[curr_dev];
-        cl_command_queue queue    = dev_queue[curr_dev];
-        
+        device   = devices[curr_dev];
+        dev_name = dev_names[curr_dev];
+        queue    = dev_queue[curr_dev];
         
 		// Execute kernel
 		printf("...NDRange(%ls)...\n",  dev_name );
@@ -178,9 +190,13 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 	//
 	// Verification phase
 	//
-    printf("...ReadBuffer(Mic)...\n" );
-	iRet = clEnqueueReadBuffer( clMicQueue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-	bResult &= SilentCheck(L"clEnqueueReadBuffer - Dst for Mic", CL_SUCCESS, iRet);
+	device   = devices[verification_device];
+    dev_name = dev_names[verification_device];
+    queue    = dev_queue[verification_device];
+    
+    printf("...ReadBuffer(%ls)...\n", dev_name );
+	iRet = clEnqueueReadBuffer( queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
+	bResult &= SilentCheck(TITLE(L"clEnqueueReadBuffer - Dst for "), CL_SUCCESS, iRet);
 	if (!bResult) goto main_error_exit;
 
 	for( unsigned y=0; y < stBuffSize; ++y )

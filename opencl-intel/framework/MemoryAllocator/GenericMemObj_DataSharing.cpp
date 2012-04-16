@@ -173,8 +173,9 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
                 assert( from.m_data_copy_used_by_others_count > 0 );
                 --(from.m_data_copy_used_by_others_count);
 
-                if ((0== from.m_data_copy_used_by_others_count) && to.m_data_copy_invalidate_asap )
-                {
+                if ((0== from.m_data_copy_used_by_others_count) && from.m_data_copy_invalidate_asap )
+                {                   
+                    from.m_data_copy_invalidate_asap = false;
                     cl_dev_err_code err = from.m_dev_mem_obj->clDevMemObjInvalidateData();
                     assert( CL_DEV_SUCCEEDED(err) && "clDevMemObjInvalidateData() failed" );
 
@@ -183,7 +184,6 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
                         LOG_ERROR(TEXT("Device Object returned error 0x%X during deferred invalidation"), err);
                     }                    
                 }
-                to.m_data_copy_invalidate_asap = false;
                 to.m_data_copy_from_group = MAX_DEVICE_SHARING_GROUP_ID;
             }
 
@@ -415,6 +415,7 @@ void GenericMemObject::ensure_single_data_copy( unsigned int group_id )
                 if (o_grp.m_data_copy_used_by_others_count > 0)
                 {
                     // cannot invalidate - skip
+                    o_grp.m_data_copy_invalidate_asap = true;
                     continue;
                 }
                 
