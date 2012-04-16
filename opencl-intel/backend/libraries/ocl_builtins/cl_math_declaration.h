@@ -26,7 +26,23 @@ extern "C" {
 
 #include "cl_types2.h"
 
-#if defined ( __AVX__ ) /// Platform supports SNB
+#if defined ( __AVX2__ ) /// Platform supports HSW
+
+ /*
+  * AVX2 requires svml s9 for 32-bit dll
+  * and                l9 for 64-bit dll
+  *
+  */
+  
+#ifdef __x86_64__
+#define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_l9##oclfunc
+#define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_l9##oclfunc##_native
+#else
+#define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_s9##oclfunc
+#define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_s9##oclfunc##_native
+#endif
+
+#elif defined ( __AVX__ ) /// Platform supports SNB
 
  /*
   * AVX requires svml g9 for 32-bit dll

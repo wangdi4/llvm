@@ -5,8 +5,18 @@
 extern "C" {
 #endif
 
-
-#if defined(__AVX__)
+#if defined(__AVX2__)
+ /*
+  * AVX2 requires svml s9 for 32-bit dll
+  * and                l9 for 64-bit dll
+  *
+  */
+  #if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
+  #define CTYPE l9
+  #else
+  #define CTYPE s9
+  #endif
+#elif defined (__AVX__)
  /*
   * AVX requires svml g9 for 32-bit dll
   * and               e9 for 64-bit dll
