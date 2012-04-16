@@ -57,9 +57,7 @@ def main():
         Target('Prescot',  't7', False),
         Target('Prescot',  'e7', True),
         Target('Sandybridge',  'g9', False),
-        Target('Sandybridge',  'e9', True),
-		Target('Haswell',  's9', False),
-        Target('Haswell',  'l9', True)]
+        Target('Sandybridge',  'e9', True)]
 
     out.write( '///------------ Beginning of auto-generated section ------------------///\n')
     out.write( '///------------ This file is built by builtin_gen.py ------------------///')
