@@ -335,6 +335,15 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
+     * @fn cl_err_code D3D9Resource::GetDimensionSizes(size_t* pszRegion) const
+     */
+    cl_err_code D3D9Resource::GetDimensionSizes(size_t* pszRegion) const
+    {
+        FillDimensions(*GetResourceInfo(), pszRegion);
+        return CL_SUCCESS;
+    }
+
+    /**
      * @fn  cl_err_code D3D9Resource::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
      *      void* pParamValue, const size_t szParamValueSize) const
      */

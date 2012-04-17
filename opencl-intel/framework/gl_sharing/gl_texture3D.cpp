@@ -105,6 +105,18 @@ cl_err_code GLTexture3D::Initialize(cl_mem_flags clMemFlags, const cl_image_form
 	return CL_SUCCESS;
 }
 
+cl_err_code GLTexture3D::GetDimensionSizes(size_t* pszRegion) const
+{
+    assert(pszRegion);
+    if (NULL == pszRegion)
+    {
+        return CL_INVALID_VALUE;
+    }
+    GLTexture::GetDimensionSizes(pszRegion);
+    pszRegion[2] = m_szImageDepth;
+    return CL_SUCCESS;
+}
+
 cl_err_code GLTexture3D::AcquireGLObject()
 {
 	// Since there is no efficien mechanism to access 3D texture we need to allacte real memory object

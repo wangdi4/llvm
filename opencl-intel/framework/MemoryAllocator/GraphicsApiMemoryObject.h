@@ -83,8 +83,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
 
         virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
-
-		virtual cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
+		
         virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
             size_t szRowPitch, size_t szSlicePitch) const;
 

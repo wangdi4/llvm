@@ -54,6 +54,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
+        cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
+
 	protected:
 		cl_err_code CreateChildObject();
 

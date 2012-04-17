@@ -304,6 +304,18 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 
 }
 
+cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
+{
+    assert(pszRegion);
+    if (NULL == pszRegion)
+    {
+        return CL_INVALID_VALUE;
+    }
+    pszRegion[0] = m_szImageWidth;
+    pszRegion[1] = m_szImageHeight;
+    return CL_SUCCESS;
+}
+
 cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize)
 {
 	void* pIntVal;

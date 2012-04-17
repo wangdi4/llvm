@@ -103,6 +103,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
+        cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
+
 	protected:
 		GLTexture(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
 		GLMemoryObject(pContext, pOclEntryPoints),  m_glFramebuffer(0), m_glPBO(0) {}

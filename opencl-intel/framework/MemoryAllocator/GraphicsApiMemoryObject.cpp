@@ -87,19 +87,6 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  cl_err_code GetDimensionSizes( size_t* pszRegion ) const
-     */
-
-    cl_err_code GraphicsApiMemoryObject::GetDimensionSizes( size_t* pszRegion ) const
-    {
-        if (NULL == m_pChildObject)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return m_pChildObject->GetDimensionSizes(pszRegion);
-    }
-
-    /**
      * @fn  cl_err_code GraphicsApiMemoryObject::CheckBoundsRect(const size_t* pszOrigin,
      *      const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
      */

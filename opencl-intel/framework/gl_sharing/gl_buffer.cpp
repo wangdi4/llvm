@@ -68,6 +68,17 @@ cl_err_code GLBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format*
 	return CL_SUCCESS;
 }
 
+cl_err_code GLBuffer::GetDimensionSizes(size_t* pszRegion) const
+{
+    assert(pszRegion);
+    if (NULL == pszRegion)
+    {
+        return CL_INVALID_VALUE;
+    }
+    pszRegion[0] = m_stMemObjSize;
+    return CL_SUCCESS;
+}
+
 cl_err_code GLBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, MemoryObject** ppBuffer)
 {

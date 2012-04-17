@@ -41,6 +41,9 @@
 
 #include <assert.h>
 #include <malloc.h>
+#include <string>
+#include "ocl_supported_extensions.h"
+#include "cl_local_array.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -1138,6 +1141,11 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
         return CL_INVALID_VALUE;
     }
+    if (CL_D3D9_DEVICE_INTEL != clD3dDeviceSource && CL_D3D9EX_DEVICE_INTEL != clD3dDeviceSource && CL_DXVA_DEVICE_INTEL != clD3dDeviceSource)
+    {
+        LOG_ERROR(TEXT("clD3dDeviceSource is not a valid value."));
+        return CL_INVALID_VALUE;
+    }
     if (NULL == pD3dObject)
     {
         LOG_ERROR(TEXT("pD3dObject is NULL."));
@@ -1149,57 +1157,41 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         *puiNumDevices = 0;
     }
     size_t szFoundDevices = 0;
-    for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
+
+    // in case of CL_PREFERRED_DEVICES_FOR_DX9_INTEL, we won't return the CPU device, since it is not the preferred device.
+    if (CL_ALL_DEVICES_FOR_DX9_INTEL == clD3dDeviceSet)
     {
-        bool bDeviceMatch = false;
-        switch (clD3dDeviceSource)
-        {
-        case CL_D3D9_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_D3D9_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType() &&
-                m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
-            break;
-        case CL_D3D9EX_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_D3D9EX_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType()
-                && m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
-            break;
-        case CL_DXVA_DEVICE_INTEL:
-            bDeviceMatch = CL_CONTEXT_DXVA_DEVICE_INTEL == m_ppRootDevices[i]->GetD3D9DevType()
-                && m_ppRootDevices[i]->GetD3D9Device() == (IUnknown*)pD3dObject;
-            break;
-#ifdef DX9_SHARING
-        case CL_D3D9_ADAPTER_NAME_INTEL:
-            if (IDirect3DDevice9* const d3d9Dev = m_ppRootDevices[i]->GetD3D9Device())
+        // find all devices that report supporting Direct3D Sharing
+        for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
+        {        
+            size_t szParamValSize;
+
+            cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0, NULL, &szParamValSize);
+            if (CL_FAILED(err))
             {
-                D3DDEVICE_CREATION_PARAMETERS params; 
-                HRESULT res = d3d9Dev->GetCreationParameters(&params);
-                assert(D3D_OK == res);
-                IDirect3D9* pD3d9;
-                res = d3d9Dev->GetDirect3D(&pD3d9);
-                assert(D3D_OK == res);
-                D3DADAPTER_IDENTIFIER9 id;
-                res = pD3d9->GetAdapterIdentifier(params.AdapterOrdinal, 0, &id);
-                assert(D3D_OK == res);
-                bDeviceMatch = strcmp(id.DeviceName, (char*)pD3dObject) == 0;
+                return err;
             }
-            break;
-#endif
-        default:
-            LOG_ERROR(TEXT("clD3dDeviceSource is not a valid value"));
-            return CL_INVALID_VALUE;
-        }
-        if (bDeviceMatch)
-        {
-            szFoundDevices++;
-            if (NULL != pclDevices && szDevIndex < uiNumEntries)
+            clLocalArray<char> sDevEx(szParamValSize);
+            err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize, (char*)sDevEx, NULL);
+            if (CL_FAILED(err))
             {
-                pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
-            }
-            if (NULL != puiNumDevices)
-            {
-                (*puiNumDevices)++;
+                return err;
             }        
+            if (std::string((char*)sDevEx).find(OCL_INTEL_DX9_MEDIA_SHARING_EXT) != std::string::npos)
+            {
+                szFoundDevices++;
+                if (NULL != pclDevices && szDevIndex < uiNumEntries)
+                {
+                    pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
+                }
+                if (NULL != puiNumDevices)
+                {
+                    (*puiNumDevices)++;
+                }        
+            }
         }
     }
+
     if (0 == szFoundDevices)
     {
         return CL_DEVICE_NOT_FOUND;
