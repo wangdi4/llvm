@@ -27,8 +27,6 @@ File Name:  CPUCompileService.cpp
 #include "BitCodeContainer.h"
 #include "CPUDeviceBackendFactory.h"
 
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -38,66 +36,39 @@ File Name:  CPUCompileService.cpp
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/PassManager.h"
-#include "llvm/ADT/Triple.h"
+
 
 #include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-DEFINE_EXCEPTION(IOError)
-
 CPUCompileService::CPUCompileService(const CompilerConfig& config)
-:m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config) 
+    :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
 {
-    m_backendFactory = CPUDeviceBackendFactory::GetInstance(); 
+     m_backendFactory = CPUDeviceBackendFactory::GetInstance();
 }
 
-void CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                    const std::string dumpJIT,
-                    const std::string baseDirectory) const
+cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                              const std::string& filename) const
 {
-    const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
-    llvm::Module* pModule = (llvm::Module*)pContainer->GetModule();
-    llvm::Triple triple(pModule->getTargetTriple());
-    std::string err;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
-    std::string FeaturesStr;
-    std::string MCPU;
-    TargetMachine* TM = target->createTargetMachine(triple.getTriple(),
-                                          MCPU, FeaturesStr);
-    
-    // Build up all of the passes that we want to do to the module.
-    PassManager PM;
-
-    // Create the output file.
-    std::string fileName;
-    if( !llvm::sys::path::is_absolute(dumpJIT) && !baseDirectory.empty())
+    try
     {
-        llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
-        if(false == absFilePath.appendComponent(dumpJIT))
-                throw Exceptions::IOError("GetDataFilePath::Inexistent path created with \
-                                         fileName=" + dumpJIT +
-                                         " and baseDirectory=" +  baseDirectory);
-        fileName = absFilePath.str();
+        const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
+        llvm::Module*           pModule    = reinterpret_cast<llvm::Module*>(pContainer->GetModule());
+        const CPUCompiler*      pCompiler  = static_cast<const CPUCompiler*>(m_programBuilder.GetCompiler());
+
+        pCompiler->DumpJIT( pModule, filename);
+        return CL_DEV_SUCCESS;
     }
-    else
+    catch( Exceptions::DeviceBackendExceptionBase& e )
     {
-        fileName = dumpJIT;
-        llvm::SmallString<128> fName(fileName);
-        llvm::sys::fs::make_absolute(fName);
+        return e.GetErrorCode();
     }
-
-    std::string errorInfo;
-    llvm::raw_fd_ostream out(fileName.c_str(), errorInfo,
-                llvm::raw_fd_ostream::F_Binary);
-    if (!errorInfo.empty()) { return; }
-    llvm::formatted_raw_ostream FOS(out);
-
-    TM->addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
-    PM.run(*pModule);
+    catch( std::bad_alloc& )
+    {
+        return CL_DEV_OUT_OF_MEMORY; 
+    }
 }
 
 }}}

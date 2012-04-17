@@ -98,12 +98,10 @@ public:
      * Prints the JIT code in assembly x86
      *
      * @param pCodeContainer Code container
-     * @param dumpJIT The filename for dumping the JIT code
-     * @param baseDirectory The base directory
+     * @param filename Destination file name to store the dump to
      */
-    void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                               const std::string dumpJIT,
-                               const std::string baseDirectory) const;
+    cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                          const std::string& filename) const;
 
 protected:
     virtual const ProgramBuilder* GetProgramBuilder() const = 0;

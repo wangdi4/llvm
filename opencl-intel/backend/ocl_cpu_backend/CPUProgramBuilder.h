@@ -61,12 +61,13 @@ public:
      */
     CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
     ~CPUProgramBuilder();
-protected:
 
     const Compiler* GetCompiler() const
     {
         return &m_compiler;
     }
+
+protected:
 
     KernelSet* CreateKernels(const Program* pProgram,
                              llvm::Module* pModule, 

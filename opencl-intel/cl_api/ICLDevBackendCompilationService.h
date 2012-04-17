@@ -93,9 +93,8 @@ public:
      * @param dumpJIT The filename for dumping the JIT code
      * @param baseDirectory The base directory
      */
-    virtual void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-            const std::string dumpJIT,
-            const std::string baseDirectory) const = 0;
+    virtual cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                                  const std::string& filename) const = 0;
 };
 
 }}} // namespace

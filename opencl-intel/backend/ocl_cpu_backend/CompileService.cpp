@@ -53,9 +53,9 @@ CompileService::CompileService()
 cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* pByteCodeContainer, 
                                                ICLDevBackendProgram_** ppProgram) const
 {
+    assert(m_backendFactory);
     try
     {
-        assert(m_backendFactory);
         std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
         BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
         spProgram->SetBitCodeContainer(bitCodeContainer);
@@ -86,8 +86,6 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
     delete pProgram;
 }
 
-
-
 cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
                                               const ICLDevBackendOptions* pOptions ) const
 {
@@ -110,11 +108,11 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
 cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
                                                    const ICLDevBackendOptions* pOptions ) const
 {
+    assert(pCodeContainer);
+    assert(pOptions);
+
     try
     {
-        assert(pCodeContainer);
-        assert(pOptions);
-
         const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
         llvm::Module* pModule = (llvm::Module*)pContainer->GetModule();
         assert(pModule);
@@ -140,7 +138,6 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
         }
         return CL_DEV_SUCCESS;
     }
-
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
         return e.GetErrorCode();
@@ -158,11 +155,11 @@ void CompileService::Release()
 }
 
 //prints the JIT file in assembly x86
-void CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                    const std::string dumpJIT,
-                    const std::string baseDirectory) const
+cl_dev_err_code CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                           const std::string& filename) const
 {
     assert(false);
+    return CL_DEV_NOT_SUPPORTED;
 }
 
 }}}

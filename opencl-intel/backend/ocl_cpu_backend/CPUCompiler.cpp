@@ -19,6 +19,8 @@ File Name:  CPUCompiler.cpp
 
 #include <vector>
 #include <string>
+#include <sstream>
+#include <iosfwd>
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "CPUCompiler.h"
@@ -27,6 +29,10 @@ File Name:  CPUCompiler.cpp
 #include "exceptions.h"
 #include "CompilationUtils.h"
 #include "BuiltinModuleManager.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -48,6 +54,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/ADT/Triple.h"
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -88,6 +95,10 @@ Intel::ECPU GetOrDetectCpuId(const std::string& cpuArch)
     return cpuId;
 }
 
+/**
+ * Splits the given string using the supplied delimiter
+ * populates the given vector of strings
+ */
 void SplitString( const std::string& s, const char* d, std::vector<std::string>& v )
 {
     llvm::StringRef sr(s);
@@ -95,6 +106,29 @@ void SplitString( const std::string& s, const char* d, std::vector<std::string>&
 
     sr.split(sv, d, -1, false);
     std::copy( sv.begin(), sv.end(), std::back_inserter( v ));
+}
+
+/**
+ * Joins the given strings (as a vector of strings) using
+ * the supplied delimiter. 
+ * Returns: joined string
+ */
+std::string JoinStrings( const std::vector<std::string>& vs, const char* d)
+{
+    std::vector<std::string>::const_iterator i = vs.begin();
+    std::vector<std::string>::const_iterator e = vs.end();    
+    std::stringstream ss;
+    
+    if( i != e )
+    {
+        ss << *i++;
+        for(; i!= e; ++i)
+        {
+            ss << d << *i;
+        }
+    }
+
+    return ss.str();
 }
 
 unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
@@ -290,6 +324,39 @@ llvm::Module* CPUCompiler::GetRtlModule() const
     }
     else
         return m_pBuiltinModule->GetRtlModule();
+}
+
+void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) const
+{
+    assert(pModule && "pModule parameter should be valid");
+
+    std::string err;
+    llvm::Triple triple(pModule->getTargetTriple());
+    const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
+
+    if( !err.empty() || NULL == pTarget ) 
+    {
+        throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
+    }
+
+    std::string cpuFeatures( Utils::JoinStrings(m_forcedCpuFeatures, ","));
+    std::string cpuName( Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId));
+    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures);
+    
+    // Build up all of the passes that we want to do to the module.
+    PassManager pm;
+
+    llvm::raw_fd_ostream out(filename.c_str(), err, llvm::raw_fd_ostream::F_Binary);
+
+    if (!err.empty()) 
+    { 
+        throw Exceptions::CompilerException(std::string("Failed to open the target file for dump:") + err);
+    }
+
+    llvm::formatted_raw_ostream fos(out);
+
+    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
+    pm.run(*pModule);
 }
 
 }}}

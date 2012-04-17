@@ -73,7 +73,6 @@ ICLDevBackendProgram_* OpenCLBackendRunner::CreateProgram(const OpenCLProgram * 
     const cl_prog_container_header* pHeader = oclProgram->GetProgramContainer();
     assert( pHeader );
 
-
     ICLDevBackendProgram_* pProgram = NULL;
     cl_dev_err_code ret = pCompileService->CreateProgram(pHeader, &pProgram);
     if ( CL_DEV_FAILED(ret) )
@@ -101,6 +100,7 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     {
         throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
     }
+    
     if( runConfig->GetValue<bool>(RC_BR_PRINT_BUILD_LOG, false) )
     {
         llvm::outs() << "Build log:\n" << pProgram->GetBuildLog() << '\n';

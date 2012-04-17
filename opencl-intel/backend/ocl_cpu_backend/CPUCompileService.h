@@ -33,9 +33,8 @@ public:
 
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
 
-	void DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                    const std::string dumpJIT,
-                    const std::string baseDirectory) const;
+	cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+                                          const std::string& filePath) const;
 
 private:
     CPUProgramBuilder m_programBuilder;

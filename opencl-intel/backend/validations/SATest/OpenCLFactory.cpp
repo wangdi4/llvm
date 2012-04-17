@@ -45,14 +45,13 @@ OpenCLFactory::~OpenCLFactory(void)
 }
 
 IProgram * OpenCLFactory::CreateProgram(IProgramConfiguration* programConfig,
-                                        IRunConfiguration* pRunConfiguration)
+                                        IRunConfiguration* runConfig)
 {
-    return new OpenCLProgram(static_cast<OpenCLProgramConfiguration*>(programConfig),
-        static_cast<const BERunOptions*>(
-            static_cast<OpenCLRunConfiguration*>(
-                pRunConfiguration)->GetBackendRunnerConfiguration()
-                )->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,std::string(""))
-        );
+    OpenCLProgramConfiguration* pOCLProgramConfig = static_cast<OpenCLProgramConfiguration*>(programConfig);
+    const BERunOptions* pBERunConfig = static_cast<const BERunOptions*>(runConfig->GetBackendRunnerConfiguration());
+    std::string arch = pBERunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,std::string(""));
+
+    return new OpenCLProgram(pOCLProgramConfig, arch);
 }
 
 IProgramConfiguration * OpenCLFactory::CreateProgramConfiguration(const string& configFile, const string& baseDir)

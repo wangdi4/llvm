@@ -44,7 +44,7 @@ namespace Utils
         {
             llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
             if(false == absFilePath.appendComponent(fileName))
-                throw Exception::IOError("GetDataFilePath::Inexistent path created with \
+                throw Exception::IOError("GetDataFilePath::nonexistent path created with \
                                          fileName=" + fileName +
                                          " and baseDirectory=" +  baseDirectory);
             

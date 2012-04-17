@@ -70,6 +70,8 @@ public:
 
     virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
 
+    void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
+
 protected:
 
     /**

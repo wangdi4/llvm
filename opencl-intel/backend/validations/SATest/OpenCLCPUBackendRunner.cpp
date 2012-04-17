@@ -52,6 +52,11 @@ using namespace Intel::OpenCL::DeviceBackend;
 namespace Validation
 {
 
+namespace Utils
+{
+    std::string GetDataFilePath(const std::string& fileName, const std::string& baseDirectory);
+}
+
 extern void GenINT3();
 
 
@@ -365,9 +370,11 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
 
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "").empty())
     {
+        std::string filename = Utils::GetDataFilePath( pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
+                                                       pOCLProgramConfig->GetBaseDirectory());
+        
         spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
-            pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
-            pOCLProgramConfig->GetBaseDirectory());
+                                               filename);
     }
 
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))
@@ -388,7 +395,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
             ExecuteKernel(input, runResult, programHolder.getProgram(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
         }
     }
-    }
+    }// ProgramHolder scope end
 }
 
 void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
