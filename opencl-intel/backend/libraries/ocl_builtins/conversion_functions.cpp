@@ -107,7 +107,6 @@ extern "C" {
 #define _INT_MAX_AS_FLOAT		  2147483647.0f
 #define _INT_MIN		  -2147483648
 #define _UINT_MAX	  4294967295
-#define _UINT_MAX_AS_FLOAT	  4294967295.0f
 #define _CHAR_MAX      127
 #define _CHAR_MIN      -128
 #define _UCHAR_MAX     255
@@ -314,14 +313,10 @@ extern "C" {
 
     _1u32 floatToUintSat(float param)
     {
-        if(param >= _UINT_MAX_AS_FLOAT) return _UINT_MAX;
-
-        if(param <= 0.0f) return 0;
-        if(param >  _INT_MAX_AS_FLOAT)
-        {
-            return convert_int(param - _INT_MAX_AS_FLOAT) + _INT_MAX;
-        }
-        return convert_int(param);
+        // maximum representable IEEE754 float value which is < UINT_MAX(4294967295) 
+        // in Hex should be 0x4F7FFFFF
+        const float maxUintAsFloat =  4294967040.0f;
+        return (param < 0.0f) ? 0 : ((param > maxUintAsFloat) ? _UINT_MAX : (_1u32) param);
     }
 
 	float4 intToFloat(_4i32 param)
