@@ -1,0 +1,144 @@
+//
+#if defined(__APPLE__)
+#if _GLIBCXX_ATOMIC_BUILTINS == 1
+#undef _GLIBCXX_ATOMIC_BUILTINS
+#endif // _GLIBCXX_ATOMIC_BUILTINS
+#endif // __APPLE__
+
+#pragma offload_attribute(push,target(mic))
+
+#include <assert.h>
+#include "offload.h"
+
+#include "KNFStencil.cpp"
+#include <string.h>
+#include "omp.h"
+#include "stdio.h"
+#include "math.h"
+
+#define BLOCKX 128
+#define BLOCKY 128
+
+template <class T>
+void
+KNFStencil<T>::operator()( Matrix2D<T>& mtx, unsigned int nIters )
+{
+
+   // we need a temp space buffer
+    Matrix2D<T> tmpMtx( mtx.GetNumRows(), mtx.GetNumColumns() );
+
+    // be able to access the matrices as 2D arrays
+    typename Matrix2D<T>::DataPtr mtxData = mtx.GetData();
+    typename Matrix2D<T>::DataPtr tmpMtxData = tmpMtx.GetData();
+
+    /* copy the "real" data to the temp matrix */
+    memcpy( tmpMtx.GetFlatData(),
+               mtx.GetFlatData(),
+               mtx.GetDataSize() );
+
+
+   /* Apply the stencil operator */
+
+    __declspec(target(mic)) static T* rarr1=tmpMtx.GetFlatData();
+    __declspec(target(mic)) static T* rarr2=mtx.GetFlatData();
+
+    __declspec(target(mic)) unsigned int nrows= mtx.GetNumRows();
+    __declspec(target(mic)) unsigned int ncols= mtx.GetNumColumns();
+    T wcenter=this->wCenter;
+    T wdiag=this->wDiagonal;
+    T wcardinal=this->wCardinal;
+
+    unsigned int len=nrows*ncols;
+    __declspec(target(mic)) unsigned int flip=0;
+
+                             
+
+    #pragma offload target(mic)\
+    	in(rarr1:length(len) free_if(0))\
+        out(rarr2:length(len) free_if(0))
+    {
+    }
+
+    #pragma offload target(mic)\
+    	in(rarr1:length(len) alloc_if(0) free_if(0))\
+        out(rarr2:length(len) alloc_if(0) free_if(0))
+    {
+    }   
+
+    #pragma offload target(mic)\
+    	nocopy(rarr1:length(len) alloc_if(0) free_if(0))\
+    	out(rarr2:length(len) alloc_if(0) free_if(0))
+    {
+     
+    T *arr1,*arr2;
+
+   for( unsigned int iter = 0; iter < nIters; iter++ ) 
+    {
+	arr1=(flip==0)?rarr1:rarr2;
+	arr2=(flip==0)?rarr2:rarr1;
+	
+	flip=1-flip;
+        //DoPreIterationWork( mtx, iter );
+        //
+	#if 1
+	#pragma omp parallel for\
+		shared(arr1,arr2)\
+		collapse(1)
+	for(int i=0;i<nrows;i+=BLOCKX)
+                for(int j=0;j<ncols;j+=BLOCKY)
+                {
+			int xstart=(i==0)?1:0;
+                        int ystart=(j==0)?1:0;
+			int xend=(BLOCKX>=(nrows-i))?(nrows-i-1):(BLOCKX);
+                        int yend=(BLOCKY>=(ncols-j))?(ncols-j-1):(BLOCKY);	
+			
+                        for(int k=xstart;k<xend && (i+k)<nrows;k++)
+                        {       
+                                for(int l=ystart;l<yend && (j+l)<ncols;l++)
+                                {       
+                                        int locx=i+k;
+                                        int locy=j+l;
+					
+                                        T cardinal= arr1[(locx-1)*ncols+locy]+\
+                                                        arr1[(locx+1)*ncols+locy]+\
+                                                        arr1[locx*ncols+locy-1]+\
+                                                        arr1[locx*ncols+locy+1];        
+
+                                        T diag=     arr1[(locx-1)*ncols+(locy-1)]+\
+                                                        arr1[(locx+1)*ncols+(locy+1)]+\
+                                                        arr1[(locx-1)*ncols+(locy+1)]+\
+                                                        arr1[(locx+1)*ncols+(locy-1)];
+
+                                        T center=arr1[locx*ncols+locy];
+                                        arr2[locx*ncols+locy]=(center*wcenter+cardinal*wcardinal+diag*wdiag);
+                                }
+                        }
+                }
+	#endif
+    }
+	if(flip==0)
+                for(int i=0;i<len;i++)
+                        rarr2[i]=rarr1[i];
+    }
+	#pragma offload target(mic)\
+		nocopy(rarr1:length(len) alloc_if(0))\
+		nocopy(rarr2:length(len) alloc_if(0))
+	{
+	}
+		
+}
+
+
+void
+EnsureStencilInstantiation( void )
+{
+    KNFStencil<float> csf( 0, 0, 0, 0 );
+    Matrix2D<float> mf( 2, 2 );
+    csf( mf, 0 );
+
+    KNFStencil<double> csd( 0, 0, 0, 0 );
+    Matrix2D<double> md( 2, 2 );
+    csd( md, 0 );
+}
+
+#pragma offload_attribute(pop)

@@ -1,0 +1,13 @@
+CXX=g++
+CC=g++
+NVCC=/usr/local/cuda/bin/nvcc
+AR=/usr/bin/ar
+LD=g++
+CPPFLAGS=-I../../../../src/common -I../../../../config  -I/usr/local/cuda/include -I../../include
+CFLAGS=-m64 -g -O2
+CXXFLAGS=-m64 -g -O2
+NVCXXFLAGS=-m64 -g -O2
+LDFLAGS= 
+ARFLAGS=rcv
+LIBS=-L../../../../lib  -lrt -lSHOCCommon -lcufft
+uname= Linux cthor-knf11 2.6.32-71.el6.x86_64 #1 SMP Wed Sep 1 01:33:01 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux

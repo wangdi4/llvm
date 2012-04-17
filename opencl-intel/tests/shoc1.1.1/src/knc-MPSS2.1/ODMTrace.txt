@@ -1,0 +1,4 @@
+
+	You need to be root (or) have root permissions to run MicInfo.
+	Please use root permission and run this application again.
+
