@@ -56,7 +56,8 @@ entry:
 ; KNC: .long 0
 ; KNC: .long 0
 ; KNC: .long 0
-; KNC: vpermd _const_0(%rip), %zmm0, %zmm0 
+; KNC: vmovaps _const_{{[0-9]}}(%rip), [[R0:%zmm[0-9]+]]
+; KNC: vpermd %zmm0, [[R0]], %zmm0
   %m = shufflevector <16 x i32> %a, <16 x i32> undef, <16 x i32> <i32 9, i32 8, i32 10, i32 11, i32 13, i32 12, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   ret <16 x i32> %m
 }
