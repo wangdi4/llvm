@@ -153,6 +153,7 @@ set conformance_list=^
     test_image_streams ^
     test_integer_ops ^
     test_kernel_image_methods ^
+    test_media_surface_sharing ^
     test_mem_host_flags ^
     test_multiples ^
     test_opencl_h ^
