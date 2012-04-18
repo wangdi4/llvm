@@ -21,11 +21,9 @@ File Name:  MICDetect.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-MICDetect::MICDetect(void) : m_uiCPUFeatures(0)
+MICDetect::MICDetect(void) : m_CPUId(MIC_KNF, 0, true)
 {
-    // TODO: Call CPUID for detection of the MIC Card type
-    m_CPU = MIC_KNIGHTSFERRY;
-    assert(m_CPU!=CPU_LAST && "Unknown CPU");
+    // TODO-KNC: Call CPUID for detection of the MIC Card type
 }
 
 MICDetect::~MICDetect(void) 

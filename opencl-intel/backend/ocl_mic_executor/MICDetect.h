@@ -28,17 +28,12 @@ class MICDetect : public ProcessorDetect
 public:
 
     static MICDetect *  GetInstance() { return &m_Instance; }
-    unsigned            GetMICFeatureSupport() const { return m_uiCPUFeatures; }
-    const char*         GetMICPrefix() const { return m_CPUPrefixes[m_CPU]; }
-    const char*         GetMICPrefix(ECPU CPU) const { return m_CPUPrefixes[CPU]; }
-    ECPU                GetMICId() const { return m_CPU; }  
-  
+    const CPUId      &  GetCPUId() const { return m_CPUId; }  
 private:
     MICDetect(void);
     ~MICDetect(void);
 
-    unsigned int m_uiCPUFeatures;
-    ECPU m_CPU;
+    CPUId m_CPUId;
 
     static MICDetect m_Instance;
 };

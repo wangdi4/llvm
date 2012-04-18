@@ -52,12 +52,12 @@ void ImageCallbackLibrary::Load()
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
 
     //Klocwork warning - false alarm the Id is always in correct bounds
-    const char* pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(m_CpuId);
+    const char* pCPUPrefix = m_CpuId.GetCPUPrefix();
 
-    if( Intel::CPU_SANDYBRIDGE == m_CpuId && ((m_CpuFeatures & Intel::CFS_AVX1) == 0))
+    if( Intel::CPU_SANDYBRIDGE == m_CpuId.GetCPU() && !m_CpuId.HasAVX1())
     {
         // Use SSE4 if AVX1 is not supported
-        pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(Intel::CPU_COREI7);
+        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7, m_CpuId.Is64BitOS());
     }
 
     // Load LLVM built-ins module

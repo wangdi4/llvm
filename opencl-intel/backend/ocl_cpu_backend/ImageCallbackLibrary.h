@@ -189,9 +189,9 @@ public:
     /**
     *  ctor
     */
-    ImageCallbackLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures, CPUCompiler* compiler):
-      m_CpuId(cpuId), m_CpuFeatures(cpuFeatures), m_ImageFunctions(NULL), m_Compiler(compiler),
-      m_pRtlBuffer(NULL), m_pModule(NULL) { assert(m_CpuId>=CPU_PENTIUM && m_CpuId<CPU_LAST); }
+    ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
+      m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler),
+      m_pRtlBuffer(NULL), m_pModule(NULL) { }
 
     /**
     *  Loads image module from platform-specific rtl file
@@ -222,8 +222,7 @@ public:
     }
 
 private:
-    Intel::ECPU m_CpuId;
-    unsigned int m_CpuFeatures;
+    Intel::CPUId m_CpuId;
     // Instance with all function pointers. Owned by this class
     ImageCallbackFunctions* m_ImageFunctions;
     // Pointer to Compiler. Owned by this class.

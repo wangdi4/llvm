@@ -183,15 +183,11 @@ public:
                       const CompilerBuildOptions* pOptions,
                       ProgramBuildResult* pResult) const;
 
-    ECPU GetSelectedCPU() const
+    const CPUId &GetCpuId() const
     {
-        return m_selectedCpuId;
+        return m_CpuId;
     }
 
-    unsigned int GetSelectedCPUFeatures() const
-    {
-        return m_selectedCpuFeatures;
-    }
 
     // TODO: make this method non-constant after re-design
     virtual void CreateExecutionEngine(llvm::Module* m) const = 0;
@@ -209,11 +205,10 @@ protected:
     llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
 
 protected:
-    CompilerConfig         m_config;
+    CompilerConfig           m_config;
     
-    llvm::LLVMContext*     m_pLLVMContext;
-    Intel::ECPU            m_selectedCpuId;
-    unsigned int           m_selectedCpuFeatures;
+    llvm::LLVMContext*       m_pLLVMContext;
+    Intel::CPUId             m_CpuId;
     std::vector<std::string> m_forcedCpuFeatures;
 };
 

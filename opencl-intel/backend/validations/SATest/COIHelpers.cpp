@@ -109,8 +109,8 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
       //std::string(SVML_LIBRARY_PATH);
       pathName;
 
-    Intel::ECPU cpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUByName(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "").c_str());
-    const char* pCPUPrefix = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUPrefix(cpuId);
+    Intel::ECPU cpuId = Intel::CPUId::GetCPUByName(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "").c_str());
+    const char* pCPUPrefix = Intel::CPUId::GetCPUPrefix(cpuId, sizeof(void*)==8);
     std::string svmlFileName = std::string("__ocl_svml_") + pCPUPrefix + ".so";
     // Load SVML built-ins library.
     res = COIProcessLoadLibraryFromFile(

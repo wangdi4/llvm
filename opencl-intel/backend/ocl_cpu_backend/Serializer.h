@@ -19,7 +19,6 @@ File Name:  Serializer.h
 #define __SERIALIZER
 #include "exceptions.h"
 #include <malloc.h>
-
 /**
  * This file contains utlity functions which will be used for serialization
  */
@@ -166,7 +165,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             DeserialPrimitive<bool>(&isNullPointer, stream);
             *item = (void*)(isNullPointer ? 0 : 1);
         }
-
     };
 
 }}} // namespace

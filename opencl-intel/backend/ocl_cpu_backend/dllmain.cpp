@@ -32,6 +32,7 @@ File Name:  dllmain.cpp
 #include "plugin_manager.h"
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
+#include "CPUDetect.h"
 
 
 #if defined(_WIN32)
@@ -181,6 +182,8 @@ extern "C"
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();
         BackendConfiguration::Terminate();
+
+        Intel::OpenCL::DeviceBackend::Utils::CPUDetect::Release();
     }
 
     LLVM_BACKEND_API ICLDevBackendServiceFactory* GetDeviceBackendFactory()

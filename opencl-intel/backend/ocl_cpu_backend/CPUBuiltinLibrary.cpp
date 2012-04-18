@@ -42,12 +42,12 @@ void CPUBuiltinLibrary::Load()
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
 
     //Klocwork warning - false alarm the Id is always in correct bounds
-    const char* pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(m_cpuId);
+    const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
 
-    if( Intel::CPU_SANDYBRIDGE == m_cpuId && ((m_cpuFeatures & Intel::CFS_AVX1) == 0))
+    if( Intel::CPU_SANDYBRIDGE == m_cpuId.GetCPU() && !m_cpuId.HasAVX1())
     {
         // Use SSE4 if AVX1 is not supported
-        pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(Intel::CPU_COREI7);
+        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7, sizeof(void*)==8);
     }
 
     // Load SVML functions

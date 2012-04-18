@@ -223,7 +223,7 @@ public:
 private:
     bool isMIC()
     {
-        return (0 == m_cpu.compare(0, 3, "knc")) || (0 == m_cpu.compare(0, 3, "knf")) || (0 == m_cpu.compare(0, 11, "auto-remote"));
+        return m_cpu == "knc" || m_cpu == "knf" || m_cpu == "auto-remote";
     }
 
     size_t              m_targetDescSize;
@@ -313,7 +313,7 @@ public:
 private:
     bool isMIC()
     {
-        return (0 == m_cpu.compare(0, 3, "knf"));
+        return m_cpu == "knf" || m_cpu == "knc";
     }
 
     void copy(const SDEBackendOptions& options)

@@ -51,7 +51,7 @@ void MICBuiltinLibrary::Load()
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
 
     //Klocwork warning - false alarm the Id is always in correct bounds
-    const char* pCPUPrefix = Utils::CPUDetect::GetInstance()->GetCPUPrefix(m_cpuId);
+    const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
     
     // Load LLVM built-ins module
 #if defined (_WIN32)

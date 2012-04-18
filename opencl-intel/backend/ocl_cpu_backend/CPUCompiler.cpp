@@ -75,19 +75,19 @@ namespace Utils
  */
 Intel::ECPU GetOrDetectCpuId(const std::string& cpuArch)
 {
-    Intel::ECPU cpuId = Intel::CPU_LAST;
+    Intel::ECPU cpuId = Intel::DEVICE_INVALID;
     Utils::CPUDetect* pCpuDetect = Utils::CPUDetect::GetInstance();
     
     if ( CPU_ARCH_AUTO == cpuArch ) 
     {
-        cpuId = pCpuDetect->GetCPUId();
+        cpuId = pCpuDetect->GetCPUId().GetCPU();
     }
     else
     {
-        cpuId = pCpuDetect->IsValidCPUName(cpuArch.c_str()) ? pCpuDetect->GetCPUByName(cpuArch.c_str()) : Intel::CPU_LAST;
+        cpuId = Intel::CPUId::IsValidCPUName(cpuArch.c_str()) ? Intel::CPUId::GetCPUByName(cpuArch.c_str()) : Intel::DEVICE_INVALID;
     }
 
-    if( Intel::CPU_LAST == cpuId )
+    if( Intel::DEVICE_INVALID == cpuId )
     {
         throw Exceptions::CompilerException("Unsupported CPU Architecture");
     }
@@ -136,17 +136,17 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     unsigned int  cpuFeatures = CFS_SSE2;
 
     // Add standard features 
-    if( cpuId >= (unsigned int)Utils::CPUDetect::GetInstance()->GetCPUByName("corei7") )
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
     {
         cpuFeatures |= CFS_SSE41 | CFS_SSE42;
     }
 
-    if( cpuId >= (unsigned int)Utils::CPUDetect::GetInstance()->GetCPUByName("sandybridge"))
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
     {
         cpuFeatures |= CFS_AVX1;
     }
 
-    if( cpuId >= (unsigned int)Utils::CPUDetect::GetInstance()->GetCPUByName("core-avx2"))
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core-avx2"))
     {
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
@@ -202,7 +202,7 @@ CPUCompiler::CPUCompiler(const CompilerConfig& config):
     // Initialize the BuiltinModule
     if(config.GetLoadBuiltins())
     {
-        BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_selectedCpuId, m_selectedCpuFeatures);
+        BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
         std::auto_ptr<llvm::Module> spModule( CreateRTLModule(pLibrary) );
         m_pBuiltinModule = new BuiltinModule( spModule.get());
 
@@ -250,19 +250,19 @@ void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
 {
-    m_selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
+    Intel::ECPU selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
     Utils::SplitString( cpuFeatures, ",", m_forcedCpuFeatures);
    
     bool DisableAVX = false;
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
     if( CPU_ARCH_AUTO == cpuName)
     {
-        if( Intel::CPU_SANDYBRIDGE == m_selectedCpuId)
+        if( Intel::CPU_SANDYBRIDGE == selectedCpuId)
         {
             if( std::find( m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end(), "+avx" ) == m_forcedCpuFeatures.end() )
             {
                 // check if the OS is AVX ready - if not, need to disable AVX at all
-                bool AVXReadyOS = ((Intel::CFS_AVX1) & Utils::CPUDetect::GetInstance()->GetCPUFeatureSupport()) != 0;
+                bool AVXReadyOS = Utils::CPUDetect::GetInstance()->GetCPUId().HasAVX1();
 
                 // if the OS is not AVX ready so disable AVX code generation
                 if (false == AVXReadyOS)
@@ -274,13 +274,14 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
         }
     }
 
-    if (!DisableAVX && (m_selectedCpuId == Intel::CPU_SANDYBRIDGE))
+    if (!DisableAVX && (m_CpuId.GetCPU() == Intel::CPU_SANDYBRIDGE))
       m_forcedCpuFeatures.push_back("+avx");
 
-    if (!DisableAVX && (m_selectedCpuId == Intel::CPU_HASWELL))
+    if (!DisableAVX && (m_CpuId.GetCPU() == Intel::CPU_HASWELL))
       m_forcedCpuFeatures.push_back("+avx2");
 
-    m_selectedCpuFeatures = Utils::SelectCpuFeatures( m_selectedCpuId, m_forcedCpuFeatures );
+    unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
+    m_CpuId = CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
 }
 
 void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule) const
@@ -292,7 +293,7 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule) const
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
 {
     // Leaving MArch blank implies using auto-detect
-    llvm::StringRef MCPU  = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
+    llvm::StringRef MCPU  = m_CpuId.GetCPUName();
     llvm::StringRef MArch = "";
 
     string strErr;
@@ -326,6 +327,7 @@ llvm::Module* CPUCompiler::GetRtlModule() const
         return m_pBuiltinModule->GetRtlModule();
 }
 
+
 void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) const
 {
     assert(pModule && "pModule parameter should be valid");
@@ -340,7 +342,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     }
 
     std::string cpuFeatures( Utils::JoinStrings(m_forcedCpuFeatures, ","));
-    std::string cpuName( Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId));
+    std::string cpuName( m_CpuId.GetCPUName());
     TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures);
     
     // Build up all of the passes that we want to do to the module.

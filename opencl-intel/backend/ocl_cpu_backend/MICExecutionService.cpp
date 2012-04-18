@@ -31,11 +31,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 MICExecutionService::MICExecutionService()
 {
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
-    m_TargetDescription.SetCPUArch((unsigned int)Utils::MICDetect::GetInstance()->GetMICId());
-    m_TargetDescription.SetCPUFeatures((unsigned int)Utils::MICDetect::GetInstance()->GetMICFeatureSupport());
+    m_TargetDescription.SetCPUId(Utils::MICDetect::GetInstance()->GetCPUId());
     
-    m_Loader.SetTargetArch((Intel::ECPU)m_TargetDescription.GetCPUArch(),
-        m_TargetDescription.GetCPUFeatures() );
+    m_Loader.SetCPUId(m_TargetDescription.GetCPUId());
    
     m_Loader.Load();
 

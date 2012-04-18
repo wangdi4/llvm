@@ -25,31 +25,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 class CPUDetect : public ProcessorDetect
 {
 public:
-
-  static CPUDetect *  GetInstance() { return &m_Instance; }
-  unsigned            GetCPUFeatureSupport() const { return m_uiCPUFeatures; }
-  ECPU                GetCPUByName(const char *CPUName) const;
-  const char*         GetCPUName() const { return m_CPUNames[m_CPU]; }
-  const char*         GetCPUName(ECPU CPU) const { return m_CPUNames[CPU]; }
-  const char*         GetCPUPrefix() const { return m_CPUPrefixes[m_CPU]; }
-  const char*         GetCPUPrefix(ECPU CPU) const { return m_CPUPrefixes[CPU]; }
-  unsigned            GetLatestSupportedFeature() const { return 1 << m_CPU; }
-  ECPU                GetCPUId() const { return m_CPU; }  
-  bool                IsMICCPU(ECPU cpuId);
-  bool                IsValidCPUName(const char* pCPUName) const;
-
-  static bool         HasAVX1(ECPU CPU) { return CPU >= CPU_SANDYBRIDGE; }
-  static bool         HasAVX2(ECPU CPU) { return CPU >= CPU_HASWELL; }
-  static unsigned     GetLatestSupportedFeature(ECPU CPU) { return (1 << CPU); }
-  
+  static CPUDetect *  GetInstance() {
+      if (!m_Instance)
+          m_Instance = new CPUDetect();
+      return m_Instance;
+  }
+  static void Release() { delete m_Instance; m_Instance = 0; }
+  const CPUId & GetCPUId() { return m_CPUId; }
 private:
     CPUDetect(void);
     ~CPUDetect(void);
 
-    unsigned int m_uiCPUFeatures;
-    ECPU m_CPU;
-
-    static CPUDetect m_Instance;
+    CPUId m_CPUId;
+    static CPUDetect *m_Instance;
 };
 
 inline CPUDetect * CPUInfoDetect() { return CPUDetect::GetInstance(); }

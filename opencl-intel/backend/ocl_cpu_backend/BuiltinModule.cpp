@@ -28,9 +28,8 @@ BuiltinModule::BuiltinModule(llvm::Module* pRtlModule):
 
 BuiltinModule::~BuiltinModule() { }
 
-BuiltinLibrary::BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures):
+BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
     m_cpuId(cpuId),
-    m_cpuFeatures(cpuFeatures),
     m_pRtlBuffer(NULL)
 {
 }

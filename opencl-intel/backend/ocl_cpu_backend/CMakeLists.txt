@@ -237,7 +237,6 @@ set (OCL_UTILS_SOURCE_FILES
     TypeAlignment.cpp
     UndefinedExternalFunctions.cpp
     PreventDivisionCrashes.cpp
-    ProcessorDetect.cpp
     ModuleCleanup.cpp
   )
 

@@ -100,148 +100,93 @@ extern "C" void hw_xgetbv( struct XGETBV_PARAMS *);
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 
-CPUDetect::CPUDetect(void) : m_uiCPUFeatures(0)
+CPUDetect::CPUDetect(void)
 {
-	int viCPUInfo[4] = {-1};
-	int XCRInfo[2] = {0};
+    int viCPUInfo[4] = {-1};
+    int XCRInfo[2] = {0};
 
-	__cpuid(viCPUInfo, 1);
+    __cpuid(viCPUInfo, 1);
 
-	m_uiCPUFeatures = 0;
-	m_CPU = CPU_LAST;
-	if (viCPUInfo[3] & 0x04000000)
-	{
-		m_uiCPUFeatures |= CFS_SSE2;
-		m_CPU = CPU_PENTIUM;		
-	}
+    unsigned int uiCPUFeatures = 0;
+    ECPU CPU = DEVICE_INVALID;
+    if (viCPUInfo[3] & 0x04000000)
+    {
+        uiCPUFeatures |= CFS_SSE2;
+        CPU = CPU_PENTIUM;		
+    }
 
-	if (viCPUInfo[2] & 0x00000001)
-	{
-		m_uiCPUFeatures |= CFS_SSE3;
-		m_CPU = CPU_NOCONA;
-	}
+    if (viCPUInfo[2] & 0x00000001)
+    {
+        uiCPUFeatures |= CFS_SSE3;
+        CPU = CPU_NOCONA;
+    }
 
-	if (viCPUInfo[2] & 0x00000200)
-	{
-		m_uiCPUFeatures |= CFS_SSSE3;
-		m_CPU = CPU_CORE2;
-	}
+    if (viCPUInfo[2] & 0x00000200)
+    {
+        uiCPUFeatures |= CFS_SSSE3;
+        CPU = CPU_CORE2;
+    }
 
-	if (viCPUInfo[2] & 0x00080000)
-	{
-		m_uiCPUFeatures |= CFS_SSE41;				
-		m_CPU = CPU_PENRYN;
-	}
+    if (viCPUInfo[2] & 0x00080000)
+    {
+        uiCPUFeatures |= CFS_SSE41;				
+        CPU = CPU_PENRYN;
+    }
 
-	if (viCPUInfo[2] & 0x00100000)
-	{
-		m_CPU = CPU_COREI7;
-		m_uiCPUFeatures |= CFS_SSE42;
-	}
+    if (viCPUInfo[2] & 0x00100000)
+    {
+        CPU = CPU_COREI7;
+        uiCPUFeatures |= CFS_SSE42;
+    }
 
-	if (viCPUInfo[2] & 0x10000000)
-	{
-		m_CPU = CPU_SANDYBRIDGE;
+    if (viCPUInfo[2] & 0x10000000)
+    {
+        CPU = CPU_SANDYBRIDGE;
 
-		// Check if XSAVE enabled by OS
-		if (viCPUInfo[2] & 0x08000000)
-		{
+        // Check if XSAVE enabled by OS
+        if (viCPUInfo[2] & 0x08000000)
+        {
 
 #if defined(_WIN32) && !defined(_M_X64)
-			// Use this inline asm in Win32 only
-			__asm
-			{
-				// specify 0 for XFEATURE_ENABLED_MASK register
-				mov ecx, 0
-				// XGETBV result in EDX:EAX
-				xgetbv
-				mov XCRInfo[0], eax
-				mov XCRInfo[1], edx
-			}
+            // Use this inline asm in Win32 only
+            __asm
+            {
+                // specify 0 for XFEATURE_ENABLED_MASK register
+                mov ecx, 0
+                    // XGETBV result in EDX:EAX
+                    xgetbv
+                    mov XCRInfo[0], eax
+                    mov XCRInfo[1], edx
+            }
 #else
-			xgetbv( XCRInfo )
+            xgetbv( XCRInfo )
 #endif
-			if ((XCRInfo[0] & 0x00000006) == 0x00000006)
-			{
-				m_uiCPUFeatures |= CFS_AVX1;
-        
-        if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
-        {
-          m_uiCPUFeatures |= CFS_FMA;
+                if ((XCRInfo[0] & 0x00000006) == 0x00000006)
+                {
+                    uiCPUFeatures |= CFS_AVX1;
+
+                    if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
+                    {
+                        uiCPUFeatures |= CFS_FMA;
+                    }
+                    // AVX2 support
+                    viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+                    __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
+                    if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
+                    {
+                        uiCPUFeatures |= CFS_AVX2;
+                        CPU = CPU_HASWELL;
+                    }
+                }
         }
-        // AVX2 support
-        viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
-        __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
-        if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
-        {
-          m_uiCPUFeatures |= CFS_AVX2;
-          m_CPU = CPU_HASWELL;
+    }
 
-        }
-      }
-		}
-	}
-
-	assert(m_CPU!=CPU_LAST && "Unknown CPU");
-
-	m_CPUNames[CPU_PENTIUM]     = "pentium";
-	m_CPUNames[CPU_NOCONA]      = "nicona";
-	m_CPUNames[CPU_CORE2]       = "core2";
-	m_CPUNames[CPU_PENRYN]      = "penryn";
-	m_CPUNames[CPU_COREI7]      = "corei7";
-	m_CPUNames[CPU_SANDYBRIDGE] = "corei7-avx";
-	m_CPUNames[CPU_HASWELL]     = "core-avx2";
-    m_CPUNames[MIC_KNIGHTSFERRY] = "knf";
-
-#if !defined(_M_X64) && !defined(__LP64__)
-	m_CPUPrefixes[CPU_PENTIUM] = "w7";
-	m_CPUPrefixes[CPU_NOCONA] = "t7";
-	m_CPUPrefixes[CPU_CORE2] = "v8";
-	m_CPUPrefixes[CPU_PENRYN] = "p8";
-	m_CPUPrefixes[CPU_COREI7] = "n8";
-	m_CPUPrefixes[CPU_SANDYBRIDGE] = "g9";
-	m_CPUPrefixes[CPU_HASWELL] = "s9";
-    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "b1";
-#else
-	m_CPUPrefixes[CPU_PENTIUM] = "unknown";
-	m_CPUPrefixes[CPU_NOCONA] = "e7";
-	m_CPUPrefixes[CPU_CORE2] = "u8";
-	m_CPUPrefixes[CPU_PENRYN] = "y8";
-	m_CPUPrefixes[CPU_COREI7] = "h8";
-	m_CPUPrefixes[CPU_SANDYBRIDGE] = "e9";
-	m_CPUPrefixes[CPU_HASWELL] = "l9";
-    m_CPUPrefixes[MIC_KNIGHTSFERRY] = "b1";
-#endif
-}
-
-bool CPUDetect::IsValidCPUName(const char* pCPUName) const
-{
-    for (unsigned i = 0; i < CPU_LAST; ++i)
-        if (!strcmp(m_CPUNames[i], pCPUName))
-            return true;
-    return false;
-}
-
-Intel::ECPU CPUDetect::GetCPUByName(const char *CPUName) const
-{
-	for (unsigned i=0; i<CPU_LAST; ++i)
-		if (!strcmp(m_CPUNames[i], CPUName))
-			return (ECPU)i;
-  // Our scripts call it 'sandybridge' while LLVM calls it 'corei7-avx'
-  if (!strcmp("sandybridge", CPUName)) return CPU_SANDYBRIDGE;
-	assert(false && "Unknown CPU Name");
-	return CPU_LAST;
-}
-
-bool CPUDetect::IsMICCPU(Intel::ECPU cpuId)
-{
-    return (cpuId >= MIC_KNIGHTSFERRY);
+    assert(CPU!=DEVICE_INVALID && "Unknown CPU");
+    m_CPUId = CPUId(CPU, uiCPUFeatures, sizeof(void*)==8);
 }
 
 CPUDetect::~CPUDetect(void) 
 {
 }
 
-CPUDetect CPUDetect::m_Instance;
-
-
+CPUDetect* CPUDetect::m_Instance = 0;

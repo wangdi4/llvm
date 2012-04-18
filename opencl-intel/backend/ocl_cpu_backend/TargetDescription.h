@@ -31,27 +31,14 @@ class SerializationStatus;
 class TargetDescription : public IDynamicFunctionsResolver
 {    
 public:
-    TargetDescription() : m_cpuArch(CPU_LAST), m_cpuFeatures(CFS_NONE) { };
+    TargetDescription() { };
 
-    void SetCPUArch(unsigned int cpuArch)
+    void SetCPUId(const Intel::CPUId &cpuID)
     {
-        m_cpuArch = cpuArch;
+        m_cpuID = cpuID;
     }
 
-    unsigned int GetCPUArch() const
-    {
-        return m_cpuArch;
-    }
-
-    void SetCPUFeatures(unsigned int cpuFeatures)
-    {
-        m_cpuFeatures = cpuFeatures;
-    }
-
-    unsigned int GetCPUFeatures() const
-    {
-        return m_cpuFeatures;
-    }
+    const Intel::CPUId &GetCPUId() { return m_cpuID; }
 
     void SetFunctionsTable(const std::map<std::string, unsigned long long int>& functionsTable)
     {
@@ -73,8 +60,7 @@ public:
 
 private:
     // cpu details
-    unsigned int m_cpuArch;
-    unsigned int m_cpuFeatures;
+    Intel::CPUId m_cpuID;
 
     // maps between function name to it's address
     std::map<std::string, unsigned long long int> m_functionsTable;

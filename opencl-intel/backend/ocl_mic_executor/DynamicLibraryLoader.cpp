@@ -1998,8 +1998,6 @@ static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] =
 };
 
 DynamicLibraryLoader::DynamicLibraryLoader():
-    m_cpuId(CPU_LAST),
-    m_cpuFeatures(CFS_NONE),
     m_pLibHandle(NULL)
 { }
 
@@ -2016,10 +2014,9 @@ DynamicLibraryLoader::~DynamicLibraryLoader()
     }
 }
 
-void DynamicLibraryLoader::SetTargetArch(Intel::ECPU cpuId, unsigned int cpuFeatures)
+void DynamicLibraryLoader::SetCPUId(const Intel::CPUId &cpuId)
 {
     m_cpuId = cpuId;
-    m_cpuFeatures = cpuFeatures;
 }
 
 void DynamicLibraryLoader::Load()
@@ -2028,7 +2025,8 @@ void DynamicLibraryLoader::Load()
     std::string strErr;
 
     assert(!m_pLibHandle && "Library already loaded");
-    const char* pCPUPrefix = Utils::MICDetect::GetInstance()->GetMICPrefix(m_cpuId);
+    const CPUId &MIC_CPUId = Utils::MICDetect::GetInstance()->GetCPUId();
+    const char* pCPUPrefix = MIC_CPUId.GetCPUPrefix();
 
     // Load SVML functions
 #if defined (_WIN32)
@@ -2063,8 +2061,8 @@ void DynamicLibraryLoader::GetLibraryFunctions(
     functionsTable.clear();
     char functionPrefix[MAX_PATH];
 
-    const char* pCPUPrefix = Utils::MICDetect::GetInstance()->GetMICPrefix(m_cpuId);
-
+    const CPUId &MIC_CPUId = Utils::MICDetect::GetInstance()->GetCPUId();
+    const char* pCPUPrefix = MIC_CPUId.GetCPUPrefix();
 #if defined (_WIN32)
     assert(false && "Not Implemented");
 #else

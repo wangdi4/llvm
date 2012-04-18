@@ -339,7 +339,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
 
     DEBUG(llvm::dbgs() << "Get image service started.\n");
-    ret = m_pServiceFactory->GetImageService(NULL, spImageService.getOutPtr());
+    ret = m_pServiceFactory->GetImageService(options.get(), spImageService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create image service failed\n");

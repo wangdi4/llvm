@@ -29,11 +29,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 class ProcessorDetect
 {
 public:
-    ProcessorDetect();
-    virtual ~ProcessorDetect();
-protected:
-    const char* m_CPUNames[CPU_LAST];
-    const char* m_CPUPrefixes[CPU_LAST];
+    ProcessorDetect() {};
+    virtual ~ProcessorDetect() {};
 };
 
 }}}} // namespace

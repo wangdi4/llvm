@@ -29,14 +29,13 @@ public:
     DynamicLibraryLoader();
     ~DynamicLibraryLoader();
 
-    void SetTargetArch(Intel::ECPU cpuId, unsigned int cpuFeatures);
+    void SetCPUId(const Intel::CPUId &cpuId);
 
     void Load();
     void GetLibraryFunctions(std::map<std::string, unsigned long long int>& functionsTable);
 
 private:
-    Intel::ECPU m_cpuId;
-    unsigned int m_cpuFeatures;
+    Intel::CPUId m_cpuId;
 
     void* m_pLibHandle;
 };

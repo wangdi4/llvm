@@ -27,8 +27,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class MICBuiltinLibrary : public BuiltinLibrary
 {
 public:
-    MICBuiltinLibrary(Intel::ECPU micId, unsigned int micFeatures) :
-      BuiltinLibrary(micId, micFeatures) { }
+    MICBuiltinLibrary(const Intel::CPUId &cpuID) :
+      BuiltinLibrary(cpuID) { }
     ~MICBuiltinLibrary() { }
 
     void SetContext(const void* pContext);

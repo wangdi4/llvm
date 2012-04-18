@@ -26,8 +26,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUBuiltinLibrary : public BuiltinLibrary
 {
 public:
-    CPUBuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures) :
-    BuiltinLibrary(cpuId, cpuFeatures) { }
+    CPUBuiltinLibrary(const Intel::CPUId &cpuId) :
+    BuiltinLibrary(cpuId) { }
     ~CPUBuiltinLibrary() { }
 
     void Load();

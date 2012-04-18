@@ -27,7 +27,6 @@ MICKernelProperties::MICKernelProperties(KernelProperties* pKernelProps)
     SetTotalImplSize(pKernelProps->GetImplicitLocalMemoryBufferSize());
     SetDAZ( pKernelProps->GetDAZ());
     SetCpuId( pKernelProps->GetCpuId() );
-    SetCpuFeatures( pKernelProps->GetCpuFeatures() );
     SetPrivateMemorySize(pKernelProps->GetPrivateMemorySize());
 }
 
@@ -53,8 +52,7 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
     //Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
     Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_cpuId, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_cpuFeatures, ost);
+    Serializer::SerialPrimitive(&m_cpuId, ost);
 
     // using unsigned long long int instead of size_t is because that size_t
     // varies in it's size relating to the platform (32/64 bit)
@@ -82,8 +80,7 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
     //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
     Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_cpuId, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_cpuFeatures, ist);
+    Serializer::DeserialPrimitive(&m_cpuId, ist);
 
     // using unsigned long long int instead of size_t is because that size_t
     // varies in it's size relating to the platform (32/64 bit)

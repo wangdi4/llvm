@@ -56,17 +56,16 @@ public:
     /**
      * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been loaded before.
      */
-    bool InitLibrary(CompilerConfig& config, bool isCpu, Intel::ECPU& ArchId, uint32_t& ArchFeatures);
+    bool InitLibrary(CompilerConfig& config, bool isCpu, Intel::CPUId& cpuId);
 
     /***
     * Returns the image callback functions per architecture
     ****/
 
-    ImageCallbackFunctions* getCallbackFunctions(Intel::ECPU Id, uint32_t Features);
+    ImageCallbackFunctions* getCallbackFunctions(const Intel::CPUId&);
 
 private:
-    typedef std::pair<int32_t, int32_t> IdFeatures;
-    typedef std::map<IdFeatures, ImageCallbackLibrary*> ImageCallbackMap;
+    typedef std::map<Intel::CPUId, ImageCallbackLibrary*> ImageCallbackMap;
 
     static ImageCallbackManager* s_pInstance;
     ImageCallbackMap m_ImageCallbackLibs;

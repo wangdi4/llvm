@@ -26,6 +26,7 @@ File Name:  Binary.h
 #include "ExplicitLocalMemArgument.h"
 #include "TypeAlignment.h"
 #include "IAbstractBackendFactory.h"
+#include "TargetArch.h"
 
 namespace llvm {
     class Module;
@@ -89,8 +90,7 @@ public:
     size_t GetLocalWIidsSize() const {return m_stWIidsBufferSize;}
     size_t GetPrivateMemorySize() const    {return m_stPrivateMemorySize;}
     bool   GetDAZ() const                  {return m_DAZ; }
-    unsigned int GetCpuId() const          {return m_cpuId; }
-    unsigned int GetCpuFeatures() const    {return m_cpuFeatures;}
+    const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
     size_t GetImplicitLocalMemoryBufferSize() const {return m_totalImplSize;}
     
@@ -120,8 +120,7 @@ private:
     unsigned int            m_uiWGSize;
     size_t                  m_totalImplSize;
     bool                    m_DAZ;
-    unsigned int            m_cpuId;
-    unsigned int            m_cpuFeatures;
+    Intel::CPUId            m_cpuId;
     bool                    m_bJitCreateWIids;
     // Vectorizer data
     bool                    m_bVectorized;

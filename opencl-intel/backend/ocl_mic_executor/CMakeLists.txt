@@ -206,7 +206,6 @@ set(TARGET_SOURCES
     MICDeviceServiceFactory.cpp
     DynamicLibraryLoader.cpp
     MICDetect.cpp
-    ../ocl_cpu_backend/ProcessorDetect.cpp
     ../ocl_cpu_backend/shared_builtin_functions.cpp
     ../ocl_cpu_backend/mic_builtin_functions.cpp
     ../ocl_cpu_backend/TargetDescription.cpp

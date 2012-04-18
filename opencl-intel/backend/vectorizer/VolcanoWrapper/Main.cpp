@@ -242,8 +242,7 @@ bool Vectorizer::runOnModule(Module &M)
         }
 
         VectorizationHeuristics* vhe = new VectorizationHeuristics(
-            (Intel::ECPU)m_pConfig->GetCpuId(), 
-            (Intel::ECPUFeatureSupport)m_pConfig->GetCpuFeatures());
+            m_pConfig->GetCpuId());
         FunctionPassManager fpm(&M);
         fpm.add(createDeadCodeEliminationPass());
         fpm.add(vhe);
@@ -283,6 +282,7 @@ bool Vectorizer::runOnModule(Module &M)
         V_PRINT(wrapper, "\nBefore vectorization passes!\n");
         // Function-wide (vectorization)
         {
+            Intel::CPUId cpuId = m_pConfig->GetCpuId();
             FunctionPassManager fpm2(&M);
             
             // Register predicate
@@ -310,12 +310,11 @@ bool Vectorizer::runOnModule(Module &M)
             fpm2.add(resolver);
             fpm2.add(createInstructionCombiningPass());
             fpm2.add(createCFGSimplificationPass());
-            if (m_pConfig->GetCpuFeatures() & Intel::CFS_AVX1) {
+            if (cpuId.HasAVX1()) {
               fpm2.add(new intel::X86Lower(X86Lower::AVX));
-            } else if (m_pConfig->GetCpuFeatures() &
-                      (Intel::CFS_SSE41 | Intel::CFS_SSE42)){
+            } else if (cpuId.HasSSE41() || cpuId.HasSSE42()) {
               fpm2.add(new intel::X86Lower(X86Lower::SSE4));
-            } else if (m_pConfig->GetCpuFeatures() & Intel::CFS_SSE2){
+            } else if (cpuId.HasSSE2()){
               fpm2.add(new intel::X86Lower(X86Lower::SSE2));
             }
             fpm2.add(createPromoteMemoryToRegisterPass());

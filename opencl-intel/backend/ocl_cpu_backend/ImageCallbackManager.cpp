@@ -66,7 +66,7 @@ ImageCallbackManager* ImageCallbackManager::GetInstance()
 }
 
 
-bool ImageCallbackManager::InitLibrary(CompilerConfig& config, bool isCpu, Intel::ECPU& ArchId, uint32_t& ArchFeatures)
+bool ImageCallbackManager::InitLibrary(CompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
 {
   // MIC is not supported currently. Return.
   if(!isCpu)
@@ -80,19 +80,17 @@ bool ImageCallbackManager::InitLibrary(CompilerConfig& config, bool isCpu, Intel
       // TODO: enable with MIC is support
       //spCompiler = std::auto_ptr<Compiler>(new MICCompiler(config));
   }
-  // Retrieve CPU and CPUFeatures
-  ArchId=spCompiler->GetSelectedCPU();
-  ArchFeatures=spCompiler->GetSelectedCPUFeatures();
-  const IdFeatures key(std::make_pair(ArchId, ArchFeatures));
+  // Retrieve CPU ID
+  cpuId = spCompiler->GetCpuId();
 
   // Find library for this platform if it has been built earlier
-  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(key);
+  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
   if( it != m_ImageCallbackLibs.end() )
       return true;
 
 
   // ImageCallbackLibrary becomes the owner of compiler. So release compiler here
-  std::auto_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(ArchId, ArchFeatures, spCompiler.release()));
+  std::auto_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
   spLibrary->Load();
   if ( ! spLibrary->Build() ){
       return false;   //something went wrong
@@ -100,20 +98,19 @@ bool ImageCallbackManager::InitLibrary(CompilerConfig& config, bool isCpu, Intel
   if (! spLibrary->LoadExecutable()){
       return false;   // failed to load library to the device
   }
-  m_ImageCallbackLibs[key] = spLibrary.release();
+  m_ImageCallbackLibs[cpuId] = spLibrary.release();
   return true;
 }
 
-ImageCallbackFunctions* ImageCallbackManager::getCallbackFunctions(Intel::ECPU Id, uint32_t Features)
+ImageCallbackFunctions* ImageCallbackManager::getCallbackFunctions(const Intel::CPUId &cpuId)
 {
-    const IdFeatures key(std::make_pair(Id, Features));
-    ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(key);
+    ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
     if (it ==  m_ImageCallbackLibs.end() )
     {
         throw Exceptions::CompilerException("Requested image function for library that hasn't been loaded");
     }
 
-    return m_ImageCallbackLibs[key]->getImageCallbackFunctions();
+    return m_ImageCallbackLibs[cpuId]->getImageCallbackFunctions();
 }
 
 

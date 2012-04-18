@@ -212,8 +212,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetHintWGSize(hintWGSize);
     pProps->SetTotalImplSize(info.stTotalImplSize);
     pProps->SetDAZ( pProgram->GetDAZ());
-    pProps->SetCpuId( GetCompiler()->GetSelectedCPU() );
-    pProps->SetCpuFeatures( GetCompiler()->GetSelectedCPUFeatures() );
+    pProps->SetCpuId( GetCompiler()->GetCpuId() );
     return pProps;
 }
 

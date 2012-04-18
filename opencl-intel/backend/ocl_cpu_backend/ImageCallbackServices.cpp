@@ -69,7 +69,7 @@ const cl_image_format supportedImageFormats[] = {
 
 ImageCallbackService::ImageCallbackService(CompilerConfiguration& config, bool isCpu)
 {
-  ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_ArchId, m_ArchFeatures);
+  ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);
 }
 
 const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats){
@@ -168,7 +168,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 
     pImageAuxData->dimmask = (1<<(pImageAuxData->dim_count*4))-1;
     
-    ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_ArchId, m_ArchFeatures);
+    ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_CpuId);
 
     //////////////////The float coordinates callbacks
 

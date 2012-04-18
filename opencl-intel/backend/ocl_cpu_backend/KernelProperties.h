@@ -24,6 +24,7 @@ File Name:  KernelProperties.h
 #include "cl_dev_backend_api.h"
 #include "ICLDevBackendKernel.h"
 #include "TLLVMKernelInfo.h"
+#include "TargetArch.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -107,22 +108,19 @@ public:
     void SetHintWGSize(const size_t* psize );
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
-    void SetCpuId( unsigned int cpuId ) { m_cpuId = cpuId; }
-    void SetCpuFeatures( unsigned int cpuFeatures ) { m_cpuFeatures = cpuFeatures; }
+    void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetJitCreateWIids (bool value) { m_bJitCreateWIids = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
     const size_t* GetHintWGSize()     const { return m_hintWGSize; }
     bool          GetDAZ()            const { return m_DAZ; }
-    unsigned int  GetCpuId()          const { return m_cpuId; }
-    unsigned int  GetCpuFeatures()    const { return m_cpuFeatures; }
+    const CPUId   &GetCpuId()          const { return m_cpuId; }
     bool          GetJitCreateWIids() const { return m_bJitCreateWIids;}
 
 protected:
     bool m_DAZ;
-    unsigned int m_cpuId;       // selected cpuId for current kernel codegen
-    unsigned int m_cpuFeatures; // selected cpu features /see ECPUFeatures enum
+    Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
     unsigned int m_optWGSize;
     size_t m_reqdWGSize[MAX_WORK_DIM];  // Required work-group size that was declared during kernel compilation
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation

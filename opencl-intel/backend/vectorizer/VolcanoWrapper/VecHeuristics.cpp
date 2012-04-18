@@ -35,11 +35,12 @@ bool VectorizationHeuristics::runOnFunction(Function &F) {
   assert(m_preferedVectorSize == 0 && "Make sure that this is the first run");
   if (PrintVecHue){
     if ( VecHueHasAVX )
-      m_featureSupport |= Intel::CFS_AVX1;
+      m_cpuid.ToggleFeatureOn(Intel::CFS_AVX1);
     if ( VecHueHasAVX2 )
-      m_featureSupport |= Intel::CFS_AVX2;
+      m_cpuid.ToggleFeatureOn(Intel::CFS_AVX2);
+    //TODO-KNC: does the Vectorizer care if it's KNF or KNC?
     if ( VecHueIsMIC )
-      m_cpuid = Intel::MIC_KNIGHTSFERRY;
+      m_cpuid.SetCPU(Intel::MIC_KNF);
   }
   /*
    *  Legality checks
@@ -442,14 +443,14 @@ bool VectorizationHeuristics::isGEPHeavy(Function &F) {
 }
 
 bool VectorizationHeuristics::isMic()const{
-  return Intel::MIC_KNIGHTSFERRY == m_cpuid;
+  return m_cpuid.IsMIC();
 }
 
 bool VectorizationHeuristics::hasAVX()const{
-  return 0 != (m_featureSupport & Intel::CFS_AVX1);
+  return m_cpuid.HasAVX1();
 }
 bool VectorizationHeuristics::hasAVX2()const{
-  return 0 != (m_featureSupport & Intel::CFS_AVX2);
+  return m_cpuid.HasAVX2();
 }
 
 bool VectorizationHeuristics::isCD(const BasicBlock* x, const BasicBlock *y) {

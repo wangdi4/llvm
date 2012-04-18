@@ -50,8 +50,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 CPUExecutable::CPUExecutable(const Binary* pBin):
     Executable(pBin)
 {
-    m_hasAVX1 = (Intel::CFS_AVX1 & pBin->GetCpuFeatures()) != 0;
-    m_hasAVX2 = (Intel::CFS_AVX2 & pBin->GetCpuFeatures()) != 0;
+    m_hasAVX1 = pBin->GetCpuId().HasAVX1();
+    m_hasAVX2 = pBin->GetCpuId().HasAVX2();
 }
 
 // Prepares current thread for the executable execution

@@ -380,7 +380,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
     // Remove unneeded functions from the module. Currently run only under MIC
     // *** keep this optimization last, or at least after function inlining! ***
-    if (!pConfig->GetLibraryModule() && pConfig->GetCpuId() == Intel::MIC_KNIGHTSFERRY)
+    if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().IsMIC())
       m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 }
 

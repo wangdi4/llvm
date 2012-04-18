@@ -68,9 +68,9 @@ extern const char* CPU_ARCH_AUTO;
 
 void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
 {
-    // TODO[MA]: change this later
-    m_selectedCpuId = Intel::MIC_KNIGHTSFERRY;
-    m_selectedCpuFeatures = 0;
+    Intel::ECPU CPU = Intel::CPUId::GetCPUByName(config.GetCpuArch().c_str());
+    m_CpuId = Intel::CPUId(CPU, 0, true);
+    assert(m_CpuId.IsMIC());
 }
 
 MICCompiler::MICCompiler(const MICCompilerConfig& config):
@@ -86,7 +86,7 @@ MICCompiler::MICCompiler(const MICCompilerConfig& config):
         // Initialize the BuiltinModule
         // TODO: fix target id in case of multi-MIC cards
         BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadMICLibrary(
-            0, m_selectedCpuId, m_selectedCpuFeatures, &config.GetTargetDescription());
+            0, m_CpuId, &config.GetTargetDescription());
         m_ResolverWrapper.SetResolver(pLibrary);
         std::auto_ptr<llvm::Module> spModule( CreateRTLModule(pLibrary) );
         m_pBuiltinModule = new BuiltinModule( spModule.get());
@@ -131,7 +131,7 @@ const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module) 
 llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const
 {
     llvm::StringRef MTriple = pRtlModule->getTargetTriple();
-    llvm::StringRef MCPU    = Utils::CPUDetect::GetInstance()->GetCPUName((Intel::ECPU)m_selectedCpuId);
+    llvm::StringRef MCPU    = m_CpuId.GetCPUName();
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs;
 

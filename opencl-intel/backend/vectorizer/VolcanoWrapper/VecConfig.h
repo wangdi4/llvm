@@ -8,7 +8,7 @@ namespace intel {
 class OptimizerConfig
 {
 public:
-    OptimizerConfig( int cpuId, int tranposeSize, int features,
+    OptimizerConfig( const Intel::CPUId &cpuId, int tranposeSize,
             std::vector<int> dumpIROptionAfter,
             std::vector<int> dumpIROptionBefore,
             std::string dumpIRDir,
@@ -19,7 +19,6 @@ public:
             bool libraryModule):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
-      m_cpuFeatures(features),
       m_dumpIROptionsAfter(dumpIROptionAfter),
       m_dumpIROptionsBefore(dumpIROptionBefore),
       m_dumpIRDir(dumpIRDir),
@@ -30,9 +29,8 @@ public:
       m_libraryModule(libraryModule)
     {}
 
-    int GetCpuId() const { return m_cpuId; }
+    const Intel::CPUId &GetCpuId() const { return m_cpuId; }
     int GetTransposeSize() const { return m_transposeSize; }
-    int GetCpuFeatures() const{ return m_cpuFeatures; }
 
     const std::vector<int>* GetIRDumpOptionsAfter() const{ return &m_dumpIROptionsAfter; }
     const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
@@ -46,9 +44,8 @@ public:
     bool GetLibraryModule()   const { return m_libraryModule; }
 
 private:
-    int m_cpuId;
+    Intel::CPUId m_cpuId;
     int m_transposeSize;
-    int m_cpuFeatures;
 
     std::vector<int> m_dumpIROptionsAfter;
     std::vector<int> m_dumpIROptionsBefore;

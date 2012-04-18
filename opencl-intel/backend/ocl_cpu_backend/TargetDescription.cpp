@@ -32,8 +32,13 @@ unsigned long long int TargetDescription::GetFunctionAddress(const std::string& 
 
 void TargetDescription::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
-    Serializer::SerialPrimitive<unsigned int>(&m_cpuArch, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_cpuFeatures, ost);
+    //TODO: This class should not know how to serialize CPUId
+    unsigned Is64BitOS = m_cpuID.Is64BitOS() ? 1 : 0;
+    unsigned CPU = m_cpuID.GetCPU();
+    unsigned CPUFeatures = m_cpuID.GetCPUFeatureSupport();
+    Serializer::SerialPrimitive(&CPU, ost);
+    Serializer::SerialPrimitive(&CPUFeatures, ost);
+    Serializer::SerialPrimitive(&Is64BitOS, ost);
 
     unsigned int mapCount = m_functionsTable.size();
     Serializer::SerialPrimitive<unsigned int>(&mapCount, ost);
@@ -48,8 +53,16 @@ void TargetDescription::Serialize(IOutputStream& ost, SerializationStatus* stats
 
 void TargetDescription::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
-    Serializer::DeserialPrimitive<unsigned int>(&m_cpuArch, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_cpuFeatures, ist);
+    //TODO: This class should not know how to deserialize CPUId
+    unsigned Is64BitOS;
+    unsigned CPU;
+    unsigned CPUFeatures;
+    Serializer::DeserialPrimitive(&CPU, ist);
+    Serializer::DeserialPrimitive(&CPUFeatures, ist);
+    Serializer::DeserialPrimitive(&Is64BitOS, ist);
+    m_cpuID = Intel::CPUId(Intel::ECPU(CPU),
+            Intel::ECPUFeatureSupport(CPUFeatures),
+            Is64BitOS==0 ? false : true);
 
     unsigned int mapCount = 0;
     Serializer::DeserialPrimitive<unsigned int>(&mapCount, ist);

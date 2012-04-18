@@ -74,9 +74,7 @@ public:
     void Release(){};
 
 private:
-    Intel::ECPU m_ArchId;
-    unsigned int m_ArchFeatures;
-
+    Intel::CPUId m_CpuId;
 };
 
 }}} // namespace

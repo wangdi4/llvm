@@ -248,9 +248,8 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     //
     // Apply IR=>IR optimizations
     //
-    intel::OptimizerConfig optimizerConfig( m_selectedCpuId, 
+    intel::OptimizerConfig optimizerConfig( m_CpuId, 
                                             m_config.GetTransposeSize(), 
-                                            m_selectedCpuFeatures,
                                             m_config.GetIRDumpOptionsAfter(),
                                             m_config.GetIRDumpOptionsBefore(),
                                             m_config.GetDumpIRDir(),

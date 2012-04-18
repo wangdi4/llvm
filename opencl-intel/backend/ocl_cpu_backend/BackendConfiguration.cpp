@@ -40,11 +40,11 @@ namespace Utils
     {
         if(0 == strcmp(cpuArch, CPU_ARCH_AUTO)) return CPU_MODE;
         if(0 == strcmp(cpuArch, CPU_ARCH_AUTO_REMOTE)) return MIC_MODE;
-        if (!Utils::CPUDetect::GetInstance()->IsValidCPUName(cpuArch))
+        if (!Intel::CPUId::IsValidCPUName(cpuArch))
         {
             throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
         }
-        return (Utils::CPUDetect::GetInstance()->IsMICCPU(Utils::CPUDetect::GetInstance()->GetCPUByName(cpuArch))) 
+        return (Intel::CPUId::IsMIC(Intel::CPUId::GetCPUByName(cpuArch))) 
             ? MIC_MODE : CPU_MODE;
     }
 }

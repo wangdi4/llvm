@@ -20,10 +20,9 @@ namespace intel {
   class VectorizationHeuristics : public FunctionPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-    VectorizationHeuristics(Intel::ECPU cpuId=Intel::CPU_LAST, 
-      Intel::ECPUFeatureSupport featureSupport=Intel::CFS_NONE): 
+    VectorizationHeuristics(Intel::CPUId cpuId = Intel::CPUId()): 
       FunctionPass(ID), m_preferedVectorSize(0), m_hasBarrier(false),
-      m_mayVectorize(false), m_featureSupport(featureSupport), m_cpuid(cpuId),
+      m_mayVectorize(false), m_cpuid(cpuId),
       m_WIAnalysisPass(0) {
 
       initializeLoopInfoPass(*PassRegistry::getPassRegistry());
@@ -151,10 +150,8 @@ namespace intel {
     bool m_shouldUseHeuristics;
     /// Indicates that the vectorization is impossible
     bool m_mayVectorize;
-    /// Features supported by the architecture
-    int m_featureSupport;
     /// Is for MIC architecture
-    Intel::ECPU m_cpuid;
+    Intel::CPUId m_cpuid;
     /// Last instance of WIAnalysisPass
     WIAnalysis *m_WIAnalysisPass;
   };

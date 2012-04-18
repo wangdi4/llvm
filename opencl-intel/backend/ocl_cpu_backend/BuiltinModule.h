@@ -51,7 +51,7 @@ private:
 class BuiltinLibrary : public IDynamicFunctionsResolver
 {
 public:
-    BuiltinLibrary(Intel::ECPU cpuId, unsigned int cpuFeatures);
+    BuiltinLibrary(const Intel::CPUId&);
     ~BuiltinLibrary();
 
     llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer.get(); }
@@ -68,8 +68,7 @@ public:
     virtual void Load() = 0;
 
 protected:
-    const Intel::ECPU   m_cpuId;
-    const unsigned int  m_cpuFeatures;
+    const Intel::CPUId   m_cpuId;
     llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
 };
 
