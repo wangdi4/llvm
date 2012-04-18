@@ -109,6 +109,14 @@ extern "C" {
 	OCL_SVML_P1_F8_F8(func,svmlfunc)				\
 	OCL_SVML_P1_F16_F16(func,svmlfunc)
 
+#define OCL_SVML_P1_vDvD_ALL_MANUAL(func,svmlfunc)	\
+	OCL_SVML_P1_D1_D1(func,svmlfunc)				\
+	OCL_SVML_P1_D2_D2(func,svmlfunc)				\
+	OCL_SVML_P1_D3_D3(func,svmlfunc)				\
+	OCL_SVML_P1_D4_D4(func,svmlfunc)				\
+	OCL_SVML_P1_D8_D8(func,svmlfunc)				\
+	OCL_SVML_P1_D16_D16(func,svmlfunc)
+
 #define OCL_SVML_P1_vFvF_ALL(func)		\
 	OCL_SVML_P1_F1_F1(func,func)		\
 	OCL_SVML_P1_F2_F2(func,func)		\
@@ -3887,7 +3895,18 @@ OCL_INTR_P1_vFvF_ALL_AS_F1(half_tan)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_sin,sin)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_tan,tan)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_cos,cos)
+
+// SVML1.0 has accuracy issue in exp on Haswell on Win64
+// See release notes
+// we switch to exp until we port to SVML20
+// todo: remove when port to SVML2.0
+#if defined(__AVX2__)
+OCL_SVML_P1_vFvF_ALL_MANUAL(native_exp,exp)
+OCL_SVML_P1_vDvD_ALL_MANUAL(native_exp,exp)
+#else
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp,exp)
+#endif 
+
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp2,exp2)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp10,exp10)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_log,log)
