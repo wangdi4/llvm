@@ -38,6 +38,9 @@ namespace Validation { namespace Exception {
 
     /// Exception for reporting back-end failure
     DEFINE_VALIDATION_EXCEPTION(BackendException)
+
+    /// Exception for invalid execution environment
+    DEFINE_VALIDATION_EXCEPTION(InvalidEnvironmentException)
 }}
 
 #endif // SATest_EXCEPTION_H

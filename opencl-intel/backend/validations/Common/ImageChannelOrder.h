@@ -86,38 +86,32 @@ namespace Validation
         /// default ctor
         ImageChannelOrderValWrapper() 
             : m_value(UNSPECIFIED_CHANNEL_ORDER)
-        {
-            if (!m_isStaticInit) initStatic();
-        };
+        {}
 
         explicit ImageChannelOrderValWrapper(const ImageChannelOrderVal& value) : m_value(value) 
         {
-            if (!m_isStaticInit) initStatic();
-            // if there is no metadata for value
             CheckValueAndThrow(value);
-        };
+        }
 
         ImageChannelOrderVal GetValue() const
         {
             return m_value;
-        };
+        }
 
         void SetValue(ImageChannelOrderVal val)
         {
             // if there is no metadata for value
             CheckValueAndThrow(val);
             m_value = val;
-        };
+        }
 
         /// @return number of channels
-        std::size_t GetSize() const { return m_metaData[m_value].m_size; };
+        std::size_t GetSize() const { return m_metaData[m_value].m_size; }
         /// @returns  Text representation of image channel order
-        std::string ToString() const { return m_metaData[m_value].m_toString; };
+        std::string ToString() const { return m_metaData[m_value].m_toString; }
 
         static ImageChannelOrderVal ValueOf(const std::string& str)
         {
-            // init static members
-            if (!m_isStaticInit) initStatic(); 
             // ImageChannelOrderVal first element must be 0 and last element must be INVALID_CHANNEL_ORDER
             for (int  i = 0; i < INVALID_CHANNEL_ORDER; i++)
             {
@@ -141,14 +135,11 @@ namespace Validation
 
         inline void CheckValueAndThrow(const ImageChannelOrderVal& in_value)
         {
-            assert(m_isStaticInit);
             if (m_metaData.count(in_value) < 1)
             {
                 throw Exception::InvalidArgument("Invalid arg. No metadata for this ImageChannelOrder");
             }
         }
-
-        void static initStatic();
 
         class ImageChannelOrderMetadata
         {
@@ -163,8 +154,10 @@ namespace Validation
             std::string m_toString;
         };
 
-        static std::map<ImageChannelOrderVal, ImageChannelOrderMetadata> m_metaData;
-        static bool m_isStaticInit;
+        typedef std::map<ImageChannelOrderVal, ImageChannelOrderMetadata> ImageChannelOrderMetadataMap;
+        static ImageChannelOrderMetadataMap m_metaData;
+        static ImageChannelOrderMetadataMap initStaticMap();
+
     };
 
 } // namespace Validation

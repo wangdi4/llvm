@@ -24,24 +24,24 @@ File Name:  NEATVector.h
 
 namespace Validation
 {
-  struct NEATVector
-  {
-  public:
-    // default ctor. to enable inserting into structures with default ctor
-    NEATVector() {}
+    struct NEATVector
+    {
+    public:
+        // default ctor. to enable inserting into structures with default ctor
+        NEATVector() {}
 
-    NEATVector(VectorWidth width);
+        NEATVector(VectorWidth width);
 
-    ~NEATVector();
-    void SetWidth(VectorWidth width);
-    VectorWidth GetWidth() const;
-    size_t GetSize() const;
-    NEATValue& operator[](int i);
-    const NEATValue& operator[](int i) const;
-  private:
-    VectorWidthWrapper m_Width;
-    NEATValue m_Values[MAX_VECTOR_WIDTH];
-  };
+        ~NEATVector();
+        void SetWidth(VectorWidth width);
+        VectorWidth GetWidth() const;
+        size_t GetSize() const;
+        NEATValue& operator[](int i);
+        const NEATValue& operator[](int i) const;
+    private:
+        VectorWidthWrapper m_Width;
+        NEATValue m_Values[MAX_VECTOR_WIDTH];
+    };
 }
 
 #endif // NEAT_VECTOR_H

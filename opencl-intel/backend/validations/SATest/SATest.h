@@ -52,6 +52,10 @@ namespace Validation
         /// @throws TestFailException In case the test failed
         void Run(TEST_MODE mode, IRunConfiguration* pRunConfiguration);
 
+        /// @brief Validates execution environment of SATest
+        /// @throws InvalidEnvironmentException in case of invalid environment
+        static void ValidateEnvironment();
+
     private:
         /// @brief Loads or re-generate reference output.
         void LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunResult* pResult);

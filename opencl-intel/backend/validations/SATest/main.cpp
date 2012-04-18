@@ -233,6 +233,12 @@ int main(int argc, char *argv[])
         test.Run( TestMode, runConfig);
         return 0;
     }
+    catch (Exception::InvalidEnvironmentException e)
+    {
+        // Exception of invalid execution environment of SATest
+        std::cerr << "InvalidEnvironment exception occurred: " << e.what() << endl;
+        return int(e.GetErrorCode());
+    }
     catch (Exception::TestFailException e)
     {
         // Test does not match reference

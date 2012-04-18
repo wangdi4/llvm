@@ -20,21 +20,17 @@ File Name:  VectorWidth.cpp
 
 using namespace Validation;
 
-bool VectorWidthWrapper::m_isStaticInit = false;
+VectorWidthWrapper::VectorWidthMetadataMap VectorWidthWrapper::m_metaData(initStaticMap());
 
-std::map<VectorWidth, VectorWidthWrapper::VectorWidthMetadata> VectorWidthWrapper::m_metaData;
-
-void VectorWidthWrapper::initStatic() 
+VectorWidthWrapper::VectorWidthMetadataMap VectorWidthWrapper::initStaticMap() 
 {
-	// TODO: not thread safe
-	m_metaData.clear();
-
-	m_metaData[V1] = VectorWidthWrapper::VectorWidthMetadata(1, "v1");
-	m_metaData[V2] = VectorWidthWrapper::VectorWidthMetadata(2, "v2");
-	m_metaData[V3] = VectorWidthWrapper::VectorWidthMetadata(3, "v3");
-	m_metaData[V4] = VectorWidthWrapper::VectorWidthMetadata(4, "v4");
-	m_metaData[V8] = VectorWidthWrapper::VectorWidthMetadata(8, "v8");
-	m_metaData[V16] = VectorWidthWrapper::VectorWidthMetadata(16, "v16");
-	m_isStaticInit = true;
+    VectorWidthMetadataMap metaData;
+    metaData[V1] = VectorWidthWrapper::VectorWidthMetadata(1, "v1");
+    metaData[V2] = VectorWidthWrapper::VectorWidthMetadata(2, "v2");
+    metaData[V3] = VectorWidthWrapper::VectorWidthMetadata(3, "v3");
+    metaData[V4] = VectorWidthWrapper::VectorWidthMetadata(4, "v4");
+    metaData[V8] = VectorWidthWrapper::VectorWidthMetadata(8, "v8");
+    metaData[V16] = VectorWidthWrapper::VectorWidthMetadata(16, "v16");
+    return metaData;
 }
 

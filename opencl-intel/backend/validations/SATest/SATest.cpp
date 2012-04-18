@@ -45,6 +45,8 @@ SATest::SATest(RunnerFactory::PROGRAM_TYPE programType,
     m_pProgramConfiguration(NULL),
     m_pProgram(NULL)
 {
+    // validate execution environment
+    ValidateEnvironment();
     m_pProgramConfiguration = m_factory.CreateProgramConfiguration(configFileName, baseDirectory);
     m_pProgram = m_factory.CreateProgram( m_pProgramConfiguration, pRunConfiguration);
 }
@@ -158,3 +160,15 @@ void SATest::LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunR
     }
 }
 
+void SATest::ValidateEnvironment()
+{
+    // fail if environment variable OCLBACKEND_PLUGINS is enabled
+    // this will cause improper functionality of Volcano backend 
+    // Variable string is defined in trunk/src/backend/ocl_cpu_backend/plugin_manager.cpp
+    if(NULL != getenv("OCLBACKEND_PLUGINS"))
+    {
+        throw Exception::InvalidArgument(
+            "Environment variable OCLBACKEND_PLUGINS exists. "
+            "For correct SATest functionality please remove it.");
+    }
+}

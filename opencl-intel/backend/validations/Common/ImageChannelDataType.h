@@ -58,9 +58,9 @@ namespace Validation
 
 
 #define DEF_IMAGE_CHANNELTYPE_TO_CTYPE(_CTYPE, _PIXTYPE) \
-template<> class ImageChannelDataTypeValToCType<_PIXTYPE>{\
+    template<> class ImageChannelDataTypeValToCType<_PIXTYPE>{\
     public:\
-        typedef _CTYPE type; };
+    typedef _CTYPE type; };
 
 DEF_IMAGE_CHANNELTYPE_TO_CTYPE(int8_t,      OpenCL_SNORM_INT8)
 DEF_IMAGE_CHANNELTYPE_TO_CTYPE(int16_t,     OpenCL_SNORM_INT16)
@@ -79,31 +79,31 @@ DEF_IMAGE_CHANNELTYPE_TO_CTYPE(CFloat16,    OpenCL_HALF_FLOAT)
 DEF_IMAGE_CHANNELTYPE_TO_CTYPE(float,       OpenCL_FLOAT)
 
 
-/// helper function to convert OpenCL pixel format to  TypeDesc::TypeVal type
-inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val )
-{
-    TypeVal ret;
-    switch(val){
-    case OpenCL_SNORM_INT8 :            ret = TCHAR; break;
-    case OpenCL_SNORM_INT16 :           ret = TSHORT; break;
-    case OpenCL_UNORM_INT8 :            ret = TUCHAR; break;
-    case OpenCL_UNORM_INT16 :           ret = TUSHORT; break;
-    case OpenCL_UNORM_SHORT_565 :       ret = TUSHORT; break;
-    case OpenCL_UNORM_SHORT_555 :       ret = TUSHORT; break;
-    case OpenCL_UNORM_INT_101010 :      ret = TUINT; break;
-    case OpenCL_SIGNED_INT8 :           ret = TCHAR; break;
-    case OpenCL_SIGNED_INT16 :          ret = TSHORT; break;
-    case OpenCL_SIGNED_INT32 :          ret = TINT; break;
-    case OpenCL_UNSIGNED_INT8 :         ret = TUCHAR; break;
-    case OpenCL_UNSIGNED_INT16 :        ret = TUSHORT; break;
-    case OpenCL_UNSIGNED_INT32 :        ret = TUINT; break;
-    case OpenCL_HALF_FLOAT :            ret = THALF; break;
-    case OpenCL_FLOAT :                 ret = TFLOAT; break;
-    default:
-        throw Exception::InvalidArgument("");
+    /// helper function to convert OpenCL pixel format to  TypeDesc::TypeVal type
+    inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val )
+    {
+        TypeVal ret;
+        switch(val){
+        case OpenCL_SNORM_INT8 :            ret = TCHAR; break;
+        case OpenCL_SNORM_INT16 :           ret = TSHORT; break;
+        case OpenCL_UNORM_INT8 :            ret = TUCHAR; break;
+        case OpenCL_UNORM_INT16 :           ret = TUSHORT; break;
+        case OpenCL_UNORM_SHORT_565 :       ret = TUSHORT; break;
+        case OpenCL_UNORM_SHORT_555 :       ret = TUSHORT; break;
+        case OpenCL_UNORM_INT_101010 :      ret = TUINT; break;
+        case OpenCL_SIGNED_INT8 :           ret = TCHAR; break;
+        case OpenCL_SIGNED_INT16 :          ret = TSHORT; break;
+        case OpenCL_SIGNED_INT32 :          ret = TINT; break;
+        case OpenCL_UNSIGNED_INT8 :         ret = TUCHAR; break;
+        case OpenCL_UNSIGNED_INT16 :        ret = TUSHORT; break;
+        case OpenCL_UNSIGNED_INT32 :        ret = TUINT; break;
+        case OpenCL_HALF_FLOAT :            ret = THALF; break;
+        case OpenCL_FLOAT :                 ret = TFLOAT; break;
+        default:
+            throw Exception::InvalidArgument("");
+        }
+        return ret;
     }
-    return ret;
-}
 
     /// Data type container and its helper functions
     class ImageChannelDataTypeValWrapper
@@ -112,13 +112,10 @@ inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val 
         /// default ctor
         ImageChannelDataTypeValWrapper() 
             : m_value(UNSPECIFIED_IMAGE_DATA_TYPE)
-        {
-            if (!m_isStaticInit) initStatic();
-        }
+        {}
 
         explicit ImageChannelDataTypeValWrapper(const ImageChannelDataTypeVal& value) : m_value(value) 
         {
-            if (!m_isStaticInit) initStatic();
             // if there is no metadata for value
             CheckValueAndThrow(value);
         }
@@ -141,8 +138,6 @@ inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val 
 
         static ImageChannelDataTypeVal ValueOf(const std::string& str)
         {
-            // init static members
-            if (!m_isStaticInit) initStatic(); 
             // ImageChannelDataTypeVal first element must be 0 and last element must be INVALID_CHANNEL_ORDER
             for (int  i = 0; i < INVALID_IMAGE_DATA_TYPE; i++)
             {
@@ -154,7 +149,7 @@ inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val 
             }
             throw Exception::InvalidArgument("NonSupported Image Channel Data Type " + str);
         }
-        
+
         inline bool operator == (const ImageChannelDataTypeValWrapper& a) const
         {
             return (a.m_value == m_value);
@@ -166,14 +161,11 @@ inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val 
 
         inline void CheckValueAndThrow(const ImageChannelDataTypeVal& in_value)
         {
-            assert(m_isStaticInit);
             if (m_metaData.count(in_value) < 1)
             {
                 throw Exception::InvalidArgument("Invalid arg. No metadata for this ImageChannelDataType");
             }
         }
-
-        void static initStatic();
 
         class ImageChannelDataTypeMetadata
         {
@@ -188,9 +180,9 @@ inline TypeVal ImageChannelDataTypeToTypeVal(const ImageChannelDataTypeVal& val 
             bool m_isFloatingPoint;
             std::string m_toString;
         };
-
-        static std::map<ImageChannelDataTypeVal, ImageChannelDataTypeMetadata> m_metaData;
-        static bool m_isStaticInit;
+        typedef std::map<ImageChannelDataTypeVal, ImageChannelDataTypeMetadata> ImageChannelDataTypeMetadataMap;
+        static ImageChannelDataTypeMetadataMap m_metaData;
+        static ImageChannelDataTypeMetadataMap initStaticMap();
     };
 
 } // namespace Validation

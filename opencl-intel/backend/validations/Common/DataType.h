@@ -48,13 +48,10 @@ namespace Validation
         /// default ctor
         DataTypeValWrapper()
             : m_value(INVALID_DATA_TYPE)
-        {
-            if (!m_isStaticInit) initStatic();
-        }
+        {}
 
         explicit DataTypeValWrapper(const DataTypeVal& value) : m_value(value)
         {
-            if (!m_isStaticInit) initStatic();
             // if there is no metadata for value
             CheckValueAndThrow(value);
         }
@@ -77,8 +74,6 @@ namespace Validation
 
         static DataTypeVal ValueOf(const std::string& str)
         {
-            // init static members
-            if (!m_isStaticInit) initStatic(); 
             // DataTypeVal first element must be 0 and last element must be INVALID_DATA_TYPE
             for (int  i = 0; i < INVALID_DATA_TYPE; i++)
             {
@@ -97,14 +92,11 @@ namespace Validation
 
         inline void CheckValueAndThrow(const DataTypeVal& in_value)
         {
-            assert(m_isStaticInit);
             if (m_metaData.count(in_value) < 1)
             {
                 throw Exception::InvalidArgument("Invalid arg. No metadata for this DataType");
             }
         }
-
-        void static initStatic();
 
         class DataTypeMetadata
         {
@@ -120,8 +112,9 @@ namespace Validation
             std::string m_toString;
         };
 
-        static std::map<DataTypeVal, DataTypeMetadata> m_metaData;
-        static bool m_isStaticInit;
+        typedef std::map<DataTypeVal, DataTypeMetadata> DataTypeMetadataMap;
+        static DataTypeMetadataMap m_metaData;
+        static DataTypeMetadataMap initStaticMap();
     };
 
 } // namespace Validation

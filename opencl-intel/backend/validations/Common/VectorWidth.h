@@ -43,22 +43,12 @@ namespace Validation
   class VectorWidthWrapper
   {
   public:
-    /// @brief default ctor
-    /// Fills object with INVALID_WIDTH data which should be later filled with correct value
-    VectorWidthWrapper() 
-      : m_value(INVALID_WIDTH)
-    {
-      // init static members
-      if (!m_isStaticInit) initStatic();
-    }
-
+    /// ctors
+    VectorWidthWrapper() : m_value(INVALID_WIDTH) {}
     explicit VectorWidthWrapper(const VectorWidth& value) 
       : m_value(value) 
     { 
-      // init static members
-      if (!m_isStaticInit) initStatic(); 
-
-      // need to there is metadata for value
+      // there is metadata for value
       if (m_metaData.count(m_value) < 1)
       {
         throw Exception::InvalidArgument("Invalid arg. No metadata for this VectorWidth");
@@ -72,8 +62,6 @@ namespace Validation
 
     static VectorWidth ValueOf(const std::string& str)
     {
-      // init static members
-      if (!m_isStaticInit) initStatic(); 
       // need to notice that VectorWidth's first element must be 0 and last element must be INVALID_WIDTH
       // should put a comment in the VectorWidth enum definition
       for (int  i = 0; i < INVALID_WIDTH; i++)
@@ -89,8 +77,6 @@ namespace Validation
 
     static VectorWidth ValueOf(const std::size_t& val)
     {
-      // init static members
-      if (!m_isStaticInit) initStatic(); 
       // need to notice that VectorWidth's first element must be 0 and last element must be INVALID_WIDTH
       // should put a comment in the VectorWidth enum definition
       for (int  i = 0; i < INVALID_WIDTH; i++)
@@ -110,9 +96,6 @@ namespace Validation
     /// VectorWidth value
     VectorWidth m_value;
 
-    /// init static members
-    void static initStatic();
-
     /// helper class to store associated data with VectorWidth
     class VectorWidthMetadata
     {
@@ -129,11 +112,11 @@ namespace Validation
     };
 
     /// static map from NEATValue to its Metadata
-    static std::map<VectorWidth, VectorWidthMetadata> m_metaData;
+    typedef std::map<VectorWidth, VectorWidthMetadata> VectorWidthMetadataMap;
+    static VectorWidthMetadataMap m_metaData;
 
-    /// is static members initialized 
-    static bool m_isStaticInit;
-
+    /// init static members
+    static VectorWidthMetadataMap initStaticMap();
   };
 
 } // namespace Validation
