@@ -534,7 +534,7 @@ _mm512_extstore_epi32(void *m, __m512i v1,
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm512_extstore_pd(void *mt, __m512d v1,
                    const _MM_DOWNCONV_PD_ENUM downconv,
-                   const const int hint)
+                   const int hint)
 {
   return __builtin_ia32_storepd512(mt, v1, downconv, hint);
 }

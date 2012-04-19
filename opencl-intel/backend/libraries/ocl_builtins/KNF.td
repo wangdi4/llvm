@@ -184,6 +184,13 @@ def mask_vstoread_half_rtn_pas  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (i
 def mask_vstoread_half_rtn_las  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up2_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
 def mask_vstoread_half_rtn_gas  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up2_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
 }
+// any/all
+let Types = [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32],
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def mask_any : OclBuiltin<"mask_any", (outs si32gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
+def mask_all : OclBuiltin<"mask_all", (outs si32gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
+}
 
 class KNF : Generic {
 
