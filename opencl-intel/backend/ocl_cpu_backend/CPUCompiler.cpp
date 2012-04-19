@@ -274,10 +274,10 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
         }
     }
 
-    if (!DisableAVX && (m_CpuId.GetCPU() == Intel::CPU_SANDYBRIDGE))
+    if (!DisableAVX && (selectedCpuId == Intel::CPU_SANDYBRIDGE))
       m_forcedCpuFeatures.push_back("+avx");
 
-    if (!DisableAVX && (m_CpuId.GetCPU() == Intel::CPU_HASWELL))
+    if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL))
       m_forcedCpuFeatures.push_back("+avx2");
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
