@@ -1,13 +1,10 @@
 ; XFAIL: win32
 ; XFAIL: *
+
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:        -march=y86-64 -mcpu=knc 
+
 ;
-; RUN: opt < %s -runtimelib %p/../../../vectorizer/Full/runtime.bc \
-; RUN:       -std-compile-opts -inline-threshold=4096 -inline -lowerswitch \
-; RUN:       -scalarize -mergereturn -loopsimplify -phicanon -predicate \
-; RUN:       -mem2reg -dce -packetize -packet-size=16 -resolve -verify -S \
-; RUN:     | llc -O2 -mtriple=x86_64-pc-linux \
-; RUN:           -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
 ;
 
 ; ModuleID = 'md.cl'

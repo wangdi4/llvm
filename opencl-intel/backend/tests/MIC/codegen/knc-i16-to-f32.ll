@@ -1,10 +1,11 @@
+
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:        -march=y86-64 -mcpu=knc 
+
 ; This test should cover the MIC-specific changes done in X86TargetLowering::LowerSINT_TO_FP
 ; XFAIL: *
 ; XFAIL: win32
 ;
-; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
 ;
 
 define float @A(i16* %a) nounwind readnone ssp {

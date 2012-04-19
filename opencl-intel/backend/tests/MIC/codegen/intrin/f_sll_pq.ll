@@ -1,22 +1,4 @@
 ; XFAIL: win32
-;
-; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN: llc < %p/knc-%G -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knf \
-; RUN:     | FileCheck %s -check-prefix=KNF
-
-target datalayout = "e-p:64:64"
-
-declare <8 x i64> @llvm.x86.mic.sll.pq(<8 x i64>, <8 x i64>)
-
-define <8 x i64> @f_sll_pq(<8 x i64> %arg0, <8 x i64> %arg1) {
-; KNF: f_sll_pq:
-; KNF: vsrlpi    %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}
-; KNF: vsllpi    %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}
-; KNF: vsllpi    %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}
-
-entry:
-  %ret = call <8 x i64> @llvm.x86.mic.sll.pq(<8 x i64> %arg0, <8 x i64> %arg1)
-
- ret <8 x i64> %ret
-}
-
+; RUN:     | FileCheck %p/knc-%G -check-prefix=KNF

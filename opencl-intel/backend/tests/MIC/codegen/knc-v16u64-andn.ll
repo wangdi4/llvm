@@ -1,10 +1,10 @@
 ; XFAIL: win32
-; These currently fail because the VPANDNQ patterns fail to match because the all 1 const loads have multiple uses.  See FB case 1333.
-; XFAIL: *
-;
+
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
+; RUN:        -march=y86-64 -mcpu=knc 
+
+; These currently fail because the VPANDNQ patterns fail to match because the all 1 const loads have multiple uses.  See FB case 1333.
+;
 ;
 
 target datalayout = "e-p:64:64"

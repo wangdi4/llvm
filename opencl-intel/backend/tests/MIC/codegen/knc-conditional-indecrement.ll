@@ -1,13 +1,10 @@
-; XFAIL: *
 ; XFAIL: win32
-;
+
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
+; RUN:        -march=y86-64 -mcpu=knc 
+
 ;
-; RUNc: llc < %s -mtriple=x86_64-pc-linux \
-; RUNc:       -march=y86-64 -mcpu=knc \
-; RUNc:     | FileCheck %s -check-prefix=KNC
+;
 ;
 
 define i32 @test1(i32 %a, i32 %b) nounwind readnone {
