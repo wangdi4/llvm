@@ -75,7 +75,7 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 	// All device passed, update GL info
     for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
     {
-        m_ppRootDevices[idx]->SetGLProperties(m_hGLCtx, m_hDC);
+        m_ppExplicitRootDevices[idx]->SetGLProperties(m_hGLCtx, m_hDC);
     }
 	// Init GL extension functions
 #ifdef WIN32
@@ -104,7 +104,7 @@ GLContext::~GLContext()
 	// All device passed, update GL info
     for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
     {
-        m_ppRootDevices[idx]->SetGLProperties(NULL, NULL);
+        m_ppExplicitRootDevices[idx]->SetGLProperties(NULL, NULL);
     }
 }
 

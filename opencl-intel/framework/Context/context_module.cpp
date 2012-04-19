@@ -2232,7 +2232,6 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 cl_err_code ContextModule::CheckContextSpecificParameters(Context *pContext, const cl_mem_object_type image_type,
 		const size_t image_width, const size_t image_height, const size_t image_depth, const size_t array_size)
 {
-	cl_uint numDevices = 0;
 	size_t maxW = (size_t)-1;
 	size_t maxH = (size_t)-1;
 	size_t maxD = (size_t)-1;
@@ -2240,16 +2239,10 @@ cl_err_code ContextModule::CheckContextSpecificParameters(Context *pContext, con
 	size_t max1dFromBuffer = (size_t)-1;
 	bool   isArray = (CL_MEM_OBJECT_IMAGE1D_ARRAY == image_type || CL_MEM_OBJECT_IMAGE2D_ARRAY == image_type);
 
-	FissionableDevice **devices = pContext->GetDevices(&numDevices);
-	std::set<Device*> setOfRootDevices;
+	const tSetOfDevices *rootDevices = pContext->GetAllRootDevices();
 
-	for (cl_uint i=0 ; i < numDevices ; ++i)
-	{
-		setOfRootDevices.insert(devices[i]->GetRootDevice());
-	}
-
-	for (std::set<Device*>::iterator devIt = setOfRootDevices.begin() ;
-			devIt != setOfRootDevices.end() ; ++devIt)
+	for (tSetOfDevices::const_iterator devIt = rootDevices->begin() ;
+			devIt != rootDevices->end() ; ++devIt)
 	{
 		size_t sz;
 		Device *dev = *devIt;

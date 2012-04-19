@@ -69,7 +69,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	}
 
 	m_ppAllDevices = NULL;
-    m_ppRootDevices = NULL;
+    m_ppExplicitRootDevices = NULL;
 	m_pDeviceIds = NULL;
     m_pOriginalDeviceIds = NULL;
 	m_pGPAData = pGPAData;
@@ -89,8 +89,8 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		*pclErr = CL_OUT_OF_HOST_MEMORY;
 		return;
 	}
-    m_ppRootDevices = new Device*[m_uiNumRootDevices];
-    if (NULL == m_ppRootDevices)
+    m_ppExplicitRootDevices = new Device*[m_uiNumRootDevices];
+    if (NULL == m_ppExplicitRootDevices)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_ppAllDevices;
@@ -102,7 +102,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	{
 		*pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_ppAllDevices;
-        delete[] m_ppRootDevices;
+        delete[] m_ppExplicitRootDevices;
 		return;
 	}
     m_pOriginalDeviceIds = new cl_device_id[uiNumDevices];
@@ -111,7 +111,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_pDeviceIds;
         delete[] m_ppAllDevices;
-        delete[] m_ppRootDevices;
+        delete[] m_ppExplicitRootDevices;
         return;
     }
 
@@ -123,11 +123,18 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
         m_pOriginalDeviceIds[ui] = ppDevices[ui]->GetHandle();
+
+        // Create a set of all root devices implicitly/explicitly defined in the context.
+        m_allRootDevices.insert(ppDevices[ui]->GetRootDevice());
+
+        // Create a list of all explicit root devices in the context.
         if (ppDevices[ui]->IsRootLevelDevice())
         {
             assert(curRoot < m_uiNumRootDevices);
-            m_ppRootDevices[curRoot++] = ppDevices[ui]->GetRootDevice();
+            // GetRootDevice used just for the purpose of casting to Device*.
+            m_ppExplicitRootDevices[curRoot++] = ppDevices[ui]->GetRootDevice();
         }
+
 		cl_bitfield devType = ppDevices[ui]->GetRootDevice()->GetDeviceType();
 		m_devTypeMask |= devType;
 	}
@@ -266,10 +273,10 @@ Context::~Context()
 		delete[] m_ppAllDevices;
 		m_ppAllDevices = NULL;
 	}
-    if (NULL != m_ppRootDevices)
+    if (NULL != m_ppExplicitRootDevices)
     {
-        delete[] m_ppRootDevices;
-        m_ppRootDevices = NULL;
+        delete[] m_ppExplicitRootDevices;
+        m_ppExplicitRootDevices = NULL;
     }
 	if (NULL != m_pDeviceIds)
 	{
@@ -1166,13 +1173,18 @@ FissionableDevice ** Context::GetDevices(cl_uint * puiNumDevices)
 	return m_ppAllDevices;
 }
 
-Device** Context::GetRootDevices(cl_uint* puiNumDevices)
+Device** Context::GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices)
 {
     if (NULL != puiNumDevices)
     {
         *puiNumDevices = m_uiNumRootDevices;
     }
-    return m_ppRootDevices;
+    return m_ppExplicitRootDevices;
+}
+
+const tSetOfDevices *Context::GetAllRootDevices() const
+{
+	return &m_allRootDevices;
 }
 
 cl_device_id * Context::GetDeviceIds(size_t * puiNumDevices)
@@ -1263,7 +1275,7 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 	unsigned int uiFormatCount;
 	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, 0, NULL, &uiFormatCount);
+		clErr = m_ppExplicitRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, 0, NULL, &uiFormatCount);
 		if (CL_FAILED(clErr))
 		{
 			return 0;
@@ -1284,11 +1296,19 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 		return 0;
 	}
 
-	// Get formats from first device
-	clErr = m_ppRootDevices[0]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
+	// Get formats from first (root) device
+	const tSetOfDevices *rDevSet = GetAllRootDevices();
+	tSetOfDevices::const_iterator rDev = rDevSet->begin();
+	if (rDev == rDevSet->end())
+	{
+		assert(0 && "QuerySupportedImageFormats: No root devices for context.");
+		return 0;
+	}
+
+	clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
 	if (CL_FAILED(clErr) || (0 == uiFormatCount))
 	{
-		delete []pFormats;
+		delete[] pFormats;
 		return 0;
 	}
 	// Add formats to the list
@@ -1298,13 +1318,14 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 		tmpList.push_back(pFormats[ui]);
 	}
 
-	// No go through rest of the devices and eliminate not supported formats
-	for (cl_uint ui=1; ui<m_mapDevices.Count(); ++ui)
+	// Now go through rest of the devices and eliminate un-supported formats (intersection)
+	// Start from the second (next) root device.
+	for (++rDev ; rDev != rDevSet->end() ; ++rDev)
 	{
-		clErr = m_ppRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
+		clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
 		if (CL_FAILED(clErr) || (0 == uiFormatCount))
 		{
-			delete []pFormats;
+			delete[] pFormats;
 			return 0;
 		}
 		tImageFormatList::iterator it=tmpList.begin();
@@ -1330,7 +1351,9 @@ size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_me
 		}
 	}
 
-	delete []pFormats;
+	delete[] pFormats;
 	m_mapSupportedFormats[key] = tmpList;
 	return tmpList.size();	
 }
+
+

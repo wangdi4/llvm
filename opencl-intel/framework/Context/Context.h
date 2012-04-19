@@ -50,6 +50,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Program;
 	class MemoryObject;
 
+    typedef std::set<Device*> tSetOfDevices;
+
 	/**********************************************************************************************
 	* Class name:	Context
 	*
@@ -198,8 +200,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get the device ids that associated to the context
 		cl_device_id * GetDeviceIds(size_t * puiNumDevices);
 
-        // Get the list of root-level devices associated with this context
-        Device** GetRootDevices(cl_uint* puiNumDevices);
+        // Get the list of root-level devices explicitly associated with this context
+        Device** GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices);
+
+        // Get a set of all root devices associated with the context - implicitly, and explicitly.
+        const tSetOfDevices *GetAllRootDevices() const;
+
 
         cl_dev_subdevice_id GetSubdeviceId(cl_device_id id); 
 
@@ -322,9 +328,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// -------------- DEVICES -------------- 
 		
-		OCLObjectsMap<_cl_device_id_int>		m_mapDevices;			// holds the devices that associated to the program
-        Device**                                m_ppRootDevices;
+		OCLObjectsMap<_cl_device_id_int>		m_mapDevices;			  // holds the devices that associated to the program
+        Device**                                m_ppExplicitRootDevices;  // list of all explicit root devices in the context
 		FissionableDevice **					m_ppAllDevices;
+		tSetOfDevices                           m_allRootDevices;         // set of all root devices implicitly/explicitly defined in the context.
 		cl_device_id *							m_pDeviceIds;
         cl_device_id *                          m_pOriginalDeviceIds;
         cl_uint                                 m_pOriginalNumDevices;
