@@ -178,7 +178,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
     switch (optionId)
     {
         case CL_DEV_BACKEND_OPTION_CPU_ARCH:
-            return "auto-remote";
+            return "knf";
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
             return m_dump_file_name.c_str();
