@@ -275,7 +275,7 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_t image, int2 coord)
 {
     uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
-    // Use size_t for poitner computations to avoid type overrun
+    // Use uint for poitner computations to avoid type overrun
     void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
     return pixel;
 }
@@ -298,7 +298,10 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_array_t image, int2 coord)
 {
     uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
+    // Offset for image array correspongs to offset inside image
+    // that's why  to compute pixel pointer dimension is used here
+    void* pixel = (void*)((image_aux_data*)image)->pData+ offset.x * ((uint)coord.x + 
+        (uint)((image_aux_data*)image)->dim[0]*(uint)coord.y);
     return pixel;
 }
 

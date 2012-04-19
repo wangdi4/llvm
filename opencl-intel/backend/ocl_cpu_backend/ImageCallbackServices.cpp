@@ -147,6 +147,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     memset(pImageAuxData->read_img_callback, 0, sizeof(pImageAuxData->read_img_callback));
     memset(pImageAuxData->coord_translate_f_callback, 0, sizeof(pImageAuxData->coord_translate_f_callback));
     memset(pImageAuxData->dim,0,sizeof(pImageAuxData->dim));
+    memset(pImageAuxData->offset,0,sizeof(pImageAuxData->offset));
     memset(pImageAuxData->pitch, 0, sizeof(pImageAuxData->pitch));
     memset(pImageAuxData->dimSub1,0,sizeof(pImageAuxData->dimSub1));
     memset(pImageAuxData->dimf,0,sizeof(pImageAuxData->dimf));
@@ -157,14 +158,15 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->dimf[i] = pImageAuxData->dim[i];
     }
 
+    // Offset represents offset in byte within a dimension used
+    // to compute pixel pointer in image access routines
+    // For image arrays it represents offset within the image
     pImageAuxData->offset[0] = pImageAuxData->uiElementSize;
-    pImageAuxData->offset[1] = pImageAuxData->pitch[0];
-    pImageAuxData->offset[3] = 0;
-    
-    if (pImageObject->memObjType == CL_MEM_OBJECT_IMAGE3D)
+    if(pImageObject->memObjType != CL_MEM_OBJECT_IMAGE1D_ARRAY)
+        pImageAuxData->offset[1] = pImageAuxData->pitch[0];
+
+    if (pImageObject->memObjType != CL_MEM_OBJECT_IMAGE2D_ARRAY)
         pImageAuxData->offset[2] = pImageAuxData->pitch[1];
-    else
-        pImageAuxData->offset[2] = 0;
 
     pImageAuxData->dimmask = (1<<(pImageAuxData->dim_count*4))-1;
     
@@ -174,8 +176,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
-    // for integer images and float coordinates
-        //nearest filter, and false normalized
+        // for integer images and float coordinates
+        // nearest filter, and false normalized
         pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
         pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
         pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetFClampToEdgeFalseNearest();
