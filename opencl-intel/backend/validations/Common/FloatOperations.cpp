@@ -255,9 +255,9 @@ namespace Validation
             if( IsInf( reference ) )
             {
                 if( testVal == reference )
-                    return 0.0f;
+                    return 0.0;
 
-                return (float) (testVal - reference );
+                return testVal - reference;
             }
 
             if( IsInf( testVal) )
@@ -287,13 +287,13 @@ namespace Validation
             if( u.u & 0x000fffffffffffffULL )
             { // Non-power of two and NaN
                 if( IsNaN( reference ) && IsNaN( testVal ) )
-                    return 0.0f;    // if we are expecting a NaN, any NaN is fine
+                    return 0.0;    // if we are expecting a NaN, any NaN is fine
 
                 // The unbiased exponent of the ulp unit place
                 int ulp_exp = FLT_MANT_DIG - 1 - std::max( Conformance::ilogb( reference), FLT_MIN_EXP-1 );
 
                 // Scale the exponent of the error
-                return (float) ldexp( testVal - reference, ulp_exp );
+                return ldexp( testVal - reference, ulp_exp );
             }
 
             // reference is a normal power of two or a zero
@@ -301,7 +301,7 @@ namespace Validation
             int ulp_exp =  FLT_MANT_DIG - 1 - std::max( Conformance::ilogb( reference) - 1, FLT_MIN_EXP-1 );
 
             // Scale the exponent of the error
-            return /*(float)*/ ldexp( testVal - reference, ulp_exp );
+            return ldexp( testVal - reference, ulp_exp );
         }
 
         double ulpsDiffSamePrecision( long double reference,  long double testVal )
@@ -334,19 +334,19 @@ namespace Validation
                 if( IsInf( reference ) )
                 {
                     if( testVal == reference )
-                        return 0.0f;
+                        return 0.0;
 
-                    return (float) ( testVal - reference );
+                    return testVal - reference;
                 }
 
                 if( IsNaN( reference ) && IsNaN( testVal ) )
-                    return 0.0f;    // if we are expecting a NaN, any NaN is fine
+                    return 0.0;    // if we are expecting a NaN, any NaN is fine
 
                 // The unbiased exponent of the ulp unit place
                 int ulp_exp = DBL_MANT_DIG - 1 - std::max( Conformance::ilogbl( reference), DBL_MIN_EXP-1 );
 
                 // Scale the exponent of the error
-                return (float) ldexpl( testVal - reference, ulp_exp );
+                return ldexpl( testVal - reference, ulp_exp );
             }
 
             // reference is a normal power of two or a zero
@@ -354,7 +354,7 @@ namespace Validation
             int ulp_exp =  DBL_MANT_DIG - 1 - std::max( Conformance::ilogbl( reference) - 1, DBL_MIN_EXP-1 );
 
             // Scale the exponent of the error
-            return /*(float)*/ ldexpl( testVal - reference, ulp_exp );
+            return ldexpl( testVal - reference, ulp_exp );
         }
 
         float ulpsDiff(double ref, float test)

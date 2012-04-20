@@ -425,7 +425,7 @@ namespace Validation {
                     throw Exception::IllegalFunctionCall("Can't add mismatch for type");
                     break;
                 }
-                return abs(res);
+                return (res < 0) ? -res : res;
             }
 
 }
