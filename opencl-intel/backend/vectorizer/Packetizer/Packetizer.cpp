@@ -561,6 +561,17 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
         if (!Index->getType()->isIntegerTy(32)) {
           if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) Index = ZI->getOperand(0);
           if (SExtInst* SI = dyn_cast<SExtInst>(Index)) Index = SI->getOperand(0);
+          // Check for the idiom that keeps the lowest 32bits:
+          // %idxprom = ashr exact i64 %XXX, 32
+          if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
+            if (BI->getOpcode() == Instruction::AShr) {
+              // Constants are canonicalized to the RHS.
+              ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+              if (C0 && (C0->getBitWidth() < 65))
+                forcei32 = (C0->getZExtValue() == 32);
+            }
+          }
+
           // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
           // the lowest 32bits.
           if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {

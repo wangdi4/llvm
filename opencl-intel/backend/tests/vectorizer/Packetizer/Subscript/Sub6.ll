@@ -36,5 +36,19 @@ entry:
   ret void
 }
 
+;CHECK: kernel_int
+;CHECK: @scatter_I8
+;CHECK: ret void
+
+define void @kernel_int(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
+entry:
+  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %mul = mul i64 %call, 30064771072
+  %sext = add i64 %mul, 240518168576
+  %idxprom = ashr exact i64 %sext, 32
+  %arrayidx = getelementptr inbounds i8 addrspace(1)* %src, i64 %idxprom
+  store i8 zeroinitializer, i8 addrspace(1)* %arrayidx, align 4
+  ret void
+}
 
 declare i64 @get_global_id(i32 )
