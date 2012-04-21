@@ -549,6 +549,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   if (EnableScatterGatherSubscript && PtrDep == WIAnalysis::RANDOM) {
     Value *Base = 0;
     Value *Index = 0;
+    bool forcei32 = false;
     GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(MO.Ptr);
     // If we found the GEP
     if (Gep && Gep->getNumIndices() == 1) {
@@ -560,9 +561,19 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
         if (!Index->getType()->isIntegerTy(32)) {
           if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) Index = ZI->getOperand(0);
           if (SExtInst* SI = dyn_cast<SExtInst>(Index)) Index = SI->getOperand(0);
+          // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
+          // the lowest 32bits.
+          if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
+            if (BI->getOpcode() == Instruction::And) {
+              // Constants are canonicalized to the RHS.
+              ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+              if (C0 && (C0->getBitWidth() < 65))
+                forcei32 = (C0->getZExtValue() == (unsigned) -1);
+            }
+          }
         }
         // If the index is not 32-bit, abort.
-        if (!Index->getType()->isIntegerTy(32))
+        if (!Index->getType()->isIntegerTy(32) && !forcei32)
           Index = NULL;
     }
     MO.Index = Index;
@@ -584,7 +595,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
 
   // Indexed scatter/gather in here
   if (MO.Index) {
-    V_ASSERT(MO.Index->getType()->isIntegerTy(32) && "Index must be a 32-bit type");
+    V_ASSERT(MO.Index && "Must have an index");
     V_ASSERT(MO.Base && "Index w/o base");
     Instruction *Scat = 
       widenScatterGatherOp(MO);
