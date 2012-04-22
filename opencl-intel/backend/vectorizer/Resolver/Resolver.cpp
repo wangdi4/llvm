@@ -1,5 +1,8 @@
+#define DEBUG_TYPE "resolver"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
@@ -8,10 +11,6 @@
 #include <vector>
 
 
-static cl::opt<bool>
-MicResolve("micresolve", cl::init(false), cl::Hidden,
-  cl::desc("Resolve masked functions for MIC"));
-
 namespace intel {
 
 bool FuncResolver::runOnFunction(Function &F) {
@@ -19,14 +18,6 @@ bool FuncResolver::runOnFunction(Function &F) {
   V_PRINT("resolver", "---------------- Resolver before ---------------\n"<<F<<"\n");
 
   std::vector<CallInst*> calls;
-
-  LLVMContext &Con = F.getContext();
-  m_v16i1  = VectorType::get(IntegerType::get(Con, 1), 16);
-  m_v16i32 = VectorType::get(IntegerType::get(Con, 32), 16);
-  m_v16f32 = VectorType::get(Type::getFloatTy(Con), 16);
-  m_v8i1   = VectorType::get(IntegerType::get(Con, 1), 8);
-  m_v8i64  = VectorType::get(IntegerType::get(Con, 64), 8);
-  m_v8f64  = VectorType::get(Type::getDoubleTy(Con), 8);
 
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
     packPredicatedLoads(it);
@@ -408,116 +399,16 @@ void FuncResolver::resolveFunc(CallInst* caller) {
 }
 
 
-
-bool FuncResolver::TargetSpecificResolve(CallInst* caller) {
-
-  Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
-  V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
-
-  if (MicResolve) {
-    std::string IntrinsicName = "";
-
-    // Use name to decide what to do
-    if (Mangler::isMangledLoad(calledName)) {
-      Value *Mask = caller->getArgOperand(0);
-      Value *Ptr  = caller->getArgOperand(1);
-      assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
-      assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-      Type *MaskTy = Mask->getType();
-      Type *RetTy = caller->getType();
-      PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
-      assert(PtrTy->getElementType() == RetTy && 
-        "mismatch between ptr and retval");
-      
-      if (RetTy == m_v16i32 && MaskTy == m_v16i1) 
-        IntrinsicName = "llvm.mic.load.v16i32";
-      else if (RetTy == m_v16f32 && MaskTy == m_v16i1) 
-        IntrinsicName = "llvm.mic.load.v16f32";
-      else if (RetTy == m_v8i64 && MaskTy == m_v8i1) 
-        IntrinsicName = "llvm.mic.load.v8i64";
-      else if (RetTy == m_v8f64 && MaskTy == m_v8i1) 
-        IntrinsicName = "llvm.mic.load.v8f64";
-
-      if (IntrinsicName != "") {
-        std::vector<Value*> args;
-        std::vector<Type *> types;
-
-        args.push_back(Mask);
-        args.push_back(Ptr);
-        types.push_back(MaskTy);
-        types.push_back(PtrTy);
-
-        FunctionType *intr = FunctionType::get(RetTy, types, false);
-        Constant* new_f = caller->getParent()->getParent()->getParent()->
-          getOrInsertFunction(IntrinsicName, intr);
-        caller->replaceAllUsesWith(CallInst::Create(new_f, 
-          ArrayRef<Value*>(args), "", caller));
-        caller->eraseFromParent();
-        return true;
-      }
-    }
-
-    if (Mangler::isMangledStore(calledName)) {
-      Value *Mask = caller->getArgOperand(0);
-      Value *Ptr  = caller->getArgOperand(2);
-      Value *Data = caller->getArgOperand(1);
-      assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
-      assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-      Type *MaskTy = Mask->getType();
-      Type *DataTy = Data->getType();
-      PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
-      assert(PtrTy->getElementType() == DataTy && 
-        "mismatch between ptr and retval");
-      
-      if (DataTy == m_v16i32 && MaskTy == m_v16i1) 
-        IntrinsicName = "llvm.mic.store.v16i32";
-      else if (DataTy == m_v16f32 && MaskTy == m_v16i1) 
-        IntrinsicName = "llvm.mic.store.v16f32";
-      else if (DataTy == m_v8i64 && MaskTy == m_v8i1) 
-        IntrinsicName = "llvm.mic.store.v8i64";
-      else if (DataTy == m_v8f64 && MaskTy == m_v8i1) 
-        IntrinsicName = "llvm.mic.store.v8f64";
-
-      if (IntrinsicName != "") {
-        std::vector<Value*> args;
-        std::vector<Type *> types;
-
-        args.push_back(Mask);
-        args.push_back(Data);
-        args.push_back(Ptr);
-        types.push_back(MaskTy);
-        types.push_back(DataTy);
-        types.push_back(PtrTy);
-
-        FunctionType *intr = FunctionType::get(
-          Type::getVoidTy(DataTy->getContext()), types, false);
-        Constant* new_f = caller->getParent()->getParent()->getParent()->
-          getOrInsertFunction(IntrinsicName, intr);
-        caller->replaceAllUsesWith(CallInst::Create(new_f, 
-          ArrayRef<Value*>(args), "", caller));
-        caller->eraseFromParent();
-        return true;
-
-      }
-    }
-
-  }// mic resolve
-
-  // Did not handle this load
-  return false;
-}
-
 } // namespace
 
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createFuncResolver() {
-    return new intel::FuncResolver();
+  FunctionPass* createX86ResolverPass() {
+    return new intel::X86Resolver();
   }
 }
-char intel::FuncResolver::ID = 0;
-static RegisterPass<intel::FuncResolver>
-CLIFuncResolver("resolve", "Resolves masked and vectorized function calls");
+char intel::X86Resolver::ID = 0;
+static RegisterPass<intel::X86Resolver>
+CLIX86Resolver("resolve", "Resolves masked and vectorized function calls on x86");
 

@@ -63,7 +63,7 @@ class PacketizeFunction : public FunctionPass {
 public:
 
   static char ID; // Pass identification, replacement for typeid
-  PacketizeFunction();
+  PacketizeFunction(bool supportScatterGather = false);
   ~PacketizeFunction();
 
   /// @brief Provides name of pass
@@ -320,6 +320,9 @@ private:
 
   /// @brief BAG (Broadcast Arguments and Globals) map. Map to broadcasted vals.
   DenseMap<Value *, Value *> m_BAG;
+
+  /// @brief flag to enable scatter/gather to/from memory.
+  bool UseScatterGather;
 };
 
 } //namespace

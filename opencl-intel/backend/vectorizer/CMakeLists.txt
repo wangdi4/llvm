@@ -6,6 +6,7 @@ include_directories(BEFORE "Driver/DX")
 include_directories(BEFORE "Driver/Apple")
 include_directories(BEFORE "Driver/OpenCL")
 include_directories(BEFORE "Resolver")
+include_directories(BEFORE "Packetizer")
 include_directories(BEFORE "VolcanoWrapper")
 include_directories(BEFORE "AppleWrapper")
 include_directories(BEFORE "PreVectorization")
@@ -34,6 +35,7 @@ add_llvm_library( LLVMVectorizer
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   Resolver/Resolver.cpp
+  Resolver/MICResolver.cpp
   Resolver/X86Lower.cpp
   Resolver/SelectLower.cpp
   Resolver/SpecialCaseBuiltinResolver.cpp

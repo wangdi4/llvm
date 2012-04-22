@@ -1,7 +1,11 @@
 #ifndef __MANGLER_H_
 #define __MANGLER_H_
 
+#include "llvm/DerivedTypes.h"
+
 #include <string>
+
+using namespace llvm;
 
 /// @brief A utility class for mangling names
 ///  for function calls and load/store operations
@@ -23,6 +27,9 @@ public:
   /// @brief Get mangled name for store instruction
   /// @return name
   static std::string getStoreName(unsigned align);
+  /// @brief Get mangled name for gather or scatter instruction
+  /// @return name
+  static std::string getGatherScatterName(bool masked, bool gather, VectorType *);
   /// @brief Is this a mangled load instruction
   /// @param name Name of function
   /// @return True if load

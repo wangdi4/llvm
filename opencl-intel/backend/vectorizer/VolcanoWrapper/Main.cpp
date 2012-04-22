@@ -18,9 +18,14 @@
 #include "Main.h"
 #include "RuntimeServices.h"
 #include "X86Lower.h"
+#include "Packetizer.h"
+#include "Resolver.h"
+#include "MICResolver.h"
 #include "WIAnalysis.h"
 #include "VecHeuristics.h"
 #include "VecConfig.h"
+#include "TargetArch.h"
+
 // Placeholders for debug log files
 FILE * prtFile;
 FILE * moduleDmp;
@@ -36,10 +41,22 @@ char intel::Vectorizer::ID = 0;
 extern "C" FunctionPass* createScalarizerPass();
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
-extern "C" FunctionPass* createPacketizerPass();
-extern "C" FunctionPass* createFuncResolver();
+extern "C" FunctionPass* createPacketizerPass(bool);
+extern "C" FunctionPass* createMICResolverPass();
+extern "C" FunctionPass* createX86ResolverPass();
 extern "C" FunctionPass *createOCLBuiltinPreVectorizationPass();
 extern "C" Pass *createSpecialCaseBuiltinResolverPass();
+
+
+static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
+  if (CpuId.IsMIC()) return createMICResolverPass();
+  return createX86ResolverPass();
+}
+
+
+static FunctionPass* createPacketizer(const Intel::CPUId& CpuId) {
+  return createPacketizerPass(CpuId.IsMIC());
+}
 
 
 namespace intel {
@@ -298,16 +315,17 @@ bool Vectorizer::runOnModule(Module &M)
             fpm2.add(dce);
             
             // Register packetize
-            FunctionPass *packetize = createPacketizerPass();
+            FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId());
             fpm2.add(packetize);
-            
+
             // Register DCE
             FunctionPass *dce2 = createDeadCodeEliminationPass();
             fpm2.add(dce2);
             
-            // Register reslove
-            FunctionPass *resolver = createFuncResolver();
+            // Register resolve
+            FunctionPass *resolver = createResolverPass(m_pConfig->GetCpuId());
             fpm2.add(resolver);
+
             fpm2.add(createInstructionCombiningPass());
             fpm2.add(createCFGSimplificationPass());
             if (cpuId.HasAVX1()) {
@@ -364,6 +382,7 @@ bool Vectorizer::runOnModule(Module &M)
         //////////////////////////////////////////////
         //////////////////////////////////////////////
     V_PRINT(wrapper, "\nCompleted Vectorizer Wrapper!\n");
+
     return m_isModuleVectorized;
 }
 

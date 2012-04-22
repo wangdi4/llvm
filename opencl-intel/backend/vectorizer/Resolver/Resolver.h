@@ -1,12 +1,9 @@
-#define DEBUG_TYPE "resolver"
 #ifndef __RESOLVER_H_
 #define __RESOLVER_H_
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -23,15 +20,8 @@ namespace intel {
 /// @author Nadav Rotem
 class FuncResolver : public FunctionPass {
 public:
-  // Pass identification, replacement for typeid
-  static char ID;
   /// @brief C'tor
-  FuncResolver() : FunctionPass(ID) {}
-
-  /// @brief Provides name of pass
-  virtual const char *getPassName() const {
-    return "FuncResolver";
-  }
+  FuncResolver(char &ID) : FunctionPass(ID) {}
 
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
@@ -44,7 +34,7 @@ private:
   /// @brief Resolve a call-site. This is a target specific hook.
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
-  bool TargetSpecificResolve(CallInst* caller);
+  virtual bool TargetSpecificResolve(CallInst* caller) = 0;
 
   /// @brief Resolve a call-site
   /// @param caller Instruction to resolve
@@ -132,10 +122,24 @@ private:
   /// Instructions to protect using CF guard
   //(predicator - controlled instructions)
   std::map<Value*, std::vector<Instruction*> > m_toCF;
+};
 
-  // Cached types
-  const Type *m_v16i1, *m_v16i32, *m_v16f32,
-             *m_v8i1,  *m_v8i64,  *m_v8f64;
+class X86Resolver : public FuncResolver {
+public:
+  // Pass identification, replacement for typeid
+  static char ID;
+  /// @brief C'tor
+  X86Resolver() : FuncResolver(ID) {}
+
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "X86Resolver";
+  }
+
+  /// @brief Resolve a call-site. This is a target specific hook.
+  /// @param caller Instruction to resolve
+  /// @return true if this call was handled by the resolver
+  virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
 };
 
 }

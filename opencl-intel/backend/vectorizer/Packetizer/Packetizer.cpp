@@ -9,19 +9,39 @@
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 
-
 static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
   cl::desc("force packetization size"));
 
 static cl::opt<bool>
 EnableScatterGatherSubscript("subscript", cl::init(false), cl::Hidden,
-  cl::desc("Enable insertion of MIC subscripts for scatter/gather"));
+  cl::desc("Enable vectorized scatter/gather operations"));
+
+static cl::opt<bool>
+EnableScatterGatherSubscript_v4i8("subscript-v4i8", cl::init(false), cl::Hidden,
+  cl::desc("Enable vectorized scatter/gather operations on v4i8 data types"));
+
+// Following check to be removed once Resolver handles scatter/gathers of
+// types not supported by target.  For now, refrain from generating them.
+static bool isGatherScatterType(VectorType *VecTy) {
+  unsigned NumElements = VecTy->getNumElements();
+  Type *ElemTy = VecTy->getElementType();
+  if (EnableScatterGatherSubscript_v4i8 &&
+      (NumElements == 4) &&
+      (ElemTy->isIntegerTy(8)))
+    return true;
+  return ((NumElements == 16) &&
+          (ElemTy->isFloatTy() ||
+           ElemTy->isIntegerTy(32) ||
+           ElemTy->isDoubleTy() ||
+           ElemTy->isIntegerTy(64)));
+}
 
 namespace intel {
 
-PacketizeFunction::PacketizeFunction() : FunctionPass(ID)
+PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
+  UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
   m_rtServices = RuntimeServices::get();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
@@ -362,16 +382,6 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 }
 
 
-static const char* getTypePrefix(Type *TP) {
-  if (TP->isFloatTy()) return "F32";
-  if (TP->isDoubleTy()) return "F64";
-  if (TP->isIntegerTy(8)) return "I8";
-  if (TP->isIntegerTy(16)) return "I16";
-  if (TP->isIntegerTy(32)) return "I32";
-  if (TP->isIntegerTy(64)) return "I64";
-  return 0;
-}
-
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
       V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
 
@@ -382,11 +392,16 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     ElemTy = MO.Orig->getType();
   }
 
-  Type *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
+  VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
 
   // Check if this type is supported and if we have a name for it
-  const char* suffix = getTypePrefix(ElemTy);
-  if (!suffix) return NULL;
+  if (!isGatherScatterType(VecElemTy)) {
+    V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
+    return NULL;
+  }
+  bool is_masked = (MO.Mask != NULL);
+  bool is_gather = (MO.Data == NULL);
+  std::string name = Mangler::getGatherScatterName(is_masked, is_gather, VecElemTy);
 
   std::vector<Value*> args;
   std::vector<Type *> types;
@@ -424,32 +439,27 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     RetTy = VecElemTy;
   }
 
-  std::string mask_prefix = (MO.Mask ? "masked_" : "");
-  std::string intrinsic_name = mask_prefix + 
-    std::string(MO.Data ? "scatter_" : "gather_") + suffix;
-
   FunctionType *intr = FunctionType::get(RetTy, types, false);
-  Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(
-    intrinsic_name, intr);
+  Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(name, intr);
   return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
 Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
-    // Obtain the input addresses (but only the first will be used
-    // we know that this is an unmasked widen load/store
-    Value *inAddr[MAX_PACKET_WIDTH];
-    obtainMultiScalarValues(inAddr, MO.Ptr , MO.Orig);
+  // Obtain the input addresses (but only the first will be used
+  // we know that this is an unmasked widen load/store
+  Value *inAddr[MAX_PACKET_WIDTH];
+  obtainMultiScalarValues(inAddr, MO.Ptr , MO.Orig);
 
-    PointerType *inPtr = dyn_cast<PointerType>(inAddr[0]->getType());
-    V_ASSERT(inPtr && "unexpected non-pointer argument");
+  PointerType *inPtr = dyn_cast<PointerType>(inAddr[0]->getType());
+  V_ASSERT(inPtr && "unexpected non-pointer argument");
 
-    // BitCast the "scalar" pointer to a "vector" pointer
-    Type *elementType = inPtr->getElementType();
-    Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
-    PointerType *vectorInPtr = PointerType::get(vectorElementType, 
-      inPtr->getAddressSpace());
-    Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr,
-      "ptrTypeCast", MO.Orig);
+  // BitCast the "scalar" pointer to a "vector" pointer
+  Type *elementType = inPtr->getElementType();
+  Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
+  PointerType *vectorInPtr = PointerType::get(vectorElementType, 
+    inPtr->getAddressSpace());
+  Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr,
+    "ptrTypeCast", MO.Orig);
 
 
   if (!MO.Data) {
@@ -546,7 +556,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
 
   // If we were told to look for scat/gath regions AND the pointer access is
   // random (not consecutive or uniform).
-  if (EnableScatterGatherSubscript && PtrDep == WIAnalysis::RANDOM) {
+  if (UseScatterGather && PtrDep == WIAnalysis::RANDOM) {
     Value *Base = 0;
     Value *Index = 0;
     bool forcei32 = false;
@@ -555,7 +565,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     if (Gep && Gep->getNumIndices() == 1) {
       Base = Gep->getOperand(0); 
       // and the base is uniform
-      if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM)
+      if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM) {
         Index = Gep->getOperand(1);
         // Try to find the i32 index
         if (!Index->getType()->isIntegerTy(32)) {
@@ -584,12 +594,24 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
           }
         }
         // If the index is not 32-bit, abort.
-        if (!Index->getType()->isIntegerTy(32) && !forcei32)
+        if (!Index->getType()->isIntegerTy(32) && !forcei32) {
+          V_PRINT(gather_scatter_stat, "PACKETIZER: BASE UNIFORM, INDEX NOT 32" << *MO.Orig <<
+                                 " Gep: " << *Gep << " Index: " << *Index << "\n");
           Index = NULL;
+        }
+      }
+      else
+        V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
     }
+    else if (!Gep)
+      V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
+    else
+      V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
     MO.Index = Index;
     MO.Base = Base;
   }
+  else
+    V_PRINT(gather_scatter_stat, "PACKETIZER: PtrDep NOT RANDOM" << *MO.Orig << "\n");
 
   // Find the data type;
   Type *DT;
@@ -601,7 +623,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
 
   // Not much we can do for load of non-scalars
   if (!(DT->isFloatingPointTy() || DT->isIntegerTy())) {
-      return duplicateNonPacketizableInst(MO.Orig);
+    if (MO.Index)
+      V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
+    return duplicateNonPacketizableInst(MO.Orig);
   }
 
   // Indexed scatter/gather in here
@@ -613,6 +637,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     if (Scat) {
       createVCMEntryWithVectorValue(MO.Orig, Scat);
       m_removedInsts.insert(MO.Orig);
+      V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
       return;
     }
   }
@@ -1633,8 +1658,8 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass() {
-    return new intel::PacketizeFunction();
+  FunctionPass* createPacketizerPass(bool scatterGather = false) {
+    return new intel::PacketizeFunction(scatterGather);
   }
 }
 
