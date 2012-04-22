@@ -243,7 +243,7 @@ namespace intel {
       ve = specialValues.end(); vi != ve; ++vi ) {
         Value *pVal = dyn_cast<Value>(*vi);
         //Get Offset of special value type
-        m_valueToOffsetMap[pVal] = getValueOffset(pVal->getType(), 0, bufferData);
+        m_valueToOffsetMap[pVal] = getValueOffset(pVal, pVal->getType(), 0, bufferData);
     }
 
     TValueVector &allocaValues = m_allocaValuesPerFuncMap[&F];
@@ -254,24 +254,39 @@ namespace intel {
         Value *pVal = dyn_cast<Value>(*vi);
         AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(pVal);
         //Get Offset of alloca instruction contained type
-        m_valueToOffsetMap[pVal] = getValueOffset(
+        m_valueToOffsetMap[pVal] = getValueOffset(pVal,
           pVal->getType()->getContainedType(0), pAllocaInst->getAlignment(), bufferData);
     }
   }
 
   unsigned int DataPerValue::getValueOffset(
-    Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData) {
+    Value* pVal, Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData) {
 
+    unsigned int sizeFactor = 1;
+    unsigned int alignmentFactor = 1;
+    Type *pElementType = pType;
+    VectorType* pVecType = dyn_cast<VectorType>(pType);
+    if ( pVecType ) {
+      pElementType = pVecType->getElementType();
+    }
+    assert(!isa<VectorType>(pElementType) && "element type of a vector is another vector!");
+    if ( m_pTD->getTypeSizeInBits(pElementType) == 1 ) {
+      //we have a Value with base type i1
+      m_oneBitElementValues.insert(pVal);
+      //We will extend i1 to i32 before storing to special buffer.
+      sizeFactor = 32; // In bits
+      alignmentFactor = 4; // In bytes
+      assert(m_pTD->getPrefTypeAlignment(pType) == 
+        (pVecType ? pVecType->getNumElements() : 1) &&
+        "assumes alignment of vector of i1 type equals to vector length");
+    }
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pTD->getABITypeAlignment(pType);
-    unsigned int alignment = (allocaAlignment) ?
-      allocaAlignment : m_pTD->getPrefTypeAlignment(pType);
+    unsigned int alignment = ((allocaAlignment) ?
+      allocaAlignment : m_pTD->getPrefTypeAlignment(pType)) * alignmentFactor;
     assert( alignment && "alignment is 0" );
-    unsigned int sizeInBits = m_pTD->getTypeSizeInBits(pType);
-    if ( sizeInBits == 1 ) {
-      //We allocate one whole byte when the value size is a single bit
-      sizeInBits = 8;
-    }
+    unsigned int sizeInBits = m_pTD->getTypeSizeInBits(pType) * sizeFactor;
+
     unsigned int sizeInBytes = sizeInBits / 8;
     assert( sizeInBytes && "sizeInBytes is 0" );
 

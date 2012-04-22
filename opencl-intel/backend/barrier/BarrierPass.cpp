@@ -106,6 +106,7 @@ namespace intel {
     for ( ; vi != ve; ++vi ) {
       AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
       assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
+      assert( !m_pDataPerValue->isOneBitElementType(pAllocaInst) && "AllocaInst with base type i1!" );
       //Get offset of alloca value in special buffer
       unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
       userInsts.clear();
@@ -139,6 +140,20 @@ namespace intel {
     for ( ; vi != ve; ++vi ) {
       Instruction *pInst = dyn_cast<Instruction>(*vi);
       assert( pInst && "container of special values has non Instruction value!" );
+
+      //This will hold the real type of this value in the special buffer
+      Type *pTypeInSP = pInst->getType();
+      bool oneBitBaseType = m_pDataPerValue->isOneBitElementType(pInst);
+      if ( oneBitBaseType ) {
+        // base type is i1 need to ZEXT/TRUNC to/from i32
+        VectorType *pVecType = dyn_cast<VectorType>(pInst->getType());
+        if( pVecType ) {
+          pTypeInSP = VectorType::get(IntegerType::get(*m_pContext, 32), pVecType->getNumElements());
+        } else {
+          pTypeInSP = IntegerType::get(*m_pContext, 32);
+        }
+      }
+
       //Get offset of special value in special buffer
       unsigned int offset = m_pDataPerValue->getOffset(pInst);
       //Find next instruction so we can create new instruction before it
@@ -148,15 +163,18 @@ namespace intel {
         pNextInst = pNextInst->getParent()->getFirstNonPHI();
       }
       //Get PointerType of value type
-      PointerType *pType = PointerType::get(pInst->getType(), SPECIAL_BUFFER_ADDR_SPACE);
+      PointerType *pType = PointerType::get(pTypeInSP, SPECIAL_BUFFER_ADDR_SPACE);
       //Handle Special buffer only if it is not a call instruction.
       //Special buffer value of call instruction will be handled in the callee.
       if( !( isa<CallInst>(pInst) &&
         m_pDataPerInternalFunction->needToBeFixed(dyn_cast<CallInst>(pInst)) ) ) {
           //Calculate the pointer of the current special in the special buffer
           Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offset, pType, pNextInst);
+          Instruction *pInstToStore = !oneBitBaseType ? pInst :
+            CastInst::CreateZExtOrBitCast(pInst, pTypeInSP, "ZEXT-i1Toi32", pNextInst);;
+
           //Add Store instruction after the value instruction
-          new StoreInst(pInst, pAddrInSpecialBuffer, pNextInst);
+          new StoreInst(pInstToStore, pAddrInSpecialBuffer, pNextInst);
       }
 
       TInstructionVector userInsts;
@@ -192,9 +210,11 @@ namespace intel {
           //Calculate the pointer of the current special in the special buffer
           Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offset, pType, pInsertBefore);
           Value *pLoadedValue = new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
+          Value *pRealValue = !oneBitBaseType ? pLoadedValue :
+            CastInst::CreateTruncOrBitCast(pLoadedValue, pInst->getType(), "Trunc-i1Toi32", pInsertBefore);
           //Replace the use of old value with the new loaded value from special buffer
           ++ui; // Need to increment iterator before replace it!
-          pUserInst->replaceUsesOfWith(pInst, pLoadedValue);
+          pUserInst->replaceUsesOfWith(pInst, pRealValue);
       }
     }
   }
@@ -694,6 +714,8 @@ namespace intel {
   }
 
   void Barrier::fixArgumentUsage(Value *pOriginalArg, Value *pOffsetArg, bool alwaysInSB) {
+    assert( (!m_pDataPerValue->isOneBitElementType(pOriginalArg) ||
+      !isa<VectorType>(pOriginalArg->getType())) && "pOriginalArg with base type i1!");
     for ( Value::use_iterator ui = pOriginalArg->use_begin(), 
       ue = pOriginalArg->use_end(); ui != ue; ) {
         Instruction *pUserInst = dyn_cast<Instruction>(*ui);
@@ -757,14 +779,16 @@ namespace intel {
         //C. Create PHINode at the begining of the pPHINodeBB to represent the
         //   Valid parameter and then replace the original parameter with this value
         PHINode* pValidArg = PHINode::Create(pOriginalArg->getType(), 2, "", pPHINodeBB->begin());
-    pValidArg->addIncoming(pLoadedValue, pThenBB);
-    pValidArg->addIncoming(pOriginalArg, pConditionBB);
+        pValidArg->addIncoming(pLoadedValue, pThenBB);
+        pValidArg->addIncoming(pOriginalArg, pConditionBB);
         ++ui; // Need to increment iterator before replace it!
         pUserInst->replaceUsesOfWith(pOriginalArg, pValidArg);
     }
   }
 
   void Barrier::fixReturnValue(Value *pRetVal, Value *pOffsetArg, Instruction* pNextInst) {
+    assert( (!m_pDataPerValue->isOneBitElementType(pRetVal) ||
+      !isa<VectorType>(pRetVal->getType())) && "pRetVal with base type i1!");
     //pRetVal might be a result of calling other function itself
     //in such case no need to handle it here as it will be saved
     //to the special buffer by the called function itself.

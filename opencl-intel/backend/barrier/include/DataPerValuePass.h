@@ -22,6 +22,7 @@ namespace intel {
   public:
     typedef std::map<Function*, TValueVector> TValuesPerFunctionMap;
     typedef std::map<Value*, unsigned int> TValueToOffsetMap;
+    typedef std::set<Value*> TValueSet;
 
   public:
     static char ID;
@@ -84,6 +85,13 @@ namespace intel {
       assert( m_valueToOffsetMap.count(pVal) &&
         "requiring offset of non special value!" );
       return m_valueToOffsetMap[pVal];
+    }
+
+    /// @brief return true if the base type of the given value is i1
+    /// @param pVal pointer to Value
+    /// @returns true of the base type is i1
+    bool isOneBitElementType(Value *pVal) {
+      return (m_oneBitElementValues.count(pVal) != 0);
     }
 
     /// @brief return true if given value has offset
@@ -153,11 +161,12 @@ namespace intel {
     void calculateOffsets(Function &F);
 
     /// @brief return offset of given Type in special buffer stride
+    /// @param pVal pointer to Value behind the type
     /// @param pType pointer to Type
     /// @param allocaAlignment alignment of alloca instruction (0 if it is not alloca)
     /// @param bufferData reference to structure that contains special buffer data
     /// @returns offset of given Type in special buffer stride
-    unsigned int getValueOffset(Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData);
+    unsigned int getValueOffset(Value* pVal, Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData);
 
     /// @brief Find all connected function into disjoint groups on given module
     /// @param M module to analyze
@@ -191,6 +200,8 @@ namespace intel {
     TValuesPerFunctionMap m_crossBarrierValuesPerFuncMap;
     /// This holds a map between value and its offset in Special Buffer structure
     TValueToOffsetMap     m_valueToOffsetMap;
+    /// This holds a set of all special buffer values with base element of type i1
+    TValueSet             m_oneBitElementValues;
 
     /// This holds a map between function and its entry in buffer data map
     TFunctionToEntryMap m_functionToEntryMap;

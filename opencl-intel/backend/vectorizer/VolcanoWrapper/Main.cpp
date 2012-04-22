@@ -328,13 +328,13 @@ bool Vectorizer::runOnModule(Module &M)
 
             fpm2.add(createInstructionCombiningPass());
             fpm2.add(createCFGSimplificationPass());
-            if (cpuId.HasAVX1()) {
-              fpm2.add(new intel::X86Lower(X86Lower::AVX));
-            } else if (cpuId.HasSSE41() || cpuId.HasSSE42()) {
-              fpm2.add(new intel::X86Lower(X86Lower::SSE4));
-            } else if (cpuId.HasSSE2()){
-              fpm2.add(new intel::X86Lower(X86Lower::SSE2));
-            }
+            //if (cpuId.HasAVX1()) {
+            //  fpm2.add(new intel::X86Lower(X86Lower::AVX));
+            //} else if (cpuId.HasSSE41() || cpuId.HasSSE42()) {
+            //  fpm2.add(new intel::X86Lower(X86Lower::SSE4));
+            //} else if (cpuId.HasSSE2()){
+            //  fpm2.add(new intel::X86Lower(X86Lower::SSE2));
+            //}
             fpm2.add(createPromoteMemoryToRegisterPass());
             fpm2.add(createAggressiveDCEPass());
             fpm2.add(createInstructionCombiningPass());
