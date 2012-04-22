@@ -52,9 +52,9 @@ using namespace Intel::OpenCL::DeviceBackend;
 namespace Validation
 {
 
-OpenCLBackendRunner::OpenCLBackendRunner()
+OpenCLBackendRunner::OpenCLBackendRunner(const BERunOptions& runConfig)
 {
-    OpenCLBackendWrapper::Init();
+    OpenCLBackendWrapper::Init(runConfig);
     m_pServiceFactory = OpenCLBackendWrapper::GetInstance().GetBackendServiceFactory();
 }
 

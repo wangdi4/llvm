@@ -43,7 +43,7 @@ File Name:  CPUCompileService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-CPUCompileService::CPUCompileService(const CompilerConfig& config)
+CPUCompileService::CPUCompileService(const ICompilerConfig& config)
     :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
 {
      m_backendFactory = CPUDeviceBackendFactory::GetInstance();

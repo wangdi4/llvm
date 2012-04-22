@@ -67,7 +67,7 @@ const cl_image_format supportedImageFormats[] = {
 
 };
 
-ImageCallbackService::ImageCallbackService(CompilerConfiguration& config, bool isCpu)
+ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool isCpu)
 {
   ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);
 }

@@ -28,7 +28,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUCompileService: public CompileService
 {
 public:
-    CPUCompileService(const CompilerConfig& config);
+    CPUCompileService(const ICompilerConfig& config);
     virtual ~CPUCompileService() { }
 
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }

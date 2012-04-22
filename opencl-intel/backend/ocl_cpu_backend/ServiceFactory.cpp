@@ -110,14 +110,12 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
         }
         if(MIC_MODE == mode)
         {
-            MICCompilerConfiguration config(BackendConfiguration::GetInstance()->GetMICCompilerConfig());
-            config.ApplyRuntimeOptions(pBackendOptions);
+            MICCompilerConfig config( BackendConfiguration::GetInstance().GetMICCompilerConfig(pBackendOptions));
             *ppBackendCompilationService = new MICCompileService(config);
             return CL_DEV_SUCCESS;
         }
         //if(CPU_MODE == mode)
-        CompilerConfiguration config(BackendConfiguration::GetInstance()->GetCPUCompilerConfig());
-        config.ApplyRuntimeOptions(pBackendOptions);
+        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         *ppBackendCompilationService = new CPUCompileService(config);
         return CL_DEV_SUCCESS;
     }
@@ -222,8 +220,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
     try
     {
         OPERATION_MODE mode = CPU_MODE;
-        CompilerConfiguration config(BackendConfiguration::GetInstance()->GetCPUCompilerConfig());
-        config.ApplyRuntimeOptions(pBackendOptions);
+        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
         if(NULL != pBackendOptions)
         {

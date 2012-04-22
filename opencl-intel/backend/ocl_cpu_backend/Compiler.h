@@ -160,7 +160,7 @@ public:
     /**
      * Ctor
      */
-    Compiler(const CompilerConfig& pConfig);
+    Compiler(const ICompilerConfig& config);
     virtual ~Compiler();
 
     /**
@@ -169,6 +169,12 @@ public:
      * instance of Compiler class are created
      */
     static void Init();
+
+    /**
+     * Initialize the global options
+     */
+    static void InitGlobalState( const IGlobalCompilerConfig& config );
+
     /**
      * Terminate the LLVM environment.
      * Must be called from a single threaded environment, after all
@@ -180,8 +186,8 @@ public:
      * Build the given program using the supplied build options
      */
     llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer,
-                      const CompilerBuildOptions* pOptions,
-                      ProgramBuildResult* pResult) const;
+                               const CompilerBuildOptions* pOptions,
+                               ProgramBuildResult* pResult) const;
 
     const CPUId &GetCpuId() const
     {
@@ -205,11 +211,16 @@ protected:
     llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
 
 protected:
-    CompilerConfig           m_config;
-    
     llvm::LLVMContext*       m_pLLVMContext;
     Intel::CPUId             m_CpuId;
     std::vector<std::string> m_forcedCpuFeatures;
+    ETransposeSize           m_transposeSize;
+    std::vector<int>         m_IRDumpAfter;
+    std::vector<int>         m_IRDumpBefore;
+    std::string              m_IRDumpDir;
+    bool                     m_needLoadBuiltins;
+
+    static bool s_globalStateInitialized;
 };
 
 }}}

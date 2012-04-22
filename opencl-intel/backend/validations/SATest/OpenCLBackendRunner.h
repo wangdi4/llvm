@@ -36,7 +36,7 @@ namespace Validation
     class OpenCLBackendRunner : public IProgramRunner
     {
     public:
-        OpenCLBackendRunner();
+        OpenCLBackendRunner(const BERunOptions& runConfig);
         ~OpenCLBackendRunner();
 
         /// @brief Builds and executes a single test program

@@ -66,17 +66,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 extern const char* CPU_ARCH_AUTO;
 
-void MICCompiler::SelectMICConfiguration(const CompilerConfig& config)
+void MICCompiler::SelectMICConfiguration(const ICompilerConfig& config)
 {
     Intel::ECPU CPU = Intel::CPUId::GetCPUByName(config.GetCpuArch().c_str());
     m_CpuId = Intel::CPUId(CPU, 0, true);
     assert(m_CpuId.IsMIC());
 }
 
-MICCompiler::MICCompiler(const MICCompilerConfig& config):
+MICCompiler::MICCompiler(const IMICCompilerConfig& config):
     Compiler(config),
     m_pBuiltinModule(NULL),
-    m_config(config),
     m_pCGEngine(NULL)
 {
     SelectMICConfiguration(config);

@@ -49,7 +49,7 @@ public:
     /**
      * Ctor
      */
-    MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const MICCompilerConfig& pConfig);
+    MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& pConfig);
     ~MICProgramBuilder();
 
 protected:
@@ -83,7 +83,6 @@ private:
 private:
     std::string m_ErrorStr;
     MICCompiler m_compiler;
-    CompilerConfig m_config;
 };
 
 }}}

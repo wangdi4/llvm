@@ -51,7 +51,7 @@ public:
     /**
      * Ctor
      */
-    CPUCompiler(const CompilerConfig& pConfig);
+    CPUCompiler(const ICompilerConfig& pConfig);
     virtual ~CPUCompiler();
 
     unsigned int GetTypeAllocSize(llvm::Type* pType) const;

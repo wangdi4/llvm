@@ -30,13 +30,40 @@ namespace Utils
     OPERATION_MODE SelectOperationMode(const char* cpuArch);
 }
 
-//*****************************************************************************************
-// CompilerConfig implementation. The main purpose of this class is to cut the dependancy
-// between the compiler and compiler service on ICLDevBackendOptions interface
-// 
-class CompilerConfiguration: public CompilerConfig
+class GlobalCompilerConfig: public IGlobalCompilerConfig
 {
 public:
+    void LoadDefaults();
+    void LoadConfig();
+    void SkipBuiltins();
+    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+
+    bool EnableTiming() const { return m_enableTiming;  }
+    std::string InfoOutputFile() const { return m_infoOutputFile; }
+
+private:
+    bool m_enableTiming;
+    std::string m_infoOutputFile;
+};
+
+
+
+//*****************************************************************************************
+// CompilerConfig implementation. 
+// 
+// Responsible for loading both default configuraiton as well as runtime 
+// configuration passed to the backend.
+//
+// This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig 
+class CompilerConfig: public virtual ICompilerConfig
+{
+public:
+    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
+                     m_useVTune(false),
+                     m_loadBuiltins(true),
+                     m_DumpIROptionAfter(NULL), 
+                     m_DumpIROptionBefore(NULL) {}
+
     // CompilerConfiguration methods
     void LoadDefaults();
     void LoadConfig();
@@ -46,16 +73,68 @@ public:
      * Return operation mode for current architecture
      */
     OPERATION_MODE GetOperationMode();
+
+    std::string GetCpuArch() const     { return m_cpuArch; }
+    std::string GetCpuFeatures() const { return m_cpuFeatures; }
+    ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
+    bool  GetUseVTune() const                 { return m_useVTune; }
+    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
+    std::vector<int> GetIRDumpOptionsAfter() const
+    {
+        if(!m_DumpIROptionAfter){
+            std::vector<int> tempVecotr;
+            return tempVecotr;
+        }
+        std::vector<int> optionsVector(m_DumpIROptionAfter->begin(), m_DumpIROptionAfter->end());
+        //sort the vector for later use (binary_search)
+        std::sort(optionsVector.begin(), optionsVector.end());
+        return optionsVector;
+    }
+    std::vector<int> GetIRDumpOptionsBefore() const
+    {
+       if(!m_DumpIROptionBefore){
+            std::vector<int> tempVecotr;
+            return tempVecotr;
+        }
+        std::vector<int> optionsVector(m_DumpIROptionBefore->begin(), m_DumpIROptionBefore->end());
+        //sort the vector for later use (binary_search)
+        std::sort(optionsVector.begin(), optionsVector.end());
+        return optionsVector;
+    }
+    std::string GetDumpIRDir() const { return m_dumpIRDir; }
+
+private:
+    std::string m_cpuArch;
+    std::string m_cpuFeatures;
+    ETransposeSize m_transposeSize;
+    bool        m_useVTune;
+    bool        m_loadBuiltins;
+    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
+    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
+    std::string m_dumpIRDir;
+
 };
 
-class MICCompilerConfiguration: public MICCompilerConfig
+class MICCompilerConfig: public CompilerConfig, public IMICCompilerConfig
 {
 public:
     // MIC CompilerConfiguration methods
-    void LoadDefaults();
-    void LoadConfig();
-    void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+
+    std::string GetCpuArch() const     { return CompilerConfig::GetCpuArch(); }
+    std::string GetCpuFeatures() const { return CompilerConfig::GetCpuFeatures(); }
+    ETransposeSize GetTransposeSize() const   { return CompilerConfig::GetTransposeSize(); }
+    bool  GetUseVTune() const                 { return CompilerConfig::GetUseVTune(); }
+    bool  GetLoadBuiltins() const             { return CompilerConfig::GetLoadBuiltins(); }
+    std::vector<int> GetIRDumpOptionsAfter() const { return CompilerConfig::GetIRDumpOptionsAfter(); }
+    std::vector<int> GetIRDumpOptionsBefore() const { return CompilerConfig::GetIRDumpOptionsBefore(); }
+    std::string GetDumpIRDir() const { return CompilerConfig::GetDumpIRDir(); }
+
+    const TargetDescription& GetTargetDescription() const { return m_TargetDescription; }
+
+protected:
+    TargetDescription m_TargetDescription;
+
 };
 
 
@@ -74,7 +153,7 @@ public:
      * Statis initialization. Must be called once, in single threaded
      * environment
      */
-    static void Init(const ICLDevBackendOptions* pBackendOptions);
+    static void Init();
     /**
      * Termination. Must be called once, in single threaded
      * environment
@@ -83,12 +162,20 @@ public:
     /**
      * Singleton instance getter
      */
-    static const BackendConfiguration* GetInstance();
+    static const BackendConfiguration& GetInstance();
     /**
-     * Returns the compiler specific configuration 
+     * Returns the global compiler configuration 
      */
-    CompilerConfiguration GetCPUCompilerConfig() const ;
-    MICCompilerConfiguration GetMICCompilerConfig() const ;
+    GlobalCompilerConfig GetGlobalCompilerConfig( const ICLDevBackendOptions* pBackendOptions ) const;
+    /**
+     * Returns the compiler instance configuration 
+     */
+    CompilerConfig GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
+    /**
+     * Returns the compiler instance configuration 
+     */
+    MICCompilerConfig GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
+
 private:
     static BackendConfiguration* s_pInstance;
 };

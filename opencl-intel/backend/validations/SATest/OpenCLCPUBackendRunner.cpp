@@ -278,7 +278,8 @@ private:
     ICLDevBackendBinaryPtr m_spBinary;
 };
 
-OpenCLCPUBackendRunner::OpenCLCPUBackendRunner()
+OpenCLCPUBackendRunner::OpenCLCPUBackendRunner(const BERunOptions& runConfig):
+    OpenCLBackendRunner(runConfig)
 {
 }
 
@@ -297,8 +298,8 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     assert((runResult != NULL) && "Run Result is not initialized\n");
 
     const OpenCLProgramConfiguration *pOCLProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
-    const BERunOptions         *pOCLRunConfig     = static_cast<const BERunOptions *>(runConfig);
-    const OpenCLProgram        *pOCLProgram       = static_cast<const OpenCLProgram *>(program);
+    const BERunOptions  *pOCLRunConfig = static_cast<const BERunOptions *>(runConfig);
+    const OpenCLProgram *pOCLProgram   = static_cast<const OpenCLProgram *>(program);
 
     std::auto_ptr<CPUBackendOptions> options;
     if( pOCLRunConfig->GetValue<bool>(RC_BR_USE_SDE, false))

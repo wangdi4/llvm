@@ -25,64 +25,49 @@ File Name:  CompilerConfig.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-
-//*****************************************************************************************
-// Abstract compiler configuration interface
-// 
-class CompilerConfig
+/**
+ * Global compiler configuration interface .
+ *
+ * This configuration is used for all the instances of the compiler
+ * Internally it is mapped to the global LLVM state
+ */ 
+class IGlobalCompilerConfig
 {
 public:
-    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),m_useVTune(false),
-                    m_loadBuiltins(true),
-                    m_DumpIROptionAfter(NULL), m_DumpIROptionBefore(NULL) {}
-    ~CompilerConfig(){}
+    virtual ~IGlobalCompilerConfig(){}
+    /**
+     * Time each pass, printing elapsed time for each on exit
+     */
+    virtual bool EnableTiming() const = 0; 
+    /**
+     * File to append -stats and -timer output to
+     */
+    virtual std::string InfoOutputFile() const = 0;
+};
 
-    // CompilerConfig interface methods
-    const std::string& GetBackendMode() const { return m_backendMode; }
-    const std::string& GetCpuArch() const     { return m_cpuArch; }
-    const std::string& GetCpuFeatures() const { return m_cpuFeatures; }
-    ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
-    bool  GetUseVTune() const                 { return m_useVTune; }
-    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
 
-    std::vector<int> GetIRDumpOptionsAfter() const
-    {
-        if(!m_DumpIROptionAfter){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionAfter->begin(), m_DumpIROptionAfter->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
-    }
-    std::vector<int> GetIRDumpOptionsBefore() const
-    {
-       if(!m_DumpIROptionBefore){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionBefore->begin(), m_DumpIROptionBefore->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
-    }
-    const std::string& GetDumpIRDir() const { return m_dumpIRDir; }
-    const std::string& GetTimePasses() const { return m_TimePasses; }
+/**
+ * Compiler configuration interface
+ * 
+ * This configuration is used for specific instance of the compiler
+ */
+class ICompilerConfig
+{
+public:
+    virtual ~ICompilerConfig(){}
 
-protected:
-    std::string m_backendMode;
-    std::string m_cpuArch;
-    std::string m_cpuFeatures;
-    ETransposeSize m_transposeSize;
-    bool        m_useVTune;
+    virtual std::string GetCpuArch() const = 0;
+    virtual std::string GetCpuFeatures() const = 0;
+    virtual ETransposeSize GetTransposeSize() const  = 0;
+    virtual bool  GetUseVTune() const = 0;
     // sets whether we need built-in module to be loaded
     // for current compiler
-    bool        m_loadBuiltins;
-    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
-    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
-    std::string m_dumpIRDir;
-    std::string m_TimePasses;
+    virtual bool  GetLoadBuiltins() const = 0;
+    virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
+    virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
+    virtual std::string GetDumpIRDir() const = 0;
 };
+
+
 
 }}}

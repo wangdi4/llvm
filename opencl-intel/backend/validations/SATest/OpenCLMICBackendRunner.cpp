@@ -143,17 +143,17 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
     }
 }
 
-OpenCLMICBackendRunner::OpenCLMICBackendRunner(const IRunComponentConfiguration* pRunConfiguration):
+OpenCLMICBackendRunner::OpenCLMICBackendRunner(const BERunOptions& config):
+    OpenCLBackendRunner(config),
     m_pTargetDesc(NULL),
     m_targetDescSize(0)
 {
-    const BERunOptions *pRunConfig = static_cast<const BERunOptions *>(pRunConfiguration);
     DEBUG(llvm::dbgs()<< "Initializing OpenCLMICBackendRunner.\n");
     COIENGINE engine;
     uint32_t num_engines = 0;
     // Make sure there is a MIC device available
     CHECK_COI_RESULT(
-        COIEngineGetCount(m_procAndPipe.GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), &num_engines));
+        COIEngineGetCount(m_procAndPipe.GetCOIISAType(config.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), &num_engines));
     if (num_engines < 1)
     {
         throw Exception::GeneralException("COIERROR: Need at least one engine");
@@ -161,9 +161,9 @@ OpenCLMICBackendRunner::OpenCLMICBackendRunner(const IRunComponentConfiguration*
 
     // Get a handle to the "first" MIC engine
     CHECK_COI_RESULT(
-        COIEngineGetHandle(m_procAndPipe.GetCOIISAType(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), 0, &engine));
+        COIEngineGetHandle(m_procAndPipe.GetCOIISAType(config.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "")), 0, &engine));
 
-    m_procAndPipe.Create(engine, pRunConfig);
+    m_procAndPipe.Create(engine, &config);
 
     // Retrieve handle to function belonging to sink side process
     CHECK_COI_RESULT(

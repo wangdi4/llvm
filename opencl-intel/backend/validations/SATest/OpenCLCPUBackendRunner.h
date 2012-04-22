@@ -44,7 +44,7 @@ namespace Validation
     class OpenCLCPUBackendRunner : public OpenCLBackendRunner
     {
     public:
-        OpenCLCPUBackendRunner();
+        OpenCLCPUBackendRunner(const BERunOptions& runConfig);
         ~OpenCLCPUBackendRunner();
 
         /// @brief Builds and executes a single test program

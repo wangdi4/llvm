@@ -23,12 +23,10 @@ File Name:  MICCompilerConfig.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class MICCompilerConfig : public CompilerConfig
+class IMICCompilerConfig : public virtual ICompilerConfig
 {
 public:
-    const TargetDescription& GetTargetDescription() const { return m_TargetDescription; }
-protected:
-    TargetDescription m_TargetDescription;
+    virtual const TargetDescription& GetTargetDescription() const=0;
 };
 
 }}} // namespace

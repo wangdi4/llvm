@@ -26,18 +26,20 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation
 {
+  class BERunOptions;
+
   /// @brief This class hides the internals of loading and calling OCL CPU Backend
   //  
   class OpenCLBackendWrapper
   {
   public:
-    static void Init();
+    static void Init(const BERunOptions& runConfig);
     static OpenCLBackendWrapper& GetInstance();
     static void Terminate();
 
     void LoadDll();
 
-    cl_dev_err_code Init(const ICLDevBackendOptions* pBackendOptions);
+    cl_dev_err_code InitBackend(const ICLDevBackendOptions* config);
 
     ICLDevBackendServiceFactory* GetBackendServiceFactory();
 

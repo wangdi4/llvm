@@ -28,6 +28,47 @@ File Name:  BackendOptions.h
 namespace Validation
 {
 
+class GlobalBackendOptions: public ICLDevBackendOptions
+{
+public:
+    void InitFromRunConfiguration(const BERunOptions& runConfig)
+    {
+        m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
+    }
+
+
+    const char* GetStringValue(int optionId, const char* defaultValue) const
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_TIME_PASSES:
+            return m_TimePasses.c_str();
+        default:
+            return defaultValue;
+        }
+    }
+
+    bool GetBooleanValue(int optionId, bool defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    virtual int GetIntValue( int optionId, int defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
+    {
+        return false;
+    }
+
+private:
+    std::string m_TimePasses;
+};
+
+
+
 class CPUBackendOptions: public ICLDevBackendOptions
 {
 public:
@@ -48,7 +89,6 @@ public:
                                 (RC_BR_DUMP_IR_BEFORE, 0);
 
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
-        m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -87,8 +127,6 @@ public:
             return m_cpuFeatures.c_str();
         case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
             return m_DumpIRDir.c_str();
-        case CL_DEV_BACKEND_OPTION_TIME_PASSES:
-            return m_TimePasses.c_str();
         default:
             return defaultValue;
         }
@@ -123,7 +161,6 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;
-    std::string m_TimePasses;
 };
 
 #if defined(INCLUDE_MIC_DEVICE)

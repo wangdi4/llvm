@@ -71,10 +71,9 @@ namespace Utils
  
 }
 
-MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const MICCompilerConfig& config):
-    ProgramBuilder(pBackendFactory),
-    m_compiler(config),
-    m_config(config)
+MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& config):
+    ProgramBuilder(pBackendFactory, config),
+    m_compiler(config)
 {
 }
 
@@ -97,7 +96,7 @@ MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Modul
                                                          const TLLVMKernelInfo& info) const
 {
     MICKernelJITProperties* pProps = static_cast<MICKernelJITProperties*>(m_pBackendFactory->CreateKernelJITProperties());
-    pProps->SetUseVTune(m_config.GetUseVTune());
+    pProps->SetUseVTune(m_useVTune);
     return pProps;
 }
 

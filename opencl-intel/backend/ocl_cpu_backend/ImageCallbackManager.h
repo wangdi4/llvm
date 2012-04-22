@@ -56,7 +56,7 @@ public:
     /**
      * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been loaded before.
      */
-    bool InitLibrary(CompilerConfig& config, bool isCpu, Intel::CPUId& cpuId);
+    bool InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId);
 
     /***
     * Returns the image callback functions per architecture

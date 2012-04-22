@@ -75,8 +75,9 @@ llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
 
 } //namespace Utils 
 
-ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory):
-    m_pBackendFactory(pBackendFactory)
+ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
+    m_pBackendFactory(pBackendFactory),
+    m_useVTune(config.GetUseVTune())
 {
 }
 

@@ -77,7 +77,7 @@ public:
     /**
      * Ctor
      */
-    MICCompiler(const MICCompilerConfig& pConfig);
+    MICCompiler(const IMICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
     unsigned int GetTypeAllocSize(llvm::Type* pType) const;
@@ -101,14 +101,13 @@ protected:
 
 
 private:
-    void SelectMICConfiguration(const CompilerConfig& config);
+    void SelectMICConfiguration(const ICompilerConfig& config);
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const;
 
 
 private:
     BuiltinModule*           m_pBuiltinModule;
-    MICCompilerConfig        m_config;
     mutable std::string              m_ErrorStr;
     mutable llvm::MICCodeGenerationEngine* m_pCGEngine;
     FunctionResolverWrapper  m_ResolverWrapper;

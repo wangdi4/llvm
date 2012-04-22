@@ -28,7 +28,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class MICCompileService: public CompileService
 {
 public:
-    MICCompileService(const MICCompilerConfig& config);
+    MICCompileService(const IMICCompilerConfig& config);
     virtual ~MICCompileService() { }
 
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }

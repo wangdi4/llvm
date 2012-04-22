@@ -163,6 +163,8 @@ std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
     return m_privateMemorySizeMap;
 }
 
+bool Compiler::s_globalStateInitialized = false;
+
 /*
  * This is a static method which must be called from the 
  * single threaded environment before any instance of Compiler
@@ -172,23 +174,57 @@ void Compiler::Init()
 {
     //TODO: Add handling of failure of MT init
     llvm::llvm_start_multithreaded();
-    // OpecnCL assumes stack is aligned
-    // We are forccing LLVM to align the stack
-    std::vector<char *> args;
-    char arg1[] = "OclBackend";
-    args.push_back(arg1);
-    char arg2[] = "-force-align-stack";
-    args.push_back(arg2);
-    // SSE requirest maximum alignment of parameters of 16 bytes
-    // AVX265 requirest maximum alignment of parameters of 32 bytes
-    char arg3[] = "-stack-alignment=32";
-    args.push_back(arg3);
-    llvm::cl::ParseCommandLineOptions(args.size(), &args[0]);
-
     llvm::InitializeAllTargets();
     llvm::InitializeAllAsmPrinters();
     llvm::InitializeAllTargetMCs();
 }
+
+/**
+ * Initialize the global options
+ */
+void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
+{
+    if( s_globalStateInitialized )
+    {
+        return;
+    }
+
+    std::vector<std::string> args;
+
+    args.push_back("OclBackend");
+    // OpecnCL assumes stack is aligned
+    // We are forccing LLVM to align the stack
+    args.push_back("-force-align-stack");
+    // SSE requirest maximum alignment of parameters of 16 bytes
+    // AVX265 requirest maximum alignment of parameters of 32 bytes
+    args.push_back("-stack-alignment=32");
+
+    if( config.EnableTiming() && false == config.InfoOutputFile().empty())
+    {
+        std::stringstream ss;
+        ss << "-info-output-file=" << config.InfoOutputFile().c_str();
+
+        args.push_back("--time-passes");
+        args.push_back(ss.str());
+    }
+
+    // Generate the argc/argv parameters for the llvm::ParsecommandLineOptions
+    std::vector<char*> argv;
+
+    std::vector<std::string>::iterator i = args.begin();
+    std::vector<std::string>::iterator e = args.end();
+
+    for(; i != e; ++i )
+    {
+        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged 
+        //until the next call to a non-constant member function of the string object.    
+        argv.push_back( const_cast<char*>(i->c_str()) );
+    }
+
+    llvm::cl::ParseCommandLineOptions(argv.size(), &argv[0]);
+    s_globalStateInitialized = true;
+}
+
 
 /*
  * This is a static method which must be called from the 
@@ -200,28 +236,16 @@ void Compiler::Terminate()
     llvm::llvm_shutdown();
 }
 
-Compiler::Compiler(const CompilerConfig& config):
-    m_config(config),
-    m_pLLVMContext( new llvm::LLVMContext )
+Compiler::Compiler(const ICompilerConfig& config):
+    m_pLLVMContext( new llvm::LLVMContext ),
+    m_transposeSize(config.GetTransposeSize()),
+    m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
+    m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
+    m_IRDumpDir(config.GetDumpIRDir()),
+    m_needLoadBuiltins( config.GetLoadBuiltins())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
-
-   if (!m_config.GetTimePasses().empty())
-   {
-        std::vector<char *> args;
-        char arg1[] = "timepasses";
-        args.push_back(arg1);
-        char arg2[] = "-time-passes";
-        args.push_back(arg2);
-        std::stringstream fileName;
-        fileName << "-info-output-file=" << m_config.GetTimePasses().c_str() << std::ends;
-        char* arg3 = new char[fileName.str().size()];
-        for(unsigned int i=0; i< fileName.str().size(); i++)
-            arg3[i] = (fileName.str().c_str())[i];
-        args.push_back(arg3);
-        llvm::cl::ParseCommandLineOptions(args.size(), &args[0]);
-   }
 }
 
 Compiler::~Compiler()
@@ -234,8 +258,8 @@ Compiler::~Compiler()
 }
 
 llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
-                                           const CompilerBuildOptions* pOptions,
-                                           ProgramBuildResult* pResult) const
+                                     const CompilerBuildOptions* pOptions,
+                                     ProgramBuildResult* pResult) const
 {
     assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
     assert(pResult && "Build results pointer must not be NULL");
@@ -249,10 +273,10 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     // Apply IR=>IR optimizations
     //
     intel::OptimizerConfig optimizerConfig( m_CpuId, 
-                                            m_config.GetTransposeSize(), 
-                                            m_config.GetIRDumpOptionsAfter(),
-                                            m_config.GetIRDumpOptionsBefore(),
-                                            m_config.GetDumpIRDir(),
+                                            m_transposeSize, 
+                                            m_IRDumpAfter,
+                                            m_IRDumpBefore,
+                                            m_IRDumpDir,
                                             pOptions->GetDebugInfoFlag(),
                                             pOptions->GetProfilingFlag(),
                                             pOptions->GetDisableOpt(),
@@ -290,7 +314,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     // !!!WORKAROUND!!! if module wasn't built previously than we use
     // optimizer output to create execution engine in compiler
     // spModule is now owned by the execution engine
-    if(!m_config.GetLoadBuiltins())
+    if(!m_needLoadBuiltins)
         this->CreateExecutionEngine(spModule.get());
     return spModule.release();
 }

@@ -31,25 +31,26 @@ namespace Validation
         OpenCLFactory(void);
         ~OpenCLFactory(void);
 
-    /// @brief Creates new OpenCL program
-    virtual IProgram * CreateProgram(IProgramConfiguration* programConfig,
-                                    IRunConfiguration* pRunConfiguration);
+        /// @brief Creates new OpenCL program
+        virtual IProgram* CreateProgram(IProgramConfiguration* programConfig,
+                                        IRunConfiguration* pRunConfiguration);
 
         /// @brief Creates new program configuration
-        virtual IProgramConfiguration * CreateProgramConfiguration(const std::string& configFile, const std::string& baseDir);
+        virtual IProgramConfiguration* CreateProgramConfiguration(const std::string& configFile, 
+                                                                   const std::string& baseDir);
 
         /// @brief Creates new run configuration
-        virtual IRunConfiguration * CreateRunConfiguration();
+        virtual IRunConfiguration* CreateRunConfiguration();
 
         /// @brief Creates new OpenCL program runner
-        virtual IProgramRunner * CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration);
+        virtual IProgramRunner* CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration);
 
         /// @brief Creates new OpenCL reference runner
-        virtual IProgramRunner * CreateReferenceRunner(const IRunComponentConfiguration*pRunConfiguration);
+        virtual IProgramRunner* CreateReferenceRunner(const IRunComponentConfiguration*pRunConfiguration);
 
         /// @brief Creates new run results comparator for given platform
         virtual IRunResultComparator* CreateComparator(IProgramConfiguration* pProgramConfiguration,
-            IRunConfiguration* pRunConfiguration);
+                                                       IRunConfiguration* pRunConfiguration);
     };
 }
 

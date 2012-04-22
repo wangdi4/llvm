@@ -40,7 +40,7 @@ class ImageCallbackService : public ICLDevBackendImageService
 public:
 
     /* Initializes the service with the proper options, getting the architecture */
-    ImageCallbackService(CompilerConfiguration& config, bool isCpu);
+    ImageCallbackService(const CompilerConfig& config, bool isCpu);
 
     /**
     returns the size of the auxilary structure for

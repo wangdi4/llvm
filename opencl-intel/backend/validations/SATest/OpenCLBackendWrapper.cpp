@@ -17,6 +17,7 @@ File Name:  OpenCLBackendWrapper.cpp
 \*****************************************************************************/
 #include <assert.h>
 #include "OpenCLBackendWrapper.h"
+#include "BackendOptions.h"
 #include "SATestException.h"
 #include "DynamicLib.h"
 
@@ -30,12 +31,15 @@ namespace Validation
 {
 OpenCLBackendWrapper* OpenCLBackendWrapper::s_instance = NULL;
 
-void OpenCLBackendWrapper::Init()
+void OpenCLBackendWrapper::Init(const BERunOptions& runConfig)
 {
+    GlobalBackendOptions config;
+    config.InitFromRunConfiguration(runConfig);
+    
     assert(!s_instance);
     s_instance = new OpenCLBackendWrapper();
     s_instance->LoadDll();
-    s_instance->Init(NULL); // we could probably pass the logger routine here, but currently it's not supported
+    s_instance->InitBackend(&config); // we could probably pass the logger routine here, but currently it's not supported
 }
 
 OpenCLBackendWrapper& OpenCLBackendWrapper::GetInstance()
@@ -72,7 +76,7 @@ void OpenCLBackendWrapper::LoadDll()
     }
 }
 
-cl_dev_err_code OpenCLBackendWrapper::Init(const ICLDevBackendOptions* pBackendOptions)
+cl_dev_err_code OpenCLBackendWrapper::InitBackend(const ICLDevBackendOptions* pBackendOptions)
 {
     assert(m_funcInit);
     return m_funcInit(pBackendOptions);

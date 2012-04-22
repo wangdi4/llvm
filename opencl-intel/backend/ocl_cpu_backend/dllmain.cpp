@@ -127,7 +127,8 @@ extern "C"
 
         try
         {
-            BackendConfiguration::Init(pBackendOptions);
+            BackendConfiguration::Init();
+            Compiler::InitGlobalState( BackendConfiguration::GetInstance().GetGlobalCompilerConfig(pBackendOptions));
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
             MICDeviceBackendFactory::Init();

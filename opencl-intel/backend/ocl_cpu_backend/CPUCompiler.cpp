@@ -191,7 +191,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 }
 
 
-CPUCompiler::CPUCompiler(const CompilerConfig& config):
+CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     Compiler(config),
     m_pBuiltinModule(NULL),
     m_pExecEngine(NULL),

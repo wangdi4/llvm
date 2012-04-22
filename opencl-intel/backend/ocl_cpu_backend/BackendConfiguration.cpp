@@ -59,7 +59,7 @@ BackendConfiguration::BackendConfiguration()
 BackendConfiguration::~BackendConfiguration()
 {}
 
-void BackendConfiguration::Init(const ICLDevBackendOptions* pBackendOptions)
+void BackendConfiguration::Init()
 {
     assert(!s_pInstance);
     s_pInstance = new BackendConfiguration();
@@ -74,38 +74,59 @@ void BackendConfiguration::Terminate()
     }
 }
 
-const BackendConfiguration* BackendConfiguration::GetInstance()
+const BackendConfiguration& BackendConfiguration::GetInstance()
 {
     assert(s_pInstance);
-    return s_pInstance;
+    return *s_pInstance;
 }
 
-CompilerConfiguration BackendConfiguration::GetCPUCompilerConfig() const 
+GlobalCompilerConfig BackendConfiguration::GetGlobalCompilerConfig( const ICLDevBackendOptions* pBackendOptions ) const
 {
-    CompilerConfiguration CPUCompilerConfig;
-
-    CPUCompilerConfig.LoadDefaults();
-    CPUCompilerConfig.LoadConfig(); 
-
-    return CPUCompilerConfig; 
+    GlobalCompilerConfig config;
+    config.LoadDefaults();
+    config.LoadConfig(); 
+    config.ApplyRuntimeOptions(pBackendOptions);
+    return config;
 }
 
-MICCompilerConfiguration BackendConfiguration::GetMICCompilerConfig() const
+CompilerConfig BackendConfiguration::GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const 
 {
-    MICCompilerConfiguration MICCompilerConfig;
-
-    MICCompilerConfig.LoadDefaults();
-    MICCompilerConfig.LoadConfig();  
-
-    return MICCompilerConfig; 
+    CompilerConfig config;
+    config.LoadDefaults();
+    config.LoadConfig(); 
+    config.ApplyRuntimeOptions(pBackendOptions);
+    return config; 
 }
 
-OPERATION_MODE CompilerConfiguration::GetOperationMode()
+MICCompilerConfig BackendConfiguration::GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const
 {
-     return Utils::SelectOperationMode(GetCpuArch().c_str());
+    MICCompilerConfig config;
+    config.LoadDefaults();
+    config.LoadConfig();  
+    config.ApplyRuntimeOptions(pBackendOptions);
+    return config; 
 }
 
-void CompilerConfiguration::LoadDefaults()
+void GlobalCompilerConfig::LoadDefaults()
+{
+    m_enableTiming = false;
+}
+
+void GlobalCompilerConfig::LoadConfig()
+{
+}
+
+void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
+{
+    if( NULL == pBackendOptions)
+    {
+        return;
+    }
+    m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
+    m_enableTiming = !m_infoOutputFile.empty();
+}
+
+void CompilerConfig::LoadDefaults()
 {
     m_cpuArch = CPU_ARCH_AUTO;
     m_transposeSize = TRANSPOSE_SIZE_AUTO;
@@ -113,12 +134,12 @@ void CompilerConfiguration::LoadDefaults()
     m_useVTune = true;
 }
 
-void CompilerConfiguration::SkipBuiltins()
+void CompilerConfig::SkipBuiltins()
 {
     m_loadBuiltins = false;
 }
 
-void CompilerConfiguration::LoadConfig()
+void CompilerConfig::LoadConfig()
 {
     //TODO: Add validation code
     if (const char *pEnv = getenv("VOLCANO_ARCH"))
@@ -143,7 +164,7 @@ void CompilerConfiguration::LoadConfig()
     }
 }
 
-void CompilerConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
+void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
     if( NULL == pBackendOptions)
     {
@@ -156,62 +177,17 @@ void CompilerConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBac
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
-    m_TimePasses    = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_TimePasses.c_str());
 }
 
 
-void MICCompilerConfiguration::LoadDefaults()
+void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
-    m_cpuArch = CPU_ARCH_AUTO_REMOTE;
-    m_transposeSize = TRANSPOSE_SIZE_AUTO;
-    m_cpuFeatures = "";
-    m_useVTune = true;
-}
+    CompilerConfig::ApplyRuntimeOptions(pBackendOptions);
 
-void MICCompilerConfiguration::SkipBuiltins()
-{
-    m_loadBuiltins = false;
-}
-
-void MICCompilerConfiguration::LoadConfig()
-{
-    //TODO: Add validation code
-    if (const char *pEnv = getenv("VOLCANO_ARCH"))
-    {
-        m_cpuArch = pEnv;
-    }
-
-    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE")) 
-    {
-        unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail()) 
-        {
-            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
-        }
-        m_transposeSize = ETransposeSize(size);
-    }
-
-    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES")) 
-    {
-        // The validity of the cpud features are checked upon parsing of optimizer options
-        m_cpuFeatures = pEnv;
-    }
-}
-
-void MICCompilerConfiguration::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
-{
     if( NULL == pBackendOptions)
     {
         return;
     }
-    m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, m_cpuArch.c_str());
-    m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_FEATURES, m_cpuFeatures.c_str());
-    m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
-    m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
-    m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
-    m_TimePasses    = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_TimePasses.c_str());
 
     size_t targetDescriptionSize = pBackendOptions->GetIntValue(CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE, 0);
     if(0 != targetDescriptionSize)

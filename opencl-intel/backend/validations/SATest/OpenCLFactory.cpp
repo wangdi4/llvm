@@ -66,8 +66,8 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
 
 IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-#if defined(INCLUDE_MIC_DEVICE)
     const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
+#if defined(INCLUDE_MIC_DEVICE)
     std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
     bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);
     if ((std::string("auto-remote") == cpuArch ||
@@ -77,10 +77,10 @@ IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfigura
         )
     {
         DEBUG(llvm::dbgs() << "CreateProgramRunner created back-end runner for MIC!" << "\n");
-        return new OpenCLMICBackendRunner(pRunConfiguration);
+        return new OpenCLMICBackendRunner(*runConfig);
     }
 #endif
-    return new OpenCLCPUBackendRunner();
+    return new OpenCLCPUBackendRunner(*runConfig);
 }
 
 IProgramRunner * OpenCLFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)

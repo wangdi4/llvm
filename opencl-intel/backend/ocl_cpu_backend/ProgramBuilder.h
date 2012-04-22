@@ -23,6 +23,7 @@ File Name:  ProgramBuilder.h
 #include "exceptions.h"
 #include "cl_dev_backend_api.h"
 #include "CompilationUtils.h"
+
 #include "IAbstractBackendFactory.h"
 #include "Optimizer.h"
 
@@ -39,7 +40,7 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class CompilerConfig;
+class ICompilerConfig;
 class Program;
 class Kernel;
 class KernelProperties;
@@ -66,7 +67,7 @@ public:
     /**
      * Ctor
      */
-    ProgramBuilder(IAbstractBackendFactory* pBackendFactory);
+    ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config);
     ~ProgramBuilder();
 
 public:
@@ -92,6 +93,7 @@ protected:
 
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory; 
+    bool m_useVTune;
 };
 
 }}}

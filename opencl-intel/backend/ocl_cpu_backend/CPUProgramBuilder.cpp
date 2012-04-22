@@ -95,10 +95,9 @@ bool IsKernel(llvm::Module* pModule, const char* szFuncName)
 }
 
 }
-CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& config):
-    ProgramBuilder(pBackendFactory),
-    m_compiler(config),
-    m_config(config)
+CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
+    ProgramBuilder(pBackendFactory, config),
+    m_compiler(config)
 {
 }
 
@@ -249,7 +248,7 @@ KernelJITProperties* CPUProgramBuilder::CreateKernelJITProperties(llvm::Module* 
                                                          const TLLVMKernelInfo& info) const
 {
     KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
-    pProps->SetUseVTune(m_config.GetUseVTune());
+    pProps->SetUseVTune(m_useVTune);
     return pProps;
 }
 

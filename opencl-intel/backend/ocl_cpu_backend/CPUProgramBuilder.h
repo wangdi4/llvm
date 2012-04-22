@@ -59,7 +59,7 @@ public:
     /**
      * Ctor
      */
-    CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const CompilerConfig& pConfig);
+    CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& pConfig);
     ~CPUProgramBuilder();
 
     const Compiler* GetCompiler() const
@@ -94,7 +94,6 @@ private:
 
 private:
     CPUCompiler m_compiler;
-    CompilerConfig m_config;
 };
 
 }}}

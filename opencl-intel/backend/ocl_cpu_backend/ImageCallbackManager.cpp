@@ -66,7 +66,7 @@ ImageCallbackManager* ImageCallbackManager::GetInstance()
 }
 
 
-bool ImageCallbackManager::InitLibrary(CompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
+bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
 {
   // MIC is not supported currently. Return.
   if(!isCpu)

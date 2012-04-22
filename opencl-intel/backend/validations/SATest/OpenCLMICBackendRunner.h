@@ -47,6 +47,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation
 {
+    class BERunOptions;
+
     enum DEVICE_SIDE_FUNCTION
     {
         INIT_DEVICE = 0,
@@ -64,7 +66,7 @@ namespace Validation
     class OpenCLMICBackendRunner : public OpenCLBackendRunner
     {
     public:
-        OpenCLMICBackendRunner(const IRunComponentConfiguration* pRunConfiguration);
+        OpenCLMICBackendRunner(const BERunOptions& config);
         ~OpenCLMICBackendRunner();
 
         /// @brief Builds and executes a single test program
