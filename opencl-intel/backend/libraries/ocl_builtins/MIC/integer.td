@@ -11,9 +11,6 @@ OclBuiltinImpl abs_v16_i32 = OclBuiltinImpl<abs, [v16i32], 0, [{
     __m512i r = _mm512_mask_mov_epi32((__m512i)$Arg0VarName, m16, (__m512i)-$Arg0VarName); // $Arg0VarName < 0 ? -$Arg0VarName : $Arg0VarName
     return as_$ReturnType(r);
   }]>;
-OclBuiltinImpl abs_v8_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
-    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
-  }]>;
 OclBuiltinImpl abs_promote = OclBuiltinImpl<abs, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,/*  v16i8,*/
                                                   v1i16, v2i16, v3i16, v4i16, v8i16,/* v16i16,*/
                                                   v1i32, v2i32, v3i32, v4i32, v8i32,/* v16i32,*/

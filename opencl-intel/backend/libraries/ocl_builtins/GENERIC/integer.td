@@ -1,5 +1,9 @@
 // vim:ts=2:sw=2:et:
 
+// abs on signed integer
+OclBuiltinImpl abs_v8_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
+    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
+  }]>;
 
 // abs on unsigned integer
 OclBuiltinImpl abs_ugeneric = OclBuiltinImpl<abs, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
