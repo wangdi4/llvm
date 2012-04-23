@@ -1369,3 +1369,199 @@ _mm256_mask_i64gather_epi32 (__m128i src, int const *base,
 						   scale);
 }
 #endif // GATHER
+
+
+// FMA intrinsics
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmadd_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmaddpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmadd_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfmaddpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmadd_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmaddps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmadd_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfmaddps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmadd_sd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmaddsd(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmadd_ss (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmaddss(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmaddsub_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmaddsubpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmaddsub_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfmaddsubpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmaddsub_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmaddsubps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmaddsub_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfmaddsubps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsubadd_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmsubaddpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmsubadd_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfmsubaddpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsubadd_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmsubaddps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmsubadd_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfmsubaddps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsub_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmsubpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmsub_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfmsubpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsub_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmsubps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fmsub_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfmsubps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsub_sd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfmsubsd(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fmsub_ss (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfmsubss(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmadd_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfnmaddpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fnmadd_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfnmaddpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmadd_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfnmaddps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fnmadd_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfnmaddps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmadd_sd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfnmaddsd(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmadd_ss (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfnmaddss(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmsub_pd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfnmsubpd(a,b,c);
+}
+
+__inline __m256d __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fnmsub_pd (__m256d a, __m256d b, __m256d c)
+{
+  return __builtin_ia32_vfnmsubpd256(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmsub_ps (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfnmsubps(a,b,c);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_fnmsub_ps (__m256 a, __m256 b, __m256 c)
+{
+  return __builtin_ia32_vfnmsubps256(a,b,c);
+}
+
+__inline __m128d __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmsub_sd (__m128d a, __m128d b, __m128d c)
+{
+  return __builtin_ia32_vfnmsubsd(a,b,c);
+}
+
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_fnmsub_ss (__m128 a, __m128 b, __m128 c)
+{
+  return __builtin_ia32_vfnmsubss(a,b,c);
+}
+
