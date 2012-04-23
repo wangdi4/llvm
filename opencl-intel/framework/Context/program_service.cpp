@@ -98,6 +98,7 @@ bool CompileTask::Execute()
     size_t uiBinarySize = 0;
     char* szCompileLog = NULL;
 
+    m_pProg->SetBuildLogInternal(m_deviceID, "Compilation started\n");
     m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_FE_COMPILING);
 
     m_pFECompiler->CompileProgram(m_szSource, 
@@ -112,7 +113,13 @@ bool CompileTask::Execute()
     if (NULL != szCompileLog)
     {
         m_pProg->SetBuildLogInternal(m_deviceID, szCompileLog);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Compilation failed\n");
         delete[] szCompileLog;
+    }
+    else
+    {
+
+        m_pProg->SetBuildLogInternal(m_deviceID, "Compilation done\n");
     }
 
     if (0 == uiBinarySize)
@@ -158,11 +165,12 @@ bool LinkTask::Execute()
     bool bIsLibrary = false;
 
     if (m_pProg->GetStateInternal(m_deviceID) == DEVICE_PROGRAM_COMPILE_FAILED)
-	{
+	  {
         SetComplete(CL_BUILD_SUCCESS);
-		return true;
-	}
+		    return true;
+	  }
 
+    m_pProg->SetBuildLogInternal(m_deviceID, "Linking started\n");
     m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_FE_LINKING);
 
     const void** ppBinaries = NULL;
@@ -173,18 +181,18 @@ bool LinkTask::Execute()
         m_uiNumPrograms = 1;
 
         ppBinaries = new const void*[1];
-		if (NULL == ppBinaries)
-		{
-			m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+		    if (NULL == ppBinaries)
+		    {
+			      m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
             m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
             SetComplete(CL_BUILD_SUCCESS);
             return true;
-		}
+		    }
 
         puiBinariesSizes = new size_t[1];
         if (NULL == puiBinariesSizes)
         {
-			delete[] ppBinaries;
+			      delete[] ppBinaries;
             m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
             m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
             SetComplete(CL_BUILD_SUCCESS);
@@ -196,19 +204,19 @@ bool LinkTask::Execute()
     }
     else
     {
-		ppBinaries = new const void*[m_uiNumPrograms];
-		if (NULL == ppBinaries)
-		{
-			m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+		    ppBinaries = new const void*[m_uiNumPrograms];
+		    if (NULL == ppBinaries)
+		    {
+			      m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
             m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
             SetComplete(CL_BUILD_SUCCESS);
             return true;
-		}
+		    }
 
         puiBinariesSizes = new size_t[m_uiNumPrograms];
         if (NULL == puiBinariesSizes)
         {
-			delete[] ppBinaries;
+			      delete[] ppBinaries;
             m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
             m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
             SetComplete(CL_BUILD_SUCCESS);
@@ -234,17 +242,20 @@ bool LinkTask::Execute()
     delete[] ppBinaries;
     delete[] puiBinariesSizes;
 
-    if (NULL != szLinkLog)
-    {
-        m_pProg->SetBuildLogInternal(m_deviceID, szLinkLog);
-        delete[] szLinkLog;
-    }
-
     if (0 == uiBinarySize)
     {
         assert( NULL == pBinary);
         //Build failed
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+
+        if (NULL != szLinkLog)
+        {
+            m_pProg->SetBuildLogInternal(m_deviceID, szLinkLog);
+            delete[] szLinkLog;
+        }
+
+        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
+
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
@@ -256,6 +267,7 @@ bool LinkTask::Execute()
     if (bIsLibrary)
     {
         delete[] pBinary;
+        m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
@@ -272,6 +284,7 @@ bool LinkTask::Execute()
         //Build failed
         delete[] pBinary;
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
@@ -282,11 +295,12 @@ bool LinkTask::Execute()
         //Build failed
         delete[] pBinary;
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
 	
-	m_pProg->SetDeviceHandleInternal(m_deviceID, programHandle);
+	  m_pProg->SetDeviceHandleInternal(m_deviceID, programHandle);
 
     delete[] pBinary;
 
@@ -296,15 +310,17 @@ bool LinkTask::Execute()
 
     assert(CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status);
 
-	if (CL_BUILD_ERROR == build_status)
-	{
+	  if (CL_BUILD_ERROR == build_status)
+	  {
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BUILD_FAILED);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
         SetComplete(CL_BUILD_SUCCESS);
-		return true;
-	}
-
+		    return true;
+	  }
+  
+    m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
     SetComplete(CL_BUILD_SUCCESS);
-	return true;
+	  return true;
 }
 
 PostBuildTask::PostBuildTask(cl_context context, 

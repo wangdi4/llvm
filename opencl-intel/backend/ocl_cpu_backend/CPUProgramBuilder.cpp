@@ -123,7 +123,6 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
                                     llvm::Module* pModule, 
                                     ProgramBuildResult& buildResult) const
 {
-    buildResult.LogS() << "Build started\n";
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
 
     llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");

@@ -295,22 +295,31 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		case DEVICE_PROGRAM_SOURCE:
 		case DEVICE_PROGRAM_LOADED_IR:
 		case DEVICE_PROGRAM_FE_COMPILING:
-        case DEVICE_PROGRAM_FE_LINKING:
-        case DEVICE_PROGRAM_BE_BUILDING:
+    case DEVICE_PROGRAM_FE_LINKING:
+    case DEVICE_PROGRAM_BE_BUILDING:
 			uiParamSize = 1;
 			pValue		= &emptyString;
 			break;
 
 		case DEVICE_PROGRAM_COMPILED:
 		case DEVICE_PROGRAM_LINKED:
-        case DEVICE_PROGRAM_COMPILE_FAILED:
-        case DEVICE_PROGRAM_LINK_FAILED:
-	        uiParamSize = m_uiBuildLogSize;
-			pValue      = m_szBuildLog;
+    case DEVICE_PROGRAM_COMPILE_FAILED:
+    case DEVICE_PROGRAM_LINK_FAILED:
+      if (m_szBuildLog)
+      {
+	      uiParamSize = m_uiBuildLogSize;
+			  pValue      = m_szBuildLog;
+      }
+      else
+      {
+        uiParamSize = 1;
+			  pValue      = &emptyString;
+      }
+
 			break;
 
 		case DEVICE_PROGRAM_BUILD_DONE:
-        case DEVICE_PROGRAM_BUILD_FAILED:
+    case DEVICE_PROGRAM_BUILD_FAILED:
 			{
 				cl_dev_err_code clDevErr = CL_DEV_SUCCESS;
 				// still need to append the FE build log
