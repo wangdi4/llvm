@@ -161,7 +161,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
 
-    // clGetDeviceIDsFromDX9MediaAdapterKHR
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromDX9MediaAdapterKHR , clGetDeviceIDsFromDX9MediaAdapterKHR )    
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
 };
@@ -454,6 +454,10 @@ crt_err_code CrtModule::Initialize()
                 pDevInfo->m_crtPlatform = pCrtPlatform;
                 crt_ocl_module.PatchClDeviceID(pDevices[j], &pDevInfo->m_origDispatchTable);
 
+                // store the device types we have loaded;
+                // sometimes we load only CPU or GPU; in case the other
+                // doesn't exist
+                m_availableDeviceTypes |= pDevInfo->m_devType;
                 m_deviceInfoMap[pDevices[j]] = pDevInfo;
             }
 
@@ -491,6 +495,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_d3d10_device_khr_set         = CL_FALSE;
     cl_bool cl_d3d9_device_intel_set        = CL_FALSE;
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
+    cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
 
     if( properties != NULL )
     {
@@ -538,8 +543,17 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_d3d10_device_khr_set = CL_TRUE;
                 break;
+            case CL_CONTEXT_D3D11_DEVICE_KHR:
+                if( cl_d3d11_device_khr_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_d3d11_device_khr_set = CL_TRUE;
+                break;
             case CL_CONTEXT_D3D9_DEVICE_INTEL:
             case CL_CONTEXT_D3D9EX_DEVICE_INTEL:
+            case CL_CONTEXT_ADAPTER_D3D9_KHR:
+            case CL_CONTEXT_ADAPTER_D3D9EX_KHR:
                 if( cl_d3d9_device_intel_set == CL_TRUE )
                 {
                     return CL_INVALID_PROPERTY;
@@ -547,6 +561,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 cl_d3d9_device_intel_set = CL_TRUE;
                 break;
             case CL_CONTEXT_DXVA_DEVICE_INTEL:
+            case CL_CONTEXT_ADAPTER_DXVA_KHR:
                 if( cl_dxva9_device_intel_set == CL_TRUE )
                 {
                     return CL_INVALID_PROPERTY;

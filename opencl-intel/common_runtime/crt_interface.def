@@ -122,6 +122,6 @@ EXPORTS
     ; clEnqueueAcquireD3D11ObjectsKHR
     ; clEnqueueReleaseD3D11ObjectsKHR
 
-    ; clGetDeviceIDsFromDX9MediaAdapterKHR
+    clGetDeviceIDsFromDX9MediaAdapterKHR
     ; clEnqueueAcquireDX9MediaSurfacesKHR
     ; clEnqueueReleaseDX9MediaSurfacesKHR

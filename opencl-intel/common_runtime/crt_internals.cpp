@@ -2195,6 +2195,10 @@ cl_int GetCrtExtension(const char* str_extensions)
         }
         else if( !sub.compare( "cl_intel_dx9_media_sharing" ) )
         {
+            ext_keys |= CRT_CL_INTEL_D3D9_EXT;
+        }
+        else if( !sub.compare( "cl_khr_dx9_media_sharing" ) )
+        {
             ext_keys |= CRT_CL_D3D9_EXT;
         }
         else if( !sub.compare( "cl_khr_d3d10_sharing" ) )

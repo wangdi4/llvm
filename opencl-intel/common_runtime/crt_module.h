@@ -120,6 +120,7 @@ namespace OCLCRT
 
         // default device type
         cl_device_type                          m_defaultDeviceType;
+        cl_device_type                          m_availableDeviceTypes;
 
         static char*                            m_common_extensions;
 

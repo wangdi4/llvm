@@ -7074,66 +7074,230 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_uint                     *num_devices)
 {
     cl_int errCode = CL_SUCCESS;
-    std::vector<CrtPlatform*>::iterator itr;
+    OCLCRT::DEV_INFO_MAP::const_iterator itr;
+    cl_uint num_devices_ret = 0;
+    cl_uint platform_num_devices = 0;
+    cl_device_id* platform_devices = NULL;
 
-    if( platform == NULL )
+
+    if( ( platform == NULL ) || !isValidPlatform( platform ) )
     {
         errCode = CL_INVALID_PLATFORM;
         goto FINISH;
     }
 
-    cl_uint num_devices_ret = 0;
-    cl_uint platform_num_devices = 0;
-
-    itr = OCLCRT::crt_ocl_module.m_oclPlatforms.begin();
-    for( ;itr != OCLCRT::crt_ocl_module.m_oclPlatforms.end(); ++itr ) 
+    if( ( ( devices != NULL ) && ( num_entries == 0 ) ) ||
+        ( ( devices == NULL ) && ( num_devices == NULL ) ) )
     {
-        cl_device_id* platform_devices = NULL;
-        if( devices != NULL )
-        {
-            platform_devices = &devices[ num_devices_ret ];
-        }
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }
+       
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
-        if( !( (*itr)->m_supportedExtensions & CRT_CL_D3D9_EXT ) )
+    for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+    itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+    itr++ )
+    {        
+        CrtPlatform* devicePlatform = itr->second->m_crtPlatform;
+
+        if( !( devicePlatform->m_supportedExtensions & CRT_CL_INTEL_D3D9_EXT ) )
         {
             // The current platform isn't supporting DX9 interop
             continue;
         }
-        errCode = ( (SOCLEntryPointsTable*)(*itr)->m_platformIdDEV )->crtDispatch->clGetDeviceIDsFromDX9INTEL(
-            (*itr)->m_platformIdDEV,
-            d3d_device_source,
-            d3d_object,
-            d3d_device_set,
-            num_entries,
-            platform_devices,
-            &platform_num_devices);
+        switch( d3d_device_set )
+        {            
+        case CL_PREFERRED_DEVICES_FOR_DX9_INTEL:
+           if( ( ( OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU ) &&
+               ( itr->second->m_devType != CL_DEVICE_TYPE_GPU ) ) ||
+               ( itr->second->m_isRootDevice == false ) )
+           {
+               continue;
+           }
 
-        if( errCode == CL_SUCCESS )
-        {
-            num_devices_ret += platform_num_devices;
+           errCode = ( (SOCLEntryPointsTable*) devicePlatform->m_platformIdDEV )->crtDispatch->clGetDeviceIDsFromDX9INTEL(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                devices,
+                &num_devices_ret);
+           
+           goto FINISH;
 
-            if ( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+           break;
+
+        case CL_ALL_DEVICES_FOR_DX9_INTEL:            
+
+            if( devices != NULL )
             {
-                errCode = CL_INVALID_VALUE;
+                platform_devices = &devices[ num_devices_ret ];
+            }
+            errCode = ( (SOCLEntryPointsTable*)devicePlatform->m_platformIdDEV )->crtDispatch->clGetDeviceIDsFromDX9INTEL(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                platform_devices,
+                &platform_num_devices);
+
+            if( errCode == CL_SUCCESS )
+            {
+                num_devices_ret += platform_num_devices;
+
+                if ( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+            }
+            else
+            {
                 goto FINISH;
             }
-        }
-        else
-        {
+            break;
+        default:
+            errCode = CL_INVALID_VALUE;
             goto FINISH;
+            break;
         }
     }
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+
+FINISH:
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
     }
-FINISH:
     return errCode;
 }
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
+CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(
+    cl_platform_id                 platform,
+    cl_uint                        num_media_adapters,
+    cl_dx9_media_adapter_type_khr* media_adapter_type,
+    void *                         media_adapters[],
+    cl_dx9_media_adapter_set_khr   media_adapter_set,
+    cl_uint                        num_entries, 
+    cl_device_id *                 devices, 
+    cl_uint *                      num_devices)
+{
+    cl_int errCode = CL_SUCCESS;
+    OCLCRT::DEV_INFO_MAP::const_iterator itr;
+    cl_uint num_devices_ret = 0;
+    cl_uint platform_num_devices = 0;
+    cl_device_id* platform_devices = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if( ( platform == NULL ) || !isValidPlatform( platform ) )
+    {
+        errCode = CL_INVALID_PLATFORM;
+        goto FINISH;
+    }
+
+    if( ( ( devices != NULL ) && ( num_entries == 0 ) ) ||
+        ( ( devices == NULL ) && ( num_devices == NULL ) ) )
+    {
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }     
+
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
+    for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+    itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+    itr++ )
+    {        
+        CrtPlatform* devicePlatform = itr->second->m_crtPlatform;
+
+        if( !( devicePlatform->m_supportedExtensions & CRT_CL_D3D9_EXT ) )
+        {
+            // The current platform isn't supporting DX9 interop
+            continue;
+        }
+        switch( media_adapter_set )
+        {            
+        case CL_PREFERRED_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR:
+           if( ( ( OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU ) &&
+               ( itr->second->m_devType != CL_DEVICE_TYPE_GPU ) ) ||
+               ( itr->second->m_isRootDevice == false ) )
+           {
+               continue;
+           }
+
+           errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromDX9MediaAdapterKHR(
+                devicePlatform->m_platformIdDEV,
+                num_media_adapters,
+                media_adapter_type,
+                media_adapters,
+                media_adapter_set,
+                num_entries,
+                devices,
+                &num_devices_ret);
+           
+           goto FINISH;
+
+           break;
+             
+        case CL_ALL_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR:            
+
+            if( devices != NULL )
+            {
+                platform_devices = &devices[ num_devices_ret ];
+            }
+            errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromDX9MediaAdapterKHR(
+                devicePlatform->m_platformIdDEV,
+                num_media_adapters,
+                media_adapter_type,
+                media_adapters,
+                media_adapter_set,
+                num_entries,
+                platform_devices,
+                &platform_num_devices);
+
+            if( errCode == CL_SUCCESS )
+            {
+                num_devices_ret += platform_num_devices;
+
+                if ( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+            }
+            else
+            {
+                goto FINISH;
+            }
+            break;
+        default:
+            errCode = CL_INVALID_VALUE;
+            goto FINISH;
+            break;
+        }
+    }
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+
+FINISH:
+    if( num_devices != NULL )
+    {
+        *num_devices = num_devices_ret;
+    }
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
     cl_platform_id              platform,
     cl_d3d10_device_source_khr  d3d_device_source,
     void                        *d3d_object,
@@ -7143,60 +7307,103 @@ cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
     cl_uint                     *num_devices)
 {
     cl_int errCode = CL_SUCCESS;
-    std::vector<CrtPlatform*>::iterator itr;
+    OCLCRT::DEV_INFO_MAP::const_iterator itr;
+    cl_uint num_devices_ret = 0;
+    cl_uint platform_num_devices = 0;
+    cl_device_id* platform_devices = NULL;
 
-    if( platform == NULL )
+    if( ( platform == NULL ) || !isValidPlatform( platform ) )
     {
         errCode = CL_INVALID_PLATFORM;
         goto FINISH;
     }
 
-    cl_uint num_devices_ret = 0;
-    cl_uint platform_num_devices = 0;
-
-    itr = OCLCRT::crt_ocl_module.m_oclPlatforms.begin();
-    for( ;itr != OCLCRT::crt_ocl_module.m_oclPlatforms.end(); ++itr ) 
+    if( ( ( devices != NULL ) && ( num_entries == 0 ) ) ||
+        ( ( devices == NULL ) && ( num_devices == NULL ) ) )
     {
-        cl_device_id* platform_devices = NULL;
-        if( devices != NULL )
-        {
-            platform_devices = &devices[ num_devices_ret ];
-        }
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }     
 
-        if( !( (*itr)->m_supportedExtensions & CRT_CL_D3D10_EXT ) )
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
+    for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+    itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+    itr++ )
+    {        
+        CrtPlatform* devicePlatform = itr->second->m_crtPlatform;
+
+        if( !( devicePlatform->m_supportedExtensions & CRT_CL_D3D10_EXT ) )
         {
-            // The current platform isn't supporting DX10 interop
+            // The current platform isn't supporting DX9 interop
             continue;
         }
-        errCode = (*itr)->m_platformIdDEV->dispatch->clGetDeviceIDsFromD3D10KHR(
-            (*itr)->m_platformIdDEV,
-            d3d_device_source,
-            d3d_object,
-            d3d_device_set,
-            num_entries,
-            platform_devices,
-            &platform_num_devices);
+        switch( d3d_device_set )
+        {            
+        case CL_PREFERRED_DEVICES_FOR_D3D10_KHR:
+           if( ( ( OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU ) &&
+               ( itr->second->m_devType != CL_DEVICE_TYPE_GPU ) ) ||
+               ( itr->second->m_isRootDevice == false ) )
+           {
+               continue;
+           }
 
-        if( errCode == CL_SUCCESS )
-        {
-            num_devices_ret += platform_num_devices;
+           errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromD3D10KHR(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                devices,
+                &num_devices_ret);
+           
+           goto FINISH;
 
-            if( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+           break;
+
+        case CL_ALL_DEVICES_FOR_D3D10_KHR:            
+
+            if( devices != NULL )
             {
-                errCode = CL_INVALID_VALUE;
+                platform_devices = &devices[ num_devices_ret ];
+            }
+            errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromD3D10KHR(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                platform_devices,
+                &platform_num_devices);
+
+            if( errCode == CL_SUCCESS )
+            {
+                num_devices_ret += platform_num_devices;
+
+                if ( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+            }
+            else
+            {
                 goto FINISH;
             }
-        }
-        else
-        {
+            break;
+        default:
+            errCode = CL_INVALID_VALUE;
             goto FINISH;
+            break;
         }
     }
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+
+FINISH:
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
     }
-FINISH:
     return errCode;
 }
 /// ------------------------------------------------------------------------------
@@ -7212,60 +7419,108 @@ cl_int CL_API_CALL clGetDeviceIDsFromD3D11KHR(
     cl_uint                     *num_devices)
 {
     cl_int errCode = CL_SUCCESS;
-    std::vector<CrtPlatform*>::iterator itr;
+    OCLCRT::DEV_INFO_MAP::const_iterator itr;
+    cl_uint num_devices_ret = 0;
+    cl_uint platform_num_devices = 0;
+    cl_device_id* platform_devices = NULL;
 
-    if( platform == NULL )
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if( ( platform == NULL ) || !isValidPlatform( platform ) )
     {
         errCode = CL_INVALID_PLATFORM;
         goto FINISH;
     }
 
-    cl_uint num_devices_ret = 0;
-    cl_uint platform_num_devices = 0;
-
-    itr = OCLCRT::crt_ocl_module.m_oclPlatforms.begin();
-    for( ;itr != OCLCRT::crt_ocl_module.m_oclPlatforms.end(); ++itr ) 
+    if( ( ( devices != NULL ) && ( num_entries == 0 ) ) ||
+        ( ( devices == NULL ) && ( num_devices == NULL ) ) )
     {
-        cl_device_id* platform_devices = NULL;
-        if( devices != NULL )
-        {
-            platform_devices = &devices[ num_devices_ret ];
-        }
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }
+    
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
-        if( !( (*itr)->m_supportedExtensions & CRT_CL_D3D11_EXT ) )
+    for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+    itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+    itr++ )
+    {        
+        CrtPlatform* devicePlatform = itr->second->m_crtPlatform;
+
+        if( !( devicePlatform->m_supportedExtensions & CRT_CL_D3D11_EXT ) )
         {
-            // The current platform isn't supporting DX11 interop
+            // The current platform isn't supporting DX9 interop
             continue;
         }
-        errCode = (*itr)->m_platformIdDEV->dispatch->clGetDeviceIDsFromD3D11KHR(
-            (*itr)->m_platformIdDEV,
-            d3d_device_source,
-            d3d_object,
-            d3d_device_set,
-            num_entries,
-            platform_devices,
-            &platform_num_devices);
+        switch( d3d_device_set )
+        {            
+        case CL_PREFERRED_DEVICES_FOR_D3D11_KHR:
+           if( ( ( OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU ) &&
+               ( itr->second->m_devType != CL_DEVICE_TYPE_GPU ) ) ||
+               ( itr->second->m_isRootDevice == false ) )
+           {
+               continue;
+           }
 
-        if( errCode == CL_SUCCESS )
-        {
-            num_devices_ret += platform_num_devices;
+           errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromD3D11KHR(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                devices,
+                &num_devices_ret);
+           
+           goto FINISH;
 
-            if( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+           break;
+
+        case CL_ALL_DEVICES_FOR_D3D11_KHR:            
+
+            if( devices != NULL )
             {
-                errCode = CL_INVALID_VALUE;
+                platform_devices = &devices[ num_devices_ret ];
+            }
+            errCode = ( devicePlatform->m_platformIdDEV )->dispatch->clGetDeviceIDsFromD3D11KHR(
+                devicePlatform->m_platformIdDEV,
+                d3d_device_source,
+                d3d_object,
+                d3d_device_set,
+                num_entries,
+                platform_devices,
+                &platform_num_devices);
+
+            if( errCode == CL_SUCCESS )
+            {
+                num_devices_ret += platform_num_devices;
+
+                if ( ( devices != NULL ) && ( num_devices_ret > num_entries ) )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+            }
+            else
+            {
                 goto FINISH;
             }
-        }
-        else
-        {
+            break;
+        default:
+            errCode = CL_INVALID_VALUE;
             goto FINISH;
+            break;
         }
     }
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+
+FINISH:
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
     }
-FINISH:
     return errCode;
 }
 /// ------------------------------------------------------------------------------
