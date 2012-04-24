@@ -969,7 +969,8 @@ OclBuiltinImpl rtn_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rtn,
 // 64-bit floating output
 
 // cvt_f64_f32
-// conversion from f32 to f64 is easily handled by target insn only. 
+// conversion from f32 to f64 is easily handled by target insn alone and there
+// is no difference among rounding modes.
 // |fS1|fE8|fM23| -> |dS1|dE11|dM52|
 // where
 // - dS   := fS1

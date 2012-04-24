@@ -26,11 +26,6 @@ const double const_inv_pi_180 = 57.295779513082320876798154814105;
 const float const_pi_180f = 0.017453292519943295769236907684883f;
 const double const_pi_180 = 0.017453292519943295769236907684883;
 
-// running mode used by intrinsic
-#define RC_RUN_EVEN             0
-#define RC_RUN_DOWN             1
-#define RC_RUN_UP               2
-#define RC_RUN_ZERO             3
 
 #define new_cast(new_type, var) *(new_type *)(&var)
 
@@ -56,11 +51,6 @@ const double const_pi_180 = 0.017453292519943295769236907684883;
 #define s120_s012_pd(data, zeros, k) \
   k = 0x7; \
   data = _mm512_mask_add_pd (data, k, zeros, _mm512_swizzle_pd (data, _MM_SWIZ_REG_DACB))
-
-#define mic_cvtl_pd2ps(old_data, new_data) \
-  __m512 new_data = _mm512_cvt_roundpd_pslo(old_data, RC_RUN_DOWN); 
-
-#define _mm512_cvtl_ps2pd _mm512_cvt_pslopd
 
 
 // Convert a 16-bit bit-mask into a 16 x 32-bit mask
@@ -780,11 +770,11 @@ length2_up_convert(float8 x, float8 y)
   x_reg.lo = x;
   y_reg.lo = y;
 
-  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
-  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
+  double8 x_dp = as_double8(_mm512_cvtpslo_pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtpslo_pd( y_reg));
   double8 sum = x_dp * x_dp + y_dp *y_dp;
   sum = sqrt(sum);
-  mic_cvtl_pd2ps(sum, res);
+  __m512 res = _mm512_cvt_roundpd_pslo(sum, _MM_FROUND_CUR_DIRECTION);
   return as_float16(res).lo;
 }
 
@@ -817,12 +807,12 @@ length3_up_convert(float8 x, float8 y, float8 z)
   y_reg.lo = y;
   z_reg.lo = z;
 
-  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
-  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
-  double8 z_dp = as_double8(_mm512_cvtl_ps2pd( z_reg));
+  double8 x_dp = as_double8(_mm512_cvtpslo_pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtpslo_pd( y_reg));
+  double8 z_dp = as_double8(_mm512_cvtpslo_pd( z_reg));
   double8 sum = x_dp * x_dp + y_dp *y_dp + z_dp *z_dp;
   sum = sqrt(sum);
-  mic_cvtl_pd2ps(sum, res);
+  __m512 res = _mm512_cvt_roundpd_pslo(sum, _MM_FROUND_CUR_DIRECTION);
   return as_float16(res).lo;
 }
 
@@ -853,19 +843,19 @@ length4_up_convert(float8 x, float8 y, float8 z, float8 w)
   float16 y_reg;
   float16 z_reg;
   float16 w_reg;
- 
+
   x_reg.lo = x;
   y_reg.lo = y;
   z_reg.lo = z;
   w_reg.lo = w;
 
-  double8 x_dp = as_double8(_mm512_cvtl_ps2pd( x_reg));
-  double8 y_dp = as_double8(_mm512_cvtl_ps2pd( y_reg));
-  double8 z_dp = as_double8(_mm512_cvtl_ps2pd( z_reg));
-  double8 w_dp = as_double8(_mm512_cvtl_ps2pd( w_reg));
+  double8 x_dp = as_double8(_mm512_cvtpslo_pd( x_reg));
+  double8 y_dp = as_double8(_mm512_cvtpslo_pd( y_reg));
+  double8 z_dp = as_double8(_mm512_cvtpslo_pd( z_reg));
+  double8 w_dp = as_double8(_mm512_cvtpslo_pd( w_reg));
   double8 sum = x_dp * x_dp + y_dp *y_dp + z_dp * z_dp + w_dp *w_dp;
   sum = sqrt(sum);
-  mic_cvtl_pd2ps(sum, res);
+  __m512 res = _mm512_cvt_roundpd_pslo(sum, _MM_FROUND_CUR_DIRECTION);
   return as_float16(res).lo;
 }
 
@@ -904,10 +894,10 @@ typedef int intrin_type;
  * Implementation NOTICE:
  *
  * This implementation assumes that local pool (workgroup threads) are executed by
- * only ONE phyiscal thread, this means that the operations in local memory will be 
- * invoked in a serial way, thus there's no need to synchronize the access to the 
+ * only ONE phyiscal thread, this means that the operations in local memory will be
+ * invoked in a serial way, thus there's no need to synchronize the access to the
  * local memory;
- * 
+ *
  * In the following implementation there's a helper functions there are two versions
  * of this:
  *  one for global memory (with _global postfix)

@@ -59,11 +59,11 @@ OclBuiltinImpl length_f32_v2 = OclBuiltinImpl<length, [v2f32, v2f64], 0, [{
 OclBuiltinImpl length_f32_v3_v4 = OclBuiltinImpl<length, [v3f32, v4f32], 0, [{
     float16 x_reg = (float16)0.0;
     x_reg$Pattern = $Arg0VarName;
-    __m512d data = _mm512_cvtl_ps2pd(x_reg); // avoid overflow of (x*x)
+    __m512d data = _mm512_cvtpslo_pd(x_reg); // avoid overflow of (x*x)
     data = _mm512_mul_pd(data, data);
     add_reduce1_pd(data);
     add_reduce2_pd(data);
-    mic_cvtl_pd2ps(data, sum)
+    __m512 sum = _mm512_cvt_roundpd_pslo(data, _MM_FROUND_CUR_DIRECTION);
     return sqrt(as_float16(sum).s0);
   }]>;
 OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{

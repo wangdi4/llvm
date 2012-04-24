@@ -186,21 +186,21 @@ OclBuiltinImpl expand_native_fract_f64_v8_gas = OclBuiltinImpl<native_fract_gas,
 // native_ilogb
 OclBuiltinImpl native_ilogb_f32_v16 = OclBuiltinImpl<native_ilogb, [v16f32], 0, [{
     __m512 e = _mm512_getexp_ps($Arg0VarName);
-    return as_$ReturnType(_mm512_cvt_ps2pi(e, _MM_ROUND_MODE_DEFAULT, _MM_EXPADJ_NONE));
+    return as_$ReturnType(_mm512_cvtfxpnt_round_adjustps_epi32(e, _MM_FROUND_CUR_DIRECTION, _MM_EXPADJ_NONE));
   }]>;
 OclBuiltinImpl mask_native_ilogb_f32_v16 = OclBuiltinImpl<mask_native_ilogb, [v16f32], 0, [{
     __m512 e = _mm512_mask_getexp_ps($Arg1VarName, $Arg0VarName, $Arg1VarName);
-    return as_$ReturnType(_mm512_mask_cvt_ps2pi(_mm512_undefined_epi32(), $Arg0VarName, e, _MM_ROUND_MODE_DEFAULT, _MM_EXPADJ_NONE));
+    return as_$ReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epi32(_mm512_undefined_epi32(), $Arg0VarName, e, _MM_FROUND_CUR_DIRECTION, _MM_EXPADJ_NONE));
   }]>;
 OclBuiltinImpl native_ilogb_f32_promote = OclBuiltinImpl<native_ilogb, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, MaskPromote1>;
 
 OclBuiltinImpl native_ilogb_f64_v8 = OclBuiltinImpl<native_ilogb, [v8f64], 0, [{
     __m512d e = _mm512_getexp_pd($Arg0VarName);
-    return as_int16(_mm512_cvtl_pd2pi(_mm512_undefined_epi32(), e, _MM_ROUND_MODE_DEFAULT)).lo;
+    return as_int16(_mm512_cvtfxpnt_roundpd_epi32lo(e, _MM_FROUND_CUR_DIRECTION)).lo;
   }]>;
 OclBuiltinImpl mask_native_ilogb_f64_v8 = OclBuiltinImpl<mask_native_ilogb, [v8f64], 0, [{
     __m512d e = _mm512_mask_getexp_pd($Arg1VarName, $Arg0VarName, $Arg1VarName);
-    return as_int16(_mm512_mask_cvtl_pd2pi(_mm512_undefined_epi32(), $Arg0VarName, e, _MM_ROUND_MODE_DEFAULT)).lo;
+    return as_int16(_mm512_mask_cvtfxpnt_roundpd_epi32lo(_mm512_undefined_epi32(), $Arg0VarName, e, _MM_FROUND_CUR_DIRECTION)).lo;
   }]>;
 code MaskPromote1ilogb_f64 = [{
     double8 n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;

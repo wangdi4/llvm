@@ -15,8 +15,33 @@ list<OclType> non_v16x64_types  = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
 
 // vload
 code MaskVLoadV16U8 = [{
-    // TODO: MASK_VLOAD_V16U8
-    return ($ReturnType)0;
+    __m512i $ReturnVarName = _mm512_undefined_epi32();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_extloadunpacklo_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI32_UINT8, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_extload_epi32((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI32_UINT8, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return convert_$ReturnType(as_uint16($ReturnVarName));
   }];
 OclBuiltinImpl mask_vload_gas_v16_u8 = OclBuiltinImpl<mask_vload_gas, [v16u8], 0, MaskVLoadV16U8>;
 OclBuiltinImpl mask_vload_cas_v16_u8 = OclBuiltinImpl<mask_vload_cas, [v16u8], 0, MaskVLoadV16U8>;
@@ -24,8 +49,33 @@ OclBuiltinImpl mask_vload_las_v16_u8 = OclBuiltinImpl<mask_vload_las, [v16u8], 0
 OclBuiltinImpl mask_vload_pas_v16_u8 = OclBuiltinImpl<mask_vload_pas, [v16u8], 0, MaskVLoadV16U8>;
 
 code MaskVLoadV16I8 = [{
-    // TODO: MASK_VLOAD_V16I8
-    return ($ReturnType)0;
+    __m512i $ReturnVarName = _mm512_undefined_epi32();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_extloadunpacklo_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI32_SINT8, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_extload_epi32((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI32_SINT8, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return convert_$ReturnType(as_int16($ReturnVarName));
   }];
 OclBuiltinImpl mask_vload_gas_v16_i8 = OclBuiltinImpl<mask_vload_gas, [v16i8], 0, MaskVLoadV16I8>;
 OclBuiltinImpl mask_vload_cas_v16_i8 = OclBuiltinImpl<mask_vload_cas, [v16i8], 0, MaskVLoadV16I8>;
@@ -33,8 +83,33 @@ OclBuiltinImpl mask_vload_las_v16_i8 = OclBuiltinImpl<mask_vload_las, [v16i8], 0
 OclBuiltinImpl mask_vload_pas_v16_i8 = OclBuiltinImpl<mask_vload_pas, [v16i8], 0, MaskVLoadV16I8>;
 
 code MaskVLoadV16U16 = [{
-    // TODO: MASK_VLOAD_V16U16
-    return ($ReturnType)0;
+    __m512i $ReturnVarName = _mm512_undefined_epi32();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_extloadunpacklo_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char *)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI32_UINT16, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_extload_epi32((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI32_UINT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return convert_$ReturnType(as_uint16($ReturnVarName));
   }];
 OclBuiltinImpl mask_vload_gas_v16_u16 = OclBuiltinImpl<mask_vload_gas, [v16u16], 0, MaskVLoadV16U16>;
 OclBuiltinImpl mask_vload_cas_v16_u16 = OclBuiltinImpl<mask_vload_cas, [v16u16], 0, MaskVLoadV16U16>;
@@ -42,8 +117,33 @@ OclBuiltinImpl mask_vload_las_v16_u16 = OclBuiltinImpl<mask_vload_las, [v16u16],
 OclBuiltinImpl mask_vload_pas_v16_u16 = OclBuiltinImpl<mask_vload_pas, [v16u16], 0, MaskVLoadV16U16>;
 
 code MaskVLoadV16I16 = [{
-    // TODO: MASK_VLOAD_V16I16
-    return ($ReturnType)0;
+    __m512i $ReturnVarName = _mm512_undefined_epi32();
+    switch ($Arg0VarName) {
+      case 0xFFFF:
+        $ReturnVarName = _mm512_extloadunpacklo_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        break;
+      case 0x00FF:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        break;
+      case 0x000F:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        break;
+      case 0x0007:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        break;
+      case 0x0003:
+        $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI32_SINT16, _MM_HINT_NONE);
+        break;
+      case 0x0001:
+        $ReturnVarName = _mm512_extload_epi32((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI32_SINT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+        break;
+    }
+    return convert_$ReturnType(as_int16($ReturnVarName));
   }];
 OclBuiltinImpl mask_vload_gas_v16_i16 = OclBuiltinImpl<mask_vload_gas, [v16i16], 0, MaskVLoadV16I16>;
 OclBuiltinImpl mask_vload_cas_v16_i16 = OclBuiltinImpl<mask_vload_cas, [v16i16], 0, MaskVLoadV16I16>;
@@ -55,23 +155,23 @@ code MaskVLoadV16UI32 = [{
     switch ($Arg0VarName) {
       case 0xFFFF:
         $ReturnVarName = _mm512_extloadunpacklo_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi32($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
         break;
       case 0x00FF:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
         break;
       case 0x000F:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
         break;
       case 0x0007:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
         break;
       case 0x0003:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi32($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI32_NONE, _MM_HINT_NONE);
         break;
       case 0x0001:
         $ReturnVarName = _mm512_extload_epi32((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI32_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
@@ -89,23 +189,23 @@ code MaskVLoadV16F32 = [{
     switch ($Arg0VarName) {
       case 0xFFFF:
         $ReturnVarName = _mm512_extloadunpacklo_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
         break;
       case 0x00FF:
         $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
         break;
       case 0x000F:
         $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
         break;
       case 0x0007:
         $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
         break;
       case 0x0003:
         $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_PS_NONE, _MM_HINT_NONE);
         break;
       case 0x0001:
         $ReturnVarName = _mm512_extload_ps((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_PS_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
@@ -123,19 +223,19 @@ code MaskVLoadV8UI64 = [{
     switch ($Arg0VarName) {
       case 0xFF:
         $ReturnVarName = _mm512_extloadunpacklo_epi64($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_extloadunpackhi_epi64($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_epi64($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
         break;
       case 0x0F:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
         break;
       case 0x07:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
         break;
       case 0x03:
         $ReturnVarName = _mm512_mask_extloadunpacklo_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_epi64($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_EPI64_NONE, _MM_HINT_NONE);
         break;
       case 0x01:
         $ReturnVarName = _mm512_extload_epi64((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_EPI64_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
@@ -153,19 +253,19 @@ code MaskVLoadV8F64 = [{
     switch ($Arg0VarName) {
       case 0xFF:
         $ReturnVarName = _mm512_extloadunpacklo_pd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_extloadunpackhi_pd($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_extloadunpackhi_pd($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
         break;
       case 0x0F:
         $ReturnVarName = _mm512_mask_extloadunpacklo_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
         break;
       case 0x07:
         $ReturnVarName = _mm512_mask_extloadunpacklo_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
         break;
       case 0x03:
         $ReturnVarName = _mm512_mask_extloadunpacklo_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
-        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
+        $ReturnVarName = _mm512_mask_extloadunpackhi_pd($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_PD_NONE, _MM_HINT_NONE);
         break;
       case 0x01:
         $ReturnVarName = _mm512_extload_pd((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_PD_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
@@ -199,28 +299,128 @@ OclBuiltinImpl vload_pas_expand   = OclBuiltinImpl<vload_pas, all_v16x64_types, 
 
 // vstore
 code MaskVStoreV16U8 = [{
-    // TODO: MASK_VSTORE_V16U8
+    __m512i tmp = (__m512i)convert_uint16($Arg1VarName);
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 16)), tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            _mm512_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 16)) + 64), tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_extstore_epi32((void *)($Arg3VarName + ($Arg2VarName * 1)), tmp, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
+            break;
+    }
   }];
 OclBuiltinImpl mask_vstore_gas_v16_u8 = OclBuiltinImpl<mask_vstore_gas, [v16u8], 0, MaskVStoreV16U8>;
 OclBuiltinImpl mask_vstore_las_v16_u8 = OclBuiltinImpl<mask_vstore_las, [v16u8], 0, MaskVStoreV16U8>;
 OclBuiltinImpl mask_vstore_pas_v16_u8 = OclBuiltinImpl<mask_vstore_pas, [v16u8], 0, MaskVStoreV16U8>;
 
 code MaskVStoreV16I8 = [{
-    // TODO: MASK_VSTORE_V16I8
+    __m512i tmp = (__m512i)convert_int16($Arg1VarName);
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 16)), tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            _mm512_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 16)) + 64), tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_extstore_epi32((void *)($Arg3VarName + ($Arg2VarName * 1)), tmp, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
+            break;
+    }
   }];
 OclBuiltinImpl mask_vstore_gas_v16_i8 = OclBuiltinImpl<mask_vstore_gas, [v16i8], 0, MaskVStoreV16I8>;
 OclBuiltinImpl mask_vstore_las_v16_i8 = OclBuiltinImpl<mask_vstore_las, [v16i8], 0, MaskVStoreV16I8>;
 OclBuiltinImpl mask_vstore_pas_v16_i8 = OclBuiltinImpl<mask_vstore_pas, [v16i8], 0, MaskVStoreV16I8>;
 
 code MaskVStoreV16U16 = [{
-    // TODO: MASK_VSTORE_V16U16
+    __m512i tmp = (__m512i)convert_uint16($Arg1VarName);
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 16)), tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 16)) + 64), tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_extstore_epi32((void *)($Arg3VarName + ($Arg2VarName * 1)), tmp, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
+            break;
+    }
   }];
 OclBuiltinImpl mask_vstore_gas_v16_u16 = OclBuiltinImpl<mask_vstore_gas, [v16u16], 0, MaskVStoreV16U16>;
 OclBuiltinImpl mask_vstore_las_v16_u16 = OclBuiltinImpl<mask_vstore_las, [v16u16], 0, MaskVStoreV16U16>;
 OclBuiltinImpl mask_vstore_pas_v16_u16 = OclBuiltinImpl<mask_vstore_pas, [v16u16], 0, MaskVStoreV16U16>;
 
 code MaskVStoreV16I16 = [{
-    // TODO: MASK_VSTORE_V16I16
+    __m512i tmp = (__m512i)convert_int16($Arg1VarName);
+    switch ($Arg0VarName) {
+        case 0xFFFF:
+            _mm512_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 16)), tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 16)) + 64), tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+        case 0x00FF:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+        case 0x000F:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+        case 0x0007:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+        case 0x0003:
+            _mm512_mask_extpackstorelo_epi32((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_epi32((void *)((char*)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+        case 0x0001:
+            _mm512_extstore_epi32((void *)($Arg3VarName + ($Arg2VarName * 1)), tmp, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
+            break;
+    }
   }];
 OclBuiltinImpl mask_vstore_gas_v16_i16 = OclBuiltinImpl<mask_vstore_gas, [v16i16], 0, MaskVStoreV16I16>;
 OclBuiltinImpl mask_vstore_las_v16_i16 = OclBuiltinImpl<mask_vstore_las, [v16i16], 0, MaskVStoreV16I16>;
@@ -230,27 +430,26 @@ code MaskVStoreV16UIF32 = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 16)) + 64), (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
         case 0x00FF:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
         case 0x000F:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
         case 0x0007:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
         case 0x0003:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
+            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), (__m512)$Arg1VarName, _MM_DOWNCONV_PS_NONE, _MM_HINT_NONE);
             break;
     }
   }];
@@ -262,23 +461,22 @@ code MaskVStoreV8UIF64 = [{
     switch ($Arg0VarName) {
         case 0xFF:
             _mm512_extpackstorelo_pd((void *)($Arg3VarName + ($Arg2VarName * 8)), (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
-            _mm512_extpackstorehi_pd((void *)($Arg3VarName + ($Arg2VarName * 8)), (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
+            _mm512_extpackstorehi_pd(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
             break;
         case 0x0F:
             _mm512_mask_extpackstorelo_pd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_pd((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_pd(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
             break;
         case 0x07:
             _mm512_mask_extpackstorelo_pd((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_pd((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_pd(((char*)(void *)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
             break;
         case 0x03:
             _mm512_mask_extpackstorelo_pd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_pd((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_pd(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
             break;
         case 0x01:
-            _mm512_mask_extpackstorelo_pd((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_pd((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
+            _mm512_extstore_pd((void *)($Arg3VarName + ($Arg2VarName * 1)), (__m512d)$Arg1VarName, _MM_DOWNCONV_PD_NONE, _MM_HINT_NONE);
             break;
     }
   }];
@@ -307,23 +505,23 @@ code MaskVLoadHalf = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             $ReturnVarName = _mm512_extloadunpacklo_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 3)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 3)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
             $ReturnVarName = _mm512_extload_ps((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_PS_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
@@ -336,23 +534,23 @@ code MaskVLoadAHalf = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             $ReturnVarName = _mm512_extloadunpacklo_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)($Arg2VarName + ($Arg1VarName * 16)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_extloadunpackhi_ps($ReturnVarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 16)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 8)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 8)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 4)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 4)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             $ReturnVarName = _mm512_mask_extloadunpacklo_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
-            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)($Arg2VarName + ($Arg1VarName * 2)), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
+            $ReturnVarName = _mm512_mask_extloadunpackhi_ps($ReturnVarName, $Arg0VarName, (void const *)((char*)($Arg2VarName + ($Arg1VarName * 2)) + 64), _MM_UPCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
             $ReturnVarName = _mm512_extload_ps((void const *)($Arg2VarName + $Arg1VarName), _MM_UPCONV_PS_FLOAT16, _MM_BROADCAST_1X16, _MM_HINT_NONE);
@@ -394,56 +592,53 @@ code MaskVStoreFHalfRTE = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 16)) + 64), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
     }
   }];
 code MaskVStoreFHalfRTZ = [{
-    // TODO: handle float16 RTZ manually as FLOAT16RZ is only available with graphics extension.
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 16)) + 64), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 3)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
     }
   }];
@@ -507,16 +702,24 @@ code MaskVStoreDHalf = [{
     mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTE = [{
-    // TODO: MASK_VSTORED_HALF_RTE
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstore_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTZ = [{
-    // TODO: MASK_VSTORED_HALF_RTZ
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstore_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTP = [{
-    // TODO: MASK_VSTORED_HALF_RTP
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstore_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTN = [{
-    // TODO: MASK_VSTORED_HALF_RTN
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstore_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 OclBuiltinImpl mask_vstored_half_gas_v16      = OclBuiltinImpl<mask_vstored_half_gas,     [ v8f16], 0, MaskVStoreDHalf>;
 OclBuiltinImpl mask_vstored_half_las_v16      = OclBuiltinImpl<mask_vstored_half_las,     [ v8f16], 0, MaskVStoreDHalf>;
@@ -542,56 +745,53 @@ code MaskVStoreAFHalfRTE = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 16)) + 64), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
     }
   }];
 code MaskVStoreAFHalfRTZ = [{
-    // TODO: handle float16 RTZ manually as FLOAT16RZ is only available with graphics extension.
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 16)) + 64), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x00FF:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 8)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x000F:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0007:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 4)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0003:
             _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_extpackstorehi_ps(((char*)(void *)($Arg3VarName + ($Arg2VarName * 2)) + 64), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
         case 0x0001:
-            _mm512_mask_extpackstorelo_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            _mm512_mask_extpackstorehi_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
             break;
     }
   }];
@@ -655,16 +855,24 @@ code MaskVStoreADHalf = [{
     mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTE = [{
-    // TODO: MASK_VSTOREAD_HALF_RTE
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstorea_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTZ = [{
-    // TODO: MASK_VSTOREAD_HALF_RTZ
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstorea_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTP = [{
-    // TODO: MASK_VSTOREAD_HALF_RTP
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstorea_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTN = [{
-    // TODO: MASK_VSTOREAD_HALF_RTN
+    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    ushort mask16 = $Arg0VarName;
+    mask_vstorea_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 OclBuiltinImpl mask_vstoread_half_gas_v16     = OclBuiltinImpl<mask_vstoread_half_gas,      [ v8f16], 0, MaskVStoreADHalf>;
 OclBuiltinImpl mask_vstoread_half_las_v16     = OclBuiltinImpl<mask_vstoread_half_las,      [ v8f16], 0, MaskVStoreADHalf>;

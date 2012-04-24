@@ -90,6 +90,7 @@ typedef enum __MM_BROADCAST64_ENUM {
 } _MM_BROADCAST64_ENUM;
 
 
+#if 0
 /*
  * Constants for rounding mode.
  * These names beginnig with "_MM_ROUND" are deprecated.
@@ -102,6 +103,25 @@ typedef enum __MM_ROUND_MOD_ENUM {
     _MM_ROUND_MODE_TOWARD_ZERO,         /* round toward zero */
     _MM_ROUND_MODE_DEFAULT              /* round mode from MXCSR */
 } _MM_ROUND_MODE_ENUM;
+#endif
+
+/* Copy from smmintrin.h as MIC won't include it.
+ */
+#define _MM_FROUND_TO_NEAREST_INT    0x00
+#define _MM_FROUND_TO_NEG_INF        0x01
+#define _MM_FROUND_TO_POS_INF        0x02
+#define _MM_FROUND_TO_ZERO           0x03
+#define _MM_FROUND_CUR_DIRECTION     0x04
+
+#define _MM_FROUND_RAISE_EXC         0x00
+#define _MM_FROUND_NO_EXC            0x08
+
+#define _MM_FROUND_NINT      (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEAREST_INT)
+#define _MM_FROUND_FLOOR     (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEG_INF)
+#define _MM_FROUND_CEIL      (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_POS_INF)
+#define _MM_FROUND_TRUNC     (_MM_FROUND_RAISE_EXC | _MM_FROUND_TO_ZERO)
+#define _MM_FROUND_RINT      (_MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION)
+#define _MM_FROUND_NEARBYINT (_MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION)
 
 /* Constants for exponent adjustment. */
 typedef enum __MM_EXP_ADJ_ENUM {
@@ -1579,56 +1599,33 @@ _mm512_cvt_roundpd_pslo(__m512d v1, const int rounding)
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_pd2ps(__m512 v1_old, __mmask8 k1, __m512d v2, const int rounding)
+_mm512_mask_cvt_roundpd_pslo(__m512 v1_old, __mmask8 k1, __m512d v2, const int rounding)
 {
   return __builtin_ia32_mask_cvtlpd2ps512(v1_old, k1, v2, rounding);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_pd2pi(__m512i v1_old, __m512d v2, const int rounding)
+_mm512_cvtfxpnt_roundpd_epi32lo(__m512d v1, const int rounding)
 {
-  return (__v8di)__builtin_ia32_cvtlpd2pi512((__v16si)v1_old, v2, rounding);
+  return (__v8di)__builtin_ia32_cvtlpd2pi512(v1, rounding);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_pd2pi(__m512i v1_old, __m512d v2, const int rounding)
-{
-  return (__v8di)__builtin_ia32_cvthpd2pi512((__v16si)v1_old, v2, rounding);
-}
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_pd2pi(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
+_mm512_mask_cvtfxpnt_roundpd_epi32lo(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
 {
   return (__v8di)__builtin_ia32_mask_cvtlpd2pi512((__v16si)v1_old, k1, v2, rounding);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_pd2pi(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
+_mm512_cvtfxpnt_roundpd_epu32lo(__m512d v1, const int rounding)
 {
-  return (__v8di)__builtin_ia32_mask_cvthpd2pi512((__v16si)v1_old, k1, v2, rounding);
+  return (__v8di)__builtin_ia32_cvtlpd2pu512(v1, rounding);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_pd2pu(__m512i v1_old, __m512d v2, const int rounding)
-{
-  return (__v8di)__builtin_ia32_cvtlpd2pu512((__v16si)v1_old, v2, rounding);
-}
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_pd2pu(__m512i v1_old, __m512d v2, const int rounding)
-{
-  return (__v8di)__builtin_ia32_cvthpd2pu512((__v16si)v1_old, v2, rounding);
-}
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_pd2pu(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
+_mm512_mask_cvtfxpnt_roundpd_epu32lo(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
 {
   return (__v8di)__builtin_ia32_mask_cvtlpd2pu512((__v16si)v1_old, k1, v2, rounding);
-}
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_pd2pu(__m512i v1_old, __mmask8 k1, __m512d v2, const int rounding)
-{
-  return (__v8di)__builtin_ia32_mask_cvthpd2pu512((__v16si)v1_old, k1, v2, rounding);
 }
 
 /*
@@ -1639,39 +1636,40 @@ _mm512_mask_cvth_pd2pu(__m512i v1_old, __mmask8 k1, __m512d v2, const int roundi
  * the "cvth" intrinsics convert the upper 8 elements.
  */
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_pslopd(__m512 v2)
+_mm512_cvtpslo_pd(__m512 v2)
 {
   return __builtin_ia32_cvtpslopd512(v2);
 }
- 
+
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_ps2pd(__m512d v1_old, __mmask8 k1, __m512 v2)
+_mm512_mask_cvtpslo_pd(__m512d v1_old, __mmask8 k1, __m512 v2)
 {
   return __builtin_ia32_mask_cvtlps2pd512(v1_old, k1, v2);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_ps2pi(__m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
+_mm512_cvtfxpnt_round_adjustps_epi32(__m512 v1, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
-  return (__v8di)__builtin_ia32_cvtps2pi512(v2, rounding, expadj);
+  return (__v8di)__builtin_ia32_cvtps2pi512(v1, rounding, expadj);
 }
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvt_ps2pi(__m512i v1_old, __mmask16 k1, __m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
+_mm512_mask_cvtfxpnt_round_adjustps_epi32(__m512i v1_old, __mmask16 k1, __m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
   return (__v8di)__builtin_ia32_mask_cvtps2pi512((__v16si)v1_old, k1, v2, rounding, expadj);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_ps2pu(__m512 v2, int rounding, _MM_EXP_ADJ_ENUM expadj)
+_mm512_cvtfxpnt_round_adjustps_epu32(__m512 v1, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
-  return (__v8di)__builtin_ia32_cvtps2pu512(v2, rounding, expadj);
+  return (__v8di)__builtin_ia32_cvtps2pu512(v1, rounding, expadj);
 }
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvt_ps2pu(__m512i v1_old, __mmask16 k1, __m512 v2, int rounding, _MM_EXP_ADJ_ENUM expadj)
+_mm512_mask_cvtfxpnt_round_adjustps_epu32(__m512i v1_old, __mmask16 k1, __m512 v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
   return (__v8di)__builtin_ia32_mask_cvtps2pu512((__v16si)v1_old, k1, v2, rounding, expadj);
 }
 
+#if 0
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_cvt_ps2srgb8(__m512 v2)
 {
@@ -1686,6 +1684,7 @@ _mm512_mask_cvt_ps2srgb8(__m512 v1_old, __mmask16 k1, __m512 v2)
 #define _mm512_cvtps_srgb8(v2) _mm512_cvt_ps2srgb8((v2))
 #define _mm512_mask_cvtps_srgb8(v1_old, k1, v2) \
     _mm512_mask_cvt_ps2srgb8((v1_old), (k1), (v2))
+#endif
 
 /*
  * Convert int32 or unsigned int32 vector to float32 or float64 vector.
@@ -1697,69 +1696,47 @@ _mm512_mask_cvt_ps2srgb8(__m512 v1_old, __mmask16 k1, __m512 v2)
  */
 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_pi2pd(__m512i v2)
+_mm512_cvtepi32lo_pd(__m512i v1)
 {
-  return __builtin_ia32_cvtlpi2pd512((__v16si)v2);
+  return __builtin_ia32_cvtlpi2pd512((__v16si)v1);
 }
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_pi2pd(__m512i v2)
-{
-  return __builtin_ia32_cvthpi2pd512((__v16si)v2);
-}
-
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_pi2pd(__m512d v1_old, __mmask8 k1, __m512i v2)
+_mm512_mask_cvtepi32lo_pd(__m512d v1_old, __mmask8 k1, __m512i v2)
 {
   return __builtin_ia32_mask_cvtlpi2pd512(v1_old, k1, (__v16si)v2);
 }
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_pi2pd(__m512d v1_old, __mmask8 k1, __m512i v2)
-{
-  return __builtin_ia32_mask_cvthpi2pd512(v1_old, k1, (__v16si)v2);
-}
-
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_pi2ps(__m512i v2, const _MM_EXP_ADJ_ENUM expadj)
-{
-  return __builtin_ia32_cvtpi2ps512((__v16si)v2, expadj);
-}
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvt_pi2ps(__m512 v1_old, __mmask16 k1, __m512i v2, const _MM_EXP_ADJ_ENUM expadj)
-{
-  return __builtin_ia32_mask_cvtpi2ps512(v1_old, k1, (__v16si)v2, expadj);
-}
 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvtl_pu2pd(__m512i v2)
+_mm512_cvtepu32lo_pd(__m512i v1)
 {
-  return __builtin_ia32_cvtlpu2pd512((__v16si)v2);
+  return __builtin_ia32_cvtlpu2pd512((__v16si)v1);
 }
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_cvth_pu2pd(__m512i v2)
-{
-  return __builtin_ia32_cvthpu2pd512((__v16si)v2);
-}
-
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvtl_pu2pd(__m512d v1_old, __mmask8 k1, __m512i v2)
+_mm512_mask_cvtepu32lo_pd(__m512d v1_old, __mmask8 k1, __m512i v2)
 {
   return __builtin_ia32_mask_cvtlpu2pd512(v1_old, k1, (__v16si)v2);
 }
-__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvth_pu2pd(__m512d v1_old, __mmask8 k1, __m512i v2)
+
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_cvtfxpnt_round_adjustepi32_ps(__m512i v1, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
-  return __builtin_ia32_mask_cvthpu2pd512(v1_old, k1, (__v16si)v2);
+  return __builtin_ia32_cvtpi2ps512((__v16si)v1, rounding, expadj);
+}
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_cvtfxpnt_round_adjustepi32_ps(__m512 v1_old, __mmask16 k1, __m512i v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
+{
+  return __builtin_ia32_mask_cvtpi2ps512(v1_old, k1, (__v16si)v2, rounding, expadj);
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_cvt_pu2ps(__m512i v2, const _MM_EXP_ADJ_ENUM expadj)
+_mm512_cvtfxpnt_round_adjustepu32_ps(__m512i v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
-  return __builtin_ia32_cvtpu2ps512((__v16si)v2, expadj);
+  return __builtin_ia32_cvtpu2ps512((__v16si)v2, rounding, expadj);
 }
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_cvt_pu2ps(__m512 v1_old, __mmask16 k1, __m512i v2, const _MM_EXP_ADJ_ENUM expadj)
+_mm512_mask_cvtfxpnt_round_adjustepu32_ps(__m512 v1_old, __mmask16 k1, __m512i v2, const int rounding, const _MM_EXP_ADJ_ENUM expadj)
 {
-  return __builtin_ia32_mask_cvtpu2ps512(v1_old, k1, (__v16si)v2, expadj);
+  return __builtin_ia32_mask_cvtpu2ps512(v1_old, k1, (__v16si)v2, rounding, expadj);
 }
 
 /*
@@ -2301,6 +2278,7 @@ _mm512_mask_extloadunpacklo_pd(__m512d v1_old, __mmask8 k1, void const *m,
  *    added to the stream.  The no-writemask option is available to select
  *    a mask of 0xFFFF for this instruction.
  */
+
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm512_extpackstorehi_ps(void *mt, __m512 v1,
                          _MM_DOWNCONV_PS_ENUM downconv,
@@ -2331,6 +2309,38 @@ _mm512_mask_extpackstorehi_pd(void *mt, __mmask8 k1, __m512d v1,
                               const int hint)
 {
   __builtin_ia32_mask_packstorehpd512(mt, k1, v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_extpackstorehi_epi32(void *mt, __m512i v1,
+                            _MM_DOWNCONV_EPI32_ENUM downconv,
+                            const int hint)
+{
+  __builtin_ia32_packstorehpi512(mt, (__v16si)v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_extpackstorehi_epi32(void *mt, __mmask16 k1, __m512i v1,
+                                 _MM_DOWNCONV_EPI32_ENUM downconv,
+                                 const int hint)
+{
+  __builtin_ia32_mask_packstorehpi512(mt, k1, (__v16si)v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_extpackstorehi_epi64(void *mt, __m512i v1,
+                            _MM_DOWNCONV_EPI64_ENUM downconv,
+                            const int hint)
+{
+  __builtin_ia32_packstorehpq512(mt, v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_extpackstorehi_epi64(void *mt, __mmask8 k1, __m512i v1,
+                                 _MM_DOWNCONV_EPI64_ENUM downconv,
+                                 const int hint)
+{
+  __builtin_ia32_mask_packstorehpq512(mt, k1, v1, downconv, hint);
 }
 
 /*
@@ -2377,6 +2387,38 @@ _mm512_mask_extpackstorelo_pd(void *mt, __mmask8 k1, __m512d v1,
                               const int hint)
 {
   __builtin_ia32_mask_packstorelpd512(mt, k1, v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_extpackstorelo_epi32(void *mt, __m512i v1,
+                            _MM_DOWNCONV_EPI32_ENUM downconv,
+                            const int hint)
+{
+  __builtin_ia32_packstorelpi512(mt, (__v16si)v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_extpackstorelo_epi32(void *mt, __mmask16 k1, __m512i v1,
+                                 _MM_DOWNCONV_EPI32_ENUM downconv,
+                                 const int hint)
+{
+  __builtin_ia32_mask_packstorelpi512(mt, k1, (__v16si)v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_extpackstorelo_epi64(void *mt, __m512i v1,
+                            _MM_DOWNCONV_EPI64_ENUM downconv,
+                            const int hint)
+{
+  __builtin_ia32_packstorelpq512(mt, v1, downconv, hint);
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_extpackstorelo_epi64(void *mt, __mmask8 k1, __m512i v1,
+                                 _MM_DOWNCONV_EPI64_ENUM downconv,
+                                 const int hint)
+{
+  __builtin_ia32_mask_packstorelpq512(mt, k1, v1, downconv, hint);
 }
 
 /*
