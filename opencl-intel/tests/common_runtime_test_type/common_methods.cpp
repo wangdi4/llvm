@@ -44,10 +44,12 @@
 // caller is responsible for resources deallocation
 void fileToBuffer(const char** return_val, const char* sFileName)
 {
+	std::stringstream ss;
+	ss << "validation\\common_runtime_test_type\\" << sFileName;
 	//	try to open file
-	std::ifstream file(sFileName);
+	std::ifstream file(ss.str().c_str());
 	//	check if file was opened successfully
-	ASSERT_FALSE(file.fail()) << "Could not open file " << sFileName;
+	ASSERT_FALSE(file.fail()) << "Could not open file " << ss.str();
 	file.seekg(0, std::ios::end);
 	size_t length = file.tellg();
 	file.seekg(0, std::ios::beg);

@@ -32,7 +32,6 @@
 #include <malloc.h>
 #include <gtest/gtest.h>
 #include <CL/cl.h>
-
 /**
  * Encapsulates common methods
  **/

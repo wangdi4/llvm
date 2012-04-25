@@ -71,3 +71,8 @@ set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 
 #add_dependencies( ${TARGET} clang clang_compiler )
 #add_dependencies( framework_test_type_kernel clang_compiler clang)
+
+FILE(GLOB CRT_KERNELS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} kernels/[^.]*)
+	
+install(FILES ${CRT_KERNELS} DESTINATION bin/validation/common_runtime_test_type)
+
