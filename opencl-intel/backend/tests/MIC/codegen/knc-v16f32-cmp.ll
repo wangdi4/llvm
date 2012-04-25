@@ -17,7 +17,7 @@ declare <16 x i1> @llvm.x86.mic.cmpneq.ps(<16 x float>, <16 x float>)
 declare <16 x i1> @llvm.x86.mic.cmpnlt.ps(<16 x float>, <16 x float>)
 declare <16 x i1> @llvm.x86.mic.cmpnle.ps(<16 x float>, <16 x float>)
 declare <16 x i1> @llvm.x86.mic.cmpord.ps(<16 x float>, <16 x float>)
-declare void @llvm.x86.mic.mask.store.ps(i8*, <16 x i1>, <16 x float>)
+declare void @llvm.x86.mic.mask.store.ps(i8 *, i16, <16 x float>, i32, i32)
 
 define void @cmpoeq(<16 x float>* %p, <16 x float> %a, <16 x float> %b) nounwind ssp {
 entry:
@@ -27,8 +27,9 @@ entry:
 ; KNC: vcmpeqps	%zmm1, %zmm0, %k1
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp oeq <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -40,8 +41,9 @@ entry:
 ; KNC: vcmpltps	%zmm0, %zmm1, %k1
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp ogt <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -53,8 +55,9 @@ entry:
 ; KNC: vcmpleps	%zmm0, %zmm1, %k1
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp oge <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -66,8 +69,9 @@ entry:
 ; KNC: vcmpltps	%zmm1, %zmm0, %k1
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp olt <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -79,8 +83,9 @@ entry:
 ; KNC: vcmpleps	%zmm1, %zmm0, %k1
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp ole <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -94,8 +99,9 @@ entry:
 ; KNC: vcmpneqps	%zmm1, %zmm0, %k
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %mask = fcmp one <16 x float> %a, %b
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }
 
@@ -318,7 +324,8 @@ entry:
 ; KNC: vmovaps	%zmm0, (%rdi){%k1}
   %load = load <16 x float>* %p
   %mask = call <16 x i1> @llvm.x86.mic.cmpeq.ps( <16 x float> %a, <16 x float> %load )
+  %maski = bitcast <16 x i1> %mask to i16
   %ptr = bitcast <16 x float>* %p to i8*
-  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, <16 x i1> %mask, <16 x float> %a)
+  call void @llvm.x86.mic.mask.store.ps(i8* %ptr, i16 %maski, <16 x float> %a, i32 0, i32 0)
   ret void
 }

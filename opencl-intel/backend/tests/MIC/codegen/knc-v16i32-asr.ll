@@ -26,7 +26,7 @@ entry:
 ; KNF: vloadd ({{%[a-z]+}}), [[R1:%v[0-9]+]]
 ; KNF: vsrapi {{%v[0-9]+}}, [[R1]], {{%v[0-9]+}}
 ;
-; KNC: vmovdqa32 ({{%[a-z]+}}), [[R1:%zmm[0-9]+]]
+; KNC: vmovaps ({{%[a-z]+}}), [[R1:%zmm[0-9]+]]
 ; KNC: vpsravd {{%zmm[0-9]+}}, [[R1]], {{%zmm[0-9]+}}
   %tmp1 = load <16 x i32>* %a, align 64
   %shr = ashr <16 x i32> %tmp1, %b
