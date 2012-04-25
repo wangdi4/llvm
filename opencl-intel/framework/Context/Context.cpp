@@ -25,6 +25,11 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// for debug...???
+#include <limits.h>
+#include <assert.h>
+#include <algorithm>
+
 #include "Context.h"
 #include "Device.h"
 #include "program_with_source.h"
@@ -42,14 +47,15 @@
 #include <cl_local_array.h>
 #include <task_executor.h>
 
-// for debug...???
-#include <limits.h>
-#include <assert.h>
-
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
+
+// Function to compare two image formats.
+static bool compareImageFormats(cl_image_format f1, cl_image_format f2);
+// Function to get format map key
+static int getFormatsKey(int clObjType , int clMemFlags);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
@@ -1213,6 +1219,8 @@ cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CheckSupportedImageFormat
+// Calculate the supported file formats for context.
+// UNION of all device capabilities (see clGetSupportedImageFormats).
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType)
 {
@@ -1223,7 +1231,8 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 	}
 
 	// Calculate supported format key
-	int key = clObjType << 16 | (int)clMemFlags;
+	int key = getFormatsKey(clObjType, clMemFlags);
+
 	tImageFormatMap::iterator mapIT;
 	{	// Critical section
 		OclAutoMutex mu(&m_muFormatsMap);
@@ -1231,7 +1240,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 		// First access to the key, need to get formats from devices
 		if ( m_mapSupportedFormats.end() == mapIT )
 		{
-			if ( 0 == QuerySupportedImageFormats(clMemFlags, clObjType) )
+			if ( 0 == CalculateSupportedImageFormats(clMemFlags, clObjType) )
 			{
 				return CL_IMAGE_FORMAT_NOT_SUPPORTED;
 			}
@@ -1239,6 +1248,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 		}
 	}
 
+	// Now look for the format in relevant list
 	tImageFormatList::iterator listIT = mapIT->second.begin();
 	while (mapIT->second.end() != listIT)
 	{
@@ -1253,107 +1263,129 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 	return CL_IMAGE_FORMAT_NOT_SUPPORTED;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::QuerySupportedImageFormats
-///////////////////////////////////////////////////////////////////////////////////////////////////
-size_t Context::QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType )
+
+/**
+ * Calculate the supported file formats for context.
+ * UNION of all device capabilities (see clGetSupportedImageFormats).
+ * @param clMemFlags
+ * @param clObjType
+ * @return size of supported image formats list.
+ */
+size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType )
 {
 	// Calculate supported format key
-	int key = clObjType << 16 | (int)clMemFlags;
+	int key = getFormatsKey(clObjType, clMemFlags);
 
 	OclAutoMutex mu(&m_muFormatsMap);
 
 	tImageFormatMap::iterator mapIT = m_mapSupportedFormats.find(key);
-	// First access to the key, found the data is inside
+
+	// Found the supported formats list, no need to calculate it.
 	if ( m_mapSupportedFormats.end() != mapIT )
 	{
-		return CL_SUCCESS;
+		return mapIT->second.size();
 	}
 
-	cl_err_code clErr = CL_SUCCESS;
-	unsigned int uiMaxFormatCount = 0;
-	unsigned int uiFormatCount;
-	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
+	cl_err_code          clErr = CL_SUCCESS;
+	cl_uint              maxFormatCount = 0;
+	cl_image_format*     pFormats = NULL;
+	tImageFormatList     imageFormatsList;
+	const tSetOfDevices *rDevSet = GetAllRootDevices();
+	bool                 exitWithErr = false;
+
+	// Go through the devices and accumulate formats (union)
+	tSetOfDevices::const_iterator rDev;
+	for ( rDev = rDevSet->begin() ;
+			rDev != rDevSet->end() ; ++rDev)
 	{
-		clErr = m_ppExplicitRootDevices[ui]->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, 0, NULL, &uiFormatCount);
+		cl_uint devSpecificFormatsCount(0);
+
+		// find number of formats to expect.
+		clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType,
+				0, NULL, &devSpecificFormatsCount);
 		if (CL_FAILED(clErr))
 		{
-			return 0;
+			exitWithErr = true;
+			break;
 		}
-		uiMaxFormatCount = std::max<unsigned int>(uiFormatCount, uiMaxFormatCount);
-	}
 
-	// No formats count
-	if (0 == uiMaxFormatCount)
-	{
-		return 0;
-	}
-
-	// Now allocate maximum array
-	cl_image_format* pFormats = new cl_image_format[uiMaxFormatCount];
-	if ( NULL == pFormats )
-	{
-		return 0;
-	}
-
-	// Get formats from first (root) device
-	const tSetOfDevices *rDevSet = GetAllRootDevices();
-	tSetOfDevices::const_iterator rDev = rDevSet->begin();
-	if (rDev == rDevSet->end())
-	{
-		assert(0 && "QuerySupportedImageFormats: No root devices for context.");
-		return 0;
-	}
-
-	clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
-	if (CL_FAILED(clErr) || (0 == uiFormatCount))
-	{
-		delete[] pFormats;
-		return 0;
-	}
-	// Add formats to the list
-	tImageFormatList tmpList;
-	for (unsigned int ui=0; ui<uiFormatCount; ++ui)
-	{
-		tmpList.push_back(pFormats[ui]);
-	}
-
-	// Now go through rest of the devices and eliminate un-supported formats (intersection)
-	// Start from the second (next) root device.
-	for (++rDev ; rDev != rDevSet->end() ; ++rDev)
-	{
-		clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType, uiMaxFormatCount, pFormats, &uiFormatCount);
-		if (CL_FAILED(clErr) || (0 == uiFormatCount))
+		if (maxFormatCount < devSpecificFormatsCount)
 		{
-			delete[] pFormats;
-			return 0;
+			if (pFormats) delete[] pFormats;
+			maxFormatCount = devSpecificFormatsCount;
+			pFormats = new cl_image_format[maxFormatCount];
 		}
-		tImageFormatList::iterator it=tmpList.begin();
-		while(it != tmpList.end())
+
+		// get formats
+		clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType,
+				devSpecificFormatsCount, pFormats, NULL);
+		if (CL_FAILED(clErr))
 		{
-			bool bFound = false;
-			// Check if we have format in device list
-			for (unsigned int i=0; i<uiFormatCount && !bFound; ++i)
+			exitWithErr = true;
+			break;
+		}
+
+		std::sort(&pFormats[0], &pFormats[devSpecificFormatsCount], compareImageFormats);
+
+		if (rDev != rDevSet->begin())
+		{
+			// not first device
+			tImageFormatList tempFormatsList;
+			std::set_union(&pFormats[0], &pFormats[devSpecificFormatsCount],
+					imageFormatsList.begin(), imageFormatsList.end(),
+					tempFormatsList.begin(), compareImageFormats);
+
+			imageFormatsList = tempFormatsList;
+		} else {
+			// only for first device, add all formats
+			for (unsigned int ui=0; ui<devSpecificFormatsCount; ++ui)
 			{
-				if ( (pFormats[i].image_channel_order == it->image_channel_order) &&
-					(pFormats[i].image_channel_data_type == it->image_channel_data_type) )
-				{
-					bFound = true;
-				}
-			}
-			if (!bFound)
-			{
-				tmpList.erase(it);
-			} else
-			{
-				it++;
+				imageFormatsList.push_back(pFormats[ui]);
 			}
 		}
 	}
 
-	delete[] pFormats;
-	m_mapSupportedFormats[key] = tmpList;
-	return tmpList.size();	
+	if (!exitWithErr)
+	{
+		if (rDev == rDevSet->begin() && rDev == rDevSet->end())
+		{
+			assert(0 && "CalculateSupportedImageFormats: No root devices for context.");
+			exitWithErr = true;
+		}
+	}
+
+	if (pFormats) delete[] pFormats;
+
+	if (exitWithErr)
+	{
+		imageFormatsList.clear();
+	}
+	m_mapSupportedFormats[key] = imageFormatsList;
+	return imageFormatsList.size();
 }
 
+/**
+ * Comparison function for image formats.
+ * Sorting order:  image_channel_data_type, image_channel_order.
+ * @param f1
+ * @param f2
+ * @return true if f1 is smaller than f2, false otherwise.
+ */
+bool compareImageFormats(cl_image_format f1, cl_image_format f2)
+{
+	if (f1.image_channel_data_type < f2.image_channel_data_type) return true;
+	if (f1.image_channel_data_type > f2.image_channel_data_type) return false;
+
+	// here only if image_channel_data_type is equal.
+	if (f1.image_channel_order < f2.image_channel_order) return true;
+
+	// in case of equality, or image_channel_order not smaller:
+	return false;
+}
+
+static int getFormatsKey(int clObjType , int clMemFlags)
+{
+	int key = clObjType << 16 | clMemFlags;
+	return key;
+}
 

@@ -320,8 +320,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             size_t * pszArraySize,
                                             size_t * psz1dImgBufSize);
 
+		/**
+		 * Compate against UNION of all device capabilities in the context (see clGetSupportedImageFormats).
+		 * @param pclImageFormat
+		 * @param clMemFlags
+		 * @param clObjType
+		 * @return 0 if format is supported by any device in the context.
+		 */
 		cl_err_code	CheckSupportedImageFormat(const cl_image_format *pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType);
-		size_t		QuerySupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
+
+		/**
+		 * Calculate the supported file formats for context. UNION of all device capabilities (see clGetSupportedImageFormats).
+		 * @param clMemFlags
+		 * @param clObjType
+		 * @return size of supported image formats list.
+		 */
+		size_t		CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
 
 
 		bool									m_bTEActivated;
