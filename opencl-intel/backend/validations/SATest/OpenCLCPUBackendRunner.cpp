@@ -373,7 +373,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     {
         std::string filename = Utils::GetDataFilePath( pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
                                                        pOCLProgramConfig->GetBaseDirectory());
-        
+
         spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
                                                filename);
     }

@@ -57,7 +57,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
       std::cout << "Warning! SATest will overwrite "<< fileName.str().c_str() 
           << std::endl;
     }
-    
+
     std::string programFile = oclProgramConfig->GetProgramFilePath();
     switch (oclProgramConfig->GetProgramFileType())
     {

@@ -100,7 +100,7 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     {
         throw Exception::TestRunnerException(std::string("Build program failed.\nBack-end build log:\n") + pProgram->GetBuildLog());
     }
-    
+
     if( runConfig->GetValue<bool>(RC_BR_PRINT_BUILD_LOG, false) )
     {
         llvm::outs() << "Build log:\n" << pProgram->GetBuildLog() << '\n';

@@ -130,6 +130,7 @@ void SATest::RunBuildOnly(const IRunComponentConfiguration* pRunConfiguration)
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);
+    std::cout << "Test program was successfully built." << endl;
 }
 
 void SATest::GenerateReference(IRunResult* pResult, IProgramRunner* pRunner, const IRunComponentConfiguration* pRunConfiguration)
