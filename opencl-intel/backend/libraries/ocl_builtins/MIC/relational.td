@@ -146,7 +146,7 @@ OclBuiltinImpl isfinite_f64_expand = OclBuiltinImpl<isfinite, [v16f64], 0, Expan
 
 // isinf
 OclBuiltinImpl isinf_f32_v1 = OclBuiltinImpl<isinf, [v1f32], 0, [{
-    return ((as_int($Arg0VarName) & const_fp_no_sign) < const_fp_exp)?1:0;
+    return ((as_int($Arg0VarName) & const_fp_no_sign) == const_fp_exp)?1:0;
   }]>;
 OclBuiltinImpl isinf_f32_v16 = OclBuiltinImpl<isinf, [v16f32], 0, [{
     __m512i no_sign = _mm512_and_epi32((__m512i)($Arg0VarName), (__m512i)((int16)const_fp_no_sign));
@@ -155,7 +155,7 @@ OclBuiltinImpl isinf_f32_v16 = OclBuiltinImpl<isinf, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl isinf_f32_promote = OclBuiltinImpl<isinf, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote1>;
 OclBuiltinImpl isinf_f64_v1 = OclBuiltinImpl<isinf, [v1f64], 0, [{
-    return ((as_long($Arg0VarName) & const_dp_no_sign) < const_dp_exp)?1:0;
+    return ((as_long($Arg0VarName) & const_dp_no_sign) == const_dp_exp)?1:0;
   }]>;
 OclBuiltinImpl isinf_f64_v8 = OclBuiltinImpl<isinf, [v8f64], 0, [{
     $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
