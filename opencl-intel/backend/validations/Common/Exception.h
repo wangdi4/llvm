@@ -70,6 +70,9 @@ namespace Validation { namespace Exception {
     /// Exception for illegal command line parameters
     DEFINE_VALIDATION_EXCEPTION(CmdLineException)
 
+    /// Exception for failed operation
+    DEFINE_VALIDATION_EXCEPTION(OperationFailed)
+
 }} // namespace Validation { namespace Exception {
 
 #endif // __EXCEPTION_H__

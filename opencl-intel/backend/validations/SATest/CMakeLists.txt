@@ -80,6 +80,7 @@ include_directories(
     ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
     ${VALIDATIONS_ROOT}/InterpreterPluggable
     ${VALIDATIONS_ROOT}/PlugInNEAT
+    ${VALIDATIONS_ROOT}/OCLBuilder
 )
 
 set (SATest_INCLUDE_FILES
@@ -174,6 +175,7 @@ add_executable(SATest
     ${SATest_SOURCE_FILES}
 )
 
+target_link_libraries(SATest OCLBuilder)
 if (INCLUDE_MIC_DEVICE)
 set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
 target_link_libraries(SATest coi_host dynamic_load)

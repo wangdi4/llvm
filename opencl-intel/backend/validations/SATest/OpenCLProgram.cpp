@@ -19,6 +19,8 @@ File Name:  OpenCLProgram.cpp
 #include "cl_types.h"
 #include "exceptions.h"
 #include "SATestException.h"
+#include "OCLBuilder.h"
+#include "Exception.h"
 
 #include "llvm/Module.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
@@ -27,6 +29,8 @@ File Name:  OpenCLProgram.cpp
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/IRReader.h"
 
 #include <stdio.h>
 #include <memory.h>
@@ -34,13 +38,24 @@ File Name:  OpenCLProgram.cpp
 
 using namespace Validation;
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::OpenCL::FECompilerAPI;
 using std::string;
+
+static std::string buildLibName (const char* s){
+  std::stringstream ret;
+#ifdef _WIN32
+  ret << s << ".dll";
+#else
+  ret << "lib" << s << ".so";
+#endif
+  return ret.str();
+}
 
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                              const std::string cpuArch)
 {
     std::stringstream fileName;
-    fileName << oclProgramConfig->GetProgramName().c_str() << 
+    fileName << oclProgramConfig->GetProgramName().c_str() <<
         ".llvm_ir" << std::ends;
 
     //Checks to see if the file already exist, and if so, gives a warning
@@ -54,7 +69,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
     if ( NULL != pIRfile )
     {
       fclose(pIRfile);
-      std::cout << "Warning! SATest will overwrite "<< fileName.str().c_str() 
+      std::cout << "Warning! SATest will overwrite "<< fileName.str().c_str()
           << std::endl;
     }
 
@@ -64,63 +79,57 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
         case CL:
             {
                 OpenCLIncludeDirs* includeDirs(oclProgramConfig->GetIncludeDirs());
-                if (!includeDirs)
-                {
-                    throw Exception::IOError("Include directories for CLang aren't set in configuration file.");
-                }
-
-/*
-Example command line to run clang in OpenCL mode.
-LLVm30 branch 
-
-clang -cc1 -x cl -S -emit-llvm-bc 
--I C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/cl_api -I C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/clang_headers 
--include opencl_.h 
--D __OPENCL_VERSION__=110 -D CL_VERSION_1_0=100 -D CL_VERSION_1_1=110 -D __ENDIAN_LITTLE__=1 
--D __ROUNDING_MODE__=rte -D __IMAGE_SUPPORT__=1 
--D cl_khr_fp64 -D cl_khr_global_int32_base_atomics   -D  cl_khr_global_int32_extended_atomic 
--D cl_khr_local_int32_base_atomics  -D cl_khr_local_int32_extended_atomics 
--D cl_khr_gl_sharing -D cl_khr_byte_addressable_store -D cl_intel_printf -D cl_intel_overloading
--O0 C:/omaslov/LLVM30_SVN/install/Win32/Debug/bin/local_mem.cl -o local_mem.cl.llvm_ir
-*/
-
-                std::stringstream cmd;
-                cmd << "clang -cc1 -x cl -S -emit-llvm-bc -cl-kernel-arg-info ";
-                for(OpenCLIncludeDirs::IncludeDirsList::const_iterator it = includeDirs->beginIncldueDirs();
+                std::stringstream buildOptions;
+                if (includeDirs) {
+                    for(OpenCLIncludeDirs::IncludeDirsList::const_iterator it = includeDirs->beginIncldueDirs();
                         it != includeDirs->endIncludeDirs();
                         ++it )
-                {
-                    cmd << " -I "<< *it ;
+                     {
+                            buildOptions << " -I "<< *it ;
+                     }
                 }
-
-                cmd << " -include opencl_.h -D __OPENCL_VERSION__=110 -D \
-                       CL_VERSION_1_0=100 -D CL_VERSION_1_1=110 -D __ENDIAN_LITTLE__=1 \
-                       -D __ROUNDING_MODE__=rte -D __IMAGE_SUPPORT__=1 \
-                       -D cl_khr_fp64 \
-                       -D cl_khr_global_int32_base_atomics \
-                       -D cl_khr_global_int32_extended_atomic \
-                       -D cl_khr_local_int32_base_atomics \
-                       -D cl_khr_local_int32_extended_atomics \
-                       -D cl_khr_gl_sharing \
-                       -D cl_khr_byte_addressable_store \
-                       -D cl_intel_printf \
-                       -D cl_intel_overloading \
-                       -O0 "; // turn off optimizations
-#ifndef _WIN32
-                cmd << "-triple x86_64-unknown-linux-gnu ";
-#endif
-                cmd << programFile.c_str() << " -o " << fileName.str().c_str() << std::ends;
-                // execute clang
-                int errcode = system(cmd.str().c_str());
-                if(errcode != 0)
-                {
-                    throw Exception::IOError("Clang compilation failed with command line: " + 
-                        cmd.str() + "\n");
-                }
-
-                BCOpenCLProgram(fileName.str());
+                //reading the source file to be compiled
+                std::fstream indata(programFile.c_str());
+                if(!indata.is_open())// file couldn't be opened
+                    throw Exception::IOError(programFile.c_str());
+                indata.seekg (0, std::ios::end);
+                size_t length = indata.tellg();
+                indata.seekg (0, std::ios::beg);
+                if (length <= 0)
+                    throw Exception::IOError("empty source file");
+                char* source = new char[length+1];
+                indata.read(source, length);
+                size_t read = indata.gcount();
+                //in Win-based OS, each line results one-character less read to
+                //the buffer, so the actual num of bytes read is lower than the
+                //actual file length.
+                if (read < length)
+                    source[read] = '\0';
+                indata.close();
+                //building the CL code:
+                std::string clangLib = buildLibName("clang_compiler");
+                OCLBuilder& builder = OCLBuilder::instance().
+                withSource(source).
+                withBuildOptions(buildOptions.str().c_str()).
+                withLibrary(clangLib.c_str());
+                IOCLFEBinaryResult* result = builder.build();
+                delete[] source;
+                //
+                //Allocating the container
+                //
+                this->containerSize = result->GetIRSize();
+                this->pContainer = (cl_prog_container_header*)(new char[containerSize]);
+                memcpy(this->pContainer,
+                  result->GetIR(),
+                  this->containerSize
+                );
+                //
+                //cleanup
+                //
+                builder.close();
+                result->Release();
+                break;
             }
-            break;
         case LL:
             {
                 llvm::SMDiagnostic err;
@@ -182,7 +191,7 @@ unsigned int OpenCLProgram::GetProgramContainerSize() const
 
 void OpenCLProgram::BCOpenCLProgram(const string& programFile)
 {
-  const char* szFileName = programFile.c_str(); 
+  const char* szFileName = programFile.c_str();
 
   containerSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
 

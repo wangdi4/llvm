@@ -23,6 +23,7 @@ File Name:  ocl_source_recorder.cpp
 #include <string>
 #include <vector>
 #include <map>
+#include "llvm/Support/Mutex.h"
 #include "plugin_interface.h"
 #include "source_file.h"
 #include "link_data.h"
@@ -32,7 +33,7 @@ File Name:  ocl_source_recorder.cpp
 namespace Validation{
 
 //
-//Functional class for MD5 code comparision, to be used by code map for partial
+//Functional class for MD5 code comparison, to be used by code map for partial
 //ordering.
 //
 struct CodeLess{
@@ -40,15 +41,50 @@ struct CodeLess{
   bool operator () (const MD5Code& x, const MD5Code& y) const;
 };
 
-typedef std::map<MD5Code, Intel::OpenCL::Frontend::SourceFile, CodeLess> SourceFileMap;
-typedef SourceFileMap::const_iterator FileIter;
+//
+//Type definitions
+//
+typedef std::vector<Intel::OpenCL::Frontend::SourceFile> SourceFilesVector;
 
+typedef std::map<MD5Code, SourceFilesVector, CodeLess> SourceFileMap;
+
+class OclSourceRecorder;
+//
+//SourceFile iterator
+//
+class FileIter {
+  friend class OclSourceRecorder;
+public:
+  FileIter();
+  FileIter& operator++();
+  FileIter operator++(int);
+  bool operator==(const FileIter&)const;
+  bool operator!=(const FileIter&)const;
+  Intel::OpenCL::Frontend::SourceFile operator * ()const;
+  static FileIter end();
+  struct FileIterException: public std::exception{
+  public:
+    const char* what() const throw();
+  };
+private:
+
+  FileIter(SourceFilesVector::const_iterator b, SourceFilesVector::const_iterator e);
+  SourceFilesVector::const_iterator m_iter;
+  SourceFilesVector::const_iterator m_iterEnd;
+  bool m_isInitialized;
+  bool m_isExhausted;
+};
+
+//@Name: OclSourceRecorder
+//@Description: implementing the interface <code>ICLFrontendPlugin</code>,
+//this class supplies call back methods for Link and Compile events. Those
+//callback methods builds an internal dependency graph between compilation
+//artifacts. The <code>begin</code> method can than be used to query all the
+//dependent artifacts of a given module (or more precisely, the MD5 code of a
+//given module).
+//
 class OclSourceRecorder: public Intel::OpenCL::Frontend::ICLFrontendPlugin{
 public:
-  //Type definitions
-  //
-  typedef std::vector<Intel::OpenCL::Frontend::SourceFile> SourceFilesVector;
-
   ~OclSourceRecorder();
   //
   //invoked when a program is being linked
@@ -66,14 +102,10 @@ public:
   FileIter end() const;
 private:
   //map of compiled source files. Maps the md5 of the binary,
-  //to its corresponding source file.
+  //to its corresponding source file(s)
   mutable SourceFileMap m_sourceMap;
   //lock for the source map
   mutable llvm::sys::Mutex m_sourcemapLock;
-  //vector of headers included by the above sourece files
-  SourceFilesVector m_headers;
-  //lock for the headers vectors
-  llvm::sys::Mutex m_headersLock;
 };//end class
 }
 

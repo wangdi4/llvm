@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  SourceFile.cpp
+File Name: source_file.cpp
 
 \*****************************************************************************/
 #include "source_file.h"
@@ -26,6 +26,10 @@ namespace Intel { namespace OpenCL { namespace Frontend {
   BinaryBuffer::BinaryBuffer(): binary(NULL), size(-1){
   }
 
+  BinaryBuffer::BinaryBuffer(const void* _binary, size_t _size):
+  binary(_binary), size(_size){
+  }
+
   //
   //SourceFile
   //
@@ -35,14 +39,14 @@ namespace Intel { namespace OpenCL { namespace Frontend {
     m_contents(contents),
     m_compilationFlags(compilationFlags){
   }
-  
+
   SourceFile::SourceFile(){
   }
-  
+
   std::string SourceFile::getName() const{
     return m_name;
   }
-  
+
   void SourceFile::setName(const std::string& name){
     m_name = name;
   }
@@ -50,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace Frontend {
   std::string SourceFile::getContents() const{
     return m_contents;
   }
-  
+
   void SourceFile::setContents(const std::string& contents){
     m_contents = contents;
   }
@@ -58,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace Frontend {
   std::string SourceFile::getCompilationFlags() const{
     return m_compilationFlags;
   }
-  
+
   void SourceFile::setCompilationFlags(const std::string& flags){
     m_compilationFlags = flags;
   }

@@ -18,6 +18,7 @@ add_llvm_executable(${TARGET_NAME}
   OCLBuiltinParserTest.cpp
   NEATALUImageTest.cpp
   SourceRecorder.cpp
+  ClangSA.cpp
   )
 
 add_subdirectory(fe_plugin_mock)
@@ -36,6 +37,10 @@ include_directories(${VALIDATIONS_ROOT}/DataGenerator)
 include_directories(${VALIDATIONS_ROOT}/OCLBuiltins)
 include_directories(${LLVM_MAIN_SRC_DIR}/../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/PlugInNEAT)
+include_directories(${VALIDATIONS_ROOT}/OCLBuilder)
+include_directories(${VALIDATIONS_ROOT}/OCLRecorder)
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/Common )
+
 link_directories(${VALIDATIONS_ROOT}/../validations)
 link_directories(${LLVM_MAIN_SRC_DIR}/../external/tinyxml)
 link_directories(${VALIDATIONS_ROOT}/NEAT)
@@ -52,19 +57,27 @@ set(UNIT_TEST_LIBS
   LLVMSupport # gtest needs it for raw_ostream.
 )
 
-target_link_libraries(${TARGET_NAME} 
-  ${DATA_MANAGER_LIBS} 
-  ${COMPARATOR_LIBS} 
+target_link_libraries(${TARGET_NAME}
+  ${DATA_MANAGER_LIBS}
+  ${COMPARATOR_LIBS}
   ${DATA_GENERATOR_LIBS}
-  ${UNIT_TEST_LIBS} 
-  ${NEAT_ALU_LIBS} 
+  ${UNIT_TEST_LIBS}
+  ${NEAT_ALU_LIBS}
   ${PLUGIN_NEAT_LIBS}
   OclPluginManager
   dynamic_load
+  OCLRecorderStat
+  OCLBuilder
 )
 
+if ( NOT WIN32)
+target_link_libraries(${TARGET_NAME}
+  pthread
+)
+endif(NOT WIN32)
+
 add_dependencies(${TARGET_NAME} ${DATA_MANAGER_LIBS} ${COMPARATOR_LIBS} ${DATA_GENERATOR_LIBS}  ${UNIT_TEST_LIBS} ${NEAT_ALU_LIBS} ${PLUGIN_NEAT_LIBS})
-add_dependencies(${TARGET_NAME} OclPluginManager)
+add_dependencies(${TARGET_NAME} OclPluginManager OclRecorder)
 add_dependencies(UnitTests ${TARGET_NAME})
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 

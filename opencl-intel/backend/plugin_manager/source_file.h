@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  SourceFile.h
+File Name: source_file.h
 
 \*****************************************************************************/
 #ifndef __SOURCE_FILE_H__
@@ -25,6 +25,7 @@ struct BinaryBuffer{
   const void* binary;
   size_t size;
   BinaryBuffer();
+  BinaryBuffer(const void*, size_t);
 };
 
 //

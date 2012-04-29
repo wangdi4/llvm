@@ -365,7 +365,6 @@ namespace Validation
         return path.str();
     }
 
-
     const std::string RecorderContext::getByteCodeFilePath() const
     {
         return getPath(BINFILE_SUFFIX);
@@ -500,7 +499,7 @@ namespace Validation
 
         m_contexts.erase( itContext );
     }
-    
+
     bool OCLRecorder::NeedSourceRecording(
       const MD5Code& code,
       OUT Frontend::SourceFile* pSourceFile) const
@@ -510,7 +509,7 @@ namespace Validation
         FileIter fileIter = m_pSourceRecorder->begin(code);
         if (fileIter == m_pSourceRecorder->end())
           return false;
-        Frontend::SourceFile sourceFile = fileIter->second;
+        Frontend::SourceFile sourceFile = *fileIter;
         *pSourceFile = sourceFile;
         return true;
     }
@@ -575,8 +574,8 @@ namespace Validation
         if (NeedSourceRecording(code, OUT &sourceFile))
         {
             RecordSourceCode(*spContext, sourceFile);
-        } 
-        else 
+        }
+        else
         {
             RecordByteCode(pContainer, *spContext);
             RecordProgramConfig(*spContext);
@@ -828,7 +827,7 @@ namespace Validation
         size_t fileDataSize = pContainer->container_size - sizeof(cl_llvm_prog_header);
         binStream.write( fileData, fileDataSize );
     }
-    // 
+    //
     //OclRecorderPlugin
     //
     class OclRecorderPlugin: public IPlugin{
@@ -887,7 +886,7 @@ namespace Validation
         static llvm::sys::Mutex lock;
         //a pointer to the plugin instance
         static OclRecorderPlugin* instance;
-        
+
         //Assigns a reference to the source recorder, whithin the backend recorder
         //Note: should be only called once, after the instanciation of the second recorder.
         void assignSourceRecorder(){

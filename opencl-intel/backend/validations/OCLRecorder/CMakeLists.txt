@@ -112,7 +112,12 @@ add_library (${TARGET_NAME} SHARED
 	${OCL_RECORDER_RESOURCE_FILES}
 	${ASM_ADD_TO_SOURCES_LIST}
 	)
-	
+
+# Create static library for unit tests
+add_library (OCLRecorderStat STATIC
+  ${OCL_RECORDER_SOURCE_FILES}
+)
+
 # Link with appropriate libs
 target_link_libraries (${TARGET_NAME} ${OCL_RECORDER_DEPS}) 
 
@@ -124,8 +129,12 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
+install(TARGETS OCLRecorderStat
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)
 
 if(WIN32)
-# Define the additional link flags	
+# Define the additional link flags
 set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 endif(WIN32)

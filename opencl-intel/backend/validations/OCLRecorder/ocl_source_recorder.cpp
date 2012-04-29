@@ -39,35 +39,33 @@ namespace Validation{
       BinaryBuffer binaryBuffer = compileData->sourceFile().getBinaryBuffer();
       MD5 md5((unsigned char*)binaryBuffer.binary, binaryBuffer.size);
       MD5Code res = md5.digest();
+      SourceFilesVector sourceVector;
+      sourceVector.push_back(compileData->sourceFile());
+      sourceVector.insert(
+        sourceVector.end(),
+        compileData->beginHeaders(),
+        compileData->endHeaders()
+      );
       {
         llvm::MutexGuard lock(m_sourcemapLock);
-        m_sourceMap[res] = compileData->sourceFile();
-      }
-      //adding the headers to the header vector
-      {
-        llvm::MutexGuard lock(m_headersLock);
-        m_headers.insert(
-          m_headers.end(),
-          compileData->beginHeaders(),
-          compileData->endHeaders()
-        );
+        m_sourceMap[res] = sourceVector;
       }
     }
-    
+
     FileIter OclSourceRecorder::begin(const MD5Code& code) const{
-      return m_sourceMap.find(code);
+      FileIter ret;
+      {
+        llvm::MutexGuard lock(m_sourcemapLock);
+        ret = FileIter(m_sourceMap[code].begin(), m_sourceMap[code].end());
+      }
+      return ret;
     }
-    
+
     FileIter OclSourceRecorder::end() const{
       //TODO: the implementation will change when we will insert support for CL
       // 1.2. We then need not only to return the last file, but induce the sub
       // dependency graph of the entry point module.
-      FileIter ret;
-      {
-        llvm::MutexGuard lock(m_sourcemapLock);
-        ret = m_sourceMap.end();
-      }
-      return ret;
+      return FileIter::end();
     }
     //
     //CodeLess
@@ -81,5 +79,60 @@ namespace Validation{
       }
       //all the digset is actual the same one... (return false)
       return false;
+    }
+    //
+    //FileIter
+    //
+    FileIter FileIter::end(){
+      FileIter ret;
+      ret.m_isExhausted = true;
+      return ret;
+    }
+
+    FileIter::FileIter() : m_isInitialized(false), m_isExhausted(false){
+    }
+
+    FileIter::FileIter(
+      SourceFilesVector::const_iterator b,
+      SourceFilesVector::const_iterator e):
+      m_isInitialized(true),
+      m_isExhausted(false){
+      m_iter = b;
+      m_iterEnd = e;
+    }
+
+    bool FileIter::operator==(const FileIter& that)const{
+      if (this == &that)
+        return true;
+      if (this->m_isExhausted && that.m_isExhausted)
+        return true; //both reached the end
+      return m_iter == that.m_iter;
+    }
+
+    bool FileIter::operator!=(const FileIter& that)const{
+      return !(this->operator==(that));
+    }
+
+    FileIter& FileIter::operator++(){
+      if ( !m_isInitialized || m_iter == m_iterEnd || m_isExhausted )
+        throw FileIterException();
+      m_iter++;
+      if (m_iter == m_iterEnd)
+        m_isExhausted = true;
+      return *this;
+    }
+
+    FileIter FileIter::operator++(int){
+      FileIter ret(*this);
+      this->operator++();
+      return ret;
+    }
+
+    Intel::OpenCL::Frontend::SourceFile FileIter::operator *()const{
+      return *m_iter;
+    }
+
+    const char* FileIter::FileIterException::what() const throw(){
+      return "Source File iteration exception";
     }
 }
