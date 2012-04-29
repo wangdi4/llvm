@@ -3,7 +3,9 @@ add_subdirectory( framework_test_type )
 add_subdirectory( debugger_test_type )
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device_test_type )
+    add_subdirectory( shoc1.1.1 )
 endif( INCLUDE_MIC_DEVICE )
+
 
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
