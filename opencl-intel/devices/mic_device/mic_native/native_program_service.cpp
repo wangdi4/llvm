@@ -174,7 +174,21 @@ int MICNativeBackendOptions::GetIntValue( int optionId, int defaultValue) const
 
 const char* MICNativeBackendOptions::GetStringValue( int optionId, const char* defaultValue)const
 {
-    return defaultValue;
+    switch (optionId)
+    {
+        case CL_DEV_BACKEND_OPTION_CPU_ARCH:
+#ifdef KNC_CARD
+			return "knc";
+#else
+            return "knf";
+#endif
+
+        case CL_DEV_BACKEND_OPTION_DUMPFILE:
+            assert(false && "OPTION NOT SUPPORTED ON DEVICE SIDE");
+
+        default:
+            return defaultValue;
+    }
 }
 
 bool MICNativeBackendOptions::GetValue( int optionId, void* Value, size_t* pSize) const
