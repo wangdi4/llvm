@@ -135,6 +135,8 @@ TEST(OCLSourceRecorder1_1, sorce_recorder_basic){
 //
 #ifndef _WIN32
 
+#define UNUSED(x) x=x
+
 //Event class (ManualResetEvent equivalent)
 class Event{
 public:
@@ -225,7 +227,11 @@ TEST(OCLSourceRecorder1_1, source_recoder_thread_safety){
     threadArgs[i].pCompileData = compileData[i];
     threadArgs[i].pEvent = &event;
     int rc = pthread_create(&thread[i], &attr, addCompile, &threadArgs[i]);
+    #ifdef NDEBUG
+    UNUSED(rc);
+    #else
     assert ("thread creation error?!" && 0 == rc);
+    #endif
   }
   //go go threads!
   event.signal();
@@ -234,7 +240,11 @@ TEST(OCLSourceRecorder1_1, source_recoder_thread_safety){
   pthread_attr_destroy(&attr);
   for (int i = 0; i < THREAD_NUM ; i++){
     int rc = pthread_join(thread[i], &status);
+    #ifdef NDEBUG
+    UNUSED(rc);
+    #else
     assert (0==rc && "thread join failed?!");
+    #endif
   }
   //checking the result
   MD5 md5(b1, sizeof(b1));
