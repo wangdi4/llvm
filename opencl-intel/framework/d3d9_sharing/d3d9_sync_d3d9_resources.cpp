@@ -29,12 +29,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     const char* SyncD3D9Resources::GetCommandName() const
     {
-        if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == GetCommandType())
+        if (m_d3d9Definitions.GetCommandAcquireDx9MediaSurface() == GetCommandType())
         {
-            return "CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL";
+            return "CL_COMMAND_ACQUIRE_DX9_OBJECTS";
         }
-        assert(CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == GetCommandType());
-        return "CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL";
+        assert(m_d3d9Definitions.GetCommandReleaseDx9MediaSurface() == GetCommandType());
+        return "CL_COMMAND_RELEASE_DX9_OBJECTS";
     }
 
     /**
@@ -43,7 +43,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code SyncD3D9Resources::Execute()
     {
-        if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == GetCommandType())
+        if (m_d3d9Definitions.GetCommandAcquireDx9MediaSurface() == GetCommandType())
         {
             for (unsigned int i = 0; i < GetNumMemObjs(); i++)
             {

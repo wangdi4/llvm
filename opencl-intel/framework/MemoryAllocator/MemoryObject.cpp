@@ -97,11 +97,13 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 	cl_context clContext = 0;
 	cl_mem	clMem = 0;
 	const void * pValue = NULL;
+#if defined (DX9_MEDIA_SHARING)
+    cl_dx9_surface_info_khr dx9SurfaceInfo;
+#endif
 
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_mem_info)iParamName )
 	{
-
 	case CL_MEM_TYPE:
 		szSize = sizeof(cl_mem_object_type);
 		pValue = &m_clMemObjectType;
@@ -147,10 +149,12 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 		pValue = &szParam;
 		break;
 #if defined (DX9_MEDIA_SHARING)
+    /* We handle the following values here and not in D3D9Resource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
+        shared object and not CL_INVALID_VALUE. */
     case CL_MEM_DX9_RESOURCE_INTEL:
         {
-            const D3D9Resource* const pD3d9Resource = dynamic_cast<const D3D9Resource*>(this);
-            if (NULL == pD3d9Resource)
+            const D3D9Resource* const pD3d9Resource = dynamic_cast<const D3D9Resource*>(this);            
+            if (NULL == pD3d9Resource || static_cast<const D3D9Context*>(pD3d9Resource->GetContext())->Getd3d9Definitions().GetVersion() != ID3D9Definitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
             }
@@ -161,12 +165,38 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
     case CL_MEM_DX9_SHARED_HANDLE_INTEL:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface)
+            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->Getd3d9Definitions().GetVersion() != ID3D9Definitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;                
             }
             szSize = sizeof(HANDLE);
             pValue = &static_cast<const D3D9SurfaceResourceInfo*>(pD3d9Surface->GetResourceInfo())->m_sharehandle;
+            break;
+        }
+    case CL_MEM_DX9_MEDIA_ADAPTER_TYPE_KHR:
+        {
+            const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
+            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->Getd3d9Definitions().GetVersion() != ID3D9Definitions::D3D9_KHR)
+            {
+                return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
+            }
+            szSize = sizeof(cl_dx9_media_adapter_type_khr);
+            pValue = &static_cast<const D3D9SurfaceResourceInfo*>(pD3d9Surface->GetResourceInfo())->m_adapterType;
+            break;
+        }
+    case CL_MEM_DX9_MEDIA_SURFACE_INFO_KHR:
+        {
+            const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
+            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->Getd3d9Definitions().GetVersion() != ID3D9Definitions::D3D9_KHR)
+            {
+                return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
+            }
+
+            const D3D9SurfaceResourceInfo* const d3d9SurfaceResourceInfo = static_cast<const D3D9SurfaceResourceInfo*>(pD3d9Surface->GetResourceInfo());
+            szSize = sizeof(dx9SurfaceInfo);            
+            dx9SurfaceInfo.resource = static_cast<IDirect3DSurface9*>(d3d9SurfaceResourceInfo->m_pResource);
+            dx9SurfaceInfo.shared_handle = d3d9SurfaceResourceInfo->m_sharehandle;
+            pValue = &dx9SurfaceInfo;
             break;
         }
 #else

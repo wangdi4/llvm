@@ -97,6 +97,10 @@ EXPORTS
 	clEnqueueAcquireDX9ObjectsINTEL
 	clEnqueueReleaseDX9ObjectsINTEL
 	clGetDeviceIDsFromDX9INTEL
+	clCreateFromDX9MediaSurfaceKHR
+	clGetDeviceIDsFromDX9MediaAdapterKHR
+	clEnqueueAcquireDX9MediaSurfacesKHR
+	clEnqueueReleaseDX9MediaSurfacesKHR
 	clEnqueueFillBuffer
 	clEnqueueMigrateMemObjects
 	clCreateSubDevices

@@ -1107,6 +1107,17 @@ REGISTER_EXTENSION_FUNCTION(clCreateFromD3D9VolumeTextureINTEL, clCreateFromD3D9
 
 #if defined (DX9_MEDIA_SHARING)
 
+cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceKHR(cl_context context, 
+                                                  cl_mem_flags flags, 
+                                                  cl_dx9_media_adapter_type_khr adapter_type, 
+                                                  void *surface_info, 
+                                                  cl_uint plane, 
+                                                  cl_int *errcode_ret)
+{    
+    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, adapter_type, (cl_dx9_surface_info_khr*)surface_info, plane, errcode_ret, KhrD3D9Definitions());
+}
+SET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
+
 cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(cl_context context,
                                                 cl_mem_flags flags,
                                                 IDirect3DSurface9 *resource,
@@ -1114,9 +1125,24 @@ cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(cl_context context,
                                                 UINT plane,
                                                 cl_int *errcode_ret)
 {
-    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, resource, sharehandle, plane, errcode_ret);
+    cl_dx9_surface_info_khr dx9SurfaceInfo;
+    dx9SurfaceInfo.resource = resource;
+    dx9SurfaceInfo.shared_handle = sharehandle;
+    return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, 0, &dx9SurfaceInfo, plane, errcode_ret, IntelD3D9Definitions());
 }
 REGISTER_EXTENSION_FUNCTION(clCreateFromDX9MediaSurfaceINTEL, clCreateFromDX9MediaSurfaceINTEL);
+
+cl_int CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR(cl_command_queue command_queue, 
+                                                       cl_uint num_objects, 
+                                                       const cl_mem *mem_objects, 
+                                                       cl_uint num_events_in_wait_list, 
+                                                       const cl_event *event_wait_list, 
+                                                       cl_event *event)
+{
+    return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue, CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects, num_events_in_wait_list,
+        event_wait_list, event);
+}
+SET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
 
 cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
@@ -1131,6 +1157,18 @@ cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queu
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9ObjectsINTEL, clEnqueueAcquireDX9ObjectsINTEL);
 
+cl_int CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR(cl_command_queue command_queue, 
+                                                       cl_uint num_objects, 
+                                                       const cl_mem *mem_objects, 
+                                                       cl_uint num_events_in_wait_list, 
+                                                       const cl_event *event_wait_list, 
+                                                       cl_event *event)
+{
+    return EXECUTION_MODULE->EnqueueSyncD3D9Objects(command_queue, CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects, num_events_in_wait_list,
+        event_wait_list, event);
+}
+SET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
+
 cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
                                                  cl_mem *mem_objects,
@@ -1144,15 +1182,32 @@ cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queu
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9ObjectsINTEL, clEnqueueReleaseDX9ObjectsINTEL);
 
-cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(cl_platform_id platform,
-                                            cl_dx9_device_source_intel d3d_device_source,
-                                            void *d3d_object,
-                                            cl_dx9_device_set_intel d3d_device_set,
-                                            cl_uint num_entries, 
-                                            cl_device_id *devices, 
-                                            cl_uint *num_devices)
+cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(cl_platform_id platform,
+                                                        cl_uint num_media_adapters,
+                                                        cl_dx9_media_adapter_type_khr* media_adapters_type,
+                                                        void* media_adapters,
+                                                        cl_dx9_media_adapter_set_khr media_adapter_set,
+                                                        cl_uint num_entries,
+                                                        cl_device_id* devices,
+                                                        cl_uint* num_devices)
 {
-    return PLATFORM_MODULE->GetDeviceIDsFromD3D9(platform, d3d_device_source, d3d_object, d3d_device_set, num_entries, devices, num_devices);
+    return PLATFORM_MODULE->GetDeviceIDsFromD3D9(platform, num_media_adapters, (int*)media_adapters_type,
+        (void**)media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
+}
+SET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
+
+cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(cl_platform_id platform,
+                                              cl_dx9_device_source_intel d3d_device_source,
+                                              void *d3d_object,
+                                              cl_dx9_device_set_intel d3d_device_set,
+                                              cl_uint num_entries, 
+                                              cl_device_id *devices, 
+                                              cl_uint *num_devices)
+{
+    int media_adapters_type[1] = { d3d_device_source };
+    // see comment inside GetDeviceIDsFromD3D9 about the cast to void**
+    return PLATFORM_MODULE->GetDeviceIDsFromD3D9(platform, 1, media_adapters_type,
+        (void**)d3d_object, d3d_device_set, num_entries, devices, num_devices, IntelD3D9Definitions());
 }
 REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromDX9INTEL, clGetDeviceIDsFromDX9INTEL);
 

@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             clEnqueueReleaseD3D9ObjectsIntel for it, but it would fail according to spec, because we
             haven't called clEnqueueAcquireD3D9ObjectsIntel for it. We should clarify this point in
             the spec. */
-            return CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL;
+            return static_cast<D3D9Context*>(m_pContext)->Getd3d9Definitions().GetDx9MediaSurfaceAlreadyAcquired();
         }
         m_stMemObjSize = GetMemObjSize();
         m_clFlags = clMemFlags;
@@ -733,51 +733,55 @@ namespace Intel { namespace OpenCL { namespace Framework
         assert(0 == plane || 1 == plane || 2 == plane);
         size_t szHeight, szWidth;
 
-        switch (clParamName)
+        if (clParamName == static_cast<D3D9Context*>(m_pContext)->Getd3d9Definitions().GetImageDx9MediaPlane())
         {
-        case CL_IMAGE_DX9_PLANE_INTEL:
             szSize = sizeof(UINT);
             pValue = &plane;
-            break;
-        case CL_IMAGE_HEIGHT:
-            if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
+        }
+        else
+        {
+            switch (clParamName)
             {
-                const UINT height = GetDesc(*GetResourceInfo()).Height;
-                if (0 == plane)
+            case CL_IMAGE_HEIGHT:
+                if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
                 {
-                    szHeight = height;
+                    const UINT height = GetDesc(*GetResourceInfo()).Height;
+                    if (0 == plane)
+                    {
+                        szHeight = height;
+                    }
+                    else
+                    {
+                        assert(height % 2 == 0);
+                        szHeight = height / 2;
+                    }
+                    szSize = sizeof(size_t);
+                    pValue = &szHeight;
+                    break;
                 }
-                else
+            case CL_IMAGE_WIDTH:
+                if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
                 {
-                    assert(height % 2 == 0);
-                    szHeight = height / 2;
+                    const UINT width = GetDesc(*GetResourceInfo()).Width;
+                    if (0 == plane)
+                    {
+                        szWidth = width;
+                    }
+                    else
+                    {
+                        assert(width % 2 == 0);
+                        // In NV12 we also divide by 2, since the size of each element is 2.
+                        szWidth = width / 2;
+                    }
+                    szSize = sizeof(size_t);
+                    pValue = &szWidth;
+                    break;
                 }
-                szSize = sizeof(size_t);
-                pValue = &szHeight;
-                break;
-            }
-        case CL_IMAGE_WIDTH:
-            if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
-            {
-                const UINT width = GetDesc(*GetResourceInfo()).Width;
-                if (0 == plane)
-                {
-                    szWidth = width;
-                }
-                else
-                {
-                    assert(width % 2 == 0);
-                    // In NV12 we also divide by 2, since the size of each element is 2.
-                    szWidth = width / 2;
-                }
-                szSize = sizeof(size_t);
-                pValue = &szWidth;
-                break;
-            }
-            // else fall through          
-        default:
-            return D3D9Image2D::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-        }            
+                // else fall through          
+            default:
+                return D3D9Image2D::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
+            }            
+        }
         if (NULL != pParamValue && szSize > 0)
         {
             MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);

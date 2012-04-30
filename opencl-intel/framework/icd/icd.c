@@ -93,8 +93,7 @@ void khrIcdVendorAdd(const char *libraryName)
     }
 
     // get the library's clGetExtensionFunctionAddress pointer
-    p_clGetExtensionFunctionAddress = (pfn_clGetExtensionFunctionAddress)(ptrdiff_t)
-                khrIcdOsLibraryGetFunctionAddress(library, "clGetExtensionFunctionAddress");
+    p_clGetExtensionFunctionAddress = (pfn_clGetExtensionFunctionAddress)(size_t)khrIcdOsLibraryGetFunctionAddress(library, "clGetExtensionFunctionAddress");
     if (!p_clGetExtensionFunctionAddress)
     {
         KHR_ICD_TRACE("failed to get function address clGetExtensionFunctionAddress\n");
@@ -102,8 +101,7 @@ void khrIcdVendorAdd(const char *libraryName)
     }
 
     // use that function to get the clIcdGetPlatformIDsKHR function pointer
-    p_clIcdGetPlatformIDs = (pfn_clIcdGetPlatformIDs)(ptrdiff_t)
-                                p_clGetExtensionFunctionAddress("clIcdGetPlatformIDsKHR");
+    p_clIcdGetPlatformIDs = (pfn_clIcdGetPlatformIDs)(size_t)p_clGetExtensionFunctionAddress("clIcdGetPlatformIDsKHR");
     if (!p_clIcdGetPlatformIDs)
     {
         KHR_ICD_TRACE("failed to get extension function address clIcdGetPlatformIDsKHR\n");

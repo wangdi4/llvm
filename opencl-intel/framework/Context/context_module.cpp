@@ -148,10 +148,10 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 
 	Context *pContext = NULL;
     // check properties
+    std::map<cl_context_properties, cl_context_properties> propertyMap;
     if (NULL != clProperties)
     {
         size_t i = 0;
-        std::set<cl_context_properties> propertySet;
 
         while (0 != clProperties[i])
         {
@@ -166,7 +166,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
                 }
                 return CL_INVALID_HANDLE;
             }
-            if (propertySet.find(clProperties[i]) != propertySet.end())
+            if (propertyMap.find(clProperties[i]) != propertyMap.end())
             {
                 LOG_ERROR(TEXT("%s"), TEXT("the same property name is specified more than once"));
                 delete[] ppDevices;
@@ -176,13 +176,17 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
                 }
                 return CL_INVALID_HANDLE;
             }
-            if (CL_CONTEXT_PLATFORM != clProperties[i]
+            if (CL_CONTEXT_PLATFORM != clProperties[i] &&
+                CL_CONTEXT_INTEROP_USER_SYNC != clProperties[i]
 #if defined (_WIN32)
                 && CL_GL_CONTEXT_KHR != clProperties[i] && CL_WGL_HDC_KHR != clProperties[i]
 #if defined (DX9_MEDIA_SHARING)
                 && CL_CONTEXT_D3D9_DEVICE_INTEL != clProperties[i] &&
                    CL_CONTEXT_D3D9EX_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_DXVA_DEVICE_INTEL != clProperties[i]
+                   CL_CONTEXT_DXVA_DEVICE_INTEL != clProperties[i] &&
+                   CL_CONTEXT_ADAPTER_D3D9_KHR != clProperties[i] &&
+                   CL_CONTEXT_ADAPTER_D3D9EX_KHR != clProperties[i] &&
+                   CL_CONTEXT_ADAPTER_DXVA_KHR != clProperties[i]
 #endif
 #endif
                 )
@@ -195,7 +199,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
                 }
                 return CL_INVALID_HANDLE;
             }        
-            propertySet.insert(clProperties[i]);
+            propertyMap[clProperties[i]] = clProperties[i + 1];
             i += 2;
         }
     }
@@ -207,9 +211,11 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (DX9_MEDIA_SHARING)
     IUnknown* pD3D9Device;
     int iDevType;
-    clErrRet = ParseD3D9ContextOptions(clProperties, pD3D9Device, &iDevType);
+    const ID3D9Definitions* pd3d9Definitions = NULL;
+    clErrRet = ParseD3D9ContextOptions(propertyMap, pD3D9Device, iDevType, pd3d9Definitions);
     if (CL_SUCCESS != clErrRet)
     {
+        assert(NULL == pd3d9Definitions);
         LOG_ERROR(TEXT("%s"), TEXT("more than one Direct3D 9 device is specified in properties"));
         if (NULL != pRrrcodeRet)
         {
@@ -226,6 +232,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
             *pRrrcodeRet = CL_INVALID_OPERATION;
         }
         delete[] ppDevices;
+        delete pd3d9Definitions;
         return CL_INVALID_HANDLE;
     }
 #endif
@@ -241,8 +248,10 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (DX9_MEDIA_SHARING)
     if (NULL != pD3D9Device)
     {
+        const bool bIsInteropUserSync = propertyMap.find(CL_CONTEXT_INTEROP_USER_SYNC) == propertyMap.end() ? false :
+            pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_KHR && (cl_bool)propertyMap[CL_CONTEXT_INTEROP_USER_SYNC] != 0;
         pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices,
-            pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device, iDevType);
+            pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync);
     }
     else
 #endif
@@ -2359,7 +2368,7 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
     {
         if (NULL != pErrcodeRet)
         {
-            *pErrcodeRet = CL_INVALID_DX9_RESOURCE_INTEL;
+            *pErrcodeRet = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
         }
         return CL_INVALID_HANDLE;
     }
@@ -2377,12 +2386,12 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
     }
     pResourceDevice->Release();
     // Matt is aware that there is a hole in the spec regarding checking this device type
-    if (CL_CONTEXT_DXVA_DEVICE_INTEL != pD3D9Context->m_iDeviceType &&
+    if (pD3D9Context->Getd3d9Definitions().GetContextAdapterDxva() != pD3D9Context->m_iDeviceType &&
         pResourceDevice != pD3D9Context->GetD3D9Device())
     {
         if (NULL != pErrcodeRet)
         {
-            *pErrcodeRet = CL_INVALID_DX9_RESOURCE_INTEL;
+            *pErrcodeRet = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
         }
         return CL_INVALID_HANDLE;
     }
@@ -2425,21 +2434,51 @@ cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags 
     return pMemObj->GetHandle();
 }
 
-cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, HANDLE sharehandle,
-                                            UINT plane, cl_int *errcode_ret)
+cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo,
+                                            UINT plane, cl_int *errcode_ret, const ID3D9Definitions& d3d9Definitions)
 {
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9Surface(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
-        context, flags, resource, errcode_ret);
-    if (NULL == resource)
+    LOG_DEBUG(TEXT("Enter CreateFromD3D9Surface(context=%p, flags=%d, adapterType=%d, pSurfaceInfo=%p, plane=%d, errcode_ret=%p)"),
+        context, flags, adapterType, pSurfaceInfo, plane, errcode_ret);
+
+    Context* pContext = NULL;
+    const cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)context, (OCLObject<_cl_context_int>**)&pContext);
+    if (CL_FAILED(clErr) || NULL == pContext)
     {
-        LOG_ERROR(TEXT("resource is NULL"));
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
         if (NULL != errcode_ret)
         {
-            *errcode_ret = CL_INVALID_DX9_RESOURCE_INTEL;
+            *errcode_ret = CL_INVALID_CONTEXT;
         }
         return CL_INVALID_HANDLE;
     }
-    D3D9ResourceInfo* const pResourceInfo = new D3D9SurfaceResourceInfo(resource, sharehandle, plane);
+    D3D9Context* const pD3D9Context = dynamic_cast<D3D9Context*>(pContext);
+    if (NULL == pD3D9Context)
+    {
+        if (NULL != errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (d3d9Definitions.GetVersion() != pD3D9Context->Getd3d9Definitions().GetVersion())
+    {
+        LOG_ERROR(TEXT("The API call and the context are from different versions of the extension"));
+        if (NULL != errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL == pSurfaceInfo || NULL == pSurfaceInfo->resource)
+    {
+        LOG_ERROR(TEXT("pSurfaceInfo or resource is NULL"));
+        if (NULL != errcode_ret)
+        {
+            *errcode_ret = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
+        }
+        return CL_INVALID_HANDLE;
+    }
+    D3D9ResourceInfo* const pResourceInfo = new D3D9SurfaceResourceInfo(pSurfaceInfo->resource, pSurfaceInfo->shared_handle, plane, adapterType);
     if (NULL == pResourceInfo)
     {
         LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
@@ -2450,7 +2489,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         return CL_INVALID_HANDLE;
     }
     D3DSURFACE_DESC desc;
-    HRESULT res = resource->GetDesc(&desc);
+    HRESULT res = pSurfaceInfo->resource->GetDesc(&desc);
     assert(D3D_OK == res);
     // planar surfaces
     if (MAKEFOURCC('N', 'V', '1', '2') == desc.Format)

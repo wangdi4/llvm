@@ -32,36 +32,39 @@ using namespace Intel::OpenCL::Utils;
 namespace Intel { namespace OpenCL { namespace Framework
 {
     /**
-     * @fn  cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-     * 		IUnknown*& device, int* iDevType)
+     * @fn cl_err_code ParseD3D9ContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap, IUnknown*& device, int& iDevType, const ID3D9Definitions*& pFactory)
      */
 
-    cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-        IUnknown*& device, int* iDevType)
+    cl_err_code ParseD3D9ContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
+        IUnknown*& device, int& iDevType, const ID3D9Definitions*& pFactory)
     {
         device = NULL;
-        *iDevType = NULL;
-        if (NULL == pProperties)
+        for (std::map<cl_context_properties, cl_context_properties>::const_iterator iter = propertyMap.begin(); iter != propertyMap.end(); iter++)
         {
-            return CL_SUCCESS;
-        }
-        const cl_context_properties* pProprty = pProperties;
-        while (0 != *pProprty)
-        {
-            if (CL_CONTEXT_D3D9_DEVICE_INTEL == *pProprty ||
-                CL_CONTEXT_D3D9EX_DEVICE_INTEL == *pProprty ||
-                CL_CONTEXT_DXVA_DEVICE_INTEL == *pProprty)
+            if (CL_CONTEXT_D3D9_DEVICE_INTEL == iter->first || CL_CONTEXT_D3D9EX_DEVICE_INTEL == iter->first || CL_CONTEXT_DXVA_DEVICE_INTEL == iter->first)
             {
                 if (NULL != device)
                 {
                     device = NULL;
-                    *iDevType = NULL;
+                    delete pFactory;
                     return CL_INVALID_DX9_DEVICE_INTEL;
                 }
-                *iDevType = *pProprty;
-                device = (IUnknown*)(pProprty[1]);
+                iDevType = iter->first;
+                device = (IUnknown*)iter->second;
+                pFactory = new IntelD3D9Definitions(); // this will be deleted by the context when it is destroyed
             }
-            pProprty += 2;
+            else if (CL_CONTEXT_ADAPTER_D3D9_KHR == iter->first || CL_CONTEXT_ADAPTER_D3D9EX_KHR == iter->first || CL_CONTEXT_ADAPTER_DXVA_KHR == iter->first)
+            {
+                if (NULL != device)
+                {
+                    device = NULL;
+                    delete pFactory;
+                    return CL_INVALID_DX9_MEDIA_ADAPTER_KHR;
+                }
+                iDevType = iter->first;
+                device = (IUnknown*)iter->second;
+                pFactory = new KhrD3D9Definitions(); // this will be deleted by the context when it is destroyed
+            }
         }
         return CL_SUCCESS;
     }
@@ -70,16 +73,17 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
      *      cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
      *      void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-     *      ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, bool bIsInteropUserSync)
+     *      ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType,
+     *      const ID3D9Definitions* pd3d9Definitions, bool bIsInteropUserSync)
      */
 
     D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, bool bIsInteropUserSync) :
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3D9Definitions* pd3d9Definitions, bool bIsInteropUserSync) :
     Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
         pclErr, pOclEntryPoints, pGPAData),
-        m_pD3D9Device(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync)
+        m_pD3D9Device(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync), m_pd3d9Definitions(pd3d9Definitions)
     {        
         /* The spec states that we should return "CL_INVALID_D3D9_DEVICE_Intel if the value of the
         property CL_CONTEXT_D3D9_DEVICE_Intel is non-NULL and does not specify a valid Direct3D 9
@@ -106,6 +110,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             m_ppAllDevices[i]->SetD3D9Device(NULL, 0);
         }
+        delete m_pd3d9Definitions;
     }
 
     /**
@@ -124,7 +129,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             LOG_ERROR(TEXT("%s"), "A cl_mem from this D3D9ResourceInfo has already been created");
             delete pResourceInfo;
-            return CL_INVALID_DX9_RESOURCE_INTEL;
+            return m_pd3d9Definitions->GetInvalidDx9MediaAdapter();
         }
         assert(NULL != ppMemObj);
         MemoryObject* pMemObj;
@@ -140,11 +145,16 @@ namespace Intel { namespace OpenCL { namespace Framework
         // resourceInfo will be deleted in pD3D9Resource's destructor
         m_resourceInfoSet.insert(pResourceInfo);        
         D3D9Resource& d3d9Resource = *dynamic_cast<D3D9Resource*>(pMemObj);
-        if (!d3d9Resource.IsCreatedInD3DPoolDefault(*pResourceInfo))
+        // In Khronos spec it says that we should check that the surface has been created in D3DPOOL_DEFAULT just for adapter_type CL_ADAPTER_D3D9_KHR
+        if (m_pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_INTEL ||
+            m_pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_KHR && CL_ADAPTER_D3D9_KHR == static_cast<D3D9SurfaceResourceInfo*>(pResourceInfo)->m_adapterType)
         {
-            LOG_ERROR(TEXT("%s"), "resource is not a Direct3D 9 resource created in D3DPOOL_DEFAULT");
-            d3d9Resource.Release();
-            return CL_INVALID_DX9_RESOURCE_INTEL;
+            if (!d3d9Resource.IsCreatedInD3DPoolDefault(*pResourceInfo))
+            {
+                LOG_ERROR(TEXT("%s"), "resource is not a Direct3D 9 resource created in D3DPOOL_DEFAULT");
+                d3d9Resource.Release();
+                return m_pd3d9Definitions->GetInvalidDx9MediaAdapter();
+            }
         }
         if (CL_DX9_OBJECT_SURFACE == clObjType && MAXUINT != plane)
         {

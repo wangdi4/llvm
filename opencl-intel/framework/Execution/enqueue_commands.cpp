@@ -155,6 +155,11 @@ Command::~Command()
 
 cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
+    if (NULL != cpEeventWaitList && NULL != pEvent && pEvent >= cpEeventWaitList && pEvent < &cpEeventWaitList[uNumEventsInWaitList])
+    {
+        // the spec says we should check this, but doesn't actually specify the exact error code
+        return CL_INVALID_EVENT;
+    }
 	// 'this' may disapper during Enqueue if it was successful!
 	return GetCommandQueue()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
 }

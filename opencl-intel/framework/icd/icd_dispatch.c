@@ -940,6 +940,30 @@ clEnqueueWriteBufferRect(
 }
 
 CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueFillBuffer(cl_command_queue   command_queue,
+                    cl_mem             buffer, 
+                    const void *       pattern, 
+                    size_t             pattern_size, 
+                    size_t             offset, 
+                    size_t             cb, 
+                    cl_uint            num_events_in_wait_list, 
+                    const cl_event *   event_wait_list, 
+                    cl_event *         event) CL_API_SUFFIX__VERSION_1_2
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueFillBuffer(
+        command_queue, 
+        buffer,
+        pattern, 
+        pattern_size,
+        offset,
+        cb, 
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueCopyBuffer(cl_command_queue    command_queue, 
                     cl_mem              src_buffer,
                     cl_mem              dst_buffer, 
@@ -961,30 +985,6 @@ clEnqueueCopyBuffer(cl_command_queue    command_queue,
         num_events_in_wait_list,
         event_wait_list,
         event);
-}
-
-CL_API_ENTRY cl_int CL_API_CALL
-clEnqueueFillBuffer(cl_command_queue command_queue,
-		cl_mem buffer,
-		const void *pattern,
-		size_t pattern_size,
-		size_t offset,
-		size_t size,
-		cl_uint num_events_in_wait_list,
-		const cl_event *event_wait_list,
-		cl_event *event) CL_API_SUFFIX__VERSION_1_2
-{
-    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
-	return command_queue->dispatch->clEnqueueFillBuffer (
-			command_queue,
-			buffer,
-			pattern,
-			pattern_size,
-			offset,
-			size,
-			num_events_in_wait_list,
-			event_wait_list,
-			event);
 }
 
 CL_API_ENTRY cl_int CL_API_CALL
@@ -1306,7 +1306,7 @@ clEnqueueTask(cl_command_queue  command_queue,
 
 CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueNativeKernel(cl_command_queue  command_queue,
-                      void (CL_CALLBACK *user_func)(void *), 
+                      void (CL_CALLBACK * user_func)(void *), 
                       void *            args,
                       size_t            cb_args, 
                       cl_uint           num_mem_objects,
@@ -1366,11 +1366,12 @@ clGetExtensionFunctionAddressForPlatform(cl_platform_id platform,
     khrIcdInitialize();    
 
     // return any ICD-aware extensions
-    #define CL_COMMON_EXTENSION_ENTRYPOINT_ADD(name) if (!strcmp(function_name, #name) ) return ((void *)(ptrdiff_t)&(name));
+    #define CL_COMMON_EXTENSION_ENTRYPOINT_ADD(name) if (!strcmp(function_name, #name) ) return (void *)(size_t)&name
 
     // Are these core or ext?  This is unclear, but they appear to be
     // independent from cl_khr_gl_sharing.
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLBuffer);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture2D);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture3D);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLRenderbuffer);
@@ -1382,6 +1383,9 @@ clGetExtensionFunctionAddressForPlatform(cl_platform_id platform,
     // cl_khr_gl_sharing
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetGLContextInfoKHR);
 
+    // cl_khr_gl_event
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateEventFromGLsyncKHR);
+
 #if defined(_WIN32)
     // cl_khr_d3d10_sharing
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetDeviceIDsFromD3D10KHR);
@@ -1390,6 +1394,18 @@ clGetExtensionFunctionAddressForPlatform(cl_platform_id platform,
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D10Texture3DKHR);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireD3D10ObjectsKHR);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseD3D10ObjectsKHR);
+    // cl_khr_d3d11_sharing
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetDeviceIDsFromD3D11KHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11BufferKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11Texture2DKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11Texture3DKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireD3D11ObjectsKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseD3D11ObjectsKHR);
+    // cl_khr_dx9_media_sharing
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetDeviceIDsFromDX9MediaAdapterKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromDX9MediaSurfaceKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireDX9MediaSurfacesKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseDX9MediaSurfacesKHR);
 #endif
 
     // cl_ext_device_fission
@@ -1545,11 +1561,12 @@ clGetExtensionFunctionAddress(const char *function_name) CL_EXT_SUFFIX__VERSION_
     khrIcdInitialize();    
 
     // return any ICD-aware extensions
-    #define CL_COMMON_EXTENSION_ENTRYPOINT_ADD(name) if (!strcmp(function_name, #name) ) return ((void *)(ptrdiff_t)&(name));
+    #define CL_COMMON_EXTENSION_ENTRYPOINT_ADD(name) if (!strcmp(function_name, #name) ) return (void *)(size_t)&name
 
     // Are these core or ext?  This is unclear, but they appear to be
     // independent from cl_khr_gl_sharing.
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLBuffer);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture2D);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLTexture3D);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromGLRenderbuffer);
@@ -1572,6 +1589,18 @@ clGetExtensionFunctionAddress(const char *function_name) CL_EXT_SUFFIX__VERSION_
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D10Texture3DKHR);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireD3D10ObjectsKHR);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseD3D10ObjectsKHR);
+    // cl_khr_d3d11_sharing
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetDeviceIDsFromD3D11KHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11BufferKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11Texture2DKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromD3D11Texture3DKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireD3D11ObjectsKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseD3D11ObjectsKHR);
+    // cl_khr_dx9_media_sharing
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clGetDeviceIDsFromDX9MediaAdapterKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromDX9MediaSurfaceKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireDX9MediaSurfacesKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseDX9MediaSurfacesKHR);
 #endif
 
     // cl_ext_device_fission
@@ -1878,7 +1907,7 @@ CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueReleaseD3D10ObjectsKHR(
     cl_command_queue command_queue,
     cl_uint num_objects,
-    cl_mem *mem_objects,
+    const cl_mem *mem_objects,
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) 
@@ -1892,6 +1921,207 @@ clEnqueueReleaseD3D10ObjectsKHR(
         event_wait_list,
         event);       
 }
+
+/*
+ *
+ * cl_d3d11_sharing_khr
+ *
+ */
+
+CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceIDsFromD3D11KHR(
+    cl_platform_id             platform,
+    cl_d3d11_device_source_khr d3d_device_source,
+    void *                     d3d_object,
+    cl_d3d11_device_set_khr    d3d_device_set,
+    cl_uint                    num_entries,
+    cl_device_id *             devices,
+    cl_uint *                  num_devices)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(platform, CL_INVALID_PLATFORM);
+    return platform->dispatch->clGetDeviceIDsFromD3D11KHR(
+        platform,
+        d3d_device_source,
+        d3d_object,
+        d3d_device_set,
+        num_entries,
+        devices,
+        num_devices);
+}
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11BufferKHR(
+    cl_context     context,
+    cl_mem_flags   flags,
+    ID3D11Buffer * resource,
+    cl_int *       errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateFromD3D11BufferKHR(
+        context,
+        flags,
+        resource,
+        errcode_ret);
+}
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11Texture2DKHR(
+    cl_context        context,
+    cl_mem_flags      flags,
+    ID3D11Texture2D * resource,
+    UINT              subresource,
+    cl_int *          errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateFromD3D11Texture2DKHR(
+        context,
+        flags,
+        resource,
+        subresource,
+        errcode_ret);
+}
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromD3D11Texture3DKHR(
+    cl_context        context,
+    cl_mem_flags      flags,
+    ID3D11Texture3D * resource,
+    UINT              subresource,
+    cl_int *          errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateFromD3D11Texture3DKHR(
+        context,
+        flags,
+        resource,
+        subresource,
+        errcode_ret);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueAcquireD3D11ObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueAcquireD3D11ObjectsKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReleaseD3D11ObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueReleaseD3D11ObjectsKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+/*
+ *
+ * cl_khr_dx9_media_sharing
+ *
+ */
+
+CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceIDsFromDX9MediaAdapterKHR(
+    cl_platform_id                  platform,
+    cl_uint                         num_media_adapters,
+    cl_dx9_media_adapter_type_khr * media_adapters_type,
+    void *                          media_adapters[],
+    cl_dx9_media_adapter_set_khr    media_adapter_set,
+    cl_uint                         num_entries,
+    cl_device_id *                  devices,
+    cl_uint *                       num_devices)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(platform, CL_INVALID_PLATFORM);
+    return platform->dispatch->clGetDeviceIDsFromDX9MediaAdapterKHR(
+        platform,
+        num_media_adapters,
+		media_adapters_type,
+        media_adapters,
+        media_adapter_set,
+        num_entries,
+        devices,
+        num_devices);
+}
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromDX9MediaSurfaceKHR(
+    cl_context                    context,
+    cl_mem_flags                  flags,
+    cl_dx9_media_adapter_type_khr adapter_type,
+    void *                        surface_info,
+    cl_uint                       plane,                                                                          
+    cl_int *                      errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateFromDX9MediaSurfaceKHR(
+        context,
+        flags,
+        adapter_type,
+        surface_info,
+        plane,                                                                          
+        errcode_ret);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueAcquireDX9MediaSurfacesKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *   mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueAcquireDX9MediaSurfacesKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReleaseDX9MediaSurfacesKHR(
+    cl_command_queue command_queue,
+    cl_uint          num_objects,
+    const cl_mem *         mem_objects,
+    cl_uint          num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event *       event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueReleaseDX9MediaSurfacesKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
 #endif
 
 CL_API_ENTRY cl_int CL_API_CALL 

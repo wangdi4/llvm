@@ -56,13 +56,15 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @param   pMemObjects             the D3D9Resouce objects to synchronize.
          * @param   szNumMemObjects         the number of D3D9Resouce objects to synchronize.
          * @param   cmdType                 the type of the command.
+         * @param   d3d9Definitions          a ID3D9Definitions of the version of the extension used
          */
 
         SyncD3D9Resources(IOclCommandQueueBase* const cmdQueue,
             ocl_entry_points* const pOclEntryPoints, D3D9Resource** const pMemObjects,
-            size_t szNumMemObjects, cl_command_type cmdType) :
+            size_t szNumMemObjects, cl_command_type cmdType, const ID3D9Definitions& d3d9Definitions) :
         SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, pOclEntryPoints,
-            (GraphicsApiMemoryObject**)pMemObjects, cmdType == CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL)
+            (GraphicsApiMemoryObject**)pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDx9MediaSurface()),
+            m_d3d9Definitions(d3d9Definitions)
         { }
 
         // overridden methods:
@@ -70,6 +72,10 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual const char* GetCommandName() const;
 
         virtual cl_err_code Execute();
+
+    private:
+
+        const ID3D9Definitions& m_d3d9Definitions;
 
     };
 

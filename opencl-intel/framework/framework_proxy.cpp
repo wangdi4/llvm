@@ -185,6 +185,11 @@ void FrameworkProxy::InitOCLEntryPoints()
     CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (KHRpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
     CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
     CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (KHRpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
+
+    ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = (KHRpfn_clGetDeviceIDsFromDX9MediaAdapterKHR)GET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
+    ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR = (KHRpfn_clCreateFromDX9MediaSurfaceKHR)GET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
+    ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR = (KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
+    ICDDispatchTable.clEnqueueReleaseDX9MediaSurfacesKHR = (KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
 #endif
     /// Extra CPU specific functions
 }

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <d3d9.h>
+#include "d3d9_definitions.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
@@ -79,9 +80,10 @@ namespace Intel { namespace OpenCL { namespace Framework
      *  @date   9/13/2011
      */
     struct D3D9SurfaceResourceInfo : public D3D9ResourceInfo
-    {
+    {        
         HANDLE m_sharehandle;
         UINT m_plane;
+        cl_dx9_media_adapter_type_khr m_adapterType;    // this may be 0 in case of Intel version of the extension
 
         /**
          * @fn D3D9SurfaceResourceInfo(IDirect3DResource9* const pResource, HANDLE sharehandle, UINT plane)
@@ -94,9 +96,11 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @param   pResource   The resource
          * @param   sharehandle The shared handle of the pResource used to share the surface between devices
          * @param   plane       The plane of pResource to share, for planar surface formats
+         * @param   adapterType type of adapter in case of Khronos extension: CL_CONTEXT_ADAPTER_D3D9_KHR,
+         *                      CL_CONTEXT_ADAPTER_D3D9EX_KHR, CL_CONTEXT_ADAPTER_DXVA_KHR; 0 in case of Intel extension.
          */
-        D3D9SurfaceResourceInfo(IDirect3DResource9* const pResource, HANDLE sharehandle, UINT plane) :
-            D3D9ResourceInfo(pResource), m_sharehandle(sharehandle), m_plane(plane) { }
+        D3D9SurfaceResourceInfo(IDirect3DResource9* const pResource, HANDLE sharehandle, UINT plane, cl_dx9_media_adapter_type_khr adapterType) :
+            D3D9ResourceInfo(pResource), m_sharehandle(sharehandle), m_plane(plane), m_adapterType(adapterType) { }
 
         // inherited methods:
 
@@ -192,20 +196,19 @@ namespace Intel { namespace OpenCL { namespace Framework
     };
 
     /**
-     * @fn  cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-     * 		IUnknown* device, int* iDevType)
-     * 		
-     * @param pProperties   the list of properties
-     * @param device        a reference to IUnknown* in which the pointer to the Direct3D 9 device is
+     * Check if Direct3D 9 Sharing options are valid if they are present
+     * 
+     * @param propertyMap   map of properties and their values
+     * @param device [out]  a reference to IUnknown* in which the pointer to the Direct3D 9 device is
      * 						to be stored if such is found in pProperties, otherwise it is set to
      * 						NULL
-     * @param iDevType      a pointer to int in which the type of the device is to be stored in
-     * 						such is found in pProperties, otherwise it is set to NULL
+     * @param iDevType [out] a reference to int in which the type of the device is to be stored if such is found in pProperties
+     * @param pFactory [out] a new ID3D9Definitions for the version of the extension used or NULL if the extension is not used at all
      * @return CL_INVALID_D3D9_DEVICE_INTEL in case more than one device is found, CL_SUCCESS
      * 		   otherwise						
      */
 
-    cl_err_code ParseD3D9ContextOptions(const cl_context_properties* const pProperties,
-        IUnknown*& device, int* iDevType);
+    cl_err_code ParseD3D9ContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
+        IUnknown*& device, int& iDevType, const ID3D9Definitions*& pFactory);
 
 }}}

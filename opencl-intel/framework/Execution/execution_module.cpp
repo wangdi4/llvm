@@ -3021,15 +3021,15 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
         // Check if it's a Direct3D 9 object
         if (NULL != pD3d9Resource)
         {
-            if (CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == cmdType && pD3d9Resource->IsAcquired())
+            if (pContext->Getd3d9Definitions().GetCommandAcquireDx9MediaSurface() == cmdType && pD3d9Resource->IsAcquired())
             {
                 delete[] pMemObjects;
-                return CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL;
+                return pContext->Getd3d9Definitions().GetDx9MediaSurfaceAlreadyAcquired();
             }
-            if (CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType && !pD3d9Resource->IsAcquired())
+            if (pContext->Getd3d9Definitions().GetCommandReleaseDx9MediaSurface() == cmdType && !pD3d9Resource->IsAcquired())
             {
                 delete[] pMemObjects;
-                return CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL;
+                return pContext->Getd3d9Definitions().GetDx9MediaSurfaceNotAcquired();
             }
             continue;
         }
@@ -3038,7 +3038,7 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
         return CL_INVALID_MEM_OBJECT;
     }
 
-    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, m_pOclEntryPoints, pMemObjects, uiNumObjects, cmdType);
+    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, m_pOclEntryPoints, pMemObjects, uiNumObjects, cmdType, pContext->Getd3d9Definitions());
     if (NULL == pAcquireCmd)
     {
         delete []pMemObjects;
@@ -3048,8 +3048,13 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
     errVal = pAcquireCmd->Init();
     if (CL_SUCCEEDED(errVal))
     {
-        // GEN guys interpret the release command to be synchronous - I disagree, but we'll do it this way in order to be aligned with them.
-        errVal = pAcquireCmd->EnqueueSelf(CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        // In the Intel version of the spec GEN guys interpret the release command to be synchronous - I disagree, but we'll do it this way in order to be aligned with them.
+        const bool bBlocking =
+            pContext->Getd3d9Definitions().GetVersion() == ID3D9Definitions::D3D9_INTEL ?
+            CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType :
+            !pContext->m_bIsInteropUserSync;
+
+        errVal = pAcquireCmd->EnqueueSelf(bBlocking, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
         if (CL_FAILED(errVal))
         {
             // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            
@@ -3061,7 +3066,7 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
                 after this and the command itself has been executed yet, we still return an error */
             for (size_t i = 0; i < uiNumObjects; i++)   
             {
-                pMemObjects[i]->SetAcquired(CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL == cmdType);
+                pMemObjects[i]->SetAcquired(pContext->Getd3d9Definitions().GetCommandAcquireDx9MediaSurface() == cmdType);
             }
         }
     } else

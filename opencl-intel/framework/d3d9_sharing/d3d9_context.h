@@ -72,6 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         set<const D3D9ResourceInfo*, D3D9ResourceInfoComparator> m_resourceInfoSet;
         Intel::OpenCL::Utils::OclMutex m_muAcquireRelease;
         map<const IDirect3DSurface9*, SurfaceLocker*> m_surfaceLockers;        
+        const ID3D9Definitions* const m_pd3d9Definitions;
 
     public:
 
@@ -108,14 +109,15 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @param   pGPAData                If non-null, information describing the gpa.
          * @param   pD3D9Device             to use for Direct3D 9 interoperability.
          * @param   iDevType                type of device: CL_CONTEXT_D3D9_DEVICE_INTEL,
-         * 									CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL 									
+         * 									CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL
+         * @param   pd3d9Definitions         a pointer to ID3D9Definitions of the version of the extension used
          * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
          */
 
         D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
             cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
             void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-            ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType,
+            ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3D9Definitions* pd3d9Definitions,
             bool bIsInteropUserSync = false);
 
         /**
@@ -228,9 +230,14 @@ namespace Intel { namespace OpenCL { namespace Framework
             return iter->second;
         }
 
+        /**
+         * @return the ID3D9Definitions of the version of the extension used
+         */
+        const ID3D9Definitions& Getd3d9Definitions() const { return *m_pd3d9Definitions; }
+
     private:
 
-        cl_err_code HandlePlanarSurface(D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags);
+        cl_err_code HandlePlanarSurface(D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags);        
 
         // do not implement
 

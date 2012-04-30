@@ -1108,19 +1108,22 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
 
 #if defined (DX9_MEDIA_SHARING)
 cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
-                                              cl_dx9_device_source_intel clD3dDeviceSource,
-                                              void *pD3dObject,
-                                              cl_dx9_device_set_intel clD3dDeviceSet,
-                                              cl_uint uiNumEntries, cl_device_id *pclDevices,
-                                              cl_uint *puiNumDevices)
+                                            cl_uint uiNumMediaAdapters, 
+                                            int *pMediaAdaptersType, 
+                                            void** ppMediaAdapters, 
+                                            int clD3dDeviceSet, 
+                                            cl_uint uiNumEntries, 
+                                            cl_device_id *pclDevices, 
+                                            cl_uint *puiNumDevices,
+                                            const ID3D9Definitions& d3d9Definitions)
 {
     if (NULL == clPlatform)
     {
         LOG_ERROR(TEXT("clPlatform is NULL"));
         return CL_INVALID_PLATFORM;
     }
-    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D9NV(clPlatform=%p, clD3dDeviceSource=%d, pD3dObject=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
-        clPlatform, clD3dDeviceSource, pD3dObject, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
+    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D9NV(clPlatform=%d, uiNumMediaAdapters=%d, pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
+        clPlatform, uiNumMediaAdapters, pMediaAdaptersType, ppMediaAdapters, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
     if (NULL != pclDevices && 0 == uiNumEntries)
     {
         LOG_ERROR(TEXT("uiNumEntries is equal to zero and pclDevices is not NULL."));
@@ -1136,20 +1139,40 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         LOG_ERROR(TEXT("clPlatform is not a valid platform."));
         return CL_INVALID_PLATFORM;
     }
-    if (CL_PREFERRED_DEVICES_FOR_DX9_INTEL != clD3dDeviceSet && CL_ALL_DEVICES_FOR_DX9_INTEL != clD3dDeviceSet)
+    if (d3d9Definitions.GetPreferredDevicsForDx9MediaAdapter() != clD3dDeviceSet && d3d9Definitions.GetAllDevicesForDx9MediaAdapter() != clD3dDeviceSet)
     {
         LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
         return CL_INVALID_VALUE;
     }
-    if (CL_D3D9_DEVICE_INTEL != clD3dDeviceSource && CL_D3D9EX_DEVICE_INTEL != clD3dDeviceSource && CL_DXVA_DEVICE_INTEL != clD3dDeviceSource)
+    if (0 == uiNumMediaAdapters || NULL == pMediaAdaptersType || NULL == ppMediaAdapters && d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_KHR)
     {
-        LOG_ERROR(TEXT("clD3dDeviceSource is not a valid value."));
         return CL_INVALID_VALUE;
     }
-    if (NULL == pD3dObject)
+    if (NULL == ppMediaAdapters && d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_INTEL)
     {
-        LOG_ERROR(TEXT("pD3dObject is NULL."));
-        return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
+        return CL_DEVICE_NOT_FOUND;
+    }
+    for (cl_uint i = 0; i < uiNumMediaAdapters; i++)
+    {
+        const int iType = pMediaAdaptersType[i];
+        if (d3d9Definitions.GetAdapterD3d9() != iType && d3d9Definitions.GetAdapterD3d9Ex() != iType && d3d9Definitions.GetAdapterDxva() != iType)
+        {
+            return CL_INVALID_VALUE;
+        }
+        /* ppMediaAdapters is defined to be of type void* by the spec. However, this is clearly a bug and it should be of type void**. The problem is that the conformance
+            test indeed treats it like void* while passing 1 as uiNumMediaAdapters. This of course can't work for numbers greater than 1. Therefore I'm writing the condition
+            like this. When the spec is fixed, I'll change it. */
+        if (1 == uiNumMediaAdapters && NULL == (void*)ppMediaAdapters || uiNumMediaAdapters > 1 && NULL == ((void**)ppMediaAdapters)[i])
+        {
+            if (d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_INTEL)
+            {
+                return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
+            }
+            else
+            {
+                return CL_INVALID_VALUE;
+            }
+        }
     }
     size_t szDevIndex = 0;
     if (NULL != puiNumDevices)
@@ -1159,7 +1182,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
     size_t szFoundDevices = 0;
 
     // in case of CL_PREFERRED_DEVICES_FOR_DX9_INTEL, we won't return the CPU device, since it is not the preferred device.
-    if (CL_ALL_DEVICES_FOR_DX9_INTEL == clD3dDeviceSet)
+    if (d3d9Definitions.GetAllDevicesForDx9MediaAdapter() == clD3dDeviceSet)
     {
         // find all devices that report supporting Direct3D Sharing
         for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
@@ -1177,7 +1200,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
             {
                 return err;
             }        
-            if (std::string((char*)sDevEx).find(OCL_INTEL_DX9_MEDIA_SHARING_EXT) != std::string::npos)
+            if (std::string((char*)sDevEx).find(d3d9Definitions.GetExtensionName()) != std::string::npos)
             {
                 szFoundDevices++;
                 if (NULL != pclDevices && szDevIndex < uiNumEntries)

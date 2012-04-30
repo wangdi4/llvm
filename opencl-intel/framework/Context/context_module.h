@@ -38,6 +38,10 @@
 #include <d3d9.h>
 #include <basetsd.h>
 #include "ocl_object_base.h"
+#include "CL\cl_dx9_media_sharing.h"
+#if defined (DX9_MEDIA_SHARING)
+#include "d3d9_definitions.h"
+#endif
 #endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -191,7 +195,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Direct3D 9 Sharing methods
 #if defined (DX9_MEDIA_SHARING)
-        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, IDirect3DSurface9 *resource, HANDLE sharehandle, UINT plane, cl_int *errcode_ret);
+        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags,
+            cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo, UINT plane, cl_int *errcode_ret, const ID3D9Definitions& d3d9Definitions);
 #endif
 #if defined (DX9_SHARING)
         virtual cl_mem CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flags flags, IDirect3DVertexBuffer9* resource, cl_int* errcode_ret);

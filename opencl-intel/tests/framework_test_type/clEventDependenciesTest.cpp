@@ -117,6 +117,12 @@ bool EventDependenciesTest()
     bResult = SilentCheck(L"clEnqueueWriteBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
+    // check that we issue an error in case that event refers to an element in event_wait_list
+    err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0, TEST_SIZE * sizeof(cl_int), values, 1, events + event_count, events + event_count);
+    bResult = SilentCheck(L"clEnqueueWriteBuffer", CL_INVALID_EVENT, err);
+    if (!bResult)
+        return bResult;
+
     expected_value = 1;
     size_t global_size[1] = {TEST_SIZE};
    
