@@ -27,6 +27,10 @@
 
 #include "cl_sys_info.h"
 
+#if _MSC_VER == 1600
+#include <intrin.h>
+#endif
+
 using namespace Intel::OpenCL::Utils;
 
 #include<windows.h>

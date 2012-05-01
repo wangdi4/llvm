@@ -49,11 +49,11 @@ option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 # vars
 set( OCL_MAKE_UTILS_DIR ${OCL_SOURCE_DIR}/cmake_utils )
 
-if (WIN32 AND ${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
+if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
     set( INSTALL_SUBDIR ${CMAKE_CFG_INTDIR} )
 else ()
     set( INSTALL_SUBDIR ${CMAKE_BUILD_TYPE} )
-endif (WIN32 AND ${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
+endif ()
 
 set( OCL_GLOBAL_INCLUDE   ${OCL_SOURCE_DIR}/cl_api )
 set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )

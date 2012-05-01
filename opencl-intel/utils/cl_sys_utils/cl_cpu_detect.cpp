@@ -28,6 +28,10 @@
 #include "cl_cpu_detect.h"
 #include "cl_env.h"
 
+#if _MSC_VER == 1600
+#include <intrin.h>
+#endif
+
 #if defined( _WIN32 )
 #include <windows.h>
 #else
