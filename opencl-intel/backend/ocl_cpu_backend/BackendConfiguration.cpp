@@ -32,14 +32,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
 const char* CPU_ARCH_AUTO = "auto";
-const char* CPU_ARCH_AUTO_REMOTE = "auto-remote";
 
 namespace Utils
 {
     OPERATION_MODE SelectOperationMode(const char* cpuArch)
     {
         if(0 == strcmp(cpuArch, CPU_ARCH_AUTO)) return CPU_MODE;
-        if(0 == strcmp(cpuArch, CPU_ARCH_AUTO_REMOTE)) return MIC_MODE;
         if (!Intel::CPUId::IsValidCPUName(cpuArch))
         {
             throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);

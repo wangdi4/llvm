@@ -275,34 +275,39 @@ endfunction( add_ocl_library )
 
 function( install_svml ARCH )
 
-  if(ENABLE_SDE AND ARCH STREQUAL b1)
+  set(IS_MIC OFF)
+  if(ARCH STREQUAL b1 OR ARCH STREQUAL b2)
+    set(IS_MIC ON)
+    if(ARCH STREQUAL b2)
+      set(ADDITIONAL_SHARED_LIBRARY_SUFFIX .2.0)
+    endif()
+  endif()
+  if(ENABLE_SDE AND IS_MIC)
     set(SDE_NAME_PREFIX ${SDE_NAME_PREFIX})
-    set (SDE_DLL ${SVML_DLL_DIR}/${SDE_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set (SDE_DLL ${SVML_DLL_DIR}/${SDE_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
   endif ()
 
   # SVML binary
-  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
   if (NOT EXISTS ${SVML_DLL})
     message( FATAL_ERROR "Cannot find ${SVML_DLL}!")
   endif()
 
   # install SVML (and SDE) libraries
-  if(ENABLE_SDE AND ARCH STREQUAL b1)
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+  if(ENABLE_SDE AND IS_MIC)
+    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SDE_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
       COMMAND ${CMAKE_COMMAND} -E copy ${SDE_DLL} ${BUILTINS_INSTALL_DIR} 
       VERBATIM
     )
-  else ()
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
-      VERBATIM
-      )
   endif()
+  add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
+    COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+    VERBATIM
+  )
   
   install( FILES ${SVML_DLL} DESTINATION bin )
   
-  if(ENABLE_SDE AND ARCH STREQUAL b1)
+  if(ENABLE_SDE AND IS_MIC)
     install( FILES ${SDE_DLL} DESTINATION bin )
   endif()
 endfunction( install_svml )
@@ -333,6 +338,9 @@ endfunction(tblgenoclblt)
 function( create_target PROC ARCH )
 
   set (TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
+  if(ARCH STREQUAL b2)
+    set(ADDITIONAL_SHARED_LIBRARY_SUFFIX .2.0)
+  endif()
 
   message ("Building target:   ${TARGET_NAME}")
 
@@ -365,15 +373,11 @@ function( create_target PROC ARCH )
   add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
-  if(${PROC} MATCHES "knf")
-    install_svml( ${ARCH} )
-  else()
-    install_svml( ${ARCH} )
-  endif()
+  install_svml( ${ARCH} )
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -457,5 +461,6 @@ add_subdirectory (sandybridge)
 add_subdirectory (haswell)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (knf)
+  add_subdirectory (knc)
 endif()
 

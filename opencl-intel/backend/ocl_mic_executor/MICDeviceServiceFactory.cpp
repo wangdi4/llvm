@@ -66,7 +66,11 @@ cl_dev_err_code MICDeviceServiceFactory::GetExecutionService(
 {
     try
     {
-        *pBackendExecutionService = new MICExecutionService();
+        std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "");
+        Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
+        Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
+        assert(cpuId.IsMIC() && "MIC mode chosen but CPU ID is not right");
+        *pBackendExecutionService = new MICExecutionService(cpuId);
     }
     catch( std::bad_alloc& )
     {

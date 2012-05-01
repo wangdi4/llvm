@@ -150,7 +150,11 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         if(MIC_MODE == mode)
         {
         #ifdef ENABLE_SDE
-            *ppBackendExecutionService = new MICExecutionService();
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
+            Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
+            assert(cpuId.IsMIC() && "MIC mode chosen but CPU ID is not right");
+            *ppBackendExecutionService = new MICExecutionService(cpuId);
             return CL_DEV_SUCCESS;
         #else 
             *ppBackendExecutionService = NULL;

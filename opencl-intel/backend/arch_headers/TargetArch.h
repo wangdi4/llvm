@@ -136,9 +136,8 @@ public:
             return "l9";
         case MIC_KNF:
             return "b1";
-            //TODO-KNC: Fix to proper svml prefix
         case MIC_KNC:
-            return "b1";
+            return "b2";
         }
     }
     unsigned GetLatestSupportedFeature() const {

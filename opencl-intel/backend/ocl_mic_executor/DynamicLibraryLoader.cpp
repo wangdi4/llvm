@@ -2025,8 +2025,10 @@ void DynamicLibraryLoader::Load()
     std::string strErr;
 
     assert(!m_pLibHandle && "Library already loaded");
-    const CPUId &MIC_CPUId = Utils::MICDetect::GetInstance()->GetCPUId();
-    const char* pCPUPrefix = MIC_CPUId.GetCPUPrefix();
+    const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
+    const char* pAdditionalSuffix = "";
+    if (m_cpuId.GetCPU() == Intel::MIC_KNC)
+        pAdditionalSuffix = ".2.0";
 
     // Load SVML functions
 #if defined (_WIN32)
@@ -2034,9 +2036,9 @@ void DynamicLibraryLoader::Load()
 #else
     // Load precompiled Built-in functions
 #ifdef ENABLE_SDE
-    snprintf( dynamicLibName, MAX_PATH, "__sde_svml_%s.so", pCPUPrefix);
+    snprintf( dynamicLibName, MAX_PATH, "__sde_svml_%s.so%s", pCPUPrefix, pAdditionalSuffix);
 #else
-    snprintf( dynamicLibName, MAX_PATH, "__ocl_svml_%s.so", pCPUPrefix);
+    snprintf( dynamicLibName, MAX_PATH, "__ocl_svml_%s.so%s", pCPUPrefix, pAdditionalSuffix);
 #endif
 
     m_pLibHandle = dlopen(dynamicLibName, RTLD_NOW);
