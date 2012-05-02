@@ -88,8 +88,6 @@ include_directories(
 )
 
 set (SATest_INCLUDE_FILES
-    auto_ptr_ex.h
-    mem_utils.h
     IRunnerFactory.h
     IProgram.h
     IProgramRunner.h

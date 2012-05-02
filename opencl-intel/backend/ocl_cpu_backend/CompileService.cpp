@@ -56,6 +56,11 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
     assert(m_backendFactory);
     try
     {
+        if(NULL == pByteCodeContainer || NULL == ppProgram)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+
         std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
         BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
         spProgram->SetBitCodeContainer(bitCodeContainer);
@@ -91,6 +96,11 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
 {
     try
     {
+        if(NULL == pProgram)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+
         llvm::MutexGuard lock(m_buildLock);
         //TODO: build the CompilerBuildOptions from the supplied pOptions
         return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), NULL);

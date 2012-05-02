@@ -101,6 +101,11 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
 {
     try
     {
+        if(NULL == ppBackendCompilationService)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+        
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
         OPERATION_MODE mode = CPU_MODE;
         if(NULL != pBackendOptions)
@@ -139,6 +144,11 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
 {
     try
     {
+        if(NULL == ppBackendExecutionService)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         OPERATION_MODE mode = CPU_MODE;
         if(NULL != pBackendOptions)
@@ -182,6 +192,11 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
 {
     try
     {
+        if(NULL == pBackendSerializationService)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         OPERATION_MODE mode = CPU_MODE;
         if(NULL != pBackendOptions)
@@ -196,8 +211,7 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
             return CL_DEV_SUCCESS;
         }
         //if(CPU_MODE == mode)
-        assert(false && "Serialization Service Not Implemented for CPU Device");
-        return CL_DEV_ERROR_FAIL;
+        throw Exceptions::DeviceBackendExceptionBase("Serialization Service Not Implemented for CPU Device", CL_DEV_INVALID_OPERATION_MODE);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {

@@ -213,6 +213,7 @@ set_target_properties( bugpoint PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( OclCpuBackEnd PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 set_target_properties( OclCpuDebugging PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 set_target_properties( OclUtils PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
+#set_target_properties( AddImplicitArgs PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes)
 set_target_properties( OclRecorder PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 
 set_target_properties( check PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
@@ -245,6 +246,8 @@ set_target_properties( SATest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validatio
 set_target_properties( LLVMInterpreterPluggable PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
 #set_target_properties( ValidationTests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
 set_target_properties( NEATChecker PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
+set_target_properties( BackEndTests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
+set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
 
 set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
 

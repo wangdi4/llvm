@@ -69,6 +69,7 @@ public:
     void LoadConfig();
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+    bool IsValidTransposeSize();
     /**
      * Return operation mode for current architecture
      */

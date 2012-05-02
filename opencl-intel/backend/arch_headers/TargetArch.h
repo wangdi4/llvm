@@ -159,7 +159,7 @@ public:
         return CPU >= MIC_FIRST && CPU < DEVICE_INVALID;
     };
     static bool IsValidCPUName(const char* pCPUName) {
-        return 0 != GetCPUByName(pCPUName);
+        return DEVICE_INVALID != GetCPUByName(pCPUName);
     }
     bool HasAVX1() const {
         return IsFeatureOn(CFS_AVX1);

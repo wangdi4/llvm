@@ -178,6 +178,10 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
     if(NULL != pBackendOptions && 
        pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pCallBack, &size))
     {
+        if(NULL == pCallBack)
+        {
+            throw Exceptions::DeviceBackendExceptionBase("JIT Allocator pointer in the options is NULL", CL_DEV_INVALID_VALUE);
+        }
         m_pJITAllocator = (ICLDevBackendJITAllocator*)pCallBack;
     }
     else

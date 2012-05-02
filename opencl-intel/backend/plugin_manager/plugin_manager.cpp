@@ -88,7 +88,7 @@ void PluginManager::LoadPlugins()
 {
     typedef llvm::SmallVector<llvm::StringRef, 10> DllNamesVector;
     const char *dlls = getenv("OCLBACKEND_PLUGINS");
-    if (NULL == dlls)
+    if (NULL == dlls || (std::string)dlls == "")
         return;
     DllNamesVector namesVector;
     llvm::StringRef namesEnv(dlls);
@@ -102,7 +102,7 @@ void PluginManager::LoadPlugins()
         }
         catch (DeviceBackend::Exceptions::DynamicLibException ex)
         {
-            perror(ex.what());
+            throw PluginManagerException(ex.what());
         }
     }
 }
