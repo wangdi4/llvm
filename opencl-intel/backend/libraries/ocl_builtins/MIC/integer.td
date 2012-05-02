@@ -78,7 +78,7 @@ OclBuiltinImpl clz_v16_u8u16 = OclBuiltinImpl<clz, [v16u8, v16u16], 0, [{
     return convert_$ReturnType(clz(convert_uint16($Arg0VarName)) - (32 - $BitWidth));
   }]>;
 OclBuiltinImpl clz_v16_u32 = OclBuiltinImpl<clz, [v16u32], 0, [{
-    __m512i t = _mm512_andnot_epi32((__m512i)$Arg0VarName, (__m512i)($Arg0VarName >> 1));
+    __m512i t = _mm512_andnot_epi32((__m512i)($Arg0VarName >> 1), (__m512i)$Arg0VarName);
     __m512 f = _mm512_cvtfxpnt_round_adjustepi32_ps(t, _MM_FROUND_CUR_DIRECTION, _MM_EXPADJ_NONE);
     uint16 r = 158 - (as_uint16(f) >> 23);
     return as_$ReturnType(_mm512_min_epi32((__m512i)r, (__m512i)(uint16)32));
