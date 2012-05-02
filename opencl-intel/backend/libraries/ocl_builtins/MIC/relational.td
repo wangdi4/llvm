@@ -417,7 +417,6 @@ OclBuiltinImpl all_f64_expand = OclBuiltinImpl<all, [v16f64, v16u64, v16i64], 0,
 
 // iselect
 code select_vector_v16 = [{
-    $NativeReturnType result;
     __m512i const_vector_msb = (__m512i)((int16)const_msb);
     int16 c_reg = (int16)sign_ext_from($Arg2VarName);
     int16 a_reg = (int16)ext_from($Arg0VarName);
@@ -426,8 +425,7 @@ code select_vector_v16 = [{
     __mmask16 sel = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
     __m512i tempi = (__m512i)(b_reg);
     tempi = _mm512_mask_or_epi32(tempi, sel, (__m512i)(a_reg), (__m512i)(a_reg));
-    result = trunc_to((int16)tempi, &result);
-    return result;
+    return trunc_to_$NativeReturnType((int16)tempi);
   }];
 code select_vector_v8 = [{
     int16 x_reg = (int16)unpack_hi($Arg2VarName);
@@ -500,8 +498,7 @@ OclBuiltinImpl bitselect_vector = OclBuiltinImpl<bitselect, [v16i8, v16u8, v16i1
     __m512i result_true = _mm512_and_epi32((__m512i)b_reg, (__m512i)c_reg);
     __m512i result_false = _mm512_andnot_epi32((__m512i)a_reg, (__m512i)c_reg);
     result_true = _mm512_or_epi32(result_true, result_false);
-    $NativeReturnType result; result = trunc_to((int16)result_true, &result);
-    return result;
+    return trunc_to_$NativeReturnType((int16)result_true);
   }]>;
 OclBuiltinImpl bitselect_v16_promote = OclBuiltinImpl<bitselect, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
                                                       v2i16, v3i16, v4i16, v8i16, v2u16, v3u16, v4u16, v8u16,

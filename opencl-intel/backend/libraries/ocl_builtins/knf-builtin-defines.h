@@ -127,81 +127,70 @@ double8 __attribute__((overloadable)) unpack_lo(double8 src){
   return new_cast(double8, dest);
 }
 // MIC vector truncation
-char16 __attribute__((overloadable)) trunc_to(int16 source, char16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
-  return *result;
+char16 __attribute__((overloadable)) trunc_to_char16(int16 source){
+  return convert_char16(source);
 }
-uchar16 __attribute__((overloadable)) trunc_to(uint16 source, uchar16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_UINT8, _MM_HINT_NONE);
-  return *result;
+uchar16 __attribute__((overloadable)) trunc_to_uchar16(uint16 source){
+  return convert_uchar16(source);
 }
-uchar16 __attribute__((overloadable)) trunc_to(int16 source, uchar16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_SINT8, _MM_HINT_NONE);
-  return *result;
+uchar16 __attribute__((overloadable)) trunc_to_uchar16(int16 source){
+  return convert_uchar16(source);
 }
-short16 __attribute__((overloadable)) trunc_to(int16 source, short16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
-  return *result;
+short16 __attribute__((overloadable)) trunc_to_short16(int16 source){
+  return convert_short16(source);
 }
-ushort16 __attribute__((overloadable)) trunc_to(uint16 source, ushort16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_UINT16, _MM_HINT_NONE);
-  return *result;
+ushort16 __attribute__((overloadable)) trunc_to_ushort16(uint16 source){
+  return convert_ushort16(source);
 }
-ushort16 __attribute__((overloadable)) trunc_to(int16 source, ushort16* result){
-  _mm512_extstore_epi32((void *)(result), (__m512i)source, _MM_DOWNCONV_EPI32_SINT16, _MM_HINT_NONE);
-  return *result;
+ushort16 __attribute__((overloadable)) trunc_to_ushort16(int16 source){
+  return convert_ushort16(source);
 }
-int16 __attribute__((overloadable)) trunc_to(int16 source, int16* result){
+int16 __attribute__((overloadable)) trunc_to_int16(int16 source){
   return source;
 }
-uint16 __attribute__((overloadable)) trunc_to(uint16 source, uint16* result){
+uint16 __attribute__((overloadable)) trunc_to_uint16(int16 source){
+  return (uint16)source;
+}
+uint16 __attribute__((overloadable)) trunc_to_uint16(uint16 source){
   return source;
 }
-float16 __attribute__((overloadable)) trunc_to(float16 source, float16* result){
-  return source;
-}
-long8 __attribute__((overloadable)) trunc_to(long8 source, long8* result){
-  return source;
-}
-ulong8 __attribute__((overloadable)) trunc_to(ulong8 source, ulong8* result){
-  return source;
-}
-double8 __attribute__((overloadable)) trunc_to(double8 source, double8* result){
-  return source;
-}
-// Enable simple one-call fits all for all the native types
-uint16 __attribute__((overloadable)) trunc_to(int16 source, uint16* result){
-  return as_uint16(source);
-}
-float16 __attribute__((overloadable)) trunc_to(int16 source, float16* result){
+float16 __attribute__((overloadable)) trunc_to_float16(int16 source){
   return as_float16(source);
 }
-long8 __attribute__((overloadable)) trunc_to(int16 source, long8* result){
+float16 __attribute__((overloadable)) trunc_to_float16(float16 source){
+  return source;
+}
+long8 __attribute__((overloadable)) trunc_to_long8(int16 source){
   return as_long8(source);
 }
-ulong8 __attribute__((overloadable)) trunc_to(int16 source, ulong8* result){
+long8 __attribute__((overloadable)) trunc_to_long8(long8 source){
+  return source;
+}
+ulong8 __attribute__((overloadable)) trunc_to_ulong8(int16 source){
   return as_ulong8(source);
 }
-double8 __attribute__((overloadable)) trunc_to(int16 source, double8* result){
+ulong8 __attribute__((overloadable)) trunc_to_ulong8(ulong8 source){
+  return source;
+}
+double8 __attribute__((overloadable)) trunc_to_double8(int16 source){
   return as_double8(source);
+}
+double8 __attribute__((overloadable)) trunc_to_double8(double8 source){
+  return source;
 }
 
 // MIC vector expansion
 int16 __attribute__((overloadable)) ext_from(char16 source){
-  __m512i data = _mm512_extload_epi32((void const *)(&source), _MM_UPCONV_EPI32_SINT8, _MM_BROADCAST32_NONE, _MM_HINT_NONE);
-  return as_int16(data);
+  return convert_int16(source);
 }
 uint16 __attribute__((overloadable)) ext_from(uchar16 source){
-  __m512i data = _mm512_extload_epi32((void const *)(&source), _MM_UPCONV_EPI32_UINT8, _MM_BROADCAST32_NONE, _MM_HINT_NONE);
-  return as_uint16(data);
+  return convert_uint16(source);
 }
 int16 __attribute__((overloadable)) ext_from(short16 source){
-  __m512i data = _mm512_extload_epi32((void const *)(&source), _MM_UPCONV_EPI32_SINT16, _MM_BROADCAST32_NONE, _MM_HINT_NONE);
-  return as_int16(data);
+  return convert_int16(source);
 }
 uint16 __attribute__((overloadable)) ext_from(ushort16 source){
-  __m512i data = _mm512_extload_epi32((void const *)(&source), _MM_UPCONV_EPI32_UINT16, _MM_BROADCAST32_NONE, _MM_HINT_NONE);
-  return as_uint16(data);
+  return convert_uint16(source);
 }
 uint16 __attribute__((overloadable)) ext_from(uint16 source){
   return source;
@@ -453,8 +442,7 @@ char16 __attribute__((overloadable)) shuffle2_x16(char16 x, char16 y, uchar16 in
     int16 data2 = gather((int16)index, y);
     __m512i data = (__m512i)data1;
     data = _mm512_mask_or_epi32(data, upper, (__m512i)data2, (__m512i)data2);
-    char16 result;
-    result = trunc_to((int16)data, &result);
+    char16 result = trunc_to_char16((int16)data);
     return result;
 }
 uchar16 __attribute__((overloadable)) shuffle2_x16(uchar16 x, uchar16 y, uchar16 input_index, int16 index_mask){
@@ -468,8 +456,7 @@ uchar16 __attribute__((overloadable)) shuffle2_x16(uchar16 x, uchar16 y, uchar16
     uint16 data2 = gather((int16)index, y);
     __m512i data = (__m512i)data1;
     data = _mm512_mask_or_epi32(data, upper, (__m512i)data2, (__m512i)data2);
-    uchar16 result;
-    result = trunc_to((uint16)data, &result);
+    uchar16 result = trunc_to_uchar16((uint16)data);
     return result;
 }
 short16 __attribute__((overloadable)) shuffle2_x16(short16 x, short16 y, ushort16 input_index, int16 index_mask){
@@ -483,8 +470,7 @@ short16 __attribute__((overloadable)) shuffle2_x16(short16 x, short16 y, ushort1
     int16 data2 = gather((int16)index, y);
     __m512i data = (__m512i)data1;
     data = _mm512_mask_or_epi32(data, upper, (__m512i)data2, (__m512i)data2);
-    short16 result;
-    result = trunc_to((int16)data, &result);
+    short16 result = trunc_to_short16((int16)data);
     return result;
 }
 ushort16 __attribute__((overloadable)) shuffle2_x16(ushort16 x, ushort16 y, ushort16 input_index, int16 index_mask){
@@ -498,8 +484,7 @@ ushort16 __attribute__((overloadable)) shuffle2_x16(ushort16 x, ushort16 y, usho
     uint16 data2 = gather((int16)index, y);
     __m512i data = (__m512i)data1;
     data = _mm512_mask_or_epi32(data, upper, (__m512i)data2, (__m512i)data2);
-    ushort16 result;
-    result = trunc_to((uint16)data, &result);
+    ushort16 result = trunc_to_ushort16((uint16)data);
     return result;
 }
 int16 __attribute__((overloadable)) shuffle2_x16(int16 x, int16 y, uint16 input_index, int16 index_mask){

@@ -128,8 +128,8 @@ OclBuiltinImpl normalize_f32_vector = OclBuiltinImpl<normalize, [v2f32, v3f32, v
 
     // data = isinf(x_reg)?one:data
     __m512i data = (__m512i)x_reg;
-    data = _mm512_andnot_epi32(data, (__m512i)ifinf);
-    one_vector = _mm512_and_epi32(one_vector, (__m512i)ifinf);
+    data = _mm512_andnot_epi32((__m512i)ifinf, data);
+    one_vector = _mm512_and_epi32((__m512i)ifinf, one_vector);
     data = _mm512_or_epi32(data, one_vector);
 
     // returun 16NAN if any of the element is NAN
