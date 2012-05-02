@@ -1224,6 +1224,10 @@ void CL_API_CALL clCreateFromDX9MediaSurfaceINTEL() { }
 void CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL() { }
 void CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL() { }
 void CL_API_CALL clGetDeviceIDsFromDX9INTEL() { }
+void CL_API_CALL clCreateFromDX9MediaSurfaceKHR() { }
+void CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR() { }
+void CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR() { }
+void CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR() { }
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////
