@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:        -march=y86-64 -mcpu=knc 
@@ -12,7 +11,7 @@ declare <16 x i32> @llvm.x86.mic.loadunpackh.pi(<16 x i32>, i8 *, i32, i32)
 
 define <16 x i32> @f_loadunpackh_pi(<16 x i32> %arg0, i8 * %arg1) {
 ; KNF: f_loadunpackh_pi:
-; KNF: 
+; KNF: vloadunpackhd
 entry:
   %ret = call <16 x i32> @llvm.x86.mic.loadunpackh.pi(<16 x i32> %arg0, i8 * %arg1, i32 2, i32 0)
 
