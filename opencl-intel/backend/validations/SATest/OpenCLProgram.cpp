@@ -54,25 +54,6 @@ static std::string buildLibName (const char* s){
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                              const std::string cpuArch)
 {
-    std::stringstream fileName;
-    fileName << oclProgramConfig->GetProgramName().c_str() <<
-        ".llvm_ir" << std::ends;
-
-    //Checks to see if the file already exist, and if so, gives a warning
-    FILE* pIRfile = NULL;
-    #ifdef _WIN32
-        fopen_s(&pIRfile, fileName.str().c_str(), "rb");
-    #else
-        pIRfile = fopen(fileName.str().c_str(), "rb");
-    #endif
-
-    if ( NULL != pIRfile )
-    {
-      fclose(pIRfile);
-      std::cout << "Warning! SATest will overwrite "<< fileName.str().c_str()
-          << std::endl;
-    }
-
     std::string programFile = oclProgramConfig->GetProgramFilePath();
     switch (oclProgramConfig->GetProgramFileType())
     {
@@ -103,8 +84,8 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 //in Win-based OS, each line results one-character less read to
                 //the buffer, so the actual num of bytes read is lower than the
                 //actual file length.
-                if (read < length)
-                    source[read] = '\0';
+                assert (read <= length);
+                source[read] = '\0';
                 indata.close();
                 //building the CL code:
                 std::string clangLib = buildLibName("clang_compiler");
@@ -126,8 +107,8 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 //
                 //cleanup
                 //
-                builder.close();
                 result->Release();
+                builder.close();
                 break;
             }
         case LL:
@@ -139,23 +120,13 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 std::vector<unsigned char> buffer;
                 llvm::BitstreamWriter stream(buffer);
                 llvm::WriteBitcodeToStream( M.get(), stream );
-
-                // Create the output file for testing reason.
-                std::string ErrorInfo;
-                llvm::raw_fd_ostream FDTemp(fileName.str().c_str(), ErrorInfo,
-                            llvm::raw_fd_ostream::F_Binary);
-                if (ErrorInfo.empty()) {
-                    llvm::WriteBitcodeToFile( M.get(), FDTemp );
-                }
-
                 std::vector<unsigned char> byteCodeBuffer(stream.getBuffer());
-
                 int bufferSize=byteCodeBuffer.size();
+
                 containerSize = sizeof(cl_prog_container_header) +
                                                 sizeof(cl_llvm_prog_header);
                 containerSize += (unsigned int)bufferSize;
                 setContainer();
-
                 pContainer->container_size = (unsigned int)bufferSize +
                                                 sizeof(cl_llvm_prog_header);
                 char* pContainerPosition = ((char*)pContainer) +
