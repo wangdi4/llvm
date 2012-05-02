@@ -194,7 +194,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	}
 	if ( CL_FAILED(ret) )
 	{
-		for(cl_uint ui=0; ui<idx; ++ui)
+		for(cl_uint ui=0; ui<(idx-1); ++ui)
 		{
 			if (m_ppAllDevices[ui]->IsRootLevelDevice())
 			{
@@ -209,6 +209,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 			ppDevices[ui]->RemovedFromContext();
 		}
 		*pclErr = ret;
+		m_mapDevices.ReleaseAllObjects(false);
 		return;
 	}
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
