@@ -216,7 +216,9 @@ enum LengthModifier {
     MODIFIER_INTMAX,
     MODIFIER_SIZE_T,
     MODIFIER_PTRDIFF,
-    MODIFIER_LONGDOUBLE
+    MODIFIER_LONGDOUBLE,
+    //opencl 1.2 specific modifier, which suggests 32 bit conversion for vector elements
+    MODIFIER_VEC32BITELEMENT
 };
 
 
@@ -515,7 +517,8 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     modifier = MODIFIER_CHAR;
                     c = *++format;
                 } else if (c == 'l'){
-                    modifier = MODIFIER_INTMAX;
+                    //hl vector conversion modifier (see opencl spec p. 287)
+                    modifier = MODIFIER_VEC32BITELEMENT;
                     c = *++format;
                 }
                 break;
@@ -546,8 +549,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             default:
                 break;
         }
-
-           // At this point the following variables specify all the state parsed 
+        // At this point the following variables specify all the state parsed 
         // prior to this specifier:
         //   unsigned conversion_flags
         //   int width
@@ -666,6 +668,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                         case MODIFIER_SIZE_T:
                             int_val = NEXT_ARG(args, size_t);
                             break;
+                        case MODIFIER_VEC32BITELEMENT: //fall through
                         default:
                             if (is_unsigned_specifier(c))
                                 int_val = NEXT_ARG(args, cl_uint);
