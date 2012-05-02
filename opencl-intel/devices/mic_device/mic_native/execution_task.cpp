@@ -69,7 +69,6 @@ void init_device(uint32_t         in_BufferCount,
 {
 	assert(in_MiscDataLength == sizeof(mic_exec_env_options));
 	assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
-	ProgramService::createProgramService();
 	// The mic_exec_env_options input.
 	mic_exec_env_options* tEnvOptions = (mic_exec_env_options*)in_pMiscData;
 	assert(tEnvOptions);
@@ -81,6 +80,8 @@ void init_device(uint32_t         in_BufferCount,
 	}
 	gMicExecEnvOptions = *tEnvOptions;
 	assert((gMicExecEnvOptions.num_of_worker_threads > 0) && (gMicExecEnvOptions.num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
+
+	ProgramService::createProgramService();
 
 	cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
 	*pErr = CL_DEV_SUCCESS;

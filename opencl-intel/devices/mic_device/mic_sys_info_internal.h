@@ -10,6 +10,12 @@
 #include "mic_sys_info.h"
 #include "buildversion.h"
 
+#ifdef KNF_CARD
+	#define CL_COI_ISA_MIC COI_ISA_KNF
+#elif KNC_CARD
+	#define CL_COI_ISA_MIC COI_ISA_KNC
+#endif
+
 //                                          info_id array_count    type_size    si_value_type               const_value          func_value          info_id_name
 #define SCAL_VALUE( id,  type,  value )      { id,     1,          sizeof(type), MICSysInfo::VALUE_SCALAR,  (size_t)(value),     NULL,               #id }
 #define ARRY_VALUE( id,  type,  st_ar_name ) { id,     ARRAY_ELEMENTS(st_ar_name),  \
@@ -28,6 +34,8 @@
 
 // initialization functions
 namespace Intel { namespace OpenCL { namespace MICDevice {
-    void add_knf_info( void );
+    void add_mic_info( void );
+
+	const char* get_mic_cpu_arch();
 }}}
 

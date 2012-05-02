@@ -6,7 +6,11 @@ endif (NOT WIN32)
 #include helping functions of cmake.
 include (../../cmake_utils/CMakeFuncs.txt)
 
-set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi )
+if (KNC_CARD)
+	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knc )
+else (KNC_CARD)
+	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knf )
+endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )
 

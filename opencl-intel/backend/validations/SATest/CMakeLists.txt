@@ -60,8 +60,12 @@ set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${A
 endif (NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
-#set( COI_DIR                /opt/intel/mic/coi)
-set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi)
+	#set( COI_DIR                /opt/intel/mic/coi)
+	if (KNC_CARD)
+		set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knc)
+	else (KNC_CARD)
+		set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knf)
+	endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
 
 include_directories(

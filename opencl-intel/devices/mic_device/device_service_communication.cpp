@@ -6,6 +6,7 @@
 #include "mic_sys_info.h"
 #include "mic_device.h"
 #include "mic_device_interface.h"
+#include "mic_sys_info_internal.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
@@ -249,7 +250,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
     MICSysInfo& info = MICSysInfo::getInstance();
 
-    // Get a handle to KNF engine number m_engineId
+    // Get a handle to KNF / KNC engine number m_engineId
     COIENGINE engine = info.getCOIEngineHandle( pDevServiceComm->m_uiMicId );
 
     // The following call creates a process on the sink.
@@ -343,6 +344,8 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
         mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
         mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
+		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);
+		MEMCPY_S(mic_device_options.mic_cpu_arch_str, MIC_CPU_ARCH_STR_SIZE, get_mic_cpu_arch(), sizeof(get_mic_cpu_arch()));
 
         if ((0 == mic_device_options.num_of_worker_threads) || (mic_device_options.num_of_worker_threads > numOfWorkers))
         {

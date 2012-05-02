@@ -48,7 +48,7 @@ static const cl_device_partition_property MIC_SUPPORTED_FISSION_MODES[] =
     };
 
 
-static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
+static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
 {
 //
 //scalar/array/func      name                              type                 value
@@ -89,7 +89,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_MAX_SAMPLERS,                 cl_uint,                        MIC_MAX_SAMPLERS                ),
     SCAL_VALUE( CL_DEVICE_MEM_BASE_ADDR_ALIGN,          cl_uint,                        MIC_MEM_BASE_ADDR_ALIGN         ),
     SCAL_VALUE( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE,     cl_uint,                        MIC_DEV_MAXIMUM_ALIGN           ),
-    SCAL_VALUE( CL_DEVICE_SINGLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA ),
+    SCAL_VALUE( CL_DEVICE_SINGLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA ),
     SCAL_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE,        cl_device_mem_cache_type,       CL_READ_WRITE_CACHE             ),
     FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE,                                    get_variable_info               ),	// TODO refill this function with the right info
     FUNC_VALUE( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,                                        get_variable_info               ),	// TODO refill this function with the right info
@@ -118,7 +118,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),
 
 #ifdef __DOUBLE_ENABLED__
-    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT ), // new OpenCL 1.2
+    SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA ), // new OpenCL 1.2
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),	// TODO Should take this value from BE
 #else
@@ -141,9 +141,9 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
 };
 
 // additional DLLs required for device
-static const char* const knf_device_dlls[] =
+static const char* const knc_device_dlls[] =
     {
-		"__ocl_svml_b1.so"
+		"__ocl_svml_b2.so.2.0"
     };
 
 void Intel::OpenCL::MICDevice::add_mic_info( void )
@@ -151,18 +151,18 @@ void Intel::OpenCL::MICDevice::add_mic_info( void )
     MICSysInfo::InfoKeyType sku;
 
     sku.full_key = 0;
-    sku.fields.device_type = COI_ISA_KNF;
+    sku.fields.device_type = COI_ISA_KNC;
 
     MICSysInfo::DeviceSKU_InternalAttributes attribs;
-    attribs.required_dlls_count = ARRAY_ELEMENTS( knf_device_dlls );
-    attribs.required_dlls_array = knf_device_dlls;
+    attribs.required_dlls_count = ARRAY_ELEMENTS( knc_device_dlls );
+    attribs.required_dlls_array = knc_device_dlls;
 
-    MICSysInfo::add_sku_info( sku.full_key, ARRAY_ELEMENTS(knf_info), knf_info, attribs );
+    MICSysInfo::add_sku_info( sku.full_key, ARRAY_ELEMENTS(knc_info), knc_info, attribs );
 }
 
 static const char mic_cpu_arch[] =
 	{
-		"knf"
+		"knc"
 	};
 
 const char* Intel::OpenCL::MICDevice::get_mic_cpu_arch()

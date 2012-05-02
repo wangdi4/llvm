@@ -207,7 +207,7 @@ MICSysInfo::MICSysInfo()
     pthread_mutex_init(&m_mutex, NULL);
 
     // add static info tables for supported SKUs
-    add_knf_info();
+    add_mic_info();
 }
 
 MICSysInfo::~MICSysInfo()
@@ -265,8 +265,8 @@ uint32_t MICSysInfo::getEngineCount()
         COIRESULT result = COI_ERROR;
         uint32_t tNumEngines = 0;
 
-        // Let's make sure there is a KNF device available
-        result = COIEngineGetCount(COI_ISA_KNF, &tNumEngines);
+        // Let's make sure there is a KNF / KNC device available
+        result = COIEngineGetCount(CL_COI_ISA_MIC, &tNumEngines);
         if( result != COI_SUCCESS )
         {
             PRINT_DEBUG("MIC: COIEngineGetCount result %s\n", COIResultGetName(result));
@@ -559,8 +559,8 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         COIRESULT           result = COI_ERROR;
         COIENGINE           engine = NULL;
 
-        // Get a handle to the specific KNF engine
-        result = COIEngineGetHandle(COI_ISA_KNF, deviceId, &engine);
+        // Get a handle to the specific KNF / KNC engine
+        result = COIEngineGetHandle(CL_COI_ISA_MIC, deviceId, &engine);
         if( result != COI_SUCCESS )
         {
             PRINT_DEBUG("MIC: COIEngineGetHandle result %s\n", COIResultGetName(result));

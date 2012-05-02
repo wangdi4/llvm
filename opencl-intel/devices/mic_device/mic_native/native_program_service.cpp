@@ -45,6 +45,10 @@
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::DeviceBackend;
 
+namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+	extern mic_exec_env_options gMicExecEnvOptions;
+}}};
+
 // init singleton
 ProgramService* ProgramService::m_gProgramService = NULL;
 
@@ -177,11 +181,7 @@ const char* MICNativeBackendOptions::GetStringValue( int optionId, const char* d
     switch (optionId)
     {
         case CL_DEV_BACKEND_OPTION_CPU_ARCH:
-#ifdef KNC_CARD
-			return "knc";
-#else
-            return "knf";
-#endif
+			return gMicExecEnvOptions.mic_cpu_arch_str;
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
             assert(false && "OPTION NOT SUPPORTED ON DEVICE SIDE");

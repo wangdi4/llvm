@@ -346,15 +346,17 @@ struct misc_data
 	cl_dev_err_code errCode;
 };
 
+#define MIC_CPU_ARCH_STR_SIZE 64
 
 struct mic_exec_env_options {
 	bool stop_at_load;
     bool use_affinity;
-    uint32_t num_of_worker_threads;
-	uint32_t num_of_cores;
     bool ignore_core_0;
     bool ignore_last_core;
+	uint32_t num_of_worker_threads;
+	uint32_t num_of_cores;
     uint32_t use_TBB_grain_size;
+	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 
 

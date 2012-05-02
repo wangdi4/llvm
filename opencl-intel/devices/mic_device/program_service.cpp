@@ -35,6 +35,7 @@
 #include "mic_common_macros.h"
 #include "device_service_communication.h"
 #include "mic_device_interface.h"
+#include "mic_sys_info_internal.h"
 #include "mic_tracer.h"
 
 #include <source/COIBuffer_source.h>
@@ -178,7 +179,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
     switch (optionId)
     {
         case CL_DEV_BACKEND_OPTION_CPU_ARCH:
-            return "knf";
+			return get_mic_cpu_arch();
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
             return m_dump_file_name.c_str();

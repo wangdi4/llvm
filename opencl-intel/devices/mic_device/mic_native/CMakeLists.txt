@@ -15,9 +15,15 @@ set( DEVICE   MIC )
 set( BACKEND_LIB            OclDeviceExecutor )
 set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/backend/llvm/lib )
 set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
-set( BACKEND_FILES_TO_COPY
-                            ${BACKEND_SVML_DIR}/__ocl_svml_b1.so
-                           )
+if (KNC_CARD)
+	set( BACKEND_FILES_TO_COPY
+								${BACKEND_SVML_DIR}/__ocl_svml_b2.so.2.0
+								)
+else (KNC_CARD)
+	set( BACKEND_FILES_TO_COPY
+								${BACKEND_SVML_DIR}/__ocl_svml_b1.so
+								)
+endif (KNC_CARD)								
 
 if (WIN32)
     # Windows
@@ -27,8 +33,13 @@ else ()
     set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
 
     if (NOT TMP_ICC_INSTALL_DIR)
-        if (EXISTS /opt/intel/composerxe_mic/bin)
-            set( TMP_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin )
+		if (KNC_CARD)
+			set( SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin )
+		else (KNC_CARD)
+			set( SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin )
+		endif (KNC_CARD)
+        if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
+            set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
         endif ()
     endif (NOT TMP_ICC_INSTALL_DIR)
 
@@ -177,7 +188,13 @@ list( APPEND MIC_FLAGS
 				
 list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
-    )				
+    )
+
+if (KNC_CARD)
+	list( APPEND MIC_FLAGS -DKNC_CARD )
+else (KNC_CARD)
+	list( APPEND MIC_FLAGS -DKNF_CARD )
+endif (KNC_CARD)
 
 if ( MIC_TESTING_MODE )
     list( APPEND MIC_FLAGS
@@ -273,7 +290,7 @@ add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} )
 
-file( GLOB MIC_TBB_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${MIC_TBB_LIB_PATH}/*.so )
+file( GLOB MIC_TBB_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
 install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 
 
