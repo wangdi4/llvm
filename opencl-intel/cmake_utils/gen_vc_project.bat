@@ -19,6 +19,7 @@ rem  build_path     - working directory. Default - "build" dir in parallel to "s
 rem  build_type     - debug or release.
 rem  -x64 	        - build 64-bit version (default is 32-bit)
 rem  -single        - create single solution (do not create a separate solution for Conformance)
+rem  -double        - create double solution (create a separate solution for Conformance)
 rem
 rem  VC project is created in the directory build_path parallel to top level src directory
 rem  Compilation output during build is copied to the directory bin\Debug or bin\Release
@@ -33,14 +34,14 @@ set top_dir= %CD%
 
 set use_vs2010=OFF
 set incl_smpls=OFF
-set incl_conf=OFF
-set incl_conf12=OFF
+set incl_cnf=OFF
+set incl_cnf12=OFF
 set incl_cmrt=ON
 set incl_java=OFF
 set incl_dbg=OFF
 set use_x64=OFF
 set use_vc=1
-set single=
+set conformance_mode=
 set build_path=
 set build_type=
 
@@ -72,8 +73,11 @@ set build_type=
 		set use_x64=ON
 		echo 64bit mode
     ) else if x%1 == x-single (
-        set single=ON
+        set conformance_mode=1
         echo Generate single solution
+    ) else if x%1 == x-double (
+        set conformance_mode=2
+        echo Generate separate Conformance solution
 	) else if x%1 == xintel (
 		set use_vc=0
 		echo Use Intel compiler
@@ -108,6 +112,11 @@ if x%build_type% == x (
 	set build_type=Debug
 ) else (
 	echo %0: Bad build type: "%build_type%"; must be either "debug" or "release".
+	exit /b 1
+)
+
+if "%conformance_mode%-%incl_cnf%-%incl_cnf12%" == "1-ON-ON" (
+	echo %0: In single soultion mode either Conformance 1.1 or 1.2 could be included, not both.
 	exit /b 1
 )
 
@@ -183,7 +192,7 @@ cmake ^
     -G %GEN_VERSION% ^
     -D PYTHON_EXECUTABLE="C:\Python27\python.exe" ^
     -D INCLUDE_SMPLS=%incl_smpls% ^
-    -D UNITED_CONFORMANCE=%single% ^
+    -D CONFORMANCE_MODE=%conformance_mode% ^
     -D INCLUDE_CONFORMANCE_TESTS=%incl_cnf% ^
     -D INCLUDE_CONFORMANCE_1_2_TESTS=%incl_cnf12% ^
     -D INCLUDE_CMRT=%incl_cmrt% ^
