@@ -5,7 +5,7 @@ if (NOT WIN32)
 	set (BUILD_LIB_SO ${CMAKE_CURRENT_BINARY_DIR}/../../framework/icd/libOpenCL.so)
 	add_custom_target( SHOC_1_1_1 ALL
 		COMMAND chmod +x configure
-		COMMAND chmod +x Makefile
+		
 		COMMAND chmod +x tools/driver.pl
 		COMMAND chmod +x tools/numatest.pl
 		COMMAND chmod +x tools/prettyPrint.pl
@@ -14,6 +14,7 @@ if (NOT WIN32)
 		COMMAND ln -s ${BUILD_LIB_SO} /tmp/shoc/libOpenCL.so
 		COMMAND ./configure --with-opencl CPPFLAGS=\"-I${CL_API_HEADERS} -DCL_USE_DEPRECATED_OPENCL_1_1_APIS\"
 		
+		COMMAND chmod +x Makefile
 		COMMAND make
 		
 		DEPENDS OpenCL
