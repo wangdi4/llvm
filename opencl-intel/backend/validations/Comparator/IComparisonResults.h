@@ -205,12 +205,7 @@ namespace Validation {
             }
         private:
             bool isValid;
-// TODO: delete MaxBytes = sizeof(long double);
-#ifdef _WIN32
-            static const uint32_t MaxBytes = sizeof(double);
-#else
             static const uint32_t MaxBytes = sizeof(long double);
-#endif
             char val[MaxBytes];
             std::string m_str;
         };
@@ -287,7 +282,7 @@ namespace Validation {
                 return res;
             }
 
-            double ComputeDeviation() const;
+            long double ComputeDeviation() const;
 
             int GetBufIdx() const
             {
@@ -386,9 +381,9 @@ namespace Validation {
                 return res;
             }
 
-            inline double IComparisonResults::MismatchedVal::ComputeDeviation() const
+            inline long double IComparisonResults::MismatchedVal::ComputeDeviation() const
             {
-                double res = 0;
+                long double res = 0;
                 TypeVal ty = GetTypeVal();
 
                 switch(ty)
