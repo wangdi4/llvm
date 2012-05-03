@@ -66,7 +66,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                         it != includeDirs->endIncludeDirs();
                         ++it )
                      {
-                            buildOptions << " -I "<< *it ;
+                            buildOptions << " -I \""<< *it << "\"";
                      }
                 }
                 //reading the source file to be compiled

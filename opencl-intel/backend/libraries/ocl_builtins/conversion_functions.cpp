@@ -56,33 +56,6 @@ extern "C" {
 #endif // __SSE4_2__
 
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#if defined(_MSC_VER)
-#include <smmintrin.h>
-#include <xmmintrin.h>
-#if defined(__AVX__)
-#include <immintrin.h>
-#endif
-#include <float.h>
-#include <stdio.h>
-#define ALIGN16 __declspec(align(16))
-#define ALIGN32 __declspec(align(32))
-#define __attribute__(X) 
-#include "cl_types2.h"
-#else
-#include <smmintrin.h>
-#include <xmmintrin.h>
-#if defined(__AVX__)
-#include <immintrin.h>
-#endif
-
-//#include <float.h>
-#include <stdio.h>
-#define ALIGN16 __attribute__((aligned(16)))
-#define ALIGN32 __attribute__((aligned(32)))
-#include "cl_types2.h"
-#endif
-#else
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h> 
 #if defined(__AVX__)
@@ -92,13 +65,10 @@ extern "C" {
 #define ALIGN32 __attribute__((aligned(16)))
 #include "cl_types2.h"
 #include "conversions_svml.inc"
-#endif
 
 // Load the declarations of our LL intrinsic library.
 #include "ll_intrinsics.h"
 
-#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#else
 #define _LONG_TO_INT   0x88
 #define _ULLONG_MAX    0xFFFFFFFFFFFFFFFF       /* maximum unsigned long long int value */
 #define _LLONG_MAX     0x7FFFFFFFFFFFFFFF       /* maximum signed long long int value */
@@ -4184,9 +4154,9 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 #define DEF_OUT_INT()\
 	DEF_OUT_INT_RTX(, 0x6000, rtz, CTYPE, NOSVML)\
 	DEF_OUT_INT_RTX(_rtz, 0x6000, rtz, CTYPE, NOSVML)\
-	DEF_OUT_INT_RTX(_rte, 0x0, rtn, CTYPE, USESVML)\
-	DEF_OUT_INT_RTX(_rtn, 0x2000, down, CTYPE, USESVML)\
-	DEF_OUT_INT_RTX(_rtp, 0x4000, up, CTYPE, USESVML)
+	DEF_OUT_INT_RTX(_rte, 0x0, rte, CTYPE, USESVML)\
+	DEF_OUT_INT_RTX(_rtn, 0x2000, rtn, CTYPE, USESVML)\
+	DEF_OUT_INT_RTX(_rtp, 0x4000, rtp, CTYPE, USESVML)
 
 	//out long in all with RMODE
 #define DEF_OUT_LONG_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -4214,9 +4184,9 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 #define DEF_OUT_LONG()\
 	DEF_OUT_LONG_RTX(, 0x6000, rtz, CTYPE)\
 	DEF_OUT_LONG_RTX(_rtz, 0x6000, rtz, CTYPE)\
-	DEF_OUT_LONG_RTX(_rte, 0x0, rtn, CTYPE)\
-	DEF_OUT_LONG_RTX(_rtn, 0x2000, down, CTYPE)\
-	DEF_OUT_LONG_RTX(_rtp, 0x4000, up, CTYPE)
+	DEF_OUT_LONG_RTX(_rte, 0x0, rte, CTYPE)\
+	DEF_OUT_LONG_RTX(_rtn, 0x2000, rtn, CTYPE)\
+	DEF_OUT_LONG_RTX(_rtp, 0x4000, rtp, CTYPE)
 
 	//out float in all with RMODE
 #define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE, FLAGSVML)\
@@ -4232,11 +4202,11 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 	DEF_INT_PROTOF_64(u, u, RMODE, RSVML, CPUTYPE)
 
 #define DEF_OUT_FLOAT()\
-	DEF_OUT_FLOAT_RTX(,0x0, rtn, 0x0000, ,CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_RTX(,0x0, rte, 0x0000, ,CTYPE, NOSVML)\
 	DEF_OUT_FLOAT_RTX(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE, USESVML)\
-	DEF_OUT_FLOAT_RTX(_rte, 0x0, rtn, 0x0000, , CTYPE, NOSVML)\
-	DEF_OUT_FLOAT_RTX(_rtn, 0x2000, down, 0x0100, Round, CTYPE, USESVML)\
-	DEF_OUT_FLOAT_RTX(_rtp, 0x4000, up, 0x0200, Round, CTYPE, USESVML)
+	DEF_OUT_FLOAT_RTX(_rte, 0x0, rte, 0x0000, , CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_RTX(_rtn, 0x2000, rtn, 0x0100, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_RTX(_rtp, 0x4000, rtp, 0x0200, Round, CTYPE, USESVML)
 
 	//out double in all with RMODE
 #define DEF_OUT_DOUBLE_RTX(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -4253,11 +4223,11 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 
 
 #define DEF_OUT_DOUBLE()\
-	DEF_OUT_DOUBLE_RTX(,0x0, rtn, CTYPE)\
+	DEF_OUT_DOUBLE_RTX(,0x0, rte, CTYPE)\
 	DEF_OUT_DOUBLE_RTX(_rtz, 0x6000, rtz, CTYPE)\
-	DEF_OUT_DOUBLE_RTX(_rte, 0x0, rtn, CTYPE)\
-	DEF_OUT_DOUBLE_RTX(_rtn, 0x2000, down, CTYPE)\
-	DEF_OUT_DOUBLE_RTX(_rtp, 0x4000, up, CTYPE)
+	DEF_OUT_DOUBLE_RTX(_rte, 0x0, rte, CTYPE)\
+	DEF_OUT_DOUBLE_RTX(_rtn, 0x2000, rtn, CTYPE)\
+	DEF_OUT_DOUBLE_RTX(_rtp, 0x4000, rtp, CTYPE)
 
 	//SAT
 
@@ -4347,9 +4317,9 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 #define DEF_SAT_INT()\
 	DEF_OUT_INT_SAT(    , 0x6000, rtz,  CTYPE, NOSVML)\
 	DEF_OUT_INT_SAT(_rtz, 0x6000, rtz,  CTYPE, NOSVML)\
-	DEF_OUT_INT_SAT(_rte, 0x0,    rtn,  CTYPE, USESVML)\
-	DEF_OUT_INT_SAT(_rtn, 0x2000, down, CTYPE, USESVML)\
-	DEF_OUT_INT_SAT(_rtp, 0x4000, up,   CTYPE, USESVML)
+	DEF_OUT_INT_SAT(_rte, 0x0,    rte,  CTYPE, USESVML)\
+	DEF_OUT_INT_SAT(_rtn, 0x2000, rtn, CTYPE, USESVML)\
+	DEF_OUT_INT_SAT(_rtp, 0x4000, rtp,   CTYPE, USESVML)
 
 	//out long in all with RMODE
 #define DEF_OUT_LONG_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -4377,9 +4347,9 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 #define DEF_SAT_LONG()\
 	DEF_OUT_LONG_SAT(, 0x6000, rtz, CTYPE)\
 	DEF_OUT_LONG_SAT(_rtz, 0x6000, rtz, CTYPE)\
-	DEF_OUT_LONG_SAT(_rte, 0x0, rtn, CTYPE)\
-	DEF_OUT_LONG_SAT(_rtn, 0x2000, down, CTYPE)\
-	DEF_OUT_LONG_SAT(_rtp, 0x4000, up, CTYPE)
+	DEF_OUT_LONG_SAT(_rte, 0x0, rte, CTYPE)\
+	DEF_OUT_LONG_SAT(_rtn, 0x2000, rtn, CTYPE)\
+	DEF_OUT_LONG_SAT(_rtp, 0x4000, rtp, CTYPE)
 
 //#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
 
@@ -4398,11 +4368,11 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 
 
 #define DEF_SAT_FLOAT()\
-	DEF_OUT_FLOAT_SAT(, 0x0, rtn, 0x0000, , CTYPE, NOSVML)\
+	DEF_OUT_FLOAT_SAT(, 0x0, rte, 0x0000, , CTYPE, NOSVML)\
 	DEF_OUT_FLOAT_SAT(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE, USESVML)\
 	DEF_OUT_FLOAT_SAT(_rte, 0x0, rte, 0x0, , CTYPE, NOSVML)\
-	DEF_OUT_FLOAT_SAT(_rtn, 0x2000, down, 0x0100, Round, CTYPE, USESVML)\
-	DEF_OUT_FLOAT_SAT(_rtp, 0x4000, up, 0x0200, Round, CTYPE, USESVML)
+	DEF_OUT_FLOAT_SAT(_rtn, 0x2000, rtn, 0x0100, Round, CTYPE, USESVML)\
+	DEF_OUT_FLOAT_SAT(_rtp, 0x4000, rtp, 0x0200, Round, CTYPE, USESVML)
 
 //out double in all with RMODE, SAT
 #define DEF_OUT_DOUBLE_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE)\
@@ -4420,11 +4390,11 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 
 
 #define DEF_SAT_DOUBLE()\
-	DEF_OUT_DOUBLE_SAT(, 0x0, rtn, CTYPE)\
+	DEF_OUT_DOUBLE_SAT(, 0x0, rte, CTYPE)\
 	DEF_OUT_DOUBLE_SAT(_rtz, 0x6000, rtz, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rte, 0x0, rtn, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rtn, 0x2000, down, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rtp, 0x4000, up, CTYPE)
+	DEF_OUT_DOUBLE_SAT(_rte, 0x0, rte, CTYPE)\
+	DEF_OUT_DOUBLE_SAT(_rtn, 0x2000, rtn, CTYPE)\
+	DEF_OUT_DOUBLE_SAT(_rtp, 0x4000, rtp, CTYPE)
 
 // create all conversion functions
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration" 
@@ -4443,7 +4413,7 @@ DEF_SAT_INT()
 DEF_SAT_LONG()
 DEF_SAT_FLOAT()
 DEF_SAT_DOUBLE()
-#endif
+
 #ifdef __cplusplus
 }
 #endif

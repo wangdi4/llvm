@@ -37,9 +37,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_l9##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_l9##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_l9##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_s9##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_s9##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_s9##oclfunc##_half
 #endif
 
 #elif defined ( __AVX__ ) /// Platform supports SNB
@@ -53,9 +55,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_e9##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_e9##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_e9##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_g9##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_g9##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_g9##oclfunc##_half
 #endif
 
 #elif defined( __SSE4_2__ ) /// Platform supports Nehalem
@@ -63,9 +67,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_h8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_h8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_h8##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_n8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_n8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_n8##oclfunc##_half
 #endif
 
 #elif defined ( __SSE4_1__ ) /// Platform supports Penryn
@@ -73,9 +79,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_y8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_y8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_y8##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_p8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_p8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_p8##oclfunc##_half
 #endif
 
 #elif defined ( __SSSE3__ ) /// Platform supports Merom
@@ -83,9 +91,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_u8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_u8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_u8##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_v8##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_v8##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_v8##oclfunc##_half
 #endif
 
 #elif defined ( __SSE3__ ) /// Platform supports AMD
@@ -93,9 +103,11 @@ extern "C" {
 #ifdef __x86_64__
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_e7##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_e7##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_e7##oclfunc##_half
 #else
 #define OCL_SVML_FUNCTION(oclfunc)	__ocl_svml_t7##oclfunc
 #define OCL_SVML_NATIVE_FUNCTION(oclfunc)	__ocl_svml_t7##oclfunc##_native
+#define OCL_SVML_HALF_FUNCTION(oclfunc)	__ocl_svml_t7##oclfunc##_half
 #endif
 
 #endif
@@ -162,6 +174,23 @@ extern "C" {
 	OCL_SVML_NATIVE_P2_D8_D8_D8(func,svmlfunc)		\
 	OCL_SVML_NATIVE_P2_D16_D16_D16(func,svmlfunc)
 
+//generate half_* unary built-ins using svml half
+#define OCL_SVML_HALF_P1_vFvF_ALL(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F1_F1(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F2_F2(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F3_F3(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F4_F4(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F8_F8(func,svmlfunc)		\
+	OCL_SVML_HALF_P1_F16_F16(func,svmlfunc)		
+	
+//generate half_* binary built-ins using svml half
+#define OCL_SVML_HALF_P2_vFvFvF_ALL(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F1_F1_F1(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F2_F2_F2(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F3_F3_F3(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F4_F4_F4(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F8_F8_F8(func,svmlfunc)		\
+    OCL_SVML_HALF_P2_F16_F16_F16(func,svmlfunc)		
 
 #define OCL_SP_INTR_DP_SVML_P1_vFvF_ALL(func)		\
 	OCL_INTR_P1_F1_F1(func)		\
@@ -874,12 +903,6 @@ extern "C" {
 	}					
 
 
-// private case for native_powr because it's have two arguments
-// !!! HACK !!!! 
-// Work-Around.  the framework_test_type fail in Linux on while calling to powr double8
-// Reason is SVML failure on native_powr double8 
-// Resolution: in Linux call twice native_powr double4
-#ifndef _WIN32
 #define OCL_SVML_NATIVE_P2_F1_F1_F1(func,svmlfunc)											\
 	__attribute__((overloadable)) float func(float x, float y)								\
 	{																				\
@@ -951,23 +974,72 @@ extern "C" {
       return svmlfunc(x, y);						\
     }					
 
-#else // Windows OS
-#define OCL_SVML_NATIVE_P2_F1_F1_F1(func,svmlfunc)											\
-	__attribute__((svmlcc)) float OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f1)(float,float);		\
-	__attribute__((overloadable)) float func(float x, float y)								\
+#define OCL_SVML_HALF_P1_F1_F1(func,svmlfunc)											\
+	__attribute__((svmlcc)) float OCL_SVML_HALF_FUNCTION(_##svmlfunc##f1)(float);		\
+	__attribute__((overloadable)) float func(float x)								\
 	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f1)(x,y);								\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f1)(x);								\
 	}																				
 
-#define OCL_SVML_NATIVE_P2_F2_F2_F2(func,svmlfunc)											\
-	__attribute__((svmlcc)) float2 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f2)(float2, float2);		\
-	__attribute__((overloadable)) float2 func(float2 x, float2 y)								\
+#define OCL_SVML_HALF_P1_F2_F2(func,svmlfunc)											\
+	__attribute__((svmlcc)) float4 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(float4);		\
+	__attribute__((overloadable)) float2 func(float2 x)								\
 	{															\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f2)(x, y);						\
+    float4 val;																	\
+    val.s01 = x;                  \
+    val.s23 =(float2)(1.0f,1.0f);\
+		val = OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(val);						\
+		return val.s01;																\
 	}
 
-#define OCL_SVML_NATIVE_P2_F3_F3_F3(func,svmlfunc)											\
-	__attribute__((svmlcc)) float4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
+#define OCL_SVML_HALF_P1_F3_F3(func,svmlfunc)											\
+	__attribute__((svmlcc)) float4 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(float4);		\
+	__attribute__((overloadable)) float3 func(float3 x)								\
+	{																				\
+    float4 val;																	\
+    val.s012 = x;																\
+    val.s3 =1.0f;             \
+		val = OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(val);								\
+		return val.s012;\
+	}																				
+
+#define OCL_SVML_HALF_P1_F4_F4(func,svmlfunc)											\
+	__attribute__((svmlcc)) float4 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(float4);		\
+	__attribute__((overloadable)) float4 func(float4 x)								\
+	{																				\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(x);								\
+	}																				
+
+#define OCL_SVML_HALF_P1_F8_F8(func,svmlfunc)											\
+	__attribute__((svmlcc)) float8 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f8)(float8);		\
+	__attribute__((overloadable)) float8 func(float8 x)								\
+	{																				\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f8)(x);								\
+	}																				
+
+#define OCL_SVML_HALF_P1_F16_F16(func,svmlfunc)											\
+	__attribute__((svmlcc)) float16 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f16)(float16);	\
+	__attribute__((overloadable)) float16 func(float16 x)							\
+	{																				\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f16)(x);								\
+	}																				
+
+#define OCL_SVML_HALF_P2_F1_F1_F1(func,svmlfunc)											\
+	__attribute__((svmlcc)) float OCL_SVML_HALF_FUNCTION(_##svmlfunc##f1)(float,float);		\
+	__attribute__((overloadable)) float func(float x, float y)								\
+	{																				\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f1)(x,y);								\
+	}																				
+
+#define OCL_SVML_HALF_P2_F2_F2_F2(func,svmlfunc)											\
+	__attribute__((svmlcc)) float2 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f2)(float2, float2);		\
+	__attribute__((overloadable)) float2 func(float2 x, float2 y)								\
+	{															\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f2)(x, y);						\
+	}
+
+#define OCL_SVML_HALF_P2_F3_F3_F3(func,svmlfunc)											\
+	__attribute__((svmlcc)) float4 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
 	__attribute__((overloadable)) float3 func(float3 x, float3 y)								\
 	{																				\
     float4 valx, valy;																	\
@@ -975,38 +1047,25 @@ extern "C" {
     valx.s3 = 1.0f;       \
     valy.s012 = y;        \
     valy.s3 = 1.0f;       \
-		valx = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(valx, valy);								\
+		valx = OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(valx, valy);								\
 		return valx.s012;\
 	}																				
 
-#define OCL_SVML_NATIVE_P2_F4_F4_F4(func,svmlfunc)											\
-	__attribute__((svmlcc)) float4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
+#define OCL_SVML_HALF_P2_F4_F4_F4(func,svmlfunc)											\
+	__attribute__((svmlcc)) float4 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
 	__attribute__((overloadable)) float4 func(float4 x, float4 y)								\
 	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(x,y);								\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f4)(x,y);								\
 	}																				
 
-#if defined(__AVX__)
-#define OCL_SVML_NATIVE_P2_F8_F8_F8(func,svmlfunc)											\
-  __attribute__((svmlcc)) float8 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f8)(float8, float8);		\
+#define OCL_SVML_HALF_P2_F8_F8_F8(func,svmlfunc)											\
+  __attribute__((svmlcc)) float8 OCL_SVML_HALF_FUNCTION(_##svmlfunc##f8)(float8, float8);		\
 	__attribute__((overloadable)) float8 func(float8 x, float8 y)								\
 	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f8)(x, y);							\
+		return OCL_SVML_HALF_FUNCTION(_##svmlfunc##f8)(x, y);							\
 	}														
-#else
-#define OCL_SVML_NATIVE_P2_F8_F8_F8(func,svmlfunc)											\
-  __attribute__((svmlcc)) float4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(float4, float4);		\
-	__attribute__((overloadable)) float8 func(float8 x, float8 y)								\
-	{																				\
-    float8 res;                           \
-		res.lo = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(x.lo, y.lo);							\
-		res.hi = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f4)(x.hi, y.hi);							\
-		return res;																	\
-	}														
-#endif
 
-
-#define OCL_SVML_NATIVE_P2_F16_F16_F16(func,svmlfunc)											\
+#define OCL_SVML_HALF_P2_F16_F16_F16(func,svmlfunc)											\
 	__attribute__((overloadable)) float16 func(float16 x, float16 y)							\
 	{																				\
     float16 res;                          \
@@ -1014,80 +1073,6 @@ extern "C" {
     res.hi = func(x.hi, y.hi);								\
 		return res;                           \
 	}																				
-
-/*
-#define OCL_SVML_NATIVE_P2_F16_F16_F16(func,svmlfunc)											\
-	__attribute__((svmlcc)) float16 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f16)(float16, float16 y);	\
-	__attribute__((overloadable)) float16 func(float16 x, float16 y)							\
-	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##f16)(x, y);								\
-	}																				
-*/
-
-
-#define OCL_SVML_NATIVE_P2_D1_D1_D1(func,svmlfunc)											\
-	__attribute__((svmlcc)) double OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##1)(double, double);								\
-	__attribute__((overloadable)) double func(double x, double y)								\
-	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##1)(x, y);								\
-	}																				
-
-#define OCL_SVML_NATIVE_P2_D2_D2_D2(func,svmlfunc)											\
-	__attribute__((svmlcc)) double2 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##2)(double2, double2);								\
-	__attribute__((overloadable)) double2 func(double2 x, double2 y)							\
-	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##2)(x, y);								\
-	}																				
-
-#define OCL_SVML_NATIVE_P2_D3_D3_D3(func,svmlfunc)											\
-	__attribute__((svmlcc)) double4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(double4, double4);								\
-	__attribute__((overloadable)) double3 func(double3 x, double3 y)							\
-	{																				\
-    double4 valx, valy;																	\
-    valx.s012 = x;        \
-    valx.s3 = 1.0f;       \
-    valy.s012 = y;        \
-    valy.s3 = 1.0f;       \
-    valx = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(valx, valy);						\
-		return valx.s012;\
-	}	
-
-#define OCL_SVML_NATIVE_P2_D4_D4_D4(func,svmlfunc)											\
-	__attribute__((svmlcc)) double4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(double4, double4);								\
-	__attribute__((overloadable)) double4 func(double4 x, double4 y)							\
-	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x,y);								\
-	}					
-#if defined (__AVX__)
-#define OCL_SVML_NATIVE_P2_D8_D8_D8(func,svmlfunc)											\
-	__attribute__((svmlcc)) double8 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(double8, double8);								\
-	__attribute__((overloadable)) double8 func(double8 x, double8 y)							\
-	{																				\
-		return OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##8)(x, y);								\
-	}																				
-#else 
-#define OCL_SVML_NATIVE_P2_D8_D8_D8(func,svmlfunc)											\
-	__attribute__((svmlcc)) double4 OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(double4, double4);								\
-	__attribute__((overloadable)) double8 func(double8 x, double8 y)							\
-	{																				\
-	  double8 res;																\
-    res.lo = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x.lo, y.lo);							\
-    res.hi = OCL_SVML_NATIVE_FUNCTION(_##svmlfunc##4)(x.hi, y.hi);							\
-    return res;																	\
-	}																				
-#endif
-
-#define OCL_SVML_NATIVE_P2_D16_D16_D16(func,svmlfunc)											\
-    __attribute__((overloadable)) double16 func(double16 x, double16 y)							\
-    {																				\
-    double16 res;																\
-    res.lo = func(x.lo, y.lo);							\
-    res.hi = func(x.hi, y.hi);							\
-    return res;																	\
-    }					
-
-#endif
-
 
 
 //----------------------------------------------------------------------------------
@@ -3816,42 +3801,25 @@ OCL_SVML_P3_vFvFvFpvI(remquo)
 
 
 // half math
+OCL_SVML_HALF_P1_vFvF_ALL(half_cos,cos)
+OCL_SVML_HALF_P1_vFvF_ALL(half_exp,exp)
+OCL_SVML_HALF_P1_vFvF_ALL(half_exp2,exp2)
+OCL_SVML_HALF_P1_vFvF_ALL(half_exp10,exp10)
+OCL_SVML_HALF_P1_vFvF_ALL(half_log,log)
+OCL_SVML_HALF_P1_vFvF_ALL(half_log2,log2)
+OCL_SVML_HALF_P1_vFvF_ALL(half_log10,log10)
+OCL_SVML_HALF_P2_vFvFvF_ALL(half_powr,powr)
 #if defined(__AVX__)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_cos)
-//OCL_INTR_P2_vFvFvF_ALL_AS_F4(half_divide)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_exp)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_exp2)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_exp10)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_log)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_log10)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_log2)
-#else // defined(__AVX__)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_cos)
-//OCL_INTR_P2_vFvFvF_ALL_AS_F4(half_divide)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_exp)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_exp2)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_exp10)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_log)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_log10)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_log2)
-#endif // defined(__AVX__)
-
-#if defined(__AVX__)
-OCL_INTR_P2_vFvFvF_ALL_AS_F8(half_powr)
 OCL_INTR_P1_vFvF_F816_AS_F8(half_recip)
 OCL_INTR_P1_vFvF_F816_AS_F8(half_rsqrt)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_sin)
 OCL_INTR_P1_vFvF_F816_AS_F8(half_sqrt)
-OCL_INTR_P1_vFvF_F816_AS_F8(half_tan)
 #else // defined(__AVX__)
-OCL_INTR_P2_vFvFvF_ALL_AS_F4(half_powr)
 OCL_INTR_P1_vFvF_ALL_AS_F4(half_recip)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_rsqrt)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_sin)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_sqrt)
-OCL_INTR_P1_vFvF_ALL_AS_F1(half_tan)
+OCL_INTR_P1_vFvF_ALL_AS_F4(half_rsqrt)
+OCL_INTR_P1_vFvF_ALL_AS_F4(half_sqrt)
 #endif // defined(__AVX__)
-
+OCL_SVML_HALF_P1_vFvF_ALL(half_sin,sin)
+OCL_SVML_HALF_P1_vFvF_ALL(half_tan,tan)
 
 //TODO: add others
 
@@ -3895,17 +3863,7 @@ OCL_INTR_P1_vFvF_ALL_AS_F1(half_tan)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_sin,sin)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_tan,tan)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_cos,cos)
-
-// SVML1.0 has accuracy issue in exp on Haswell on Win64
-// See release notes
-// we switch to exp until we port to SVML20
-// todo: remove when port to SVML2.0
-#if defined(__AVX2__)
-OCL_SVML_P1_vFvF_ALL_MANUAL(native_exp,exp)
-OCL_SVML_P1_vDvD_ALL_MANUAL(native_exp,exp)
-#else
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp,exp)
-#endif 
 
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp2,exp2)
 OCL_SVML_NATIVE_P1_vFvF_ALL(native_exp10,exp10)

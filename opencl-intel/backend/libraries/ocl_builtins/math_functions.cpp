@@ -1325,28 +1325,6 @@ double4 __attribute__((overloadable)) native_hypot(double4 x, double4 y)
 ** OPENCL SPEC rev 34 
 ** PAGE 208 TABLE 6.9
 ** ***************************/
-//half_cos
-float __attribute__((overloadable)) half_cos(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_cosf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_cos(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_cosf4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_cos(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_cosf8)(x);
-	return res;
-}
-#endif
-
 //half_divide
 float  __attribute__((overloadable)) half_divide(float x, float y)
 {
@@ -1389,147 +1367,6 @@ float16  __attribute__((overloadable)) half_divide(float16 x, float16 y)
 	return x/y;
 }
 
-//half_exp
-float __attribute__((overloadable)) half_exp(float x)
-{
-	return OCL_SVML_FUNCTION(_expf1)(x);
-}
-
-float4 __attribute__((overloadable)) half_exp(float4 x)
-{
-	return OCL_SVML_FUNCTION(_expf4)(x);
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_exp(float8 x)
-{
-    return OCL_SVML_FUNCTION(_expf8)(x);
-}
-#endif
-
-//half_exp2
-float __attribute__((overloadable)) half_exp2(float x)
-{
-	float res = OCL_SVML_FUNCTION(_exp2f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_exp2(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_exp2f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_exp2(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_exp2f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//half_exp10
-float __attribute__((overloadable)) half_exp10(float x)
-{
-	float res = OCL_SVML_FUNCTION(_exp10f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_exp10(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_exp10f4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_exp10(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_exp10f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//half_log
-float __attribute__((overloadable)) half_log(float x)
-{
-	float res = OCL_SVML_FUNCTION(_logf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_log(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_logf4)(x);
-	return res;
-}
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_log(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_logf8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//half_log2
-float __attribute__((overloadable)) half_log2(float x)
-{
-	float res = OCL_SVML_FUNCTION(_log2f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_log2(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_log2f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_log2(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_log2f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//half_log10
-float __attribute__((overloadable)) half_log10(float x)
-{
-	float res = OCL_SVML_FUNCTION(_log10f1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_log10(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_log10f4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_log10(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_log10f8)(x);
-	return res;
-}
-#endif // defined(__AVX__)
-
-//half_powr
-float __attribute__((overloadable)) half_powr(float x,float y)
-{
-	float res = OCL_SVML_FUNCTION(_powrf1)(x,y);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_powr(float4 x,float4 y)
-{
-	__m128 res = OCL_SVML_FUNCTION(_powrf4)(x,y);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_powr(float8 x,float8 y)
-{
-	__m256 res = OCL_SVML_FUNCTION(_powrf8)(x,y);
-	return res;
-}
-#endif // defined(__AVX__)
 
 //half_recip
 float __attribute__((overloadable)) half_recip(float x)
@@ -1567,28 +1404,6 @@ float8 __attribute__((overloadable)) half_rsqrt(float8 x)
 }
 #endif // defined(__AVX__)
 
-//half_sin
-float __attribute__((overloadable)) half_sin(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_sinf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_sin(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_sinf4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_sin(float8 x)
-{
-    __m256 res = OCL_SVML_FUNCTION(_sinf8)(x);
-    return res;
-}
-#endif // defined(__AVX__)
-
 //half_sqrt
 float __attribute__((overloadable)) half_sqrt(float x)
 {
@@ -1604,28 +1419,6 @@ float4 __attribute__((overloadable)) half_sqrt(float4 x)
 float8 __attribute__((overloadable)) half_sqrt(float8 x)
 {
     return native_sqrt(x);
-}
-#endif // defined(__AVX__)
-
-//half_tan
-float __attribute__((overloadable)) half_tan(float x)
-{
-	float res;
-	res = OCL_SVML_FUNCTION(_tanf1)(x);
-	return res;
-}
-
-float4 __attribute__((overloadable)) half_tan(float4 x)
-{
-	__m128 res = OCL_SVML_FUNCTION(_tanf4)(x);
-	return res;
-}
-
-#if defined(__AVX__)
-float8 __attribute__((overloadable)) half_tan(float8 x)
-{
-	__m256 res = OCL_SVML_FUNCTION(_tanf8)(x);
-	return res;
 }
 #endif // defined(__AVX__)
 

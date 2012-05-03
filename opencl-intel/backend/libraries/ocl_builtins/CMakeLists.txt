@@ -456,7 +456,6 @@ endforeach (FILE)
 
 # running build for all supported SIMD architectures 
 add_subdirectory (corei7)
-add_subdirectory (penryn)
 add_subdirectory (sandybridge)
 add_subdirectory (haswell)
 if (INCLUDE_MIC_DEVICE)
