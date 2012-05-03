@@ -45,21 +45,6 @@ extern "C" {
     #define test_finish()
     #define vlog_perf(_number, _higherBetter, _numType, _format, ...) printf("Performance Number " _format " (in %s, %s): %g\n",##__VA_ARGS__, _numType,    \
                         _higherBetter?"higher is better":"lower is better" , _number)
-    #ifdef _WIN32
-        #ifdef __MINGW32__
-            // Use __mingw_printf since it supports "%a" format specifier
-            #define vlog __mingw_printf
-            #define vlog_error __mingw_printf
-        #else
-            // Use home-baked function that treats "%a" as "%f"
-        static int vlog_win32(const char *format, ...);
-        #define vlog vlog_win32
-        #define vlog_error vlog_win32
-        #endif
-    #else
-        #define vlog_error printf
-        #define vlog printf
-    #endif
 #endif
 
 #define ct_assert(b)          ct_assert_i(b, __LINE__)
@@ -85,44 +70,6 @@ extern const char *GetDeviceTypeName( cl_device_type type );
 
 // NON-REENTRANT UNLESS YOU PROVIDE A BUFFER PTR (pass null to use static storage, but it's not reentrant then!)
 extern const char *GetDataVectorString( void *dataBuffer, size_t typeSize, size_t vecSize, char *buffer );
-
-#if defined (_WIN32) && !defined(__MINGW32__)
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-static int vlog_win32(const char *format, ...)
-{
-    const char *new_format = format;
-
-    if (strstr(format, "%a")) {
-        char *temp;
-        if ((temp = strdup(format)) == NULL) {
-            printf("vlog_win32: Failed to allocate memory for strdup\n");
-            return -1;
-        }
-        new_format = temp;
-        while (*temp) {
-            // replace %a with %f
-            if ((*temp == '%') && (*(temp+1) == 'a')) {
-                *(temp+1) = 'f';
-            }
-            temp++;
-        }
-    }
-
-    va_list args;
-    va_start(args, format);
-    vprintf(new_format, args);
-    va_end(args);
-
-    if (new_format != format) {
-        free((void*)new_format);
-    }
-
-    return 0;
-}
-#endif
-
 
 #ifdef __cplusplus
 }
