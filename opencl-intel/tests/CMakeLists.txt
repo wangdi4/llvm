@@ -6,7 +6,7 @@ if ( INCLUDE_MIC_DEVICE )
 	if (INCLUDE_SHOC_1_1_1)
 		add_subdirectory( shoc1.1.1 )
 	endif(INCLUDE_SHOC_1_1_1)
-    
+    add_subdirectory( mic_device_test_type )
 endif( INCLUDE_MIC_DEVICE )
 
 
