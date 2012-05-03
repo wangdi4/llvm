@@ -1,5 +1,4 @@
 ; XFAIL: win32
-; XFAIL: *
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:        -march=y86-64 -mcpu=knc 
@@ -12,7 +11,7 @@ declare <16 x float> @llvm.x86.mic.broadcast.ps(float)
 
 define <16 x float> @f_broadcast_ps(float %arg0) {
 ; KNF: f_broadcast_ps:
-; KNF: vbroadcastps
+; KNF: vshuf128x32 $0, $0, %v{{[0-9]*}}, %v{{[0-9]*}}
 entry:
   %ret = call <16 x float> @llvm.x86.mic.broadcast.ps(float %arg0)
 

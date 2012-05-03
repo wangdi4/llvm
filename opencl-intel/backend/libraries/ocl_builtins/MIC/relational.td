@@ -496,7 +496,7 @@ OclBuiltinImpl bitselect_vector = OclBuiltinImpl<bitselect, [v16i8, v16u8, v16i1
     int16 a_reg = (int16)ext_from($Arg0VarName);
     int16 b_reg = (int16)ext_from($Arg1VarName);
     __m512i result_true = _mm512_and_epi32((__m512i)b_reg, (__m512i)c_reg);
-    __m512i result_false = _mm512_andnot_epi32((__m512i)a_reg, (__m512i)c_reg);
+    __m512i result_false = _mm512_andnot_epi32((__m512i)c_reg, (__m512i)a_reg);
     result_true = _mm512_or_epi32(result_true, result_false);
     return trunc_to_$NativeReturnType((int16)result_true);
   }]>;
