@@ -270,8 +270,8 @@ TEST(IocTests, llvmAndAsmCreation){
 TEST(IocTests, OptionSimd){
 	//const argument that you may change in the future
 	string const kernelName = "kernelSimd";
-	int const simdOptionLength = 3;
-	string const simdOption[simdOptionLength] = {"avx", "sse41", "sse42"};
+	int const simdOptionLength = 2;
+	string const simdOption[simdOptionLength] = {"avx", "sse42"};
 	
 	
 	//creating all the asm and llvm files
@@ -296,8 +296,6 @@ TEST(IocTests, DISABLED_OptionSimdDefault){
 		simdOption+="avx";
 	} else if (Intel::OpenCL::Utils::CPUDetect::GetInstance()->IsFeatureSupported(Intel::OpenCL::Utils::CFS_SSE42)) {
 		simdOption+="sse42";
-	} else if (Intel::OpenCL::Utils::CPUDetect::GetInstance()->IsFeatureSupported(Intel::OpenCL::Utils::CFS_SSE41)) {
-		simdOption+="sse41";
 	} else {
 		FAIL() << "simd option is not supported for this instructions set";
 	}
