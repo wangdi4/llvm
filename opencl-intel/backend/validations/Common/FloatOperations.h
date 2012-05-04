@@ -18,12 +18,10 @@ File Name:  FloatOperations.h
 #ifndef __FLOATOPERATIONS_H__
 #define __FLOATOPERATIONS_H__
 
-#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "dxfloat.h"
 #include <limits>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cmath>
 #include <cstring>
 #include "Exception.h"
 #include <assert.h>
@@ -89,9 +87,13 @@ namespace Validation
 
     namespace Utils
     {
-
         static const int SIGNIFICAND_BITS_FLOAT = 23;
         static const int SIGNIFICAND_BITS_DOUBLE = 52;
+
+        typedef struct  {
+            uint16_t high_val;
+            uint64_t low_val;
+        } uint80_t;
 
         static double AsFloat(uint64_t u);
         static float AsFloat(uint32_t u);
@@ -106,7 +108,7 @@ namespace Validation
             IntStorage(uint32_t in_val) {val = in_val;}
             uint32_t val;
         };
-        
+
         template<>
         struct IntStorage<double>
         {
@@ -137,7 +139,7 @@ namespace Validation
                 u.val += exp.val << GetSignificandSize();
 
                 // Check whether sign will be changed
-                if(mant.val == 0 && exp.val == 0 && ulp < 0) {                    
+                if(mant.val == 0 && exp.val == 0 && ulp < 0) {
                     u.val += abs(ulp);
                     u.val += GetSignMask().val;
                     sign = true;
@@ -148,8 +150,8 @@ namespace Validation
                     ImportFromUInt(u);
                 } else {
 
-                if(((uint64_t)abs(ulp) > mant.val + (exp.val << GetSignificandSize())) && 
-                //if(((uint64_t)abs(ulp) > mant.val) && 
+                if(((uint64_t)abs(ulp) > mant.val + (exp.val << GetSignificandSize())) &&
+                //if(((uint64_t)abs(ulp) > mant.val) &&
                  (((ulp > 0) && (!sign)) || ((ulp < 0) && (sign))))
                 {
                     ulp = abs((long)mant.val - abs((long)ulp));
@@ -216,7 +218,7 @@ namespace Validation
         IntStorage<float> FloatParts<float>::GetMantMask();
         template<>
         IntStorage<double> FloatParts<double>::GetMantMask();
-        
+
         template<typename T>
         bool IsNaN(T a)
         {
@@ -414,27 +416,49 @@ namespace Validation
         /// Constants for unique float precision values (from inteloutputerrors.h)
         /** \brief a mask of float's sign bit */
         const uint32_t FLOAT_SIGN_MASK = 0x80000000;
-        ///	@brief a mask of float's exponent bits
+        /// @brief a mask of float's exponent bits
         const uint32_t FLOAT_EXP_MASK = 0x7F800000;
-        ///	@brief a mask of float's mantissa bits
+        /// @brief a mask of float's mantissa bits
         const uint32_t FLOAT_MANT_MASK = 0x007FFFFF;
         /// @brief a mask of float's minimal normalized number
         const uint32_t FLOAT_MIN_NORMALIZED = 0x00800000;
         /// @brief a mask of double's sign bits
         const uint64_t DOUBLE_SIGN_MASK = 0x8000000000000000;
-        ///	@brief a mask of double's exponent bits
+        /// @brief a mask of double's exponent bits
         const uint64_t DOUBLE_EXP_MASK = 0x7FF0000000000000;
-        ///	@brief a mask of double's mantissa bits
+        /// @brief a mask of double's mantissa bits
         const uint64_t DOUBLE_MANT_MASK = 0x000FFFFFFFFFFFFF;
         /// @brief a mask of double's minimal normalized number
         const uint64_t DOUBLE_MIN_NORMALIZED = 0x0010000000000000;
+        /// @brief a mask of 80 bit long double's exponent bits (high 16 bits only)
+        const uint16_t DOUBLE_80BIT_EXP_MASK = 0x7FFF;
+        /// @brief a mask of 80 bit long double's mantissa bits (low 64 bits only)
+        const uint64_t DOUBLE_80BIT_F_MASK = 0x7FFFFFFFFFFFFFFF;
+        /// @brief a mask of 80 bit long double's sign bits (high 16 bits only)
+        const uint16_t DOUBLE_80BIT_SIGN_MASK = 0x8000;
+        /// @brief a mask of 80 bit long double's normalized number
+        const uint64_t DOUBLE_80BIT_I_MASK = 0x8000000000000000;
+
+        /// @brief reinterpret double as uint64_t
+        inline uint80_t AsUInt(long double d)
+        {
+            uint80_t x;
+            // sizeof(long double) implementation depending, could be equal 16
+            // even if actually only 10 bytes are used
+            assert(sizeof(d)>=(sizeof(x.low_val)+sizeof(x.high_val)));
+
+            memcpy(&x.low_val, (void*)((uint8_t*)&d), sizeof(x.low_val));
+            memcpy(&x.high_val, (void*)((uint8_t*)&d + sizeof(x.low_val)), sizeof(x.high_val));
+
+            return x;
+        }
 
         /// @brief reinterpret double as uint64_t
         inline uint64_t AsUInt(double d)
         {
             // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
             uint64_t x;
-            assert(sizeof(d)==sizeof(x)); 
+            assert(sizeof(d)==sizeof(x));
             memcpy(&x, &d, sizeof(d));
             return x;
         }
@@ -444,9 +468,9 @@ namespace Validation
         {
             // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
             uint32_t x;
-           assert(sizeof(f)==sizeof(x));
-	    memcpy(&x, &f, sizeof(f));
-	    return x;
+            assert(sizeof(f)==sizeof(x));
+            memcpy(&x, &f, sizeof(f));
+            return x;
         }
 
         template<>
@@ -505,10 +529,23 @@ namespace Validation
 
         template<>
         bool IsNInf( CFloat16 a );
-        
+
         template<>
         bool IsDenorm( CFloat16 a );
-        
+
+        inline long double AsFloat(uint80_t d)
+        {
+            long double x;
+            // sizeof(long double) implementation depending, could be equal 16
+            // even if actually only 10 bytes are used
+            assert(sizeof(x)>=(sizeof(d.low_val)+sizeof(d.high_val)));
+
+            memcpy((void*)((uint8_t*)&x), &d.low_val, sizeof(d.low_val));
+            memcpy((void*)((uint8_t*)&x + sizeof(d.low_val)), &d.high_val, sizeof(d.high_val));
+
+            return x;
+        }
+
         static double AsFloat(uint64_t u)
         {
             // TODO: TEST THIS CONVERSION
@@ -535,7 +572,7 @@ namespace Validation
         {
             return AsFloat((uint32_t)0x3F7FFFFF);
         }
-        
+
         // TODO: test error for this function
         template<>
         inline double Get1MinusEps()
@@ -598,7 +635,7 @@ namespace Validation
 
         template<>
         inline long double GetNInf()
-        { return -std::numeric_limits<long double>::infinity(); }
+        { return (long double)(-std::numeric_limits<double>::infinity()); }
 
         template<>
         inline CFloat16 GetNInf()
@@ -614,7 +651,7 @@ namespace Validation
 
         template<>
         inline long double GetPInf()
-        { return std::numeric_limits<long double>::infinity(); }
+        { return (long double)std::numeric_limits<double>::infinity(); }
 
         template<>
         inline CFloat16 GetPInf()
@@ -627,10 +664,10 @@ namespace Validation
         template<>
         inline double GetNaN()
         {   return std::numeric_limits<double>::quiet_NaN(); }
-        
+
         template<>
         inline long double GetNaN()
-        {   return std::numeric_limits<long double>::quiet_NaN(); }
+        {   return (long double)std::numeric_limits<double>::quiet_NaN(); }
 
         template<>
         inline CFloat16 GetNaN()
@@ -653,7 +690,7 @@ namespace Validation
         public:
             typedef double type;
         };
-        
+
         /// long double is "super" format for double
         template<>
         class superT<double>{
@@ -691,7 +728,7 @@ namespace Validation
             return Utils::eq( a, b);
         }
 
-    } 
+    }
 
 } // End of Validation namespace
 #endif // __UTILS_H__

@@ -36,6 +36,7 @@ public:
     {
         // take external seed from TestMain.cpp, if 0, produce seed inside generator
         seed = Validation::SetSeed(seedForValidation);
+        Validation::SetPrecisionBits();
     }
 
     ~ALUTest()

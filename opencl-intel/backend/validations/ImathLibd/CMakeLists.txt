@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 2.8.4)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
-set (TARGET_NAME "REFALU")
-set (TARGET_NAME_WRAPPER "REFALU_wrapper")
+set (TARGET_NAME "ImathLibd")
 
 if (WIN32)
-project( ${TARGET_NAME_WRAPPER} )
+set (TARGET_NAME_WRAPPER "ImathLibd_wrapper")
+project( ${TARGET_NAME} )
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   # 32 bit
@@ -36,7 +36,7 @@ endif ()
     set (ICC_CPU_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/iclvars_${ICC_PLATFORM}.bat)
   endif()
   set (ICC_CPU_CL ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/icl.exe)
-  set (ICC_CPU_LD ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/xilib.exe)
+  set (ICC_CPU_LD ${ICC_WIN32_PATH}/bin/${ICC_PLATFORM}/xilink.exe)
 
 
   set (ICC_CPU_COMPILER_SCRIPT compile_win.bat)
@@ -45,21 +45,32 @@ endif ()
 
 set (CL_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 
-# remember REFALU source dir
-set (REFALU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message (" ${TARGET_NAME} sources are in: ${REFALU_SOURCE_DIR}")
+# remember imathLibd source dir
+set (IMATHLIBD_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+message (" ${TARGET_NAME} sources are in: ${IMATHLIBD_SOURCE_DIR}")
 
 # separate subdirs for each build type (Debug or Release)
 set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
 message ("CL_BUILD_TYPE:   ${CL_BUILD_TYPE}")
 
-    set(LLVM_TOOLS_LIB_DIR ${LLVM_BINARY_DIR}/lib/${CL_BUILD_TYPE})
+# target directory for .dll/.so 
+    set (IMATHLIBD_INSTALL_DIR ${LLVM_TOOLS_BINARY_DIR}/${CL_BUILD_TYPE})
+message ("IMATHLIBD library will be in: ${IMATHLIBD_INSTALL_DIR}")
+
+set(LLVM_TOOLS_LIB_DIR ${LLVM_BINARY_DIR}/lib/${CL_BUILD_TYPE})
 
 
 # icc
-
   set (BUILD_TYPE_ICC_COMPILER_FLAGS_Debug "/Od /D_DEBUG /RTC1 /MDd")
-  set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "/O2 /Oi /Qipo /DNDEBUG /MD /Gy")
+  set (BUILD_TYPE_ICC_COMPILER_FLAGS_Release "/Od /Oi /Qipo /DNDEBUG /MD /Gy")
+  
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "/MACHINE:X86 /DEBUG")
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X86 /DEBUG /OPT:REF /OPT:ICF")  
+  else ()
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "/MACHINE:X64 /DEBUG")
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X64 /DEBUG /OPT:REF /OPT:ICF")    
+  endif ()
 
 #
 # Compile single C source file
@@ -83,7 +94,7 @@ function( compile_c COMPILER_SCRIPT OUTPUT_FILE_VAR INPUT_FILE OUTPUT_DIR )
     MAIN_DEPENDENCY ${INPUT_FILE}
     DEPENDS ${COMPILER_SCRIPT} ${HEADER_FILES}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
-    WORKING_DIRECTORY ${REFALU_SOURCE_DIR}
+    WORKING_DIRECTORY ${IMATHLIBD_SOURCE_DIR}
     COMMENT "C Compiling ${INPUT_FILE}"
     VERBATIM
     )
@@ -107,7 +118,11 @@ endfunction( compile_c )
 
 function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAME OUTPUT_DIR)
 
-  set (OUTPUT_FILE ${CMAKE_STATIC_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+  set (OUTPUT_FILE ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  set (IMPLIB_FILE ${CMAKE_STATIC_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+  # PDB file will be generated for Win32
+  set (PDB_FILE ${TARGET_NAME}.pdb)
 
   # Compile all files and prepare a 'TMP_FILES' list of object files
   foreach (FILE ${ARGN})   
@@ -119,10 +134,10 @@ function( add_c_library LINKER_SCRIPT COMPILER_SCRIPT OUTPUT_FILE_VAR TARGET_NAM
   
   # link C library 
     add_custom_command (
-	  OUTPUT ${LLVM_TOOLS_LIB_DIR}/${OUTPUT_FILE}
-      COMMAND ${LINKER_SCRIPT} ${CL_BUILD_TYPE} ${LLVM_TOOLS_LIB_DIR}/${OUTPUT_FILE} ${TMP_FILES}
+	  OUTPUT ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMAND ${LINKER_SCRIPT} ${CL_BUILD_TYPE} ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE} ${IMATHLIBD_INSTALL_DIR}/${PDB_FILE} ${LLVM_TOOLS_LIB_DIR}/${IMPLIB_FILE} ${TMP_FILES}
       DEPENDS ${LINKER_SCRIPT} ${TMP_FILES_DEPEND}
-      COMMENT "C Linking ${OUTPUT_FILE}"
+      COMMENT "C Linking ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
       VERBATIM
       )
   
@@ -134,43 +149,28 @@ endfunction( add_c_library )
 #------------------ Main -----------------------
 # C source code
 list (APPEND C_SOURCE_FILES
-RefALU.cpp
-ImagesALU.cpp
-./Conformance/reference_math.cpp
-./Conformance/reference_convert.cpp
-./Conformance/Utility.cpp
-./Conformance/test_common/msvc9.cpp
-./Conformance/test_common/rounding_mode.cpp
-../Common/FloatOperations.cpp
-)
+  dllmain.cpp
+  imathLibd.cpp
+  stdafx.cpp
+  )
   
  # project header files
 list (APPEND HEADER_FILES
-  ../Common/FloatOperations.h
-  ../Common/dxfloat.h
-  ../Common/Exception.h
-  RefALU.h
-  ImagesALU.h
-  ./Conformance/reference_convert.h
-  ./Conformance/reference_math.h
-  ./Conformance/Utility.h
-  ./Conformance/test_common/compat.h
-  ./Conformance/test_common/errorHelpers.h
-  ./Conformance/test_common/rounding_mode.h
-  ./Conformance/test_common/testHarness.h
-  ./Conformance/test_common/threadTesting.h
+  stdafx.h
+  targetver.h
+  imathLibd.h
   )
 
 set (SAVE_C_SOURCE_FILES ${C_SOURCE_FILES})
 unset (C_SOURCE_FILES)
 foreach (FILE ${SAVE_C_SOURCE_FILES})
-  list (APPEND C_SOURCE_FILES ${REFALU_SOURCE_DIR}/${FILE})
+  list (APPEND C_SOURCE_FILES ${IMATHLIBD_SOURCE_DIR}/${FILE})
 endforeach (FILE)
 
 set (SAVE_HEADER_FILES ${HEADER_FILES})
 unset (HEADER_FILES)
 foreach (FILE ${SAVE_HEADER_FILES})
-  list (APPEND HEADER_FILES ${REFALU_SOURCE_DIR}/${FILE})
+  list (APPEND HEADER_FILES ${IMATHLIBD_SOURCE_DIR}/${FILE})
 endforeach (FILE)
 
 # conversion of filepaths used during configuration of ICC compiler and linker scripts to native format (as they will be directly used by these scripts)
@@ -186,56 +186,40 @@ configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU
 set (ICC_CPU_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT})
 set (ICC_CPU_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT})
   
-# intermediate directory for OpenCL and ICC compilation/link
-# note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
+
+  # intermediate directory for OpenCL and ICC compilation/link
+  # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
     set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
 
-add_c_library( ${ICC_CPU_LINKER_SCRIPT} ${ICC_CPU_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
+ 
+  # build DLL/.so file out of C code (by ICC) and copy it to install directory
+  add_c_library( ${ICC_CPU_LINKER_SCRIPT} ${ICC_CPU_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES})
 
-# top-level target for C target
-add_custom_target (${TARGET_NAME_WRAPPER} ALL
-  DEPENDS ${LLVM_TOOLS_LIB_DIR}/${OUTPUT_C_LIB}
-  COMMENT "Target ${TARGET_NAME} build completed"
-  VERBATIM
-  SOURCES ${C_SOURCE_FILES} ${HEADER_FILES}
-  )
-  
-add_dependencies(${TARGET_NAME_WRAPPER} ImathLibd)
+  # top-level target for C target
+  add_custom_target (${TARGET_NAME_WRAPPER} ALL
+    DEPENDS ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_C_LIB}
+    COMMENT "Target ${TARGET_NAME} build completed"
+    VERBATIM
+    SOURCES ${C_SOURCE_FILES} ${HEADER_FILES}
+    )
 
-set_target_properties( ${TARGET_NAME_WRAPPER} PROPERTIES lib_dir  ${LLVM_TOOLS_LIB_DIR} )
+    install( FILES ${LLVM_TOOLS_BINARY_DIR}/${CL_BUILD_TYPE}/${OUTPUT_C_LIB} DESTINATION bin)
+    set_target_properties( ${TARGET_NAME_WRAPPER} PROPERTIES lib_dir  ${LLVM_TOOLS_LIB_DIR} )
 
-else(WIN32)
-	
-include_directories(${BACKEND_ROOT_DIR}/../cl_api . ../ImathLibd)
-set(LLVM_REQUIRES_EH 1)
-set(LLVM_REQUIRES_EH 1)
+else (WIN32)
 
-set(REFALU_HEADERS
-  ../Common/FloatOperations.h
-  ../Common/dxfloat.h
-  ../Common/Exception.h
-    ImagesALU.h
-  ./Conformance/reference_convert.h
-  ./Conformance/reference_math.h
-  ./Conformance/Utility.h
-  ./Conformance/test_common/compat.h
-  ./Conformance/test_common/rounding_mode.h
-  ./Conformance/test_common/testHarness.h
-  ./Conformance/test_common/threadTesting.h
+add_llvm_library(${TARGET_NAME} SHARED
+  stdafx.h
+  targetver.h
+  imathLibd.h
+  dllmain.cpp
+  imathLibd.cpp
+  stdafx.cpp
 )
 
-add_llvm_library(${TARGET_NAME} STATIC
-${REFALU_HEADERS}
-RefALU.cpp
-ImagesALU.cpp
-./Conformance/reference_math.cpp
-./Conformance/reference_convert.cpp
-./Conformance/Utility.cpp
-./Conformance/test_common/msvc9.cpp
-./Conformance/test_common/rounding_mode.cpp
-../Common/FloatOperations.cpp
-)
 
-add_dependencies(${TARGET_NAME} ImathLibd)
-
-endif(WIN32)
+install(TARGETS ${TARGET_NAME} 
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)
+endif (WIN32)
