@@ -176,11 +176,25 @@ OpenCLMICBackendRunner::OpenCLMICBackendRunner(const BERunOptions& config):
 
     COIEVENT barrier;
     int32_t initDeviceReturnValue = 0; // success
+    MICBackendOptions options;
+    options.InitFromRunConfiguration(config);
+
+    COIBUFFER buff;
+    CHECK_COI_RESULT(
+        COIBufferCreate(
+        options.GetSerializedSize(),             // +1 is for '\0'
+        COI_BUFFER_NORMAL,      // Type of the buffer
+        COI_OPTIMIZE_SINK_READ,
+        options.GetSerializedData(),
+        1, &m_procAndPipe.GetProcessHandler(),            // Processes that will use the buffer
+        &buff                   // Buffer handle that was created
+        ));
+    const COI_ACCESS_FLAGS accessFlags = COI_SINK_READ;
     // Initialize device
     CHECK_COI_RESULT(
         COIPipelineRunFunction(
         m_procAndPipe.GetPipelineHandler(), m_device_functions[INIT_DEVICE],// Pipeline handle and function handle
-        0, NULL, NULL,                                                      // Buffers and access flags
+        1, &buff, &accessFlags,                                             // Buffers and access flags
         0, NULL,                                                            // Input dependencies
         NULL, 0,                                                            // Misc Data to pass to the function
         &initDeviceReturnValue, sizeof(initDeviceReturnValue),              // Return values that will be passed back
@@ -192,6 +206,8 @@ OpenCLMICBackendRunner::OpenCLMICBackendRunner(const BERunOptions& config):
         assert (initDeviceReturnValue == -1);
         throw Exception::TestRunnerException(std::string("InitDevice function has failed."));
     }
+
+    CHECK_COI_RESULT(COIBufferDestroy(buff));
 
     // Enqueue the function for execution
     // Pass in misc_data and return value pointer to run function

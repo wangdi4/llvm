@@ -257,10 +257,50 @@ public:
         }
     }
 
+    // These two methods intended to serialize command line options only.
+    // Target data is not serialized because:
+    // 1. It will not be available at the moment of serialization.
+    // 2. It's not needed to pass to the device. Device already has this information.
+    // m_fileName member is not serialized because it's host-specific.
+    uint64_t GetSerializedSize() const
+    {
+        return 4 + // will pass m_transposeSize as uint32_t
+            m_cpu.size() + 1 + 4 + // 1 for termination symbol '\0', 4 for storing string size
+            m_cpuFeatures.size() + 1 + 4 +
+            1; // m_useVTune
+    }
+
+    char* GetSerializedData() const
+    {
+        uint64_t size = GetSerializedSize();
+        uint32_t offset = 0;
+        char* serialized = new char[size];
+        // transpose size
+        uint32_t transposeSize = (uint32_t)m_transposeSize;
+        memcpy(serialized+offset, &transposeSize, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        // m_cpu
+        uint32_t cpuSize = (uint32_t)m_cpu.size();
+        memcpy(serialized+offset, &cpuSize, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        memcpy(serialized+offset, m_cpu.c_str(), cpuSize);
+        offset += cpuSize;
+        // m_cpuFeatures
+        uint32_t cpuFeaturesSize = (uint32_t)m_cpuFeatures.size();
+        memcpy(serialized+offset, &cpuFeaturesSize, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        memcpy(serialized+offset, m_cpuFeatures.c_str(), cpuFeaturesSize);
+        offset += cpuFeaturesSize;
+        // m_useVTune
+        uint8_t useVTune = (uint8_t)m_useVTune;
+        memcpy(serialized+offset, &useVTune, sizeof(uint8_t));
+        return serialized;
+    }
+
 private:
     bool isMIC()
     {
-        return m_cpu == "knc" || m_cpu == "knf" || m_cpu == "auto-remote";
+        return m_cpu == "knc" || m_cpu == "knf";
     }
 
     size_t              m_targetDescSize;
@@ -276,11 +316,11 @@ private:
 
 /**
  * Description of ENABLE_SDE mode for MIC:
- * In the initialization flow for MIC, we need from the device (Target 
- * Description), this is a buffer of target data which will contain some 
- * info about the device capabilities and "execution context" (for now 
- * execution context can be SVML function addresses), this needed by the 
- * Compiler in order to generate the JIT and link it with the addresses 
+ * In the initialization flow for MIC, we need from the device (Target
+ * Description), this is a buffer of target data which will contain some
+ * info about the device capabilities and "execution context" (for now
+ * execution context can be SVML function addresses), this needed by the
+ * Compiler in order to generate the JIT and link it with the addresses
  * given from the device.
  */
 
@@ -288,7 +328,7 @@ class SDEBackendOptions: public CPUBackendOptions
 {
 public:
     SDEBackendOptions() : m_targetDescSize(0), m_pTargetDesc(NULL) {}
-    
+
     virtual ~SDEBackendOptions()
     {
         delete[] m_pTargetDesc;

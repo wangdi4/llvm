@@ -66,21 +66,21 @@ public:
 void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_t alignment)
 {
     size_t required_size = (size % PAGE_SIZE == 0) ? size : ((size_t)(size/PAGE_SIZE) + 1)*PAGE_SIZE;
-    
-    size_t aligned_size = 
+
+    size_t aligned_size =
         required_size +    // required size
-        (alignment - 1) +  // for alignment 
+        (alignment - 1) +  // for alignment
         sizeof(void*) +    // for the free ptr
         sizeof(size_t);    // to save the original size (for mprotect)
     void* pMem = malloc(aligned_size);
     if(NULL == pMem) return NULL;
-    
+
     char* pAligned = ((char*)pMem) + aligned_size - required_size;
     pAligned = (char*)(((size_t)pAligned) & ~(alignment - 1));
     ((void**)pAligned)[-1] = pMem;
     void* pSize = (void*)(((char*)pAligned) - sizeof(void*));
     ((size_t*)pSize)[-1] = required_size;
-    
+
 #if defined(__LP64__)
     int ret = mprotect( (void*)pAligned, required_size, PROT_READ | PROT_WRITE | PROT_EXEC );
     if (0 != ret)
@@ -91,7 +91,7 @@ void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_
 #else
     assert(false && "Not implemented");
 #endif
-    
+
     return pAligned;
 }
 
@@ -100,7 +100,7 @@ void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
     void* pMem  = ((void**)ptr)[-1];
     void* pSize = (void*)(((char*)ptr) - sizeof(void*));
     size_t size = ((size_t*)pSize)[-1];
-    
+
 #if defined(__LP64__)
     mprotect( (void*)ptr, size, PROT_READ | PROT_WRITE );
 #else
@@ -123,33 +123,110 @@ class MICNativeBackendOptions : public ICLDevBackendOptions
 public:
 
     // ICLDevBackendOptions interface
-    bool GetBooleanValue( int optionId, bool defaultValue) const
-    { return defaultValue;}
-    int GetIntValue( int optionId, int defaultValue) const
-    { return defaultValue;}
-    const char* GetStringValue( int optionId, const char* defaultValue)const
-    { return defaultValue;}
-    bool GetValue( int optionId, void* Value, size_t* pSize) const
-{
-    if (NULL == Value || NULL == pSize || sizeof(void*) != *pSize)
+    bool GetBooleanValue(int optionId, bool defaultValue) const
     {
-        return false;
-    }
-
-    switch (optionId)
-    {
-        case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
-            *(void**)Value = (void*)(&m_allocator);
-            return false;
-
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_USE_VTUNE :
+            return m_useVTune;
         default:
-            return false;
+            return defaultValue;
+        }
     }
-}
+
+    virtual int GetIntValue( int optionId, int defaultValue) const
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+            return (int)m_transposeSize;
+        default:
+            return defaultValue;
+        }
+    }
+
+    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+            return m_cpu.c_str();
+        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+            return m_cpuFeatures.c_str();
+        default:
+            return defaultValue;
+        }
+    }
+
+    virtual void SetStringValue(int optionId, const char* value)
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+            m_cpu = std::string(value);
+        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+            m_cpuFeatures = std::string(value);
+        default:
+            return;
+        }
+    }
+
+    bool GetValue( int optionId, void* Value, size_t* pSize) const
+    {
+        if (NULL == Value || NULL == pSize || sizeof(void*) != *pSize)
+        {
+            return false;
+        }
+
+        switch (optionId)
+        {
+            case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
+                *(void**)Value = (void*)(&m_allocator);
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    void DeSerializeOptions(const char* data, uint64_t size)
+    {
+        uint32_t offset = 0;
+        // transpose size
+        uint32_t transposeSize;
+        memcpy(&transposeSize, data+offset, sizeof(uint32_t));
+        m_transposeSize = (Intel::OpenCL::DeviceBackend::ETransposeSize)transposeSize;
+        offset += sizeof(uint32_t);
+        // m_cpu
+        uint32_t cpuSize;
+        memcpy(&cpuSize, data+offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        m_cpu.clear();
+        m_cpu.resize(cpuSize);
+        memcpy(&m_cpu[0], data+offset, cpuSize);
+        offset += cpuSize;
+        // m_cpuFeatures
+        uint32_t cpuFeaturesSize;
+        memcpy(&cpuFeaturesSize, data+offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+        m_cpuFeatures.clear();
+        m_cpuFeatures.resize(cpuFeaturesSize);
+        memcpy(&m_cpuFeatures[0], data+offset, cpuFeaturesSize);
+        offset += cpuFeaturesSize;
+        // m_useVTune
+        uint8_t useVTune = (uint8_t)m_useVTune;
+        memcpy(&useVTune, data+offset, sizeof(uint8_t));
+        m_useVTune = useVTune;
+    }
 
 private:
     MICNativeBackendExecMemoryAllocator m_allocator;
     MICNativeBackendPrintfFiller        m_printf;
+
+    Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
+    std::string    m_cpu;
+    std::string    m_cpuFeatures;
+    bool           m_useVTune;
 };
 
 // main is automatically called whenever the source creates a process.
@@ -160,7 +237,7 @@ int main(int argc, char** argv)
     UNREFERENCED_PARAM (argv);
 
     // Functions enqueued on the sink side will not start executing until
-    // you call COIPipelineStartExecutingRunFunctions(). This call is to 
+    // you call COIPipelineStartExecutingRunFunctions(). This call is to
     // synchronize any initialization required on the sink side.
 
     COIRESULT result = COIPipelineStartExecutingRunFunctions();
@@ -180,9 +257,9 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    // This call will wait until COIProcessDestroy() gets called on the source 
-    // side If COIProcessDestroy is called without force flag set, this call 
-    // will make sure all the functions enqueued are executed and does all 
+    // This call will wait until COIProcessDestroy() gets called on the source
+    // side If COIProcessDestroy is called without force flag set, this call
+    // will make sure all the functions enqueued are executed and does all
     // clean up required to
     // exit gracefully.
     COIProcessWaitForShutdown();
@@ -220,9 +297,9 @@ void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validat
     size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
     // In production sequence the Runtime calls Executable::PrepareThread()
-    // and Executable::RestoreThreadState() respectively before and 
-    // after executing a work group. 
-    // These routines setup and restore the MXCSR register and zero the upper parts of YMMs. 
+    // and Executable::RestoreThreadState() respectively before and
+    // after executing a work group.
+    // These routines setup and restore the MXCSR register and zero the upper parts of YMMs.
     CHECK_RESULT(context.GetExecutable()->PrepareThread());
 
     if( useTraceMarks )
@@ -258,14 +335,14 @@ void executeKernels(uint32_t         in_BufferCount,
     DEBUG_PRINT("Program execution has started on the MIC side!\n");
     DEBUG_PRINT("Number of Buffers: %d\n", in_BufferCount);
 
-    Validation::Sample deserializationTimer; 
+    Validation::Sample deserializationTimer;
     deserializationTimer.Start();
     // 0 buffer contains test program.
     ICLDevBackendProgram_ *pProgram;
     DEBUG_PRINT("Program deserialization has started ...\n");
     DEBUG_PRINT("Program blob: %p, blob size: %d\n", in_ppBufferPointers[0], uint32_t(in_pBufferLengths[0]));
     DEBUG_PRINT("First blob simbol: %s\n", (char*)in_ppBufferPointers[0]);
-   
+
     CHECK_RESULT(serializer->DeSerializeProgram(&pProgram, in_ppBufferPointers[0], size_t(in_pBufferLengths[0])));
     DEBUG_PRINT("done.\n");
     deserializationTimer.Stop();
@@ -273,7 +350,7 @@ void executeKernels(uint32_t         in_BufferCount,
     *(Validation::Sample*)(in_pReturnValue) = deserializationTimer;
 
     uint64_t numOfKernels = *(uint64_t*)in_pMiscData;
-    // Last buffer contains dispatcher data.    
+    // Last buffer contains dispatcher data.
     DispatcherData *dispatchers = (DispatcherData*)(in_ppBufferPointers[in_BufferCount - 1]);
     ExecutionOptions *exeOptions = (ExecutionOptions*)(dispatchers + numOfKernels);
     uint64_t kernelsArgIndex = 1;
@@ -422,7 +499,9 @@ void initDevice(
     void*            in_pReturnValue,
     uint16_t         in_ReturnValueLength)
 {
+    assert( 1 == in_BufferCount && "SINK: initDevice() should receive 1 buffer" );
     MICNativeBackendOptions options;
+    options.DeSerializeOptions((const char *)in_ppBufferPointers[0], in_pBufferLengths[0]);
 
     // Return value is assumed to be the 32-bit signed integer value.
     assert(in_ReturnValueLength == 4);
