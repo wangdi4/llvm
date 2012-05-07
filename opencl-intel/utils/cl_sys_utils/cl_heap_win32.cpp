@@ -136,9 +136,19 @@ static void *__safeHeapAlloc__(HANDLE heap, const size_t allocSize)
 int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
 {
 	assert(phHeap);
-	// No exceptions, with internal serialization (for LFH).
-    HANDLE hHeap = HeapCreate(0, 0, 0);
-	if ( NULL == hHeap)
+    HANDLE hHeap = NULL;
+
+#if defined(_M_X64) || defined(__x86_64__)
+    // No exceptions, with no internal serialization.
+    hHeap = HeapCreate(HEAP_NO_SERIALIZE , 0, 0);
+    if (NULL == hHeap)
+	{
+		return -1;
+	}
+#else // FOR 32 BIT WINDOWS
+    // No exceptions, with internal serialization (for LFH).
+    hHeap = HeapCreate(0 , 0, 0);
+	if (NULL == hHeap)
 	{
 		return -1;
 	}
@@ -153,6 +163,7 @@ int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
             " If running from debugger you need to set environment variable _NO_DEBUG_HEAP=1\n"),
                  GetLastError());
     }
+#endif
 
 	ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
 
