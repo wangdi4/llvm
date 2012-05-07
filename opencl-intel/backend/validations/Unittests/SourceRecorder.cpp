@@ -131,6 +131,36 @@ TEST(OCLSourceRecorder1_1, sorce_recorder_basic){
 }
 
 //
+//File iterator test
+//
+TEST(OCLSourceRecorder1_1, iterator_test){
+  const char* kernelName = "k.cl";;
+  const char* kernelContents = "__kernel void a(__global char* a, __global char* b){"
+    " int gid = get_global_id(0); b[gid] = a[gid];}";
+  unsigned char buffer[] = {0xde, 0xad, 0xbe, 0xef};
+  CompileDataFactory* pFactory = CompileDataFactory::init();
+  CompileData* pCompileData = pFactory->withFileName(kernelName).
+    withContent(kernelContents).
+    withBuffer(buffer, sizeof(buffer)).create();
+  MD5 md5(buffer, 4);
+  MD5Code md5Code = md5.digest();
+  OclSourceRecorder oclSourceRecorder;
+  oclSourceRecorder.OnCompile(pCompileData);
+  FileIter fileIter = oclSourceRecorder.begin(md5Code);
+  FileIter endIter1  = oclSourceRecorder.end();
+  FileIter endIter2  = oclSourceRecorder.end();
+  ASSERT_TRUE(fileIter == fileIter);
+  ASSERT_TRUE(fileIter != endIter1);
+  ASSERT_TRUE(endIter1 != fileIter);
+  ASSERT_TRUE(endIter1 == endIter1);
+  ASSERT_TRUE(endIter1 == endIter2);
+  FileIter copyIter = fileIter;
+  ASSERT_TRUE(copyIter == fileIter);
+  fileIter++;
+  ASSERT_TRUE(fileIter == endIter1);
+}
+
+//
 //A test for the thread safety of the ocl recorder
 //
 #ifndef _WIN32

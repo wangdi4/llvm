@@ -52,6 +52,7 @@ public:
   void setContents(const std::string& contents);
   void setCompilationFlags(const std::string& flags);
   void setBinaryBuffer(const BinaryBuffer& buffer);
+  bool operator == (const SourceFile&) const;
 private:
   //the name of the cl source file
   std::string m_name;

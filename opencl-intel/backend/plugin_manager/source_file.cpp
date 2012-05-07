@@ -75,4 +75,10 @@ namespace Intel { namespace OpenCL { namespace Frontend {
     m_binaryBuffer = binaryBuffer;
   }
 
+  bool SourceFile::operator ==(const SourceFile& that) const{
+	if (this == &that)
+	  return true;
+    return m_contents == that.m_contents;
+  }
+
 }}}//end namespace

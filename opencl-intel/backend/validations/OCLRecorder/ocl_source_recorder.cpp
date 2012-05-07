@@ -56,9 +56,14 @@ namespace Validation{
       FileIter ret;
       {
         llvm::MutexGuard lock(m_sourcemapLock);
-        ret = FileIter(m_sourceMap[code].begin(), m_sourceMap[code].end());
+        SourceFileMap::const_iterator iter = m_sourceMap.find(code);
+        if (iter == m_sourceMap.end())
+          return FileIter::end();
+        else {
+          SourceFilesVector& v = m_sourceMap[code];
+          return FileIter(v.begin(), v.end());
+        }
       }
-      return ret;
     }
 
     FileIter OclSourceRecorder::end() const{
@@ -85,7 +90,7 @@ namespace Validation{
     //
     FileIter FileIter::end(){
       FileIter ret;
-      ret.m_isExhausted = true;
+      ret.m_isExhausted = ret.m_isInitialized = true;
       return ret;
     }
 
@@ -95,18 +100,27 @@ namespace Validation{
     FileIter::FileIter(
       SourceFilesVector::const_iterator b,
       SourceFilesVector::const_iterator e):
-      m_isInitialized(true),
-      m_isExhausted(false){
+      m_isInitialized(true){
       m_iter = b;
       m_iterEnd = e;
+      m_isExhausted = (b == e);
     }
 
     bool FileIter::operator==(const FileIter& that)const{
+      assert (this->m_isInitialized && that.m_isInitialized
+	    && "comparission of uninitialized iterators");
       if (this == &that)
         return true;
-      if (this->m_isExhausted && that.m_isExhausted)
-        return true; //both reached the end
-      return m_iter == that.m_iter;
+      //one of the iterators reached the end, but not the other one
+      if (this->m_isExhausted != that.m_isExhausted)
+        return false;
+      //both reached the end
+      if (this->m_isExhausted)
+        return true;
+      assert (!this->m_isExhausted && !that.m_isExhausted && "internal error");
+      SourceFile left = *m_iter;
+      SourceFile right = *that.m_iter;
+      return (left == right);
     }
 
     bool FileIter::operator!=(const FileIter& that)const{
