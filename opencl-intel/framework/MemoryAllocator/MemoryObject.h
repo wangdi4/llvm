@@ -148,7 +148,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) = 0;
 
         // release data locking on device. 
-        virtual void UnLockOnDevice( IN const FissionableDevice* dev ) = 0;
+        // MUST pass the same usage value as LockOnDevice
+        virtual void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) = 0;
 
         //
         // end of ownership and data validity management

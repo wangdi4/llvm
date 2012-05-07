@@ -23,24 +23,16 @@ inline wchar_t* get_title( wchar_t* buffer,
     return buffer;
 }
 
-/**************************************************************************************************
- * cl_CPU_MIC_IntegerExecuteTest
- * -------------------
- * Implement image access test
- **************************************************************************************************/
-bool cl_CPU_MIC_IntegerExecuteTest()
+bool run_the_test(const char* test_name, bool include_migration)
 {
     bool         bResult = true;
     cl_int       iRet = CL_SUCCESS;
-    cl_device_id clCpuDeviceId;
-    cl_device_id clMicDeviceId;
-    cl_command_queue clCpuQueue = NULL;
-    cl_command_queue clMicQueue = NULL;
 
     const unsigned int number_of_rounds = 2;
-    cl_device_id   devices[number_of_rounds*2];
-    const wchar_t* dev_names[number_of_rounds*2];    
-    cl_command_queue dev_queue[number_of_rounds*2];
+    const wchar_t* dev_names[2] = { L"Cpu", L"Mic" };
+    cl_device_type dev_types[2] = { CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_ACCELERATOR };
+    cl_device_id   devices[2];
+    cl_command_queue dev_queue[2] = {NULL, NULL};
 
 	const unsigned int verification_device = 0;
     cl_device_id     device;
@@ -59,7 +51,7 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     cl_kernel  kernel;
 
 	printf("=============================================================\n");
-	printf("cl_CPU_MIC_IntegerExecuteTest\n");
+	printf("%s\n", test_name);
 	printf("=============================================================\n");
 
 	const char *ocl_test_program[] = {\
@@ -82,34 +74,29 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 		return bResult;
 	}
 
-    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clCpuDeviceId, NULL);
-    bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_CPU)", CL_SUCCESS, iRet);    
-    if (!bResult) return bResult;
-
-    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 1, &clMicDeviceId, NULL);
-    if (CL_DEVICE_NOT_FOUND == iRet)
+    for (unsigned int curr_dev = 0; curr_dev < sizeof(dev_types)/sizeof(dev_types[0]); ++curr_dev )
     {
-        // CL_DEVICE_TYPE_ACCELERATOR not found - skipping the test
-        bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_DEVICE_NOT_FOUND, iRet);    
-        return bResult;
+        dev_name = dev_names[curr_dev];
+        
+        iRet = clGetDeviceIDs(platform, dev_types[curr_dev], 1, &(devices[curr_dev]), NULL);
+
+        if ((CL_DEVICE_NOT_FOUND == iRet) && (CL_DEVICE_TYPE_CPU != dev_types[curr_dev]))
+        {
+            // CL_DEVICE_TYPE_ACCELERATOR not found - skipping the test
+            bResult &= SilentCheck(TITLE(L"clGetDeviceIDs for "), CL_DEVICE_NOT_FOUND, iRet);    
+            return bResult;
+        }
+        
+        bResult &= SilentCheck(TITLE(L"clGetDeviceIDs for "), CL_SUCCESS, iRet);    
+        if (!bResult) return bResult;
     }
-    
-    bResult &= SilentCheck(L"clGetDeviceIDs(CL_DEVICE_TYPE_ACCELERATOR)", CL_SUCCESS, iRet);    
-    if (!bResult) return bResult;
-
-    // For CPU-only uncomment
-    //clCpuDeviceId = clMicDeviceId;
-
-    // For MIC-only uncomment
-    //clMicDeviceId = clCpuDeviceId;
     
     //
     // Initiate test infrastructure:
     // Create context, Queue
     //
-    cl_device_id all_devices[] = { clCpuDeviceId, clMicDeviceId };
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-    cl_context context = clCreateContext( prop, sizeof( all_devices ) / sizeof( all_devices[0] ), all_devices, NULL, NULL, &iRet);
+    cl_context context = clCreateContext( prop, sizeof( devices ) / sizeof( devices[0] ), devices, NULL, NULL, &iRet);
     bResult &= SilentCheck(L"clCreateContext", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
@@ -145,43 +132,51 @@ bool cl_CPU_MIC_IntegerExecuteTest()
     
     global_work_size[0] = stBuffSize;
 
-    for (unsigned int i = 0; i < number_of_rounds; ++i)
-    {
-        devices[2*i]   = clCpuDeviceId;
-        devices[2*i+1] = clMicDeviceId;
-
-        dev_names[2*i]   = L"Cpu";
-        dev_names[2*i+1] = L"Mic";    
-    }
-
-    clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, 0 /*no properties*/, &iRet);
-    bResult &= SilentCheck(L"clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
-    if (!bResult) goto release_queues;
-
-    clMicQueue = clCreateCommandQueue (context, clMicDeviceId, 0 /*no properties*/, &iRet);
-    bResult &= SilentCheck(L"clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
-    if (!bResult) goto release_queues;
-
-    for (unsigned int i = 0; i < number_of_rounds; ++i)
-    {
-        dev_queue[2*i]   = clCpuQueue;
-        dev_queue[2*i+1] = clMicQueue;
-    }
-
     for (unsigned int curr_dev = 0; curr_dev < sizeof(devices)/sizeof(devices[0]); ++curr_dev )
 	{
         device   = devices[curr_dev];
         dev_name = dev_names[curr_dev];
-        queue    = dev_queue[curr_dev];
-        
-		// Execute kernel
-		printf("...NDRange(%ls)...\n",  dev_name );
-		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-		bResult &= SilentCheck(TITLE(L"clEnqueueNDRangeKernel for "), CL_SUCCESS, iRet);    
-        if (!bResult) break;
-        
-		iRet = clFinish(queue);
-		bResult &= SilentCheck(TITLE(L"clFinish for "), CL_SUCCESS, iRet);    
+
+        dev_queue[curr_dev] = clCreateCommandQueue (context, device, 0 /*no properties*/, &iRet);
+        bResult &= SilentCheck(TITLE(L"clCreateCommandQueue - queue for "), CL_SUCCESS, iRet);
+        if (!bResult) goto release_queues;
+    }
+
+    for (unsigned int round = 0; round < number_of_rounds; ++round)
+    {
+        for (unsigned int curr_dev = 0; curr_dev < sizeof(devices)/sizeof(devices[0]); ++curr_dev )
+    	{
+            device   = devices[curr_dev];
+            dev_name = dev_names[curr_dev];
+            queue    = dev_queue[curr_dev];
+
+            if (include_migration)
+            {
+                printf("...Migrate from HOST to %ls...\n",  dev_name );
+                iRet = clEnqueueMigrateMemObjects(queue, 1, &clBuff, 0, 0, NULL, NULL);
+                bResult &= SilentCheck(TITLE(L"clEnqueueMigrateMemObjects from HOST to "), CL_SUCCESS, iRet);    
+                if (!bResult) break;
+            }
+            
+    		// Execute kernel
+    		printf("...NDRange(%ls)...\n",  dev_name );
+    		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
+    		bResult &= SilentCheck(TITLE(L"clEnqueueNDRangeKernel for "), CL_SUCCESS, iRet);    
+            if (!bResult) break;
+
+            if (include_migration)
+            {
+                printf("...Migrate from %ls to HOST...\n",  dev_name );
+                iRet = clEnqueueMigrateMemObjects(queue, 1, &clBuff, CL_MIGRATE_MEM_OBJECT_HOST, 0, NULL, NULL);
+                bResult &= SilentCheck(TITLE(L"clEnqueueMigrateMemObjects to HOST from "), CL_SUCCESS, iRet);    
+                if (!bResult) break;
+            }
+
+    		iRet = clFinish(queue);
+    		bResult &= SilentCheck(TITLE(L"clFinish for "), CL_SUCCESS, iRet);    
+            if (!bResult) break;
+        }
+
         if (!bResult) break;
     }
 
@@ -201,32 +196,33 @@ bool cl_CPU_MIC_IntegerExecuteTest()
 
 	for( unsigned y=0; y < stBuffSize; ++y )
 	{
-		if ( pDstBuff[y] != (pBuff[y] + 10 * sizeof(devices)/sizeof(devices[0])))
+		if ( pDstBuff[y] != (pBuff[y] + 10 * number_of_rounds * sizeof(devices)/sizeof(devices[0])))
 		{
 			bResult = false;
+            break;
 		}
 	}
 
 	if ( bResult )
 	{
-	    printf ("*** cl_CPU_MIC_IntegerExecuteTest compare verification succeeded *** \n");
+	    printf ("*** %s compare verification succeeded *** \n", test_name);
 	}
 	else
 	{
-		printf ("!!!!!! cl_CPU_MIC_IntegerExecuteTest compare verification failed !!!!! \n");
+		printf ("!!!!!! %s compare verification failed !!!!! \n", test_name);
 	}
 
 main_error_exit:
 release_queues:
-    if (NULL != clCpuQueue)
+    for (unsigned int curr_dev = 0; curr_dev < sizeof(dev_queue)/sizeof(dev_queue[0]); ++curr_dev )
     {
-		clFinish(clCpuQueue);
-		clReleaseCommandQueue(clCpuQueue);
-    }
-    if (NULL != clMicQueue)
-    {
-		clFinish(clMicQueue);
-		clReleaseCommandQueue(clMicQueue);
+        queue = dev_queue[curr_dev];
+        if (NULL == queue)
+        {
+            continue;
+        }
+		clFinish(queue);
+		clReleaseCommandQueue(queue);
     }
 release_kernel:
     clReleaseKernel(kernel);
@@ -237,4 +233,25 @@ release_context:
 release_end:
     return bResult;
 }
+
+/**************************************************************************************************
+ * cl_CPU_MIC_IntegerExecuteTest
+ * -------------------
+ * Implement image access test
+ **************************************************************************************************/
+bool cl_CPU_MIC_IntegerExecuteTest()
+{
+    return run_the_test(__FUNCTION__, false);
+}
+
+/**************************************************************************************************
+ * cl_CPU_MIC_MigrateTest
+ * -------------------
+ * Implement image access test
+ **************************************************************************************************/
+bool cl_CPU_MIC_MigrateTest()
+{
+    return run_the_test(__FUNCTION__, true);
+}
+
 

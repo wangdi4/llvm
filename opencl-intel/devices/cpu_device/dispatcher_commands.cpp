@@ -1350,3 +1350,74 @@ bool FillMemObject::Execute()
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 	return true;
 }
+
+///////////////////////////////////////////////////////////////////////////
+// OCL Migrate buffer/image execution
+
+cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+{
+	MigrateMemObject* pCommand = new MigrateMemObject(pTD);
+	if (NULL == pCommand)
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+#ifdef _DEBUG
+	cl_dev_err_code rc;
+	rc = pCommand->CheckCommandParams(pCmd);
+	assert(CL_DEV_SUCCESS == rc);
+#endif
+
+	pCommand->m_pCmd = pCmd;
+	assert(pTask);
+	*pTask = static_cast<ITaskBase*>(pCommand);
+
+	return CL_DEV_SUCCESS;
+}
+
+MigrateMemObject::MigrateMemObject(TaskDispatcher* pTD) :
+	DispatcherCommand(pTD)
+{
+}
+
+cl_dev_err_code MigrateMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	if ( sizeof(cl_dev_cmd_param_migrate) != cmd->param_size )
+	{
+		return CL_DEV_INVALID_COMMAND_PARAM;
+	}
+
+	cl_dev_cmd_param_migrate *cmdParams = (cl_dev_cmd_param_migrate*)(cmd->params);
+
+    if (0 == cmdParams->mem_num)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+	for (unsigned int i=0; i< cmdParams->mem_num; ++i)
+	{
+		if(NULL == cmdParams->memObjs[i])
+		{
+			return CL_DEV_INVALID_VALUE;
+		}
+	}
+
+    if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST | CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+    
+	return CL_DEV_SUCCESS;
+}
+
+bool MigrateMemObject::Execute()
+{
+	//cl_dev_cmd_param_migrate* cmdParams = (cl_dev_cmd_param_migrate*)m_pCmd->params;
+
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+    // TODO: Numa implementation
+
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+	return true;
+}
+

@@ -285,6 +285,7 @@ enum cl_dev_cmd_type
 	CL_DEV_CMD_EXEC_NATIVE,			//!< Execute native kernel command
     CL_DEV_CMD_FILL_BUFFER,         //!< Fill buffer
     CL_DEV_CMD_FILL_IMAGE,          //!< Fill image
+    CL_DEV_CMD_MIGRATE,             //!< Migrate memory object
     //--------------------
 	CL_DEV_CMD_MAX_COMMAND_TYPE
 };
@@ -540,6 +541,16 @@ struct cl_dev_cmd_param_fill
 } ;
 
 /**
+ * Used for memory objects migrations
+ */
+struct cl_dev_cmd_param_migrate
+{
+    IOCLDevMemoryObject*        *memObjs;          //!< Array of handles to device memory objects
+    cl_uint                      mem_num;          //!< Number of memory objects in array
+    cl_mem_migration_flags       flags;            //!< Migration flags
+};
+
+/**
 * \typedef fn_clNativeKernel
 * native function prototype
 */
@@ -686,6 +697,7 @@ public:
     virtual size_t GetRawDataOffset( const size_t* origin ) const = 0;
 
 	virtual bool IsDataValid() const = 0;
+    virtual void SetDataValid(bool value) = 0;
 
 	//!	Returns a number of dimensions used by data in the Backing Store
 	virtual size_t GetDimCount() const = 0;

@@ -512,6 +512,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
         return CL_DEV_ERROR_FAIL;
     }
 
+	MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjUpdateBackingStore enter"));
+
     assert( NULL != pUpdateState );
 
     COIEVENT  completion_event;
@@ -554,6 +556,8 @@ void MICDevMemoryObject::fireCallBack(void* arg)
         return;
      }
 
+     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("BackingStoreUpdateFinished enter"));
+
      m_pRTMemObjService->BackingStoreUpdateFinished(arg, CL_DEV_SUCCESS );
 }
 
@@ -566,6 +570,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
     {
         return CL_DEV_ERROR_FAIL;
     }
+
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
 
     assert( NULL != pUpdateState );
 
@@ -604,6 +610,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
     {
         return CL_DEV_ERROR_FAIL;
     }
+
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjInvalidateData enter"));
 
     COI_ProcessesArray coi_processes = get_active_processes();
 

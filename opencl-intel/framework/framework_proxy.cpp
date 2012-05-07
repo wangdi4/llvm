@@ -235,10 +235,11 @@ void FrameworkProxy::Initialize()
 			}
 			// Add Process if before the "."
 			//Calculate Extension lenght
-			size_t extLen = str.length() - ext + 16;
 			std::string procId;
-			procId.resize(extLen);
-			SPRINTF_S(&procId[0], extLen, "_%d%s", GetProcessId(), &str[ext]);
+            const unsigned int pid_length = 16;
+			procId.resize(pid_length);
+			SPRINTF_S(&procId[0], pid_length, "_%d", GetProcessId());
+            procId.resize(strlen(&procId[0]));
 			str.insert(ext, procId);
 
 			//null-call to get the size

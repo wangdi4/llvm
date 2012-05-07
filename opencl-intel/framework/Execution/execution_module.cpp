@@ -766,44 +766,31 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
         return CL_INVALID_COMMAND_QUEUE;
     }    
     
-    Context* const pQueueContext = m_pContextModule->GetContext(pCommandQueue->GetContextHandle());
-    assert(NULL != pQueueContext);
-    for (cl_uint i = 0; i < uiNumMemObjects; i++)
-    {
-        const MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pMemObjects[i]);
-        if (NULL == pMemObjects)
-        {
-            return CL_INVALID_MEM_OBJECT;
-        }
-        if (pMemObj->GetContext() != pQueueContext)
-        {
-            return CL_INVALID_CONTEXT;
-        }
-    }
-
-    // currently we do a dummy implementation that just puts a marker
-    MarkerCommand* const pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch, false);
-    if (NULL == pMarkerCommand)
+    MigrateMemObjCommand* pMigrateCommand = new MigrateMemObjCommand(
+                                        pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch, 
+                                        m_pContextModule,
+                                        clFlags, 
+                                        uiNumMemObjects, pMemObjects );
+    if (NULL == pMigrateCommand)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    cl_err_code err = pMarkerCommand->Init();
+    cl_err_code err = pMigrateCommand->Init();
     if (CL_FAILED(err))
     {
-        delete pMarkerCommand;
+        delete pMigrateCommand;
         return err;
     }
 
-    QueueEvent& markerEvent = *pMarkerCommand->GetEvent();
-    m_pEventsManager->RegisterQueueEvent(&markerEvent, pEvent);
-    err = pCommandQueue->EnqueueMarkerWaitEvents(pMarkerCommand, uiNumEventsInWaitList, pEventWaitList);
-    if (CL_FAILED(err))
+    err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    if(CL_FAILED(err))
     {
-        m_pEventsManager->ReleaseEvent(markerEvent.GetHandle());
-        pMarkerCommand->CommandDone();
-        delete pMarkerCommand;
+        // Enqueue failed, free resources
+        pMigrateCommand->CommandDone();
+        delete pMigrateCommand;
     }
+
     return err;
 }
 

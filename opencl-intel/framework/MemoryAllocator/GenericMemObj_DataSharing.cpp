@@ -137,7 +137,7 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
             {          
                 assert( MAX_DEVICE_SHARING_GROUP_ID > from_grp_id );
                 SharingGroup& from = m_sharing_groups[ from_grp_id ];
-                
+
                 dev_error = from.m_dev_mem_obj->clDevMemObjUpdateBackingStore( (void*)to_grp_id, &update_mode );
                 assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjUpdateBackingStore() failed" );
                 
@@ -150,8 +150,9 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
 
                 starting_state = DATA_COPY_STATE_FROM_BS;
 
-                if (CL_DEV_SUCCEEDED(dev_error) && (CL_DEV_BS_UPDATE_LAUNCHED == update_mode) )
+                if (CL_DEV_BS_UPDATE_LAUNCHED == update_mode)
                 {
+                    // setup lazy copy to BS
                     need_event_allocation = true;
 
                     // setup the link to the from group
@@ -163,26 +164,22 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
             // fall through
 
         case DATA_COPY_STATE_FROM_BS:
+            m_pBackingStore->SetDataValid(true); // data was copied into BS
+            
             dev_error = to.m_dev_mem_obj->clDevMemObjUpdateFromBackingStore( (void*)to_grp_id, &update_mode );
             assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjUpdateFromBackingStore() failed" );
             
-            // in parallel to update from BS - finalize the copy to BS
+            // in parallel to update from BS - finalize lazy copy to BS
             if (MAX_DEVICE_SHARING_GROUP_ID != to.m_data_copy_from_group)
             {
+                // lazy copy to BS was performed
                 SharingGroup& from = m_sharing_groups[ to.m_data_copy_from_group ];   
                 assert( from.m_data_copy_used_by_others_count > 0 );
                 --(from.m_data_copy_used_by_others_count);
 
-                if ((0== from.m_data_copy_used_by_others_count) && from.m_data_copy_invalidate_asap )
+                if ( from.m_data_copy_invalidate_asap )
                 {                   
-                    from.m_data_copy_invalidate_asap = false;
-                    cl_dev_err_code err = from.m_dev_mem_obj->clDevMemObjInvalidateData();
-                    assert( CL_DEV_SUCCEEDED(err) && "clDevMemObjInvalidateData() failed" );
-
-                    if (CL_DEV_FAILED(err))
-                    {
-                        LOG_ERROR(TEXT("Device Object returned error 0x%X during deferred invalidation"), err);
-                    }                    
+                    invalidate_data_for_group( from );
                 }
                 to.m_data_copy_from_group = MAX_DEVICE_SHARING_GROUP_ID;
             }
@@ -198,8 +195,9 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
 
             starting_state = DATA_COPY_STATE_VALID;
 
-            if (CL_DEV_SUCCEEDED(dev_error) && (CL_DEV_BS_UPDATE_LAUNCHED == update_mode) )
+            if (CL_DEV_BS_UPDATE_LAUNCHED == update_mode)
             {
+                // setup lazy copy from BS
                 need_event_allocation = (NULL == to.m_data_copy_in_process_event);
                 break;
             }
@@ -250,10 +248,13 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
 //
 // Perform data copy from another sharing group
 //
-GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int group_id  )
+GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int group_id, 
+                                                                                             bool* data_transferred  )
 {
+    *data_transferred = false;
+    
     SharingGroup& my_group  = m_sharing_groups[ group_id ];
-  
+
     if (my_group.m_data_copy_in_process_event)
     {
         // data copy is in process
@@ -267,39 +268,66 @@ GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_bring_data_to_sh
     }
 
     unsigned int copy_from = MAX_DEVICE_SHARING_GROUP_ID;
+    DataCopyState starting_state;
 
-    for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
+    if (m_data_valid_state.m_contains_valid_data)
     {
-        if ((i == group_id) || (NULL == m_sharing_groups[i].m_dev_mem_obj))
+        for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
         {
-            continue;
+            if ((i == group_id) || (!m_sharing_groups[i].is_activated()))
+            {
+                continue;
+            }
+            
+            if (DATA_COPY_STATE_VALID == m_sharing_groups[i].m_data_copy_state)
+            {
+                copy_from = i;
+                break;
+            }
         }
-        
-        if (DATA_COPY_STATE_VALID == m_sharing_groups[i].m_data_copy_state)
+
+        assert( MAX_DEVICE_SHARING_GROUP_ID != copy_from );
+        starting_state = (MAX_DEVICE_SHARING_GROUP_ID == copy_from) ? 
+                                            DATA_COPY_STATE_FROM_BS : DATA_COPY_STATE_TO_BS;
+
+        if ((DATA_COPY_STATE_TO_BS == starting_state) && m_pBackingStore->IsDataValid())
         {
-            copy_from = i;
-            break;
+            // data in BS already valid - skip copy
+            starting_state = DATA_COPY_STATE_FROM_BS;
         }
     }
+    else
+    {
+        starting_state = DATA_COPY_STATE_FROM_BS;
+    }
 
-    // if no device with valid data - assume backing store contains valid data
-    DataCopyState starting_state  = (MAX_DEVICE_SHARING_GROUP_ID == copy_from) ? 
-                                            DATA_COPY_STATE_FROM_BS : DATA_COPY_STATE_TO_BS;
-    
     // start directly from Valid if data should be get from BS, that does not contain valid data
     if ((DATA_COPY_STATE_FROM_BS == starting_state) && (!m_pBackingStore->IsDataValid()))
     {
         starting_state = DATA_COPY_STATE_VALID;
     }
 
+    *data_transferred = true;
     return drive_copy_between_groups( starting_state, copy_from, group_id );
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Implement data sharing graph for ACQUIRE 
+// Data Sharing Finite State Machine is described in the "docs\design\mic\MIC OpenCL Device Agent.pdf" 
+// document in the top level documents repository, paragraph 
+//   "4.6.3. Memory Object Data Validity in the Multiple Devices Case"
 //
-GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_fsm_process_acquire( unsigned int group_id, 
-                                                                                     MemObjUsage access )
+// Sharing Groups and Backing Store terms are described in the same document in the paragraph
+//   "4.6.2. Sharing memory objects between different devices."
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//
+//  Implement data sharing graph 
+//
+GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_fsm_process( bool acquire,
+                                                                             unsigned int group_id, 
+                                                                             MemObjUsage access )
 {
     assert( (access >= 0) && (access < MEMOBJ_USAGES_COUNT) && "Wrong MemObjUsage value" );
 
@@ -308,95 +336,213 @@ GenericMemObject::DataCopyEvent* GenericMemObject::data_sharing_fsm_process_acqu
     bool is_read  = (access != WRITE_ENTIRE);
     bool is_write = (access != READ_ONLY);
 
+    bool data_transferred = false;
+
     // process reading first 
-    if (is_read)
+    if (acquire && is_read)
     {
-        copy_in_process_event = data_sharing_bring_data_to_sharing_group(group_id);
+        copy_in_process_event = data_sharing_bring_data_to_sharing_group(group_id, &data_transferred);
     }
 
+    enum WritersGroupsChange 
+    {
+        WRITERS_INCREASED = 0,
+        WRITERS_NOT_CHANGED,
+        WRITERS_DECREASED
+    };
+
+    WritersGroupsChange writers_change = WRITERS_NOT_CHANGED;
+    
+
+    // is FSM event occured?
+    // FSM event occures when new sharing group is activated or deactivated
+    SharingGroup& my_group  = m_sharing_groups[ group_id ];
+
+    // calculate global counters
+    if (acquire)
+    {
+        // acquire
+        ++my_group.m_active_users_count;
+        assert( 0 != my_group.m_active_users_count );
+
+        if ( 1 == my_group.m_active_users_count )
+        {
+            ++m_data_valid_state.m_groups_with_active_users_count;
+        }
+
+        if (is_write)
+        {
+            ++my_group.m_active_writers_count;
+            assert( 0 != my_group.m_active_users_count );
+
+            if ( 1 == my_group.m_active_writers_count )
+            {
+                ++m_data_valid_state.m_groups_with_active_writers_count;
+                writers_change = WRITERS_INCREASED;
+            }
+        }
+
+        // remove deferred invalidation if it was requested for target group
+        my_group.m_data_copy_invalidate_asap = false;
+
+    }
+    else
+    {
+        // release
+        assert( 0 < my_group.m_active_users_count );
+        --my_group.m_active_users_count;
+
+        if ( 0 == my_group.m_active_users_count )
+        {
+            --m_data_valid_state.m_groups_with_active_users_count;
+        }
+        
+        if (is_write)
+        {
+            assert( 0 < my_group.m_active_writers_count );
+            --my_group.m_active_writers_count;
+
+            // save latest writer that finished
+            m_data_valid_state.m_last_writer_group = group_id;
+
+            if ( 0 == my_group.m_active_writers_count )
+            {
+                --m_data_valid_state.m_groups_with_active_writers_count;
+                writers_change = WRITERS_DECREASED;
+            }
+        }
+    }
+
+    // ensure data is set as valid if it is invalid (not valid and not in the transition process) until now
+    // this may be the case with WRITE_ENTIRE
+    if ((WRITERS_INCREASED == writers_change) && my_group.is_data_copy_invalid())
+    {
+        my_group.m_data_copy_state = DATA_COPY_STATE_VALID;
+    }
+
+    assert( m_data_valid_state.m_groups_with_active_writers_count <= m_data_valid_state.m_groups_with_active_users_count );
+    
     // switch on current state
     switch (m_data_valid_state.m_data_sharing_state)
     {
-        case UNIQUE_INACTIVE_USER:
-                if (is_write)
+        case UNIQUE_VALID_COPY:
+            if (data_transferred)
+            {
+                // increased number of valid states
+                // it is not important here were Writers increased now or not changed
+                if (1 == m_data_valid_state.m_groups_with_active_writers_count)
                 {
-                    ensure_single_data_copy( group_id );
+                    // data was copied to another group for possibly exclusive modification
+                    m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_SEQUENTIAL_WRITERS_HISTORY;
                 }
-                m_data_valid_state.m_data_sharing_state = UNIQUE_ACTIVE_USER;
-                break;
-
-        case UNIQUE_ACTIVE_USER:
-                m_data_valid_state.m_data_sharing_state = MULTIPLE_ACTIVE_USERS;
-                break;
-
-        case MULTIPLE_ACTIVE_USERS:
-                break;
-
-        case MULTIPLE_INACTIVE_USERS:
-                if (is_write)
+                else 
                 {
-                    ensure_single_data_copy( group_id );
+                    // data was copied to another group for reading or parallel writing (if writers > 1)
+                    m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY;
                 }
-                m_data_valid_state.m_data_sharing_state = UNIQUE_ACTIVE_USER;
-                break;
+            }
+            else
+            {
+                // asserts that everything is ok if state was not changed
+                assert( m_data_valid_state.m_groups_with_active_users_count <= 1 );
+                assert( m_data_valid_state.m_groups_with_active_writers_count <= 1 );
+            }
+
+            break;
+
+        case MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY:
+            if ((WRITERS_INCREASED == writers_change) && (1 == m_data_valid_state.m_groups_with_active_writers_count))
+            {
+                // unique writer added 
+                m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_SEQUENTIAL_WRITERS_HISTORY;
+            }
+            break;
+
+        case MULTIPLE_VALID_WITH_SEQUENTIAL_WRITERS_HISTORY:
+            if ((WRITERS_INCREASED == writers_change) && (1 < m_data_valid_state.m_groups_with_active_writers_count))
+            {
+                // multiple parallel writers 
+                m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY;
+            }
+            else if (0 == m_data_valid_state.m_groups_with_active_users_count)
+            {
+                assert( 0 == m_data_valid_state.m_groups_with_active_writers_count );
+                assert( MAX_DEVICE_SHARING_GROUP_ID != m_data_valid_state.m_last_writer_group );
+
+                ensure_single_data_copy( m_data_valid_state.m_last_writer_group );
+                m_data_valid_state.m_last_writer_group = MAX_DEVICE_SHARING_GROUP_ID;
+                m_data_valid_state.m_data_sharing_state = UNIQUE_VALID_COPY;
+            }
+            break;
 
         default:
             assert( false && "Unknown Data Sharing FSM state" );
-            return false;
+            return NULL;
     }
 
-    m_data_valid_state.m_contains_valid_data = true;   
-    ++(m_data_valid_state.m_usage_count);
 
+    m_data_valid_state.m_contains_valid_data = true;    
     return copy_in_process_event;
 }
 
-//
-//  Implement data sharing graph for RELEASE 
-//
-void GenericMemObject::data_sharing_fsm_process_release( unsigned int group_id )
+// setup initial state at creation
+void GenericMemObject::data_sharing_set_init_state( bool valid )
 {
-    // switch on current state
-    switch (m_data_valid_state.m_data_sharing_state)
+    m_data_valid_state.m_data_sharing_state = (valid && (m_active_groups_count > 1)) ?
+                            MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY : UNIQUE_VALID_COPY;
+
+    m_data_valid_state.m_contains_valid_data = valid;
+
+    for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
-        case UNIQUE_ACTIVE_USER:
-                --m_data_valid_state.m_usage_count;
+        SharingGroup& group = m_sharing_groups[i];
 
-                assert( 0 == m_data_valid_state.m_usage_count );                
-                m_data_valid_state.m_data_sharing_state = UNIQUE_INACTIVE_USER;
-                break;
+        if (!group.is_activated())
+        {
+            continue;
+        }
 
-        case MULTIPLE_ACTIVE_USERS:
-                --m_data_valid_state.m_usage_count;
+        group.m_data_copy_state = valid ? DATA_COPY_STATE_VALID : DATA_COPY_STATE_INVALID;
 
-                if (0 == m_data_valid_state.m_usage_count)
-                {
-                    m_data_valid_state.m_data_sharing_state = MULTIPLE_INACTIVE_USERS;
-                }
-                break;
-
-        case MULTIPLE_INACTIVE_USERS:
-        case UNIQUE_INACTIVE_USER:
-                assert( false && "Release data sharing in non-active state" );
-                break;
-
-        default:
-            assert( false && "Unknown Data Sharing FSM state" );
     }
 }
 
+// invalidate group data
+void GenericMemObject::invalidate_data_for_group( SharingGroup& group )
+{
+    if (! group.is_data_copy_valid())
+    {
+        return;
+    }
+    
+    if (group.m_data_copy_used_by_others_count > 0)
+    {
+        // cannot invalidate - skip
+        group.m_data_copy_invalidate_asap = true;
+        return;
+    }
+
+    group.m_data_copy_invalidate_asap = false;
+
+    assert( (0 == group.m_active_users_count) && "Try to invalidate data while active users exist" );
+
+    cl_dev_err_code dev_error = group.m_dev_mem_obj->clDevMemObjInvalidateData();
+    assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjInvalidateData() failed" );
+    
+    if (CL_DEV_FAILED(dev_error))
+    {
+        LOG_ERROR(TEXT("Device Object returned error 0x%X during invalidation"), dev_error);
+    }                    
+    
+    group.m_data_copy_state = DATA_COPY_STATE_INVALID;
+}
 
 //
 //  Implement switch from multi-use mode to single-use mode
 //
 void GenericMemObject::ensure_single_data_copy( unsigned int group_id )
 {
-    assert( 0 == m_data_valid_state.m_usage_count );
-
-    if (m_active_groups_count <= 1)
-    {
-        return;
-    }
+    assert( (group_id < MAX_DEVICE_SHARING_GROUP_ID) && (!m_sharing_groups[group_id].is_data_copy_invalid()) && "ensure_single_data_copy called with remaining group invalid" );
 
     if (m_data_valid_state.m_contains_valid_data)
     {
@@ -405,31 +551,16 @@ void GenericMemObject::ensure_single_data_copy( unsigned int group_id )
         {
             SharingGroup& o_grp = m_sharing_groups[i];
 
-            if ((i == group_id) || (NULL == o_grp.m_dev_mem_obj))
+            if ((i == group_id) || (!o_grp.is_activated()))
             {
                 continue;
             }
 
-            if (DATA_COPY_STATE_VALID == o_grp.m_data_copy_state)
-            {
-                if (o_grp.m_data_copy_used_by_others_count > 0)
-                {
-                    // cannot invalidate - skip
-                    o_grp.m_data_copy_invalidate_asap = true;
-                    continue;
-                }
-                
-                cl_dev_err_code dev_error = o_grp.m_dev_mem_obj->clDevMemObjInvalidateData();
-                assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjInvalidateData() failed" );
-                
-                if (CL_DEV_FAILED(dev_error))
-                {
-                    LOG_ERROR(TEXT("Device Object returned error 0x%X during invalidation"), dev_error);
-                }                    
-
-                o_grp.m_data_copy_state = DATA_COPY_STATE_INVALID;
-            }
+            invalidate_data_for_group( o_grp );
         }
+
+        // data in BS is invalidated
+        m_pBackingStore->SetDataValid(false);             
     }
 }
 
@@ -444,6 +575,12 @@ OclEvent* GenericMemObject::LockOnDevice( IN const FissionableDevice* dev, IN Me
 {
 	assert(NULL != dev && "LockOnDevice called without device" );
 
+    if (m_active_groups_count <= 1)
+    {
+        // single device memory object - nothing to do
+        return NULL;
+    }
+
     DeviceDescriptor* desc = get_device( const_cast<FissionableDevice*>(dev) );
 
     if (NULL == desc)
@@ -452,23 +589,23 @@ OclEvent* GenericMemObject::LockOnDevice( IN const FissionableDevice* dev, IN Me
         return NULL;
     }
 
-    if (m_active_groups_count <= 1)
-    {
-        // single device memory object - nothing to do
-        return NULL;
-    }
-
     DataCopyEvent* returned_event = NULL;
 
     acquire_data_sharing_lock();
-    returned_event = data_sharing_fsm_process_acquire( (unsigned int)desc->m_sharing_group_id, usage ); 
+    returned_event = data_sharing_fsm_process( true, (unsigned int)desc->m_sharing_group_id, usage ); 
     return release_data_sharing_lock(returned_event);
 }
 
 // release data locking on device. 
-void GenericMemObject::UnLockOnDevice( IN const FissionableDevice* dev ) 
+void GenericMemObject::UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) 
 {
 	assert(NULL != dev && "UnLockOnDevice called without device" );
+
+    if (m_active_groups_count <= 1)
+    {
+        // single device memory object - nothing to do
+        return;
+    }
 
     DeviceDescriptor* desc = get_device( const_cast<FissionableDevice*>(dev) );
 
@@ -478,15 +615,8 @@ void GenericMemObject::UnLockOnDevice( IN const FissionableDevice* dev )
         return;
     }
 
-    if (m_active_groups_count <= 1)
-    {
-        // single device memory object - nothing to do
-        return;
-    }
-
     DataSharingAutoLock data_sharing_lock( *this );
-    data_sharing_fsm_process_release( (unsigned int)desc->m_sharing_group_id ); 
-    m_BS->SetDataValid();
+    data_sharing_fsm_process( false, (unsigned int)desc->m_sharing_group_id, usage ); 
 }
 
 // Device Agent should notify when long update to/from backing store operations finished.

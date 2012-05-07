@@ -45,6 +45,7 @@ public:
 	size_t                  GetDimCount()    const {return m_dim_count;}
 	const size_t*           GetDimentions()  const {return m_dimensions;}
 	bool                    IsDataValid()    const {return true;}
+	void                    SetDataValid(bool value)   {}
 	const size_t*           GetPitch()       const {return m_pitches;}
     const cl_image_format&  GetFormat()      const {return m_format;}
     size_t                  GetElementSize() const {return m_element_size;}

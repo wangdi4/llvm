@@ -78,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         // inherited methods:
         virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
-        virtual void UnLockOnDevice( IN const FissionableDevice* dev );
+        virtual void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
 
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
 

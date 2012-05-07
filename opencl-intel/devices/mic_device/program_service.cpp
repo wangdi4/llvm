@@ -639,6 +639,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     *prog = newProgId;
 
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateProgram Exit"));
     return CL_DEV_SUCCESS;
 }
 

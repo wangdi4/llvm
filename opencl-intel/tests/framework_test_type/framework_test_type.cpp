@@ -467,10 +467,21 @@ TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
     EXPECT_TRUE(cl_CPU_MIC_IntegerExecuteTest());
 }
 
-TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap)
+TEST(FrameworkTestType, Test_CPU_MIC_Migrate)
 {
-    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest());
+    EXPECT_TRUE(cl_CPU_MIC_MigrateTest());
 }
+
+TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap_InOrder)
+{
+    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest_InOrder());
+}
+
+TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap_OutOfOrder)
+{
+    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest_OutOfOrder());
+}
+
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line 

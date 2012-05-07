@@ -88,7 +88,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
 
         // release data locking on device. 
-        void UnLockOnDevice( IN const FissionableDevice* dev );
+        // MUST pass the same usage value as LockOnDevice
+        void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
 
 		cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
 		cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
@@ -202,20 +203,39 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
             TDeviceDescPtrList              m_device_list;
             IOCLDevMemoryObject*            m_dev_mem_obj;
+
+            // usage counters
+            unsigned int                    m_active_users_count;         // number of active users inside group
+            unsigned int                    m_active_writers_count;       // number of active users with write access
             
+            // copy-related
             DataCopyEvent*                  m_data_copy_in_process_event; // for sharing group data use
             DataCopyState                   m_data_copy_state;            // 
-            // copy-related
             unsigned int                    m_data_copy_from_group;       // if copy is in progress from other sharing group
             unsigned int                    m_data_copy_used_by_others_count;  // user use me for copy
             bool                            m_data_copy_invalidate_asap;  // invalidation is required after copy ends
             
             SharingGroup() : m_dev_mem_obj(NULL), 
+                             m_active_users_count(0),
+                             m_active_writers_count(0),
                              m_data_copy_in_process_event(NULL), 
                              m_data_copy_state(DATA_COPY_STATE_INVALID),
                              m_data_copy_from_group(MAX_DEVICE_SHARING_GROUP_ID),
                              m_data_copy_used_by_others_count(0),
                              m_data_copy_invalidate_asap(false) {};
+
+            // is this Sharing Group in use for this particular Memory Object?
+            bool is_activated( void ) const { return (NULL != m_dev_mem_obj); };
+
+            // is data ready to be used?
+            bool is_data_copy_valid( void ) const { return( DATA_COPY_STATE_VALID == m_data_copy_state ); };
+
+            // is data not ready and not in process to become ready?
+            bool is_data_copy_invalid( void ) const { return( DATA_COPY_STATE_INVALID == m_data_copy_state ); };
+
+            // is date still not ready but in process of becoming ready?
+            bool is_data_in_transition( void ) const { return( !(is_data_copy_valid() || is_data_copy_invalid()) ); };
+            
         };
 
         // Assumption: All devices are added at class initialization time so data may be modified at runtime only
@@ -236,10 +256,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // FSM for data sharing:
         enum DataSharingFSM_State
         {
-            UNIQUE_INACTIVE_USER = 0,      // either no valid data or owner is unique and not executing
-            UNIQUE_ACTIVE_USER,            // single owner that is currently executing
-            MULTIPLE_ACTIVE_USERS,         // multiple currently running owners - data may be not in synch on devices
-            MULTIPLE_INACTIVE_USERS,       // no running owners, but data may be not in synch on different devices
+            UNIQUE_VALID_COPY = 0,                          // either no valid data or owner is unique
+            MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY,   // multiple valid copies, with active writes possibly in parallel
+            MULTIPLE_VALID_WITH_SEQUENTIAL_WRITERS_HISTORY, // multiple valid copies, with possible writes but one at a time
             
             DATA_SHARING_FSM_STATES_COUNT   // must be the last - number of different states
         };
@@ -247,27 +266,34 @@ namespace Intel { namespace OpenCL { namespace Framework {
         struct DataValidState
         {
             DataSharingFSM_State            m_data_sharing_state;  // current data sharing state
-            unsigned int                    m_usage_count;         // has active kernel 
+            unsigned int                    m_groups_with_active_users_count;  // how many sgraing groups with active kernels
+            unsigned int                    m_groups_with_active_writers_count;
+            unsigned int                    m_last_writer_group;
             bool                            m_contains_valid_data; 
             
-            DataValidState() :  m_data_sharing_state(UNIQUE_INACTIVE_USER), 
-                                m_usage_count(0) , m_contains_valid_data(false) {};
+            DataValidState() :  m_data_sharing_state(UNIQUE_VALID_COPY), 
+                                m_groups_with_active_users_count(0), 
+                                m_groups_with_active_writers_count(0),
+                                m_last_writer_group(MAX_DEVICE_SHARING_GROUP_ID),
+                                m_contains_valid_data(false) {};
             DataValidState(const DataValidState& o) : 
-                m_data_sharing_state(UNIQUE_INACTIVE_USER),
-                m_usage_count(0),                      // there is not active kernels can use this sub-buffer 
-                                                       // during creation
+                m_data_sharing_state(UNIQUE_VALID_COPY),
+                m_groups_with_active_users_count(0),   // there is not active kernels can use this sub-buffer 
+                m_groups_with_active_writers_count(0), // during creation
+                m_last_writer_group(MAX_DEVICE_SHARING_GROUP_ID),
                 m_contains_valid_data(o.m_contains_valid_data) {};
 
         };
 
         // FSM machine code, return non-NULL if operation is in-process
-        DataCopyEvent* data_sharing_fsm_process_acquire( unsigned int group_id, MemObjUsage access );
-        void           data_sharing_fsm_process_release( unsigned int group_id );
+        void           data_sharing_set_init_state( bool valid );
+        DataCopyEvent* data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access );
         // read path
-        DataCopyEvent* data_sharing_bring_data_to_sharing_group( unsigned int group_id );
+        DataCopyEvent* data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred );
         DataCopyEvent* drive_copy_between_groups( DataCopyState staring_state, 
                                                   unsigned int from_grp_id, 
                                                   unsigned int to_group_id );
+        void           invalidate_data_for_group( SharingGroup& group );
         void           ensure_single_data_copy( unsigned int group_id );
         // FSM utilities
         void           acquire_data_sharing_lock();
@@ -373,6 +399,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t                  GetDimCount()    const {return m_dim_count;}
 		const size_t*           GetDimentions()  const {return m_dimensions;}
 		bool                    IsDataValid()    const {return m_data_valid;}
+        void                    SetDataValid(bool value)  { m_data_valid = value; }
 		const size_t*           GetPitch()       const {return m_pitches;}
         const cl_image_format&  GetFormat()      const {return m_format;}
         size_t                  GetElementSize() const {return m_element_size;}
@@ -383,7 +410,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		int RemovePendency();
 
         // methods used by GenericMemObj
-        void  SetDataValid( void )   { m_data_valid = true; }
         bool  IsCopyRequired( void ) const { return m_ptr && m_pHostPtr && (m_pHostPtr != m_ptr); }
 
         // pointer where user should expect the data

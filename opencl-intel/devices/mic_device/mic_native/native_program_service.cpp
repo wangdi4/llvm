@@ -164,7 +164,7 @@ void MICNativeBackendPrintfFiller::print( const char* buf )
 
 // ICLDevBackendOptions interface
 // BUGBUG: DK remove this!
-#define CL_DEV_BACKEND_OPTION_PRINTF     2
+#define CL_DEV_BACKEND_OPTION_PRINTF     20000
 
 bool MICNativeBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
 {

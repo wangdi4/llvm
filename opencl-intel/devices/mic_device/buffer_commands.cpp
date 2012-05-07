@@ -4,6 +4,7 @@
 #include "mic_device_interface.h"
 
 #include <source/COIBuffer_source.h>
+#include <source/COIProcess_source.h>
 
 #include "cl_types.h"
 #include "cl_utils.h"
@@ -356,7 +357,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
     	unsigned int numDependecies = 0;
     	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-        assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
+        assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
         if (numDependecies > 1)
         {
@@ -579,7 +580,7 @@ cl_dev_err_code CopyMemObject::execute()
     	unsigned int numDependecies = 0;
     	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-        assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
+        assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
         if (numDependecies > 1)
         {
@@ -741,7 +742,7 @@ cl_dev_err_code MapMemObject::execute()
 	    unsigned int numDependecies = 0;
 	    m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-	    assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
+	    assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
         if (numDependecies > 1)
         {
@@ -855,7 +856,7 @@ cl_dev_err_code UnmapMemObject::execute()
 		unsigned int numDependecies = 0;
 		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
 
-		assert( (numDependecies < 2) && "Previous command list dependencies may not be more than 1" );
+		assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
 		if (numDependecies > 1)
 		{
@@ -928,6 +929,9 @@ cl_dev_err_code UnmapMemObject::execute()
 }
 
 
+//
+//  Fill Memory Object
+//
 
 FillMemObject::FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
@@ -1071,6 +1075,14 @@ cl_dev_err_code FillMemObject::execute()
 		unsigned int numDependecies = 0;
 		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, true);
 
+		assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
+
+		if (numDependecies > 1)
+		{
+			m_lastError = CL_DEV_NOT_SUPPORTED;
+			break;
+		}
+
 		// Get this queue COIPIPELINE handle
 		COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
 
@@ -1134,3 +1146,166 @@ void FillMemObject::fireCallBack(void* arg)
 	// Delete this Command object
 	delete this;
 }
+
+//
+//  Migrate Memory Object
+//
+
+MigrateMemObject::MigrateMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
+{
+}
+
+cl_dev_err_code MigrateMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+{
+	return verifyCreation(new MigrateMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
+}
+
+cl_dev_err_code MigrateMemObject::init(vector<COIBUFFER>&    outCoiBuffsArr, 
+                                       COI_BUFFER_MOVE_FLAG& outMoveDataFlag, COIPROCESS& outTargetProcess,
+                                       COIBUFFER&            outLastBufferHandle )
+{
+	cl_dev_err_code             returnError = CL_DEV_SUCCESS;
+    cl_dev_cmd_param_migrate*	cmdParams   = (cl_dev_cmd_param_migrate*)m_pCmd->params;
+
+    if ((0 == cmdParams->mem_num) || (NULL == cmdParams->memObjs))
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    outMoveDataFlag  = (0 != (cmdParams->flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ? COI_BUFFER_NO_MOVE : COI_BUFFER_MOVE;
+    outTargetProcess = (0 != (cmdParams->flags & CL_MIGRATE_MEM_OBJECT_HOST)) ? COI_PROCESS_SOURCE : m_pCommandList->getDeviceProcess();
+    
+    outCoiBuffsArr.reserve( cmdParams->mem_num );
+
+    size_t min_size     = ((size_t)-1); // set the maximum possible size_t value 
+    outLastBufferHandle = NULL;
+
+    // extract COI Buffer handles 
+    for (cl_uint i = 0; i < cmdParams->mem_num; ++i)
+    {
+        MICDevMemoryObject*  pMicMemObj;
+		returnError = cmdParams->memObjs[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObj);
+		if (CL_DEV_FAILED(returnError))
+		{
+			break;
+		}
+
+        COIBUFFER coi_handle = pMicMemObj->clDevMemObjGetCoiBufferHandler();
+		outCoiBuffsArr.push_back(coi_handle);
+
+        // find the buffer with minimum size
+        size_t raw_size = pMicMemObj->GetRawDataSize();
+        if (raw_size < min_size)
+        {
+            min_size            = raw_size;
+            outLastBufferHandle = coi_handle;
+        }
+    };
+
+	if (CL_DEV_FAILED(returnError))
+	{
+		outCoiBuffsArr.clear();
+	}
+	m_lastError = returnError;
+
+	return returnError;
+}
+
+cl_dev_err_code MigrateMemObject::execute()
+{
+    COIRESULT       result;
+
+	// the COIBUFFERs to dispatch
+	vector<COIBUFFER>     coiBuffsArr;
+    COI_BUFFER_MOVE_FLAG  moveDataFlag;
+    COIPROCESS            targetProcess;
+    COIBUFFER             last_buffer_handle;
+
+    m_lastError = CL_DEV_SUCCESS;
+
+	do
+	{
+		COIEVENT* barrier = NULL;
+		unsigned int numDependecies = 0;
+		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+
+        assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
+
+        if (numDependecies > 1)
+        {
+    		m_lastError = CL_DEV_NOT_SUPPORTED;
+            break;
+        }
+
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type((char*)"MigrateMemObject");
+
+		m_lastError = init(coiBuffsArr, moveDataFlag, targetProcess, last_buffer_handle);
+		if (m_lastError != CL_DEV_SUCCESS)
+		{
+			break;
+		}
+
+		// TODO - Call it only when realy starting the command.
+		notifyCommandStatusChanged(CL_RUNNING);
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
+
+        // now enqueue all operations independently, except of the last, that should be dependent on all other
+        vector<COIEVENT> independent_ops;
+        independent_ops.reserve( coiBuffsArr.size() + numDependecies );
+        if (NULL != barrier)
+        {
+            // make last operation dependent on queue barrier in case only a single buffer op is required
+            independent_ops.push_back( *barrier );
+        }
+
+        vector<COIBUFFER>::iterator it     = coiBuffsArr.begin();
+        vector<COIBUFFER>::iterator it_end = coiBuffsArr.end();
+
+        for(; it != it_end; ++it)
+        {
+            COIEVENT intermediate_barrier;
+            COIBUFFER buffer = *it;
+
+            // skip the buffer that should be the last one
+            if (buffer == last_buffer_handle)
+            {
+                continue;
+            }
+            
+            result = COIBufferSetState(buffer, 
+                                       targetProcess, COI_BUFFER_VALID, moveDataFlag, 
+                                       numDependecies, barrier, 
+                                       &intermediate_barrier);
+
+            if (result != COI_SUCCESS)
+            {
+                assert( (result == COI_SUCCESS) && "COIBufferSetState() returned error for buffer migration" );
+                m_lastError = CL_DEV_ERROR_FAIL;
+                break;
+            }
+
+            independent_ops.push_back( intermediate_barrier );
+        }
+
+        COIEVENT* barrier_list = (independent_ops.size() > 0) ? &(independent_ops[0]) : NULL;
+        
+        result = COIBufferSetState(last_buffer_handle, 
+                                   targetProcess, COI_BUFFER_VALID, moveDataFlag, 
+                                   independent_ops.size(), barrier_list, 
+                                   m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
+        
+        if (result != COI_SUCCESS)
+        {
+            assert( (result == COI_SUCCESS) && "COIBufferSetState() returned error for buffer migration" );
+            m_lastError = CL_DEV_ERROR_FAIL;
+            break;
+        }
+	}
+	while (0);
+
+	return executePostDispatchProcess(false, false);
+}
+

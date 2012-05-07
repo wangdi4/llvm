@@ -246,6 +246,7 @@ public:
     unsigned long   DecWriteMapsCount( void )       { return (unsigned long)(--m_write_maps_count); };
     unsigned long   GetWriteMapsCount( void ) const { return (unsigned long)(m_write_maps_count); };
     bool            ImmediateTransferForced( void ) const { return m_Allocator.ImmediateTransferForced(); };
+    size_t          GetRawDataSize( void )    const { return m_raw_size; };
     
 protected:
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),

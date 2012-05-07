@@ -50,6 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class MemoryObject;
     class Kernel;
     class IOclCommandQueueBase;
+    class ContextModule;
     
     /******************************************************************
      * This enumeration is used to identify if a command is going to be
@@ -168,6 +169,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             MemoryObject::MemObjUsage access_rights;
 
             MemoryObjectArg( MemoryObject* a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
+            MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT) {};
         };
 
         typedef list<MemoryObjectArg>   MemoryObjectArgList;
@@ -177,6 +179,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return AcquireMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
+        cl_err_code AcquireMemoryObjects( MemoryObjectArg arg, FissionableDevice* pDev = NULL  )
+        { 
+            return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
+        };
+
         cl_err_code AcquireMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights, FissionableDevice* pDev = NULL  )
         { 
             MemoryObjectArg arg( pMemObj, access_rights ); 
@@ -188,10 +195,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
             RelinquishMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObject* pMemObj, FissionableDevice* pDev = NULL ) 
+        void        RelinquishMemoryObjects( MemoryObjectArg arg, FissionableDevice* pDev = NULL ) 
         { 
-            RelinquishMemoryObjectsInt( NULL, pMemObj, pDev );  
+            RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
         };
+
+        void        RelinquishMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights, FissionableDevice* pDev = NULL ) 
+        { 
+            MemoryObjectArg arg( pMemObj, access_rights ); 
+            RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
+        };
+
+        void prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size );
         
         QueueEvent                  m_Event;                    // An associated event object
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
@@ -199,7 +214,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         FissionableDevice*          m_pDevice;                  // A pointer to the device executing the command
         IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
         cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
-        cl_int                      m_iId;                      // The command's ID
         cl_command_type             m_commandType;              // Command type
         
         ocl_gpa_command*            m_pGpaCommand;
@@ -210,7 +224,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // return true if ready
         bool AcquireSingleMemoryObject( MemoryObjectArg& arg, FissionableDevice* pDev );
         cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev );
-        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObject* pSingle, FissionableDevice* pDev );
+        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev );
                 
         bool                        m_memory_objects_acquired;
        
@@ -222,6 +236,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MemoryCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
     protected:        
         cl_dev_cmd_param_rw m_rwParams;
+
+        void create_dev_cmd_rw( cl_uint				uiDimCount,
+                                void*               pPtr,
+                                const size_t*       pszMemObjOrigin,
+                            	const size_t*       pszPtrOrigin,
+                                const size_t*       pszRegion,
+                                size_t              szPtrRowPitch,
+                                size_t              szPtrSlicePitch,
+                                size_t              szMemObjRowPitch,
+                                size_t              szMemObjSlicePitch,
+                                cl_dev_cmd_type     clCmdType );
         
     };
     
@@ -376,11 +401,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code   CommandDone();
         
     private:
-        MemoryObject*   m_pMemObj;
+        MemoryObjectArg m_pMemObj;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_bool         m_bBlocking;
-        cl_bool         m_bDiscardPreviousData;
         size_t          m_szMemObjRowPitch;
         size_t          m_szMemObjSlicePitch;
         const void*     m_cpSrc;
@@ -454,7 +478,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code   CommandDone();
         
     protected:
-        MemoryObject*   m_pMemObj;
+        MemoryObjectArg m_pMemObj;
         size_t          m_szOffset[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_uint         m_numOfDimms;
@@ -468,7 +492,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
         cl_err_code     m_internalErr; /* error logger for CTOR */
-        bool            m_bDiscardPreviousData;
     };
     
     /******************************************************************
@@ -813,6 +836,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code Init();
         virtual cl_err_code Execute();
         virtual cl_err_code CommandDone();
+
+        ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
         
 		virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code	PostfixExecute();
@@ -821,7 +846,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void*           GetMappedPtr() const { return m_pHostDataPtr; }
         
     protected:
-        MemoryObject*           m_pMemObj;
+        MemoryObjectArg         m_pMemObj;
         cl_map_flags            m_clMapFlags;
         size_t                  m_szOrigin[MAX_WORK_DIM];
         size_t                  m_szRegion[MAX_WORK_DIM];
@@ -830,11 +855,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_cmd_param_map*   m_pMappedRegion;
         void*                   m_pHostDataPtr;
         FissionableDevice*      m_pActualMappingDevice;
+        ECommandExecutionType   m_ExecutionType;
 
 		// postfix-related. Created in init, pointer zeroed at enqueue.
 		ocl_entry_points *      m_pOclEntryPoints;
 		PrePostFixRuntimeCommand* m_pPostfixCommand;
-        bool                    m_bDiscardPreviousData;
         bool                    m_bResourcesAllocated;
     };
     
@@ -856,7 +881,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~MapBufferCommand();
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_MAP_BUFFER; }
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_MAP_BUFFER"; }
         
         // GPA related functions
@@ -883,7 +907,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~MapImageCommand();
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_MAP_IMAGE; }
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
         const char*             GetCommandName() const  { return "CL_COMMAND_MAP_IMAGE"; }
         
         // GPA related functions
@@ -912,22 +935,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code				PrefixExecute();
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;       }
+        ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
         const char*             GetCommandName() const  { return "CL_COMMAND_UNMAP_MEM_OBJECT"; }
         
         // GPA related functions
         virtual const char*     GPA_GetCommandName() const { return "Unmap"; }
         
 	private:
-        MemoryObject*           m_pMemObject;
+        MemoryObjectArg         m_pMemObject;
         void*                   m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;       
         FissionableDevice*      m_pActualMappingDevice;
+        ECommandExecutionType   m_ExecutionType;
 
 		// prefix-related. Created in init, pointer zeroed at enqueue.
 		PrePostFixRuntimeCommand* m_pPrefixCommand;
 		ocl_entry_points *      m_pOclEntryPoints;
-        bool                    m_bDiscardPreviousData;
         bool                    m_bResourcesAllocated;
     };
     
@@ -1028,7 +1051,46 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const void**         m_ppArgsMemLoc;
         MemoryObjectArgList  m_MemOclObjects;
     };
+
     
+    /******************************************************************
+     * 
+     ******************************************************************/
+    class MigrateMemObjCommand : public Command
+    {
+        
+    public:
+        MigrateMemObjCommand(
+            IOclCommandQueueBase*  cmdQueue,
+            ocl_entry_points *     pOclEntryPoints,
+            ContextModule*         pContextModule,
+            cl_mem_migration_flags clFlags,
+            cl_uint                uNumMemObjects,
+            const cl_mem*          pMemObjects
+        );
+
+        virtual                         ~MigrateMemObjCommand();
+        
+        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_MIGRATE_MEM_OBJECTS; }
+        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
+        virtual const char*             GetCommandName() const  { return "CL_COMMAND_MIGRATE_MEM_OBJECTS"; }
+        
+        virtual cl_err_code             Init();
+        virtual cl_err_code             Execute();
+        virtual cl_err_code             CommandDone();
+        
+        // GPA related functions
+        virtual const char*             GPA_GetCommandName() const { return "Migrate Memory Object"; }
+
+    protected:
+
+        const cl_mem*               m_pMemObjects;      // used temporary to pass info from contructor to init()
+        ContextModule*              m_pContextModule;
+
+        MemoryObjectArgList         m_MemObjects;
+        cl_dev_cmd_param_migrate    m_migrateCmdParams;
+    };
+
     /******************************************************************
      * Runtime command is a command that was created by the runtime
      * and is used for sync within the runtime.

@@ -117,7 +117,9 @@ bool EventDependenciesTest();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
 bool cl_CPU_MIC_IntegerExecuteTest();
-bool cl_CPU_MIC_MapUnmapTest();
+bool cl_CPU_MIC_MigrateTest();
+bool cl_CPU_MIC_MapUnmapTest_InOrder();
+bool cl_CPU_MIC_MapUnmapTest_OutOfOrder();
 //#define CUDA_DEVICE
 
 

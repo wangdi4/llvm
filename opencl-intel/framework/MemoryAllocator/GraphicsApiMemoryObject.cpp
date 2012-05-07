@@ -61,16 +61,16 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  void UnLockOnDevice( IN const FissionableDevice* dev )
+     * @fn  void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
      */
 
-    void GraphicsApiMemoryObject::UnLockOnDevice( IN const FissionableDevice* dev )
+    void GraphicsApiMemoryObject::UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
     {
         if (NULL == m_pChildObject)
         {
             return;
         }
-        return m_pChildObject->UnLockOnDevice(dev);
+        return m_pChildObject->UnLockOnDevice(dev, usage);
     }
 
     /**

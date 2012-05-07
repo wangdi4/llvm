@@ -103,7 +103,7 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
 		}
 		else
 		{
-			assert(0);
+			assert(res == CL_NOT_READY);
 		}
 	}
 }

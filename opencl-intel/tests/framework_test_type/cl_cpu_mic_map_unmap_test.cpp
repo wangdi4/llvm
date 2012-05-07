@@ -130,11 +130,8 @@ release_buf:
 
 
 /**************************************************************************************************
- * cl_CPU_MIC_MapUnmapTest
- * -------------------
- * Implement multi-device access test
  **************************************************************************************************/
-bool cl_CPU_MIC_MapUnmapTest()
+bool cl_CPU_MIC_MapUnmapTest_worker(const char* name, bool use_out_of_order)
 {
     bool         bResult = true;
     cl_int       iRet = CL_SUCCESS;
@@ -142,9 +139,10 @@ bool cl_CPU_MIC_MapUnmapTest()
     cl_device_id clMicDeviceId;
     cl_command_queue clCpuQueue = NULL;
     cl_command_queue clMicQueue = NULL;
+    cl_command_queue_properties queue_type = (use_out_of_order) ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0;
         
 	printf("=============================================================\n");
-	printf("cl_CPU_MIC_MapUnmapTest\n");
+	printf("%s\n", name);
 	printf("=============================================================\n");
 
 	cl_platform_id platform = 0;
@@ -188,11 +186,13 @@ bool cl_CPU_MIC_MapUnmapTest()
     bResult &= CHECK(L"clCreateContext", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
-    clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, 0 /*no properties*/, &iRet);
+    
+
+    clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, queue_type, &iRet);
     bResult &= CHECK(L"clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
     if (!bResult) goto release_queues;
 
-    clMicQueue = clCreateCommandQueue (context, clMicDeviceId, 0 /*no properties*/, &iRet);
+    clMicQueue = clCreateCommandQueue (context, clMicDeviceId, queue_type, &iRet);
     bResult &= CHECK(L"clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
     if (!bResult) goto release_queues;
 
@@ -221,4 +221,25 @@ release_queues:
     clReleaseContext(context);
     return bResult;
 }
+
+/**************************************************************************************************
+ * cl_CPU_MIC_MapUnmapTest_InOrder
+ * -------------------
+ * Implement multi-device access test
+ **************************************************************************************************/
+bool cl_CPU_MIC_MapUnmapTest_InOrder()
+{
+    return cl_CPU_MIC_MapUnmapTest_worker( __FUNCTION__, false );
+}
+
+/**************************************************************************************************
+ * cl_CPU_MIC_MapUnmapTest_OutOfOrder
+ * -------------------
+ * Implement multi-device access test
+ **************************************************************************************************/
+bool cl_CPU_MIC_MapUnmapTest_OutOfOrder()
+{
+    return cl_CPU_MIC_MapUnmapTest_worker( __FUNCTION__, true );
+}
+
 

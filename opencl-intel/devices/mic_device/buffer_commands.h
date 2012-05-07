@@ -304,5 +304,25 @@ private:
 	MiscDataHandler m_miscDatahandler;
 };
 
+class MigrateMemObject : public BufferCommands
+{
+public:
+
+	/* static function for MigrateMemObject Command creation */
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+
+	cl_dev_err_code execute();
+
+private:
+
+	/* Private constructor because We like to create Commands only by the factory method */
+    MigrateMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+	/* Initialize MigrateMemObject command. */
+	cl_dev_err_code init(vector<COIBUFFER>&    ppOutCoiBuffsArr, 
+	                     COI_BUFFER_MOVE_FLAG& outMoveDataFlag, COIPROCESS& outTargetProcess,
+	                     COIBUFFER&            outLastBufferHandle);
+};
+
 }}}
 

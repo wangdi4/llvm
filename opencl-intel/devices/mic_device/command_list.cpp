@@ -14,16 +14,17 @@ using namespace Intel::OpenCL::MICDevice;
 extern bool gSafeReleaseOfCoiObjects;
 
 CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
-	/*CL_DEV_CMD_READ*/  &ReadWriteMemObject::Create,
-	/* CL_DEV_CMD_WRITE*/ &ReadWriteMemObject::Create,
-	/* CL_DEV_CMD_COPY */ &CopyMemObject::Create,
-	/* CL_DEV_CMD_MAP */ &MapMemObject::Create,
-	/* CL_DEV_CMD_UNMAP */ &UnmapMemObject::Create,
-	/* CL_DEV_CMD_EXEC_KERNEL */ &NDRange::Create,
-	/* CL_DEV_CMD_EXEC_TASK */ NULL,
-	/* CL_DEV_CMD_EXEC_NATIVE */ NULL,
-	/* CL_DEV_CMD_FILL_BUFFER */ &FillMemObject::Create,
-	/* CL_DEV_CMD_FILL_IMAGE */ &FillMemObject::Create
+	/* CL_DEV_CMD_READ         */ &ReadWriteMemObject::Create,
+	/* CL_DEV_CMD_WRITE        */ &ReadWriteMemObject::Create,
+	/* CL_DEV_CMD_COPY         */ &CopyMemObject::Create,
+	/* CL_DEV_CMD_MAP          */ &MapMemObject::Create,
+	/* CL_DEV_CMD_UNMAP        */ &UnmapMemObject::Create,
+	/* CL_DEV_CMD_EXEC_KERNEL  */ &NDRange::Create,
+	/* CL_DEV_CMD_EXEC_TASK    */ NULL,
+	/* CL_DEV_CMD_EXEC_NATIVE  */ NULL,
+	/* CL_DEV_CMD_FILL_BUFFER  */ &FillMemObject::Create,
+	/* CL_DEV_CMD_FILL_IMAGE   */ &FillMemObject::Create,
+	/* CL_DEV_CMD_MIGRATE      */ &MigrateMemObject::Create
 };
 
 

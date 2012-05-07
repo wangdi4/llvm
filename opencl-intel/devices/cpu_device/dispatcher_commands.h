@@ -223,4 +223,19 @@ protected:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
+// OCL migrate buffer/image command
+class MigrateMemObject : public DispatcherCommand, public ITask
+{
+public:
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
+
+    // ITask interface
+    bool    Execute();
+    long    Release() {delete this; return 0;}
+
+protected:
+    MigrateMemObject(TaskDispatcher* pTD);
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
+};
+
 }}}

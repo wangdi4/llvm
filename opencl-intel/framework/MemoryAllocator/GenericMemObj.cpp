@@ -258,8 +258,6 @@ cl_err_code GenericMemObject::Initialize(
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    m_data_valid_state.m_contains_valid_data = m_BS->IsDataValid();
-    
     // now allocate on devices. Only one single allocation per sharing group is required.
     for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
@@ -277,12 +275,10 @@ cl_err_code GenericMemObject::Initialize(
             remove_device_objects();
         	return CL_OUT_OF_RESOURCES;
         }
-
-        group.m_data_copy_state = m_data_valid_state.m_contains_valid_data ? 
-                                        DATA_COPY_STATE_VALID : DATA_COPY_STATE_INVALID;
-
     }
 
+    data_sharing_set_init_state( m_BS->IsDataValid() );
+    
 	// Now we should set backing store
 	// Get access to internal pointer
 	m_pMemObjData = m_pBackingStore->GetRawData();
@@ -381,6 +377,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
         {
             grp.m_data_copy_state = DATA_COPY_STATE_VALID;
             m_data_valid_state.m_contains_valid_data = true;
+            m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY;
         }
         else
         {
