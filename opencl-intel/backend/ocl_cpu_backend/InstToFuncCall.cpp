@@ -26,8 +26,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         Inst2FunctionLookup() {		
             //TODO: move this away from here
             Type2ValueLookup FPToUI_Lookup;
-            Type2ValueLookup UIToFP_Lookup;
-            Type2ValueLookup SIToFP_Lookup;
 
             /// Replaces:
             /// %conv = fptoui double %tmp2 to i64
@@ -42,26 +40,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             FPToUI_Lookup[std::make_pair(Integer64,Float)] = std::make_pair("_Z13convert_ulongf", CallingConv::C);
 
             /// Replaces:
-            /// %conv = sitofp i64 %tmp2 to float
+            /// %conv = fptoui double %tmp2 to i32
             /// With:
-            /// %call_conv = call float @_Z13convert_floatl(i64 %tmp2) nounwind
-            SIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatl", CallingConv::C);
+            /// %call_conv = call i32 @_Z12convert_uintd(double %tmp2) nounwind
+            FPToUI_Lookup[std::make_pair(Integer32,Double)] = std::make_pair("_Z12convert_uintd", CallingConv::C);
 
-            /// Replaces:
-            /// %conv = sitofp i64 %tmp2 to double
-            /// With:
-            /// %call_conv = call double @_Z14convert_doublel(i64 %tmp2) nounwind
-            SIToFP_Lookup[std::make_pair(Double,Integer64)] = std::make_pair("_Z14convert_doublel", CallingConv::C);
-
-            /// Replaces:
-            /// %conv = uitofp i64 %tmp2 to float
-            /// With:
-            /// %call_conv = call float @_Z13convert_floatm(i64 %tmp2) nounwind
-            UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
-
-
-            m_Lookup[Instruction::UIToFP] = UIToFP_Lookup;
-            m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
         }
 

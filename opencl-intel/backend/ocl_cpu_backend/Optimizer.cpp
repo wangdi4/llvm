@@ -243,6 +243,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
   
+  // Should be called before vectorizer!
+  m_modulePasses.add(createInstToFuncCallPass());
+
   if ( !isDBG && !pConfig->GetLibraryModule()) {
     m_modulePasses.add(createKernelAnalysisPass());
     m_modulePasses.add(createCLWGLoopBoundariesPass());
@@ -250,7 +253,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createCFGSimplificationPass());
 
   }
-  
+
   if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG) {
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
@@ -306,8 +309,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if( pConfig->GetRelaxedMath() ) {
     m_modulePasses.add(createRelaxedPass());
   }
-
-  m_modulePasses.add(createInstToFuncCallPass());
 
   // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
   // must run before createBuiltInImportPass!

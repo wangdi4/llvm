@@ -334,7 +334,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   // Filter-out any cast instructions which do not support Vector types  
   if (!isa<BitCastInst>(CI) && !isa<SExtInst>(CI) && !isa<ZExtInst>(CI) &&
     !isa<TruncInst>(CI) && !isa<FPToSIInst>(CI) &&
-    !isa<SIToFPInst>(CI) && /*!isa<FPToUIInst>(CI) && */!isa<UIToFPInst>(CI)) {
+    !isa<SIToFPInst>(CI) && !isa<FPToUIInst>(CI) && !isa<UIToFPInst>(CI)) {
       return duplicateNonPacketizableInst(CI);
   }
 
