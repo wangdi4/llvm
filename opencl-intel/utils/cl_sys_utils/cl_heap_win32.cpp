@@ -30,6 +30,7 @@
 #include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
 #include <map>
+#include <tchar.h>
 
 using namespace std;
 
@@ -109,6 +110,7 @@ static void RemoveAll( ClHeapInfo_t* phHeap )
 }
 
 /**
+ * DEPRICATED notice, left here for future debugging (if required):
  *__try/__except pattern conflicts with objects DTOR, like CLAutoPtr. So
  * I put the allocation in a separate function.
  * #pragma warning(disable : 4509) // MSVC warns about return after HeapValidate because AutoMutex.
@@ -118,24 +120,8 @@ static void *__safeHeapAlloc__(HANDLE heap, const size_t allocSize)
 	void* ptr;
 	DWORD ecode;
 
-	__try
-	{
-		ptr = HeapAlloc(heap, 0, allocSize);
-	}
-	__except(ecode = GetExceptionCode())
-	{
-		if (STATUS_NO_MEMORY == ecode)
-		{
-			/* The allocation attempt failed because of a 
-			 * lack of available memory or heap corruption. */
-			int x = 1; // breakpoint for debug
-		} else if (STATUS_ACCESS_VIOLATION == ecode){
-			/* The allocation attempt failed because of 
-			 * heap corruption or improper function parameters. */
-			int x = 1; // breakpoint for debug
-		}
-		HeapValidate(heap, 0, NULL);
-	}
+    // No exceptions. Errors will simply return NULL to ptr.
+    ptr = HeapAlloc(heap, 0, allocSize);
 
 	return ptr;
 }
@@ -150,14 +136,23 @@ static void *__safeHeapAlloc__(HANDLE heap, const size_t allocSize)
 int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
 {
 	assert(phHeap);
-	// Let the heap generate exceptions.
-	// Make the heap non-thread safe. Use our own serialization.
-	HANDLE hHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS | HEAP_NO_SERIALIZE, 0, 0);
-
+	// No exceptions, with internal serialization (for LFH).
+    HANDLE hHeap = HeapCreate(0, 0, 0);
 	if ( NULL == hHeap)
 	{
 		return -1;
 	}
+
+    // To enable the LFH for the specified heap, set the variable pointed to by the HeapInformation parameter to 2.
+    ULONG heapSetInfo = 2; 
+    bool bResult = HeapSetInformation(hHeap, HeapCompatibilityInformation, &heapSetInfo, sizeof(ULONG));
+    if (bResult != FALSE) {
+        //_tprintf(TEXT("The low-fragmentation heap has been enabled.\n"));
+    } else {
+        _tprintf(TEXT("Failed to enable the low-fragmentation heap with LastError %d."
+            " If running from debugger you need to set environment variable _NO_DEBUG_HEAP=1\n"),
+                 GetLastError());
+    }
 
 	ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
 
