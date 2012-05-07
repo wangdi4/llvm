@@ -284,8 +284,8 @@ code VLoadPromote = [{
   }];
 code VLoadExpand = [{
     $ReturnType $ReturnVarName;
-    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName, $Arg1VarName);
-    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName, $Arg1VarName + $VecLength/2);
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc(0, $Arg1VarName + ($Arg0VarName * $VecLength));
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc(0, $Arg1VarName + ($Arg0VarName * $VecLength) + $VecLength/2);
     return $ReturnVarName;
   }];
 OclBuiltinImpl vload_gas_promote  = OclBuiltinImpl<vload_gas, non_v16x64_types, 0, VLoadPromote>;
@@ -489,8 +489,8 @@ code VStorePromote = [{
     mask_vstore($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
 code VStoreExpand = [{
-    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName, $Arg2VarName);
-    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName, $Arg2VarName + $VecLength/2);
+    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, 0, $Arg2VarName + ($Arg1VarName * $VecLength));
+    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, 0, $Arg2VarName + ($Arg1VarName * $VecLength) + $VecLength/2);
   }];
 OclBuiltinImpl vstore_gas_promote = OclBuiltinImpl<vstore_gas, non_v16x64_types, 0, VStorePromote>;
 OclBuiltinImpl vstore_las_promote = OclBuiltinImpl<vstore_las, non_v16x64_types, 0, VStorePromote>;
@@ -899,8 +899,8 @@ code VStoreAHalfPromote = [{
     mask_vstorea_half($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
 code VStoreHalfExpand = [{
-    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName, $Arg2VarName);
-    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName, $Arg2VarName + $VecLength/2);
+    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, 0, $Arg2VarName + ($Arg1VarName * $VecLength));
+    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, 0, $Arg2VarName + ($Arg1VarName * $VecLength) + $VecLength/2);
   }];
 OclBuiltinImpl vstoref_half_gas_promote       = OclBuiltinImpl<vstoref_half_gas,      vstoref_half_gas.Types, 0, VStoreHalfPromote>;
 OclBuiltinImpl vstoref_half_las_promote       = OclBuiltinImpl<vstoref_half_las,      vstoref_half_las.Types, 0, VStoreHalfPromote>;
