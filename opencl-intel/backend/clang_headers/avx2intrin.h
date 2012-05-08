@@ -985,6 +985,30 @@ _mm_srlv_epi64 (__m128i a, __m128i b)
   return (__m128i) __builtin_ia32_psrlv2di ((__v2di)a, (__v2di)b);
 }
 
+__inline __m128 __attribute__ ((__always_inline__, __nodebug__))
+_mm_cvtph_ps (__m128i x)
+{
+  return (__m128) __builtin_ia32_vcvtph2ps ((__v8hi)x);
+}
+
+__inline __m256 __attribute__ ((__always_inline__, __nodebug__))
+_mm256_cvtph_ps (__m128i x)
+{
+  return (__m256) __builtin_ia32_vcvtph2ps256 ((__v8hi)x);
+}
+
+__inline __m128i __attribute__ ((__always_inline__, __nodebug__))
+_mm_cvtps_ph (__m128 x, const int imm)
+{
+  return (__m128i) __builtin_ia32_vcvtps2ph ((__v4sf)x, imm);
+}
+
+__inline __m128i __attribute__ ((__always_inline__, __nodebug__))
+_mm256_cvtps_ph (__m256 x, const int imm)
+{
+  return (__m128i) __builtin_ia32_vcvtps2ph256 ((__v8sf)x, imm);
+}
+
 #define ZERO_PD    __m128d{ 0, 0 };
 #define ALLONES_PD __m128d{ ~0, ~0 };
 
