@@ -32,7 +32,7 @@ FirstBB:
 ;KNF:  vxorpi    %v0, %v0, %v0
 ;KNF:  vloadd    (%rdi){uint8i}, %v1
 ;KNF:  vorpi     %v0, %v0, %v1{%k1}
-;KNF:  vstored   %v1{uint8i}, (%rdi)
+;KNF:  vstored   %v{{[0-9]*}}{uint8i}, (%rdi)
   %v = load <16 x i8> *%p
   %t1 = select <16 x i1> %mask, <16 x i8> zeroinitializer, <16 x i8> %v
   store <16 x i8> %t1, <16 x i8>* %p, align 16

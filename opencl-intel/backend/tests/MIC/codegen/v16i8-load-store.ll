@@ -12,9 +12,9 @@
 target datalayout = "e-p:64:64"
 
 define void @test(<16 x i8>* %a, <16 x i8>* %b) nounwind {
-; KNF: vloadd    (%{{[a-z]+}}){uint8i}, [[R0:%v[0-9]+]]
+; KNF: vandpi (%{{[a-z]*}}){uint8}, %v{{[0-9]*}}, %v{{[0-9]*}}
   %1 = load <16 x i8>* %a
-; KNF: vstored    [[R0]]{uint8i}, (%{{[a-z]+}})
+; KNF: vstored    %v{{[0-9]*}}{uint8i}, (%{{[a-z]+}})
   store <16 x i8> %1, <16 x i8>* %b, align 16
   ret void
 }

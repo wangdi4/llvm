@@ -13,7 +13,7 @@ FirstBB:
 ;KNF:  vloadd    (%rdi){uint8i}, [[R0:%v[0-9]+]]
 ;KNF:  vaddpi    [[R0]], [[R0]], [[R1:%v[0-9]+]]
 ;KNF:  vxorpi    (%rdi){uint8}, [[R1]], [[R2:%v[0-9]+]]
-;KNF:  vstored   [[R2]]{uint8i}, (%rdi)
+;KNF:  vstored   %v{{[0-9]*}}{uint8i}, (%rdi)
   %v = load <16 x i8> *%p
   %t1 = add <16 x i8> %v, %v
   %v1 = xor <16 x i8> %t1, %v

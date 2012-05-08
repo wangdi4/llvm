@@ -432,16 +432,16 @@ code select_vector_v8 = [{
     return ($ReturnType)select((int16)$Arg0VarName, (int16)$Arg1VarName, x_reg);
   }];
 code select_scalar = [{
-    return ($Arg2VarName&(1 << ($BitWidth-1)))?$Arg1VarName:$Arg0VarName;
+    return $Arg2VarName?$Arg1VarName:$Arg0VarName;
   }];
 code select_scalar_i64 = [{
-    return ($Arg2VarName&(1L << ($BitWidth-1)))?$Arg1VarName:$Arg0VarName;
+    return $Arg2VarName?$Arg1VarName:$Arg0VarName;
   }];
 code select_scalar_f32 = [{
-    return (as_int($Arg2VarName)&(1 << ($BitWidth-1)))?$Arg1VarName:$Arg0VarName;
+    return as_int($Arg2VarName)?$Arg1VarName:$Arg0VarName;
   }];
 code select_scalar_f64 = [{
-    return (as_long($Arg2VarName)&(1L << ($BitWidth-1)))?$Arg1VarName:$Arg0VarName;
+    return as_long($Arg2VarName)?$Arg1VarName:$Arg0VarName;
   }];
 OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32],
                                 0, select_scalar>;
