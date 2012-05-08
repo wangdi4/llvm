@@ -1738,8 +1738,7 @@ cl_err_code NDRangeKernelCommand::Execute()
     // Fill command descriptor
     prepare_command_descriptor(CL_DEV_CMD_EXEC_KERNEL, &m_kernelParams, sizeof(cl_dev_cmd_param_kernel));
 
-    cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
-    pKernelParam->kernel = m_pKernel->GetDeviceKernelId(m_pDevice);
+    m_kernelParams.kernel = m_pKernel->GetDeviceKernelId(m_pDevice);
 
     // Color will be changed only when command is submitted in the device
 
@@ -1777,9 +1776,7 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     m_NonMemOclObjects.clear();
 
     // Delete local command
-	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-    cl_dev_cmd_param_kernel* pKernelParam = (cl_dev_cmd_param_kernel*)m_pDevCmd->params;
-	cl_char* temp = (cl_char*)pKernelParam->arg_values;
+	cl_char* temp = (cl_char*)(m_kernelParams.arg_values);
     delete[] temp;
 
 	// Remove ownership from the object
