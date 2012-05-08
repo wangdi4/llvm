@@ -640,6 +640,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
       return;
     }
+    else MO.Index = NULL;
   }
 
   V_ASSERT(!MO.Index && "Was not able to handle a scatter/gather inst");
