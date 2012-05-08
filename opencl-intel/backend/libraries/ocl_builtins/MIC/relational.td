@@ -423,8 +423,8 @@ code select_vector_v16 = [{
     int16 b_reg = (int16)ext_from($Arg1VarName);
     __m512i no_sign = _mm512_and_epi32((__m512i)(c_reg), const_vector_msb);
     __mmask16 sel = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
-    __m512i tempi = (__m512i)(b_reg);
-    tempi = _mm512_mask_or_epi32(tempi, sel, (__m512i)(a_reg), (__m512i)(a_reg));
+    __m512i tempi = (__m512i)(a_reg);
+    tempi = _mm512_mask_or_epi32(tempi, sel, (__m512i)(b_reg), (__m512i)(b_reg));
     return trunc_to_$NativeReturnType((int16)tempi);
   }];
 code select_vector_v8 = [{
