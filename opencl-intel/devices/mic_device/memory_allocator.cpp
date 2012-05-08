@@ -671,6 +671,7 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
      // BUGBUG: DK - need to create COI sub-buffer
 //    m_coi_buffer =
+    assert( false && "SubBuffers are not supported on MIC yet" );
 
     return CL_DEV_SUCCESS;
 }
