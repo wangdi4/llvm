@@ -128,7 +128,7 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
     for (unsigned int i = 0; i < count; i++)
 	{
 	    // Create appropriate Command object
-		cl_dev_err_code rc = createCommandObject(cmds[i], &pCmdObject);
+		rc = createCommandObject(cmds[i], &pCmdObject);
 		// If there is no enough memory for allocating Command object
 		if (CL_DEV_FAILED(rc))
 		{

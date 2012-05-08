@@ -168,7 +168,7 @@ void execute_command(uint32_t					in_BufferCount,
 	}
 	else
 	{
-		assert(in_MiscDataLength >= sizeof(ndrange_dispatcher_data));
+		assert(in_MiscDataLength >= sizeof(dispatcher_data));
 		tDispatcherData = (dispatcher_data*)in_pMiscData;
 	}
 	// If the misc_data is NOT in in_pReturnValue

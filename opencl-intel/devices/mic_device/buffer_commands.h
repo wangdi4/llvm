@@ -229,6 +229,8 @@ class CopyMemObject : public BufferCommands
 
 public:
 
+	virtual ~CopyMemObject();
+
 	/* static function for CopyMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
 
@@ -238,6 +240,8 @@ private:
 
 	/* Private constructor because We like to create Commands only by the factory method */
     CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+	char* m_srcBufferMirror;
 
 };
 

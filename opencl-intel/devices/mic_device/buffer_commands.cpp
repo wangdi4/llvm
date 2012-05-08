@@ -488,8 +488,16 @@ bool CopyMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const 
 	return (COI_SUCCESS == result);
 }
 
-CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
+CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_srcBufferMirror(NULL)
 {
+}
+
+CopyMemObject::~CopyMemObject()
+{
+	if (m_srcBufferMirror)
+	{
+		delete(m_srcBufferMirror);
+	}
 }
 
 cl_dev_err_code CopyMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
@@ -591,24 +599,74 @@ cl_dev_err_code CopyMemObject::execute()
 		// Set command type for the tracer.
 		m_commandTracer.set_command_type((char*)"Copy");
 
-        CopyMemoryChunk copier(
-                            barrier,
-                            pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
-                            pMicMemObjDst->clDevMemObjGetCoiBufferHandler()  // Get the COIBUFFER which represent this memory object
-                           );
+		// Work around if the source buffer and the destination buffer are the same COI buffer, then execute the following:
+		//  * Read the whole COIBuffer to temporary host buffer.
+		//  * Write from the temporary host buffer instead of copy from source COIBuffer.
+		ProcessCommonMemoryChunk* pCopier = NULL;
+		COIEVENT initialReadBarrier;
+		if (pMicMemObjSrc->clDevMemObjGetCoiBufferHandler() == pMicMemObjDst->clDevMemObjGetCoiBufferHandler())
+		{
+			// Allocate memory for source mirror buffer.
+			m_srcBufferMirror = new char[pMicMemObjSrc->GetRawDataSize()];
+			assert(m_srcBufferMirror);
+			if (NULL == m_srcBufferMirror)
+			{
+				m_lastError = CL_DEV_OUT_OF_MEMORY;
+				break;
+			}
+
+			COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(),					// Buffer to read from.
+												 0,																	// Location in the buffer to start reading from.
+												 m_srcBufferMirror,													// A pointer to local memory that should be written into.
+												 pMicMemObjSrc->GetRawDataSize(),									// The number of bytes to write from coiBuffer into host
+												 COI_COPY_UNSPECIFIED,												// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+												 numDependecies,													// The number of dependencies specified.
+												 barrier,															// An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
+												 &initialReadBarrier										        // An optional event to be signaled when the copy has completed.
+											   );
+
+			assert(COI_SUCCESS == coiResult);
+			if (COI_SUCCESS != coiResult)
+			{
+				m_lastError = CL_DEV_ERROR_FAIL;
+				break;
+			}
+
+			pCopier = new ReadWriteMemoryChunk (
+												&initialReadBarrier,
+												pMicMemObjDst->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
+												m_srcBufferMirror,
+												false );
+
+		}
+		else	// Regular copy from different source and destination COIBuffers.
+		{
+			pCopier = new CopyMemoryChunk(
+											barrier,
+											pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
+											pMicMemObjDst->clDevMemObjGetCoiBufferHandler()  // Get the COIBUFFER which represent this memory object
+										 );
+		}
+
+		assert(pCopier);
+		if (NULL == pCopier)
+		{
+			m_lastError = CL_DEV_OUT_OF_MEMORY;
+			break;
+		}
 
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
-        CopyRegion( &sCpyParam, &copier );
+        CopyRegion( &sCpyParam, pCopier );
 
-        if (copier.error_occured())
+        if (pCopier->error_occured())
         {
     		m_lastError = CL_DEV_ERROR_FAIL;
             break;
         }
 
-        if (!copier.work_dispatched())
+        if (!pCopier->work_dispatched())
         {
     		m_lastError = CL_DEV_SUCCESS;
             error = true;
@@ -616,13 +674,13 @@ cl_dev_err_code CopyMemObject::execute()
         }
 
 		// Set total amount of buffer operations for the Tracer.
-		unsigned int amount = copier.get_total_amount_of_chunks();
+		unsigned int amount = pCopier->get_total_amount_of_chunks();
 		m_commandTracer.add_delta_num_of_buffer_operations(amount);
 		// Set total size of buffer operations for the Tracer.
-		unsigned long long size = copier.get_total_memory_processed_size();
+		unsigned long long size = pCopier->get_total_memory_processed_size();
 		m_commandTracer.add_delta_buffer_operation_overall_size(size);
 
-        m_completionBarrier.cmdEvent = copier.get_last_event();
+        m_completionBarrier.cmdEvent = pCopier->get_last_event();
         
         if (0 == pMicMemObjDst->GetWriteMapsCount())
         {
