@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -16,9 +15,9 @@ entry:
 ; KNF: vcvtpi2pd $0, %v0, [[R1:%v[0-9]+]]
 ; KNF: vcvtpi2pd $0, [[R0]], [[R2:%v[0-9]+]]
 ;
-; KNC: vshuf128x32 $228, $14, %zmm0, [[R0:%zmm[0-9]+]]
-; KNC: vcvtpi2pd $0, %zmm0, [[R1:%zmm[0-9]+]]
-; KNC: vcvtpi2pd $0, [[R0]], [[R2:%zmm[0-9]+]]
+; KNC: vpermf32x4 $14, %zmm0, [[R0:%zmm[0-9]+]]
+; KNC: vcvtdq2pd %zmm0, [[R1:%zmm[0-9]+]]
+; KNC: vcvtdq2pd [[R0]], [[R2:%zmm[0-9]+]]
   %c = sitofp <16 x i32> %a to <16 x double>
   store <16 x double> %c, <16 x double>* %p
   ret void
@@ -32,9 +31,9 @@ entry:
 ; KNF: vcvtpi2pd $0, g(%rip), [[R1:%v[0-9]+]]
 ; KNF: vcvtpi2pd $0, [[R0]], [[R2:%v[0-9]+]]
 ;
-; KNC: vshuf128x32 $228, $14, g(%rip), [[R0:%zmm[0-9]+]]
-; KNC: vcvtpi2pd $0, g(%rip), [[R1:%zmm[0-9]+]]
-; KNC: vcvtpi2pd $0, [[R0]], [[R2:%zmm[0-9]+]]
+; KNC: vpermf32x4 $14, g(%rip), [[R0:%zmm[0-9]+]]
+; KNC: vcvtdq2pd g(%rip), [[R1:%zmm[0-9]+]]
+; KNC: vcvtdq2pd [[R0]], [[R2:%zmm[0-9]+]]
   %i = load <16 x i32>* @g
   %c = sitofp <16 x i32> %i to <16 x double>
   store <16 x double> %c, <16 x double>* %p
