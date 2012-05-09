@@ -80,7 +80,8 @@ typedef struct ___gpa_metric
     wchar_t Uri  [__GPA_URI_LENGTH];                 //Uri of metric
     wchar_t Name [__GPA_NAME_LENGTH];                //Name of metric
     wchar_t Description[__GPA_DESCRIPTION_LENGTH];   //Metric description
-    wchar_t Units[__GPA_UNITS_LENGTH];                 //Metric units
+    wchar_t Units[__GPA_UNITS_LENGTH];               //Metric units
+    wchar_t Group[__GPA_NAME_LENGTH];                //Metric group
 #else
     char Uri  [__GPA_URI_LENGTH];                    //Uri of metric
     char Name [__GPA_NAME_LENGTH];                   //Name of metric
@@ -89,6 +90,7 @@ typedef struct ___gpa_metric
 #endif
     double MaxValue;                                 //Max metric value
     int    Flags;                                    //Metric visibility
+    int    ProcessingFlag;                           //Metric processing flag
 } __gpa_metric;
 
 /**

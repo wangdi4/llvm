@@ -139,6 +139,9 @@ static const char* const task_state_name_str = "<metadata uri=\"com.intel.task_s
 static const char* const task_state_str =      "<metadata uri=\"com.intel.gpa.task_state\"/>";
 static const char* const task_state_ex_str =   "<metadata uri=\"com.intel.gpa.task_state_ex\"/>";
 
+static const __itt_string_handle* const task_state_str_handle = __itt_string_handle_createA(task_state_str);
+static const __itt_string_handle* const task_state_ex_str_handle = __itt_string_handle_createA(task_state_ex_str);
+
 // Defines a task state by name.
 INLINE __ittx_task_state* __ittx_task_state_create(const __itt_domain* domain, const char* state_name)
 {
@@ -161,8 +164,6 @@ INLINE __ittx_task_state* __ittx_task_state_create(const __itt_domain* domain, c
 // For the current task in scope (or the task indicated by taskid), set the current task state.
 INLINE void __ittx_task_set_state(const __itt_domain* domain, __itt_id taskid, __ittx_task_state* task_state)
 {
-    static __itt_string_handle* state_handle = __itt_string_handle_createA(task_state_str);
-
     if (task_state == NULL)
     {
         return;
@@ -171,15 +172,13 @@ INLINE void __ittx_task_set_state(const __itt_domain* domain, __itt_id taskid, _
     unsigned long long state_data[2];
     state_data[0] = __ittx_get_current_time();
     state_data[1] = task_state->GetStateCode();   
-    __itt_metadata_add(domain, taskid, state_handle, __itt_metadata_u64, 2, state_data);
+    __itt_metadata_add(domain, taskid, const_cast<__itt_string_handle*>(task_state_str_handle), __itt_metadata_u64, 2, state_data);
 }
 
 // Set state for custom clock domains.
 INLINE void __ittx_task_set_state(const __itt_domain* domain, __itt_clock_domain* clockdomain, unsigned long long timestamp,
                       __itt_id taskid, __ittx_task_state* task_state)
 {
-    static __itt_string_handle* state_handle = __itt_string_handle_createA(task_state_ex_str);
-
     if (task_state == NULL)
     {
         return;
@@ -189,14 +188,12 @@ INLINE void __ittx_task_set_state(const __itt_domain* domain, __itt_clock_domain
     state_data[0] = (unsigned long long) timestamp;
     state_data[1] = (unsigned long long) clockdomain;
     state_data[2] = task_state->GetStateCode();   
-    __itt_metadata_add(domain, taskid, state_handle, __itt_metadata_u64, 3, state_data);
+    __itt_metadata_add(domain, taskid, const_cast<__itt_string_handle*>(task_state_ex_str_handle), __itt_metadata_u64, 3, state_data);
 }
 
 // Set the default task state for the current track.
 INLINE void __ittx_set_default_state(const __itt_domain* domain, __ittx_task_state* task_state)
 {
-     static __itt_string_handle* state_handle = __itt_string_handle_createA(task_state_str);
- 
      if (task_state == NULL)
      {
          return;
@@ -205,7 +202,7 @@ INLINE void __ittx_set_default_state(const __itt_domain* domain, __ittx_task_sta
      unsigned long long state_data[2];
      state_data[0] = __ittx_get_current_time();
      state_data[1] = task_state->GetStateCode();
-     __itt_metadata_add_with_scope(domain, __itt_scope_track, state_handle, __itt_metadata_u64, 2, state_data);
+     __itt_metadata_add_with_scope(domain, __itt_scope_track, const_cast<__itt_string_handle*>(task_state_str_handle), __itt_metadata_u64, 2, state_data);
 }
 
 #else
