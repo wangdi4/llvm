@@ -4,11 +4,13 @@ use File::Temp qw/ tempfile tempdir /;
 
 @bmlst = ("Triad", "SGEMM", "Stencil2D", "FFT", "Spmv", "Sort", "MD", "Scan", "MaxFlops", "Reduction", "S3D");
 #@bmlst = ("Sort");
+@bmlst = ("FFT");
 
 @isVect = ("True", "False");
 @codeType = ("Vect", "Scalar");
 
 $tempdir = tempdir("/tmp/shocCIXXXX");
+$ENV{CL_CONFIG_DEVICES} = "mic_device";
 
 foreach $prog (@bmlst) {
   $progpath = "bin/Serial/OpenCL/" . $prog;
@@ -55,4 +57,13 @@ foreach $prog (@bmlst) {
 }
 
 print "To get actual event number the sample count should be multiplied by 2000000\n";
+
+$result = `svn info`;
+@svninfo = split /\n/, $result;
+$num = 0;
+for ($i = 0; $i <= $#svninfo && $num == 0; $i++) {
+  $num = ($version) = $svninfo[$i] =~ /Last Changed Rev: (\d+)/;
+}
+
+print "Reporting on SVN source revision $version\n";
 
