@@ -72,7 +72,7 @@ protected:
   void BuildRTModuleFunc2Funcs();
 
   void BuildRTModuleFunc2Globals();
-  
+
   void CollectFuncs2Import(Module*, ValueToValueMapTy&, TFunctionsVec&);
 
   void ImportGlobals(Module*, TFunctionsVec&, ValueToValueMapTy&);
@@ -151,7 +151,7 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
          calledFuncIt != calledFuncE; ++calledFuncIt)
     {
       const Function* calledFunc = *calledFuncIt;
-      
+
       if (valueMap.count(calledFunc)) continue;  // We already mapped this function.
 
       Function* calledFuncDest = pModule->getFunction(calledFunc->getName());
@@ -204,20 +204,20 @@ void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, Va
     {
       GlobalVariable* usedGlobal = const_cast<GlobalVariable*>(*globalsIt);
 
-	  if (valueMap.count(usedGlobal)) continue; // We already mapped this global.
+      if (valueMap.count(usedGlobal)) continue; // We already mapped this global.
 
       GlobalVariable *usedGlobalDest =
                      new GlobalVariable(*pModule, usedGlobal->getType()->getElementType(),
                      usedGlobal->isConstant(), GlobalValue::PrivateLinkage, usedGlobal->getInitializer(),
                      usedGlobal->getName(), 0, false,
                      usedGlobal->getType()->getAddressSpace());
- 
+
       // Propagate alignment, visibility and section info.
       usedGlobalDest->copyAttributesFrom(usedGlobal);
       usedGlobalDest->setAlignment(usedGlobal->getAlignment());
 
       valueMap[usedGlobal] = usedGlobalDest;
-	}
+    }
   }
 }
 
@@ -241,7 +241,7 @@ void BIImport::ImportFunctions(Module* pModule, TFunctionsVec& allFuncs2Import, 
     assert (isa<Function>(newFs->second) && "Function in list for importing not mapped to destination function");
     Function* Dst = cast<Function>(newFs->second);
 
-	// Clone the original function.
+    // Clone the original function.
     Function* Src = CloneFunction(origF, NULL);
     Dst->setAttributes(origF->getAttributes());
 
@@ -260,19 +260,19 @@ void BIImport::ImportFunctions(Module* pModule, TFunctionsVec& allFuncs2Import, 
       valueMap[I] = DI;
     }
 
-    assert(DI == Dst->arg_end() && 
+    assert(DI == Dst->arg_end() &&
            "Src and Dst have a different number of args");
 
     // Clone the body of the function into the dest function.
     SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
     CloneFunctionInto(Dst, Src, valueMap, false, Returns);
-  
+
     // There is no need to map the arguments anymore.
     for (Function::arg_iterator I = Src->arg_begin(), E = Src->arg_end();
          I != E; ++I)
       valueMap.erase(I);
 
-	delete Src;
+    delete Src;
   }
 }
 
@@ -302,7 +302,7 @@ void BIImport::ImportFunctionArrays(Module* pModule, TFunctionsVec& allFuncs2Imp
     for (Value::const_use_iterator I = (*impIt)->use_begin(), E = (*impIt)->use_end(); I != E; ++I)
     {
       if (isa<ConstantArray>(*I)) origArrays.insert(cast<ConstantArray>(*I));
-      else assert (isa<Instruction>(*I) &&
+      else assert ((isa<Instruction>(*I) || isa<ConstantExpr>(*I)) &&
                    "The only non-Instruction allowed to use an imported function is a ConstantArray");
     }
   }
@@ -354,7 +354,7 @@ bool BIImport::runOnModule(Module &M)
   // Import functions.
   ImportFunctions(&M, funcs2Import, valueMap);
 
-  // Import arrays holding pointers to functions that have been imported. 
+  // Import arrays holding pointers to functions that have been imported.
   ImportFunctionArrays(&M, funcs2Import, valueMap);
   return true;
 }
@@ -407,31 +407,31 @@ void BIImport::BuildRTModuleFunc2Funcs()
       }
       else       // Indirect call; check and allow only a specific pattern:
       {
-	if (isa<ConstantExpr>(*use_it)) 
-	{
-	  // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
-	  for (Value::use_iterator I = use_it->use_begin(), E1 = use_it->use_end(); I != E1; ++I)
-	  {
-	    assert (isa<Instruction>(*I) && "Only Instruction can use a GlobalVariable using a function array.");
-	    Function* pFunc = cast<Instruction>(*I)->getParent()->getParent();
-	    m_mapFunc2Fnc[pFunc].push_back(pVal);
-	  }
-	}
-	else 
-	{
-	  assert (isa<ConstantArray>(*use_it) && "Pointers to functions allowed only in ConstantArrays or ConstantExpressions.");
-	  for (Value::use_iterator I = use_it->use_begin(), E = use_it->use_end(); I != E; ++I)
-	  {
-	    assert (isa<GlobalVariable>(*I) && "Only GlobalVariables can use ConstantArray of functions.");
-	    // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
-	    for (Value::use_iterator I1 = I->use_begin(), E1 = I->use_end(); I1 != E1; ++I1)
-	    {
-	      assert (isa<Instruction>(*I1) && "Only Instruction can use a GlobalVariable using a function array.");
-	      Function* pFunc = cast<Instruction>(*I1)->getParent()->getParent();
-	      m_mapFunc2Fnc[pFunc].push_back(pVal);
-	    }
-	  }
-	}
+        if (isa<ConstantExpr>(*use_it))
+        {
+          // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
+          for (Value::use_iterator I = use_it->use_begin(), E1 = use_it->use_end(); I != E1; ++I)
+          {
+            assert (isa<Instruction>(*I) && "Only Instruction can use a GlobalVariable using a function array.");
+            Function* pFunc = cast<Instruction>(*I)->getParent()->getParent();
+            m_mapFunc2Fnc[pFunc].push_back(pVal);
+          }
+        }
+        else
+        {
+          assert (isa<ConstantArray>(*use_it) && "Pointers to functions allowed only in ConstantArrays or ConstantExpressions.");
+          for (Value::use_iterator I = use_it->use_begin(), E = use_it->use_end(); I != E; ++I)
+          {
+            assert (isa<GlobalVariable>(*I) && "Only GlobalVariables can use ConstantArray of functions.");
+            // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
+            for (Value::use_iterator I1 = I->use_begin(), E1 = I->use_end(); I1 != E1; ++I1)
+            {
+              assert (isa<Instruction>(*I1) && "Only Instruction can use a GlobalVariable using a function array.");
+              Function* pFunc = cast<Instruction>(*I1)->getParent()->getParent();
+              m_mapFunc2Fnc[pFunc].push_back(pVal);
+            }
+          }
+        }
       }
     }
   }

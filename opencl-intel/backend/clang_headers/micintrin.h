@@ -623,6 +623,8 @@ _mm512_mask_extstore_epi64(void *mt, __mmask8 k1, __m512i v1,
 #define _mm512_mask_store_epi64(mt, k1, v1) \
   _mm512_mask_extstore_epi64((mt), (k1), (v1), _MM_DOWNCONV_EPI64_NONE, _MM_HINT_NONE)
 
+#if 0
+Please, do not remove #if 0 without implementing the methods!
 
 /*
  * Store aligned float32/float64 vector with No-Read hint.
@@ -663,13 +665,13 @@ _mm512_storenrngo_pd(void *mt, __m512d v1)
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_absdiff_round_ps(__m512 v2, __m512 v3, int rounding)
 {
-  // TODO
+  // TODO: implement
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_absdiff_round_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3, int rounding)
 {
-  // TODO
+  // TODO: implement
 }
 
 #define _mm512_absdiff_ps(v2, v3) \
@@ -682,14 +684,15 @@ _mm512_mask_absdiff_round_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3, 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_absdiff_epi32(__m512i v2, __m512i v3)
 {
-  // TODO
+  // TODO: implement
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_absdiff_epi32(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3)
 {
-  // TODO
+  // TODO: implement
 }
+#endif
 
 /*
  * Vector operations.
@@ -937,6 +940,8 @@ _mm512_mask_addsets_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3, __mmas
   return __builtin_ia32_mask_addsetsps512(v1_old, k1, v2, v3, k1_res);
 }
 
+#if 0
+Please, do not remove #if 0 without implementing the methods!
 /*
  * Concatenate vectors, shift right by 'count' int32 elements,
  * and return the low 16 elements.
@@ -944,14 +949,15 @@ _mm512_mask_addsets_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3, __mmas
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_alignr_epi32(__m512i v2, __m512i v3, const int count)
 {
-  // TODO
+  // TODO: implement
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_alignr_epi32(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3, const int count)
 {
-  // TODO
+  // TODO: implement
 }
+#endif
 
 /*
  * Subtract int32 vectors and set borrow.
@@ -2155,7 +2161,7 @@ _mm512_extloadunpackhi_epi64(__m512i v1_old, void const *mt,
                              _MM_UPCONV_EPI64_ENUM upconv,
                              const int hint)
 {
-  return __builtin_ia32_loadunpacklpq512(v1_old, mt, upconv, hint);
+  return __builtin_ia32_loadunpackhpq512(v1_old, mt, upconv, hint);
 }
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_extloadunpackhi_epi64(__m512i v1_old, __mmask16 k1, void const *mt,
