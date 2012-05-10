@@ -92,6 +92,29 @@
 		return res;\
 	}
 
+#define DEF_INT_PROTO16_X_Y_AS_16(FUNC, TI, TO)\
+	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TI##16 x)\
+	{\
+		_8##TI##16 tmp;\
+		tmp.s01 = x;\
+		_8##TO##16 res = FUNC(tmp);\
+		return res.s01;\
+	}\
+	_3##TO##16 __attribute__((overloadable)) FUNC(_3##TI##16 x)\
+	{\
+		_8##TI##16 tmp;\
+		tmp.s012 = x;\
+		_8##TO##16 res = FUNC(tmp);\
+		return res.s012;\
+	}\
+	_4##TO##16 __attribute__((overloadable)) FUNC(_4##TI##16 x)\
+	{\
+		_8##TI##16 tmp;\
+		tmp.lo = x;\
+		_8##TO##16 res = FUNC(tmp);\
+		return res.lo;\
+	}
+
 #define DEF_INT_PROTO32_X_Y(FUNC, TI, TO)\
 	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI##32 x)\
 	{\
@@ -121,6 +144,54 @@
 		res.lo.hi = FUNC(x.lo.hi);\
 		res.hi.lo = FUNC(x.hi.lo);\
 		res.hi.hi = FUNC(x.hi.hi);\
+		return res;\
+	}
+
+#define DEF_INT_PROTO32_X_Y_AS_8(FUNC, TI, TO)\
+	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI##32 x)\
+	{\
+		_4##TI##32 tmpX;\
+		tmpX.lo = x;\
+		_4##TO##32 res = FUNC(tmpX);\
+		return res.lo;\
+	}\
+	_3##TO##32 __attribute__((overloadable)) FUNC(_3##TI##32 x)\
+	{\
+		_4##TI##32 tmpX;\
+		tmpX.s012 = x;\
+		_4##TO##32 res = FUNC(tmpX);\
+		return res.s012;\
+	}\
+	_16##TO##32 __attribute__((overloadable)) FUNC(_16##TI##32 x)\
+	{\
+		_16##TO##32 res;\
+		res.lo = FUNC(x.lo);\
+		res.hi = FUNC(x.hi);\
+		return res;\
+	}\
+
+#define DEF_INT_PROTO64_X_Y_AS_4(FUNC, TI, TO)\
+	_3##TO##64 __attribute__((overloadable)) FUNC(_3##TI##64 x)\
+	{\
+		_4##TI##64 tmp;\
+		tmp.s012 = x;\
+		_4##TO##64 res = FUNC(tmp);\
+		return res.s012;\
+	}\
+	_8##TO##64 __attribute__((overloadable)) FUNC(_8##TI##64 x)\
+	{\
+		_8##TO##64 res;\
+		res.lo = FUNC((_4##TI##64)x.lo);\
+		res.hi = FUNC((_4##TI##64)x.hi);\
+		return res;\
+	}\
+	_16##TO##64 __attribute__((overloadable)) FUNC(_16##TI##64 x)\
+	{\
+		_16##TO##64 res;\
+		res.lo.lo = FUNC((_4##TI##64)x.lo.lo);\
+		res.lo.hi = FUNC((_4##TI##64)x.lo.hi);\
+		res.hi.lo = FUNC((_4##TI##64)x.hi.lo);\
+		res.hi.hi = FUNC((_4##TI##64)x.hi.hi);\
 		return res;\
 	}
 
@@ -207,14 +278,7 @@
 		_4##UI##32 y2 = convert_##UN##int4 (y);\
 		return convert_##UN##short4 ( FUNC ( x2,  y2 ) ); \
 	}\
-	_16##UI##16 __attribute__((overloadable)) FUNC(_16##UI##16 x, _16##UI##16 y)\
-	{\
-		_16##UI##16 res;\
-		res.lo = FUNC(x.lo, y.lo);\
-		res.hi = FUNC(x.hi, y.hi);\
-		return res;\
-	}
-	
+
 #define DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
 	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TI0##8 x, _2##TI1##8 y)\
 	{\
@@ -248,6 +312,35 @@
 		tmpX.lo = x;\
 		tmpY.lo = y;\
 		_16##TO##8 res = FUNC(tmpX, tmpY);\
+		return res.lo;\
+	}
+
+#define DEF_INT_PROTO16_X_X_Y_AS_16(FUNC, TI0, TI1, TO)\
+	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TI0##16 x, _2##TI1##16 y)\
+	{\
+		_8##TI0##16 tmpX;\
+		_8##TI1##16 tmpY;\
+		tmpX.s01 = x;\
+		tmpY.s01 = y;\
+		_8##TO##16 res = FUNC(tmpX, tmpY);\
+		return res.s01;\
+	}\
+	_3##TO##16 __attribute__((overloadable)) FUNC(_3##TI0##16 x, _3##TI1##16 y)\
+	{\
+		_8##TI0##16 tmpX;\
+		_8##TI1##16 tmpY;\
+		tmpX.s012 = x;\
+		tmpY.s012 = y;\
+		_8##TO##16 res = FUNC(tmpX, tmpY);\
+		return res.s012;\
+	}\
+	_4##TO##16 __attribute__((overloadable)) FUNC(_4##TI0##16 x, _4##TI1##16 y)\
+	{\
+		_8##TI0##16 tmpX;\
+		_8##TI1##16 tmpY;\
+		tmpX.lo = x;\
+		tmpY.lo = y;\
+		_8##TO##16 res = FUNC(tmpX, tmpY);\
 		return res.lo;\
 	}
 
@@ -285,7 +378,7 @@
 		res.lo = FUNC(x.lo, y.lo);\
 		res.hi = FUNC(x.hi, y.hi);\
 		return res;\
-	}
+  }
 
 #define DEF_INT_PROTO32_X_X_Y(FUNC, TI0, TI1, TO)\
 	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI0##32 x, _2##TI1##32 y)\
@@ -320,6 +413,33 @@
 		res.lo.hi = FUNC(x.lo.hi, y.lo.hi);\
 		res.hi.lo = FUNC(x.hi.lo, y.hi.lo);\
 		res.hi.hi = FUNC(x.hi.hi, y.hi.hi);\
+		return res;\
+	}
+
+#define DEF_INT_PROTO32_X_X_Y_AS_8(FUNC, TI0, TI1, TO)\
+	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI0##32 x, _2##TI1##32 y)\
+	{\
+		_4##TI0##32 tmpX;\
+		_4##TI1##32 tmpY;\
+		tmpX.lo = x;\
+		tmpY.lo = y;\
+		_4##TO##32 res = FUNC(tmpX, tmpY);\
+		return res.lo;\
+	}\
+	_3##TO##32 __attribute__((overloadable)) FUNC(_3##TI0##32 x, _3##TI1##32 y)\
+	{\
+		_4##TI0##32 tmpX;\
+		_4##TI1##32 tmpY;\
+		tmpX.s012 = x;\
+		tmpY.s012 = y;\
+		_4##TO##32 res = FUNC(tmpX, tmpY);\
+		return res.s012;\
+	}\
+	_16##TO##32 __attribute__((overloadable)) FUNC(_16##TI0##32 x, _16##TI1##32 y)\
+	{\
+		_16##TO##32 res;\
+		res.lo = FUNC(x.lo, y.lo);\
+		res.hi = FUNC(x.hi, y.hi);\
 		return res;\
 	}
 
@@ -361,6 +481,35 @@
 		return res;\
 	}
 
+#define DEF_INT_PROTO64_X_X_Y_AS_4(FUNC, TI0, TI1, TO)\
+	_3##TO##64 __attribute__((overloadable)) FUNC(_3##TI0##64 x, _3##TI1##64 y)\
+	{\
+		_4##TO##64 res;\
+		_4##TI0##64 Valx;\
+		_4##TI1##64 Valy;\
+		Valx.s012 = x;				\
+		Valx.s3 = 1.0f;				\
+		Valy.s012 = y;				\
+		Valy.s3 = 1.0f;				\
+		res = FUNC(Valx, Valy);\
+		return res.s012;\
+	}\
+	_8##TO##64 __attribute__((overloadable)) FUNC(_8##TI0##64 x, _8##TI1##64 y)\
+	{\
+		_8##TO##64 res;\
+		res.lo = FUNC(x.lo, y.lo);\
+		res.hi = FUNC(x.hi, y.hi);\
+		return res;\
+	}\
+	_16##TO##64 __attribute__((overloadable)) FUNC(_16##TI0##64 x, _16##TI1##64 y)\
+	{\
+		_16##TO##64 res;\
+		res.lo.lo = FUNC(x.lo.lo, y.lo.lo);\
+		res.lo.hi = FUNC(x.lo.hi, y.lo.hi);\
+		res.hi.lo = FUNC(x.hi.lo, y.hi.lo);\
+		res.hi.hi = FUNC(x.hi.hi, y.hi.hi);\
+		return res;\
+	}
 
 #define DEF_INT_PROTO8_vX_sX_Y(FUNC, TI0, TI1, TO)\
 	_2##TO##8 __attribute__((overloadable)) FUNC(_2##TI0##8 x, _1##TI1##8 y)\
@@ -440,12 +589,7 @@
 	}\
 	_16##TO##16 __attribute__((overloadable)) FUNC(_16##TI0##16 x, _1##TI1##16 y)\
 	{\
-		_16##TO##16 res;\
-		_16##TO##16 tmpY;\
-		tmpY = (_16##TO##16)y;\
-		res.lo = FUNC(x.lo, tmpY.lo);\
-		res.hi = FUNC(x.hi, tmpY.hi);\
-		return res;\
+		return FUNC(x, (_16##TO##16)y);\
 	}
 
 #define DEF_INT_PROTO32_vX_sX_Y(FUNC, TI0, TI1, TO)\
@@ -475,23 +619,11 @@
 	}\
 	_8##TO##32 __attribute__((overloadable)) FUNC(_8##TI0##32 x, _1##TI1##32 y)\
 	{\
-		_8##TO##32 res;\
-		_4##TO##32 tmpY;\
-		tmpY = (_4##TO##32)y;\
-		res.lo = FUNC(x.lo, tmpY);\
-		res.hi = FUNC(x.hi, tmpY);\
-		return res;\
+		return FUNC(x, (_8##TO##32)y);\
 	}\
 	_16##TO##32 __attribute__((overloadable)) FUNC(_16##TI0##32 x, _1##TI1##32 y)\
 	{\
-		_16##TO##32 res;\
-		_4##TO##32 tmpY;\
-		tmpY = (_4##TO##32)y;\
-		res.lo.lo = FUNC(x.lo.lo, tmpY);\
-		res.lo.hi = FUNC(x.lo.hi, tmpY);\
-		res.hi.lo = FUNC(x.hi.lo, tmpY);\
-		res.hi.hi = FUNC(x.hi.hi, tmpY);\
-		return res;\
+		return FUNC(x, (_16##TO##32)y);\
 	}
 
 #define DEF_INT_PROTO64_vX_sX_Y(FUNC, TI0, TI1, TO)\
@@ -508,34 +640,15 @@
 	}\
 	_4##TO##64 __attribute__((overloadable)) FUNC(_4##TI0##64 x, _1##TI1##64 y)\
 	{\
-		_4##TO##64 res;\
-		res.lo = FUNC(x.lo, (_2##TO##64)y);\
-		res.hi = FUNC(x.hi, (_2##TO##64)y);\
-		return res;\
+		return FUNC(x,(_4##TO##64)y);\
 	}\
 	_8##TO##64 __attribute__((overloadable)) FUNC(_8##TI0##64 x, _1##TI1##64 y)\
 	{\
-		_8##TO##64 res;\
-		_2##TO##64 tmpY = (_2##TO##64)y;\
-		res.lo.lo = FUNC(x.lo.lo, tmpY);\
-		res.lo.hi = FUNC(x.lo.hi, tmpY);\
-		res.hi.lo = FUNC(x.hi.lo, tmpY);\
-		res.hi.hi = FUNC(x.hi.hi, tmpY);\
-		return res;\
+		return FUNC(x,(_8##TO##64)y);\
 	}\
 	_16##TO##64 __attribute__((overloadable)) FUNC(_16##TI0##64 x, _1##TI1##64 y)\
 	{\
-		_16##TO##64 res;\
-		_2##TO##64 tmpY = (_2##TO##64)y;\
-		res.lo.lo.lo = FUNC(x.lo.lo.lo, tmpY);\
-		res.lo.lo.hi = FUNC(x.lo.lo.hi, tmpY);\
-		res.lo.hi.lo = FUNC(x.lo.hi.lo, tmpY);\
-		res.lo.hi.hi = FUNC(x.lo.hi.hi, tmpY);\
-		res.hi.lo.lo = FUNC(x.hi.lo.lo, tmpY);\
-		res.hi.lo.hi = FUNC(x.hi.lo.hi, tmpY);\
-		res.hi.hi.lo = FUNC(x.hi.hi.lo, tmpY);\
-		res.hi.hi.hi = FUNC(x.hi.hi.hi, tmpY);\
-		return res;\
+		return FUNC(x, (_16##TO##64)y);\
 	}
 	
 #define DEF_INT_MAD_SAT8_X_X_X_Y(FUNC, UN, UNlow, TO)\
@@ -608,6 +721,41 @@
 		return convert_##UN##char8(a); \
 	}\
 
+#if defined (__AVX2__)
+#define DEF_INT_CLAMP16_X_X_X_Y(FUNC, UN, UNlow, TO)\
+	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TO##16 x, _2##TO##16 y,  _2##TO##16 z)\
+	{\
+		_2##TO##32 a = convert_##UN##int2(x) ; \
+		_2##TO##32 b = convert_##UN##int2(y) ; \
+		_2##TO##32 c = convert_##UN##int2(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short2(a); \
+	}\
+	_3##TO##16 __attribute__((overloadable)) FUNC(_3##TO##16 x, _3##TO##16 y, _3##TO##16 z)\
+	{\
+		_3##TO##32 a = convert_##UN##int3(x) ; \
+		_3##TO##32 b = convert_##UN##int3(y) ; \
+		_3##TO##32 c = convert_##UN##int3(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short3(a); \
+	}\
+	_4##TO##16 __attribute__((overloadable)) FUNC(_4##TO##16 x, _4##TO##16 y, _4##TO##16 z)\
+	{\
+		_4##TO##32 a = convert_##UN##int4(x) ; \
+		_4##TO##32 b = convert_##UN##int4(y) ; \
+		_4##TO##32 c = convert_##UN##int4(z) ; \
+		a = clamp (a, b, c); \
+		return convert_##UN##short4(a); \
+	}\
+	_8##TO##16 __attribute__((overloadable)) FUNC(_8##TO##16 x, _8##TO##16 y, _8##TO##16 z)\
+	{\
+		return min(max(x,y), z); \
+	}\
+	_16##TO##16 __attribute__((overloadable)) FUNC(_16##TO##16 x, _16##TO##16 y, _16##TO##16 z)\
+	{\
+		return min(max(x,y), z);\
+	}
+#else // __AVX2__
 #define DEF_INT_CLAMP16_X_X_X_Y(FUNC, UN, UNlow, TO)\
 	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TO##16 x, _2##TO##16 y,  _2##TO##16 z)\
 	{\
@@ -648,8 +796,8 @@
 		_16##TO##32 c = convert_##UN##int16(z) ; \
 		a = clamp (a, b, c); \
 		return convert_##UN##short16(a); \
-	}\
-
+	}
+#endif
 	
 	
 #define DEF_INT_PROTO8_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
@@ -691,6 +839,39 @@
 		return res.lo;\
 	}\
 
+#if defined (__AVX2__)
+#define DEF_INT_PROTO16_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
+	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TI0##16 x, _2##TI1##16 y, _2##TI2##16 z)\
+	{\
+		_8##TI0##16 temp1, temp2, temp3;\
+		temp1.s01 = x;\
+		temp2.s01 = y;\
+		temp3.s01 = z;\
+		_8##TO##16 res;\
+		res = FUNC(temp1, temp2, temp3);\
+		return res.s01;\
+	}\
+	_3##TO##16 __attribute__((overloadable)) FUNC(_3##TI0##16 x, _3##TI1##16 y, _3##TI2##16 z)\
+		{\
+		_8##TI0##16 temp1, temp2, temp3;\
+		temp1.s012 = x;\
+		temp2.s012 = y;\
+		temp3.s012 = z;\
+		_8##TO##16 res;\
+		res = FUNC(temp1, temp2, temp3);\
+		return res.s012;\
+	}\
+	_4##TO##16 __attribute__((overloadable)) FUNC(_4##TI0##16 x, _4##TI1##16 y, _4##TI2##16 z)\
+		{\
+		_8##TI0##16 temp1, temp2, temp3;\
+		temp1.lo = x;\
+		temp2.lo = y;\
+		temp3.lo = z;\
+		_8##TO##16 res;\
+		res = FUNC(temp1, temp2, temp3);\
+		return res.lo;\
+	}
+#else // __AVX2__
 #define DEF_INT_PROTO16_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
 	_2##TO##16 __attribute__((overloadable)) FUNC(_2##TI0##16 x, _2##TI1##16 y, _2##TI2##16 z)\
 	{\
@@ -730,6 +911,8 @@
 		return res;\
 	}
 
+#endif
+
 #define DEF_INT_PROTO32_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
 	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI0##32 x, _2##TI1##32 y, _2##TI2##32 z)\
 	{\
@@ -763,6 +946,33 @@
 		res.lo.hi = FUNC(x.lo.hi, y.lo.hi, z.lo.hi);\
 		res.hi.lo = FUNC(x.hi.lo, y.hi.lo, z.hi.lo);\
 		res.hi.hi = FUNC(x.hi.hi, y.hi.hi, z.hi.hi);\
+		return res;\
+	}
+
+#define DEF_INT_PROTO32_X_X_X_Y_AS_8(FUNC, TI0, TI1, TI2, TO)\
+	_2##TO##32 __attribute__((overloadable)) FUNC(_2##TI0##32 x, _2##TI1##32 y, _2##TI2##32 z)\
+	{\
+		_4##TO##32 tmp1, tmp2, tmp3;\
+		tmp1.lo = x;\
+		tmp2.lo = y;\
+		tmp3.lo = z;\
+		_4##TO##32 res = FUNC(tmp1, tmp2, tmp3);\
+		return res.lo;\
+	}\
+	_3##TO##32 __attribute__((overloadable)) FUNC(_3##TI0##32 x, _3##TI1##32 y, _3##TI2##32 z)\
+	{\
+		_4##TO##32 tmp1, tmp2, tmp3;\
+		tmp1.s012 = x;\
+		tmp2.s012 = y;\
+		tmp3.s012 = z;\
+		_4##TO##32 res = FUNC(tmp1, tmp2, tmp3);\
+		return res.s012;\
+	}\
+	_16##TO##32 __attribute__((overloadable)) FUNC(_16##TI0##32 x, _16##TI1##32 y, _16##TI2##32 z)\
+	{\
+		_16##TO##32 res;\
+		res.lo = FUNC(x.lo, y.lo, z.lo);\
+		res.hi = FUNC(x.hi, y.hi, z.hi);\
 		return res;\
 	}
 
@@ -802,6 +1012,51 @@
 		res.hi.hi.lo = FUNC(x.hi.hi.lo, y.hi.hi.lo, z.hi.hi.lo);\
 		res.hi.hi.hi = FUNC(x.hi.hi.hi, y.hi.hi.hi, z.hi.hi.hi);\
 		return res;\
+	}
+
+#define DEF_INT_PROTO64_X_X_X_Y_AS_4(FUNC, TI0, TI1, TI2, TO)\
+	_3##TO##64 __attribute__((overloadable)) FUNC(_3##TI0##64 x, _3##TI1##64 y, _3##TI2##64 z)\
+	{\
+		_4##TO##64 res, valX,valY,valZ;\
+		valX.s012 = x;\
+		valY.s012 = y;\
+		valZ.s012 = z;\
+		res = FUNC(valX, valY, valZ);\
+		return res.s012;\
+	}\
+	_8##TO##64 __attribute__((overloadable)) FUNC(_8##TI0##64 x, _8##TI1##64 y, _8##TI2##64 z)\
+	{\
+		_8##TO##64 res;\
+		res.lo = FUNC(x.lo, y.lo, z.lo);\
+		res.hi = FUNC(x.hi, y.hi, z.hi);\
+		return res;\
+	}\
+	_16##TO##64 __attribute__((overloadable)) FUNC(_16##TI0##64 x, _16##TI1##64 y, _16##TI2##64 z)\
+	{\
+		_16##TO##64 res;\
+		res.lo.lo = FUNC(x.lo.lo, y.lo.lo, z.lo.lo);\
+		res.lo.hi = FUNC(x.lo.hi, y.lo.hi, z.lo.hi);\
+		res.hi.lo = FUNC(x.hi.lo, y.hi.lo, z.hi.lo);\
+		res.hi.hi = FUNC(x.hi.hi, y.hi.hi, z.hi.hi);\
+		return res;\
+	}
+
+#define DEF_INT_CLAMP64_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
+	_3##TO##64 __attribute__((overloadable)) FUNC(_3##TI0##64 x, _3##TI1##64 y, _3##TI2##64 z)\
+	{\
+		return min(max(x, y), z);\
+	}\
+	_4##TO##64 __attribute__((overloadable)) FUNC(_4##TI0##64 x, _4##TI1##64 y, _4##TI2##64 z)\
+	{\
+		return min(max(x, y), z);\
+	}\
+	_8##TO##64 __attribute__((overloadable)) FUNC(_8##TI0##64 x, _8##TI1##64 y, _8##TI2##64 z)\
+	{\
+		return min(max(x, y), z);\
+	}\
+	_16##TO##64 __attribute__((overloadable)) FUNC(_16##TI0##64 x, _16##TI1##64 y, _16##TI2##64 z)\
+	{\
+		return min(max(x, y), z);\
 	}
 
 #define DEF_INT_PROTO8_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
@@ -1191,6 +1446,30 @@
     DEF_INT_PROTO32_X_Y(FUNC, TI, TO)\
     DEF_INT_PROTO64_X_Y(FUNC, TI, TO)
 
+#define DEF_INT_ABS_X_Y(FUNC, TI, TO)\
+    DEF_INT_PROTO8_X_Y(FUNC, TI, TO)\
+    DEF_INT_PROTO16_X_Y_AS_16(FUNC, TI, TO)\
+    DEF_INT_PROTO32_X_Y_AS_8(FUNC, TI, TO)\
+    DEF_INT_PROTO64_X_Y_AS_4(FUNC, TI, TO)
+
+#define DEF_INT_ABSDIFF_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO16_X_X_Y_AS_16(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO32_X_X_Y_AS_8(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO64_X_X_Y_AS_4(FUNC, TI0, TI1, TO)
+
+#define DEF_INT_ADD_SUB_SAT_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO16_X_X_Y_AS_16(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO32_X_X_Y_AS_8(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO64_X_X_Y(FUNC, TI0, TI1, TO)
+
+#define DEF_MULHI_PROTO_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO16_X_X_Y_AS_16(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO32_X_X_Y_AS_8(FUNC, TI0, TI1, TO)\
+    DEF_INT_PROTO64_X_X_Y(FUNC, TI0, TI1, TO)
+
 #define DEF_INT_PROTO_X_X_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO8_X_X_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO16_X_X_Y(FUNC, TI0, TI1, TO)\
@@ -1200,9 +1479,15 @@
 // Promote chars to dwords
 #define DEF_INT_PROMOTE(FUNC, UN, UI)\
     DEF_INT_PROMOTE8(FUNC, UN, UI)\
-	DEF_INT_PROMOTE16(FUNC, UN, UI)\
+	  DEF_INT_PROMOTE16(FUNC, UN, UI)\
     DEF_INT_PROTO32_X_X_Y(FUNC, UI, UI, UI)\
     DEF_INT_PROTO64_X_X_Y(FUNC, UI, UI, UI)
+
+#define DEF_INT_PROMOTE_AS_8(FUNC, UN, UI)\
+    DEF_INT_PROMOTE8(FUNC, UN, UI)\
+	  DEF_INT_PROMOTE16(FUNC, UN, UI)\
+    DEF_INT_PROTO32_X_X_Y_AS_8(FUNC, UI, UI, UI)\
+    DEF_INT_PROTO64_X_X_Y_AS_4(FUNC, UI, UI, UI)
 
 #define DEF_INT_PROTO_vX_sX_Y(FUNC, TI0, TI1, TO)\
     DEF_INT_PROTO8_vX_sX_Y(FUNC, TI0, TI1, TO)\
@@ -1227,17 +1512,29 @@
     DEF_INT_PROTO32_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
     DEF_INT_PROTO64_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)
 
+#define DEF_INT_MADHI_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
+    DEF_INT_PROTO8_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
+    DEF_INT_PROTO16_X_X_X_Y(FUNC, TI0, TI1, TI2, TO)\
+    DEF_INT_PROTO32_X_X_X_Y_AS_8(FUNC, TI0, TI1, TI2, TO)\
+    DEF_INT_PROTO64_X_X_X_Y_AS_4(FUNC, TI0, TI1, TI2, TO)
+
 #define DEF_INT_MAD_SAT_X_X_X_Y(FUNC, UN, UNlow, TO)\
     DEF_INT_MAD_SAT8_X_X_X_Y(FUNC, UN, UNlow, TO)\
     DEF_INT_PROTO16_X_X_X_Y(FUNC, TO, TO, TO, TO)\
     DEF_INT_PROTO32_X_X_X_Y(FUNC, TO, TO, TO, TO)\
     DEF_INT_PROTO64_X_X_X_Y(FUNC, TO, TO, TO, TO)
 
+#define DEF_INT_MAD_SAT_X_X_X_Y_AS_8(FUNC, UN, UNlow, TO)\
+    DEF_INT_MAD_SAT8_X_X_X_Y(FUNC, UN, UNlow, TO)\
+    DEF_INT_PROTO16_X_X_X_Y(FUNC, TO, TO, TO, TO)\
+    DEF_INT_PROTO32_X_X_X_Y_AS_8(FUNC, TO, TO, TO, TO)\
+    DEF_INT_PROTO64_X_X_X_Y(FUNC, TO, TO, TO, TO)
+
 #define DEF_INT_CLAMP_X_X_X_Y(FUNC, UN, UNlow, TO)\
     DEF_INT_CLAMP8_X_X_X_Y(FUNC, UN, UNlow, TO)\
 	DEF_INT_CLAMP16_X_X_X_Y(FUNC, UN, UNlow, TO)\
-    DEF_INT_PROTO32_X_X_X_Y(FUNC, TO, TO, TO, TO)\
-    DEF_INT_PROTO64_X_X_X_Y(FUNC, TO, TO, TO, TO)
+    DEF_INT_PROTO32_X_X_X_Y_AS_8(FUNC, TO, TO, TO, TO)\
+    DEF_INT_CLAMP64_X_X_X_Y(FUNC, TO, TO, TO, TO)
 	
 #define DEF_INT_PROTO_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
 	DEF_INT_PROTO8_X_sX_sX_Y(FUNC, TI0, TI1, TI2, TO)\
@@ -1252,50 +1549,80 @@
     DEF_BUILT_IN_PROTO_ALL_VECTORS_X_Y(FUNC, TI##32, TO##32)\
     DEF_BUILT_IN_PROTO_ALL_VECTORS_X_Y(FUNC, TI##64, TO##64)
 
-DEF_INT_PROTO_X_Y(abs, i, u)
-DEF_INT_PROTO_X_Y(abs, u, u)
 DEF_INT_PROTO_X_Y(popcount, i, i);
 DEF_INT_PROTO_X_Y(popcount, u, u);
-DEF_INT_PROTO_X_X_Y(abs_diff, i, i, u)
-DEF_INT_PROTO_X_X_Y(abs_diff, u, u, u)
-DEF_INT_PROTO_X_X_Y(add_sat, i, i, i)
-DEF_INT_PROTO_X_X_Y(add_sat, u, u, u)
-DEF_INT_PROTO_X_X_Y(hadd, i, i, i)
-DEF_INT_PROTO_X_X_Y(hadd, u, u, u)
-DEF_INT_PROTO_X_X_Y(rhadd, i, i, i)
-DEF_INT_PROTO_X_X_Y(rhadd, u, u, u)
 DEF_LLVM_BUILT_IN_PROTO_X_Y(clz, i, i)
 DEF_LLVM_BUILT_IN_PROTO_X_Y(clz, u, u)
 DEF_INT_PROTO_X_sX_sX_Y(clamp, u, u, u, u)
 DEF_INT_PROTO_X_sX_sX_Y(clamp, i, i, i, i)
-DEF_INT_PROTO_X_X_X_Y(mad_hi, u, u, u, u)
-DEF_INT_PROTO_X_X_X_Y(mad_hi, i, i, i, i)
 
-DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, u, U, u)
-DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, , , i)
 DEF_INT_CLAMP_X_X_X_Y(clamp, u, U, u)
 DEF_INT_CLAMP_X_X_X_Y(clamp, , , i)
 
+#if defined (__AVX2__)
+DEF_INT_ABS_X_Y(abs, i, u)
+DEF_INT_ABS_X_Y(abs, u, u)
+DEF_INT_ABSDIFF_X_X_Y(abs_diff, i, i, u)
+DEF_INT_ABSDIFF_X_X_Y(abs_diff, u, u, u)
+DEF_INT_ABSDIFF_X_X_Y(hadd, i, i, i)
+DEF_INT_ABSDIFF_X_X_Y(hadd, u, u, u)
+DEF_INT_ABSDIFF_X_X_Y(rhadd, i, i, i)
+DEF_INT_ABSDIFF_X_X_Y(rhadd, u, u, u)
+DEF_INT_ADD_SUB_SAT_X_X_Y(add_sat, i, i, i)
+DEF_INT_ADD_SUB_SAT_X_X_Y(add_sat, u, u, u)
+DEF_INT_ADD_SUB_SAT_X_X_Y(sub_sat, i, i, i)
+DEF_INT_ADD_SUB_SAT_X_X_Y(sub_sat, u, u, u)
+DEF_INT_PROMOTE_AS_8(max, u, u)
+DEF_INT_PROMOTE_AS_8(max, , i)
+DEF_INT_PROMOTE_AS_8(min, u, u)
+DEF_INT_PROMOTE_AS_8(min, , i)
+DEF_INT_MAD_SAT_X_X_X_Y_AS_8(mad_sat, , , i)
+DEF_INT_MAD_SAT_X_X_X_Y_AS_8(mad_sat, u, U, u)
+DEF_INT_MADHI_X_X_X_Y(mad_hi, u, u, u, u)
+DEF_INT_MADHI_X_X_X_Y(mad_hi, i, i, i, i)
+DEF_MULHI_PROTO_X_X_Y(mul_hi, i, i, i)
+DEF_MULHI_PROTO_X_X_Y(mul_hi, u, u, u)
+DEF_INT_PROTO32_X_X_Y_AS_8(mul24, i, i, i)
+DEF_INT_PROTO32_X_X_Y_AS_8(mul24, u, u, u)
+DEF_INT_PROTO32_X_X_X_Y_AS_8(mad24, i, i, i, i)
+DEF_INT_PROTO32_X_X_X_Y_AS_8(mad24, u, u, u, u)
+#else
+DEF_INT_PROTO_X_X_Y(abs_diff, i, i, u)
+DEF_INT_PROTO_X_X_Y(abs_diff, u, u, u)
+DEF_INT_PROTO_X_X_Y(add_sat, i, i, i)
+DEF_INT_PROTO_X_X_Y(add_sat, u, u, u)
+DEF_INT_PROTO_X_X_Y(sub_sat, i, i, i)
+DEF_INT_PROTO_X_X_Y(sub_sat, u, u, u)
+DEF_INT_PROTO_X_X_Y(hadd, i, i, i)
+DEF_INT_PROTO_X_X_Y(hadd, u, u, u)
+DEF_INT_PROTO_X_X_Y(rhadd, i, i, i)
+DEF_INT_PROTO_X_X_Y(rhadd, u, u, u)
+DEF_INT_PROTO_X_X_X_Y(mad_hi, u, u, u, u)
+DEF_INT_PROTO_X_X_X_Y(mad_hi, i, i, i, i)
+DEF_INT_PROTO_X_Y(abs, i, u)
+DEF_INT_PROTO_X_Y(abs, u, u)
 DEF_INT_PROMOTE(max, u, u)
 DEF_INT_PROMOTE(max, , i)
 DEF_INT_PROMOTE(min, u, u)
 DEF_INT_PROMOTE(min, , i)
+DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, , , i)
+DEF_INT_MAD_SAT_X_X_X_Y(mad_sat, u, U, u)
+DEF_INT_PROTO_X_X_Y(mul_hi, i, i, i)
+DEF_INT_PROTO_X_X_Y(mul_hi, u, u, u)
+DEF_MUL24_PROTO_X_X_Y(mul24, i, i, i)
+DEF_MUL24_PROTO_X_X_Y(mul24, u, u, u)
+DEF_MAD24_PROTO_X_X_Y(mad24, i, i, i, i)
+DEF_MAD24_PROTO_X_X_Y(mad24, u, u, u, u)
+#endif
+
 
 DEF_INT_PROTO_vX_sX_Y(max, i, i, i)
 DEF_INT_PROTO_vX_sX_Y(max, u, u, u)
 DEF_INT_PROTO_vX_sX_Y(min, i, i, i)
 DEF_INT_PROTO_vX_sX_Y(min, u, u, u)
 
-DEF_INT_PROTO_X_X_Y(mul_hi, i, i, i)
-DEF_INT_PROTO_X_X_Y(mul_hi, u, u, u)
 DEF_INT_PROTO_X_X_Y(rotate, i, i, i)
 DEF_INT_PROTO_X_X_Y(rotate, u, u, u)
-DEF_INT_PROTO_X_X_Y(sub_sat, i, i, i)
-DEF_INT_PROTO_X_X_Y(sub_sat, u, u, u)
-DEF_MUL24_PROTO_X_X_Y(mul24, i, i, i)
-DEF_MUL24_PROTO_X_X_Y(mul24, u, u, u)
-DEF_MAD24_PROTO_X_X_Y(mad24, i, i, i, i)
-DEF_MAD24_PROTO_X_X_Y(mad24, u, u, u, u)
 DEF_UPSAMPL_PROTO_X_X_Y(upsample, i)
 DEF_UPSAMPL_PROTO_X_X_Y(upsample, u)
 
