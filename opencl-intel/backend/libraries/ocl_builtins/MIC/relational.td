@@ -485,10 +485,10 @@ OclBuiltinImpl bitselect_scalar = OclBuiltinImpl<bitselect, [v1i8, v1u8, v1i16, 
     return ($Arg1VarName& $Arg2VarName) | ($Arg0VarName & ~$Arg2VarName);
   }]>;
 OclBuiltinImpl bitselect_scalar_f32 = OclBuiltinImpl<bitselect, [v1f32], 0, [{
-    return (as_int($Arg1VarName) & as_int($Arg2VarName)) | (as_int($Arg0VarName) & ~as_int($Arg2VarName));
+    return as_float((as_int($Arg1VarName) & as_int($Arg2VarName)) | (as_int($Arg0VarName) & ~as_int($Arg2VarName)));
   }]>;
 OclBuiltinImpl bitselect_scalar_f64 = OclBuiltinImpl<bitselect, [v1f64], 0, [{
-    return (as_long($Arg1VarName) & as_long($Arg2VarName)) | (as_long($Arg0VarName) & ~as_long($Arg2VarName));
+    return as_double((as_long($Arg1VarName) & as_long($Arg2VarName)) | (as_long($Arg0VarName) & ~as_long($Arg2VarName)));
   }]>;
 OclBuiltinImpl bitselect_vector = OclBuiltinImpl<bitselect, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32,
                                                                       v8i64, v8u64, v16f32, v8f64], 0, [{
