@@ -2162,7 +2162,7 @@ _mm512_mask_extloadunpackhi_epi64(__m512i v1_old, __mmask16 k1, void const *mt,
                                   _MM_UPCONV_EPI64_ENUM upconv,
                                   const int hint)
 {
-  return __builtin_ia32_mask_loadunpacklpq512(v1_old, k1, mt, upconv, hint);
+  return __builtin_ia32_mask_loadunpackhpq512(v1_old, k1, mt, upconv, hint);
 }
 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
