@@ -24,3 +24,10 @@ entry:
   %m = shufflevector <16 x i32> %a, <16 x i32> undef, <16 x i32> <i32 undef, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 12>
   ret <16 x i32> %m
 }
+
+define <16 x i32> @F(<16 x i32> %a) nounwind ssp {
+entry:
+; CHECK: vpshufd $0, %zmm0, %zmm0
+  %m = shufflevector <16 x i32> %a, <16 x i32> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 12>
+  ret <16 x i32> %m
+}

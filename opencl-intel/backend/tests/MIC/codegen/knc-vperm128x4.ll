@@ -23,6 +23,15 @@ entry:
   ret <16 x i32> %m
 }
 
+define <16 x i32> @F(<16 x i32> %a) nounwind ssp {
+entry:
+; KNF: vshuf128x32 $196, $14, %v0, %v0
+;
+; KNC: vpermf32x4 $14, %zmm0, %zmm0
+  %m = shufflevector <16 x i32> %a, <16 x i32> undef, <16 x i32> <i32 undef, i32 9, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  ret <16 x i32> %m
+}
+
 define <16 x i32> @E(<16 x i32> %a) nounwind ssp {
 entry:
 ; KNF: vshuf128x32 $228, $14, %v0, %v0
@@ -67,3 +76,4 @@ entry:
   %m = shufflevector <16 x i32> undef, <16 x i32> %a, <16 x i32> <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   ret <16 x i32> %m
 }
+
