@@ -4,7 +4,7 @@ use File::Temp qw/ tempfile tempdir /;
 
 @bmlst = ("Triad", "SGEMM", "Stencil2D", "FFT", "Spmv", "Sort", "MD", "Scan", "MaxFlops", "Reduction", "S3D");
 #@bmlst = ("Sort");
-@bmlst = ("FFT");
+#@bmlst = ("FFT");
 
 @isVect = ("True", "False");
 @codeType = ("Vect", "Scalar");
