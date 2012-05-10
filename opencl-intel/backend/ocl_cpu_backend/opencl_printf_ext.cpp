@@ -327,7 +327,9 @@ int build_format_string(char* buf, int buflen,
         case MODIFIER_SHORT:
             modifier_buf[0] = 'h';
             break;
-        case MODIFIER_LONG:         // OpenCL requires 64-bit for longs
+        case MODIFIER_LONG:
+            modifier_buf[0] = 'l';
+            break;
         case MODIFIER_LONGLONG:
             modifier_buf[0] = 'l';
             modifier_buf[1] = 'l';
