@@ -25,6 +25,30 @@ namespace Validation
 
     bool RefALU::FTZmode(false);
 
+    // it sets precision bits for FPU to keep operating with
+    // 64-bit mantissa, otherwise the mantissa is adjusted to 52-bits
+    void SetPrecisionBits(void) {
+        uint16_t fcw16;
+#if defined(_WIN32)  
+        __asm {
+            fstcw fcw16
+		    mov   ax,fcw16
+		    or    ax, 0x0300
+		    mov   fcw16, ax
+		    fldcw fcw16
+        }
+#else
+        __asm__ ( "fstcw %0\n\t"
+                  "mov %0, %%ax\n\t"
+                  "or $0x300, %%ax\n\t"
+                  "mov %%ax, %0\n\t"
+                  "fldcw %0"
+                  :
+                  :"m"(fcw16)
+                  :"ax" );  
+#endif		
+    }
+
     template<>
     float RefALU::abs<float>(const float &a )
     {
@@ -41,6 +65,41 @@ namespace Validation
         return Conformance::reference_fabsl(a);
     }
 
+    template<>
+    float RefALU::flush(const float& a)
+    {
+        float returnVal = a;
+        if ( FTZmode && a != 0 && ::fabs( a ) < std::numeric_limits<float>::min() )
+        {
+            returnVal = a > 0.0 ? float(+0.0) : float(-0.0);
+        }
+        return returnVal;
+    }
+    template<>
+    double RefALU::flush(const double& a)
+    {
+        double returnVal = a;
+        if ( FTZmode && a != 0 && ::fabs( a ) < std::numeric_limits<double>::min() )
+        {
+            returnVal = a > 0.0 ? double(+0.0) : double(-0.0);
+        }
+        return returnVal;
+    }
+    template<>
+    long double RefALU::flush(const long double& a)
+    {
+        long double returnVal = a;
+        Utils::uint80_t b;
+        b.high_val = 0x01;
+        b.low_val = 0x8000000000000000;
+        long double min = Utils::AsFloat(b);
+
+        if ( FTZmode && a != (long double)(0) && ::fabsl( a ) < min )
+        {
+            returnVal = a > (long double)(0.0) ? (long double)(+0.0) : (long double)(-0.0);
+        }
+        return returnVal;
+    }
 
     template<>
     float RefALU::copysign<float>(const float &x,const float &y )
@@ -1028,11 +1087,12 @@ namespace Validation
     template<>
     double RefALU::remainder<double>(const double& x, const double& y)
     {
-        return Conformance::reference_remainder(x, y);
+        return Conformance::reference_remainderl(x, y);
     }
     template<>
     long double RefALU::remainder<long double>(const long double& x, const long double& y)
     {
+        // actually not used, becase for remquo the same precision is used as reference;
         return Conformance::reference_remainderl(x, y);
     }
 
@@ -1044,12 +1104,13 @@ namespace Validation
     template<>
     double RefALU::remquo<double>(const double& x, const double& y, int32_t* quo)
     {
-        return Conformance::reference_remquo(x, y, quo);
+        return Conformance::reference_remquol(x, y, quo);
     }
     template<>
     long double RefALU::remquo<long double>(const long double& x, const long double& y, int32_t* quo)
     {
-        return Conformance::reference_remquo(x, y, quo);
+        // actually not used, becase for remquo the same precision is used as reference;
+        return Conformance::reference_remquol(x, y, quo);
     }
-
+    
 } // end namespace validation

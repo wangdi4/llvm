@@ -1,3 +1,7 @@
+// disabled so far. ValidationTests executable has to be compiled by icc on windows, but this source makes icc fail with internal error
+// sothis issue could be resolved by newer version of icc or by building different executable compiled by microsoft compiler
+// CSSD100013311
+#if 0
 #include <cassert>
 #include <gtest/gtest.h>
 #include "plugin_manager.h"
@@ -351,3 +355,4 @@ TEST(OCLSourceRecorder1_1, header_source_connection){
 
   CompileDataFactory::free(pFactory);
 }
+#endif
