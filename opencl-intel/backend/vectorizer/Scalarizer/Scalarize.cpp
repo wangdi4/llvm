@@ -8,11 +8,13 @@
 #include "llvm/Constants.h"
 #include "Mangler.h"
 
+
 namespace intel {
 
 
 ScalarizeFunction::ScalarizeFunction() : FunctionPass(ID)
 {
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
   m_rtServices = RuntimeServices::get();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
@@ -53,6 +55,12 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   releaseAllSCMEntries();
   m_DRL.clear();
 
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Scalarizer Statistics on function "<<F.getName()<<":\n");
+  V_PRINT(vectorizer_stat, "======================================================\n");
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
+  )
+
   // Scan function for CALL instructions. Find their "real" (pre-cast) values
   preScalarizeScanFunctions();
 
@@ -88,6 +96,21 @@ bool ScalarizeFunction::runOnFunction(Function &F)
     V_ASSERT((*index)->use_empty() && "Unable to remove used instruction");
     (*index)->eraseFromParent();
   }
+
+  V_STAT(
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_transposeCtr[i] > 0) {
+      V_PRINT(vectorizer_stat, "Generated "<<m_transposeCtr[i]<<" transpose sequences for instruction "
+                               <<Instruction::getOpcodeName(i)<< "\n");
+    }
+  }
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_transposeCtr[i] > 0) {
+      V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t\t\t\t"<<m_transposeCtr[i] <<"\tGenerated transpose sequences for instruction "
+                               <<Instruction::getOpcodeName(i)<< "\n");
+    }
+  }
+  )
 
   V_PRINT(scalarizer, "\nCompleted scalarizing function: " << m_currFunc->getName() << "\n");
   return true;
@@ -960,8 +983,10 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
       Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
       retValues[i] = ExtractElementInst::Create(origValue, constIndex, "scalar", locationInst);
     }
+    V_STAT(if (origInstruction) m_transposeCtr[origInstruction->getOpcode()]++;)
     SCMEntry *newEntry = getSCMEntry(origValue);
     updateSCMEntryWithValues(newEntry, retValues, origValue, false);
+
   }
 }
 
@@ -1014,6 +1039,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
     Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
     assembledVector = InsertElementInst::Create(assembledVector,
       valueEntry->scalarValues[i], constIndex, "temp.vect", insertLocation);
+    V_STAT(m_transposeCtr[((InsertElementInst*)assembledVector)->getOpcode()]++;)
     V_PRINT(scalarizer, 
         "\t\t\tCreated vector assembly inst:" << *assembledVector << "\n");
   }
@@ -1157,6 +1183,7 @@ void ScalarizeFunction::resolveDeferredInstructions ()
         Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);      
         newInsts[i] = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
       }
+      V_STAT(m_transposeCtr[vectorInst->getOpcode()]++;)
       updateSCMEntryWithValues(currentInstEntry, newInsts, vectorInst, false);
     }
 

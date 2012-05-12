@@ -28,6 +28,8 @@ File Name:  BackendConfiguration.cpp
 #include <cstring>
 #include <sstream>
 
+#include "llvm/Support/Debug.h"
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
@@ -160,6 +162,16 @@ void CompilerConfig::LoadConfig()
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
     }
+#ifndef NDEBUG
+    if (getenv("VOLCANO_DEBUG"))
+    {
+      llvm::DebugFlag = true;
+    }
+    if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
+    {
+      llvm::SetCurrentDebugType(pEnv);
+    }
+#endif
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

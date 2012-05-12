@@ -323,6 +323,28 @@ private:
 
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
+
+  /// @brief counter of cases when packetizing is cancelled because of shufflevector instruction
+  int m_shuffleCtr;
+  /// @brief counter of cases when packetizing is cancelled because of extractvalue instruction
+  int m_extractCtr;
+  /// @brief counter of cases when packetizing is cancelled because of insertvalue instruction
+  int m_insertCtr;
+  /// @brief counter of cases when packetizing is cancelled because of getelementpointer instruction
+  int m_getElemPtrCtr;
+  /// @brief counter of cases when packetizing is cancelled because of alloca instruction
+  int m_allocaCtr;
+  /// @brief counter of cases when packetizing is cancelled because of non-primitive type in an instruction
+  int m_nonPrimitiveCtr[Instruction::OtherOpsEnd];
+  /// @brief counter of cases when packetizing is cancelled because of non-vectorizable cast instruction
+  int m_castCtr[Instruction::OtherOpsEnd];
+  /// @brief counter of cases when packetizing is cancelled because of non-consecutive indices
+  int m_nonConsecCtr;
+  /// @brief counter of cases when packetizing is cancelled because of unavailability of vectorized version of a function
+  int m_noVectorFuncCtr;
+  /// @brief counter of unsupported corner cases when packetizing is cancelled 
+  int m_cannotHandleCtr;
+  
 };
 
 } //namespace

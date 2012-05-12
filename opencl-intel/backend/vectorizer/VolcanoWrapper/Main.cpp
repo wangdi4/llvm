@@ -345,7 +345,11 @@ bool Vectorizer::runOnModule(Module &M)
             for (unsigned i = 0; i < m_numOfKernels; i++)
             {
               Function *funcToProcess = m_targetFunctionsList[i];
-              if (m_targetFunctionsWidth[i])
+              V_STAT(
+              V_PRINT(vectorizer_stat, "\n\n\n=========== Analyzing function: "<<funcToProcess->getName()<<" ==========\n");
+              V_PRINT(vectorizer_stat_excel, "\n\n\n=========== Analyzing function: "<<funcToProcess->getName()<<" ==========\n");
+              )
+             if (m_targetFunctionsWidth[i])
               {
                 // Update the RTS with the selected packet size
                 RTS->setPacketizationWidth(m_targetFunctionsWidth[i]);

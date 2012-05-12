@@ -146,6 +146,8 @@ private:
   const RuntimeServices *m_rtServices;
   /// @brief Set containing all the removed instructions in the function.
   SmallPtrSet<Instruction*, ESTIMATED_INST_NUM> m_removedInsts;
+  /// @brief Counters for "transpose" statistics
+  int m_transposeCtr[Instruction::OtherOpsEnd];
 
   /// @brief The SCM (scalar conversions map). Per each value - map of its scalar elements
   typedef struct SCMEntry

@@ -61,12 +61,12 @@ bool Predicator::needPredication(Function &F) {
     if (dyn_cast<ReturnInst>(it->getTerminator())) continue;
     WIAnalysis::WIDependancy dep = WIA->whichDepend(it->getTerminator());
     if (dep != WIAnalysis::UNIFORM) {
-      V_PRINT("predicate", F.getName()<< "needs predication because of "<<it->getName()<<" \n");
+      V_PRINT(predicate, F.getName()<< "needs predication because of "<<it->getName()<<" \n");
       return true;
     }
   }
 
-  V_PRINT("predicate", F.getName()<< "does not need predication \n");
+  V_PRINT(predicate, F.getName()<< "does not need predication \n");
   return false;
 }
 
@@ -107,7 +107,7 @@ bool Predicator::hasOutsideUsers(Instruction* inst, Loop* loop) {
     if (Instruction* user = dyn_cast<Instruction>(*it)) {
       // Is the parent of this instruction contained in this loop ?
       if (! loop->contains(user->getParent())) {
-        V_PRINT("predicate", "has outside user "<<*inst<<"\n");
+        V_PRINT(predicate, "has outside user "<<*inst<<"\n");
         return true;
       }
     }
@@ -500,6 +500,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
     //Get type name
     std::string desc = call->getCalledFunction()->getName();
+    if (m_rtServices->hasNoSideEffect(desc)) return NULL;
     Function* func =
       createPredicatedFunction(call, pred, Mangler::mangle(desc));
 
@@ -528,7 +529,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
     inst->getParent()->getParent()->getEntryBlock().begin()); // where
 
   // Get BB predicator
-  //V_PRINT("predicate", "select "<<*F<<"\n");
+  //V_PRINT(predicate, "select "<<*F<<"\n");
   BasicBlock *BB = inst->getParent();
   V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
   Value* pred = m_inMask[BB];
@@ -595,7 +596,7 @@ void Predicator::predicateSideEffectInstructions() {
     Value* pred = m_inMask[BB];
     V_ASSERT(pred && "Unable to find predicate");
 
-    V_PRINT("predicate", "F-Predicating "<<**it<<"\n");
+    V_PRINT(predicate, "F-Predicating "<<**it<<"\n");
     // Load the mask
     Value* load_pred = new LoadInst(pred, "loda_pred", *it);
     // Use the value of the mask to predicate using a function call
@@ -620,6 +621,10 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   bool shouldMask = !PDT->dominates(BB, &entryBlock) || loop;
   for(BasicBlock::iterator it = BB->begin(), e=BB->end(); it != e ; ++it) {
     // If this is a load/store/call, save it for later
+    V_STAT(if (dyn_cast<LoadInst> (it)) m_maskedLoadCtr++;)
+    V_STAT(if (dyn_cast<StoreInst> (it)) m_maskedStoreCtr++;)
+    V_STAT(if (dyn_cast<CallInst> (it)) m_maskedCallCtr++;)
+
     if ( (dyn_cast<LoadInst> (it) ||
          dyn_cast<StoreInst>(it) ||
          dyn_cast<CallInst>(it)) && shouldMask) {
@@ -863,7 +868,7 @@ void Predicator::collectOptimizedMasks(Function* F,
 
       if (loopY != loopX) continue;
 
-      V_PRINT("predicate", x->getName()<<","<< y->getName()<<"share mask\n");
+      V_PRINT(predicate, x->getName()<<","<< y->getName()<<"share mask\n");
       // Ignore same-block relations
       if (x == y) continue;
 
@@ -888,7 +893,7 @@ void Predicator::collectOptimizedMasks(Function* F,
 }
 
 void Predicator::maskOutgoing(BasicBlock *BB) {
-  //V_PRINT("predicate",
+  //V_PRINT(predicate,
   //"Masking Outgoing BasicBlock:"<<BB->getName()<<"\n");
 
   /// No outgoing edges - nothing to do.
@@ -1058,7 +1063,7 @@ void Predicator::maskIncoming_simpleMerge(BasicBlock *BB) {
 }
 
 void Predicator::maskIncoming(BasicBlock *BB) {
-  //V_PRINT("predicate",
+  //V_PRINT(predicate,
   // "Masking Incoming BasicBlock:"<<BB->getName()<<"\n");
 
   if (std::distance(pred_begin(BB), pred_end(BB)) < 2) {
@@ -1121,7 +1126,7 @@ void Predicator::predicateFunction(Function *F) {
   FunctionSpecializer specializer(
     this, F, m_allzero, PDT, DT, RI);
 
-  V_PRINT("predicate", "Predicating "<<F->getName()<<"\n");
+  V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 
   /// Before we begin the predication process we need to collect specialization
   /// information. This is formation is the dominator-frontier properties of
@@ -1133,15 +1138,29 @@ void Predicator::predicateFunction(Function *F) {
     collectOptimizedMasks(F, PDT, DT);
   }
 
-  V_PRINT("predicate", "Before:"<<*F<<"\n\n\n");
+  V_PRINT(predicate, "Before:"<<*F<<"\n\n\n");
 
   // collect instructions to predicate and instructions
   // with outside users
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Predicator Statistics on function "<<F->getName()<<":\n");
+  V_PRINT(vectorizer_stat, "======================================================\n");
+  m_maskedLoadCtr = 0;
+  m_maskedStoreCtr = 0;
+  m_maskedCallCtr = 0;
+  )
+
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     collectInstructionsToPredicate(it);
   }
 
-  V_PRINT("predicate",
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Discovered "<<m_maskedLoadCtr<<" masked load instructions\n");
+  V_PRINT(vectorizer_stat, "Discovered "<<m_maskedStoreCtr<<" masked store instructions\n");
+  V_PRINT(vectorizer_stat, "Discovered "<<m_maskedCallCtr<<" masked call instructions\n");
+  )
+
+  V_PRINT(predicate,
           "prev-select marked "<<
           m_outsideUsers.size()<<" instructions\n");
 
@@ -1189,14 +1208,14 @@ void Predicator::predicateFunction(Function *F) {
   // Perform a linearization of the function
   linearizeFunction(F, specializer);
 
-  V_PRINT("predicate", "Specialize:"<<*F<<"\n");
+  V_PRINT(predicate, "Specialize:"<<*F<<"\n");
 
   V_ASSERT(!verifyFunction(*F) && "I broke this module");
 
   /// Insert bypass cfg (specialization)
   specializer.specializeFunction();
 
-  V_PRINT("predicate", "Final:"<<*F<<"\n");
+  V_PRINT(predicate, "Final:"<<*F<<"\n");
 }
 
 Value* Predicator::getEdgeMask(BasicBlock* A, BasicBlock* B) {

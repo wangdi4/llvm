@@ -21,7 +21,12 @@ namespace intel {
 class FuncResolver : public FunctionPass {
 public:
   /// @brief C'tor
-  FuncResolver(char &ID) : FunctionPass(ID) {}
+  FuncResolver(char &ID) : FunctionPass(ID) {
+    m_unresolvedInstrCtr = 0;
+    m_unresolvedLoadCtr = 0;
+    m_unresolvedStoreCtr = 0;
+    m_unresolvedCallCtr = 0;
+  }
 
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
@@ -122,6 +127,15 @@ private:
   /// Instructions to protect using CF guard
   //(predicator - controlled instructions)
   std::map<Value*, std::vector<Instruction*> > m_toCF;
+  /// Counter of unresolved masked instructions
+  int m_unresolvedInstrCtr;
+  /// Counter of unresolved masked load instructions
+  int m_unresolvedLoadCtr;
+  /// Counter of unresolved masked store instructions
+  int m_unresolvedStoreCtr;
+  /// Counter of unresolved masked call instructions
+  int m_unresolvedCallCtr;
+
 };
 
 class X86Resolver : public FuncResolver {

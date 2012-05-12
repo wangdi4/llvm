@@ -38,6 +38,11 @@ public:
     initializeDominatorTreePass(*PassRegistry::getPassRegistry());
     initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
     initializeRegionInfoPass(*PassRegistry::getPassRegistry());
+    m_rtServices = RuntimeServices::get();
+    m_maskedLoadCtr = 0;
+    m_maskedStoreCtr = 0;
+    m_maskedCallCtr = 0;
+    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   }
 
   /// @brief Provides name of pass
@@ -275,6 +280,8 @@ public:
   /*! \} */
 
 private:
+  /// Pointer to runtime service object
+  const RuntimeServices * m_rtServices;
   /// Constant holding the value one.
   ConstantInt* m_one;
   /// Constant holding the value zero.
@@ -302,6 +309,13 @@ private:
   std::map<std::string, Function*> m_externalFunections;
   /// Maps output masks for blocks with input masks of other blocks.
   DenseMap<BasicBlock*, BasicBlock*> m_optimizedMasks;
+  /// Counter for masked load
+  int m_maskedLoadCtr;
+  /// Counter for masked store
+  int m_maskedStoreCtr;
+  /// Counter for masked call
+  int m_maskedCallCtr;
+
 };
 
 }

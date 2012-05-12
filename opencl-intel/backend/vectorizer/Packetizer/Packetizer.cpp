@@ -41,6 +41,14 @@ namespace intel {
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
+  m_shuffleCtr = 0;
+  m_extractCtr = 0;
+  m_insertCtr  = 0;
+  m_getElemPtrCtr = 0;
+  m_nonConsecCtr = 0;
+  m_noVectorFuncCtr = 0;
+  m_cannotHandleCtr = 0;
+  m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
   m_rtServices = RuntimeServices::get();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
@@ -93,6 +101,21 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_deferredResOrder.clear();
   releaseAllVCMEntries();
 
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Packetizer Statistics on function "<<F.getName()<<":\n");
+  V_PRINT(vectorizer_stat, "======================================================\n");
+  m_shuffleCtr = 0;
+  m_extractCtr = 0;
+  m_insertCtr  = 0;
+  m_getElemPtrCtr = 0;
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_nonPrimitiveCtr[i] = 0;
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_castCtr[i] = 0;
+  m_nonConsecCtr = 0;
+  m_noVectorFuncCtr = 0;
+  m_cannotHandleCtr = 0;
+  m_allocaCtr = 0;
+  )
+
   // Iterate over all the instructions. Always hold the iterator at the instruction
   // following the one being packetized (so the iterator will "skip" any instructions
   // that are going to be added in the packetization work
@@ -118,6 +141,51 @@ bool PacketizeFunction::runOnFunction(Function &F)
 	curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
     curInst->eraseFromParent();
   }
+
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_shuffleCtr<<" shuffle instructions\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_extractCtr<<" extractelem instructions\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_insertCtr<<" insertelem instructions\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_getElemPtrCtr<<" getelemptr instructions\n");
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_nonPrimitiveCtr[i] > 0) {
+      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_nonPrimitiveCtr[i]<<" "<<Instruction::getOpcodeName(i) 
+                               << " instructions of non-primitive type (int, float, intV, floatV)\n");
+    }
+  }
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_castCtr[i] > 0) {
+      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_castCtr[i]<<" "<<Instruction::getOpcodeName(i) 
+                               << " cast instructions not supporting vector type\n");
+    }
+  }
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_nonConsecCtr<<" instructions with non-consecutive indices\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_noVectorFuncCtr<<" call instructions when no vector function found in hash or runtime module, or function has side effect\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_cannotHandleCtr<<" instructions with unsupported packet width, or couldn't transpose\n");
+  V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_allocaCtr<<" alloca instructions\n");
+
+  V_PRINT(vectorizer_stat_excel, m_shuffleCtr <<"\t\t\t\t\t\t\t\t\t\t\t\t\t\tCouldn't packetize shuffle instructions\n");
+  V_PRINT(vectorizer_stat_excel, "\t"<<m_extractCtr <<"\t\t\t\t\t\t\t\t\t\t\t\t\tCouldn't packetize extractelem instructions\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t"<<m_insertCtr <<"\t\t\t\t\t\t\t\t\t\t\t\tCouldn't packetize insertelem instructions\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t"<<m_getElemPtrCtr <<"\t\t\t\t\t\t\t\t\t\t\tCouldn't packetize getelemptr instructions\n");
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_nonPrimitiveCtr[i] > 0) {
+      V_PRINT(vectorizer_stat_excel, "\t\t\t\t"<<m_nonPrimitiveCtr[i] <<"\t\t\t\t\t\t\t\t\t\tCouldn't packetize "<<Instruction::getOpcodeName(i)
+                                     <<" instructions of non-primitive type (int, float, intV, floatV)\n");
+    }
+  }
+  for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
+    if (m_castCtr[i] > 0) {
+      V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t"<<m_castCtr[i] <<"\t\t\t\t\t\t\t\t\tCouldn't packetize" <<Instruction::getOpcodeName(i)
+                                     <<" cast instructions not supporting vector type\n");
+    }
+  }
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t"<<m_nonConsecCtr <<"\t\t\t\t\t\t\t\tCouldn't packetize instructions with non-consecutive indices\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t"<<m_noVectorFuncCtr <<"\t\t\t\t\t\t\tCouldn't packetize call instructions when no vector function found in hash or runtime module, or function has side effect\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t"<<m_cannotHandleCtr <<"\t\t\t\t\t\tCouldn't packetize instructions with unsupported packet width, or couldn't transpose\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t"<<m_allocaCtr <<"\t\t\t\t\tCouldn't packetize alloca instructions\n");
+  )
+
   V_PRINT(packetizer, "\nCompleted vectorizing function: " << m_currFunc->getName() << "\n");
   return true;
 }
@@ -194,6 +262,9 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     case Instruction::ShuffleVector :
     case Instruction::ExtractValue :
     case Instruction::InsertValue :
+      V_STAT(if (I->getOpcode() == Instruction::ShuffleVector) m_shuffleCtr++;)
+      V_STAT(if (I->getOpcode() == Instruction::ExtractValue)  m_extractCtr++;)
+      V_STAT(if (I->getOpcode() == Instruction::InsertValue)   m_insertCtr++;)
       duplicateNonPacketizableInst(I);
       break;
     case Instruction::InsertElement :
@@ -291,8 +362,11 @@ void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWr
   Type * origInstType = BI->getType();
 
   // If instruction's return type is not primitive - cannot packetize
-  if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy())
+  if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(BI->getOpcode()) <<" instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[BI->getOpcode()]++;)
     return duplicateNonPacketizableInst(BI);
+  }
 
   bool has_NSW = (supportsWrap ? BI->hasNoSignedWrap() : false);
   bool has_NUW = (supportsWrap ? BI->hasNoUnsignedWrap() : false);
@@ -328,6 +402,8 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   // Packetize if both input and output types are scalar primitives
   if ((!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) ||
     (!inputType->isIntegerTy() && !inputType->isFloatingPointTy())) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"):" <<Instruction::getOpcodeName(CI->getOpcode()) <<" both input and output types should be scalar primitives\n");
+    V_STAT(m_nonPrimitiveCtr[CI->getOpcode()]++;)
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -335,6 +411,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   if (!isa<BitCastInst>(CI) && !isa<SExtInst>(CI) && !isa<ZExtInst>(CI) &&
     !isa<TruncInst>(CI) && !isa<FPToSIInst>(CI) &&
     !isa<SIToFPInst>(CI) && !isa<FPToUIInst>(CI) && !isa<UIToFPInst>(CI)) {
+      V_STAT(m_castCtr[CI->getOpcode()]++;)
       return duplicateNonPacketizableInst(CI);
   }
 
@@ -362,8 +439,11 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
   V_ASSERT(2 == CI->getNumOperands() && "unexpected number of operands!");
 
   // If instruction's return type is not primitive - cannot packetize
-  if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy())
+  if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"):" <<Instruction::getOpcodeName(CI->getOpcode()) << " instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[CI->getOpcode()]++;)
     return duplicateNonPacketizableInst(CI);
+  }
 
   // Create the vector values
   Value * operand0;
@@ -493,6 +573,8 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   // Everything else is passed to the resolver.
   // In here we only handle consecutive pointers.
   if (PtrDep != WIAnalysis::PTR_CONSECUTIVE) {
+    V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): in "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) << " the pointer is not consecutive\n");
+    V_STAT(m_nonConsecCtr++;)
     duplicateNonPacketizableInst(MO.Orig);
     return NULL;
   }
@@ -623,6 +705,8 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
 
   // Not much we can do for load of non-scalars
   if (!(DT->isFloatingPointTy() || DT->isIntegerTy())) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
+    V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
     if (MO.Index)
       V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
     return duplicateNonPacketizableInst(MO.Orig);
@@ -668,6 +752,8 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   }
 
   // Handle random pointer, or load/store of non primitive types.
+  V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<": Handles random pointer, or load/store of non primitive types\n");
+  V_STAT(m_nonConsecCtr++;)
   return duplicateNonPacketizableInst(MO.Orig);
 }
 
@@ -748,8 +834,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     }
 
     // If function was not found in hash (or is not scalar), need to duplicate it
-    if (vecWidth != 1)
+    if (vecWidth != 1) {
+      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function:" <<origFuncName<<"\n"); 
+      V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
+    }
 
     // Obtain the appropriate vector function.
     vectorFuncName = foundFunction.first->funcs[LOG_(m_packetWidth)];
@@ -759,8 +848,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
  
     V_ASSERT(LibFunc && "Mismatch between function hash and runtime module");
     // Fallback in case function was not found in runtime module: just duplicate scalar func
-    if (!LibFunc)
+    if (!LibFunc) {
+      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function in runtime module:" <<origFuncName<<"\n"); 
+      V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
+    }
   }
   
   // TODO:: do we want \ need to support return by pointer?
@@ -770,12 +862,18 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
   std::string vectorFuncNameStr = LibFunc->getNameStr();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
-  if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall)
+  if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
+    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n"); 
+    V_STAT(m_noVectorFuncCtr++;)
     return duplicateNonPacketizableInst(CI);
+  }
 
   std::vector<Value *> newArgs;
-  if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, newArgs))
+  if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, newArgs)) {
+    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert args to vectorized function:" <<origFuncName<<"\n");
+    V_STAT(m_noVectorFuncCtr++;)
     return duplicateNonPacketizableInst(CI);
+  }
 
   // Find (or create) declaration for newly called function
   Constant * vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
@@ -791,6 +889,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // updates packetizer data structure with new packetized call
   if (!handleCallReturn(CI, newCall)) {
     m_removedInsts.insert(newCall);
+    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert return value to vectorized function:" <<origFuncName<<"\n");
+    V_STAT(m_noVectorFuncCtr++;)
     return duplicateNonPacketizableInst(CI);
   }
   
@@ -1228,16 +1328,22 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 //  V_PRINT(packetizer, "\t\InsertElement Instruction\n");
   V_ASSERT(IEI && "instruction type dynamic cast failed");
   
-  if (m_packetWidth!=8 && m_packetWidth!=4) 
+  if (m_packetWidth!=8 && m_packetWidth!=4) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=8 && m_packetWidth!=4\n");
+    V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(IEI);
+  }
 
   // check if this is and InsertEltSequence that can be transposed
   InsertElementInst *InsertEltSequence [MAX_PACKET_WIDTH];
   unsigned AOSVectorWidth;
   Instruction *lastInChain;
   bool canTranspose = isScatter(IEI, InsertEltSequence, AOSVectorWidth, lastInChain);
-  if (!canTranspose)
+  if (!canTranspose) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" can't be transposed\n");
+    V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(IEI);
+  }
   
   // obtaining vector inputs to perform transpose over
   Value *vectorizedInputs [MAX_PACKET_WIDTH];
@@ -1269,8 +1375,11 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   Value * scalarIndexVal = EI->getIndexOperand();
 
   // For transposing, Make sure the index is a constant, and the vector width is 2 or more
-  if (!isa<ConstantInt>(scalarIndexVal) || inputVectorWidth < 2)
+  if (!isa<ConstantInt>(scalarIndexVal) || inputVectorWidth < 2) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" index should be a constant, and the vector width is 2 or more\n");
+    V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(EI);
+  }
 
   // Obtain the packetized version of the vector input (actually multiple vectors)
   Value * inputOperands[MAX_PACKET_WIDTH];
@@ -1283,6 +1392,8 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     inputVectorWidth > m_packetWidth)
   {
     // No optimized solution implemented for this setup
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth != 4 && m_packetWidth != 8 || inputVectorWidth > m_packetWidth\n");
+    V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(EI);
   }
 
@@ -1314,7 +1425,11 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   if (m_packetWidth == 8)
   {
       if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
-        inputVectorWidth < 4) return duplicateNonPacketizableInst(EI);
+        inputVectorWidth < 4) {
+          V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth == 8 && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
+          V_STAT(m_cannotHandleCtr++;)
+          return duplicateNonPacketizableInst(EI);
+      }
 
       assert(scalarIndex < 8);
       llvm::SmallVector<Value*, 8> Level128;
@@ -1411,8 +1526,11 @@ void PacketizeFunction::packetizeInstruction(SelectInst *SI)
   V_ASSERT(SI && "instruction type dynamic cast failed");
 
   // If instruction's return type is not primitive - cannot packetize
-  if (!SI->getType()->isIntegerTy() && !SI->getType()->isFloatingPointTy())
+  if (!SI->getType()->isIntegerTy() && !SI->getType()->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(SI->getOpcode()) <<" instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[SI->getOpcode()]++;)
     return duplicateNonPacketizableInst(SI);
+  }
 
   Value * conditionalOperand[MAX_PACKET_WIDTH];
   Value * trueOperand;
@@ -1454,6 +1572,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI)
 {
   V_PRINT(packetizer, "\t\tAlloca Instruction\n");
   V_ASSERT(AI && "instruction type dynamic cast failed");
+  V_STAT(m_allocaCtr++;)
   return duplicateNonPacketizableInst(AI);
 }
 
@@ -1487,6 +1606,7 @@ void PacketizeFunction::packetizeInstruction(GetElementPtrInst *GI)
 {
   V_PRINT(packetizer, "\t\tGetElementPtr Instruction\n");
   V_ASSERT(GI && "instruction type dynamic cast failed");
+  V_STAT(m_getElemPtrCtr++;)
   return duplicateNonPacketizableInst(GI);
 }
 
@@ -1520,8 +1640,11 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
   Type * retType = PI->getType();
 
   // If instruction's return type is not primitive - cannot packetize
-  if (!retType->isIntegerTy() && !retType->isFloatingPointTy())
+  if (!retType->isIntegerTy() && !retType->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(PI->getOpcode()) <<" instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[PI->getOpcode()]++;)
     return duplicateNonPacketizableInst(PI);
+  }
 
   Type * vectorPHIType = VectorType::get(retType, m_packetWidth);
 

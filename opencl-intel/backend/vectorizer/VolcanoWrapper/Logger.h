@@ -71,5 +71,10 @@ extern FILE * moduleDmp;
 
 #endif 
 
+#ifndef NDEBUG
+#define V_STAT(x) x
+#else
+#define V_STAT(x)
+#endif
 
 #endif // __LOGGER__H__

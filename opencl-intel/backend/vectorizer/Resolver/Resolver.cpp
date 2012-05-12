@@ -10,12 +10,16 @@
 
 #include <vector>
 
-
 namespace intel {
 
 bool FuncResolver::runOnFunction(Function &F) {
 
-  V_PRINT("resolver", "---------------- Resolver before ---------------\n"<<F<<"\n");
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Resolver Statistics on function "<<F.getName()<<":\n");
+  V_PRINT(vectorizer_stat, "======================================================\n");
+  )
+
+  V_PRINT(resolver, "---------------- Resolver before ---------------\n"<<F<<"\n");
 
   std::vector<CallInst*> calls;
 
@@ -37,11 +41,29 @@ bool FuncResolver::runOnFunction(Function &F) {
   // Inspect and resolve all function calls
   std::vector<CallInst*>::iterator C  = calls.begin();
   std::vector<CallInst*>::iterator CE = calls.end();
+
+  V_STAT(
+  m_unresolvedLoadCtr  = 0;
+  m_unresolvedStoreCtr = 0;
+  m_unresolvedCallCtr  = 0;
+  m_unresolvedInstrCtr = 0;
+  )
+
   for (; C != CE ; ++C) {
     resolve(*C);
   }
 
-  V_PRINT("resolver", "Found "<<m_toCF.size()<<" instructions to hide behind CCF\n");
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Couldn't vectorize "<<m_unresolvedLoadCtr<<" load instructions\n");
+  V_PRINT(vectorizer_stat, "Couldn't vectorize "<<m_unresolvedStoreCtr<<" store instructions\n");
+  V_PRINT(vectorizer_stat, "Couldn't vectorize "<<m_unresolvedCallCtr<<" call instructions\n");
+
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t"<<m_unresolvedLoadCtr <<"\t\t\t\tCouldn't vectorize load instructions\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t\t"<<m_unresolvedStoreCtr <<"\t\t\tCouldn't vectorize store instructions\n");
+  V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t\t\t"<<m_unresolvedCallCtr <<"\t\tCouldn't vectorize call instructions\n");
+  )
+  
+  V_PRINT(resolver, "Found "<<m_toCF.size()<<" instructions to hide behind CCF\n");
 
   for (std::map<Value*, std::vector<Instruction*> >::iterator it = m_toCF.begin(),
        e = m_toCF.end(); it != e; ++it) {
@@ -50,8 +72,12 @@ bool FuncResolver::runOnFunction(Function &F) {
     resolvePredicate(pred, elements);
   }
 
+  V_STAT(
+  V_PRINT(vectorizer_stat, "Overall: couldn't vectorize "<<m_unresolvedInstrCtr<<" instructions\n");
+  )
+
   m_toCF.clear();
-  V_PRINT("resolver", "---------------- Resolver After ---------------\n"<<F<<"\n");
+  V_PRINT(resolver, "---------------- Resolver After ---------------\n"<<F<<"\n");
   return (calls.begin() != calls.end());
 }
 
@@ -124,7 +150,10 @@ void FuncResolver::resolvePredicate(Value* pred, std::vector<Instruction*>& elem
       V_ASSERT(curr && "Node must not be null"); 
       curr = curr->getNextNode();
     } else {
-      if  (!to_predicate.empty()) { CFInstruction(to_predicate, pred); }
+      if  (!to_predicate.empty()) {
+        V_STAT(m_unresolvedInstrCtr++;)
+        CFInstruction(to_predicate, pred); 
+      }
       to_predicate.clear();
       curr = *(elements.begin());
     }
@@ -132,6 +161,7 @@ void FuncResolver::resolvePredicate(Value* pred, std::vector<Instruction*>& elem
 
   // final flush
   if  (!to_predicate.empty()) {
+    V_STAT(m_unresolvedInstrCtr++;)
     CFInstruction(to_predicate, pred);
     to_predicate.clear();
   }
@@ -161,6 +191,8 @@ void FuncResolver::resolve(CallInst* caller) {
     return resolveStore(caller);
   }
   if (Mangler::isMangledCall(calledName)) {
+    V_PRINT(vectorizer_stat, "<<<<Cannot vectorize masked call to " << calledName << "\n");
+    V_STAT(m_unresolvedCallCtr++;)
     return resolveFunc(caller);
   }
 }
@@ -175,7 +207,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
   // Assert, debug, print
   for (size_t i=0; i< insts.size(); ++i) {
-    V_PRINT("resolver", "moving "<<*insts[i]<<"\n");
+    V_PRINT(resolver, "moving "<<*insts[i]<<"\n");
     V_ASSERT(insts[i]->getParent() == insts[0]->getParent());
     if (i>0) { V_ASSERT(insts[i-1]->getNextNode() == insts[i]); }
   }
@@ -203,10 +235,10 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
       V_ASSERT(user && "a non-instruction user");
       // If the user is in this block, don't change it.
       if (user->getParent() != body) {
-        V_PRINT("resolver", "replacing "<<*user<<"\n");
+        V_PRINT(resolver, "replacing "<<*user<<"\n");
         user->replaceUsesOfWith(insts[i], phi);
       } else {
-        V_PRINT("resolver", "not replacing "<<*user<<"\n");
+        V_PRINT(resolver, "not replacing "<<*user<<"\n");
       }
     }//end of for
 
@@ -226,6 +258,7 @@ void FuncResolver::resolveLoad(CallInst* caller) {
 }
 
 void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
+  V_STAT(m_unresolvedLoadCtr++;)
   V_PRINT(DEBUG_TYPE, "Inspecting scl load\n" <<*caller<<"\n");
   // Operands: pred, ptr
   V_ASSERT(caller->getNumArgOperands() == 2 && "Bad number of operands");
@@ -273,6 +306,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   Value *Ret = UndefValue::get(VT);
 
   for (unsigned i=0; i< NumElem; ++i) {
+    V_STAT(m_unresolvedLoadCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
     Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
@@ -299,6 +333,7 @@ void FuncResolver::resolveStore(CallInst* caller) {
 }
 
 void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
+  V_STAT(m_unresolvedStoreCtr++;)
   V_PRINT(DEBUG_TYPE, "Inspecting scl store\n" <<*caller<<"\n");
   //Operands pred, val,  ptr
   V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
@@ -345,6 +380,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
   for (unsigned i=0; i< NumElem; ++i) {
+    V_STAT(m_unresolvedStoreCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
     Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
