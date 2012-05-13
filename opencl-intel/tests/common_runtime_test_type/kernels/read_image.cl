@@ -23,7 +23,7 @@
  */
 
 
-__kernel void read_image2D_float4(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_float4(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -55,7 +55,7 @@ __kernel void read_image3D_float4(read_only image3d_t input, __global float* sum
 	}
 }
 
-__kernel void read_image2D_int4(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_int4(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -87,7 +87,7 @@ __kernel void read_image3D_int4(read_only image3d_t input, __global float* sum)
 	}
 }
 
-__kernel void read_image2D_float4_first(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_float4_first(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -119,7 +119,7 @@ __kernel void read_image3D_float4_first(read_only image3d_t input, __global floa
 	}
 }
 
-__kernel void read_image2D_int4_first(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_int4_first(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -151,7 +151,7 @@ __kernel void read_image3D_int4_first(read_only image3d_t input, __global float*
 	}
 }
 
-__kernel void read_image2D_float4_last(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_float4_last(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -183,7 +183,7 @@ __kernel void read_image3D_float4_last(read_only image3d_t input, __global float
 	}
 }
 
-__kernel void read_image2D_int4_last(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_int4_last(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -215,7 +215,7 @@ __kernel void read_image3D_int4_last(read_only image3d_t input, __global float* 
 	}
 }
 
-__kernel void read_image2D_float4_first_two(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_float4_first_two(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
@@ -247,7 +247,7 @@ __kernel void read_image3D_float4_first_two(read_only image3d_t input, __global 
 	}
 }
 
-__kernel void read_image2D_int4_first_two(read_only image2d_t input, write_only __global float* sum)
+__kernel void read_image2D_int4_first_two(read_only image2d_t input, __global float* sum)
 {
 	if(get_global_id(0)>0){
 		return;
