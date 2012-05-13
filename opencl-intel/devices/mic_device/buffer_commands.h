@@ -280,34 +280,6 @@ private:
 };
 
 
-class FillMemObject : public BufferCommands
-{
-public:
-
-	/* static function for FillMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
-
-	cl_dev_err_code execute();
-
-	virtual void fireCallBack(void* arg);
-
-protected:
-
-	virtual ~FillMemObject();
-
-private:
-
-	/* Private constructor because We like to create Commands only by the factory method */
-    FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
-
-	/* Initialize FillMemObject command. */
-	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
-
-	DispatcherDataHandler m_dispatcherDatahandler;
-
-	MiscDataHandler m_miscDatahandler;
-};
-
 class MigrateMemObject : public BufferCommands
 {
 public:

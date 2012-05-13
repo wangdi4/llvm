@@ -11,7 +11,104 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 extern bool gSafeReleaseOfCoiObjects;
 
-NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd),
+//
+//  ExecutionCommand Object
+//
+
+ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd)
+{
+}
+
+cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr)
+{
+	cl_dev_err_code err = CL_DEV_SUCCESS;
+	// the COIBUFFERs to dispatch
+	vector<COIBUFFER> coiBuffsArr;
+	// the access flags of the COIBUFFERs array
+	vector<COI_ACCESS_FLAGS> accessFlagsArr;
+	do
+	{
+		COIEVENT* barrier = NULL;
+		unsigned int numDependecies = 0;
+		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, true);
+
+		assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
+
+		if (numDependecies > 1)
+		{
+			m_lastError = CL_DEV_NOT_SUPPORTED;
+			break;
+		}
+
+		// Get this queue COIPIPELINE handle
+		COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
+
+		//Get COIFUNCTION handle according to func name (ask from DeviceServiceCommunication dictionary)
+		COIFUNCTION func = m_pCommandList->getDeviceFunction( funcId );
+
+		// Set command type for the tracer.
+		m_commandTracer.set_command_type(commandNameStr);
+
+		err = init(coiBuffsArr, accessFlagsArr);
+		if (err != CL_DEV_SUCCESS)
+		{
+			break;
+		}
+
+		// TODO - Call it only when realy starting the command.
+		notifyCommandStatusChanged(CL_RUNNING);
+
+		// Set start coi execution time for the tracer.
+		m_commandTracer.set_current_time_coi_execute_command_time_start();
+
+		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
+		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
+		COIRESULT result = COIPipelineRunFunction(pipe,
+												  func,
+												  coiBuffsArr.size(), &(coiBuffsArr[0]), &(accessFlagsArr[0]),
+												  numDependecies, barrier,
+												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
+												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
+												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
+		if (result != COI_SUCCESS)
+		{
+            assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
+			m_lastError = CL_DEV_ERROR_FAIL;
+			break;
+		}
+	}
+	while (0);
+
+	return executePostDispatchProcess(true);
+}
+
+void ExecutionCommand::fireCallBack(void* arg)
+{
+	// Set end coi execution time for the tracer. (Notification)
+	m_commandTracer.set_current_time_coi_execute_command_time_end();
+
+	misc_data miscData;
+	m_miscDatahandler.readMiscData(&miscData);
+	if (CL_DEV_SUCCESS == m_lastError)
+	{
+		m_lastError = miscData.errCode;
+	}
+	// if profiling available
+	if (m_pCmd->profiling)
+	{
+		// TODO - read the profiling data from miscData convert the data to host time profiling and send the data to framework
+	}
+	// Notify runtime that  the command completed
+	notifyCommandStatusChanged(CL_COMPLETE);
+	// Delete this Command object
+	delete this;
+}
+
+//
+//  NDRange Object
+//
+
+NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd),
 m_printfBuffer(NULL), m_kernel_locked(false)
 {
 }
@@ -312,61 +409,6 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 	return returnError;
 }
 
-cl_dev_err_code NDRange::execute()
-{
-	cl_dev_err_code err = CL_DEV_SUCCESS;
-	// the COIBUFFERs to dispatch
-	vector<COIBUFFER> coiBuffsArr;
-	// the access flags of the COIBUFFERs array
-	vector<COI_ACCESS_FLAGS> accessFlagsArr;
-	do
-	{
-		COIEVENT* barrier = NULL;
-		unsigned int numDependecies = 0;
-		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, true);
-
-		// Get this queue COIPIPELINE handle
-		COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
-
-		//Get COIFUNCTION handle according to func name (ask from DeviceServiceCommunication dictionary)
-		COIFUNCTION func = m_pCommandList->getDeviceFunction( DeviceServiceCommunication::EXECUTE_NDRANGE );
-
-		// Set command type for the tracer.
-		m_commandTracer.set_command_type((char*)"NDRange");
-
-		err = init(coiBuffsArr, accessFlagsArr);
-		if (err != CL_DEV_SUCCESS)
-		{
-			break;
-		}
-
-		// TODO - Call it only when realy starting the command.
-		notifyCommandStatusChanged(CL_RUNNING);
-
-		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
-
-		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
-		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
-		COIRESULT result = COIPipelineRunFunction(pipe,
-												  func,
-												  coiBuffsArr.size(), &(coiBuffsArr[0]), &(accessFlagsArr[0]),
-												  numDependecies, barrier,
-												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
-												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
-		if (result != COI_SUCCESS)
-		{
-            assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
-			m_lastError = CL_DEV_ERROR_FAIL;
-			break;
-		}
-	}
-	while (0);
-
-	return executePostDispatchProcess(true);
-}
-
 inline void NDRange::releaseKernel( void )
 {
     if (m_kernel_locked)
@@ -379,9 +421,6 @@ inline void NDRange::releaseKernel( void )
 
 void NDRange::fireCallBack(void* arg)
 {
-	// Set end coi execution time for the tracer. (Notification)
-	m_commandTracer.set_current_time_coi_execute_command_time_end();
-
     // Do release kernel here and not only in NDRange distructor in order to avoid races with 
     // clReleaseProgram that may be called during notifyCommandStatusChanged() call
     releaseKernel();
@@ -391,21 +430,8 @@ void NDRange::fireCallBack(void* arg)
 	{
 		// TODO - Read the COIBUFFER and print it
 	}
-	misc_data miscData;
-	m_miscDatahandler.readMiscData(&miscData);
-	if (CL_DEV_SUCCESS == m_lastError)
-	{
-		m_lastError = miscData.errCode;
-	}
-	// if profiling available
-	if (m_pCmd->profiling)
-	{
-		// TODO - read the profiling data from miscData convert the data to host time profiling and send the data to framework
-	}
-	// Notify runtime that  the command completed
-	notifyCommandStatusChanged(CL_COMPLETE);
-	// Delete this Command object
-	delete this;
+	
+	return ExecutionCommand::fireCallBack(arg);
 }
 
 void NDRange::releaseResources(bool releaseCoiObjects)
@@ -413,8 +439,6 @@ void NDRange::releaseResources(bool releaseCoiObjects)
     // release kernel for the case of running error
     releaseKernel();
     
-	m_dispatcherDatahandler.release();
-	m_miscDatahandler.release();
 	if (releaseCoiObjects)
 	{
 		COIRESULT coiErr = COI_SUCCESS;
@@ -424,5 +448,132 @@ void NDRange::releaseResources(bool releaseCoiObjects)
 			assert(COI_SUCCESS == coiErr && "Buffer destruction failed");
 		}
 	}
+}
+
+//
+//  Fill Memory Object
+//
+
+FillMemObject::FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd)
+{
+}
+
+cl_dev_err_code FillMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+{
+	return verifyCreation(new FillMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
+}
+
+cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCESS_FLAGS>& outAccessFlagArr)
+{
+	cl_dev_err_code returnError = CL_DEV_SUCCESS;
+	// directive_pack for preExeDirective
+	directive_pack preExeDirective;
+	// directive_pack for preExeDirective
+	directive_pack postExeDirective;
+
+	cl_dev_cmd_param_fill*			cmdParams = (cl_dev_cmd_param_fill*)m_pCmd->params;
+	MICDevMemoryObject*				pMicMemObj;
+	fill_mem_obj_dispatcher_data	fillMemObjDispatcherData;
+
+	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
+    do {
+		returnError = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (cl_dev_memobj_handle*)&pMicMemObj);
+		if (CL_DEV_FAILED(returnError))
+		{
+			break;
+		}
+
+    	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
+
+		fillMemObjDispatcherData.commandIdentifier = m_pCmd->id;
+		fillMemObjDispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
+
+    	// copy the dimension value
+		assert(pMemObj.dim_count == cmdParams->dim_count);
+    	fillMemObjDispatcherData.dim_count = cmdParams->dim_count;
+    	fillMemObjDispatcherData.from_offset = MemoryAllocator::CalculateOffset(fillMemObjDispatcherData.dim_count, cmdParams->offset, pMemObj.pitch, pMemObj.uiElementSize);
+
+    	// Set region
+    	memcpy(fillMemObjDispatcherData.vRegion, cmdParams->region, sizeof(fillMemObjDispatcherData.vRegion));
+    	fillMemObjDispatcherData.vRegion[0] = cmdParams->region[0] * pMemObj.uiElementSize;
+
+		// Set pitch
+		memcpy(fillMemObjDispatcherData.vFromPitch, pMemObj.pitch, sizeof(fillMemObjDispatcherData.vFromPitch));
+
+		// Set pattern
+		assert(cmdParams->pattern_size <= MAX_PATTERN_SIZE);
+		if (cmdParams->pattern_size > MAX_PATTERN_SIZE)
+		{
+			returnError = CL_DEV_INVALID_VALUE;
+			break;
+		}
+		memcpy(fillMemObjDispatcherData.pattern, cmdParams->pattern, cmdParams->pattern_size);
+		fillMemObjDispatcherData.pattern_size = cmdParams->pattern_size;
+
+		// Optimization which send the COI buffer as COI_SINK_WRITE_ENTIRE if the user like to over-write the whole buffer.
+		COI_ACCESS_FLAGS dstBuffAccessFlag = COI_SINK_WRITE_ENTIRE;
+		for (unsigned int i = 0; i < fillMemObjDispatcherData.dim_count; i++)
+		{
+			if ((cmdParams->offset[i] != 0) || ((pMemObj.memObjType == CL_MEM_OBJECT_BUFFER) && (cmdParams->region[i] != pMemObj.dimensions.buffer_size)) ||
+				((pMemObj.memObjType != CL_MEM_OBJECT_BUFFER) && (cmdParams->region[i] != pMemObj.dimensions.dim[i])))
+			{
+				dstBuffAccessFlag = COI_SINK_WRITE;
+				break;
+			}
+		}
+
+		// Add the destination buffer and set its directive as pre exe directive
+		outCoiBuffsArr.push_back(pMicMemObj->clDevMemObjGetCoiBufferHandler());
+		outAccessFlagArr.push_back(dstBuffAccessFlag);
+		memset(&preExeDirective, 0, sizeof(directive_pack));
+		preExeDirective.id = BUFFER;
+		preExeDirective.bufferDirective.bufferIndex = 0;
+		fillMemObjDispatcherData.preExeDirectivesCount = 1;
+
+		fillMemObjDispatcherData.postExeDirectivesCount = 0;
+		// Register completion barrier
+		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier);
+		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
+		if (false == fillMemObjDispatcherData.isInOrderQueue)
+		{
+			// Set the post exe directive
+			postExeDirective.id = BARRIER;
+			postExeDirective.barrierDirective.end_barrier = m_completionBarrier.cmdEvent;
+			fillMemObjDispatcherData.postExeDirectivesCount = 1;
+		}
+
+		// calculate and set the offset parameters in 'dispatcherData'
+		fillMemObjDispatcherData.calcAndSetOffsets();
+
+		// Get device side process in order to create COIBUFFERs for this process (Only in case of OOO queue).
+		COIPROCESS tProcess = m_pCommandList->getDeviceProcess();
+		// initialize the miscDataHandler
+		returnError = m_miscDatahandler.init(!fillMemObjDispatcherData.isInOrderQueue, &tProcess);
+		if (CL_DEV_FAILED(returnError))
+		{
+			break;
+		}
+		// register misc_data
+		m_miscDatahandler.registerMiscData(outCoiBuffsArr, outAccessFlagArr);
+
+		returnError = m_dispatcherDatahandler.init(fillMemObjDispatcherData, &preExeDirective, &postExeDirective, NULL, &tProcess);
+		if (CL_DEV_FAILED(returnError))
+		{
+			break;
+		}
+		m_dispatcherDatahandler.registerDispatcherData(outCoiBuffsArr, outAccessFlagArr);
+
+		assert(outCoiBuffsArr.size() == outAccessFlagArr.size());
+
+    } while (0);
+
+	if (CL_DEV_FAILED(returnError))
+	{
+		outCoiBuffsArr.clear();
+		outAccessFlagArr.clear();
+	}
+	m_lastError = returnError;
+
+	return returnError;
 }
 

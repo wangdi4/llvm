@@ -86,7 +86,7 @@ TBBFillMemObjTask::TBBFillMemObjTask() : FillMemObjTask(), TBBTaskInterface(), m
 
 cl_dev_err_code TBBFillMemObjTask::init(TaskHandler* pTaskHandler)
 {
-	// Call my parent (NDRangeTask init() method)
+	// Call my parent (FillMemObjTask init() method)
 	cl_dev_err_code result = FillMemObjTask::init(pTaskHandler);
 	if (CL_DEV_FAILED(result))
 	{
@@ -142,32 +142,15 @@ tbb::task* TBBFillMemObjTask::TBBFillMemObjExecutor::execute()
 
 void TBBFillMemObjTask::TBBFillMemObjExecutor::copyPatternOnContRegion(chunk_struct* chunk, chunk_struct* pattern)
 {
-	char* offset = chunk->fromPtr;
-	uint64_t sizeCopied = 0;
-	uint64_t currCopySize = min(chunk->size, pattern->size);
-	if (currCopySize <= 0)
+	assert(pattern->size <= chunk->size);
+	assert((chunk->size % pattern->size) == 0);
+	const uint64_t totalSize = chunk->size;
+	const uint64_t patternSize = pattern->size;
+	char* chunkPtr = chunk->fromPtr;
+	const char* patternPtr = pattern->fromPtr;
+	for (uint64_t i = 0; i < totalSize; i += patternSize)
 	{
-		return;
-	}
-	// Copy to buffer from "offset" "currCopySize" bytes from "pattern"
-	memcpy(offset, pattern->fromPtr, currCopySize);
-	sizeCopied += currCopySize;
-	// If all req. size filled than finish.
-	if (sizeCopied >= chunk->size)
-	{
-		return;
-	}
-	// otherwise replace pattern pointer to be the last copied ptr in order to be able to copy larger pattern in next steps.
-	pattern->fromPtr = chunk->fromPtr;
-	while (sizeCopied < chunk->size)
-	{
-		// advance the offset location
-		offset += currCopySize;
-		currCopySize = min(chunk->size - sizeCopied, pattern->size);
-		memcpy(offset, pattern->fromPtr, currCopySize);
-		sizeCopied += currCopySize;
-		// Update the pattern size because We can fill larger size in next steps.
-		pattern->size = sizeCopied;
+		memcpy((chunkPtr + i), patternPtr, patternSize);
 	}
 }
 

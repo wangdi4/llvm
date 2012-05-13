@@ -25,8 +25,16 @@ DispatcherDataHandler::DispatcherDataHandler() : m_size(0), m_pDispatcherData(NU
 
 DispatcherDataHandler::~DispatcherDataHandler()
 {
-	// The assertion is in order to validate that the release was called.
-	assert(m_pDispatcherData == NULL);
+	if (m_pDispatcherData)
+	{
+		m_pDispatcherData->release(m_data);
+		m_pDispatcherData = NULL;
+		if (m_data.pDataBuffer)
+		{
+			delete [] m_data.pDataBuffer;
+			m_data.pDataBuffer = NULL;
+		}
+	}
 }
 
 
@@ -81,20 +89,6 @@ uint16_t DispatcherDataHandler::getDispatcherDataSizeForCoiRunFunc()
 	return m_pDispatcherData->getDataSizeForCoiRunFunc(m_size);
 }
 
-void DispatcherDataHandler::release()
-{
-	if (m_pDispatcherData)
-	{
-		m_pDispatcherData->release(m_data);
-		m_pDispatcherData = NULL;
-		if (m_data.pDataBuffer)
-		{
-			delete [] m_data.pDataBuffer;
-			m_data.pDataBuffer = NULL;
-		}
-	}
-}
-
 
 
 
@@ -106,8 +100,11 @@ MiscDataHandler::MiscDataHandler() : m_pMiscData(NULL)
 
 MiscDataHandler::~MiscDataHandler()
 {
-	// The assertion is in order to validate that the release was called.
-	assert(m_pMiscData == NULL);
+	if (m_pMiscData)
+	{
+		m_pMiscData->release(m_data);
+		m_pMiscData = NULL;
+	}
 }
 
 cl_dev_err_code MiscDataHandler::init(bool useCoiBuffer, COIPROCESS* pCoiProcess) 
@@ -140,13 +137,4 @@ cl_dev_err_code MiscDataHandler::readMiscData(misc_data* pOutMiscData)
 { 
 	assert(m_pMiscData);
 	return m_pMiscData->readData(m_data, pOutMiscData, sizeof(misc_data)); 
-}
-
-void MiscDataHandler::release() 
-{ 
-	if (m_pMiscData)
-	{
-		m_pMiscData->release(m_data);
-		m_pMiscData = NULL;
-	}
 }

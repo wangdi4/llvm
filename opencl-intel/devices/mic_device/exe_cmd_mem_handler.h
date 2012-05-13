@@ -66,9 +66,6 @@ public:
 	/* return the size of dispatcher_data (size of return value for COIPipelineRunFunction). (if needed) */
 	uint16_t getDispatcherDataSizeForCoiRunFunc();
 
-	/* Release the memory used by this class. */
-	void release();
-
 private:
 
 	data m_data;
@@ -117,9 +114,6 @@ public:
 
 	/* Read the data and store it in 'pOutMiscData'. */
 	cl_dev_err_code readMiscData(misc_data* pOutMiscData);
-
-	/* Release the COIBUFFER object. (if needed) */
-	void release();
 
 private:
 

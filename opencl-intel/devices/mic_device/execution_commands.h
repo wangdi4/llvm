@@ -24,6 +24,7 @@
 
 #include "mic_dev_limits.h"
 #include "exe_cmd_mem_handler.h"
+#include "device_service_communication.h"
 
 #include <vector>
 
@@ -31,7 +32,29 @@ using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-class NDRange : public Command
+class ExecutionCommand : public Command
+{
+protected:
+
+	ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+	virtual ~ExecutionCommand() {};
+
+	/* Execute the command (Send it to execution in the device) */
+	cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
+
+	/* Initialize the appropriate execution command. */
+	virtual cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr) = 0;
+
+	virtual void fireCallBack(void* arg);
+
+	MiscDataHandler m_miscDatahandler;
+
+	DispatcherDataHandler m_dispatcherDatahandler;
+};
+
+
+class NDRange : public ExecutionCommand
 {
 
 public:
@@ -39,7 +62,7 @@ public:
 	/* static function for NDRange Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
 
-	cl_dev_err_code execute();
+	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
 
 	void fireCallBack(void* arg);
 
@@ -67,7 +90,6 @@ private:
 	/* Private constructor because We like to create Commands only by the factory method */
     NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	/* Initialize NDRange command. */
 	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 
 	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo);
@@ -78,11 +100,31 @@ private:
 
 	COIBUFFER m_printfBuffer;
 
-	MiscDataHandler m_miscDatahandler;
-
-	DispatcherDataHandler m_dispatcherDatahandler;
-
     bool        m_kernel_locked;
+};
+
+
+
+class FillMemObject : public ExecutionCommand
+{
+public:
+
+	/* static function for FillMemObject Command creation */
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+
+	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
+
+protected:
+
+	virtual ~FillMemObject() {};
+
+private:
+
+	/* Private constructor because We like to create Commands only by the factory method */
+    FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+	/* Initialize FillMemObject command. */
+	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 };
 
 }}}
