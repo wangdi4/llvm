@@ -18,6 +18,7 @@ File Name: OCLBuilder.cpp
 
 #include "OCLBuilder.h"
 #include <cstring>
+#include "clang_device_info.h"
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
@@ -39,6 +40,16 @@ OCLBuilder& OCLBuilder::withBuildOptions(const char* options){
 
 OCLBuilder& OCLBuilder::withSource(const char* src){
   m_source = src;
+  return *this;
+}
+
+OCLBuilder& OCLBuilder::withFP64Support(bool isFP64Supported) {
+  m_bSupportFP64 = isFP64Supported;
+  return *this;
+}
+
+OCLBuilder& OCLBuilder::withImageSupport(bool areImagesSupported) {
+  m_bSupportImages = areImagesSupported;
   return *this;
 }
 
@@ -88,7 +99,8 @@ IOCLFEBinaryResult* OCLBuilder::build(){
   return executableResult;
 }
 
-OCLBuilder::OCLBuilder(): m_pCompiler(NULL){
+OCLBuilder::OCLBuilder(): m_pCompiler(NULL), m_bSupportFP64(true),
+m_bSupportImages(true) {
 }
 
 IOCLFECompiler* OCLBuilder::createCompiler(const char* lib){
@@ -99,14 +111,21 @@ IOCLFECompiler* OCLBuilder::createCompiler(const char* lib){
   "cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics"
   " cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics"
   " cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission"
- " cl_intel_exec_by_local_thread";
+  " cl_intel_exec_by_local_thread";
+
+  Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
+    strDeviceOptions,
+    m_bSupportImages,
+    m_bSupportFP64
+    };
+
   //
   //loading clang dll
   //
   m_dynamicLoader.Load(lib);
   fnCreateFECompilerInstance* factoryMethod =
     (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFuncPtr(fnFactoryName);
-  int rc = factoryMethod(strDeviceOptions, strlen(strDeviceOptions), &ret);
+  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret);
   if (rc || NULL == ret)
     throw Validation::Exception::OperationFailed("factory method failed");
   return ret;

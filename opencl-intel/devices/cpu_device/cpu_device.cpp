@@ -31,6 +31,7 @@
 #include "cpu_logger.h"
 #include "buildversion.h"
 #include "CL/cl_ext.h"
+#include "clang_device_info.h"
 
 #include <cl_sys_info.h>
 #include <cpu_dev_limits.h>
@@ -63,6 +64,8 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
+
+static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {OCL_SUPPORTED_EXTENSIONS,1,1};
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -2051,10 +2054,10 @@ const char* CPUDevice::clDevFEModuleName() const
 
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
-	return OCL_SUPPORTED_EXTENSIONS;
+	return &CPUDevInfo;
 }
 
 size_t CPUDevice::clDevFEDeviceInfoSize() const
 {
-	return strlen(OCL_SUPPORTED_EXTENSIONS)+1;
+	return sizeof(CPUDevInfo);
 }

@@ -43,6 +43,8 @@ public:
   //sets the OCL source to be compiled
   OCLBuilder& withSource(const char* src);
 
+  OCLBuilder& withFP64Support(bool );
+  OCLBuilder& withImageSupport(bool );
   //cleanup function
   void close();
 
@@ -67,6 +69,10 @@ private:
   std::string m_source;
   //build options
   std::string m_options;
+  //Indicates whether doubles are supported by the device
+  bool m_bSupportFP64;
+  //Indicates whether images are supported by the device
+  bool m_bSupportImages;
 };
 
 }

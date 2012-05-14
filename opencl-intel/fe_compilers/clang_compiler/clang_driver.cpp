@@ -196,8 +196,9 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 
 // ClangFECompilerCompileTask calls implementation
-ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions)
-: m_pProgDesc(pProgDesc), m_pszDeviceExtensions(pszDeviceExtensions), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
+: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
 }
 
@@ -429,11 +430,13 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 	list.push_back("__ENDIAN_LITTLE__=1");
 	list.push_back("-D");
 	list.push_back("__ROUNDING_MODE__=rte");	
-	list.push_back("-D");
-	list.push_back("__IMAGE_SUPPORT__=1");	
+	if(m_sDeviceInfo.bImageSupport) {
+		list.push_back("-D");
+		list.push_back("__IMAGE_SUPPORT__=1");	
+	}
 
 	// Add extension defines
-	std::string extStr = m_pszDeviceExtensions;
+	std::string extStr = m_sDeviceInfo.sExtensionStrings;
 	while(extStr != "")
 	{
         std::string subExtStr;

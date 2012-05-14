@@ -9,6 +9,7 @@
 
 #include <cl_synch_objects.h>
 #include <frontend_api.h>
+#include "clang_device_info.h"
 
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
@@ -16,7 +17,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
 	{
 	public:
-		ClangFECompiler(const char* pszDeviceExtensions);
+		ClangFECompiler(const void* pszDeviceInfo);
 
 		// IOCLFECompiler
         int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
@@ -36,7 +37,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	protected:
 		~ClangFECompiler();
 
-		char*	m_pszDeviceExtensions; // A string for device supported extensions
+		CLANG_DEV_INFO	m_sDeviceInfo;
 
 		// Static members
 		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;

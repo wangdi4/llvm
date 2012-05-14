@@ -34,6 +34,7 @@
 #include "memory_allocator.h"
 #include "mic_sys_info.h"
 #include "command_list.h"
+#include "clang_device_info.h"
 
 using namespace Intel::OpenCL::MICDevice;
 
@@ -51,6 +52,8 @@ typedef struct _cl_dev_internal_cmd_list
     void*               cmd_list;
     cl_dev_subdevice_id subdevice_id;
 } cl_dev_internal_cmd_list;
+
+static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1};
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -273,14 +276,18 @@ const char* MICDevice::clDevFEModuleName() const
 
 const void* MICDevice::clDevFEDeviceInfo() const
 {
-	return MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
+  if ( NULL == MICDevInfo.sExtensionStrings)
+  {
+    MICDevInfo.sExtensionStrings = 
+      MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
+  }
+
+	return &MICDevInfo;
 }
 
 size_t MICDevice::clDevFEDeviceInfoSize() const
 {
-    const char* supported_extensions = (const char*)clDevFEDeviceInfo();
-
-	return supported_extensions ? strlen(supported_extensions)+1 : 0;
+	return sizeof(MICDevInfo);
 }
 
 // Device Fission support

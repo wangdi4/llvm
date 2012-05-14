@@ -12,6 +12,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 include_directories( BEFORE ../../backend/ocl_cpu_backend/export
+                            ../../fe_compilers/clang_compiler
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR} )
 							

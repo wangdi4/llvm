@@ -50,6 +50,7 @@ add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEN
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
 
 include_directories( BEFORE
+                            ../../fe_compilers/clang_compiler
                             ${HW_UTILS_HEADERS}
                             ${OCL_BINARY_DIR}
                             ${COI_SDK_PATH}/include

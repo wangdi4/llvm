@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "clang_device_info.h"
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
 
@@ -50,7 +51,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
 	{
 	public:
-		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, const char* pszDeviceExtensions);
+		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo);
 		
 		int Compile();
 
@@ -67,8 +69,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
 
-		Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
-		const char* m_pszDeviceExtensions;
+        Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
+        Intel::OpenCL::ClangFE::CLANG_DEV_INFO	m_sDeviceInfo;
 
         bool OptDebugInfo;
         bool OptProfiling;

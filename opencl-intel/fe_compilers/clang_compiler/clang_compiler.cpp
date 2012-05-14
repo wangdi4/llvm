@@ -102,7 +102,7 @@ int CloseClangDriver()
 Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_llvmReferenceCount(0);
 
 // ClangFECompiler class implementation
-ClangFECompiler::ClangFECompiler(const char* pszDeviceExtensions)
+ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 {
 	long prev = s_llvmReferenceCount++;
 	if ( 0 == prev )
@@ -110,14 +110,20 @@ ClangFECompiler::ClangFECompiler(const char* pszDeviceExtensions)
 		InitClangDriver();
 	}
 
-	m_pszDeviceExtensions = STRDUP(pszDeviceExtensions);
+	CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
+
+	memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
+
+	m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
+	m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
+	m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
 }
 
 ClangFECompiler::~ClangFECompiler()
 {
-	if ( NULL != m_pszDeviceExtensions )
+	if ( NULL != m_sDeviceInfo.sExtensionStrings )
 	{
-		free(m_pszDeviceExtensions);
+		free((void *)m_sDeviceInfo.sExtensionStrings);
 	}
 	long prev = s_llvmReferenceCount--;
 	if ( 1 == prev )
@@ -170,7 +176,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLF
 	assert(NULL != pProgDesc);
 	assert(NULL != pBinaryResult);
 	// Create new compile task
-	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_pszDeviceExtensions);
+	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo);
 	if ( NULL == pCompileTask )
 	{
 		*pBinaryResult = NULL;
@@ -243,8 +249,9 @@ int ClangFECompiler::GetKernelArgInfo(const void*       pBin,
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
 {
 	assert(NULL != pFECompiler);
+  assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 
-	IOCLFECompiler* pNewCompiler = new ClangFECompiler((const char*)pDeviceInfo);
+	IOCLFECompiler* pNewCompiler = new ClangFECompiler(pDeviceInfo);
 	if ( NULL == pNewCompiler )
 	{
 		LOG_ERROR(TEXT("%S"), TEXT("Cann't allocate compiler instance"));

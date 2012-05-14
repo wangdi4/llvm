@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.8.4)
 include_directories(
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${BACKEND_ROOT_DIR}/../fe_compilers/clang_compiler
 )
 
 add_library( ${TARGET_NAME} STATIC
