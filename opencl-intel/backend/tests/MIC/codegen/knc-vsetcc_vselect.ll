@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -11,6 +10,9 @@ target datalayout = "e-p:64:64"
 define <16 x i32> @funcV16I32(<16 x i32> %v1, <16 x i32> %v2, <16 x i32> %v3, <16 x i32> %v4) nounwind {
 ; KNF:  vcmppi    {eq}, %v1, %v0, %k1
 ; KNF:  vorpi     %v2, %v2, %v3{%k1}
+;
+; KNC: vpcmpeqd  %zmm1, %zmm0, [[K0:%k[1-9]+]]
+; KNC: vmovaps   %zmm2, %zmm{{[0-9]+}}{[[K0]]}
   %t0 = icmp eq <16 x i32> %v1, %v2
   %t1 = select <16 x i1> %t0, <16 x i32> %v3, <16 x i32> %v4
   ret <16 x i32> %t1
@@ -22,6 +24,12 @@ define <16 x i8> @funcV16I8(<16 x i8> %v1, <16 x i8> %v2, <16 x i8> %v3, <16 x i
 ;KNF:  vcmppu    {nlt}, [[R1]], [[R0]], %k1
 ;KNF:  vorpi     %v2, %v2, %v3{%k1}
 ;KNF:  vorpi     %v3, %v3, %v0
+;
+;KNC:  vpandd    _const_0(%rip), %zmm0, [[R0:%zmm[0-9]+]]
+;KNC:  vpandd    _const_0(%rip), %zmm1, [[R1:%zmm[0-9]+]]
+;KNC:  vpcmpud   $5, [[R1]], [[R0]], %k1
+;KNC:  vmovaps   %zmm2, %zmm3{%k1}
+;KNC:  vmovaps   %zmm3, %zmm0
   %t0 = icmp uge <16 x i8> %v1, %v2
   %t1 = select <16 x i1> %t0, <16 x i8> %v3, <16 x i8> %v4
   ret <16 x i8> %t1
@@ -33,6 +41,12 @@ FirstBB:
 ;KNF:  vloadd    (%rdi){uint8i}, %v1
 ;KNF:  vorpi     %v0, %v0, %v1{%k1}
 ;KNF:  vstored   %v{{[0-9]*}}{uint8i}, (%rdi)
+;
+;KNC:  vpxord    %zmm0, %zmm0, %zmm0
+;KNC:  vmovdqa32 (%rdi){uint8}, %zmm1
+;KNC:  vmovaps   %zmm0, %zmm1{%k1}
+;KNC:  vpandd    _const_1(%rip){1to16}, %zmm1, %zmm2
+;KNC:  vmovdqa32 %zmm2{uint8}, (%rdi)
   %v = load <16 x i8> *%p
   %t1 = select <16 x i1> %mask, <16 x i8> zeroinitializer, <16 x i8> %v
   store <16 x i8> %t1, <16 x i8>* %p, align 16

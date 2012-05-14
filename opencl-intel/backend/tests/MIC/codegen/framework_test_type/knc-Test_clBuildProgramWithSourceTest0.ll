@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llc < %s -mtriple=x86_64-pc-linux -march=y86-64 -mcpu=knc
 ; XFAIL: win32
 ; ModuleID = 'Program'

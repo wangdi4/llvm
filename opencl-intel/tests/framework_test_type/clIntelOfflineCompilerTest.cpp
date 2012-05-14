@@ -24,8 +24,7 @@
 #define KERNEL __kernel void clIntelOfflineCompilerTest(__global int* i)	\
 {	\
 	int tid = get_global_id(0);	\
-	if (tid== (*i))	\
-	(*i) ++;	\
+	atomic_inc(i);	\
 }
 
 #define KERNEL_PRINTF __kernel void clIntelOfflineCompilerTest(__global int *mRes){printf("%d\n",2011); (*mRes) ++;}
@@ -270,8 +269,8 @@ TEST(IocTests, llvmAndAsmCreation){
 TEST(IocTests, OptionSimd){
 	//const argument that you may change in the future
 	string const kernelName = "kernelSimd";
-	int const simdOptionLength = 2;
-	string const simdOption[simdOptionLength] = {"avx", "sse42"};
+	int const simdOptionLength = 3;
+	string const simdOption[simdOptionLength] = {"avx","avx2", "sse42"};
 	
 	
 	//creating all the asm and llvm files
