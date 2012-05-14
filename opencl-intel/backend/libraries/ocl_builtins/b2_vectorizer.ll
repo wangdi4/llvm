@@ -458,7 +458,7 @@ define void @scatter.v16f64 (double* %addr, <16 x i32>%index, <16 x double> %dat
                                     i32 0) ; scatter to L1 cache
   call void @llvm.x86.mic.scatter.pd(i8* %ptr,
                                     <16 x i32> %index1,
-                                    <8 x double> %data0,
+                                    <8 x double> %data1,
                                     i32 0, ; no down conversion
                                     i32 8, ; scale 8
                                     i32 0) ; scatter to L1 cache
