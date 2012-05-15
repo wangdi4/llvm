@@ -106,7 +106,7 @@ protected:
 		OutFile.copy(OutFileC,OutFile.length());
 		string archType = (sizeof(void*) == 8) ? "64" : "32";
 
-		string exec("ioc" + archType + " -input=" + fileName + ".cl -ir=" + OutFile);
+		string exec("ioc" + archType + " -cmd=build -input=" + fileName + ".cl -ir=" + OutFile);
 
 		char execute[CBUFF_SIZE]={0};
 		exec.copy(execute,exec.length());

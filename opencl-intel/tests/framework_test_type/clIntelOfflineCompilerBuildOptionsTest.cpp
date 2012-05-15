@@ -21,7 +21,7 @@
 #define FILE_TYPE ir //if the file type will be changed in the future....
 #define CL_FILE_NAME kernel_clIntelOfflineCompilerTest
 #define OUTPUT_FILE_NAME out.txt
-#define EXECUTE -input=FILE_NAME.cl -ir=FILE_NAME.FILE_TYPE -output=OUTPUT_FILE_NAME -bo="-D CONST=3"
+#define EXECUTE -cmd=build -input=FILE_NAME.cl -ir=FILE_NAME.FILE_TYPE -output=OUTPUT_FILE_NAME -bo="-D CONST=3"
 //#if defined _WIN32
 //#define EXECUTE32 ioc32 EXECUTE
 //#define EXECUTE64 ioc64 EXECUTE

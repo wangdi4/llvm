@@ -31,7 +31,7 @@
 /*---------------------------------------------------*/
 #define FILE_TYPE ir //if the file type will be changed in the future....
 #define FILE_NAME kernel_clIntelOfflineCompilerTest
-#define EXECUTE -input=FILE_NAME.cl -ir=FILE_NAME.FILE_TYPE
+#define EXECUTE -cmd=build -input=FILE_NAME.cl -ir=FILE_NAME.FILE_TYPE
 
 #define FOPEN_OPTIONS rbD  //read,binary,Temporary , remove D so binary file will not be deleted
 
@@ -256,7 +256,7 @@ TEST(IocTests, llvmAndAsmCreation){
 	string const inAsm = "kernelPi:"; //a label that should be there
 	string const inLlvm = "target triple"; //a variable that should always exists
 	
-	runIoc("-input=" + kernelName + ".cl -asm -llvm");
+	runIoc("-cmd=build -input=" + kernelName + ".cl -asm -llvm");
 	
 	string files[] = {kernelName + ".asm", kernelName + ".ll"};
 	ASSERT_NO_FATAL_FAILURE(validateSubstringInFile(files[0], inAsm, true));
@@ -277,7 +277,7 @@ TEST(IocTests, OptionSimd){
 	string fileName[simdOptionLength];
 	for (int i = 0 ; i < simdOptionLength; i++ ){
 		fileName[i] = kernelName + "_" + simdOption[i] + ".asm";
-		runIoc("-input=" + kernelName + ".cl -simd=" + simdOption[i] + " -asm=" + fileName[i]);
+		runIoc("-cmd=build -input=" + kernelName + ".cl -simd=" + simdOption[i] + " -asm=" + fileName[i]);
 	}
 	//checking that those file are different
 	for (int i = 0; i < simdOptionLength - 1; i++){
@@ -302,8 +302,8 @@ TEST(IocTests, DISABLED_OptionSimdDefault){
 	string const kernelName = "kernelSimd.cl";
 	string files[] = { "OptionSimdDynamic_defualt.bc", "OptionSimdDynamic_defualt.asm", "OptionSimdDynamic_simd.bc", "OptionSimdDynamic_simd.asm" };
 	removeFiles(files, 4);
-	runIoc("-input=" + kernelName + " -llvm=" + files[0] + " -asm=" + files[1]);
-	runIoc("-input=" + kernelName + simdOption + " -llvm=" + files[2] + " -asm=" + files[3]);
+	runIoc("-cmd=build -input=" + kernelName + " -llvm=" + files[0] + " -asm=" + files[1]);
+	runIoc("-cmd=build -input=" + kernelName + simdOption + " -llvm=" + files[2] + " -asm=" + files[3]);
 	int compareFromLine = 0;
 #ifndef _WIN32
 	compareFromLine = 1;
