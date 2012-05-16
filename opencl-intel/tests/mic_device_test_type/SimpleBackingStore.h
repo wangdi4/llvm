@@ -40,7 +40,6 @@ public:
 	void*                   GetRawData()     const {return m_ptr;}
     size_t                  GetRawDataSize() const {return m_raw_data_size;}
     size_t                  GetRawDataOffset( const size_t* origin ) const;
-	cl_dev_bs_description   GetRawDataDecription() const { return CL_DEV_BS_RT_ALLOCATED; }
 
 	size_t                  GetDimCount()    const {return m_dim_count;}
 	const size_t*           GetDimentions()  const {return m_dimensions;}
