@@ -1,7 +1,8 @@
 ; XFAIL: win32
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:        -march=y86-64 -mcpu=knc 
+; RUN:        -march=y86-64 -mcpu=knc \
+; RUN: | FileCheck %s --check-prefix=KNC
 
 ;
 ;
@@ -18,6 +19,14 @@ define void @vect_trunc(<16 x i32>* %pout, <16 x i64>*%pin) {
 ; KNF:  vshuf128x32 $160, $49, [[V1:%v[0-9]+]], {{%v[0-9]+}}{[[K1]]}
 ; KNF:  vshuf128x32 $216, $136, [[V0]], [[V2:%v[0-9]+]]
 ; KNF:  vshuf128x32 $216, $136, [[V1]], [[V2]]{[[K2]]}
+;
+; KNC:  vmovaps   _const_0(%rip), [[V1:%zmm[0-9]+]]
+; KNC:  vmovaps   _const_1(%rip), [[V0:%zmm[0-9]+]]
+; KNC:  movl      $255, %eax
+; KNC:  vpermd    64(%rsi), [[V0]], [[V2:%zmm[0-9]+]] 
+; KNC:  kmov      %rax, [[K1:%k[1-7]+]]
+; KNC:  vpermd    (%rsi), [[V1]], [[V2]]{[[K1]]}
+
 
 entry:
   %vin = load <16 x i64>* %pin
