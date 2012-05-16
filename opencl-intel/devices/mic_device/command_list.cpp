@@ -14,6 +14,7 @@ using namespace Intel::OpenCL::MICDevice;
 extern bool gSafeReleaseOfCoiObjects;
 
 CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
+    /* CL_DEV_CMD_INVALID      */ NULL,
 	/* CL_DEV_CMD_READ         */ &ReadWriteMemObject::Create,
 	/* CL_DEV_CMD_WRITE        */ &ReadWriteMemObject::Create,
 	/* CL_DEV_CMD_COPY         */ &CopyMemObject::Create,
