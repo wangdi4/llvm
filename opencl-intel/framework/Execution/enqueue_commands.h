@@ -1215,7 +1215,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         PrePostFixRuntimeCommand(Command* relatedUserCommand,
 									Mode working_mode, 
 									IOclCommandQueueBase* cmdQueue ); 
-        virtual ~PrePostFixRuntimeCommand() {}
+        virtual ~PrePostFixRuntimeCommand();
 
 		cl_err_code             Init();
 		cl_err_code				Execute();

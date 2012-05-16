@@ -2673,6 +2673,10 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
 	m_task.Init( this );
 }
 
+PrePostFixRuntimeCommand::~PrePostFixRuntimeCommand() {
+	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
+	related_event->RemovePendency( this );
+}
 
 /******************************************************************
  *
@@ -2705,8 +2709,6 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
 	{
 		m_Event.IncludeProfilingInfo( related_event );
 	}
-
-	related_event->RemovePendency( this );
 	
 	m_error_event.RemovePendency(this);
 
