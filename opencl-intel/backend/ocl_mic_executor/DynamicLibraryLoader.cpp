@@ -19,7 +19,6 @@ File Name:  DynamicLibraryLoader.cpp
 #include "DynamicLibraryLoader.h"
 #include "exceptions.h"
 #include "TargetArch.h"
-#include "MICDetect.h"
 #include "assert.h"
 #include <stdio.h>
 
@@ -2054,6 +2053,7 @@ void DynamicLibraryLoader::Load()
     if(NULL == m_pLibHandle)
     {
         strErr = dlerror();
+        assert(false && "Loading SVML library failed");
     }
 
 #endif
@@ -2072,8 +2072,7 @@ void DynamicLibraryLoader::GetLibraryFunctions(
     functionsTable.clear();
     char functionPrefix[MAX_PATH];
 
-    const CPUId &MIC_CPUId = Utils::MICDetect::GetInstance()->GetCPUId();
-    const char* pCPUPrefix = MIC_CPUId.GetCPUPrefix();
+    const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
 #if defined (_WIN32)
     assert(false && "Not Implemented");
 #else
