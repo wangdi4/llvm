@@ -1997,6 +1997,15 @@ static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] =
     "truncf8"
 };
 
+static const char *g_LibCFunctionNames [] =
+{
+    "memset",
+    "memcpy"
+};
+
+const unsigned int OCLExportedLibCFunctionCount =
+    (sizeof(g_LibCFunctionNames)/sizeof(const char *));
+
 DynamicLibraryLoader::DynamicLibraryLoader():
     m_pLibHandle(NULL)
 { }
@@ -2084,6 +2093,21 @@ void DynamicLibraryLoader::GetLibraryFunctions(
 #endif
 
         functionsTable[functionName] = (unsigned long long int)pFuncAddress;
+    }
+
+    void *dlh = dlopen(0, RTLD_GLOBAL);
+    for (unsigned i = 0; i < OCLExportedLibCFunctionCount; i++)
+    {
+      void* pFuncAddress = NULL;
+
+#if defined(__LP64__)
+        pFuncAddress = dlsym(dlh, g_LibCFunctionNames[i]);
+#else
+        assert(false && "Not Implemented");
+#endif
+
+        functionsTable[g_LibCFunctionNames[i]] =
+            (unsigned long long int)pFuncAddress;
     }
     // Need to register all the BI function implemented in the Backend
     RegisterMICBIFunctions(functionsTable);
