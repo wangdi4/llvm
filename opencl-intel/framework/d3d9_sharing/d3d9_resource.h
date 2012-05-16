@@ -266,8 +266,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/6/2011
          */
 
-        D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-             GraphicsApiMemoryObject(pContext, pOclEntryPoints), m_pResourceInfo(NULL),
+        D3D9Resource(Context* pContext) :
+			 GraphicsApiMemoryObject(pContext), m_pResourceInfo(NULL),
                  m_bAcquired(false) { }
 
         /**
@@ -377,8 +377,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9Buffer(Context* pContext) :
+          D3D9Resource(pContext) { }
 
         // inherited methods:
 
@@ -466,8 +466,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9Image2D(Context* pContext) :
+          D3D9Resource(pContext) { }
 
         // inherited methods:
 
@@ -563,7 +563,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/19/2011
          */
 
-        D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) : D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9Surface(Context* pContext, cl_mem_object_type clObjType) : D3D9Image2D(pContext) { }
 
         /**
          * @brief   Destructor
@@ -618,8 +618,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/20/2011
          */
 
-        D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9Texture(Context* pContext) :
+          D3D9Image2D(pContext) { }
 
     protected:
 
@@ -652,8 +652,8 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     public:
 
-        D3D9CubeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          D3D9Image2D(pContext, pOclEntryPoints) { }
+        D3D9CubeTexture(Context* pContext) :
+          D3D9Image2D(pContext) { }
 
     protected:
 
@@ -698,8 +698,8 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/24/2011
          */
 
-        D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-            D3D9Resource(pContext, pOclEntryPoints) { }
+        D3D9VolumeTexture(Context* pContext) :
+            D3D9Resource(pContext) { }
 
         // inherited methods:
 

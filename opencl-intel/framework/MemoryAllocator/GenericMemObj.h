@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GenericMemObject: public MemoryObject, public IOCLDevRTMemObjectService
 	{
 	public:
-		GenericMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
+		GenericMemObject(Context * pContext, cl_mem_object_type clObjType);
 
 		// MemoryObject methods
 
@@ -328,7 +328,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GenericMemObjectSubBuffer : public GenericMemObject
 	{
 	public:
-		GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
+		GenericMemObjectSubBuffer(Context * pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
 		cl_err_code Initialize(
 			cl_mem_flags		clMemFlags,

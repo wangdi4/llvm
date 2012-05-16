@@ -216,7 +216,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
-		te_wait_result		WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}
+		te_wait_result	WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 		void         Release()
 		{ 
@@ -241,7 +241,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
-		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}
+		te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 		void         Release()
 		{ 

@@ -34,15 +34,15 @@
 
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 OutOfOrderCommandQueue::OutOfOrderCommandQueue(
 	Context*                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
-	EventsManager*              pEventManager,
-	ocl_entry_points *			pOclEntryPoints
+	EventsManager*              pEventManager
 	) :
-	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints),
+	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager),
 	m_depOnAll(NULL),
 	m_commandsInExecution(0),
 	m_lastBarrier(NULL),
@@ -64,7 +64,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
 		 return CL_OUT_OF_RESOURCES;
 	 }
 
-     Command* pDepOnAll = new MarkerCommand(this, (ocl_entry_points*)&m_handle,0);
+     Command* pDepOnAll = new MarkerCommand(this, 0);
      if (NULL == pDepOnAll)
      {
          return CL_OUT_OF_HOST_MEMORY;
@@ -110,9 +110,15 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
 
 cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 {
+	OclAutoMutex mu(&m_muLastBarrer);
+	
 	OclEvent* cmdEvent = cmd->GetEvent();
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
-	Command* prev_barrier = (Command*)(m_lastBarrier.test_and_set(NULL,NULL));	
+	Command* prev_barrier = (Command*)(m_lastBarrier.test_and_set(NULL,NULL));
+	// BUBUG: The bug is here, thus I added the mutex.
+	// If at this stage the barrier is completed, the prev_barrier pointer is not valid.
+
+	// We have barrier command in the queue	
 	if (prev_barrier != NULL)
 	{		
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
@@ -149,10 +155,18 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
     OclEvent& cmdEvent = *barrier->GetEvent();
     if (!barrier->IsDependentOnEvents())
     {
+		OclAutoMutex mu(&m_muLastBarrer);
+		
         // Prevent barrier from firing until we're done enqueuing it to avoid races
         cmdEvent.AddFloatingDependence();
         cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-        m_lastBarrier.exchange(barrier);
+        cmdEvent.AddPendency(this);
+        Command* prev_barrier = m_lastBarrier.exchange(barrier);
+        if ( NULL != prev_barrier )
+        {
+        	// Need to remove pendency from the previous barrier
+        	prev_barrier->GetEvent()->RemovePendency(this);
+        }
         const cl_err_code ret = AddDependentOnAll(barrier);		
         cmdEvent.RemoveFloatingDependence();
         return ret;
@@ -162,17 +176,18 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
 
 cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 {		
+	OclAutoMutex mu(&m_muLastBarrer);
+
 	OclEvent* cmdEvent = cmd->GetEvent();
-    cmdEvent->AddFloatingDependence();
+    cmdEvent->AddPendency(this);
 	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
-	if (prev_barrier)
-	{				
-		OclEvent* cmdEvent = cmd->GetEvent();		
+	if ( NULL != prev_barrier)
+	{					
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
+		prev_barrier->GetEvent()->RemovePendency(this);
 	}
-	cmdEvent->RemoveFloatingDependence();
 	return CL_SUCCESS;	
 }
 
@@ -201,7 +216,13 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEv
 
 			if ( !isMarker )
 			{							
-				m_lastBarrier.test_and_set(cmd,NULL);
+				OclAutoMutex mu(&m_muLastBarrer);
+				Command* prev_barrier = m_lastBarrier.test_and_set(cmd,NULL);
+				// This is same barrier, and current lastBarrier is NULL
+				if ( prev_barrier == cmd )
+				{
+					cmd->GetEvent()->RemovePendency(this);
+				}
 			}
 		}
 		else
@@ -218,7 +239,7 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {
     assert(NULL != cmd);
 
-	Command* pNewDepOnAll = new MarkerCommand(this, (ocl_entry_points*)&m_handle,0);
+	Command* pNewDepOnAll = new MarkerCommand(this, 0);
     if (NULL == pNewDepOnAll)
     {
         return CL_OUT_OF_HOST_MEMORY;

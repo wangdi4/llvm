@@ -8,7 +8,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ProgramForLink : public Program
 	{
 	public:
-		ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet, ocl_entry_points * pOclEntryPoints);
+		ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet);
 
 	protected:
 		virtual ~ProgramForLink();

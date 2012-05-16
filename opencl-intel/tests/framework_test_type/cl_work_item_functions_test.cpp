@@ -1,7 +1,5 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include <time.h>
 #include "FrameworkTest.h"
@@ -34,9 +32,6 @@
 //|
 //| In each iteration the output buffer should match the expected result.
 //|
-
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 #define GLOBAL_SIZE 16
 #define LOCAL_SIZE 4

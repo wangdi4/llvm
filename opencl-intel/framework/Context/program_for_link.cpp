@@ -6,8 +6,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramForLink::ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
-: Program(pContext, pOclEntryPoints)
+ProgramForLink::ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet)
+: Program(pContext)
 {
 	m_szNumAssociatedDevices = uiNumDevices;
     m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];

@@ -59,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          */
 
         SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
-            IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints,
+            IOclCommandQueueBase* cmdQueue,
             GraphicsApiMemoryObject** pMemObjects, bool bIsAcquireCmd);
 
         public:

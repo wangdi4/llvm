@@ -25,8 +25,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
-SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject**pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
-SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, pOclEntryPoints, (GraphicsApiMemoryObject**)(pMemObjects),
+SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject**pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue) :
+SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, (GraphicsApiMemoryObject**)(pMemObjects),
                        cmdType == CL_COMMAND_ACQUIRE_GL_OBJECTS), m_pContext(pContext) { }
 
 SyncGLObjects::~SyncGLObjects()

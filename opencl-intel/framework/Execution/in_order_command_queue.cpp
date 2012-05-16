@@ -41,10 +41,9 @@ InOrderCommandQueue::InOrderCommandQueue(
 	Context*                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
-	EventsManager*              pEventManager,
-	ocl_entry_points *			pOclEntryPoints
+	EventsManager*              pEventManager
 	) :
-	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints),
+	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager),
 	m_commandsInExecution(0)
 {
 }
@@ -66,6 +65,13 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
         cmd->GetEvent()->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
     }
     m_submittedQueue.PushBack(cmd);
+
+	Flush(false);	// Solves the issue of event state reported to user
+					// On this stage event has CL_SUBMITTED state;
+					// However, w/o the flush commands is not submitted to device
+					// and this violates the spec.
+					// The SUBMITTED states identifies that command was submitted to device for execution
+
 	return CL_SUCCESS;
 }
 

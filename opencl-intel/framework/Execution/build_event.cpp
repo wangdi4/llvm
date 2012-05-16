@@ -25,29 +25,32 @@
 //  Original author: Singer, Doron
 ///////////////////////////////////////////////////////////
 
-#include "build_event.h"
 #include <assert.h>
 #include <cl_sys_info.h>
 
+#include "build_event.h"
+#include "Context.h"
+
 using namespace Intel::OpenCL::Framework;
 
-BuildEvent::BuildEvent( cl_context context ) : OclEvent(), m_context(context)
+BuildEvent::BuildEvent( _cl_context_int* context ) : OclEvent(context)
 {
-	AddPendency(this);
+	//AddPendency(this);	// why we need this?
+	m_pContext = (Context*)context->object;
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-	m_handle.object   = this;
-    *((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);
     m_returnCode = 0xdead;
+	m_pContext->AddPendency(this);
 }
 
 BuildEvent::~BuildEvent()
 {
+	m_pContext->RemovePendency(this);
 }
 
 void BuildEvent::SetComplete(cl_int returnCode)
 {
 	m_returnCode = returnCode;
 	SetEventState(EVENT_STATE_DONE);
-	RemovePendency(this);
+	//RemovePendency(this);	// why we need this?
 }
 

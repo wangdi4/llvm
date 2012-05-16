@@ -266,6 +266,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		bool Wait();
 		// Fires the event
 		void Signal();
+		// Reset the event if signaled
+		void Reset();
 	private:
 		// The internal, OS-dependent representation of the event.
 		void* m_eventRepresentation;
@@ -320,7 +322,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	private:
 		std::queue<T>   m_queue;
-		tbb::spin_mutex m_queueLock;
+		OclSpinMutex	m_queueLock;
 	};
 
 

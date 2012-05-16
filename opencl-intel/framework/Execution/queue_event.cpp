@@ -42,8 +42,9 @@ using namespace Intel::OpenCL::Utils;
 /******************************************************************
 *
 ******************************************************************/
-QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints) :
-OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
+QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue) :
+	OclEvent( cmdQueue->GetParentHandle()),
+	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
 {
 	m_sProfilingInfo.m_ulCommandQueued	= 0;
 	m_sProfilingInfo.m_ulCommandSubmit	= 0;
@@ -59,9 +60,6 @@ OclEvent(), m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue
 	{
 		m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
 	}
-
-	m_handle.object = this;
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
 
 	m_pGPAData = cmdQueue->GetGPAData();
 }
@@ -94,7 +92,7 @@ cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * 
 		outputValueSize = sizeof(cl_command_queue);
 		break;
 	case CL_EVENT_CONTEXT:
-		context = GetContextHandle();
+		context = GetParentHandle();
 		localParamValue = &context;
 		outputValueSize = sizeof(cl_context);
 		break;
@@ -385,10 +383,6 @@ void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
     m_pEventQueue->NotifyStateChange(this, EVENT_STATE_EXECUTING_ON_DEVICE, EVENT_STATE_DONE);
 }
 
-cl_context QueueEvent::GetContextHandle() const
-{
-	return GetEventQueue()->GetContextHandle();
-}
 cl_command_queue QueueEvent::GetQueueHandle() const
 {
 	return GetEventQueue()->GetHandle();

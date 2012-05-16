@@ -53,12 +53,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	public:
 		friend class Command;
-		QueueEvent( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints );
+		QueueEvent( IOclCommandQueueBase* cmdQueue );
 
 		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
 		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
 
-		cl_context       GetContextHandle() const;
 		cl_command_queue GetQueueHandle() const;
 		cl_int           GetReturnCode() const;
 		// OCLObject implementation
@@ -81,7 +80,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Command*                GetCommand() const                                  { return m_pCommand; }
 
 		OclEventState           SetEventState(OclEventState newColor); //returns the previous color
-
 
 	protected:
 		virtual ~QueueEvent();        

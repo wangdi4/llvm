@@ -270,8 +270,9 @@ bool KernelArg::IsLocalPtr() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices, ocl_entry_points * pOclEntryPoints)
-: OCLObject<_cl_kernel_int>("Kernel"), m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
+Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices) :
+OCLObject<_cl_kernel_int>(pProgram->GetParentHandle(), "Kernel"),
+m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
 {
     // Sign to be dependent on the program, ensure the program will be deleted only after the object is
     m_pProgram->AddPendency(this);
@@ -289,10 +290,6 @@ Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevice
 
 	m_ppDeviceKernels = new DeviceKernel* [m_szAssociatedDevices];
 	memset(m_ppDeviceKernels, 0, sizeof(DeviceKernel *) * m_szAssociatedDevices);
-	//Todo: or here?
-
-	m_handle.object   = this;
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel D'tor

@@ -54,12 +54,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			May 2008
 		******************************************************************************************/		
-		Sampler();
+		Sampler(_cl_context_int* context);
 
 		// get image info
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
-		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints);
+		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode);
 
 		const Context * GetContext() const { return m_pContext; }
 

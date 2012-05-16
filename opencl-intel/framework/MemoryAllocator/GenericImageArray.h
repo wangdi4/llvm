@@ -47,8 +47,8 @@ public:
     /**
      * Constructor
      */
-    GenericImageArray(Context* pContext, ocl_entry_points* pOclEntryPoints, cl_mem_object_type clObjType) :
-      GenericMemObject(pContext, pOclEntryPoints, GetEquivalentSingleImageType(clObjType))
+    GenericImageArray(Context* pContext, cl_mem_object_type clObjType) :
+      GenericMemObject(pContext, GetEquivalentSingleImageType(clObjType))
       {
           m_clMemObjectType = clObjType;
       }

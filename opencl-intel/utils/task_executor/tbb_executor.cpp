@@ -346,7 +346,11 @@ void ReleaseSchedulerForMasterThread()
 	static_cast<TBBTaskExecutor*>(GetTaskExecutor())->ReleaseResources();
 	
 	ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
-	assert(NULL != prev && "The old ThreadID allocator is NULL");
+	if ( NULL == prev )
+	{
+		assert(0 && "The old ThreadID allocator is NULL");
+		return;
+	}
 
 	unsigned int uiTimeOutCount = 0;
 	long refCount = prev->GetRefCount();
@@ -368,10 +372,8 @@ void ReleaseSchedulerForMasterThread()
 		// Otherwise resource leaks and memory corruption inside TBB
 		ThreadIDAssigner::StopObservation();
 	}
-	if ( NULL != prev )
-	{
-		prev->ReleaseId(INVALID_WORKER_ID);
-	}
+
+	prev->ReleaseId(INVALID_WORKER_ID);
 }
 
 #ifdef __LOCAL_RANGES__
@@ -738,11 +740,13 @@ class SyncTask : public ITask
 public:
 	SyncTask() {m_bFired = false;}
 	void	Reset() { m_bFired = false;}
-	bool	IsFired() {return m_bFired;}
 
 	// ITask interface
-	virtual bool	Execute() { m_bFired = true; return false;}
-	virtual long	Release() { return 0; }	//Persistent member, don't release
+	bool	SetAsSyncPoint() {return false;}
+	bool	CompleteAndCheckSyncPoint() { return m_bFired;}
+	bool	IsCompleted() const {return m_bFired;}
+	bool	Execute() { m_bFired = true; return true;}
+	long	Release() { return 0; }	//Persistent member, don't release
 
 protected:
 	volatile bool	m_bFired;
@@ -779,8 +783,19 @@ public:
 		return 0;
 	}
 
-	te_wait_result WaitForCompletion()
+	te_wait_result WaitForCompletion(ITaskBase* pTaskToWait)
 	{
+		// Request processing task to stop
+		if ( NULL != pTaskToWait )
+		{
+			bool completed = pTaskToWait->SetAsSyncPoint();
+			// If already completed no need to wait
+			if ( completed )
+			{
+				return TE_WAIT_COMPLETED;
+			}
+		}
+
 		InitSchedulerForMasterThread();
 
 		if ( ThreadIDAssigner::GetScheduler() == WORKER_SCHEDULER_ID )
@@ -796,27 +811,31 @@ public:
 		}
 
 		++m_refCount;
-		// Request processing task to stop
-		unsigned int ret = RequestStopProcessing();
-		while (ret > 0)
-		{
-			// This master started the task, so need wait for completion
-			m_pListRootTask->wait_for_all();
 
-			if ( m_MasterSync.IsFired() )
-			{
-				break;
-			}
-			ret = InternalFlush(true);
+		if ( NULL == pTaskToWait )
+		{
+			m_MasterSync.Reset();
+			Enqueue(&m_MasterSync);
 		}
+
+		do
+		{
+			unsigned int ret = InternalFlush(true);
+			if ( ret > 0)
+			{
+				// Someone else started the task, need to wait
+				m_pListRootTask->wait_for_all();
+			}
+		} while ( !(m_MasterSync.IsCompleted() || ((NULL != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
+		
+		// Current master is not in charge for the work
+		m_bMasterRunning = false;
 
 		// If there's some incoming work during operation, try to flush it
 		if ( HaveIncomingWork() )
 		{
 			Flush();
 		}
-		// Current master is not in charge for the work
-		m_bMasterRunning = false;
 
 		Release();
 
@@ -837,7 +856,7 @@ public:
 			return;
 		}
 
-		assert(!m_bMasterRunning);
+		assert(!m_bMasterRunning && "Master not supposed to run");
 
 		if ( !ThreadIDAssigner::IsWorkerScheduler() )
 		{
@@ -914,16 +933,6 @@ protected:
 		return runningTaskRequests;
 	}
 
-	inline unsigned int RequestStopProcessing()
-	{
-		m_MasterSync.Reset();
-
-		Enqueue(&m_MasterSync);
-		// Must flush here or risk deadlock - the enqueued NULL can result in an early exit at the expense of another flush
-		// That will be lost as a result of storing 0 to taskExecuteRequests
-		return InternalFlush(true);
-	}
-
     bool                    m_subdevice;
 	TBBTaskExecutor*		m_pTBBExecutor;
     tbb::task*              m_pListRootTask;
@@ -957,6 +966,8 @@ private:
 
 static bool execute_command(ITaskBase* cmd)
 {
+	bool runNextCommand = true;
+
 	if ( cmd->IsTaskSet() )
 	{
 		ITaskSet* pTask = static_cast<ITaskSet*>(cmd);
@@ -990,14 +1001,16 @@ static bool execute_command(ITaskBase* cmd)
 														0, (int)dim[0]),
 				TaskLoopBody3D(*pTask), tbb::auto_partitioner());
 		}
-		pTask->Finish(FINISH_COMPLETED);
-		return true;
+		runNextCommand = pTask->Finish(FINISH_COMPLETED);
 	}
 	else
 	{
         ITask* pCmd = static_cast<ITask*>(cmd);
-		return pCmd->Execute();
+		runNextCommand = pCmd->Execute();
 	}
+
+	runNextCommand &= !cmd->CompleteAndCheckSyncPoint();
+	return runNextCommand;
 }
 
 class in_order_executor_task : public tbb::task
@@ -1019,7 +1032,7 @@ public:
 		while(true)
 		{
 			//First check if we need to stop interating, next get next available record
-			while( !mustExit && work->TryPop(currentTask))
+			while( !(mustExit && m_list->m_bMasterRunning) && work->TryPop(currentTask))
 			{
 				mustExit = !execute_command(currentTask); //stop requested
 
@@ -1380,9 +1393,9 @@ unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
 	return 0;
 }
 
-te_wait_result TBBTaskExecutor::WaitForCompletion()
+te_wait_result TBBTaskExecutor::WaitForCompletion(ITaskBase * pTask)
 {
-	return m_pExecutorList->WaitForCompletion();
+	return m_pExecutorList->WaitForCompletion(pTask);
 }
 
 void TBBTaskExecutor::ReleasePerThreadData()

@@ -53,7 +53,7 @@ typedef cl_dev_err_code fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_
 class DispatcherCommand
 {
 public:
-    DispatcherCommand(TaskDispatcher* pTD);
+    DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 
 protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
@@ -65,25 +65,56 @@ protected:
     cl_int                      m_iLogHandle;
     cl_dev_cmd_desc*            m_pCmd;
     ocl_gpa_data*               m_pGPAData;
+	volatile bool				m_bCompleted;
+};
+
+template<class ITaskClass>
+	class CommandBaseClass : public DispatcherCommand, public ITaskClass
+{
+public:
+	CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	  DispatcherCommand(pTD, pCmd)
+	{
+		m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
+		m_aIsSyncPoint = FALSE;
+		m_aRefCount = 2;	// Starting reference count is 2:
+							// first is used for reference in the device agent and 
+							// second in task executor
+	}
+
+	// ITaskBase
+	bool	SetAsSyncPoint();
+	bool	CompleteAndCheckSyncPoint();
+	bool	IsCompleted() const {return m_bCompleted;}
+    long    Release()
+	{
+		long prev = m_aRefCount--;
+		if ( prev == 1 )
+			delete this;
+		return 0;
+	}
+
+protected:
+	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
+	Intel::OpenCL::Utils::AtomicCounter	m_aRefCount;
 };
 
 // OCL Read/Write buffer execution
-class ReadWriteMemObject : public DispatcherCommand, public ITask
+class ReadWriteMemObject : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    ReadWriteMemObject(TaskDispatcher* pTD);
+    ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
 //OCL Copy Mem Obj Command
-class CopyMemObject : public DispatcherCommand, public ITask
+class CopyMemObject : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -93,14 +124,13 @@ public:
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    CopyMemObject(TaskDispatcher* pTD);
+    CopyMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
 // OCL Native function execution
-class NativeFunction : public DispatcherCommand, public ITask
+class NativeFunction : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -110,16 +140,15 @@ public:
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    NativeFunction(TaskDispatcher* pTD);
+    NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 
     char*               m_pArgV;
 };
 
 // OCL Map function execution
-class MapMemObject : public DispatcherCommand, public ITask
+class MapMemObject : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -129,14 +158,13 @@ public:
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    MapMemObject(TaskDispatcher* pTD);
+    MapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
 // OCL UnMap function execution
-class UnmapMemObject : public DispatcherCommand, public ITask
+class UnmapMemObject : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -146,14 +174,13 @@ public:
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    UnmapMemObject(TaskDispatcher* pTD);
+    UnmapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
 // OCL Kernel execution
-class NDRange : public DispatcherCommand, public ITaskSet
+class NDRange : public CommandBaseClass<ITaskSet>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
@@ -170,11 +197,10 @@ public:
 	int	    DetachFromThread(unsigned int uiWorkerId);
 	void    ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
     void    ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId);
-	void    Finish(FINISH_REASON reason);
-	long    Release();
+	bool    Finish(FINISH_REASON reason);
 
 protected:
-    NDRange(TaskDispatcher* pTD);
+    NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 
     cl_int                      m_lastError;
     char                        m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
@@ -209,32 +235,30 @@ protected:
 
 
 // OCL fill buffer/image command
-class FillMemObject : public DispatcherCommand, public ITask
+class FillMemObject : public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    FillMemObject(TaskDispatcher* pTD);
+    FillMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
 // OCL migrate buffer/image command
-class MigrateMemObject : public DispatcherCommand, public ITask
+class MigrateMemObject  :public CommandBaseClass<ITask>
 {
 public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();
-    long    Release() {delete this; return 0;}
 
 protected:
-    MigrateMemObject(TaskDispatcher* pTD);
+    MigrateMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 

@@ -23,6 +23,10 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+#ifdef _DEBUG
+//#define DEBUG_DEPENDENCY
+#endif
+
 void OCLObjectBase::PrintDependencyGraphRecursive(std::ostream& os, unsigned int uiIndent) const
 {
     for (std::multiset<const OCLObjectBase*>::const_iterator iter = m_dependencySet.begin();

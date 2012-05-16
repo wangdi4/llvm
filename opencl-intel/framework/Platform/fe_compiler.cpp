@@ -40,7 +40,11 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::TaskExecutor;
 
-FrontEndCompiler::FrontEndCompiler() : OCLObject<_cl_object>("FrontEndCompiler"), m_pszModuleName(NULL), m_pFECompiler(NULL), m_pLoggerClient(NULL)
+FrontEndCompiler::FrontEndCompiler() : 
+		OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
+		m_pszModuleName(NULL),
+		m_pFECompiler(NULL),
+		m_pLoggerClient(NULL)
 {
 }
 

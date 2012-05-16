@@ -275,7 +275,8 @@ enum cl_dev_cmd_list_props
  */
 enum cl_dev_cmd_type
 {
-	CL_DEV_CMD_READ = 0,			//!< Read buffer command
+	CL_DEV_CMD_INVALID = 0,			//!< Invalid command identifier
+	CL_DEV_CMD_READ,				//!< Read buffer command
 	CL_DEV_CMD_WRITE,				//!< Write buffer command
 	CL_DEV_CMD_COPY,				//!< Copy buffer command
 	CL_DEV_CMD_MAP,					//!< Map Command
@@ -412,6 +413,7 @@ struct cl_dev_cmd_desc
 	void*			params;				//!< Pointer to a buffer that holds command specific parameters
 	size_t			param_size;			//!< Size of the parameter buffer in bytes
 	bool			profiling;			//!< Enable profiling data for this command
+	void*			device_agent_data;	//!< Device Agent specific data, device agent allowed to update this field on its needs
 } ;
 
 /*! \struct cl_dev_cmd_param_rw
@@ -1052,11 +1054,14 @@ public:
 	/*!
 		\param[in]	list		A valid handle to device command list, where to add list of commands. If value is NULL,
 								the new independent list is created for given commands
+		\param[in]	cmdToWait	A pointer to command descriptor the device should wait for.
+								NULL signals to wait for all previously submitted commands
 		\retval		CL_DEV_SUCCESS					The command queue successfully created
 		\retval		CL_DEV_INVALID_COMMAND_LIST		If command list is not a valid command list
 		\retval		CL_DEV_NOT_SUPPORTED			The operation is not supported by device. The runtime should handle wait by itself
 	*/
-	virtual cl_dev_err_code clDevCommandListWaitCompletion( cl_dev_cmd_list IN list
+	virtual cl_dev_err_code clDevCommandListWaitCompletion( cl_dev_cmd_list IN list,
+												cl_dev_cmd_desc* IN cmdToWait
 												 ) = 0;
 
 	//!This function returns the list of image formats supported by an OCL implementation when the information about

@@ -34,8 +34,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLTexture3D : public GLTexture2D
 	{
 	public:
-		GLTexture3D(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType):
-		  GLTexture2D(pContext, pOclEntryPoints, clObjType) {};
+		GLTexture3D(Context * pContext, cl_mem_object_type clObjType):
+		  GLTexture2D(pContext, clObjType) {};
 
 		// GLMemoryObject interface
 		cl_err_code AcquireGLObject();

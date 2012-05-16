@@ -56,9 +56,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		typedef typename std::map<HandleType*, OCLObject<HandleType>*>::const_iterator HandleTypeMapConstIterator;
 
 		// object's map
-		std::map<HandleType*, OCLObject<HandleType>*>		m_mapObjects;
-		static Intel::OpenCL::Utils::AtomicCounter		    m_iNextGenKey;
-		mutable Intel::OpenCL::Utils::OclSpinMutex			m_muMapMutex;
+		HandleTypeMap									m_mapObjects;
+		static Intel::OpenCL::Utils::AtomicCounter		m_iNextGenKey;
+		mutable Intel::OpenCL::Utils::OclSpinMutex		m_muMapMutex;
 
 	public:
 

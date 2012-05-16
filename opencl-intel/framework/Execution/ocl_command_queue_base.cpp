@@ -88,7 +88,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
 
 	pQueueEvent->AddFloatingDependence();
-	errVal = SetDependentOnList(pCommand, uNumEventsInWaitList, cpEeventWaitList);
+	errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
 
 	if( CL_FAILED(errVal))
 	{
@@ -122,7 +122,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	// If blocking, wait for object
 	if(bBlocking)
 	{
-		if ( !WaitForCompletion(pQueueEvent) )
+		if ( ( RUNTIME_EXECUTION_TYPE == pCommand->GetExecutionType() ) || CL_FAILED(WaitForCompletion(pQueueEvent)) )
 		{
 			pQueueEvent->Wait();
 		}
@@ -148,14 +148,14 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
  */
 cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
 {    
-    QueueEvent& queueEvent = *cmd.GetEvent();
-    m_pEventsManager->RegisterQueueEvent(&queueEvent, NULL);    
+    QueueEvent* pQueueEvent = cmd.GetEvent();
+    m_pEventsManager->RegisterQueueEvent(pQueueEvent, NULL);    
     
-    const cl_err_code errVal = SetDependentOnList(&cmd, uNumEventsInWaitList, pEventWaitList);
+    const cl_err_code errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
     if(CL_FAILED(errVal))
     {
-        m_pEventsManager->ReleaseEvent(queueEvent.GetHandle());
-        queueEvent.RemovePendency(NULL); // Added by Command->SetEvent()
+        m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
+        pQueueEvent->RemovePendency(NULL); // Added by Command->SetEvent()
         return errVal;
     }
     return CL_SUCCESS;
@@ -213,37 +213,27 @@ cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint
     return errVal;
 }
 
-bool IOclCommandQueueBase::WaitForCompletion(OclEvent* pEvent)
+cl_err_code IOclCommandQueueBase::WaitForCompletion(QueueEvent* pEvent)
 {
 	pEvent->AddPendency(this);
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);
 
-	cl_dev_err_code ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
+	cl_dev_cmd_desc* pCmdDesc = pEvent->GetCommand()->GetDeviceCommandDescriptor();
 
-	// If device doesn't support wait for completion, we should wait for event
-	if ( CL_DEV_FAILED(ret) )
-	{
-		pEvent->Wait();
-	}
-	else
-	{
-		OclEventState color = pEvent->GetEventState();
+	cl_dev_err_code ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
+		m_clDevCmdListId, pCmdDesc);
 
-		// If another master thread is running, need to wait for the thread slot
-		while ( EVENT_STATE_DONE != color )
-		{
-			clSleep(0);
-			ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(m_clDevCmdListId);
-			color = pEvent->GetEventState();
-		}
+	OclEventState color = pEvent->GetEventState();
+	
+	while ( CL_DEV_SUCCEEDED(ret) && (EVENT_STATE_DONE != color) )
+	{
+		clSleep(0);
+		ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
+				m_clDevCmdListId, pCmdDesc);
+		color = pEvent->GetEventState();
 	}
 
 	pEvent->RemovePendency(this);
-	return true;
-}
-
-cl_err_code IOclCommandQueueBase::SetDependentOnList(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
-{
-	return m_pEventsManager->RegisterEvents(cmd->GetEvent(), uNumEventsInWaitList, cpEventWaitList);
+	return CL_DEV_SUCCEEDED(ret) ? CL_SUCCESS : CL_INVALID_OPERATION;
 }

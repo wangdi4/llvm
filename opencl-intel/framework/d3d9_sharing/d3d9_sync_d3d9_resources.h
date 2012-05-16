@@ -60,9 +60,9 @@ namespace Intel { namespace OpenCL { namespace Framework
          */
 
         SyncD3D9Resources(IOclCommandQueueBase* const cmdQueue,
-            ocl_entry_points* const pOclEntryPoints, D3D9Resource** const pMemObjects,
+            D3D9Resource** const pMemObjects,
             size_t szNumMemObjects, cl_command_type cmdType, const ID3D9Definitions& d3d9Definitions) :
-        SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, pOclEntryPoints,
+        SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue,
             (GraphicsApiMemoryObject**)pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDx9MediaSurface()),
             m_d3d9Definitions(d3d9Definitions)
         { }

@@ -61,13 +61,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
 
         // Event handling functions
-        void        RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl);
-		UserEvent*  CreateUserEvent(cl_context context);
-		BuildEvent* CreateBuildEvent(cl_context context); 
-		OclEvent*   GetEvent(cl_event clEvent);
-		QueueEvent* GetQueueEvent(cl_event clEvent);
-		BuildEvent* GetBuildEvent(cl_event clEvent);
-		UserEvent*  GetUserEvent(cl_event clEvent);
+		template<class EventClass>
+			EventClass*  CreateEventClass(_cl_context_int* context)
+			{
+				EventClass* pEvent = new EventClass(context);
+				m_mapEvents.AddObject(pEvent);
+				return pEvent;
+			}
+
+		template<class EventClass>
+			EventClass* GetEventClass(cl_event clEvent)
+			{
+				OCLObject<_cl_event_int>* pOclObject;
+
+				cl_int ret = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
+				if (CL_FAILED(ret))
+				{
+					return NULL;
+				}
+				return dynamic_cast<EventClass*>(pOclObject);
+			}
+
+		void        RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl);
         cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
 
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
@@ -76,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_event_int> m_mapEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
-		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, OclEvent** vOclEvents );
+		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<OclEvent*>& vOclEvents );
 
         // An EventManger object cannot be copied
         EventsManager(const EventsManager&);           // copy constructor

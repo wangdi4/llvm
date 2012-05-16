@@ -141,17 +141,17 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 		IOclCommandQueueBase* pCommandQueue;
         if (clQueueProperties & CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
         {
-            pCommandQueue = new ImmediateCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+            pCommandQueue = new ImmediateCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
         }
         else
         {
 		    if (clQueueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
 		    {
-			    pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+			    pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
 		    }
 		    else
 		    {
-			    pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager, m_pOclEntryPoints);
+			    pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
 		    }
         }
 
@@ -386,12 +386,16 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 		return res;
 	}
 
-	OclEvent* pDummyEvent = m_pEventsManager->GetEvent(dummy);
-	assert(pDummyEvent);
-	bool bres = pCommandQueue->WaitForCompletion(pDummyEvent);
+	QueueEvent* pQueueEvent = m_pEventsManager->GetEventClass<QueueEvent>(dummy);
+	assert(pQueueEvent && "Expecting non NULL dummy-queue event");
+	res = pCommandQueue->WaitForCompletion(pQueueEvent);
+	if ( CL_FAILED(res) )
+	{
+		pQueueEvent->Wait();
+	}
 	m_pEventsManager->ReleaseEvent(dummy);
 
-	return bres ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
+	return CL_SUCCESS;
 }
 
 /**
@@ -409,7 +413,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clComman
         return CL_INVALID_EVENT_WAIT_LIST;
     }
 
-    MarkerCommand* const pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), uiNumEvents > 0);
+    MarkerCommand* const pMarkerCommand = new MarkerCommand(pCommandQueue, uiNumEvents > 0);
     if (NULL == pMarkerCommand)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -449,7 +453,7 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         return CL_INVALID_EVENT_WAIT_LIST;
     }
     
-    BarrierCommand* const pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), uiNumEvents > 0);
+    BarrierCommand* const pBarrierCommand = new BarrierCommand(pCommandQueue, uiNumEvents > 0);
     if (NULL == pBarrierCommand)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -492,7 +496,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 	}
 
 	// Create Command
-	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), 0);
+	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, 0);
 	if (NULL == pMarkerCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -538,7 +542,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 	
-	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), uiNumEvents > 0);
+	Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, uiNumEvents > 0);
 	if (NULL == pWaitForEventsCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -576,7 +580,7 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 
 	// Create Command
 
-	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, (ocl_entry_points*)pCommandQueue->GetHandle(), 0);
+	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, 0);
 	if (NULL == pBarrierCommand)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -617,13 +621,13 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
 
     // Validate event context
     cl_context clEventsContext = 0;
-	OclEvent* pEvent = m_pEventsManager->GetEvent(cpEventList[0]);
+	OclEvent* pEvent = m_pEventsManager->GetEventClass<OclEvent>(cpEventList[0]);
 	if ( NULL == pEvent )
 	{
 		return CL_INVALID_EVENT_WAIT_LIST;
 	}
 
-	clEventsContext = pEvent->GetContextHandle();
+	clEventsContext = pEvent->GetParentHandle();
 
     // Before waiting all on events, the function need to flush all relevant queues, 
     // Since the dependencies between events in different queues is unknown it is better
@@ -689,10 +693,10 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 	}
 	else
 	{
-		UserEvent* pUserEvent  = m_pEventsManager->CreateUserEvent(context);
+		UserEvent* pUserEvent  = m_pEventsManager->CreateEventClass<UserEvent>((_cl_context_int*)context);
 		if (pUserEvent)
 		{
-			evt                = pUserEvent->GetHandle();
+			evt = pUserEvent->GetHandle();
 		}
 		else
 		{
@@ -713,7 +717,7 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 ******************************************************************/
 cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 {
-	UserEvent* pUserEvent = m_pEventsManager->GetUserEvent(evt);
+	UserEvent* pUserEvent = m_pEventsManager->GetEventClass<UserEvent>(evt);
 	if (NULL == pUserEvent)
 	{
 		return CL_INVALID_EVENT;
@@ -2871,7 +2875,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 
-	GLContext* pContext = dynamic_cast<GLContext*>(m_pContextModule->GetContext(pCommandQueue->GetContextHandle()));
+	GLContext* pContext = dynamic_cast<GLContext*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
 	if (NULL == pContext)
 	{
 		return CL_INVALID_CONTEXT;
@@ -2906,7 +2910,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects, pCommandQueue, m_pOclEntryPoints);
+	Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects, pCommandQueue);
 	if (NULL == pAcquireCmd)
 	{
 		delete []pMemObjects;
@@ -2950,7 +2954,7 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 		}
 		IOclCommandQueueBase* pQueue = (IOclCommandQueueBase*)pObj;
 
-		cl_context queueContext = pQueue->GetContextHandle();
+		cl_context queueContext = (cl_context)pQueue->GetParentHandle();
 		if(queueContext == clEventsContext)
 		{
 			// Flush
@@ -2980,7 +2984,7 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    D3D9Context* const pContext = dynamic_cast<D3D9Context*>(m_pContextModule->GetContext(pCommandQueue->GetContextHandle()));
+    D3D9Context* const pContext = dynamic_cast<D3D9Context*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
     if (NULL == pContext)
     {
         return CL_INVALID_CONTEXT;
@@ -3025,7 +3029,7 @@ cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
         return CL_INVALID_MEM_OBJECT;
     }
 
-    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, m_pOclEntryPoints, pMemObjects, uiNumObjects, cmdType, pContext->Getd3d9Definitions());
+    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, pMemObjects, uiNumObjects, cmdType, pContext->Getd3d9Definitions());
     if (NULL == pAcquireCmd)
     {
         delete []pMemObjects;

@@ -1,7 +1,5 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "cl_device_api.h"
@@ -9,8 +7,6 @@
 #include <windows.h>
 #endif
 #include <string>
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 extern cl_device_type gDeviceType;
 

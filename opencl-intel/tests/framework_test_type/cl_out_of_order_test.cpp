@@ -1,17 +1,11 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
-#include "cl_device_api.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif
  
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
-
 #define BUFFERS_LENGTH 10000
 #define REPEATS 5
 

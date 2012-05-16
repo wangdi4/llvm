@@ -43,6 +43,22 @@ class TestSet : public ITaskSet
 	AtomicCounter	m_attached;
 public:
 	TestSet(int id, volatile int* pDone) : m_id(id),m_pDone(pDone), m_attached(0) {}
+
+	bool SetAsSyncPoint()
+	{
+		return false;
+	}
+
+	bool CompleteAndCheckSyncPoint()
+	{
+		return false;
+	}
+
+	bool IsCompleted() const
+	{
+		return false;
+	}
+
 	// ITaskSet interface
 	int		Init(size_t region[], unsigned int &regCount)
 	{
@@ -83,13 +99,14 @@ public:
     {
         return;
     }
-	void	Finish(FINISH_REASON reason)
+	bool	Finish(FINISH_REASON reason)
 	{
 #ifdef EXTENDED_PRINT
 		printf("TestSet::Finish() - %d - Finished on %d\n", m_id, GET_THREAD_ID);
 #endif
 		assert( 0==m_attached && "m_attached != 0");
 		*m_pDone = 1;
+		return true;
 	}
 	long	Release()
 	{
@@ -110,11 +127,11 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 	volatile int done = 0;
 	pList->Enqueue(new TestSet(1, &done));
 	pList->Flush();
-	te_wait_result res = pList->WaitForCompletion();
+	te_wait_result res = pList->WaitForCompletion(NULL);
 	while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
 	{
 		SLEEP(100);
-		res = pList->WaitForCompletion();
+		res = pList->WaitForCompletion(NULL);
 	}
 	
 	pList->Release();
@@ -146,11 +163,11 @@ bool test_task_executor()
 
 		pList->Enqueue(new TestSet(0, &done));
 		pList->Flush();
-		te_wait_result res = pList->WaitForCompletion();
+		te_wait_result res = pList->WaitForCompletion(NULL);
 		while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
 		{
 			SLEEP(100);
-			res = pList->WaitForCompletion();
+			res = pList->WaitForCompletion(NULL);
 		}
 
 		pList->Release();

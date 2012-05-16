@@ -50,43 +50,46 @@ bool OclNaiveConcurrentQueue<T>::IsEmpty() const
 template<class T>
 T OclNaiveConcurrentQueue<T>::Top()
 {
-	m_queueLock.lock();
+	OclAutoMutex mu(&m_queueLock);
+
 	assert(!IsEmpty());
 	T ret = m_queue.front();
-	m_queueLock.unlock();
+
 	return ret;
 }
 
 template<class T>
 T OclNaiveConcurrentQueue<T>::PopFront()
 {
-	m_queueLock.lock();
+	OclAutoMutex mu(&m_queueLock);
+
 	assert(!IsEmpty());
 	T ret = m_queue.front();
 	m_queue.pop();
-	m_queueLock.unlock();
+
 	return ret;
 }
 
 template<class T>
 void OclNaiveConcurrentQueue<T>::PushBack(const T& newNode)
 {
-	m_queueLock.lock();
+	OclAutoMutex mu(&m_queueLock);
+
 	m_queue.push(newNode);
-	m_queueLock.unlock();
 }
 
 template<class T>
 bool OclNaiveConcurrentQueue<T>::TryPop(T& val)
 {
-	m_queueLock.lock();
+	OclAutoMutex mu(&m_queueLock);
+
 	if ( m_queue.empty() )
 	{
-		m_queueLock.unlock();
 		return false;
 	}
+
 	val = m_queue.front();
 	m_queue.pop();
-	m_queueLock.unlock();
+
 	return true;
 }

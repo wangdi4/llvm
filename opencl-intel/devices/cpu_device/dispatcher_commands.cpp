@@ -77,13 +77,14 @@ AtomicCounter NDRange::RGBTableCounter;
 
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
-DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD) :
-m_pTaskDispatcher(pTD), m_pLogDescriptor(pTD->m_pLogDescriptor)
+DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
 {
+	assert(pTD && "Expected non NULL TaskDispatcher");
+	assert(pCmd && "Expected non NLL command descriptor");
+	m_pLogDescriptor = pTD->m_pLogDescriptor;
 	m_iLogHandle = pTD->m_iLogHandle;
-
 	m_pMemAlloc = pTD->m_pMemoryAllocator;
-
 	m_pGPAData = pTD->m_pGPAData;
 }
 
@@ -94,7 +95,38 @@ inline WGContext* DispatcherCommand::GetWGContext(unsigned int id)
 
 void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
 {
+	if ( CL_COMPLETE == uStatus )
+	{
+		void* pTaskPtr = TAS(&cmd->device_agent_data, NULL);
+		// If the ITask pointer still exists we need reduce reference count
+		// and release ITask object
+		if ( NULL != pTaskPtr )
+		{
+			ITaskBase* pTask = static_cast<ITaskBase*>(pTaskPtr);
+			pTask->Release();
+		}
+		m_bCompleted = true;
+	}
 	m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
+}
+
+///////////////////////////////////////////////////////////////////////////
+// CommandBaseClass
+template <class ITaskClass>
+	bool CommandBaseClass<ITaskClass>::SetAsSyncPoint()
+{
+	long prev = m_aIsSyncPoint.exchange(1);
+	return 1 == prev;
+}
+
+template <class ITaskClass>
+	bool CommandBaseClass<ITaskClass>::CompleteAndCheckSyncPoint()
+{
+	// The queue some how need to be signaled stop processing of the job list.
+	// On other side RT should be aware that the command was done.
+	// And it should be done by single instruction, otherwise there is a race
+	long prev = m_aIsSyncPoint.exchange(1);
+	return 1 == prev;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -102,7 +134,7 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 
 cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD);
+	ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -117,15 +149,14 @@ cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc*
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 
 	return CL_DEV_SUCCESS;
 }
 
-ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -169,7 +200,7 @@ bool ReadWriteMemObject::Execute()
 	size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
 
 #ifdef _DEBUG_PRINT
-	printf("--> ReadWriteMemObject(start), cmdid:%d\n", m_pCmd->id);
+	printf("--> ReadWriteMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 
@@ -258,9 +289,10 @@ bool ReadWriteMemObject::Execute()
 #endif
 
 #ifdef _DEBUG_PRINT
-	printf("--> ReadWriteMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
+	printf("--> ReadWriteMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
 	return true;
 }
 
@@ -268,7 +300,7 @@ bool ReadWriteMemObject::Execute()
 // OCL Copy memory object execution
 cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	CopyMemObject* pCommand = new CopyMemObject(pTD);
+	CopyMemObject* pCommand = new CopyMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -283,15 +315,14 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 
 	return CL_DEV_SUCCESS;
 }
 
-CopyMemObject::CopyMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+CopyMemObject::CopyMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -328,7 +359,7 @@ bool CopyMemObject::Execute()
 		(1 != uiDstElementSize) && (1 != uiSrcElementSize) )
 	{
 #ifdef _DEBUG_PRINT
-		printf("--> CopyMemObject(fail,3), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_INVALID_COMMAND_PARAM);
+		printf("--> CopyMemObject(fail,3), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_INVALID_COMMAND_PARAM);
 #endif
 		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
 		return true;
@@ -436,6 +467,7 @@ bool CopyMemObject::Execute()
 	printf("--> CopyMemObject(end), cmd_id:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
 	return true;
 }
 
@@ -443,7 +475,7 @@ bool CopyMemObject::Execute()
 // OCL Native function execution
 cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	NativeFunction* pCommand = new NativeFunction(pTD);
+	NativeFunction* pCommand = new NativeFunction(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -458,7 +490,6 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)pCmd->params;
 
 	// Create temporal buffer for execution
@@ -479,8 +510,8 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 	return CL_DEV_SUCCESS;
 }
 
-NativeFunction::NativeFunction(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+NativeFunction::NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -534,7 +565,6 @@ bool NativeFunction::Execute()
 	delete []m_pArgV;
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-
 	return true;
 }
 
@@ -543,7 +573,7 @@ bool NativeFunction::Execute()
 //////////////////////////////////////////////////////////////////////////
 cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	MapMemObject* pCommand = new MapMemObject(pTD);
+	MapMemObject* pCommand = new MapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -558,15 +588,13 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd,
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
-
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 	return CL_DEV_SUCCESS;
 }
 
-MapMemObject::MapMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+MapMemObject::MapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -590,7 +618,7 @@ bool MapMemObject::Execute()
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
-	printf("--> MapMemObject(start), cmdid:%d\n", m_pCmd->id);
+	printf("--> MapMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 	// Write Map task to TAL trace
@@ -612,10 +640,11 @@ bool MapMemObject::Execute()
 #endif
 
 #ifdef _DEBUG_PRINT
-	printf("--> MapMemObject(end), cmdid:%d\n", m_pCmd->id);
+	printf("--> MapMemObject(end), cmdid:%p\n", m_pCmd->id);
 #endif
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
 	return true;
 }
 
@@ -624,7 +653,7 @@ bool MapMemObject::Execute()
 //////////////////////////////////////////////////////////////////////////
 cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	UnmapMemObject* pCommand = new UnmapMemObject(pTD);
+	UnmapMemObject* pCommand = new UnmapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -639,15 +668,13 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
-
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 	return CL_DEV_SUCCESS;
 }
 
-UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -671,14 +698,15 @@ bool UnmapMemObject::Execute()
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
-	printf("--> UnmapMemObject(start), cmdid:%d\n", m_pCmd->id);
+	printf("--> UnmapMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 #ifdef _DEBUG_PRINT
-	printf("--> UnmapMemObject(end), cmdid:%d\n", m_pCmd->id);
+	printf("--> UnmapMemObject(end), cmdid:%p\n", m_pCmd->id);
 #endif
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
 	return true;
 }
 
@@ -688,7 +716,7 @@ Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
 cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	NDRange* pCommand = new NDRange(pTD);
+	NDRange* pCommand = new NDRange(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -703,15 +731,14 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITas
 	}
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 	return CL_DEV_SUCCESS;
 }
 
-NDRange::NDRange(TaskDispatcher* pTD) :
-DispatcherCommand(pTD), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
-m_pMemBuffSizes(NULL), m_numThreads(0), m_pAffinityPermutation(NULL), m_bAllowAffinityPermutation(false)
+NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITaskSet>(pTD, pCmd), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
+	m_pMemBuffSizes(NULL), m_numThreads(0), m_pAffinityPermutation(NULL), m_bAllowAffinityPermutation(false)
 {
 #ifdef _DEBUG
 	memset(m_pLockedParams, 0x88, sizeof(m_pLockedParams));
@@ -720,21 +747,6 @@ m_pMemBuffSizes(NULL), m_numThreads(0), m_pAffinityPermutation(NULL), m_bAllowAf
 	m_lExecuting.exchange(0);
 #endif
 	m_numThreads = pTD->getNumberOfThreads();
-}
-
-long NDRange::Release()
-{
-	if ( NULL != m_pBinary )
-	{
-		m_pBinary->Release();
-	}
-	if ( NULL != m_pMemBuffSizes )
-	{
-		delete []m_pMemBuffSizes;
-	}
-	delete this;
-
-    return 0;
 }
 
 cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
@@ -996,7 +1008,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	return CL_DEV_SUCCESS;
 }
 
-void NDRange::Finish(FINISH_REASON reason)
+bool NDRange::Finish(FINISH_REASON reason)
 {
 #ifdef _DEBUG
 	long lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
@@ -1020,6 +1032,17 @@ void NDRange::Finish(FINISH_REASON reason)
 #ifdef _DEBUG
 	m_lFinish.exchange(0);
 #endif
+
+	if ( NULL != m_pBinary )
+	{
+		m_pBinary->Release();
+	}
+	if ( NULL != m_pMemBuffSizes )
+	{
+		delete []m_pMemBuffSizes;
+	}
+
+	return true;
 }
 
 
@@ -1225,7 +1248,7 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
 
 cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	FillMemObject* pCommand = new FillMemObject(pTD);
+	FillMemObject* pCommand = new FillMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -1236,7 +1259,6 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 	assert(CL_DEV_SUCCESS == rc);
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 
@@ -1244,8 +1266,8 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 }
 
 
-FillMemObject::FillMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+FillMemObject::FillMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 
@@ -1286,7 +1308,7 @@ bool FillMemObject::Execute()
 	cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
 
 #ifdef _DEBUG_PRINT
-	printf("--> FillMemObject(start), cmdid:%d\n", m_pCmd->id);
+	printf("--> FillMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 	size_t depthStart = 0;
@@ -1345,7 +1367,7 @@ bool FillMemObject::Execute()
 	free(fillBuf);
 
 #ifdef _DEBUG_PRINT
-	printf("--> FillMemObject(end), cmdid:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
+	printf("--> FillMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
 #endif
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 	return true;
@@ -1356,7 +1378,7 @@ bool FillMemObject::Execute()
 
 cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
-	MigrateMemObject* pCommand = new MigrateMemObject(pTD);
+	MigrateMemObject* pCommand = new MigrateMemObject(pTD, pCmd);
 	if (NULL == pCommand)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -1367,15 +1389,14 @@ cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* p
 	assert(CL_DEV_SUCCESS == rc);
 #endif
 
-	pCommand->m_pCmd = pCmd;
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
 
 	return CL_DEV_SUCCESS;
 }
 
-MigrateMemObject::MigrateMemObject(TaskDispatcher* pTD) :
-	DispatcherCommand(pTD)
+MigrateMemObject::MigrateMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
 {
 }
 

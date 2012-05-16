@@ -48,14 +48,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		{\
 		MemoryObjectFactory::GetInstance()->RegisterMemoryObjectCreator(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,&CLASS##CreatorRegister::Create);\
 		}\
-		static MemoryObject* Create(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType)\
+		static MemoryObject* Create(Context* pContext, cl_mem_object_type clObjType)\
 		{\
-			return new IMPLEMETATION(pContext, pOclEntryPoints, clObjType);\
+			return new IMPLEMETATION(pContext, clObjType);\
 		}\
 	};\
 	CLASS##CreatorRegister class##CLASS##CreatorRegister;
 
-	typedef MemoryObject* fn_MemoryObjectCreator(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType);
+	typedef MemoryObject* fn_MemoryObjectCreator(Context* pContext, cl_mem_object_type clObjType);
 
 	class MemoryObjectFactory
 	{

@@ -39,14 +39,13 @@ using namespace Intel::OpenCL::Framework;
 class GenericMemObject::DataCopyEvent : public OclEvent
 {
 public:
-    DataCopyEvent() : m_completion_required(false)
-    { 
-        AddPendency( NULL );
+    DataCopyEvent(_cl_context_int* context) : OclEvent(context), m_completion_required(false)
+    {
+        // AddPendency( NULL ); // Why we need this?
+		// Do we need add pendency to Context???
         SetEventState(EVENT_STATE_HAS_DEPENDENCIES); 
     };
 
-	// Get the context to which the event belongs.
-	cl_context GetContextHandle() const { return NULL;}
 	// Get the return code of the command associated with the event.
 	cl_int     GetReturnCode() const {return 0;}
 	cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
@@ -58,7 +57,7 @@ public:
     void SetComplete() 
     { 
         NotifyComplete( CL_SUCCESS ); 
-        RemovePendency( NULL );
+        //RemovePendency( NULL );// Why we need this?
     };
 
 private:
@@ -221,7 +220,7 @@ GenericMemObject::DataCopyEvent* GenericMemObject::drive_copy_between_groups(
     {
         // allocate event
         assert( NULL == to.m_data_copy_in_process_event );
-        to.m_data_copy_in_process_event = new DataCopyEvent();
+		to.m_data_copy_in_process_event = new DataCopyEvent(GetParentHandle());
         
         assert( NULL != to.m_data_copy_in_process_event );
         if (NULL == to.m_data_copy_in_process_event)

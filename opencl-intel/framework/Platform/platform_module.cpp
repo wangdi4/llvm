@@ -124,7 +124,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 	for(unsigned int ui=0; ui<supported_devices_count; ++ui)
 	{
 		// create new device object
-		Device * pDevice = new Device();
+		Device * pDevice = new Device(&m_clPlatformId);
 		if (!pDevice)
 		{
             m_mapDevices.ReleaseAllObjects(false);
@@ -135,7 +135,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
 		string strDevice = OS_DLL_POST(devices[ui]);
 
-		clErrRet = pDevice->InitDevice(strDevice.c_str(), m_pOclEntryPoints);
+		clErrRet = pDevice->InitDevice(strDevice.c_str());
 		if (CL_FAILED(clErrRet))
 		{
 			// We should use RemovePendency because Release() in not effect ref count
@@ -145,7 +145,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		}
 
 		// assign device in the objects map
-		m_mapDevices.AddObject(pDevice);
+		m_mapDevices.AddObject((OCLObject<_cl_device_id_int>*)pDevice);
 		m_ppRootDevices[m_uiRootDevicesCount] = pDevice;
         ++m_uiRootDevicesCount;
 
@@ -825,7 +825,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
     for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {
-        pNewDevices[i] = new SubDevice(pParentDevice, sizes[i], subdevice_ids[i], properties, m_pOclEntryPoints);
+        pNewDevices[i] = new SubDevice(pParentDevice, sizes[i], subdevice_ids[i], properties);
         if (NULL == pNewDevices[i])
         {
             for (cl_uint j = 0; j < i; ++j)
@@ -1100,7 +1100,7 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
 {
     for (unsigned int i = 0; i < count; ++i)
     {
-        m_mapDevices.AddObject(ppDevices[i]);
+        m_mapDevices.AddObject((OCLObject<_cl_device_id_int>*)ppDevices[i]);
     }
     return CL_SUCCESS;
 }

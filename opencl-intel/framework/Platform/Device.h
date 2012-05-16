@@ -52,10 +52,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
     * Author:		Doron Singer
     * Date:			March 2011
     **********************************************************************************************/
-    class FissionableDevice : public OCLObject<_cl_device_id_int>
+    class FissionableDevice : public OCLObject<_cl_device_id_int,_cl_platform_id_int>
     {
     public:
-        FissionableDevice() : OCLObject<_cl_device_id_int>("FissionableDevice"), m_pD3D9Device(NULL) {}
+        FissionableDevice(_cl_platform_id_int* platform) :
+		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3D9Device(NULL) {}
 
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
         virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
@@ -166,7 +167,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		Device();
+		Device(_cl_platform_id_int* platform);
 
 		/******************************************************************************************
 		* Function: 	GetInfo
@@ -193,7 +194,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code InitDevice(const char * psDeviceAgentDllPath, ocl_entry_points * pOclEntryPoints);
+		cl_err_code InitDevice(const char * psDeviceAgentDllPath);
 
 		/******************************************************************************************
 		* Function: 	CreateInstance
@@ -322,7 +323,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class SubDevice : public FissionableDevice
     {
     public:
-        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props, ocl_entry_points * pOclEntryPoints);
+        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props);
 
         /******************************************************************************************
         * Function: 	GetInfo

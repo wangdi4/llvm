@@ -61,21 +61,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			Context*                    pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager,
-			ocl_entry_points *			pOclEntryPoints
-			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints) {}
+			EventsManager*              pEventManager
+			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
 
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
         virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
         virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual bool		WaitForCompletion(OclEvent* pEvent );
+		virtual cl_err_code	WaitForCompletion(QueueEvent* pEvent );
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
 	protected:
 		virtual ~IOclCommandQueueBase() {}
-
-		virtual cl_err_code SetDependentOnList(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 
     private:
 

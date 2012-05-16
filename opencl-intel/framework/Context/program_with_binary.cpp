@@ -6,8 +6,9 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, const size_t* pszLengths, const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet, ocl_entry_points * pOclEntryPoints)
-: Program(pContext, pOclEntryPoints)
+ProgramWithBinary::ProgramWithBinary(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, const size_t* pszLengths,
+									 const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet)
+	: Program(pContext)
 {
 	cl_int err = CL_SUCCESS;
 	cl_int ret = CL_SUCCESS;

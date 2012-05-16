@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLBuffer : public GLMemoryObject
 	{
 	public:
-		GLBuffer(Context* pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) : GLMemoryObject(pContext, pOclEntryPoints) {};
+		GLBuffer(Context* pContext, cl_mem_object_type clObjType) : GLMemoryObject(pContext) {};
 
 		cl_err_code AcquireGLObject();
 		cl_err_code ReleaseGLObject();

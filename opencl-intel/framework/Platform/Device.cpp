@@ -38,7 +38,8 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
+Device::Device(_cl_platform_id_int* platform) :
+	FissionableDevice(platform),m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 {
 	// initialize logger client
 	INIT_LOGGER_CLIENT(L"Device", LL_DEBUG);
@@ -46,7 +47,6 @@ Device::Device() : m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 	m_pFrontEndCompiler = NULL;
 
 	LOG_DEBUG(TEXT("%S"), TEXT("Device constructor enter"));
-	m_handle.object   = this;
 
 	m_hGLContext = 0;
 	m_hHDC = 0;
@@ -153,11 +153,9 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	return CL_SUCCESS;
 }
 
-cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, ocl_entry_points * pOclEntryPoints)
+cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath)
 {
 	LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
-
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
 
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 	if (!m_dlModule.Load(psDeviceAgentDllPath))
@@ -545,13 +543,12 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     delete[] pFormats;
     return bSupported;
 }
-SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props, ocl_entry_points * pOclEntryPoints) : 
-m_pParentDevice(pParent), m_deviceId(id), m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
+SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :
+	FissionableDevice((_cl_platform_id_int *)pParent->GetHandle()), m_pParentDevice(pParent), m_deviceId(id),
+		m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
     m_pParentDevice->AddPendency(this);
-    m_handle.object   = this;
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	    
     CacheFissionProperties(props);
     //Todo: handle more intelligently
     m_pRootDevice->CreateInstance();

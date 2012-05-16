@@ -4,13 +4,10 @@
 #include "test_utils.h"
 #include "FrameworkTest.h"
 
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <cstdio>
 #include <cstring>
 
 using namespace std;
-using namespace Intel::OpenCL::Framework;
 
 bool CheckCondition(wchar_t * name, bool condition)
 {

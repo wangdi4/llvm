@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <limits.h>
 
+#define SUB_DEVICE_SYNC_COMMAND ((void*)0x1)
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
@@ -75,7 +76,7 @@ public:
 	virtual unsigned int	Enqueue(ITaskBase * pTaskBase);
 	virtual bool			Flush();
 	//Todo: WaitForCompletion only immediately returns if bImmediate is true
-	virtual te_wait_result  WaitForCompletion() { return TE_WAIT_COMPLETED; }
+	virtual te_wait_result  WaitForCompletion(ITaskBase* pTask) { return TE_WAIT_COMPLETED; }
 	virtual void			Release();
 
 protected:
@@ -151,7 +152,8 @@ void InPlaceTaskList::ExecuteInPlace(Intel::OpenCL::TaskExecutor::ITaskBase *pTa
 
 fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
 {
-	&ReadWriteMemObject::Create,    // 	CL_DEV_CMD_READ = 0,
+	NULL,
+	&ReadWriteMemObject::Create,    // 	CL_DEV_CMD_READ = 1,
 	&ReadWriteMemObject::Create,    //	CL_DEV_CMD_WRITE,
 	&CopyMemObject::Create,         //	CL_DEV_CMD_COPY,
 	&MapMemObject::Create,          //	CL_DEV_CMD_MAP,
@@ -269,7 +271,7 @@ cl_dev_err_code TaskDispatcher::init()
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 	m_pTaskExecutor->Execute(pAffinitizeThreads);
-	m_pTaskExecutor->WaitForCompletion();
+	m_pTaskExecutor->WaitForCompletion(NULL);
 	
 	return CL_DEV_SUCCESS;
 }
@@ -396,15 +398,51 @@ cl_dev_err_code TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
-	// No need in lock
-	te_wait_result res = ((ITaskList*)list)->WaitForCompletion();
+	ITaskBase* pTaskToWait = NULL;
+	if ( NULL != cmdToWait )
+	{
+		// At this stage we assume that cmdToWait is a valid pointer
+		// Appropriate reference count is done in runtime
+		void* pTaskPtr = TAS(&cmdToWait->device_agent_data, NULL);
+		// Check if the command is already completed but it can be just before a call to the notification function.
+		// and we are not sure that RT got the completion notification.
+		// Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
+		if ( NULL == pTaskPtr )
+		{
+			return CL_DEV_NOT_SUPPORTED;
+		}
+		pTaskToWait = static_cast<ITaskBase*>(pTaskPtr);
+	}
 
-	cl_dev_err_code retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
-								(TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
+	// No need in lock
+	te_wait_result res = ((ITaskList*)list)->WaitForCompletion(pTaskToWait);
+
+	cl_dev_err_code retVal;
+	if ( NULL != pTaskToWait )
+	{
+		// Try to wait for command
+		if ( !pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res) )
+		{
+			((ITaskList*)list)->Flush();
+			res = TE_WAIT_MASTER_THREAD_BLOCKING;
+		}
+		// When waiting for specific task we should release it's reference
+		// Since the pointer was acquired in this function
+		pTaskToWait->Release();
+
+		// If the task is not completed at this stage we can't make further call to blocking wait
+		// becaue we are not having the task pointer and we can't set it back because its not thread safe
+		retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
+	}
+	else
+	{
+		retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
+				(TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
+	}
 
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X, res = %d"), list, retVal);
 	return retVal;
@@ -640,9 +678,10 @@ cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN lis
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list)
+cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list, cl_dev_cmd_desc* cmdToWait)
 {
-	m_commandListsForFlushing.PushBack((void*)0x1);
+	// Push SYNC command to sub-device queue
+	m_commandListsForFlushing.PushBack(SUB_DEVICE_SYNC_COMMAND);
     m_NonEmptyQueue.Signal();
 	m_evWaitForCompletion.Wait();
 	return CL_DEV_SUCCESS;
@@ -741,7 +780,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		{
 			break;
 		}
-		if ( (cl_dev_cmd_list*)(0x1) == list )
+		if ( SUB_DEVICE_SYNC_COMMAND == list )
 		{
 			m_dispatcher->m_evWaitForCompletion.Signal();
 			continue;

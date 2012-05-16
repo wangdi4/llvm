@@ -35,6 +35,7 @@
 #include "command_queue.h"
 #include "cl_utils.h"
 #include "cl_local_array.h"
+#include "enqueue_commands.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -131,17 +132,11 @@ cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling
  ******************************************************************/
 cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList)
 {
-	cl_start;
     if ( 0 == uiNumEvents || NULL == eventList )
          return CL_INVALID_EVENT_WAIT_LIST;
 
     // First validate that all ids in the event list exists
-	clLocalArray<OclEvent*> vOclEventsStorage(uiNumEvents);
-	OclEvent** vOclEvents = vOclEventsStorage;
-	if (!vOclEvents)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+	std::vector<OclEvent*> vOclEvents;
 
 	if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
 	{
@@ -150,27 +145,76 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 
 	cl_context eventContext;
 	//Ensure all events are in the same context
-	eventContext = vOclEvents[0]->GetContextHandle();
+	eventContext = vOclEvents[0]->GetParentHandle();
 	for (cl_uint ui = 1; ui < uiNumEvents; ++ui)
 	{
-		if (eventContext != vOclEvents[ui]->GetContextHandle())
+		if (eventContext != vOclEvents[ui]->GetParentHandle())
 		{
 			return CL_INVALID_CONTEXT;
 		}
 	}
 
     // Wait on all events. Order doesn't matter since you always bonded to the longest event.
+	// On the first stage, try to wait for events (commands) that we can join the arena.
+	// For RuntimeCommand or for such command that we can't join execution, call Wait()
+	// method of the event and wait for it's completion.
     // OclEvent wait on event that is done do nothing    
     cl_err_code err = CL_SUCCESS;
-    for ( cl_uint ui = 0 ; ui < uiNumEvents; ui++)
-    {
-        vOclEvents[ui]->Wait();
-        if (vOclEvents[ui]->GetReturnCode() < 0)
-        {
-            err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
-        }
-    }
-	cl_return err;
+	bool bWaitForEventSuccess = false;
+	std::vector<OclEvent*>::iterator evtIt = vOclEvents.begin();
+	while ( !vOclEvents.empty() )
+	{
+		if ( vOclEvents.end() == evtIt )
+		{
+			evtIt = vOclEvents.begin();
+			// When one loop fished and no WaitForEvent were executed succesfully
+			// Need to start using explicit Wait()
+			if ( !bWaitForEventSuccess )
+			{
+				break;
+			}
+
+			bWaitForEventSuccess = false;
+		}
+
+		// Execute queue until assosiated command is completed
+		// The event should be set to completed at this stage
+		QueueEvent* pQueueEvent = dynamic_cast<QueueEvent*>(*evtIt);
+		if ( NULL == pQueueEvent )
+		{
+			return CL_INVALID_EVENT;
+		}
+
+		// Don't try join master thread for Runtime Commands
+		// Or if WaitForCompletion() fails, skip to next event
+		if ( (pQueueEvent->GetCommand()->GetExecutionType() == RUNTIME_EXECUTION_TYPE) ||
+			 CL_FAILED(pQueueEvent->GetEventQueue()->WaitForCompletion(pQueueEvent)) )
+		{
+			++evtIt;
+			continue;
+		}
+
+		bWaitForEventSuccess = true;
+
+		// At this stage the event is completed
+		assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
+		// Now check even error code for failure
+		if ((*evtIt)->GetReturnCode() < 0)
+		{
+			err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+		}
+
+		evtIt = vOclEvents.erase(evtIt);
+	}
+
+	// For rest of the events need to explicitly wait for each one, don't spent CPU cycles in the loop
+	for ( evtIt = vOclEvents.begin(); evtIt != vOclEvents.end(); evtIt++)
+	{
+		(*evtIt)->Wait();
+	}
+	vOclEvents.clear();
+
+	return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -195,12 +239,7 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
     if (0 != uiNumEvents)
     {
         // First validate that all ids in the event list exists
-		clLocalArray<OclEvent*> vOclEventsStorage(uiNumEvents);
-		OclEvent** vOclEvents = vOclEventsStorage;
-		if (!vOclEvents)
-		{
-			return CL_OUT_OF_HOST_MEMORY;
-		}
+		std::vector<OclEvent*> vOclEvents;
 		if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
 		{
 			return CL_INVALID_EVENT_WAIT_LIST;
@@ -208,11 +247,11 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 
         cl_uint ui;
         // Next, check that events has the same context as the queued context
-        cl_context queueContext = pEvent->GetContextHandle();
+        cl_context queueContext = pEvent->GetParentHandle();
         for ( ui =0; ui < uiNumEvents; ui++)
         {
             OclEvent* pOclEvent = vOclEvents[ui];
-            if( queueContext != pOclEvent->GetContextHandle())
+            if( queueContext != pOclEvent->GetParentHandle())
             {
                 // Error
                 return CL_INVALID_CONTEXT;
@@ -239,7 +278,7 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
 				}
             }        
         }
-		pEvent->AddDependentOnMulti(uiNumEvents, vOclEvents);
+		pEvent->AddDependentOnMulti(uiNumEvents, &vOclEvents[0]);
     }
     cl_return  CL_SUCCESS;    
 }
@@ -252,7 +291,7 @@ cl_err_code EventsManager::RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents,
  * On success a list is returned that need to be free by the caller.
  * 
  ******************************************************************/
-bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, OclEvent** ppList )
+bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<OclEvent*>& vOclEvents)
 {
     cl_err_code res         = CL_SUCCESS;
     OCLObject<_cl_event_int>*  pOclObject  = NULL;
@@ -268,38 +307,9 @@ bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* even
             // Not valid, return
 			return false;
         }
-		ppList[ui] = (dynamic_cast<OclEvent*>(pOclObject));
+		vOclEvents.push_back(dynamic_cast<OclEvent*>(pOclObject));
     } 
     return true;    
-}
-
-/******************************************************************
-******************************************************************/
-OclEvent* EventsManager::GetEvent(cl_event clEvent)
-{
-	OCLObject<_cl_event_int>* pOclObject;
-
-	cl_int ret = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
-	if (CL_FAILED(ret))
-	{
-		return NULL;
-	}
-	return dynamic_cast<OclEvent*>(pOclObject);
-}
-
-QueueEvent* EventsManager::GetQueueEvent(cl_event clEvent)
-{
-	return dynamic_cast<QueueEvent*>(GetEvent(clEvent));
-}
-
-UserEvent* EventsManager::GetUserEvent(cl_event clEvent)
-{
-	return dynamic_cast<UserEvent*>(GetEvent(clEvent));
-}
-
-BuildEvent* EventsManager::GetBuildEvent(cl_event clEvent)
-{
-	return dynamic_cast<BuildEvent*>(GetEvent(clEvent));
 }
 
 /******************************************************************
@@ -319,32 +329,11 @@ void EventsManager::RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl)
 }
 
 /******************************************************************
-* This function creates a user event object. 
-******************************************************************/
-
-UserEvent* EventsManager::CreateUserEvent(cl_context context)
-{
-	UserEvent* pUserEvent = new UserEvent(context);
-	m_mapEvents.AddObject(pUserEvent);
-	return pUserEvent;
-}
-
-/******************************************************************
-* This function creates a build event object. 
-******************************************************************/
-BuildEvent* EventsManager::CreateBuildEvent(cl_context context)
-{
-	BuildEvent* pBuildEvent = new BuildEvent(context);
-	m_mapEvents.AddObject(pBuildEvent);
-	return pBuildEvent;
-}
-
-/******************************************************************
 * This function registers the callback fn on the event evt when its status changes to execType
 ******************************************************************/
 cl_err_code EventsManager::SetEventCallBack(cl_event evt, cl_int execType, Intel::OpenCL::Framework::eventCallbackFn fn, void *pUserData)
 {
-	OclEvent* pEvent = GetEvent(evt);
+	OclEvent* pEvent = GetEventClass<OclEvent>(evt);
 	if (!pEvent)
 	{
 		return CL_INVALID_EVENT;

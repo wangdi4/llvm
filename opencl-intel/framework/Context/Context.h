@@ -75,7 +75,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
+		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify,
+			void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -195,10 +196,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint GetDevicesCount() { return m_mapDevices.Count(); }
 
 		// get the device object pointers that associated to the context
-		FissionableDevice ** GetDevices(cl_uint * puiNumDevices);
+		FissionableDevice ** GetDevices(cl_uint* puiNumDevices);
 
 		// get the device ids that associated to the context
-		cl_device_id * GetDeviceIds(size_t * puiNumDevices);
+		cl_device_id * GetDeviceIds(cl_uint* puiNumDevices);
 
         // Get the list of root-level devices explicitly associated with this context
         Device** GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices);
@@ -301,6 +302,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// return context-specific memory objects heap handle
 		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
 
+		// return access to context-specific OS event pool
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+		Intel::OpenCL::Utils::OclOsDependentEvent* GetOSEvent();
+		void	RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent);
+#endif
+
 	protected:
 		/******************************************************************************************
 		* Function: 	~Device
@@ -385,6 +392,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		tImageFormatMap							m_mapSupportedFormats;
 
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
+
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+		typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::OclOsDependentEvent*> t_OsEventPool;
+
+		t_OsEventPool	m_OsEventPool;
+#endif
 	};
 
 #if !defined (_WIN32)

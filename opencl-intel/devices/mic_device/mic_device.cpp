@@ -472,7 +472,7 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
  clDevCommandListExecute
     Call clDevCommandListWaitCompletion to add calling thread to execution pool
 ********************************************************************************************************************/
-cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list)
+cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* cmdDesc)
 {
     if (isDeviceLibraryUnloaded())
     {

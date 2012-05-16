@@ -39,6 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Forward declarations
 	class Command;
+	class Context;
 	class IOclCommandQueueBase;
 
 	typedef enum
@@ -56,8 +57,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define OCL_EVENT_WAIT_OS_DEPENDENT 2
 
 //#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
+//#define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
 #ifdef WIN32
-  #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
+  #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 #else //For Linux, the CFS performs much better without active wait
   #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 #endif
@@ -112,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class OclEvent : public IEventObserver, public OCLObject<_cl_event_int>
 	{
 	public:
-		OclEvent();
+		OclEvent(_cl_context_int* context);
 
 		/**
 		 * Add an event that will observe myself, depends on my state.
@@ -132,16 +134,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * @param count
 		 * @param pDependencyList
 		 */
-		void                    AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
+		void				AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList);
 
 		/**
 		 * Bogus dependency add.
 		 */
-		void                    AddFloatingDependence() { ++m_numOfDependencies; }
+		void				AddFloatingDependence() { ++m_numOfDependencies; }
 		/**
 		 * Bogus dependency remove.
 		 */
-		void                    RemoveFloatingDependence() { if (0 == --m_numOfDependencies) DoneWithDependencies(NULL); }
+		void				RemoveFloatingDependence() { if (0 == --m_numOfDependencies) DoneWithDependencies(NULL); }
 
 		OclEventState      SetEventState(const OclEventState newEventState); //returns the previous event state
 
@@ -158,8 +160,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual cl_int  GetExpectedExecState() const { return CL_COMPLETE; }
 
-		// Get the context to which the event belongs.
-		virtual cl_context GetContextHandle() const = 0;
+
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const		{ return m_returnCode; }
 
@@ -188,7 +189,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OclEvent& operator=(const OclEvent&);// assignment operator
 
 		//typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventObserver*> ObserversQ_t;
-		typedef std::list<IEventObserver*>  ObserversList_t;
+		typedef std::list<IEventObserver*>		ObserversList_t;
 		ObserversList_t							m_CompleteObserversList;
 		ObserversList_t							m_RunningObserversList;
 		ObserversList_t							m_SubmittedObserversList;
@@ -199,12 +200,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		cl_int                                  m_returnCode;
 
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-		Intel::OpenCL::Utils::OclOsDependentEvent m_osEvent;
-#endif
-
-	private:
 		cl_int                                  m_eventState;
+		Context*								m_pContext;
 
 		/**
 		 * Make sure the list is empty, and all related dependencies are released.
@@ -219,7 +216,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * @param retCode can be a valid exec state, or a (negative) error code.
 		 */
 		void NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_int retCode);
-	};
+
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+		Intel::OpenCL::Utils::AtomicPointer<Intel::OpenCL::Utils::OclOsDependentEvent> m_pCurrentEvent;
+#endif
+};
 
 }}}    // Intel::OpenCL::Framework
 

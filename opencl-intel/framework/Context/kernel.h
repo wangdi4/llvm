@@ -194,7 +194,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/		
-		Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices, ocl_entry_points * pOclEntryPoints);
+		Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices);
 
 		/******************************************************************************************
 		* Function: 	GetInfo    

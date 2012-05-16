@@ -52,6 +52,12 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
+#ifdef __GNUC__
+	#define UNUSED_ATTR __attribute__((unused))
+#else
+	#define UNUSED_ATTR
+#endif
+
 // Function to compare two image formats.
 static bool compareImageFormats(cl_image_format f1, cl_image_format f2);
 // Function to get format map key
@@ -60,8 +66,10 @@ static int getFormatsKey(int clObjType , int clMemFlags);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
-	: OCLObject<_cl_context_int>("Context"), m_devTypeMask(0), m_programService(this), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
+Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify,
+				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
+	: OCLObject<_cl_context_int>(NULL, "Context"), // Context doesn't have conext to belong
+	m_devTypeMask(0), m_programService(this), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -125,7 +133,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
 		ppDevices[ui]->AddedToContext();
-		m_mapDevices.AddObject(ppDevices[ui], false);
+		m_mapDevices.AddObject((OCLObject<_cl_device_id_int>*)ppDevices[ui], false);
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
         m_pOriginalDeviceIds[ui] = ppDevices[ui]->GetHandle();
@@ -214,7 +222,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	}
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
 
-	m_handle.object   = this;
     *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 
 	*pclErr = CL_SUCCESS;
@@ -303,6 +310,13 @@ Context::~Context()
 		delete []m_pclContextProperties;
 		m_pclContextProperties = NULL;
 	}
+
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	while ( !m_OsEventPool.IsEmpty() )
+	{
+		delete m_OsEventPool.PopFront();
+	}
+#endif
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GetInfo
@@ -382,7 +396,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	}
 	cl_err_code clErrRet = CL_SUCCESS;
 	// create new program object
-	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet, (ocl_entry_points*)&m_handle);
+	Program* pProgram = new ProgramWithSource(this, uiCount,ppcStrings, szLengths, &clErrRet);
 	if (!pProgram)
 	{
         if (CL_SUCCESS != clErrRet)
@@ -451,7 +465,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
 	}
 
     // create program object
-	Program* pProgram = new ProgramForLink(this, uiNumDevices, ppDevices, &clErrRet, (ocl_entry_points*)&m_handle);
+	Program* pProgram = new ProgramForLink(this, uiNumDevices, ppDevices, &clErrRet);
 	delete[] ppDevices;
 
 	if (!pProgram)
@@ -713,7 +727,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	}
 
 	// create program object
-	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet, (ocl_entry_points*)&m_handle);
+	Program* pProgram = new ProgramWithBinary(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet);
 	delete[] ppDevices;
 
 	if (!pProgram)
@@ -1150,8 +1164,8 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 	assert ( NULL != ppSampler );
 #endif
 
-	Sampler * pSampler = new Sampler();
-	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode, (ocl_entry_points*)&m_handle);
+	Sampler * pSampler = new Sampler(&m_handle);
+	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new Sampler, returned: %S"), ClErrTxt(clErr));
@@ -1194,7 +1208,7 @@ const tSetOfDevices *Context::GetAllRootDevices() const
 	return &m_allRootDevices;
 }
 
-cl_device_id * Context::GetDeviceIds(size_t * puiNumDevices)
+cl_device_id * Context::GetDeviceIds(cl_uint * puiNumDevices)
 {
 	if (NULL != puiNumDevices)
 	{
@@ -1390,3 +1404,29 @@ static int getFormatsKey(int clObjType , int clMemFlags)
 	return key;
 }
 
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+
+Intel::OpenCL::Utils::OclOsDependentEvent* Context::GetOSEvent()
+{
+	Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent = NULL;
+	bool exists = m_OsEventPool.TryPop(pOsEvent);
+	if (!exists)
+	{
+		pOsEvent = new Intel::OpenCL::Utils::OclOsDependentEvent();
+		if ( NULL != pOsEvent )
+		{
+			bool UNUSED_ATTR initOK = pOsEvent->Init();
+			assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
+		}
+	}
+
+	return pOsEvent;
+}
+
+void Context::RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent)
+{
+	assert(pEvent && "pEvent == NULL, not expected");
+	pEvent->Reset();
+	m_OsEventPool.PushBack(pEvent);
+}
+#endif

@@ -32,12 +32,10 @@
 
 using namespace Intel::OpenCL::Framework;
 
-UserEvent::UserEvent( cl_context context ) : OclEvent(), m_context(context)
+UserEvent::UserEvent( _cl_context_int* context ) : OclEvent(context)
 {
 	//User events start as CL_SUBMITTED
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-	m_handle.object   = this;
-	*((ocl_entry_points*)(&m_handle)) = *((ocl_entry_points*)m_context);
 	m_returnCode = 0xdead;
 }
 
@@ -69,7 +67,7 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 		outputValueSize = sizeof(cl_command_queue);
 		break;
 	case CL_EVENT_CONTEXT:
-		evt_contex = GetContextHandle();
+		evt_contex = GetParentHandle();
 		localParamValue = (void*)(&evt_contex);
 		outputValueSize = sizeof(cl_context);
 		break;

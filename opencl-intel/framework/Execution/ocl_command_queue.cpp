@@ -47,15 +47,14 @@ OclCommandQueue::OclCommandQueue(
     Context*                    pContext, 
     cl_device_id                clDefaultDeviceID,
     cl_command_queue_properties clProperties,
-    EventsManager*              pEventsManager,
-	ocl_entry_points *			pOclEntryPoints
-    ): OCLObject<_cl_command_queue_int>("OclCommandQueue"),
+    EventsManager*              pEventsManager
+    ):
+	OCLObject<_cl_command_queue_int>(pContext->GetHandle(), "OclCommandQueue"),
     m_pContext(pContext),
     m_pEventsManager(pEventsManager),
     m_clDefaultDeviceHandle(clDefaultDeviceID),
 	m_clDevCmdListId(0)
 {
-    m_clContextHandle = m_pContext->GetHandle();
     m_pContext->GetDevice(clDefaultDeviceID, &m_pDefaultDevice);    
     // Set queue options
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
@@ -70,9 +69,6 @@ OclCommandQueue::OclCommandQueue(
 
 	// Set GPA data 
 	m_pGPAData = m_pContext->GetGPAData();
-
-	m_handle.object   = this;
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;	
 }
 
 /******************************************************************
@@ -101,14 +97,16 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
 {
     cl_err_code res = CL_SUCCESS;
     const void* localParamValue = NULL;
+	cl_context lclCntx = NULL;
     size_t szOutputValueSize = 0;
     cl_command_queue_properties propreties;
     
     switch (iParamName)
     {
         case CL_QUEUE_CONTEXT:
-            localParamValue = &m_clContextHandle;
-            szOutputValueSize = sizeof(cl_command_queue);
+            localParamValue = &lclCntx;
+			lclCntx = (cl_context)GetParentHandle();
+            szOutputValueSize = sizeof(cl_context);
             break;
         case CL_QUEUE_DEVICE:
             localParamValue = &m_clDefaultDeviceHandle;

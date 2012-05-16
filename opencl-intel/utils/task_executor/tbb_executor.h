@@ -111,7 +111,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(CommandListCreationParam* param);
 		unsigned int	Execute(ITaskBase * pTask);
-		te_wait_result	WaitForCompletion();
+		te_wait_result	WaitForCompletion(ITaskBase * pTask);
 
 		void Close(bool bCancel);
 

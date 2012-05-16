@@ -1,18 +1,11 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
-#include "cl_device_api.h"
-#include "CL/cl_platform.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif
 #include <float.h>
-
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 #define BUFFERS_LENGTH 20000
 //#define TASK_TEST
@@ -194,6 +187,16 @@ bool clExecutionTest()
 	}
 	printf("context = %p\n", context);
 
+    //
+    // Create queue
+    //
+    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
+	bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+
+	cl_context cntxInfo;
+	iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
+	bResult &= Check(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
+	bResult &= CheckHandle(L"clGetCommandQueueInfo - context", context, cntxInfo);
 
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
@@ -221,13 +224,6 @@ bool clExecutionTest()
         srcB[j] = 0.1f;
         dst[j] = 0.0f;
     }
-
-    //
-    // Create queue
-    //
-    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
-
 
     //
     // Create buffers
@@ -310,11 +306,13 @@ bool clExecutionTest()
 	    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
 	    bResult &= Check(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
 
-        iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
+		cl_event ndrEvent;
+        iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &ndrEvent);
         bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 
-		iRet = clFlush(queue1);
-        bResult &= Check(L"clFlush", CL_SUCCESS, iRet);    
+		iRet = clWaitForEvents(1, &ndrEvent);
+		bResult &= Check(L"clWaitForCompletion", CL_SUCCESS, iRet);
+
         //
         // Read results. wait for completion - blocking!
         //

@@ -29,9 +29,8 @@ namespace Intel { namespace OpenCL { namespace Framework
      */
 
     SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
-        IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints,
-        GraphicsApiMemoryObject** pMemObjects,bool bIsAcquireCmd) :
-      RuntimeCommand(cmdQueue, pOclEntryPoints), m_bIsAcquireCmd(bIsAcquireCmd), m_cmdType(cmdType), m_uiMemObjNum(uiMemObjNum)
+        IOclCommandQueueBase* cmdQueue, GraphicsApiMemoryObject** pMemObjects,bool bIsAcquireCmd) :
+      RuntimeCommand(cmdQueue), m_bIsAcquireCmd(bIsAcquireCmd), m_cmdType(cmdType), m_uiMemObjNum(uiMemObjNum)
     {
         m_pMemObjects = new GraphicsApiMemoryObject*[uiMemObjNum];
         MEMCPY_S(m_pMemObjects, sizeof(GraphicsApiMemoryObject*)*uiMemObjNum, pMemObjects, sizeof(GraphicsApiMemoryObject*)*uiMemObjNum);

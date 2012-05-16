@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints );
+        Command( IOclCommandQueueBase* cmdQueue );
         virtual ~Command();
         
         //
@@ -121,6 +121,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
         void            SetDevice(FissionableDevice* pDevice)               { m_pDevice = pDevice; }
         FissionableDevice* GetDevice() const                                { return m_pDevice; }
+
+		cl_dev_cmd_desc* GetDeviceCommandDescriptor();
         
 		// wrapper above Enqueue command to allow pre/post-fix commands
 		// pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
@@ -150,7 +152,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*      GPA_GetCommandName() const { return NULL; }
         
     protected:
-        Command(const Command& O) : OCLObjectBase("Command"), ICmdStatusChangedObserver(), m_Event(NULL, NULL) {}
+        Command(const Command& O) : OCLObjectBase("Command"), ICmdStatusChangedObserver(), m_Event(NULL) {}
         
         // retrieve device specific descriptor of the memory object.
         // If descriptor is not ready on a device:
@@ -233,7 +235,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class MemoryCommand : public Command
     {
     public:
-        MemoryCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ) : Command(cmdQueue, pOclEntryPoints) {}
+        MemoryCommand( IOclCommandQueueBase* cmdQueue ) : Command(cmdQueue) {}
     protected:        
         cl_dev_cmd_param_rw m_rwParams;
 
@@ -1100,8 +1102,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class RuntimeCommand : public Command
     {
     public:
-		RuntimeCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints,
-            bool bIsDependentOnEvents = false) : Command(cmdQueue, pOclEntryPoints),
+		RuntimeCommand( IOclCommandQueueBase* cmdQueue,
+            bool bIsDependentOnEvents = false) : Command(cmdQueue),
             m_bIsDependentOnEvents(bIsDependentOnEvents) {}
         virtual ~RuntimeCommand()                               {}
         virtual cl_err_code             Init()                  { return CL_SUCCESS; }
@@ -1125,8 +1127,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        MarkerCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
+        MarkerCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~MarkerCommand() {}
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_MARKER;  }
@@ -1140,8 +1142,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        WaitForEventsCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
+        WaitForEventsCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~WaitForEventsCommand() {}
         
         cl_command_type GetCommandType() const  { return CL_COMMAND_WAIT_FOR_EVENTS; }
@@ -1156,8 +1158,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        BarrierCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, pOclEntryPoints, bIsDependentOnEvents) {}
+        BarrierCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~BarrierCommand() {}
         
         cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }
@@ -1172,13 +1174,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ErrorQueueEvent : public OclEvent
 	{
 	public:
-		ErrorQueueEvent() : m_owner(NULL) {};
+		ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(NULL) {};
 		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
 		//Override to notify my command about failed events it depended on
 		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode);
-		// Get the context to which the event belongs.
-		virtual cl_context GetContextHandle() const;
+
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const; 
 
@@ -1195,11 +1196,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
 		// ITask interface
-		bool Execute();
-		long Release(); 
+		bool	SetAsSyncPoint();
+		bool	IsCompleted() const {return m_bIsCompleted;}
+		bool	CompleteAndCheckSyncPoint();
+		bool	Execute();
+		long	Release(); 
 
 	private:
 		PrePostFixRuntimeCommand*			m_owner;
+		bool								m_bIsCompleted;
 	};
 
     class PrePostFixRuntimeCommand : public RuntimeCommand
@@ -1207,8 +1212,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 		enum Mode { PREFIX_MODE = 0, POSTFIX_MODE };
 
-        PrePostFixRuntimeCommand(Command* relatedUserCommand,    Mode working_mode, 
-								 IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ); 
+        PrePostFixRuntimeCommand(Command* relatedUserCommand,
+									Mode working_mode, 
+									IOclCommandQueueBase* cmdQueue ); 
         virtual ~PrePostFixRuntimeCommand() {}
 
 		cl_err_code             Init();

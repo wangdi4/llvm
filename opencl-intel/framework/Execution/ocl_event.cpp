@@ -38,6 +38,8 @@ using namespace Intel::OpenCL::Framework;
 	#define UNUSED_ATTR
 #endif
 
+#define OCL_EVENT_COMPLETED	((Intel::OpenCL::Utils::OclOsDependentEvent*)(-1))
+
 static const char UNUSED_ATTR *GetEventStateName(const cl_int state)
 {
 #define CASE_ENTRY(x) case x: return #x;
@@ -55,17 +57,15 @@ static const char UNUSED_ATTR *GetEventStateName(const cl_int state)
 	return "error state";
 }
 
-OclEvent::OclEvent()
-	: OCLObject<_cl_event_int>("OclEvent"),
+OclEvent::OclEvent(_cl_context_int* context)
+	: OCLObject<_cl_event_int>(context, "OclEvent"),
 	  m_numOfDependencies(0),
 	  m_complete(false), m_returnCode(CL_SUCCESS),
-	  m_eventState(EVENT_STATE_CREATED)
+	m_eventState(EVENT_STATE_CREATED)
 {
-	/** On Windows the actual state change triggers all dependencies. On Linux we use os event instead. **/
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	bool UNUSED_ATTR initOK = m_osEvent.Init();
-	assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event.");
-#endif
+	m_pContext = (Context*)context->object;
+	m_pContext->AddPendency(this);
+	m_pCurrentEvent = NULL;
 }
 
 OclEvent::~OclEvent()
@@ -74,6 +74,16 @@ OclEvent::~OclEvent()
 	ExpungeObservers(m_CompleteObserversList);
 	ExpungeObservers(m_SubmittedObserversList);
 	ExpungeObservers(m_RunningObserversList);
+
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	if ( (NULL != m_pCurrentEvent) &&
+		(OCL_EVENT_COMPLETED!=m_pCurrentEvent))
+	{
+		((Context*)GetParentHandle()->object)->RecycleOSEvent(m_pCurrentEvent);
+		m_pCurrentEvent = NULL;
+	}
+#endif
+	m_pContext->RemovePendency(this);
 }
 
 void OclEvent::ExpungeObservers(ObserversList_t &list)
@@ -123,7 +133,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyLis
 		if (evt != NULL)
 		{
 			// Normal flow, add the dependency
-			AddPendency(this); //BugFix: When command waits for queue event and user event,
+			AddPendency(evt); //BugFix: When command waits for queue event and user event,
 			// and user event is set with failure, the second notification will fail
 			// do not: SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 			evt->AddObserver(this); // might trigger this immediately, if evt already occurred.
@@ -210,9 +220,6 @@ OclEventState OclEvent::SetEventState(const OclEventState newEventState)
 		case CL_COMPLETE:
 			//std::cerr << "SetEventState CL_COMPLETE (" << GetReturnCode() << ") (" << GetEventStateName(m_eventState) << ") " << this << std::endl;
 			/** On Windows the actual state change triggers all dependencies. On Linux we use os event instead. **/
-			#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-				m_osEvent.Signal();
-			#endif
 			NotifyComplete(GetReturnCode());
 			break;
 
@@ -243,14 +250,25 @@ cl_err_code OclEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnC
 		DoneWithDependencies(pEvent);
 	}
 
+	RemovePendency(pEvent);	// Remove pendency that was set in AddDependentOnMulti
 	return CL_SUCCESS;
 }
 
 
 void OclEvent::NotifyComplete(cl_int returnCode)
 {
+	assert(!m_complete && "Trying second notification");
 	//block further requests to add notifiers
 	m_complete = true;
+
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+
+	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, OCL_EVENT_COMPLETED);
+	if ( NULL != pPrevEvent )
+	{
+		pPrevEvent->Signal();
+	}
+#endif
 
 	NotifyObservers(returnCode);
 }
@@ -325,15 +343,18 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 void OclEvent::Wait()
 {
     AddPendency(NULL);
+	if ( !m_complete )
+	{
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
-	WaitSpin();
+		WaitSpin();
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_YIELD
-	WaitYield();
+		WaitYield();
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	WaitOSEvent();
+		WaitOSEvent();
 #else
 #error "Please define which wait method OclEvent should use. See ocl_event.h"
 #endif
+	}
     RemovePendency(NULL);
 }
 
@@ -353,7 +374,33 @@ void OclEvent::WaitYield()
 void OclEvent::WaitOSEvent()
 {
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	m_osEvent.Wait();
+	Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent =
+		((Context*)(GetParentHandle()->object))->GetOSEvent();
+	if ( NULL == pOsEvent )
+	{
+		assert ( pOsEvent && "Can't retive OS event");
+		WaitYield();
+		return;
+	}
+
+	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, pOsEvent);
+	if ( NULL != pPrevEvent )
+	{
+		// If previous value is set, the event is completed or already set
+		// Current event should be returned to the pool
+		((Context*)(GetParentHandle()->object))->RecycleOSEvent(pOsEvent);
+		if ( OCL_EVENT_COMPLETED == pPrevEvent )
+		{
+			// If event completed, exit
+			return;
+		}
+	}
+	else
+	{
+		pPrevEvent = pOsEvent;
+	}
+
+	pPrevEvent->Wait();
 #else
 	WaitYield();
 #endif
@@ -384,3 +431,4 @@ cl_int OclEvent::GetEventExecState() const
 		return CL_COMPLETE;
 	}        
 }
+

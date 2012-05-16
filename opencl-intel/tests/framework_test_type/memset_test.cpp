@@ -1,13 +1,8 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include <time.h>
 #include "FrameworkTest.h"
-
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 extern cl_device_type gDeviceType;
 

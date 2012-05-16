@@ -7,18 +7,11 @@
 
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
 #include "FrameworkTest.h"
 #include <emmintrin.h>
-
-
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
-
 
 #define BUFFER_SIZE 128	// number of iterations the test will do 
 #define MAX_BUFFS 3			//max number of arguments to a kernel

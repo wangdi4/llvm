@@ -40,8 +40,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject, FissionableDevice* pDevice );
 
-		// Get the context to which the event belongs.
-		cl_context GetContextHandle() const { return NULL;}
 		// Get the return code of the command associated with the event.
 		cl_int     GetReturnCode() const {return 0;}
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const

@@ -39,10 +39,9 @@ ImmediateCommandQueue::ImmediateCommandQueue(
 	Context*                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
-	EventsManager*              pEventManager,
-	ocl_entry_points *			pOclEntryPoints
+	EventsManager*              pEventManager
 	) :
-	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager, pOclEntryPoints)
+	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager)
 {
 }
 ImmediateCommandQueue::~ImmediateCommandQueue() 

@@ -37,11 +37,9 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Sampler::Sampler() : OCLObject<_cl_sampler_int>("Sampler")
+Sampler::Sampler(_cl_context_int* context) : OCLObject<_cl_sampler_int>(context, "Sampler")
 {
 	INIT_LOGGER_CLIENT(L"Sampler",LL_DEBUG);
-	
-	m_handle.object = this;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler D'tor
@@ -53,7 +51,8 @@ Sampler::~Sampler()
 
 	RELEASE_LOGGER_CLIENT;
 }
-cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, ocl_entry_points * pOclEntryPoints)
+
+cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode)
 {
 	LOG_DEBUG(TEXT("%S"), TEXT("Enter Initialize"));
 
@@ -109,8 +108,6 @@ cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, c
 	default:
 		return CL_INVALID_VALUE;
 	}
-
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 
 	return CL_SUCCESS;
 }

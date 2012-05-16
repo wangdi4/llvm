@@ -1,11 +1,8 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "string.h"
-using namespace Intel::OpenCL::Framework;
 
 /**************************************************************************************************
 * clGetPlatformInfoTest

@@ -46,8 +46,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			Context*                    pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager,
-			ocl_entry_points *			pOclEntryPoints
+			EventsManager*              pEventManager
 			);
 		~OutOfOrderCommandQueue();
 
@@ -74,6 +73,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
 		Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
 		Intel::OpenCL::Utils::AtomicPointer<Command> m_lastBarrier;
+		Intel::OpenCL::Utils::OclSpinMutex			m_muLastBarrer; //TODO: find better way to handle data race on lastBarrier
 		// Is meant to optimize away flushes made to an empty queue
 		Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
 

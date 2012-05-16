@@ -1,10 +1,10 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
-using namespace Intel::OpenCL::Framework;
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 extern cl_device_type gDeviceType;
 

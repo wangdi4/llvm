@@ -754,10 +754,10 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
     }
     else
     {
-        size_t uiNumContextDevices = 0;
+        cl_uint uiNumContextDevices = 0;
         cl_device_id* pContextDevices = pContext->GetDeviceIds(&uiNumContextDevices);
 
-        clErrRet = pContext->CreateProgramForLink(uiNumContextDevices, pContextDevices, &pProgram);
+        clErrRet = pContext->CreateProgramForLink((cl_uint)uiNumContextDevices, pContextDevices, &pProgram);
 	    if (CL_FAILED(clErrRet))
 	    {
 		    if (NULL != pErrcodeRet)

@@ -1810,7 +1810,7 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
  clDevCommandListExecute
     Call clDevCommandListWaitCompletion to add calling thread to execution pool
 ********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list)
+cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCommandListWaitCompletion Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
@@ -1818,7 +1818,8 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     {
         return CL_DEV_INVALID_VALUE;
     }
-    return pList->task_dispatcher->commandListWaitCompletion(pList->cmd_list);
+
+	return pList->task_dispatcher->commandListWaitCompletion(pList->cmd_list, cmdToWait);
 }
 
 //Memory API's

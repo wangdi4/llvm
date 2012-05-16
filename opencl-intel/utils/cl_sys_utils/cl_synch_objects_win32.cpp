@@ -274,6 +274,18 @@ void OclOsDependentEvent::Signal()
 	}
 }
 
+void OclOsDependentEvent::Reset()
+{
+	if (m_eventRepresentation != NULL)
+	{
+		ResetEvent(m_eventRepresentation);
+	}
+	else
+	{
+		assert(m_eventRepresentation && "m_eventRepresentation is NULL pointer");
+	}
+}
+
 OclBinarySemaphore::OclBinarySemaphore()
 {
     m_semaphore = CreateEvent(NULL, false, false, NULL);

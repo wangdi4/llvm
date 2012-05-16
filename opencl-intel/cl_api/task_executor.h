@@ -94,9 +94,21 @@ class ITaskBase
 {
 public:
 	// Returns whether the executed task is a task set.
-    virtual bool	IsTaskSet() = 0;
+    virtual bool	IsTaskSet() const = 0;
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+
+	// Returns true in case current task is a syncronization point
+	// No more tasks will be executed in this case
+	virtual bool	CompleteAndCheckSyncPoint() = 0;
+	
+	// Set current command as syncronization point
+	// Returns true if command is already completed
+	virtual bool	SetAsSyncPoint() = 0;
+
+	// Returns true if command is already completed
+	virtual bool	IsCompleted() const = 0;
+
     // Releases task object, shall be called instead of delete operator.
     virtual long	Release() = 0;
 };
@@ -106,7 +118,7 @@ public:
 class ITask : public ITaskBase
 {
 public:
-	bool	IsTaskSet() {return false;}
+	bool	IsTaskSet() const {return false;}
 	// Task execution routine, will be called by task executor
 	// return false when task execution fails
 	virtual bool	Execute() = 0;
@@ -119,7 +131,7 @@ public:
 class ITaskSet: public ITaskBase
 {
 public:
-	bool	IsTaskSet() {return true;}
+	bool	IsTaskSet() const {return true;}
 	// Initialization function. This functions is called before the "main loop"
 	// Generally initializes internal data structures
 	// Fills the buffer with 3D number of iterations to run
@@ -146,7 +158,8 @@ public:
     virtual void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId = -1) = 0;
 
     // Final stage, free execution resources
-	virtual void	Finish(FINISH_REASON reason) = 0;
+	// Return false when command execution fails
+	virtual bool	Finish(FINISH_REASON reason) = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -156,15 +169,16 @@ class ITaskList
 public:
     // Enqueue a given task for execution, the function is asynchronous and exits immediately.
     // Returns actual number of enqueued tasks
-    // Task execution may be started immediately or cashed till Flush() command
-	virtual unsigned int	Enqueue(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
+    // Task execution may be started immediately or postponed till Flush() command
+	virtual unsigned int	Enqueue(ITaskBase* pTask) = 0; // Dynamically detect Task or TaskSet
 
 	// Ensures that all task were send to execution, non-blocking function
     virtual bool			Flush() = 0;
 
 	// Add the calling thread to execution pool
-	// Function blocks, until all tasks belonging to the list are completed.
-	virtual te_wait_result WaitForCompletion() = 0;
+	// Function blocks, until the pTask is completed or in case of NULL
+	// all tasks belonging to the list are completed.
+	virtual te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) = 0;
 
     // Releases task object, shall be called instead of delete operator.
     virtual void			Release() = 0;
@@ -196,7 +210,7 @@ public:
 	// Add the calling thread to execution pool
 	// Function blocks, until all independent tasks are completed.
 	// Return false, if the calling thread was not joined the execution
-	virtual te_wait_result WaitForCompletion() = 0;
+	virtual te_wait_result WaitForCompletion(ITaskBase * pTask) = 0;
 
 	virtual void ReleasePerThreadData() = 0;
 

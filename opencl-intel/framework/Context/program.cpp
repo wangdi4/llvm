@@ -42,11 +42,10 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Program::Program(Context * pContext, ocl_entry_points * pOclEntryPoints) : OCLObject<_cl_program_int>("Program"), m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
+Program::Program(Context * pContext) :
+	OCLObject<_cl_program_int>((_cl_context_int*)pContext->GetHandle(), "Program"),
+	m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
-	m_handle.object   = this;
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
-
 	m_pContext->AddPendency(this);
 }
 
@@ -552,7 +551,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	//}
 
 	// create new kernel object
-	Kernel * pKernel = new Kernel(this, psKernelName, m_szNumAssociatedDevices, (ocl_entry_points*)&m_handle);
+	Kernel * pKernel = new Kernel(this, psKernelName, m_szNumAssociatedDevices);
 	pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// next step - for each device that has the kernel, create device kernel 

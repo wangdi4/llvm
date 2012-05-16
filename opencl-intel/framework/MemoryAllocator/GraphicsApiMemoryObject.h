@@ -59,9 +59,9 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/13/2011
          */
 
-        GraphicsApiMemoryObject(Context* pContext, ocl_entry_points* pOclEntryPoints) :
-          MemoryObject(pContext, pOclEntryPoints), m_pAcquireEvent(NULL),
-	  m_clAcquireState(CL_SUCCESS), m_pChildObject(NULL) { }
+        GraphicsApiMemoryObject(Context* pContext) :
+          MemoryObject(pContext), m_pAcquireEvent(NULL),
+			m_clAcquireState(CL_SUCCESS), m_pChildObject(NULL) { }
 
         /**
          * @fn  virtual GraphicsApiMemoryObject::~GraphicsApiMemoryObject();

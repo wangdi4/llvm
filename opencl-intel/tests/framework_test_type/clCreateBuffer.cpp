@@ -2,8 +2,6 @@
 
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 
 #define PROVISIONAL_MALLOC_SIZE 100
 #include "cl_provisional.h"
@@ -11,9 +9,6 @@
 #include "TestsHelpClasses.h"
 
 #include "FrameworkTest.h"
-
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 extern cl_device_type gDeviceType;
 

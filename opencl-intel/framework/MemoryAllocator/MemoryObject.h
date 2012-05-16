@@ -325,7 +325,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code registerDtorNotifierCallback(mem_dtor_fn pfn_notify, void* pUserData);
 
 		protected:
-			MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints);
+			MemoryObject(Context* pContext);
 			virtual ~MemoryObject();
 
 			void		NotifyDestruction();

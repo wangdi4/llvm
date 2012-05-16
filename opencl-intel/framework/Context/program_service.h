@@ -147,7 +147,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        BuildTask(cl_context context);
+        BuildTask(_cl_context_int* context);
 
 	    virtual bool	Execute() = 0;
 
@@ -168,17 +168,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        CompileTask(cl_context              context,
+        CompileTask(_cl_context_int*        context,
                     cl_device_id            deviceID,
                     const FrontEndCompiler* pFECompiler,
                     const char*             szSource,
                     unsigned int            uiNumHeaders,
                     const char**            pszHeaders,
-                    char**            pszHeadersNames,
+                    char**					pszHeadersNames,
                     const char*             szOptions,
                     Program*                pProg);
 
-	    virtual bool	Execute();
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	CompleteAndCheckSyncPoint() {return false;}
+		bool	Execute();
 
     protected:
 
@@ -201,23 +204,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        LinkTask(cl_context              context,
+        LinkTask(_cl_context_int*         context,
                  cl_device_id            deviceID,
                  const FrontEndCompiler* pFECompiler,
-                 IOCLDeviceAgent*  pDeviceAgent,
+                 IOCLDeviceAgent*		 pDeviceAgent,
                  Program**               ppBinaries,
                  unsigned int            uiNumBinaries,
                  const char*             szOptions,
                  Program*                pProg);
 
-	    virtual bool	Execute();
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	CompleteAndCheckSyncPoint() {return false;}
+	    bool	Execute();
 
     protected:
 
         ~LinkTask();
 
-        cl_device_id            m_deviceID;
-        const FrontEndCompiler*       m_pFECompiler;
+        cl_device_id			m_deviceID;
+        const FrontEndCompiler* m_pFECompiler;
         IOCLDeviceAgent*        m_pDeviceAgent;
 
         Program**               m_ppPrograms;
@@ -232,7 +238,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        PostBuildTask(cl_context          context,
+        PostBuildTask(_cl_context_int*    context,
                       cl_uint             num_devices,
                       const cl_device_id* deviceID,
                       unsigned int        uiNumHeaders,
@@ -245,7 +251,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
                       pfnNotifyBuildDone  pfn_notify,
                       void*               user_data);
 
-	    virtual bool	Execute();
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	CompleteAndCheckSyncPoint() {return false;}
+	    bool	Execute();
 
     protected:
 

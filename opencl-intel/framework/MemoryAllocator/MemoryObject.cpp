@@ -36,7 +36,8 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoints): OCLObject<_cl_mem_int>("MemoryObject"),
+MemoryObject::MemoryObject(Context* pContext):
+	OCLObject<_cl_mem_int>(pContext->GetHandle(), "MemoryObject"),
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
 	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
 	m_mapCount(0), m_pMappedDevice(NULL), m_stMemObjSize(0)
@@ -48,9 +49,6 @@ MemoryObject::MemoryObject(Context * pContext, ocl_entry_points * pOclEntryPoint
 	m_pContext->AddPendency(this);
 
 	m_mapMappedRegions.clear();
-
-	m_handle.object   = this;
-	*((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 }
 
 MemoryObject::~MemoryObject()

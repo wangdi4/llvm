@@ -64,9 +64,9 @@ using namespace Intel::OpenCL::Utils;
 /******************************************************************
  *
  ******************************************************************/
-Command::Command( IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ):
+Command::Command( IOclCommandQueueBase* cmdQueue ):
     OCLObjectBase("Command"),
-    m_Event(cmdQueue, pOclEntryPoints),
+    m_Event(cmdQueue),
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
 	m_pCommandQueue(cmdQueue),
@@ -398,6 +398,13 @@ void Command::GPA_DestroyCommand()
 #endif
 }
 
+cl_dev_cmd_desc* Command::GetDeviceCommandDescriptor()
+{
+	if ( GetExecutionType() == DEVICE_EXECUTION_TYPE )
+		return &m_DevCmd;
+
+	return NULL;
+}
 /******************************************************************
  * function to be used by all commands that need to write/read data
  ******************************************************************/
@@ -460,7 +467,7 @@ CopyMemObjCommand::CopyMemObjCommand(
 						const size_t	szSrcSlicePitch = 0,
 						const size_t	szDstRowPitch	= 0,
 						const size_t	szDstSlicePitch	= 0):
-    MemoryCommand(cmdQueue, pOclEntryPoints),
+    MemoryCommand(cmdQueue),
 	m_szSrcRowPitch(szSrcRowPitch),
 	m_szSrcSlicePitch(szSrcSlicePitch),
 	m_szDstRowPitch(szDstRowPitch),
@@ -790,7 +797,7 @@ MapMemObjCommand::MapMemObjCommand(
             size_t*         pszImageRowPitch,
             size_t*         pszImageSlicePitch
             ):
-    Command(cmdQueue, pOclEntryPoints),
+    Command(cmdQueue),
     m_clMapFlags(clMapFlags),
     m_pszImageRowPitch(pszImageRowPitch),
     m_pszImageSlicePitch(pszImageSlicePitch),
@@ -872,7 +879,7 @@ cl_err_code MapMemObjCommand::Init()
 	if ((0 == (CL_MAP_WRITE_INVALIDATE_REGION & m_pMappedRegion->flags))	&&		// region was not mapped for overriding by host
 		(pMemObj->IsSynchDataWithHostRequired( m_pMappedRegion, m_pHostDataPtr )))
 	{
-		m_pPostfixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue(), m_pOclEntryPoints );
+		m_pPostfixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue() );
 
 		if (NULL != m_pPostfixCommand)
 		{
@@ -1004,9 +1011,11 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		m_pPostfixCommand = NULL;	// in the case 'this' will disappear
 
 		// 'this' may disapper after the self-enqueue is successful!
-		err = Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
+		// First command should be BLOCKING
+		err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
 		if (CL_FAILED(err))
 		{
+			LogErrorA("Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x", GetCommandName(), m_Event.GetId(), err);
 			// enqueue unsuccessful - 'this' still alive
 			m_pPostfixCommand = postfix; // restore
 			return err;
@@ -1015,6 +1024,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
 		if (CL_FAILED(err))
 		{
+			LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event.GetId(), err);
 			// oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
 			// pEvent and be able to make other commands dependent on it
 			if (NULL != pEvent)
@@ -1104,7 +1114,7 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
  ******************************************************************/
 UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, 
 											 MemoryObject* pMemObject, void* pMappedPtr):
-	Command(cmdQueue, pOclEntryPoints),
+	Command(cmdQueue),
     m_pMemObject(pMemObject, MemoryObject::READ_WRITE),
     m_pMappedPtr(pMappedPtr),
     m_pActualMappingDevice(NULL),
@@ -1162,7 +1172,7 @@ cl_err_code UnmapMemObjectCommand::Init()
 	if ((0 != ((CL_MAP_WRITE|CL_MAP_WRITE_INVALIDATE_REGION) & m_pMappedRegion->flags)) && // region was mapped for writing on host 
 		pMemObj->IsSynchDataWithHostRequired( m_pMappedRegion, m_pMappedPtr ))
 	{
-		m_pPrefixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue(), m_pOclEntryPoints );
+		m_pPrefixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue() );
 
 		if (NULL != m_pPrefixCommand)
 		{
@@ -1343,7 +1353,8 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
 		cl_event 			  intermediate_pEvent;
 		EventsManager*	event_manager = GetCommandQueue()->GetEventsManager();
 
-		err = m_pPrefixCommand->EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
+		// The first command is always NON-BLOCKING
+		err = m_pPrefixCommand->EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
 		if (CL_FAILED(err))
 		{
 			return err;
@@ -1379,7 +1390,7 @@ NativeKernelCommand::NativeKernelCommand(
            cl_uint             uNumMemObjects,
            MemoryObject**      ppMemObjList,
            const void**        ppArgsMemLoc):
-Command(cmdQueue, pOclEntryPoints),
+	Command(cmdQueue),
     m_pUserFnc(pUserFnc),
     m_pArgs(pArgs),
     m_szCbArgs(szCbArgs),
@@ -1552,7 +1563,7 @@ NDRangeKernelCommand::NDRangeKernelCommand(
     const size_t*   cpszGlobalWorkSize,
     const size_t*   cpszLocalWorkSize
     ):
-Command(cmdQueue, pOclEntryPoints),
+Command(cmdQueue),
 m_pKernel(pKernel),
 m_uiWorkDim(uiWorkDim),
 m_cpszGlobalWorkOffset(cpszGlobalWorkOffset),
@@ -1911,7 +1922,7 @@ ReadMemObjCommand::ReadMemObjCommand(
 	const size_t    szDstRowPitch,
     const size_t    szDstSlicePitch
     ):
-	MemoryCommand(cmdQueue, pOclEntryPoints),
+	MemoryCommand(cmdQueue),
     m_pMemObj(pMemObj),
     m_szMemObjRowPitch(szRowPitch),
     m_szMemObjSlicePitch(szSlicePitch),
@@ -2158,7 +2169,7 @@ WriteMemObjCommand::WriteMemObjCommand(
 	const size_t    szSrcRowPitch,
 	const size_t    szSrcSlicePitch
     ):
-	MemoryCommand(cmdQueue, pOclEntryPoints),
+	MemoryCommand(cmdQueue),
     m_pMemObj(pMemObj,MemoryObject::READ_WRITE),
 	m_bBlocking(bBlocking),
     m_szMemObjRowPitch(szRowPitch),
@@ -2364,7 +2375,7 @@ FillMemObjCommand::FillMemObjCommand(
 		const void*     pattern,
 		const size_t    pattern_size
 	) :
-	Command(cmdQueue, pOclEntryPoints),
+	Command(cmdQueue),
 	m_numOfDimms(numOfDimms), m_pattern_size(pattern_size),
 	m_internalErr(CL_SUCCESS)
 {
@@ -2391,7 +2402,7 @@ FillMemObjCommand::FillMemObjCommand(
             const void*     pattern,
             const size_t    pattern_size
         ) :
-        Command(cmdQueue, pOclEntryPoints),
+        Command(cmdQueue),
         m_numOfDimms(1), m_pattern_size(pattern_size),
         m_internalErr(CL_SUCCESS)
 {
@@ -2512,7 +2523,7 @@ MigrateMemObjCommand::MigrateMemObjCommand(
         cl_uint                uNumMemObjects,
         const cl_mem*          pMemObjects
 	): 
-	Command(cmdQueue, pOclEntryPoints),
+	Command(cmdQueue),
     m_pMemObjects(pMemObjects), m_pContextModule( pContextModule )
 {
     assert( 0 != uNumMemObjects );
@@ -2561,7 +2572,7 @@ cl_err_code MigrateMemObjCommand::Init()
     MemoryObject::MemObjUsage access = (0 != (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ?
                             MemoryObject::WRITE_ENTIRE : MemoryObject::READ_ONLY; // use READ_ONLY for optimization
     
-    Context* const pQueueContext = m_pContextModule->GetContext(m_pCommandQueue->GetContextHandle());
+    Context* const pQueueContext = m_pContextModule->GetContext(m_pCommandQueue->GetParentHandle());
     for (cl_uint i = 0; i < m_migrateCmdParams.mem_num; i++)
     {
         MemoryObject* pMemObj = m_pContextModule->GetMemoryObject(m_pMemObjects[i]);
@@ -2631,14 +2642,6 @@ cl_err_code ErrorQueueEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int 
 /******************************************************************
  *
  ******************************************************************/
-cl_context ErrorQueueEvent::GetContextHandle() const
-{
-	return m_owner->GetEvent()->GetContextHandle(); 
-}
-
-/******************************************************************
- *
- ******************************************************************/
 cl_int     ErrorQueueEvent::GetReturnCode() const
 {
 	return m_owner->GetForcedErrorCode();
@@ -2653,13 +2656,16 @@ cl_err_code	ErrorQueueEvent::GetInfo(cl_int iParamName, size_t szParamValueSize,
  *
  ******************************************************************/
 PrePostFixRuntimeCommand::PrePostFixRuntimeCommand( 
-	Command* relatedUserCommand, Mode working_mode, IOclCommandQueueBase* cmdQueue, ocl_entry_points * pOclEntryPoints ): 
-	RuntimeCommand(cmdQueue, pOclEntryPoints), 
+	Command* relatedUserCommand, Mode working_mode, IOclCommandQueueBase* cmdQueue ): 
+	RuntimeCommand(cmdQueue), 
 	m_relatedUserCommand(relatedUserCommand), 
 	m_working_mode( working_mode ),
-	m_force_error_return(CL_SUCCESS)
+	m_force_error_return(CL_SUCCESS),
+	m_error_event(cmdQueue->GetParentHandle())
 {
 	assert( NULL != m_relatedUserCommand );
+
+	m_commandType = relatedUserCommand->GetCommandType();
 	
 	m_error_event.Init( this );
 	m_error_event.AddPendency( this ); // ensure event will never be deleted externally
@@ -2673,8 +2679,10 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
  ******************************************************************/
 cl_err_code PrePostFixRuntimeCommand::Init()
 {
+	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
+
 	// related command should not disapper before I finished
-	m_relatedUserCommand->GetEvent()->AddPendency( this );
+	related_event->AddPendency( this );
 
 	// Initialize GPA data
 	GPA_InitCommand();
@@ -2744,14 +2752,15 @@ void PrePostFixRuntimeCommand::DoAction()
 
 	m_returnCode = CL_SUCCESS;
 
-	NotifyCmdStatusChanged(0, CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
+	cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event.GetId();
+	NotifyCmdStatusChanged(id, CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
 
 	m_returnCode = ( PREFIX_MODE == m_working_mode ) ?
 						m_relatedUserCommand->PrefixExecute() 
 						:
 						m_relatedUserCommand->PostfixExecute();
 
-	NotifyCmdStatusChanged(0, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
+	NotifyCmdStatusChanged(id, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
 
 	LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
 }
@@ -2783,9 +2792,21 @@ cl_err_code PrePostFixRuntimeCommand::Execute()
 /******************************************************************
  *
  ******************************************************************/
+bool RuntimeCommandTask::SetAsSyncPoint()
+{
+	assert(0 && "Should not get here");
+	return false;
+}
+
+bool RuntimeCommandTask::CompleteAndCheckSyncPoint()
+{
+	return false;
+}
+
 bool RuntimeCommandTask::Execute()
 {
 	m_owner->DoAction();
+	m_bIsCompleted = true;
 	return true;
 }
 

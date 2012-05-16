@@ -167,18 +167,6 @@ OclCondition::OclCondition():
 m_ulNumWaiters(0)
 {
 	assert(0 && "AdirD Not implemented in Linux");
-
-#if defined(WIN32)
-
-    // Signal event is an auto-reset event, only 1 thread released.
-    // Fairness is not guaranteed,
-    m_signalEvent = (void*)CreateEvent(NULL,FALSE,FALSE,NULL);
-
-    // Broadcast event is a manual-reset event. When signaled all threads are released
-    m_broadcastEvent = CreateEvent (NULL, TRUE, FALSE, NULL);
-
-#endif
-
 }
 
 /************************************************************************
@@ -188,19 +176,7 @@ m_ulNumWaiters(0)
  ************************************************************************/
 OclCondition::~OclCondition()
 {
-
 	assert(0 && "AdirD Not implemented in Linux");
-
-#if defined(WIN32)
-
-    assert(m_ulNumWaiters == 0);
-    // Free all ...
-    CloseHandle(m_signalEvent);
-    CloseHandle(m_broadcastEvent);
-    m_signalEvent = NULL;
-    m_broadcastEvent = NULL;
-
-#endif
 }
 
 /************************************************************************
@@ -211,37 +187,7 @@ COND_RESULT OclCondition::Wait(IMutex* mutexObj)
 
 	assert(0 && "AdirD Not implemented in Linux");
 
-    COND_RESULT res = COND_RESULT_OK;
-#if defined(WIN32)
-
-    if(NULL == mutexObj)
-    {
-        return COND_RESULT_FAIL;
-    }
-    { OclAutoMutex lock(&m_numWaitersMutex);
-        m_ulNumWaiters++;
-    }
-    // Released the attached Mutex
-    mutexObj->Unlock();
-    // Wait both for broadcast and single, but act differently.
-    DWORD waitRes = WaitForMultipleObjects(2, &m_signalEvent,FALSE, INFINITE);
-    // Critical section - check if it is the last waiter on a broadcast
-    // If it is, reset the manual-reset event
-    bool resetEvent = false;
-    { OclAutoMutex lock(&m_numWaitersMutex);
-        m_ulNumWaiters--;
-        resetEvent = ((m_ulNumWaiters == 0 ) && (waitRes == WAIT_OBJECT_0 + 1)); // Reset event only at the end
-    }
-    if(waitRes == WAIT_OBJECT_0 + 1)    // Second object is the broadcast event
-        res = COND_RESULT_COND_BROADCASTED;
-    if(resetEvent)
-    {
-        ResetEvent(m_broadcastEvent);
-    }
-    // Acquire the Mutex
-    mutexObj->Lock();
-#endif
-    return res;
+    return COND_RESULT_OK;
 }
 
 /************************************************************************
@@ -249,22 +195,8 @@ COND_RESULT OclCondition::Wait(IMutex* mutexObj)
  ************************************************************************/
 COND_RESULT OclCondition::Signal()
 {
-
 	assert(0 && "AdirD Not implemented in Linux");
-
-#if defined(WIN32)
-
-    OclAutoMutex lock(&m_numWaitersMutex);
-    if( m_ulNumWaiters > 0 )
-    {
-        // There are waiters
-        SetEvent((HANDLE)m_signalEvent);
-    }
-    return COND_RESULT_OK;
-
-#else
-    return COND_RESULT_OK;
-#endif
+	return COND_RESULT_OK;
 }
 
 /************************************************************************
@@ -272,22 +204,8 @@ COND_RESULT OclCondition::Signal()
  ************************************************************************/
 COND_RESULT OclCondition::Broadcast()
 {
-
 	assert(0 && "AdirD Not implemented in Linux");
-
-#if defined(WIN32)
-
-    OclAutoMutex lock(&m_numWaitersMutex);
-    if(m_ulNumWaiters > 0 )
-    {
-        // There are waiters
-        SetEvent((HANDLE)m_broadcastEvent);
-    }
     return COND_RESULT_OK;
-
-#else
-    return COND_RESULT_OK;
-#endif
 }
 
 /************************************************************************
@@ -383,6 +301,18 @@ void OclOsDependentEvent::Signal()
 	else
 	{
 		assert(m_eventRepresentation && "m_eventRepresentation is NULL pointer");
+	}
+}
+
+void OclOsDependentEvent::Reset()
+{
+	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
+	assert((pEvent != NULL) && "Event not initialized");
+	if (pEvent != NULL)
+	{
+		pthread_mutex_lock(&(pEvent->mutex));
+		pEvent->isFired = false;
+		pthread_mutex_unlock(&(pEvent->mutex));
 	}
 }
 

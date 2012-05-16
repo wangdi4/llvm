@@ -62,7 +62,7 @@ public:
 	virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
 	virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
 	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
@@ -107,6 +107,9 @@ protected:
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
 
 		// ITask interface
+		bool	CompleteAndCheckSyncPoint() {return false;}
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	Execute();
 		long	Release() {delete this; return 0;}
 	protected:
@@ -129,7 +132,7 @@ public:
     
     virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
     virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
 
   	virtual cl_dev_err_code init();
 
@@ -180,12 +183,15 @@ public:
 	virtual ~AffinitizeThreads();
 
 	// ITaskSet interface
+	bool SetAsSyncPoint()  { return false;}
+	bool CompleteAndCheckSyncPoint() { return true;}
+	bool IsCompleted() const { return true;}
 	int	Init(size_t region[], unsigned int &regCount);
 	int	AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
 	int	DetachFromThread(unsigned int uiWorkerId);
 	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
 	void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId) {}
-	void	Finish(FINISH_REASON reason) {};
+	bool	Finish(FINISH_REASON reason) {return false;}
 	long    Release() { delete this; return 0;}
 
 protected:

@@ -40,8 +40,8 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-GenericMemObject::GenericMemObject(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType) :
-	MemoryObject(pContext, pOclEntryPoints),
+GenericMemObject::GenericMemObject(Context * pContext, cl_mem_object_type clObjType) :
+	MemoryObject(pContext),
     m_BS(NULL), m_active_groups_count(0)
 {
 	INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
@@ -927,7 +927,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		clFlags = m_clFlags;
 	}
 
-	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, (ocl_entry_points*)&m_handle, m_clMemObjectType, *this);
+	GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, m_clMemObjectType, *this);
 	if ( NULL == pSubBuffer )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -1243,8 +1243,8 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 // SingleUnifiedSubBuffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(Context * pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer)
-	: GenericMemObject(pContext, pOclEntryPoints, clObjType), m_rBuffer(buffer)
+GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(Context * pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
+	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer)
 {
 }
 

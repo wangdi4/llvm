@@ -48,7 +48,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 // Since we need the PostBuildTask to be executed even when a build fail in order to clean up all the used resources.
 // All the tasks return CL_BUILD_SUCCESS even on error and use program state to notify error.
 
-BuildTask::BuildTask(cl_context context) : BuildEvent(context)
+BuildTask::BuildTask(_cl_context_int* context) : BuildEvent(context)
 {
 }
 
@@ -73,7 +73,7 @@ unsigned int BuildTask::Launch()
     return TaskExecutor::GetTaskExecutor()->Execute(this);
 }
 
-CompileTask::CompileTask(cl_context              context,
+CompileTask::CompileTask(_cl_context_int*        context,
                          cl_device_id            deviceID,
                          const FrontEndCompiler* pFECompiler,
                          const char*             szSource,
@@ -139,7 +139,7 @@ bool CompileTask::Execute()
 	return true;
 }
 
-LinkTask::LinkTask(cl_context               context, 
+LinkTask::LinkTask(_cl_context_int*               context, 
                    cl_device_id             deviceID, 
                    const FrontEndCompiler*  pFECompiler, 
                    IOCLDeviceAgent*   pDeviceAgent, 
@@ -323,7 +323,7 @@ bool LinkTask::Execute()
 	  return true;
 }
 
-PostBuildTask::PostBuildTask(cl_context context, 
+PostBuildTask::PostBuildTask(_cl_context_int* context, 
                              cl_uint num_devices, 
                              const cl_device_id *deviceID, 
                              unsigned int uiNumHeaders, 
@@ -487,7 +487,7 @@ cl_err_code ProgramService::CompileProgram(Program *program,
         return CL_INVALID_VALUE;
     }
 
-    cl_context context = m_pContext->GetHandle();
+    _cl_context_int* context = (_cl_context_int*)m_pContext->GetHandle();
     cl_uint uiNumDevices = program->GetNumDevices();
 
     if (0 == uiNumDevices)
@@ -834,7 +834,7 @@ cl_err_code ProgramService::LinkProgram(Program *program,
         return CL_INVALID_VALUE;
     }
 
-    cl_context context = m_pContext->GetHandle();
+    _cl_context_int* context = (_cl_context_int*)m_pContext->GetHandle();
     cl_uint uiNumDevices = program->GetNumDevices();
 
     if (0 == uiNumDevices)
@@ -1128,7 +1128,7 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
         return CL_INVALID_VALUE;
     }
 
-    cl_context context = m_pContext->GetHandle();
+    _cl_context_int* context = (_cl_context_int*)m_pContext->GetHandle();
     cl_uint uiNumDevices = program->GetNumDevices();
 
     if (0 == uiNumDevices)

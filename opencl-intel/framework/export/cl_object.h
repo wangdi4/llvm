@@ -31,6 +31,7 @@
 #include "Logger.h"
 #include "cl_synch_objects.h"
 #include "ocl_object_base.h"
+#include "cl_framework.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -48,7 +49,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* The floating pendency will be removed when the ref count goes to zero, 
 	* so it represents that the object is still "alive" and visible to the user.
 	**********************************************************************************************/
-	template <class HandleType> 
+	template <class HandleType, class ParentHandleType = _cl_context_int> 
     class OCLObject : public OCLObjectBase
 	{
 	public:
@@ -60,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-        explicit OCLObject(const std::string& typeName);
+        OCLObject(ParentHandleType* context, const std::string& typeName);
 		
         /******************************************************************************************
         * Function: 	Cleanup    
@@ -141,6 +142,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int      GetId() const { return m_iId; }
 		HandleType* GetHandle()   { return &m_handle; }
 
+		// Get the context to which object belongs
+		ParentHandleType* GetParentHandle() const {return m_pParentHandle;}
+
+		
 		/******************************************************************************************
 		* Function: 	SetLoggerClient    
 		* Description:	set the logger client to the object
@@ -170,9 +175,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/			
-		virtual ~OCLObject();
-
+		virtual ~OCLObject() {}
 		OCLObject(const OCLObject& O){}
+
 		cl_int								m_iId;				// object id
 		Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 		
@@ -180,7 +185,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											                    // used in order to ensure that current object is ready 
 											                    // for deletion
 
-		HandleType	m_handle;			// the OpenCL handle of the object        
+		HandleType	m_handle;									// the OpenCL handle of the object        
+
+		ParentHandleType*					m_pParentHandle;	// the OpenCL handle of the parent the object belongs to
 
 		bool		m_bTerminate;
 

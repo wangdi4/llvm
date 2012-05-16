@@ -43,7 +43,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 
 	public:
-		Program(Context * pContext, ocl_entry_points * pOclEntryPoints);
+		Program(Context * pContext);
 
 		// return the context to which the program belongs
 		Context * GetContext() const { return m_pContext; }

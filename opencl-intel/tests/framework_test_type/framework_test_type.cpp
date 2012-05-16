@@ -1,12 +1,11 @@
 #include "CL/cl.h"
 #include "cl_types.h"
-#include "Logger.h"
-#include "cl_objects_map.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <assert.h>
+#include <map>
 
 
 // The following tests replace the old "main" function of framework_test_type.

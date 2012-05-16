@@ -6,7 +6,8 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet, ocl_entry_points * pOclEntryPoints) : Program(pContext, pOclEntryPoints), m_szSourceString(NULL)
+ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet) :
+	Program(pContext), m_szSourceString(NULL)
 {
     if ((0 == uiNumStrings) || (NULL == pSources))
     {

@@ -118,7 +118,6 @@ static void RemoveAll( ClHeapInfo_t* phHeap )
 static void *__safeHeapAlloc__(HANDLE heap, const size_t allocSize)
 {
 	void* ptr;
-	DWORD ecode;
 
     // No exceptions. Errors will simply return NULL to ptr.
     ptr = HeapAlloc(heap, 0, allocSize);

@@ -32,8 +32,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
-MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject,FissionableDevice* pDevice) :
-	OclEvent(), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
+MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject, FissionableDevice* pDevice) :
+	OclEvent(pMemObject->GetParentHandle()), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
 {
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 }

@@ -67,8 +67,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			Context*                    pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager,
-			ocl_entry_points *			pOclEntryPoints
+			EventsManager*              pEventManager
 			);
 		virtual  cl_err_code     Initialize();
 		cl_err_code	    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
@@ -81,7 +80,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_bool         IsPropertiesSupported( cl_command_queue_properties clProperties );
 		cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;       }
 		cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled;      }
-		cl_context      GetContextHandle () const               { return m_clContextHandle;         }
 		cl_int          GetContextId() const;
 		cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
 		FissionableDevice*	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
@@ -98,7 +96,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Context*            m_pContext;
 		FissionableDevice*  m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
-		cl_context          m_clContextHandle;
 		cl_device_id        m_clDefaultDeviceHandle;
 		cl_bool             m_bProfilingEnabled;
 		cl_bool             m_bOutOfOrderEnabled;
