@@ -394,7 +394,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void*                   GetRawData()     const {return m_ptr;}
         size_t                  GetRawDataSize() const {return m_raw_data_size;}
         size_t                  GetRawDataOffset( const size_t* origin ) const;
-		cl_dev_bs_description   GetRawDataDecription() const { return m_raw_data_description; }
 
 		size_t                  GetDimCount()    const {return m_dim_count;}
 		const size_t*           GetDimentions()  const {return m_dimensions;}
@@ -408,9 +407,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		int AddPendency();
 		int RemovePendency();
-
-        // methods used by GenericMemObj
-        bool  IsCopyRequired( void ) const { return m_ptr && m_pHostPtr && (m_pHostPtr != m_ptr); }
 
         // pointer where user should expect the data
         void* GetHostMapPtr( void )  const { return m_pHostPtr ? m_pHostPtr : m_ptr; }
@@ -448,8 +444,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          m_alignment;
 		size_t			m_preferred_alignment;
         size_t          m_raw_data_size;
-
-		cl_dev_bs_description	m_raw_data_description;
 
 		ClHeap			m_heap;
 

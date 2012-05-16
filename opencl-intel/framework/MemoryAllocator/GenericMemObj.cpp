@@ -128,6 +128,8 @@ cl_err_code GenericMemObject::Initialize(
 							   cl_rt_memobj_creation_flags	creation_flags
 							   )
 {
+	assert(NULL == m_pParentObject); // Should never be called for sub mem objects!
+
 	m_clFlags = clMemFlags;
 	m_pHostPtr = pHostPtr;
 
@@ -963,8 +965,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 							   cl_rt_memobj_creation_flags   creation_flags ) :
 	m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
     m_data_valid(NULL != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
-	m_raw_data_size(0), m_raw_data_description(CL_DEV_BS_RT_ALLOCATED), 
-	m_heap(heap), m_parent(NULL), m_refCount(1)
+	m_raw_data_size(0), m_heap(heap), m_parent(NULL), m_refCount(1)
 {
     if (pclImageFormat)
     {
@@ -991,24 +992,28 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     // can user data be used?
     if (NULL != pHostPtr)                              // user provided some pointer
 	{
+    	assert( (m_user_flags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) ||
+    			(CL_RT_MEMOBJ_FORCE_BS & creation_flags) );
+		m_pHostPtr = pHostPtr;
+
 		if (CL_RT_MEMOBJ_FORCE_BS & creation_flags)	   // force user data as BS regardless of alignment
 		{
-			m_ptr = pHostPtr;
-			m_raw_data_description = CL_DEV_BS_RT_MAPPED;
+			m_ptr = m_pHostPtr;
 #ifndef _WIN32
-			// on Linux each BS physical memory mast be marked as SafeForDMA.
-			// assuming that CL_RT_MEMOBJ_FORCE_BS is passed only when OpenGL objact shares its own BS 
-			// this BS memory should not be mark additionally but either reference counted or
-			// ensured that real OpenGL object will be released last.
-			// Defer implementation until OpenGL will be implemented on Linux together with any Device Agent that use DMA
+
+			/* on Linux each BS physical memory must be marked as SafeForDMA.
+			 * assuming that CL_RT_MEMOBJ_FORCE_BS is passed only when OpenGL object shares its own BS
+			 * this BS memory should not be marked additionally but either reference counted or
+			 * ensured that real OpenGL object will be released last.
+			 * Defer implementation until OpenGL will be implemented on Linux together with any Device
+			 * Agent that uses DMA. */
 			assert( !m_used_by_DMA );
 #endif
 		}
-		else if ((0 == (m_user_flags & CL_MEM_COPY_HOST_PTR))	&& // this pointer is not for copy from only
-				 (IS_ALIGNED_ON( pHostPtr, m_alignment )))			   // this pointer alignment is ok
+		else if ( (m_user_flags & CL_MEM_USE_HOST_PTR) && IS_ALIGNED_ON(m_pHostPtr, m_alignment) )
 		{
-			m_ptr = pHostPtr;
-			m_raw_data_description = CL_DEV_BS_USER_ALLOCATED;
+			// pointers may be the same ONLY if m_pHostPtr is aligned.
+			m_ptr = m_pHostPtr;
 		}
 	}
 }
@@ -1026,6 +1031,11 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     size_t raw_data_offset = copy_setting_from.GetRawDataOffset(origin);
 
     m_ptr = (cl_uchar*)parent_ps->GetRawData() + raw_data_offset;
+    void *parentUserHostPtr = parent_ps->GetUserProvidedHostMapPtr();
+    if (parentUserHostPtr)
+    {
+    	m_pHostPtr = (cl_uchar*)parentUserHostPtr + raw_data_offset;
+    }
 
     m_dim_count = copy_setting_from.m_dim_count;
 
@@ -1035,10 +1045,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 
     m_format       = copy_setting_from.m_format;
     m_element_size = copy_setting_from.m_element_size;
-    m_pHostPtr     = (m_pHostPtr) ? (cl_uchar*)m_pHostPtr + raw_data_offset : NULL;
     m_alignment    = copy_setting_from.m_alignment;
-
-	m_raw_data_description = m_parent->GetRawDataDecription();
 
     // calc raw data size
     m_raw_data_size = calculate_size(m_element_size, (cl_uint)m_dim_count, m_dimensions, m_pitches);
@@ -1216,7 +1223,7 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 
 	m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment, m_used_by_DMA );
 
-	if (m_ptr && m_used_by_DMA)
+	if (NULL != m_ptr && m_used_by_DMA)
 	{
 		if (0 != clHeapMarkSafeForDMA( m_ptr, m_raw_data_size ))
 		{
@@ -1225,19 +1232,20 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 		}
 	}
 
-    if (m_ptr && IsCopyRequired())
+    if (NULL != m_ptr && NULL != m_pHostPtr)
     {
         memcpy( m_ptr, m_pHostPtr, m_raw_data_size );
 
-        if (m_user_flags & CL_MEM_COPY_HOST_PTR)
+        if (0 == (m_user_flags & CL_MEM_USE_HOST_PTR))
         {
-            // user provided the host pointer only for one-time init and not for mapping
+            // user provided host pointer may be used only for one-time init and not for mapping
             m_pHostPtr = NULL;
         }
     }
 
     return NULL != m_ptr;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SingleUnifiedSubBuffer C'tor

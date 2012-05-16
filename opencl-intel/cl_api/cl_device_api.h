@@ -662,28 +662,11 @@ public:
 class IOCLDevBackingStore
 {
 public:
-	/*! \enum cl_dev_bs_description
-	 * Defines possible values for backing store raw data origin
-	 */
-	enum cl_dev_bs_description
-	{
-		CL_DEV_BS_RT_ALLOCATED = 0,		//!<	The backing store is allocated by the runtime or by a device
-		CL_DEV_BS_USER_ALLOCATED,		//!<	The backing store is based on a pointer provided by CL_USE_HOST_PTR
-		CL_DEV_BS_USER_COPY,			//!<	The backing store contains data to be copied by the runtime (CL_COPY_HOST_PTR)
-		CL_DEV_BS_RT_MAPPED             //!<    The backing store contains data that is mapped by the runtime from other object (such as GL object)
-	};
-
 	//!	Returns pointer to a backing store data
 	/*!
 		\retval	A pointer to backing store raw data area
 	*/
 	virtual void* GetRawData() const = 0;
-
-	//!	Returns a description of the Raw Data origin
-	/*!
-		\retval	A pointer to backing store raw data area
-	*/
-	virtual cl_dev_bs_description GetRawDataDecription() const = 0;
 
 	//!	Returns if there is a valid data stored in backing store
 	/*!
