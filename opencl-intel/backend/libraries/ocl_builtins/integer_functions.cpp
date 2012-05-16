@@ -3436,6 +3436,37 @@ _8u32	__attribute__((overloadable)) upsample(_8u16 x, _8u16 y)
 	return res;
 }
 
+#if defined (__AVX2__)
+_16i32	__attribute__((overloadable)) upsample(_16i16 x, _16u16 y)
+{
+	_16i32 res;
+	__m256i zero = _mm256_setzero_si256() ;
+	// Upscale to int
+	__m256i X = _mm256_unpacklo_epi16((__m256i)zero,(__m256i) x);
+	__m256i Y = _mm256_unpacklo_epi16((__m256i)y,(__m256i) zero);
+	res.lo = (_8i32) _mm256_or_si256(X, Y);
+	X = _mm256_unpackhi_epi16((__m256i)zero,(__m256i) x);
+	Y = _mm256_unpackhi_epi16((__m256i)y,(__m256i) zero);
+	res.hi = (_8i32) _mm256_or_si256(X, Y);
+	return res;
+}
+
+
+_16u32	__attribute__((overloadable)) upsample(_16u16 x, _16u16 y)
+{
+	_16u32 res;
+	__m256i zero = _mm256_setzero_si256() ;
+	// Upscale to int
+	__m256i X = _mm256_unpacklo_epi16((__m256i)zero,(__m256i) x);
+	__m256i Y = _mm256_unpacklo_epi16((__m256i)y,(__m256i) zero);
+	res.lo = (_8u32) _mm256_or_si256(X, Y);
+	X = _mm256_unpackhi_epi16((__m256i)zero,(__m256i) x);
+	Y = _mm256_unpackhi_epi16((__m256i)y,(__m256i) zero);
+	res.hi = (_8u32) _mm256_or_si256(X, Y);
+	return res;
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 //longn upsample (intn hi, uintn lo) result[i] = ((long)hi[i] << 32) | lo[i] //
 ///////////////////////////////////////////////////////////////////////////////
@@ -3478,6 +3509,37 @@ _4u64  __attribute__((overloadable)) upsample(_4u32 x, _4u32 y)
 	res.hi = (_2u64) _mm_or_si128(X, Y);
 	return res;
 }
+
+
+#if defined (__AVX2__)
+_8i64  __attribute__((overloadable)) upsample(_8i32 x, _8u32 y)
+{
+	_8i64 res;
+	__m256i zero = _mm256_setzero_si256() ;
+	// Upscale to int
+	__m256i X = _mm256_unpacklo_epi32((__m256i)zero,(__m256i) x);
+	__m256i Y = _mm256_unpacklo_epi32((__m256i)y,(__m256i) zero);
+	res.lo = (_4i64) _mm256_or_si256(X, Y);
+	X = _mm256_unpackhi_epi32((__m256i)zero,(__m256i) x);
+	Y = _mm256_unpackhi_epi32((__m256i)y,(__m256i) zero);
+	res.hi = (_4i64) _mm256_or_si256(X, Y);
+	return res;
+}
+
+_8u64  __attribute__((overloadable)) upsample(_8u32 x, _8u32 y)
+{
+	_8u64 res;
+	__m256i zero = _mm256_setzero_si256() ;
+	// Upscale to int
+	__m256i X = _mm256_unpacklo_epi32((__m256i)zero,(__m256i) x);
+	__m256i Y = _mm256_unpacklo_epi32((__m256i)y,(__m256i) zero);
+	res.lo = (_4u64) _mm256_or_si256(X, Y);
+	X = _mm256_unpackhi_epi32((__m256i)zero,(__m256i) x);
+	Y = _mm256_unpackhi_epi32((__m256i)y,(__m256i) zero);
+	res.hi = (_4u64) _mm256_or_si256(X, Y);
+	return res;
+}
+#endif
 
 #ifdef __cplusplus
 }
