@@ -1,10 +1,7 @@
-; XFAIL: *
-; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
 ; RUN:     | FileCheck %s -check-prefix=KNC
-;
 ;
 
 target datalayout = "e-p:64:64"
@@ -26,7 +23,7 @@ entry:
 ; KNF: vloadd ({{%[a-z]+}}), [[R1:%v[0-9]+]]
 ; KNF: vsrlpi {{%v[0-9]+}}, [[R1]], {{%v[0-9]+}}
 ;
-; KNC: vmovdqa32 ({{%[a-z]+}}), [[R1:%zmm[0-9]+]]
+; KNC: vmov{{[a-z]+}} ({{%[a-z]+}}), [[R1:%zmm[0-9]+]]
 ; KNC: vpsrlvd {{%zmm[0-9]+}}, [[R1]], {{%zmm[0-9]+}}
   %tmp1 = load <16 x i32>* %a, align 64
   %shr = lshr <16 x i32> %tmp1, %b
@@ -46,8 +43,8 @@ entry:
 define <16 x i32> @shiftright4(<16 x i32> %a) nounwind readonly ssp {
 entry:
 ; KNF: vsrlpi 
-; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: vpsrlvd ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+
+; KNC: vpsrlvd gb(%rip), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp1 = load <16 x i32>* @gb, align 64
   %shr = lshr <16 x i32> %a, %tmp1
   ret <16 x i32> %shr
@@ -58,9 +55,8 @@ entry:
 ; KNF: movq 
 ; KNF: vsrlpi 
 ;
-; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: movq ([[R1]]), [[R2:%[a-z]+]]
-; KNC: vpsrlvd ([[R2]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC: movq pgb(%rip), [[R1:%[a-z]+]]
+; KNC: vpsrlvd ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp1 = load <16 x i32>** @pgb, align 8
   %tmp2 = load <16 x i32>* %tmp1, align 64
   %shr = lshr <16 x i32> %a, %tmp2

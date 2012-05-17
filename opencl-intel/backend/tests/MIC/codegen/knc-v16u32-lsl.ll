@@ -1,4 +1,3 @@
-; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
@@ -25,7 +24,7 @@ entry:
 ; KNF: vloadd ({{%[a-z]+}}), [[R1:%v[0-9]+]]
 ; KNF: vsllpi {{%v[0-9]+}}, [[R1]], {{%v[0-9]+}}
 ;
-; KNC: vmovaps (%rdi), [[R1:%zmm[0-9]+]]
+; KNC: vmov{{[a-z]+}} (%rdi), [[R1:%zmm[0-9]+]]
 ; KNC: vpsllvd %zmm0, [[R1]], %zmm0
   %tmp1 = load <16 x i32>* %a, align 64
   %shl = shl <16 x i32> %tmp1, %b
