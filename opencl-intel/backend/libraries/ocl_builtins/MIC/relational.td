@@ -106,14 +106,14 @@ code islessgreater_scalar_code = [{
 OclBuiltinImpl islessgreater_scalar = OclBuiltinImpl<islessgreater, [v1f32, v1f64], 0, islessgreater_scalar_code>;
 OclBuiltinImpl islessgreater_f32_v16 = OclBuiltinImpl<islessgreater, [v16f32], 0, [{
     __mmask16 isless = _mm512_cmplt_ps($Arg0VarName, $Arg1VarName);
-    __mmask16 isgreater = _mm512_cmpnle_ps($Arg0VarName, $Arg1VarName);
+    __mmask16 isgreater = _mm512_cmplt_ps($Arg1VarName, $Arg0VarName);
     isless = _mm512_kor(isless, isgreater);
     return mask2pi(isless);
   }]>;
 OclBuiltinImpl islessgreater_f32_promote = OclBuiltinImpl<islessgreater, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl islessgreater_f64_v8 = OclBuiltinImpl<islessgreater, [v8f64], 0, [{
     __mmask16 isless = _mm512_cmplt_pd($Arg0VarName, $Arg1VarName);
-    __mmask16 isgreater = _mm512_cmpnle_pd($Arg0VarName, $Arg1VarName);
+    __mmask16 isgreater = _mm512_cmplt_pd($Arg1VarName, $Arg0VarName);
     isless = _mm512_kor(isless, isgreater);
     return mask2pq(isless);
   }]>;

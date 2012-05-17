@@ -1,5 +1,14 @@
 // vim:ts=2:sw=2:et:
 
+// lprefetch
+OclBuiltinImpl _lprefetch = OclBuiltinImpl<lprefetch, [v1i8], 0, [{
+    size_t totalLines = (($Arg1VarName * $Arg2VarName) + MIC_DEV_DCU_LINE_SIZE - 1) / MIC_DEV_DCU_LINE_SIZE;
+    for(size_t i = 0; i < totalLines; ++i) {
+      _mm_vprefetch2($Arg0VarName, _MM_HINT_NONE);
+      $Arg0VarName += MIC_DEV_DCU_LINE_SIZE;
+    }
+    return ;
+  }]>;
 
 // max
 OclBuiltinImpl max_f32_v16 = OclBuiltinImpl<max, [v16f32], 0, [{

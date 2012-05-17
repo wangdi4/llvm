@@ -36,6 +36,9 @@ def mask_fmin : OclBuiltin<"mask_fmin", (outs gentype:$ret), (ins masktype:$mask
 def mask_mad  : OclBuiltin<"mask_mad",  (outs gentype:$ret), (ins masktype:$mask, gentype:$a, gentype:$b, gentype:$c), [], []>;
 }
 
+// lprefetch builtin
+def lprefetch : OclBuiltin<"lprefetch", (outs), (ins pgentype:$ptr, size_t:$numElements, size_t:$elmSize), [v1i8], []>;
+
 // native math builtins
 let Types = [v16f32, v8f64],
     Attrs = [CONSTFUNC, OVERLOADABLE],
@@ -218,6 +221,7 @@ class KNF : Generic {
 
   #include "generic-builtin-defines.h"
   #include "knf-builtin-defines.h"
+  #include "mic_dev_limits.h"
   }];
 
   code Epilog = [{

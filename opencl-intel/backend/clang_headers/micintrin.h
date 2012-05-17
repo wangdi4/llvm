@@ -5017,7 +5017,6 @@ _mm_spflt_64(unsigned long r1)
   return __builtin_ia32_spfltq(r1);
 }
 
-#if 0
 /*
  * Prefetch an L1 cache line.
  *
@@ -5048,11 +5047,13 @@ _mm_spflt_64(unsigned long r1)
  *    Any kind of interruption will turn off the misshint state; see DELAY
  *    for a detailed discussion of this mechanism.
  */
+#if 0
 __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_vprefetch1(const void *m, const _MM_PREFETCH_HINT_ENUM hint)
+_mm_vprefetch1(const void *m, const size_t hint)
 {
   __builtin_ia32_vprefetch1(m, hint);
 }
+#endif
 
 /*
  * Prefetch an L2 cache line.
@@ -5079,11 +5080,12 @@ _mm_vprefetch1(const void *m, const _MM_PREFETCH_HINT_ENUM hint)
  *               caches.
  */
 __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_vprefetch2(const void *m, const _MM_PREFETCH_HINT_ENUM hint)
+_mm_vprefetch2(const void *m, const size_t hint)
 {
   __builtin_ia32_vprefetch2(m, hint);
 }
 
+#if 0
 /*
  * Evict L1 Cache Line containing m8.
  *

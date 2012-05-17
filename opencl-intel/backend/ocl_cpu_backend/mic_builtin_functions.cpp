@@ -139,11 +139,6 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   return event;
 }
 
-extern "C" LLVM_BACKEND_API void mic_lprefetch(const char* ptr, size_t numElements, size_t elmSize)
-{
-  assert(false && "Need to Implement mic_lprefetch");
-}
-
 extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
 {
   assert(false && "Need to Implement mic_get_time_counter");
@@ -161,7 +156,6 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
     functionsTable["lwait_group_events"] = (unsigned long long int)(intptr_t)shared_lwait_group_events;
     functionsTable["lasync_wg_copy_l2g"] = (unsigned long long int)(intptr_t)mic_lasync_wg_copy_l2g;
     functionsTable["lasync_wg_copy_g2l"] = (unsigned long long int)(intptr_t)mic_lasync_wg_copy_g2l;
-    functionsTable["lprefetch"] = (unsigned long long int)(intptr_t)mic_lprefetch;
     functionsTable["get_time_counter"] = (unsigned long long int)(intptr_t)mic_get_time_counter;
     functionsTable["lasync_wg_copy_strided_l2g"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_l2g;
     functionsTable["lasync_wg_copy_strided_g2l"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_g2l;
