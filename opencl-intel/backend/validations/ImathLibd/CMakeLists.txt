@@ -8,21 +8,7 @@ if (WIN32)
 set (TARGET_NAME_WRAPPER "ImathLibd_wrapper")
 project( ${TARGET_NAME} )
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # 32 bit
-  set (PLATFORM 32)
-else ()
-  # 64 bit
-  set (PLATFORM 64)
-endif ()
-
 # icc executables and env scripts
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (ICC_PLATFORM ia32)
-else ()
-  set (ICC_PLATFORM intel64)
-endif ()
-
   set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
   if (NOT DEFINED ICC_WIN32_PATH)
     message (FATAL_ERROR "ICC is not installed in the system")

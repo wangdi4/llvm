@@ -4,6 +4,21 @@ cmake_minimum_required(VERSION 2.8)
 # Variables for llvm libraries
 set (VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  # 32 bit
+  set (PLATFORM 32)
+else ()
+  # 64 bit
+  set (PLATFORM 64)
+endif ()
+
+# icc environment variables
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (ICC_PLATFORM ia32)
+else ()
+  set (ICC_PLATFORM intel64)
+endif ()
+
 include_directories( ${LLVM_BINARY_DIR}/include )
 include_directories( ${LLVM_INCLUDE_DIR} )
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/Common )

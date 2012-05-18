@@ -23,7 +23,7 @@ File Name:  OpenCLMICArgsBuffer.cpp
 #include "Exception.h"
 
 #include "mem_utils.h"
-#include "MICNative/mic_dev_limits.h"
+#include <mic_dev_limits.h>
 
 #define DEBUG_TYPE "OpenCLMICArgsBuffer"
 #include "llvm/Support/raw_ostream.h"

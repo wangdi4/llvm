@@ -11,14 +11,6 @@ cmake_minimum_required(VERSION 2.8.4)
 #clang include directories, injected for the OCL source recorder
 add_definitions(-DCLANG_HEADERS="${BACKEND_ROOT_DIR}/clang_headers")
 
-if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-	# 32 bit
-	set (PLATFORM 32)
-else( CMAKE_SIZEOF_VOID_P EQUAL 8)
-	# 64 bit
-	set (PLATFORM 64)
-endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
-
 set(OCL_RECORDER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_RECORDER_IMPORT_DIR ${BACKEND_ROOT_DIR}/../cl_api)
 set(OCL_RECORDER_EXPORT_DIR ${OCL_RECORDER_DIR}/export)

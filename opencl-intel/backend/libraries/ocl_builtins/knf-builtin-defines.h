@@ -328,7 +328,7 @@ long8 __attribute__((overloadable)) shuffle_long_x8(long8 source, ulong8 input_i
     // index i -> 2i, 2i+1
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    long8 result = gather((int16)index, source);
+    long8 result = (long8)gather((int16)index, (int16)source);
     return result;
 }
 ulong8 __attribute__((overloadable)) shuffle_long_x8(ulong8 source, ulong8 input_index, ulong8 index_mask){
@@ -342,7 +342,7 @@ ulong8 __attribute__((overloadable)) shuffle_long_x8(ulong8 source, ulong8 input
     // index i -> 2i, 2i+1
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    ulong8 result = gather((int16)index, source);
+    ulong8 result = (ulong8)gather((int16)index, (uint16)source);
     return result;
 }
 double8 __attribute__((overloadable)) shuffle_long_x8(double8 source, ulong8 input_index, ulong8 index_mask){
@@ -356,7 +356,7 @@ double8 __attribute__((overloadable)) shuffle_long_x8(double8 source, ulong8 inp
     // index i -> 2i, 2i+1
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    double8 result = gather((int16)index, source);
+    double8 result = (double8)gather((int16)index, (int16)source);
     return result;
 }
 
@@ -370,16 +370,16 @@ long8 __attribute__((overloadable)) shuffle_long_x16(long16 source, ulong8 input
     // Gather data from source (xx) with new index
     int16 unpack_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)(unpack_index);
-    index = _mm512_and_epi32(index, (__m512i)index_mask);
-    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
-    index = _mm512_add_epi32(index, const_vector_0_1_x8);
     __mmask16 upper_mask = _mm512_cmpnlt_epi32(index, half_index_threshold);
     index = _mm512_mask_sub_epi32(index, upper_mask, index, half_index_threshold);
+    //index = _mm512_and_epi32(index, (__m512i)index_mask);
+    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
+    index = _mm512_add_epi32(index, const_vector_0_1_x8);
 
     long8 upper_data = source.hi;
     long8 lower_data = source.lo;
-    upper_data = gather((int16)index, upper_data);
-    lower_data = gather((int16)index, lower_data);
+    upper_data = (long8)gather((int16)index, (int16)upper_data);
+    lower_data = (long8)gather((int16)index, (int16)lower_data);
     __m512i result = (__m512i)(lower_data);
     result = _mm512_mask_or_epi32(result, upper_mask, (__m512i)upper_data, (__m512i)upper_data);
     return (long8)result;
@@ -393,16 +393,16 @@ ulong8 __attribute__((overloadable)) shuffle_long_x16(ulong16 source, ulong8 inp
     // Gather data from source (xx) with new index
     int16 unpack_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)(unpack_index);
-    index = _mm512_and_epi32(index, (__m512i)index_mask);
-    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
-    index = _mm512_add_epi32(index, const_vector_0_1_x8);
     __mmask16 upper_mask = _mm512_cmpnlt_epi32(index, half_index_threshold);
     index = _mm512_mask_sub_epi32(index, upper_mask, index, half_index_threshold);
+    //index = _mm512_and_epi32(index, (__m512i)index_mask);
+    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
+    index = _mm512_add_epi32(index, const_vector_0_1_x8);
 
     ulong8 upper_data = source.hi;
     ulong8 lower_data = source.lo;
-    upper_data = gather((int16)index, upper_data);
-    lower_data = gather((int16)index, lower_data);
+    upper_data = (ulong8)gather((int16)index, (uint16)upper_data);
+    lower_data = (ulong8)gather((int16)index, (uint16)lower_data);
     __m512i result = (__m512i)(lower_data);
     result = _mm512_mask_or_epi32(result, upper_mask, (__m512i)upper_data, (__m512i)upper_data);
     return (ulong8)result;
@@ -416,25 +416,26 @@ double8 __attribute__((overloadable)) shuffle_long_x16(double16 source, ulong8 i
     // Gather data from source (xx) with new index
     int16 unpack_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)(unpack_index);
-    index = _mm512_and_epi32(index, (__m512i)index_mask);
-    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
-    index = _mm512_add_epi32(index, const_vector_0_1_x8);
     __mmask16 upper_mask = _mm512_cmpnlt_epi32(index, half_index_threshold);
     index = _mm512_mask_sub_epi32(index, upper_mask, index, half_index_threshold);
+    //index = _mm512_and_epi32(index, (__m512i)index_mask);
+    index = _mm512_sll_epi32(index, (__m512i)((int16)1));
+    index = _mm512_add_epi32(index, const_vector_0_1_x8);
 
     double8 upper_data = source.hi;
     double8 lower_data = source.lo;
-    upper_data = gather((int16)index, upper_data);
-    lower_data = gather((int16)index, lower_data);
+    upper_data = (double8)gather((int16)index, (int16)upper_data);
+    lower_data = (double8)gather((int16)index, (int16)lower_data);
     __m512i result = (__m512i)(lower_data);
     result = _mm512_mask_or_epi32(result, upper_mask, (__m512i)upper_data, (__m512i)upper_data);
     return (double8)result;
 }
 // shuffle2 (char/uchar/short/ushort/int/uint/float
-char16 __attribute__((overloadable)) shuffle2_x16(char16 x, char16 y, uchar16 input_index, int16 index_mask){
+char16 __attribute__((overloadable)) shuffle2_x16(char16 x, char16 y, uchar16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -445,10 +446,11 @@ char16 __attribute__((overloadable)) shuffle2_x16(char16 x, char16 y, uchar16 in
     char16 result = trunc_to_char16((int16)data);
     return result;
 }
-uchar16 __attribute__((overloadable)) shuffle2_x16(uchar16 x, uchar16 y, uchar16 input_index, int16 index_mask){
+uchar16 __attribute__((overloadable)) shuffle2_x16(uchar16 x, uchar16 y, uchar16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -459,10 +461,11 @@ uchar16 __attribute__((overloadable)) shuffle2_x16(uchar16 x, uchar16 y, uchar16
     uchar16 result = trunc_to_uchar16((uint16)data);
     return result;
 }
-short16 __attribute__((overloadable)) shuffle2_x16(short16 x, short16 y, ushort16 input_index, int16 index_mask){
+short16 __attribute__((overloadable)) shuffle2_x16(short16 x, short16 y, ushort16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -473,10 +476,11 @@ short16 __attribute__((overloadable)) shuffle2_x16(short16 x, short16 y, ushort1
     short16 result = trunc_to_short16((int16)data);
     return result;
 }
-ushort16 __attribute__((overloadable)) shuffle2_x16(ushort16 x, ushort16 y, ushort16 input_index, int16 index_mask){
+ushort16 __attribute__((overloadable)) shuffle2_x16(ushort16 x, ushort16 y, ushort16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -487,10 +491,11 @@ ushort16 __attribute__((overloadable)) shuffle2_x16(ushort16 x, ushort16 y, usho
     ushort16 result = trunc_to_ushort16((uint16)data);
     return result;
 }
-int16 __attribute__((overloadable)) shuffle2_x16(int16 x, int16 y, uint16 input_index, int16 index_mask){
+int16 __attribute__((overloadable)) shuffle2_x16(int16 x, int16 y, uint16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -500,10 +505,11 @@ int16 __attribute__((overloadable)) shuffle2_x16(int16 x, int16 y, uint16 input_
     result = _mm512_mask_or_epi32(result, upper, (__m512i)data2, (__m512i)data2);
     return (int16)result;
 }
-uint16 __attribute__((overloadable)) shuffle2_x16(uint16 x, uint16 y, uint16 input_index, int16 index_mask){
+uint16 __attribute__((overloadable)) shuffle2_x16(uint16 x, uint16 y, uint16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -513,10 +519,11 @@ uint16 __attribute__((overloadable)) shuffle2_x16(uint16 x, uint16 y, uint16 inp
     result = _mm512_mask_or_epi32(result, upper, (__m512i)data2, (__m512i)data2);
     return (uint16)result;
 }
-float16 __attribute__((overloadable)) shuffle2_x16(float16 x, float16 y, uint16 input_index, int16 index_mask){
+float16 __attribute__((overloadable)) shuffle2_x16(float16 x, float16 y, uint16 input_index, int vec_size){
     uint16 ext_index = ext_from(input_index);
+    int16 index_mask = (int16)(2*vec_size - 1);
     __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)ext_index);
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
 
     __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
@@ -527,62 +534,69 @@ float16 __attribute__((overloadable)) shuffle2_x16(float16 x, float16 y, uint16 
     return (float16)result;
 }
 // shuffle2: source vector is 8x long
-long8 __attribute__((overloadable)) shuffle2_long_x8(long8 x, long8 y, ulong8 input_index, ulong8 index_mask){
-    __m512i index = _mm512_and_epi32((__m512i)input_index, (__m512i)index_mask);
+long8 __attribute__((overloadable)) shuffle2_long_x8(long8 x, long8 y, ulong8 input_index, int vec_size){
+    ulong8 index_mask = (ulong8)(2*vec_size - 1);
+    __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)input_index);
+
     int16 const_vector_unpack = (int16)(0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14);
     __m512i const_vector_0_1_x8 = (__m512i)((int16)( 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1));
     // Gather mask (mask) and transform it so each index i is converted to "2i" and "2i+1"
     // Gather data from source (x and y) with new index
     int16 ext_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)ext_index;
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
+    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
+    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
+
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
 
-    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
-    long8 data1 = gather((int16)index, x);
-    long8 data2 = gather((int16)index, y);
+    long8 data1 = (long8)gather((int16)index, (int16)x);
+    long8 data2 = (long8)gather((int16)index, (int16)y);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper, (__m512i)data2, (__m512i)data2);
     return (long8)result;
 }
-ulong8 __attribute__((overloadable)) shuffle2_long_x8(ulong8 x, ulong8 y, ulong8 input_index, ulong8 index_mask){
-    __m512i index = _mm512_and_epi32((__m512i)input_index, (__m512i)index_mask);
+ulong8 __attribute__((overloadable)) shuffle2_long_x8(ulong8 x, ulong8 y, ulong8 input_index, int vec_size){
+    ulong8 index_mask = (ulong8)(2*vec_size - 1);
+    __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)input_index);
     int16 const_vector_unpack = (int16)(0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14);
     __m512i const_vector_0_1_x8 = (__m512i)((int16)( 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1));
     // Gather mask (mask) and transform it so each index i is converted to "2i" and "2i+1"
     // Gather data from source (x and y) with new index
     int16 ext_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)ext_index;
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
+    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
+    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
+
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
 
-    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
-    ulong8 data1 = gather((int16)index, x);
-    ulong8 data2 = gather((int16)index, y);
+    ulong8 data1 = (ulong8)gather((int16)index, (uint16)x);
+    ulong8 data2 = (ulong8)gather((int16)index, (uint16)y);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper, (__m512i)data2, (__m512i)data2);
     return (ulong8)result;
 }
-double8 __attribute__((overloadable)) shuffle2_long_x8(double8 x, double8 y, ulong8 input_index, ulong8 index_mask){
-    __m512i index = _mm512_and_epi32((__m512i)input_index, (__m512i)index_mask);
+double8 __attribute__((overloadable)) shuffle2_long_x8(double8 x, double8 y, ulong8 input_index, int vec_size){
+    ulong8 index_mask = (ulong8)(2*vec_size - 1);
+    __m512i index = _mm512_and_epi32((__m512i)index_mask, (__m512i)input_index);
     int16 const_vector_unpack = (int16)(0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14);
     __m512i const_vector_0_1_x8 = (__m512i)((int16)( 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1));
     // Gather mask (mask) and transform it so each index i is converted to "2i" and "2i+1"
     // Gather data from source (x and y) with new index
     int16 ext_index = gather(const_vector_unpack, (int16)index);
     index = (__m512i)ext_index;
-    __m512i index_threshold = (__m512i)((int16)16);
+    __m512i index_threshold = (__m512i)((int16)vec_size);
+    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
+    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
+
     index = _mm512_sll_epi32(index, (__m512i)((int16)1));
     index = _mm512_add_epi32(index, const_vector_0_1_x8);
-    __mmask16 upper = _mm512_cmpnlt_epi32(index, index_threshold);
 
-    index = _mm512_mask_sub_epi32(index, upper, index, index_threshold);
-    double8 data1 = gather((int16)index, x);
-    double8 data2 = gather((int16)index, y);
+    double8 data1 = (double8)gather((int16)index, (int16)x);
+    double8 data2 = (double8)gather((int16)index, (int16)y);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper, (__m512i)data2, (__m512i)data2);
     return (double8)result;
@@ -606,10 +620,10 @@ long8 __attribute__((overloadable)) shuffle2_long_x16(long16 x, long16 y, ulong8
     index = _mm512_mask_sub_epi32(index, upper32, index, index_threshold);
     __mmask16 upper48 = _mm512_mask_cmpnlt_epi32(upper32, index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper48, index, index_threshold);
-    long8 data1 = gather((int16)index, x.lo);
-    long8 data2 = gather((int16)index, x.hi);
-    long8 data3 = gather((int16)index, y.lo);
-    long8 data4 = gather((int16)index, y.hi);
+    long8 data1 = (long8)gather((int16)index, (int16)x.lo);
+    long8 data2 = (long8)gather((int16)index, (int16)x.hi);
+    long8 data3 = (long8)gather((int16)index, (int16)y.lo);
+    long8 data4 = (long8)gather((int16)index, (int16)y.hi);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper16, (__m512i)data2, (__m512i)data2);
     result = _mm512_mask_or_epi32(result, upper32, (__m512i)data3, (__m512i)data3);
@@ -633,10 +647,10 @@ ulong8 __attribute__((overloadable)) shuffle2_long_x16(ulong16 x, ulong16 y, ulo
     index = _mm512_mask_sub_epi32(index, upper32, index, index_threshold);
     __mmask16 upper48 = _mm512_mask_cmpnlt_epi32(upper32, index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper48, index, index_threshold);
-    ulong8 data1 = gather((int16)index, x.lo);
-    ulong8 data2 = gather((int16)index, x.hi);
-    ulong8 data3 = gather((int16)index, y.lo);
-    ulong8 data4 = gather((int16)index, y.hi);
+    ulong8 data1 = (ulong8)gather((int16)index, (uint16)x.lo);
+    ulong8 data2 = (ulong8)gather((int16)index, (uint16)x.hi);
+    ulong8 data3 = (ulong8)gather((int16)index, (uint16)y.lo);
+    ulong8 data4 = (ulong8)gather((int16)index, (uint16)y.hi);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper16, (__m512i)data2, (__m512i)data2);
     result = _mm512_mask_or_epi32(result, upper32, (__m512i)data3, (__m512i)data3);
@@ -660,10 +674,10 @@ double8 __attribute__((overloadable)) shuffle2_long_x16(double16 x, double16 y, 
     index = _mm512_mask_sub_epi32(index, upper32, index, index_threshold);
     __mmask16 upper48 = _mm512_mask_cmpnlt_epi32(upper32, index, index_threshold);
     index = _mm512_mask_sub_epi32(index, upper48, index, index_threshold);
-    double8 data1 = gather((int16)index, x.lo);
-    double8 data2 = gather((int16)index, x.hi);
-    double8 data3 = gather((int16)index, y.lo);
-    double8 data4 = gather((int16)index, y.hi);
+    double8 data1 = (double8)gather((int16)index, (int16)x.lo);
+    double8 data2 = (double8)gather((int16)index, (int16)x.hi);
+    double8 data3 = (double8)gather((int16)index, (int16)y.lo);
+    double8 data4 = (double8)gather((int16)index, (int16)y.hi);
     __m512i result = (__m512i)data1;
     result = _mm512_mask_or_epi32(result, upper16, (__m512i)data2, (__m512i)data2);
     result = _mm512_mask_or_epi32(result, upper32, (__m512i)data3, (__m512i)data3);

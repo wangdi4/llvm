@@ -8,7 +8,7 @@ set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
 set( OUTPUT_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR} )
 set( OBJ_FILE_EXTENSION .o )
 
-set( DEVICE   MIC )
+set( DEVICE MIC )
 
 if (WIN32)
     # Windows
@@ -18,19 +18,19 @@ else ()
     set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
 
     if (NOT TMP_ICC_INSTALL_DIR)
-	    if (KNC_CARD)
-		  set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
-		else (KNC_CARD)
-		  set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin)
-		endif (KNC_CARD)
-		if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
-		  set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
-		  message ("ICC MIC Compiler: ${TMP_ICC_INSTALL_DIR}")
-		  set(MIC_TARGET "ON")
-		else()
-		  message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
-		  set(MIC_TARGET "OFF")
-		endif()
+        if (KNC_CARD)
+          set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
+        else (KNC_CARD)
+          set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin)
+        endif (KNC_CARD)
+        if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
+          set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
+          message ("ICC MIC Compiler: ${TMP_ICC_INSTALL_DIR}")
+          set(MIC_TARGET "ON")
+        else()
+          message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
+          set(MIC_TARGET "OFF")
+        endif()
     endif (NOT TMP_ICC_INSTALL_DIR)
 
     if (TMP_ICC_INSTALL_DIR)
@@ -72,8 +72,8 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
                         COMMAND ${DEVICE_COMPILER} ${FILE_FULL_PATH_NAME} ${OBJ_FILE}
 
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME}
-                        IMPLICIT_DEPENDS CXX
-                        DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT}
+                        IMPLICIT_DEPENDS CXX ${FILE_FULL_PATH_NAME}
+                        DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} ${HEADER_FILES}
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                         COMMENT "Compiling ${FILE_NAME} for ${DEVICE}"
                         VERBATIM
@@ -156,19 +156,7 @@ if (NOT EXISTS ${OUTPUT_DIR})
 endif()
 
 # MIC compilation flags
-set( MIC_FLAGS  -Werror
-#                -std=c++0x
-                #-fstack-security-check
-                #-use-msasm
-                #-mCG_lrb_rex_workaround=F 
-                #-mCG_insert_nops_between_gathers_scatters=F 
-                #-mCG_lrb_vgather_b2b_warns=F 
-                #-mCG_lrb_workaround_vgather_vscatter_pairing=F 
-                #-mCG_lrb_dp_workaround=F 
-                #-sox 
-                -fPIC
-                -wd279
-            )
+set( MIC_FLAGS  -Werror -fPIC -wd279)
 
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
@@ -242,12 +230,17 @@ endforeach( FLAG )
 configure_file(${DEVICE_COMPILER_SCRIPT} ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} @ONLY)
 configure_file(${DEVICE_LINKER_SCRIPT} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} @ONLY)
 
-set(TARGET_SOURCES 
+set(TARGET_SOURCES
     OpenCLMICNative.cpp
     WGContext.cpp
     ../Performance.cpp
     ../dbg_utils.cpp
 )
+
+set (HEADER_FILES
+    WGContext.h
+    common.h
+    )
 
 add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
 

@@ -4,14 +4,6 @@ else(WIN32)
     set (OS_PLATFORM Linux64)
 endif(WIN32)
 
-if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 32 bit
-    set (PLATFORM 32)
-else( CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 64 bit
-    set (PLATFORM 64)
-endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
-
 #
 # Settings for Linux compilation
 #
@@ -30,12 +22,12 @@ set (ADD_C_FLAGS_RELEASE "")
 add_definitions( ${WARNING_LEVEL} )
 
 # Linker switches
-set (INIT_LINKER_FLAGS        ) 
+set (INIT_LINKER_FLAGS        )
 set (ADD_LINKER_FLAGS_DEBUG   )
 set (ADD_LINKER_FLAGS_RELEASE )
 
 include(FindThreads)
-set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" ) 
+set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" )
 
 # C switches
 set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
@@ -60,19 +52,12 @@ set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${A
 endif (NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
-	#set( COI_DIR                /opt/intel/mic/coi)
-	if (KNC_CARD)
-		set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knc)
-	else (KNC_CARD)
-		set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knf)
-	endif (KNC_CARD)
+    if (KNC_CARD)
+        set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knc)
+    else (KNC_CARD)
+        set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knf)
+    endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
-
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (ICC_PLATFORM ia32)
-else ()
-  set (ICC_PLATFORM intel64)
-endif ()
 
 get_target_property( lib_dir NEAT_wrapper lib_dir )
 set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
@@ -237,31 +222,31 @@ if (WIN32)
 target_link_libraries(SATest
     ${SATest_DEPS}
     NEAT
-	PlugInNEAT
-	ImathLibd	
+    PlugInNEAT
+    ImathLibd
     )
 
 add_dependencies(SATest
     ${SATest_DEPS}
     OclCpuBackEnd
     NEAT_wrapper
-	PlugInNEAT_wrapper
-	ImathLibd_wrapper
+    PlugInNEAT_wrapper
+    ImathLibd_wrapper
     )
 else ()
 target_link_libraries(SATest
     ${SATest_DEPS}
     NEAT
-	PlugInNEAT
-	ImathLibd
+    PlugInNEAT
+    ImathLibd
     )
 
 add_dependencies(SATest
     ${SATest_DEPS}
     OclCpuBackEnd
     NEAT
-	PlugInNEAT
-	ImathLibd
+    PlugInNEAT
+    ImathLibd
     )
 endif ()
 

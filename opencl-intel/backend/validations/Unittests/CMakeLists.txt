@@ -6,22 +6,9 @@ set (TARGET_NAME "ValidationTests")
 if (WIN32)
 project( ${TARGET_NAME} )
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # 32 bit
-  set (PLATFORM 32)
-else ()
-  # 64 bit
-  set (PLATFORM 64)
-endif ()
-
 # icc executables and env scripts
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (ICC_PLATFORM ia32)
-else ()
-  set (ICC_PLATFORM intel64)
-endif ()
 
-  set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12}) 
+  set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
   if (NOT DEFINED ICC_WIN32_PATH)
     message (FATAL_ERROR "ICC is not installed in the system")
   endif ()
@@ -40,8 +27,8 @@ endif ()
 
   if (NOT DEFINED VS100_WIN32_PATH)
     message (FATAL_ERROR "VS100 is not installed in the system")
-  endif ()  
-  
+  endif ()
+
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (VS100_CPU_ENV_SCRIPT ${VS100_WIN32_PATH}/../../VC/bin/vcvars32.bat)
   set (VS100_CPU_CL ${VS100_WIN32_PATH}/../../VC/bin/cl.exe)
@@ -74,10 +61,10 @@ set(LLVM_TOOLS_LIB_DIR ${LLVM_BINARY_DIR}/lib/${CL_BUILD_TYPE})
 
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "/MACHINE:X86 /DEBUG")
-    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X86 /DEBUG /OPT:REF /OPT:ICF")  
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X86 /DEBUG /OPT:REF /OPT:ICF")
   else ()
     set (BUILD_TYPE_ICC_LINKER_FLAGS_Debug "/MACHINE:X64 /DEBUG")
-    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X64 /DEBUG /OPT:REF /OPT:ICF")    
+    set (BUILD_TYPE_ICC_LINKER_FLAGS_Release "/MACHINE:X64 /DEBUG /OPT:REF /OPT:ICF")
   endif ()
 
 #
@@ -95,7 +82,7 @@ function( compile_c COMPILER_SCRIPT OUTPUT_FILE_VAR INPUT_FILE OUTPUT_DIR )
 
   get_filename_component (NAMEF ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAMEF}${CMAKE_C_OUTPUT_EXTENSION} )
-  
+
   add_custom_command (
     OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${COMPILER_SCRIPT} ${CL_BUILD_TYPE} ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
@@ -144,25 +131,25 @@ function( add_c_exe LINKER_SCRIPT COMPILER_SCRIPT_1 COMPILER_SCRIPT_2 OUTPUT_FIL
 list (APPEND C_SOURCE_FILES_2
   SourceRecorder.cpp
   ClangSA.cpp
-)  
-  
+)
+
   foreach (FILE ${C_SOURCE_FILES_2})
     compile_c( ${COMPILER_SCRIPT_2} TMP_OBJ ${FILE} ${OUTPUT_DIR})
     set (TMP_FILES "${TMP_FILES} ${TMP_OBJ}")
     list (APPEND TMP_FILES_DEPEND ${TMP_OBJ})
   endforeach (FILE)
-  
 
-  
-  # link executable 
+
+
+  # link executable
   add_custom_command (
-	OUTPUT ${TARGETEXE_INSTALL_DIR}/${OUTPUT_FILE}
+    OUTPUT ${TARGETEXE_INSTALL_DIR}/${OUTPUT_FILE}
     COMMAND ${LINKER_SCRIPT} ${CL_BUILD_TYPE} ${TARGETEXE_INSTALL_DIR}/${OUTPUT_FILE} ${TARGETEXE_INSTALL_DIR}/${PDB_FILE} ${LLVM_TOOLS_LIB_DIR}/${IMPLIB_FILE}  ${LLVM_TOOLS_LIB_DIR} ${TMP_FILES}
     DEPENDS ${LINKER_SCRIPT} ${TMP_FILES_DEPEND}
     COMMENT "C Linking ${TARGET_NAME}${CMAKE_EXECUTABLE_SUFFIX}"
     VERBATIM
     )
-  
+
   set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
 
 endfunction( add_c_exe )
@@ -213,14 +200,14 @@ file (TO_NATIVE_PATH ${VS100_CPU_CL}         VS100_CPU_CL_NATIVE)
 
 # configuring ICC compiler and linker scripts (the configured scripts are in ${CMAKE_CURRENT_BINARY_DIR})
 configure_file (${ICC_CPU_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT} @ONLY)
-configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT} @ONLY) 
+configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT} @ONLY)
 configure_file (${VS100_CPU_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${VS100_CPU_COMPILER_SCRIPT} @ONLY)
 
 # redefine ICC compiler and linker scripts to their new locations
 set (ICC_CPU_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT})
 set (ICC_CPU_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT})
 set (VS100_CPU_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${VS100_CPU_COMPILER_SCRIPT})
-  
+
 # intermediate directory for OpenCL and ICC compilation/link
 # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
     set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
@@ -235,9 +222,9 @@ add_custom_target (${TARGET_NAME} ALL
   COMMENT "Target ${TARGET_NAME} build completed"
   VERBATIM
   SOURCES ${C_SOURCE_FILES} ${HEADER_FILES}
-  )	
+  )
 
-add_dependencies(${TARGET_NAME} 
+add_dependencies(${TARGET_NAME}
   DataManager
   tinyxml_STL
   Comparator
@@ -332,7 +319,7 @@ target_link_libraries(${TARGET_NAME}
   OCLBuilder
 )
 
-add_dependencies(${TARGET_NAME} 
+add_dependencies(${TARGET_NAME}
   ${DATA_MANAGER_LIBS}
   ${COMPARATOR_LIBS}
   ${DATA_GENERATOR_LIBS}
