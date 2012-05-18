@@ -238,11 +238,17 @@ add_custom_target (${TARGET_NAME} ALL
   )	
 
 add_dependencies(${TARGET_NAME} 
-DataManager tinyxml_STL 
-Comparator DataGenerator 
-NEAT_wrapper REFALU_wrapper
-PlugInNEAT_wrapper OCLBuiltins
-OclPluginManager)
+  DataManager
+  tinyxml_STL
+  Comparator
+  DataGenerator
+  NEAT_wrapper
+  REFALU_wrapper
+  PlugInNEAT_wrapper
+  OCLBuiltins
+  OclPluginManager
+  OCLRecorderStat
+)
 
 add_dependencies(UnitTests ${TARGET_NAME})
 
@@ -327,15 +333,17 @@ target_link_libraries(${TARGET_NAME}
 )
 
 add_dependencies(${TARGET_NAME} 
-  ${DATA_MANAGER_LIBS} 
-  ${COMPARATOR_LIBS} 
-  ${DATA_GENERATOR_LIBS}  
-  ${UNIT_TEST_LIBS} 
-  ${NEAT_ALU_LIBS} 
+  ${DATA_MANAGER_LIBS}
+  ${COMPARATOR_LIBS}
+  ${DATA_GENERATOR_LIBS}
+  ${UNIT_TEST_LIBS}
+  ${NEAT_ALU_LIBS}
   ${PLUGIN_NEAT_LIBS}
   OclPluginManager
-  OclRecorder
-  )
+  dynamic_load
+  OCLRecorderStat
+  OCLBuilder
+)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 
