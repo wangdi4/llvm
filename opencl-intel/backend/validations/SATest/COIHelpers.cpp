@@ -61,11 +61,8 @@ using namespace Validation;
 
 COI_ISA_TYPE COIProcessAndPipelineWrapper::GetCOIISAType(std::string cpuArch)
 {
-    // TODO: at the moment SATest is supposed to support KNF architecture only.
-    // This function have to be fixed to support other MIC architectures.
-    if(std::string("auto-remote") == cpuArch) return COI_ISA_KNF;
     if(std::string("knf") == cpuArch) return COI_ISA_KNF;
-    // if(std::string("knc") == cpuArch) return COI_ISA_KNC;
+    if(std::string("knc") == cpuArch) return COI_ISA_KNC;
     return COI_ISA_INVALID;
 }
 
@@ -112,6 +109,10 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     Intel::ECPU cpuId = Intel::CPUId::GetCPUByName(pRunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "").c_str());
     const char* pCPUPrefix = Intel::CPUId::GetCPUPrefix(cpuId, sizeof(void*)==8);
     std::string svmlFileName = std::string("__ocl_svml_") + pCPUPrefix + ".so";
+    if (std::string(pCPUPrefix) == "b2")
+    {
+        svmlFileName += ".2.0";
+    }
     // Load SVML built-ins library.
     res = COIProcessLoadLibraryFromFile(
         m_process,              // in_Process
