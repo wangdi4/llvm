@@ -821,7 +821,10 @@ public:
 		\retval	CL_DEV_INVALID_OPERATION	If sub-buffer can't be created
 	*/
 	virtual cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
-		const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject ) = 0;
+		                            const size_t IN *origin, 
+		                            const size_t IN *size, 
+                                    IOCLDevRTMemObjectService IN *pBSService,
+		                            IOCLDevMemoryObject* OUT *ppSubObject ) = 0;
 
     //! Muilti-device data sharing - update Backing Store data by copying data from device
     //! Device->BackingStore

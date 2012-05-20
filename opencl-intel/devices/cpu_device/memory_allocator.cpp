@@ -281,7 +281,9 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
-										   const size_t *size, IOCLDevMemoryObject** ppSubBuffer )
+										   const size_t *size, 
+										   IOCLDevRTMemObjectService IN *pBSService,
+										   IOCLDevMemoryObject** ppSubBuffer )
 {
 	CPUDevMemorySubObject* pSubObject = new CPUDevMemorySubObject(m_iLogHandle, m_pLogDescriptor, this);
 	if ( NULL == pSubObject )
@@ -289,7 +291,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	cl_dev_err_code devErr = pSubObject->Init(mem_flags, origin, size);
+	cl_dev_err_code devErr = pSubObject->Init(mem_flags, origin, size, pBSService);
 	if ( CL_DEV_FAILED(devErr) )
 	{
 		delete pSubObject;
@@ -334,7 +336,8 @@ CPUDevMemorySubObject::CPUDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescri
 {
 }
 
-cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size)
+cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, 
+                                            IOCLDevRTMemObjectService IN *pBSService)
 {
 	MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_pParent->m_objDecr, sizeof(cl_mem_obj_descriptor));
 
@@ -355,7 +358,17 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
 	m_memFlags = mem_flags;
 
-	m_pBackingStore = m_pParent->m_pBackingStore;
+    m_pRTMemObjService = pBSService;
+    
+    cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) );
+
+    if (CL_DEV_FAILED(bsErr) || (NULL == m_pBackingStore))
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetBackingStore failed"));
+        return CL_DEV_ERROR_FAIL;
+    }    
+    
 	m_pBackingStore->AddPendency();
 
 	return CL_DEV_SUCCESS;

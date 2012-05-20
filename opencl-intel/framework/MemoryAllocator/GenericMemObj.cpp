@@ -1303,6 +1303,7 @@ cl_err_code GenericMemObjectSubBuffer::create_device_object(
     	                            clMemFlags,
     	                            m_stOrigin,
     	                            bs->GetDimentions(),
+    	                            this,
     	                            dev_object);
 
     return CL_DEV_FAILED(devErr) ? CL_OUT_OF_RESOURCES : CL_SUCCESS;

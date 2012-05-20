@@ -1208,7 +1208,7 @@ void ProgramService::releaseKernelOnDevice( cl_dev_kernel kernel )
     long new_value = --(p_entry->outanding_usages_count);
     assert( new_value >= 0 && "MICDevice: Program usage counter underloaded" );
 
-    if (new_value <= 0)
+    if (new_value < 0)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Program outstaning usage counter underloaded: %d"), new_value);
     }

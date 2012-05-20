@@ -312,7 +312,7 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
                    IOCLDevRTMemObjectService* pRTMemObjService):
     m_Allocator(allocator), m_nodeId(nodeId), m_memFlags(memFlags),
     m_pRTMemObjService(pRTMemObjService), m_pBackingStore(NULL),
-    m_raw_size(0), m_coi_buffer(0)
+    m_raw_size(0), m_coi_buffer(0), m_coi_top_level_buffer(0), m_coi_top_level_buffer_offset(0)
 {
 	assert( NULL != m_pRTMemObjService);
 
@@ -369,14 +369,15 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // exhausted, while another - not.
     // try both in an order of required precedence 
     uint32_t flags[2] = {0, 0}; 
-    flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = COI_OPTIMIZE_HUGE_PAGE_SIZE;
+    // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
+    flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = 0; // COI_OPTIMIZE_HUGE_PAGE_SIZE;
 
     COIRESULT coi_err;
     
     for (unsigned int i = 0; i < ARRAY_ELEMENTS(flags); ++i)
     {
         coi_err = COIBufferCreateFromMemory(
-                                m_raw_size, COI_BUFFER_NORMAL, 
+                                m_raw_size, COI_BUFFER_OPENCL, 
 								flags[i],
                                 m_objDescr.pData,
                                 coi_processes.size(), &(coi_processes[0]),
@@ -394,6 +395,8 @@ cl_dev_err_code MICDevMemoryObject::Init()
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
+    m_coi_top_level_buffer        = m_coi_buffer;
+    m_coi_top_level_buffer_offset = 0;
     return CL_DEV_SUCCESS;
 }
 
@@ -479,7 +482,9 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
-                                           const size_t *size, IOCLDevMemoryObject** ppSubBuffer )
+                                           const size_t *size, 
+                                           IOCLDevRTMemObjectService IN *pBSService,
+                                           IOCLDevMemoryObject** ppSubBuffer )
 {
     if (MICDevice::isDeviceLibraryUnloaded())
     {
@@ -492,7 +497,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
         return CL_DEV_OUT_OF_MEMORY;
     }
 
-    cl_dev_err_code devErr = pSubObject->Init(mem_flags, origin, size);
+    cl_dev_err_code devErr = pSubObject->Init(mem_flags, origin, size, pBSService);
     if ( CL_DEV_FAILED(devErr) )
     {
         delete pSubObject;
@@ -639,17 +644,28 @@ MICDevMemorySubObject::MICDevMemorySubObject(MemoryAllocator& allocator, MICDevM
 {
 }
 
-cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size)
+cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size,
+                                            IOCLDevRTMemObjectService IN *pBSService )
 {
     MEMCPY_S(&m_objDescr, sizeof(cl_mem_obj_descriptor), &m_Parent.m_objDescr, sizeof(cl_mem_obj_descriptor));
 
     m_nodeId           = m_Parent.m_nodeId;
-    m_pRTMemObjService = m_Parent.m_pRTMemObjService;
-    m_pBackingStore    = m_Parent.m_pBackingStore;
+
+    m_pRTMemObjService = pBSService;
+	assert( NULL != m_pRTMemObjService);
+
+	// Get backing store.
+	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+
+    if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
+    {
+        // error - nothing can be done
+        m_pBackingStore = NULL;
+        return CL_DEV_INVALID_MEM_OBJECT;
+    }
 
     m_pBackingStore->AddPendency();
-
-    m_objDescr.pData = (cl_uchar*)m_objDescr.pData + m_pBackingStore->GetRawDataOffset( origin );
 
     // Update dimensions
     if ( 1 == m_objDescr.dim_count )
@@ -667,11 +683,30 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
         m_raw_size = m_objDescr.pitch[ m_objDescr.dim_count - 1 ] * m_objDescr.dimensions.dim[ m_objDescr.dim_count ];
     }
 
-    m_memFlags = mem_flags;
+    m_memFlags       = mem_flags;
+    m_objDescr.pData = m_pBackingStore->GetRawData();
 
-     // BUGBUG: DK - need to create COI sub-buffer
-//    m_coi_buffer =
-    assert( false && "SubBuffers are not supported on MIC yet" );
+    m_coi_top_level_buffer        = m_Parent.m_coi_top_level_buffer;
+    m_coi_top_level_buffer_offset = m_Parent.m_coi_top_level_buffer_offset + m_Parent.m_pBackingStore->GetRawDataOffset(origin);
 
-    return CL_DEV_SUCCESS;
+    assert( (0 != m_raw_size) && "Zero subbuffer size" );
+
+    COIRESULT coi_err = COIBufferCreateSubBuffer( m_coi_top_level_buffer, 
+                                                  m_raw_size, 
+                                                  m_coi_top_level_buffer_offset, 
+                                                  &m_coi_buffer );
+
+    assert( ((COI_SUCCESS == coi_err) || (COI_OUT_OF_MEMORY == coi_err)) && "COIBufferCreateSubBuffer() failed"); 
+
+    if (COI_SUCCESS != coi_err)
+    {
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object COI sub-buffer Allocation failed"));
+        return CL_DEV_OBJECT_ALLOC_FAIL;
+    }
+
+    // BUGBUG:  COI still have many problems with sub-buffers - temporary disable
+    assert( false && "Sub-buffers on MIC are still not supported" );
+    
+    return CL_DEV_ERROR_FAIL; // CL_DEV_SUCCESS;
 }
+

@@ -604,7 +604,7 @@ cl_dev_err_code CopyMemObject::execute()
 		//  * Write from the temporary host buffer instead of copy from source COIBuffer.
 		ProcessCommonMemoryChunk* pCopier = NULL;
 		COIEVENT initialReadBarrier;
-		if (pMicMemObjSrc->clDevMemObjGetCoiBufferHandler() == pMicMemObjDst->clDevMemObjGetCoiBufferHandler())
+		if (pMicMemObjSrc->clDevMemObjGetTopLevelCoiBufferHandler() == pMicMemObjDst->clDevMemObjGetTopLevelCoiBufferHandler())
 		{
 			// Allocate memory for source mirror buffer.
 			m_srcBufferMirror = new char[pMicMemObjSrc->GetRawDataSize()];

@@ -86,7 +86,9 @@ public:
 	cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
 
 	cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
-					const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
+					const size_t *origin, const size_t *size, 
+					IOCLDevRTMemObjectService IN *pBSService, 
+					IOCLDevMemoryObject** ppSubObject );
 
     cl_dev_err_code clDevMemObjUpdateBackingStore( 
 	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState );
@@ -118,7 +120,7 @@ class CPUDevMemorySubObject : public CPUDevMemoryObject
 public:
 	CPUDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, CPUDevMemoryObject* pParent);
 
-	cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size);
+	cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, IOCLDevRTMemObjectService IN *pBSService );
 
 protected:
 	CPUDevMemoryObject* m_pParent;

@@ -80,6 +80,8 @@
 #define MIC_MAX_GLOBAL_MEM_SIZE(deviceId) (((MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)*3)/4) & ~4095)
 #define MIC_AVAILABLE_PROCESS_MEMORY(deviceId) (MIN(MIC_MAX_GLOBAL_MEM_SIZE(deviceId) + 1024 * 1024 * 100, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)) & ~4095)
 
+#define MIC_DEV_INITIAL_BUFFER_PREALLOCATION (2 * 4096)
+
 // redirect all I/O requests from device to host, includion files and std handles
 #define MIC_DEV_IO_PROXY_TO_HOST            true
 

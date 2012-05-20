@@ -174,6 +174,7 @@ public:
 
 private:
     friend class MICDevMemoryObject;
+    friend class MICDevMemorySubObject;
 
     IOCLDevLogDescriptor*       GetLogDescriptor( void ) { return m_pLogDescriptor; };
     cl_int                      GetLogHandle( void ) { return m_iLogHandle; };
@@ -228,9 +229,12 @@ public:
 	const cl_mem_obj_descriptor& clDevMemObjGetDescriptorRaw() const { return m_objDescr; };
 
     cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
-                    const size_t *origin, const size_t *size, IOCLDevMemoryObject** ppSubObject );
+                    const size_t *origin, const size_t *size, 
+                    IOCLDevRTMemObjectService IN *pBSService,
+                    IOCLDevMemoryObject** ppSubObject );
 
 	const COIBUFFER& clDevMemObjGetCoiBufferHandler() const { return m_coi_buffer; };
+	const COIBUFFER& clDevMemObjGetTopLevelCoiBufferHandler() const { return m_coi_top_level_buffer; };
 
 	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
@@ -267,6 +271,10 @@ protected:
     COIBUFFER                   m_coi_buffer;
     AtomicCounter               m_write_maps_count;
 
+    // sub-buffer support
+    COIBUFFER                   m_coi_top_level_buffer;
+    size_t                      m_coi_top_level_buffer_offset;
+
     typedef vector<COIPROCESS>  COI_ProcessesArray;
     COI_ProcessesArray          get_active_processes( void );
     MICDevice*                  get_owning_device( void );
@@ -280,7 +288,7 @@ class MICDevMemorySubObject : public MICDevMemoryObject
 public:
     MICDevMemorySubObject(MemoryAllocator& allocator, MICDevMemoryObject& pParent);
 
-    cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size);
+    cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, IOCLDevRTMemObjectService IN *pBSService);
 
 protected:
     MICDevMemoryObject& m_Parent;
