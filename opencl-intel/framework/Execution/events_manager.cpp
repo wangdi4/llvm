@@ -136,7 +136,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
          return CL_INVALID_EVENT_WAIT_LIST;
 
     // First validate that all ids in the event list exists
-	std::vector<OclEvent*> vOclEvents;
+	std::vector<OclEvent*> vOclEvents, vExplicitWaitEvents;
 
 	if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
 	{
@@ -166,7 +166,6 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 	{
 		if ( vOclEvents.end() == evtIt )
 		{
-			evtIt = vOclEvents.begin();
 			// When one loop fished and no WaitForEvent were executed succesfully
 			// Need to start using explicit Wait()
 			if ( !bWaitForEventSuccess )
@@ -174,47 +173,53 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 				break;
 			}
 
+			evtIt = vOclEvents.begin();
 			bWaitForEventSuccess = false;
 		}
 
 		// Execute queue until assosiated command is completed
-		// The event should be set to completed at this stage
+
+		// Don't try join master thread for user events,
+		// Don't try join master thread for Runtime Commands,
+		// Or if WaitForCompletion() fails,
+		// Move event to the Explicit Wait list and skip to next event
 		QueueEvent* pQueueEvent = dynamic_cast<QueueEvent*>(*evtIt);
-		if ( NULL == pQueueEvent )
+		if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE) &&
+			 !CL_FAILED(pQueueEvent->GetEventQueue()->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
 		{
-			return CL_INVALID_EVENT;
+			bWaitForEventSuccess = true;
+
+			// At this stage the event is completed
+			assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
+			// Now check even error code for failure
+			if ((*evtIt)->GetReturnCode() < 0)
+			{
+				err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+			}
 		}
-
-		// Don't try join master thread for Runtime Commands
-		// Or if WaitForCompletion() fails, skip to next event
-		if ( (pQueueEvent->GetCommand()->GetExecutionType() == RUNTIME_EXECUTION_TYPE) ||
-			 CL_FAILED(pQueueEvent->GetEventQueue()->WaitForCompletion(pQueueEvent)) )
+		else
 		{
-			++evtIt;
-			continue;
-		}
-
-		bWaitForEventSuccess = true;
-
-		// At this stage the event is completed
-		assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
-		// Now check even error code for failure
-		if ((*evtIt)->GetReturnCode() < 0)
-		{
-			err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+			vExplicitWaitEvents.push_back(*evtIt);
 		}
 
 		evtIt = vOclEvents.erase(evtIt);
 	}
 
+	vExplicitWaitEvents.insert(vExplicitWaitEvents.end(), vOclEvents.begin(), vOclEvents.end());
+
 	// For rest of the events need to explicitly wait for each one, don't spent CPU cycles in the loop
-	for ( evtIt = vOclEvents.begin(); evtIt != vOclEvents.end(); evtIt++)
+	for ( evtIt = vExplicitWaitEvents.begin(); evtIt != vExplicitWaitEvents.end(); evtIt++)
 	{
 		(*evtIt)->Wait();
+		// Now check even error code for failure
+		if ((*evtIt)->GetReturnCode() < 0)
+		{
+			err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+		}
 	}
-	vOclEvents.clear();
+	vExplicitWaitEvents.clear();
 
-	return CL_SUCCESS;
+	return err;
 }
 
 /******************************************************************
