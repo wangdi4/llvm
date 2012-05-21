@@ -19,6 +19,7 @@ File Name:  Kernel.cpp
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "exceptions.h"
+#include "cpu_dev_limits.h"
 #include <string.h>
 
 
@@ -33,6 +34,14 @@ size_t GCD(size_t a, size_t b)
         if( b == 0 )
             return a;
     }
+}
+
+unsigned int min(unsigned int a, unsigned int b) {
+  return a < b ? a : b;
+}
+
+unsigned int max(unsigned int a, unsigned int b) {
+  return a > b ? a : b;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -101,14 +110,53 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         }
         else
         {
+            // Old Heuristic
             // On the last use optimal size
             // Fill first dimension with WG size
-            outputWorkSizes.localWorkSize[0] = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
-            
+            //outputWorkSizes.localWorkSize[0] = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
+            //
+            //for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i)
+            //{
+            //    outputWorkSizes.localWorkSize[i] = 1;
+            //}
+
+            // New Heuristic
+            outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
+
+            unsigned int globalGroupSizeYZ = 1;
             for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i)
             {
+                // Calculate global group size on dimensions Y & Z
+                globalGroupSizeYZ *= pInputWorkSizes->globalWorkSize[i];
+                // Set local group size on dimensions Y & Z to 1
                 outputWorkSizes.localWorkSize[i] = 1;
             }
+            //This number can be decreased in case there is globalGroupSizeYZ larger than 1!
+            unsigned int workGroupNumMinLimit =
+                (outputWorkSizes.minWorkGroupNum + (globalGroupSizeYZ-1)) / globalGroupSizeYZ;
+
+            unsigned int globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
+            unsigned int localSizeMaxLimit =
+                min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                // localSizeMaxLimit_1
+                min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / m_pProps->GetPrivateMemorySize(),// localSizeMaxLimit_2
+                      max(1, globalGroupSizeX / workGroupNumMinLimit) ));            // localSizeMaxLimit_3
+
+            unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
+            assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
+                "minMultiplyFactor assumed to be power of 2 that is not zero!" );
+            if ( (globalGroupSizeX & (minMultiplyFactor-1)) != 0 ) {
+                // globalGroupSize in diminsion x is not multiply of minMultiplyFactor
+                // Cannot satisfy the requist that local group size be multiply of minMultiplyFactor
+                // Thus, need set minMultiplyFactor to 1, and let local size be any high number.
+                minMultiplyFactor = 1;
+            }
+
+            globalGroupSizeX /= minMultiplyFactor;
+            localSizeMaxLimit /= minMultiplyFactor;
+            for (; localSizeMaxLimit>0; localSizeMaxLimit--) {
+                if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
+            }
+            outputWorkSizes.localWorkSize[0] = max(1, minMultiplyFactor * localSizeMaxLimit);
         }
     }
 }

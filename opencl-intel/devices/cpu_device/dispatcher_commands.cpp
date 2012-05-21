@@ -953,6 +953,9 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     memcpy(workDesc.globalWorkSize, cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
     memcpy(workDesc.localWorkSize, cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
 
+    //Todo: caliberate
+    workDesc.minWorkGroupNum = 2 * m_pTaskDispatcher->getNumberOfThreads(); 
+
 	// Create an "Binary" for these parameters
     cl_dev_err_code clRet = pExecutionService->CreateBinary(pKernel, 
                                                             m_pLockedParams, 

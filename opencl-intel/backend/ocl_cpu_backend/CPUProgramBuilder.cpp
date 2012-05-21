@@ -178,7 +178,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         // Create a kernel 
         std::auto_ptr<Kernel>           spKernel( CreateKernel( pFunc, 
                                                                 pWrapperFunc->getName().str(), 
-                                                                spKernelProps.release()));
+                                                                spKernelProps.get()));
 
         // We want the JIT of the wrapper function to be called
         AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
@@ -209,12 +209,12 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             if(NULL != vecIter->first && !dontVectorize)
             {
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<KernelJITProperties>  spVKernelProps(CreateKernelJITProperties(pModule, 
+                std::auto_ptr<KernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties(pModule, 
                                                                                       vecIter->first,
                                                                                       buildResult.GetKernelsInfo()[vecIter->first]));
-                spVKernelProps->SetVectorSize(vecIter->second);
-                AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
-                             vecIter->first, spVKernelProps.release());
+                spVKernelJITProps->SetVectorSize(vecIter->second);
+                spKernelProps->SetMinGroupSizeFactorial(vecIter->second);
+                AddKernelJIT( spKernel.get(), pModule, vecIter->first, spVKernelJITProps.release());
                 
             }
             if ( dontVectorize )
@@ -236,6 +236,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         PluginManager::Instance().OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
         spKernels->AddKernel(spKernel.release());
+        spKernelProps.release();
     }
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating completed");
     

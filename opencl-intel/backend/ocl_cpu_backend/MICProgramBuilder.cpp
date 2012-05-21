@@ -154,7 +154,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         // Create a kernel 
         std::auto_ptr<MICKernel>           spKernel( CreateKernel( pFunc, 
                                                                 pWrapperFunc->getName().str(),
-                                                                spMICKernelProps.release()));
+                                                                spMICKernelProps.get()));
         spKernel->SetKernelID(i);
 
         AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, 
@@ -186,11 +186,12 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
             {
                 //
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<MICKernelJITProperties>  spVKernelProps(CreateKernelJITProperties(pModule, 
+                std::auto_ptr<MICKernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties(pModule, 
                                                                                       vecIter->first,
                                                                                       buildResult.GetKernelsInfo()[vecIter->first]));
-                spVKernelProps->SetVectorSize(vecIter->second);
-                AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, vecIter->first, spVKernelProps.release());
+                spVKernelJITProps->SetVectorSize(vecIter->second);
+                spMICKernelProps->SetMinGroupSizeFactorial(vecIter->second);
+                AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, vecIter->first, spVKernelJITProps.release());
             }
             if ( dontVectorize )
             {
@@ -211,6 +212,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         PluginManager::Instance().OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
         spKernels->AddKernel(spKernel.release());
+        spMICKernelProps.release();
     }
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating completed");
     

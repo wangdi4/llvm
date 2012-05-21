@@ -75,6 +75,12 @@ public:
     virtual size_t GetPrivateMemorySize() const;
 
     /**
+     * @returns the required minimum group size factorial
+     *  1 when no minimum is required
+     */
+    unsigned int GetMinGroupSizeFactorial() const;
+
+    /**
      * @returns the size in bytes of the implicit local memory buffer required by this kernel
      * (implicit local memory buffer is the size of all the local buffers declared and used
      *  in the kernel body)
@@ -109,6 +115,7 @@ public:
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
+    void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void SetJitCreateWIids (bool value) { m_bJitCreateWIids = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
@@ -126,6 +133,7 @@ protected:
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation
     size_t m_totalImplSize;
     size_t m_privateMemorySize;
+    unsigned int m_minGroupSizeFactorial;
     bool m_bJitCreateWIids;
 
 };

@@ -32,7 +32,8 @@ KernelJITProperties::KernelJITProperties():
 KernelProperties::KernelProperties(): 
     m_optWGSize(0),
     m_totalImplSize(0),
-    m_privateMemorySize(0)
+    m_privateMemorySize(0),
+    m_minGroupSizeFactorial(1)
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM*sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM*sizeof(size_t));
@@ -51,6 +52,11 @@ const size_t* KernelProperties::GetRequiredWorkGroupSize() const
 size_t KernelProperties::GetPrivateMemorySize() const
 {
     return m_privateMemorySize;
+}
+
+unsigned int KernelProperties::GetMinGroupSizeFactorial() const
+{
+    return m_minGroupSizeFactorial;
 }
 
 size_t KernelProperties::GetImplicitLocalMemoryBufferSize() const
