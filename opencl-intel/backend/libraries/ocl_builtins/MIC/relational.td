@@ -182,9 +182,12 @@ OclBuiltinImpl isnan_f64_v1 = OclBuiltinImpl<isnan, [v1f64], 0, [{
 OclBuiltinImpl isnan_f64_v8 = OclBuiltinImpl<isnan, [v8f64], 0, [{
     $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
     $NativeArg0Type lower = ($NativeArg0Type)unpack_lo($Arg0VarName);
+    __m512i upper_no_sign = _mm512_and_epi32((__m512i)(upper), (__m512i)((int16)const_fp_no_sign));
+    __mmask16 nan_type_1 = _mm512_cmpnle_epi32((__m512i)upper, (__m512i)((int16)const_dp_exp_hi));
     __mmask16 not_zero = _mm512_cmpneq_epi32((__m512i)lower, (__m512i)((int16)0));
-    __mmask16 nan = _mm512_cmpnle_epi32((__m512i)upper, (__m512i)((long8)const_dp_exp));
-    nan = _mm512_kor(nan, not_zero);
+    __mmask16 exp_on = _mm512_cmpeq_epi32((__m512i)upper, (__m512i)((int16)const_dp_exp_hi));
+    __mmask16 nan_type_2 = _mm512_kand(exp_on, not_zero);
+    __mmask16 nan = _mm512_kor(nan_type_1, nan_type_2);
     return ($NativeReturnType)mask2pi(nan);
   }]>;
 OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
