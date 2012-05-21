@@ -26,10 +26,21 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+if (WIN32)
+    if (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2008
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
+    else (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2010
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+    endif (${MSVC_VERSION} EQUAL 1500)
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
 
 link_directories( 	${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-					${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+					${TBB_LIB_DIR}
 				)
 
 if(WIN32)

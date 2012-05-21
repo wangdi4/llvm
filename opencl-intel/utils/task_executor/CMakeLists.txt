@@ -9,8 +9,19 @@ set( TARGET_NAME task_executor )
 
 include_directories( BEFORE . )
 
-link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-					)
+if (WIN32)
+    if (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2008
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
+    else (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2010
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+    endif (${MSVC_VERSION} EQUAL 1500)
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
+link_directories( ${TBB_LIB_DIR} )
 
 add_definitions( -DTASK_EXECUTOR_EXPORTS -D__TBB_EXECUTOR__ -D_USRDLL )
 

@@ -23,8 +23,20 @@ if (NOT WIN32)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif (NOT WIN32)
 
+if (WIN32)
+    if (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2008
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
+    else (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2010
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+    endif (${MSVC_VERSION} EQUAL 1500)
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
 link_directories( 
-			${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+			${TBB_LIB_DIR}
 			${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/lib/${INSTALL_SUBDIR}
 			)
 
