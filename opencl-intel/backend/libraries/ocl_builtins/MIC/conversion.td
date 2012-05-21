@@ -46,7 +46,7 @@ OclBuiltinImpl cvt_f32_i8i16 = OclBuiltinImpl<convert_f32,
                                               [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,
                                                v1i16, v2i16, v3i16, v4i16, v8i16,
                                                v1i32, v2i32, v3i32, v4i32, v8i32], 0, [{
-    return __ocl_svml_$Target_cvti64tofprtn$SVMLSuffix(
+    return __ocl_svml_$Target_cvti64tofp$rtn$SVMLSuffix(
             as_$Arg0i64gentype(
               sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
@@ -56,7 +56,7 @@ OclBuiltinImpl cvt_f32_u8u16 = OclBuiltinImpl<convert_f32,
                                               [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,
                                                v1u16, v2u16, v3u16, v4u16, v8u16,
                                                v1u32, v2u32, v3u32, v4u32, v8u32], 0, [{
-    return __ocl_svml_$Target_cvtu64tofprtn$SVMLSuffix(
+    return __ocl_svml_$Target_cvtu64tofp$rtn$SVMLSuffix(
             as_$Arg0u64gentype(
               zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));

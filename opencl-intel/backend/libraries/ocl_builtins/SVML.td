@@ -124,68 +124,68 @@ def svml_tanpi_native   : OclBuiltin<"__ocl_svml_$Target_tanpi$SVMLSuffix_native
 let Types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def svml_cvtfp64tofp32_rte  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32rtn$SVMLSuffix",  (outs f32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfp64tofp32_rtz  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32rtz$SVMLSuffix",  (outs f32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfp64tofp32_rtp  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32up$SVMLSuffix",   (outs f32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfp64tofp32_rtn  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32down$SVMLSuffix", (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfp64tofp32_rte  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32$rtn$SVMLSuffix",  (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfp64tofp32_rtz  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32$rtz$SVMLSuffix",  (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfp64tofp32_rtp  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32$up$SVMLSuffix",   (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfp64tofp32_rtn  : OclBuiltin<"__ocl_svml_$Target_cvtfp64tofp32$down$SVMLSuffix", (outs f32gentype:$ret), (ins gentype:$x), [], []>;
 }
 
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def svml_cvtfptoi32_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32rtnnosat$SVMLSuffix",  (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32rtznosat$SVMLSuffix",  (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32upnosat$SVMLSuffix",   (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32downnosat$SVMLSuffix", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32rtnsat$SVMLSuffix",    (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32rtzsat$SVMLSuffix",    (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32upsat$SVMLSuffix",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi32_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32downsat$SVMLSuffix",   (outs i32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32rtnnosat$SVMLSuffix",  (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32rtznosat$SVMLSuffix",  (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32upnosat$SVMLSuffix",   (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32downnosat$SVMLSuffix", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32rtnsat$SVMLSuffix",    (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32rtzsat$SVMLSuffix",    (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32upsat$SVMLSuffix",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou32_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32downsat$SVMLSuffix",   (outs u32gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64rtnnosat$SVMLSuffix",  (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64rtznosat$SVMLSuffix",  (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64upnosat$SVMLSuffix",   (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64downnosat$SVMLSuffix", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64rtnsat$SVMLSuffix",    (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64rtzsat$SVMLSuffix",    (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64upsat$SVMLSuffix",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptoi64_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64downsat$SVMLSuffix",   (outs i64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64rtnnosat$SVMLSuffix",  (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64rtznosat$SVMLSuffix",  (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64upnosat$SVMLSuffix",   (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64downnosat$SVMLSuffix", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64rtnsat$SVMLSuffix",    (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64rtzsat$SVMLSuffix",    (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64upsat$SVMLSuffix",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
-def svml_cvtfptou64_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64downsat$SVMLSuffix",   (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$rtnnosat$SVMLSuffix",  (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$rtznosat$SVMLSuffix",  (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$upnosat$SVMLSuffix",   (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$downnosat$SVMLSuffix", (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix",    (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix",    (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi32_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix",   (outs i32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$rtnnosat$SVMLSuffix",  (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$rtznosat$SVMLSuffix",  (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$upnosat$SVMLSuffix",   (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$downnosat$SVMLSuffix", (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix",    (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix",    (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix",     (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou32_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix",   (outs u32gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$rtnnosat$SVMLSuffix",  (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$rtznosat$SVMLSuffix",  (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$upnosat$SVMLSuffix",   (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$downnosat$SVMLSuffix", (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix",    (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix",    (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix",     (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptoi64_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix",   (outs i64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_rte       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$rtnnosat$SVMLSuffix",  (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_rtz       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$rtznosat$SVMLSuffix",  (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_rtp       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$upnosat$SVMLSuffix",   (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_rtn       : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$downnosat$SVMLSuffix", (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_sat_rte   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix",    (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_sat_rtz   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix",    (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_sat_rtp   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix",     (outs u64gentype:$ret), (ins gentype:$x), [], []>;
+def svml_cvtfptou64_sat_rtn   : OclBuiltin<"__ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix",   (outs u64gentype:$ret), (ins gentype:$x), [], []>;
 }
 
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def svml_cvti32tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvti32tofprtn$SVMLSuffix",   (outs gentype:$ret), (ins i32gentype:$x), [], []>;
-def svml_cvti32tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvti32tofprtz$SVMLSuffix",   (outs gentype:$ret), (ins i32gentype:$x), [], []>;
-def svml_cvti32tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvti32tofpup$SVMLSuffix",    (outs gentype:$ret), (ins i32gentype:$x), [], []>;
-def svml_cvti32tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvti32tofpdown$SVMLSuffix",  (outs gentype:$ret), (ins i32gentype:$x), [], []>;
-def svml_cvtu32tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvtu32tofprtn$SVMLSuffix",   (outs gentype:$ret), (ins u32gentype:$x), [], []>;
-def svml_cvtu32tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvtu32tofprtz$SVMLSuffix",   (outs gentype:$ret), (ins u32gentype:$x), [], []>;
-def svml_cvtu32tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvtu32tofpup$SVMLSuffix",    (outs gentype:$ret), (ins u32gentype:$x), [], []>;
-def svml_cvtu32tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvtu32tofpdown$SVMLSuffix",  (outs gentype:$ret), (ins u32gentype:$x), [], []>;
-def svml_cvti64tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvti64tofprtn$SVMLSuffix",   (outs gentype:$ret), (ins i64gentype:$x), [], []>;
-def svml_cvti64tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvti64tofprtz$SVMLSuffix",   (outs gentype:$ret), (ins i64gentype:$x), [], []>;
-def svml_cvti64tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvti64tofpup$SVMLSuffix",    (outs gentype:$ret), (ins i64gentype:$x), [], []>;
-def svml_cvti64tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvti64tofpdown$SVMLSuffix",  (outs gentype:$ret), (ins i64gentype:$x), [], []>;
-def svml_cvtu64tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvtu64tofprtn$SVMLSuffix",   (outs gentype:$ret), (ins u64gentype:$x), [], []>;
-def svml_cvtu64tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvtu64tofprtz$SVMLSuffix",   (outs gentype:$ret), (ins u64gentype:$x), [], []>;
-def svml_cvtu64tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvtu64tofpup$SVMLSuffix",    (outs gentype:$ret), (ins u64gentype:$x), [], []>;
-def svml_cvtu64tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvtu64tofpdown$SVMLSuffix",  (outs gentype:$ret), (ins u64gentype:$x), [], []>;
+def svml_cvti32tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvti32tofp$rtn$SVMLSuffix",   (outs gentype:$ret), (ins i32gentype:$x), [], []>;
+def svml_cvti32tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvti32tofp$rtz$SVMLSuffix",   (outs gentype:$ret), (ins i32gentype:$x), [], []>;
+def svml_cvti32tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvti32tofp$up$SVMLSuffix",    (outs gentype:$ret), (ins i32gentype:$x), [], []>;
+def svml_cvti32tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvti32tofp$down$SVMLSuffix",  (outs gentype:$ret), (ins i32gentype:$x), [], []>;
+def svml_cvtu32tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvtu32tofp$rtn$SVMLSuffix",   (outs gentype:$ret), (ins u32gentype:$x), [], []>;
+def svml_cvtu32tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvtu32tofp$rtz$SVMLSuffix",   (outs gentype:$ret), (ins u32gentype:$x), [], []>;
+def svml_cvtu32tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvtu32tofp$up$SVMLSuffix",    (outs gentype:$ret), (ins u32gentype:$x), [], []>;
+def svml_cvtu32tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvtu32tofp$down$SVMLSuffix",  (outs gentype:$ret), (ins u32gentype:$x), [], []>;
+def svml_cvti64tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvti64tofp$rtn$SVMLSuffix",   (outs gentype:$ret), (ins i64gentype:$x), [], []>;
+def svml_cvti64tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvti64tofp$rtz$SVMLSuffix",   (outs gentype:$ret), (ins i64gentype:$x), [], []>;
+def svml_cvti64tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvti64tofp$up$SVMLSuffix",    (outs gentype:$ret), (ins i64gentype:$x), [], []>;
+def svml_cvti64tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvti64tofp$down$SVMLSuffix",  (outs gentype:$ret), (ins i64gentype:$x), [], []>;
+def svml_cvtu64tofp_rte : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$rtn$SVMLSuffix",   (outs gentype:$ret), (ins u64gentype:$x), [], []>;
+def svml_cvtu64tofp_rtz : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$rtz$SVMLSuffix",   (outs gentype:$ret), (ins u64gentype:$x), [], []>;
+def svml_cvtu64tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$up$SVMLSuffix",    (outs gentype:$ret), (ins u64gentype:$x), [], []>;
+def svml_cvtu64tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$down$SVMLSuffix",  (outs gentype:$ret), (ins u64gentype:$x), [], []>;
 }

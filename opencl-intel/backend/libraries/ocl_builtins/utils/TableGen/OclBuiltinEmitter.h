@@ -260,6 +260,8 @@ public:
 
   const std::string& getEpilog() const { return m_Epilog; }
 
+  std::string getSVMLRounding(const std::string&) const;
+
 protected:
   RecordKeeper& m_Records;
   const Record* m_Record;
