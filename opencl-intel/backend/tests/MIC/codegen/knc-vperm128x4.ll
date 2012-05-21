@@ -77,3 +77,25 @@ entry:
   ret <16 x i32> %m
 }
 
+define <8 x i64> @G(<8 x i64> %a) nounwind ssp {
+entry:
+; KNC: vpermf32x4 $177, %zmm0, %zmm0 
+  %m = shufflevector <8 x i64> %a, <8 x i64> undef, <8 x i32> <i32 2, i32 3, i32 0, i32 1, i32 6, i32 7, i32 4, i32 5>
+  ret <8 x i64> %m
+}
+
+define <8 x double> @B_f64(<8 x double> %a) nounwind ssp {
+entry:
+; KNC: vpermf32x4 $2, %zmm0, %zmm0
+  %m = shufflevector <8 x double> %a, <8 x double> undef, <8 x i32> <i32 undef, i32 5, i32 undef, i32 undef, i32 undef, i32 1, i32 undef, i32 undef>
+  ret <8 x double> %m
+}
+
+define <8 x i64> @B_i64(<8 x i64> %a) nounwind ssp {
+entry:
+; KNC: vpermf32x4 $2, %zmm0, %zmm0
+  %m = shufflevector <8 x i64> %a, <8 x i64> undef, <8 x i32> <i32 undef, i32 5, i32 undef, i32 undef, i32 undef, i32 1, i32 undef, i32 undef>
+  ret <8 x i64> %m
+}
+
+

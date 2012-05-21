@@ -18,14 +18,14 @@ define <16 x i32> @test3(<16 x i32> %A, <16 x i32> %B) nounwind {
 
 define <16 x i32> @test4(<16 x i32> %A, <16 x i32> %B) nounwind {
 ; KNC: test4:
-; KNC: valignd $2, %zmm1, %zmm0, %zmm0
+; KNC: valignd $14, %zmm1, %zmm0, %zmm0
   %C = shufflevector <16 x i32> %A, <16 x i32> %B, <16 x i32> < i32 30, i32 31,  i32 undef, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13>
 	ret <16 x i32> %C
 }
 
 define <16 x float> @test5(<16 x float> %A, <16 x float> %B) nounwind {
 ; KNC: test5:
-; KNC: valignd $2, %zmm1, %zmm0, %zmm0
+; KNC: valignd $14, %zmm1, %zmm0, %zmm0
   %C = shufflevector <16 x float> %A, <16 x float> %B, <16 x i32> < i32 30, i32 31,  i32 undef, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13>
 	ret <16 x float> %C
 }
@@ -100,4 +100,44 @@ entry:
   ret <16 x float> %m
 }
 
+define <8 x i64> @A_i64(<8 x i64> %a) nounwind ssp {
+entry:
+; KNC: valignd $14, %zmm0, %zmm0, %zmm0
+  %m = shufflevector <8 x i64> %a, <8 x i64> undef, <8 x i32> <i32 7, i32 0, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  ret <8 x i64> %m
+}
 
+define <8 x double> @A_f64(<8 x double> %a) nounwind ssp {
+entry:
+; KNC: valignd $14, %zmm0, %zmm0, %zmm0
+  %m = shufflevector <8 x double> %a, <8 x double> undef, <8 x i32> <i32 7, i32 0, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  ret <8 x double> %m
+}
+
+define <8 x i64> @C_i64(<8 x i64> %a, <8 x i64> %b) nounwind ssp {
+entry:
+; KNC: valignd $14, %zmm0, %zmm1, %zmm0
+  %m = shufflevector <8 x i64> %a, <8 x i64> %b, <8 x i32> <i32 7, i32 8, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  ret <8 x i64> %m
+}
+
+define <8 x double> @C_f64(<8 x double> %a, <8 x double> %b)  nounwind ssp {
+entry:
+; KNC: valignd $14, %zmm0, %zmm1, %zmm0
+  %m = shufflevector <8 x double> %a, <8 x double> %b, <8 x i32> <i32 7, i32 8, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  ret <8 x double> %m
+}
+
+define <8 x i64> @D_i64(<8 x i64> %a, <8 x i64> %b) nounwind ssp {
+entry:
+; KNC: valignd $8, %zmm0, %zmm1, %zmm0
+  %m = shufflevector <8 x i64> %a, <8 x i64> %b, <8 x i32> <i32 undef, i32 5, i32 undef, i32 undef, i32 undef, i32 9, i32 undef, i32 undef>
+  ret <8 x i64> %m
+}
+
+define <8 x double> @D_f64(<8 x double> %a, <8 x double> %b) nounwind ssp {
+entry:
+; KNC: valignd $8, %zmm0, %zmm1, %zmm0
+  %m = shufflevector <8 x double> %a, <8 x double> %b, <8 x i32> <i32 undef, i32 5, i32 undef, i32 undef, i32 undef, i32 9, i32 undef, i32 undef>
+  ret <8 x double> %m
+}
