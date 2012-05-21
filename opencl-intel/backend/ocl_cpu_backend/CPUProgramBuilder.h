@@ -27,6 +27,7 @@ File Name:  CPUProgramBuilder.h
 #include "Optimizer.h"
 #include "ProgramBuilder.h"
 #include "CPUCompiler.h"
+#include "CPUProgram.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -62,14 +63,12 @@ public:
     CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& pConfig);
     ~CPUProgramBuilder();
 
-    const Compiler* GetCompiler() const
-    {
-        return &m_compiler;
-    }
+    Compiler* GetCompiler() { return &m_compiler; }
+    const Compiler* GetCompiler() const { return &m_compiler; }
 
 protected:
 
-    KernelSet* CreateKernels(const Program* pProgram,
+    KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) const;
 
@@ -84,7 +83,8 @@ private:
     Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
 
-    void AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
+    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, 
+                      llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
     // Klockwork Issue
     CPUProgramBuilder ( const CPUProgramBuilder& x );

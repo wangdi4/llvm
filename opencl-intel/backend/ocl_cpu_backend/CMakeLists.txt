@@ -276,6 +276,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     MICBuiltinLibrary.h
     Program.h
     MICProgram.h
+    CPUProgram.h
     BitCodeContainer.h
     ProgramContainerMemoryBuffer.h
     ModuleJITHolder.h
@@ -332,6 +333,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     MICBuiltinLibrary.cpp
     Program.cpp
     MICProgram.cpp
+    CPUProgram.cpp
     BitCodeContainer.cpp
     ProgramContainerMemoryBuffer.cpp
     Kernel.cpp

@@ -61,6 +61,14 @@ void Kernel::AddKernelJIT( IKernelJITContainer* pJIT)
     m_JITs.push_back( pJIT );
 }
 
+void Kernel::FreeAllJITs()
+{
+    for( unsigned i = 0; i < m_JITs.size(); ++i)
+    {
+        m_JITs[i]->FreeJITCode();
+    }
+}
+
 void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSizes, 
                                     cl_work_description_type&       outputWorkSizes) const
 {

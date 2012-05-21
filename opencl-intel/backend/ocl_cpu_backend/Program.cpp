@@ -26,6 +26,7 @@ File Name:  Program.cpp
 #include "cl_device_api.h"
 #include "BitCodeContainer.h"
 
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Program::Program():
@@ -37,6 +38,7 @@ Program::Program():
 Program::~Program()
 {
     m_kernels.reset(NULL);
+
     delete m_pCodeContainer;
 }
 

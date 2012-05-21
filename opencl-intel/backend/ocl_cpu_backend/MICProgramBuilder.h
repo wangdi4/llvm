@@ -54,12 +54,10 @@ public:
 
 protected:
 
-    const Compiler* GetCompiler() const
-    {
-        return &m_compiler;
-    }
+    Compiler* GetCompiler() { return &m_compiler; }
+    const Compiler* GetCompiler() const { return &m_compiler; }
 
-    KernelSet* CreateKernels(const Program* pProgram,
+    KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) const;
 

@@ -187,7 +187,7 @@ public:
      */
     llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                const CompilerBuildOptions* pOptions,
-                               ProgramBuildResult* pResult) const;
+                               ProgramBuildResult* pResult);
 
     const CPUId &GetCpuId() const
     {
@@ -195,18 +195,21 @@ public:
     }
 
 
-    // TODO: make this method non-constant after re-design
-    virtual void CreateExecutionEngine(llvm::Module* m) const = 0;
+    // Create execution engine
+    virtual void CreateExecutionEngine(llvm::Module* m)  = 0;
+
+    // Get the latest execution engine
+    virtual void *GetExecutionEngine() = 0;
 
     virtual unsigned int GetTypeAllocSize(llvm::Type* pType) const = 0;
 
-protected:
     /**
      * Returns pointer to the RTL library module
      */
     virtual llvm::Module* GetRtlModule() const = 0;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
+protected:
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
     llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
 
@@ -222,5 +225,7 @@ protected:
 
     static bool s_globalStateInitialized;
 };
+
+void SetTargetTripple(llvm::Module *pModule);
 
 }}}

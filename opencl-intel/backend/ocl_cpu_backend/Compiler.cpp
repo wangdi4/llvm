@@ -259,7 +259,7 @@ Compiler::~Compiler()
 
 llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
                                      const CompilerBuildOptions* pOptions,
-                                     ProgramBuildResult* pResult) const
+                                     ProgramBuildResult* pResult)
 {
     assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
     assert(pResult && "Build results pointer must not be NULL");
@@ -311,15 +311,17 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     }
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
-    // !!!WORKAROUND!!! if module wasn't built previously than we use
-    // optimizer output to create execution engine in compiler
-    // spModule is now owned by the execution engine
-    if(!m_needLoadBuiltins)
-        this->CreateExecutionEngine(spModule.get());
+    // Execution Engine depends on module configuration and should
+    // be created per module.
+    // The object that owns module, should own the execution engine
+    // as well and be responsible for release, of course.
+
+    // Compiler creates execution engine but only keeps a pointer to the latest
+    CreateExecutionEngine(spModule.get());
     return spModule.release();
 }
 
-llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const
+llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     //
     // Parse the module IR 
@@ -352,15 +354,20 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
-    // Setting the target triple as a tripple the backend was compiled under
+	SetTargetTripple(spModule.get());
+	return spModule.release();
+
+}
+
+void SetTargetTripple(llvm::Module *pModule)
+{
 #if defined(_M_X64)
-    spModule->setTargetTriple( "x86_64-pc-win32");
+    pModule->setTargetTriple( "x86_64-pc-win32");
 #elif defined(__LP64__)
-    spModule->setTargetTriple( "x86_64-pc-linux");
+    pModule->setTargetTriple( "x86_64-pc-linux");
 #else
-    spModule->setTargetTriple( "i686-pc-win32");
+    pModule->setTargetTriple( "i686-pc-win32");
 #endif 
-    return spModule.release();
 }
 
 }}}

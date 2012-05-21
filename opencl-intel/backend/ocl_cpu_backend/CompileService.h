@@ -71,7 +71,7 @@ public:
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
     cl_dev_err_code BuildProgram( ICLDevBackendProgram_* pProgram, 
-                                  const ICLDevBackendOptions* pOptions ) const;
+                                  const ICLDevBackendOptions* pOptions );
 
     /**
      * Dumps the content of the given code container 
@@ -104,7 +104,7 @@ public:
                                           const std::string& filename) const;
 
 protected:
-    virtual const ProgramBuilder* GetProgramBuilder() const = 0;
+    virtual ProgramBuilder* GetProgramBuilder() = 0;
 
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_backendFactory;

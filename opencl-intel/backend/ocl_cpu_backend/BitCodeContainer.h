@@ -20,11 +20,6 @@ File Name:  BitCodeContainer.h
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 
-namespace llvm
-{
-    class Module;
-}
-
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

@@ -119,7 +119,7 @@ std::vector<cl_kernel_argument> arguments;
     return m_pBackendFactory->CreateKernel( funcName, arguments, pProps );
 }
 
-KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
+KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                                     llvm::Module* pModule, 
                                     ProgramBuildResult& buildResult) const
 {
@@ -181,7 +181,8 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
                                                                 spKernelProps.release()));
 
         // We want the JIT of the wrapper function to be called
-        AddKernelJIT( spKernel.get(), pModule, pWrapperFunc, spKernelJITProps.release());
+        AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
+                     pWrapperFunc, spKernelJITProps.release());
 
 
         // Check if vectorized kernel present
@@ -212,7 +213,8 @@ KernelSet* CPUProgramBuilder::CreateKernels( const Program* pProgram,
                                                                                       vecIter->first,
                                                                                       buildResult.GetKernelsInfo()[vecIter->first]));
                 spVKernelProps->SetVectorSize(vecIter->second);
-                AddKernelJIT( spKernel.get(), pModule, vecIter->first, spVKernelProps.release());
+                AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
+                             vecIter->first, spVKernelProps.release());
                 
             }
             if ( dontVectorize )
@@ -251,12 +253,13 @@ KernelJITProperties* CPUProgramBuilder::CreateKernelJITProperties(llvm::Module* 
     return pProps;
 }
 
-void CPUProgramBuilder::AddKernelJIT( Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const
+void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, 
+                                     llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
     IKernelJITContainer* pJIT = new CPUJITContainer( m_compiler.GetPointerToFunction(pFunc),
                                            pFunc,
                                            pModule,
-                                           &m_compiler,
+                                           pProgram->GetExecutionEngine(),
                                            pProps);
     pKernel->AddKernelJIT( pJIT );
 }

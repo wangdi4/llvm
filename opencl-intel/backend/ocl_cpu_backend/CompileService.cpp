@@ -92,7 +92,7 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 }
 
 cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
-                                              const ICLDevBackendOptions* pOptions ) const
+                                              const ICLDevBackendOptions* pOptions )
 {
     try
     {

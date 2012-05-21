@@ -86,6 +86,7 @@ bool ImageCallbackLibrary::Build()
 
     ProgramBuildResult buildResult;  //what is this for?
     m_pModule = m_Compiler->BuildProgram(m_pRtlBuffer.get(),&buildOptions, &buildResult);
+    m_pExecutionEngine = m_Compiler->GetExecutionEngine();
     m_ImageFunctions = new ImageCallbackFunctions(m_pModule, m_Compiler);
     return (m_pModule != NULL);
 }
@@ -595,6 +596,20 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
     m_pCompiler = pCompiler;
 }
 
+ImageCallbackLibrary::~ImageCallbackLibrary()
+{
+    if (m_ImageFunctions) 
+        delete m_ImageFunctions;
+    if(m_pExecutionEngine) 
+    {
+        ((llvm::ExecutionEngine*)m_pExecutionEngine)->removeModule(m_pModule);
+        delete (llvm::ExecutionEngine*)m_pExecutionEngine;
+    }
+    // Module should be freed before compiler
+    // Otherwise module's destructor will fail
+    delete m_pModule;
+    delete m_Compiler;
+}
 
 
 }}} // namespace

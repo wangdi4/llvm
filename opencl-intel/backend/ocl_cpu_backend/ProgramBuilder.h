@@ -74,15 +74,16 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions) const;
+    cl_dev_err_code BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions);
 
 protected:
 
+    virtual Compiler* GetCompiler() = 0;
     virtual const Compiler* GetCompiler() const = 0;
 
     virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const = 0;
 
-    virtual KernelSet* CreateKernels(const Program* pProgram,
+    virtual KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) const = 0;
 

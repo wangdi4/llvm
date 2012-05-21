@@ -17,7 +17,7 @@ File Name:  CPUDeviceBackendFactory.cpp
 \*****************************************************************************/
 
 #include "CPUDeviceBackendFactory.h"
-#include "Program.h"
+#include "CPUProgram.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "CPUExecutable.h"
@@ -51,7 +51,7 @@ CPUDeviceBackendFactory* CPUDeviceBackendFactory::GetInstance()
 
 Program* CPUDeviceBackendFactory::CreateProgram()
 {
-    return new Program();
+    return new CPUProgram();
 }
 
 Kernel* CPUDeviceBackendFactory::CreateKernel()

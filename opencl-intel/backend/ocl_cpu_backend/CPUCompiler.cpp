@@ -150,6 +150,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
+        //cpuFeatures |= CFS_FMA;
     }
 
     // Add forced features
@@ -162,6 +163,11 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX2;
         cpuFeatures |= CFS_AVX1;
+    }
+
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+fma3" ) != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_FMA;
     }
 
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx" ) != forcedFeatures.end())
@@ -177,19 +183,25 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx2" ) != forcedFeatures.end())
     {
         cpuFeatures &= ~CFS_AVX2;
+        cpuFeatures &= ~CFS_FMA;
     }
 
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx" ) != forcedFeatures.end())
     {
         cpuFeatures &= ~CFS_AVX1;
         cpuFeatures &= ~CFS_AVX2;
+        cpuFeatures &= ~CFS_FMA;
+    }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma3" ) != forcedFeatures.end())
+    {
+        cpuFeatures &= ~CFS_FMA;
     }
 
     return cpuFeatures;
-}
 
 }
 
+}
 
 CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     Compiler(config),
@@ -203,19 +215,13 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     if(config.GetLoadBuiltins())
     {
         BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-        std::auto_ptr<llvm::Module> spModule( CreateRTLModule(pLibrary) );
-        m_pBuiltinModule = new BuiltinModule( spModule.get());
-
-        // Initialize the ExecutionEngine
-        // ExecutionEngine will own the pointer to the RT module, so we are releasing it here
-        m_pExecEngine = CreateCPUExecutionEngine( spModule.release() );
+        llvm::Module *pModule = CreateRTLModule(pLibrary);
+        m_pBuiltinModule = new BuiltinModule( pModule);
     }
 
-    // Register the VTune listener
-    if(config.GetUseVTune() && m_pExecEngine)
+    if(config.GetUseVTune())
     {
         m_pVTuneListener = llvm::createIntelJITEventListener();
-        m_pExecEngine->RegisterJITEventListener(m_pVTuneListener);
     }
 }
 
@@ -224,9 +230,7 @@ CPUCompiler::~CPUCompiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
-    if( m_pBuiltinModule)
-        delete m_pBuiltinModule;
-    delete m_pExecEngine;
+    delete m_pBuiltinModule;
     delete m_pVTuneListener;
 }
 
@@ -277,17 +281,33 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     if (!DisableAVX && (selectedCpuId == Intel::CPU_SANDYBRIDGE))
       m_forcedCpuFeatures.push_back("+avx");
 
-    if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL))
+    if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL)) {
       m_forcedCpuFeatures.push_back("+avx2");
+      //m_forcedCpuFeatures.push_back("+fma3");
+    }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
     m_CpuId = CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
 }
 
-void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule) const
+void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 {
-    // pModule is owned by created execution engine
+    // Compiler keeps a pointer to the latest execution engine object
+    // and is not responsible for EE release
+
+    // The module's owner should keep the poiner and be 
+    // responsible for releasing the EE object
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
+
+    if (m_needLoadBuiltins)
+      m_pExecEngine->addModule(m_pBuiltinModule->GetRtlModule());
+
+    // Register the VTune listener
+    if(m_pVTuneListener)
+    {
+        m_pExecEngine->RegisterJITEventListener(m_pVTuneListener);
+    }
+
 }
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
@@ -299,6 +319,15 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     string strErr;
     bool AllocateGVsWithCode = true;
 
+    // FP_CONTRACT defined in module
+	// Exclude FMA instructions when FP_CONTRACT is disabled
+    std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
+
+    if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
+      cpuFeatures.push_back("-fma3");
+
+	SetTargetTripple(pModule);
+
     llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
                   .setEngineKind(llvm::EngineKind::JIT)
                   .setErrorStr(&strErr)
@@ -307,7 +336,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
                   .setCodeModel(llvm::CodeModel::JITDefault)
                   .setMArch(MArch)
                   .setMCPU(MCPU)
-                  .setMAttrs(m_forcedCpuFeatures)
+                  .setMAttrs(cpuFeatures)
                   .create();
     if ( NULL == pExecEngine )
     {

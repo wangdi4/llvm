@@ -84,20 +84,22 @@ public:
 
     const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module) const;
 
-protected:
+    virtual void *GetExecutionEngine() { return m_pCGEngine; }
+
     /**
      * Returns pointer to the RTL library module
      */
     llvm::Module* GetRtlModule() const;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
+protected:
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
     // !! WORKAROUND !!
     // Execution engine can be created with Built-ins module or images module.
     // By default execution engine is created in constructor for built-ins module
     // In order to skip built-ins module creation in images we need
     // to expose that interface and createExecution engine after constuctor is called.
-    virtual void CreateExecutionEngine( llvm::Module* pModule ) const;
+    virtual void CreateExecutionEngine( llvm::Module* pModule );
 
 
 private:
@@ -109,7 +111,7 @@ private:
 private:
     BuiltinModule*           m_pBuiltinModule;
     mutable std::string              m_ErrorStr;
-    mutable llvm::MICCodeGenerationEngine* m_pCGEngine;
+    llvm::MICCodeGenerationEngine* m_pCGEngine;
     FunctionResolverWrapper  m_ResolverWrapper;
 };
 

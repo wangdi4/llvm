@@ -191,7 +191,7 @@ public:
     */
     ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
       m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler),
-      m_pRtlBuffer(NULL), m_pModule(NULL) { }
+      m_pRtlBuffer(NULL), m_pModule(NULL), m_pExecutionEngine(NULL) { }
 
     /**
     *  Loads image module from platform-specific rtl file
@@ -213,13 +213,7 @@ public:
     */
     ImageCallbackFunctions* getImageCallbackFunctions(){ return m_ImageFunctions; }
 
-    ~ImageCallbackLibrary()
-    {
-        if (m_ImageFunctions) 
-            delete m_ImageFunctions;
-        if(m_Compiler)
-            delete m_Compiler;
-    }
+    ~ImageCallbackLibrary();
 
 private:
     Intel::CPUId m_CpuId;
@@ -233,6 +227,8 @@ private:
     llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
     // Pointer to built images module. Owned by m_Compiler
     llvm::Module* m_pModule;
+    // Pointer to Execution Engine
+    void *        m_pExecutionEngine;
 };
 
 }}} // namespace

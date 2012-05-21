@@ -42,6 +42,11 @@ public:
     virtual size_t GetJITCodeSize()  const = 0;
 
     /*
+     * Free machine code
+     */
+    virtual void FreeJITCode() {}
+
+    /*
      * JITContainer methods
      */
     virtual KernelJITProperties* GetProps() const = 0;
@@ -121,6 +126,11 @@ public:
      * Returns the count of the JIT buffer for current kernel
      */
     unsigned int GetKernelJITCount() const;
+
+    /**
+     * Asks the execution engine to free the machine code
+     */
+    void FreeAllJITs();
 
     /**
      * Calculate the local workgroup sizes if one was not specified in the input 

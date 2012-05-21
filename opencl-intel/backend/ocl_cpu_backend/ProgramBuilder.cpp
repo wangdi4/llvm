@@ -85,14 +85,14 @@ ProgramBuilder::~ProgramBuilder()
 {
 }
 
-cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions) const
+cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be NULL");
     ProgramBuildResult buildResult;
 
     try
     {
-        const Compiler* pCompiler = GetCompiler();
+        Compiler* pCompiler = GetCompiler();
 
 
         CompilerBuildOptions buildOptions(pProgram->GetDebugInfoFlag(),
@@ -104,6 +104,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
         std::auto_ptr<llvm::Module> spModule( pCompiler->BuildProgram( Utils::GetProgramMemoryBuffer(pProgram),
                                                                        &buildOptions,
                                                                        &buildResult));
+
+        pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
+        pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
 
         PostOptimizationProcessing(pProgram, spModule.get());
 

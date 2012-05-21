@@ -138,6 +138,9 @@ public:
      * Note: will take ownership on passed module
      */
     void SetModule( void* pModule);
+    virtual void SetBuiltinModule(void* pModule) {}
+    
+    virtual void SetExecutionEngine(void *eE) {}
 
     bool GetDisableOpt() const;
 

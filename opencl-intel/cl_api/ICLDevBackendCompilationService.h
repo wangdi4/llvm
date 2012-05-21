@@ -59,7 +59,7 @@ public:
      */
     virtual cl_dev_err_code BuildProgram(
         ICLDevBackendProgram_* pProgram,
-        const ICLDevBackendOptions* pOptions ) const = 0;
+        const ICLDevBackendOptions* pOptions ) = 0;
 
     /**
      * Dumps the content of the given code container 

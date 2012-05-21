@@ -60,36 +60,33 @@ public:
     // Otherwise function is jitted and pointer is returned
     void *GetPointerToFunction(llvm::Function *pf) const;
 
-    // TODO: Hack. Need redesign.
-    // Execution engine can be created with Built-ins module or images module.
-    // By default execution engine is created in constructor for built-ins module
-    // In order to skip built-ins module creation in images we need
-    // to expose that interface and createExecution engine after constuctor is called.
-    // TODO: make this method non-constant after re-design
-    virtual void CreateExecutionEngine( llvm::Module* pModule ) const;
+    // Create execution engine for the given module
+    // Execution engine depends on module configuration
+    virtual void CreateExecutionEngine( llvm::Module* pModule );
+
+    // Get execution engine
+    virtual void *GetExecutionEngine() { return m_pExecEngine; }
 
     virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
 
     void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
-
-protected:
 
     /**
      * Returns pointer to the RTL library module
      */
     llvm::Module* GetRtlModule() const;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer) const;
+protected:
+
+    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
 
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
-private:
     BuiltinModule*         m_pBuiltinModule;
-    // TODO: remove mutable after re-design
-    mutable llvm::ExecutionEngine* m_pExecEngine;
+    llvm::ExecutionEngine* m_pExecEngine;
 
     llvm::JITEventListener* m_pVTuneListener;
 };

@@ -100,7 +100,7 @@ MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Modul
     return pProps;
 }
 
-KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
+KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
                                     llvm::Module* pModule, 
                                     ProgramBuildResult& buildResult) const
 {
@@ -157,7 +157,8 @@ KernelSet* MICProgramBuilder::CreateKernels( const Program* pProgram,
                                                                 spMICKernelProps.release()));
         spKernel->SetKernelID(i);
 
-        AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, pWrapperFunc, spKernelJITProps.release());
+        AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, 
+                     pWrapperFunc, spKernelJITProps.release());
 
 
         // Check if vectorized kernel present

@@ -140,6 +140,8 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram, &buildOptions);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    pCompileService->ReleaseProgram(pProgram);
+
     
 
     //-----------------------------------------------------------------
@@ -154,6 +156,8 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram2, &buildOptions);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    pCompileService->ReleaseProgram(pProgram2);
+
 
 
     //-----------------------------------------------------------------
@@ -168,6 +172,8 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram3, NULL);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    pCompileService->ReleaseProgram(pProgram3);
+
 
 
     //-----------------------------------------------------------------
@@ -182,6 +188,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram4,NULL);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    pCompileService->ReleaseProgram(pProgram4);
 }
 
 
