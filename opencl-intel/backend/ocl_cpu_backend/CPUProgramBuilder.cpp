@@ -214,7 +214,8 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                                                                                       buildResult.GetKernelsInfo()[vecIter->first]));
                 spVKernelJITProps->SetVectorSize(vecIter->second);
                 spKernelProps->SetMinGroupSizeFactorial(vecIter->second);
-                AddKernelJIT( spKernel.get(), pModule, vecIter->first, spVKernelJITProps.release());
+                AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
+                             vecIter->first, spVKernelJITProps.release());
                 
             }
             if ( dontVectorize )
