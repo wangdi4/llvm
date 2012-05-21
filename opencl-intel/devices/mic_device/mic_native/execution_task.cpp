@@ -196,7 +196,7 @@ void execute_command(uint32_t					in_BufferCount,
 		return;
 	}
 	// Initialize the task brefore sending for execution.
-	tMiscData->errCode = taskHandler->InitTask(tDispatcherData, in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
+	taskHandler->InitTask(tDispatcherData, tMiscData, in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength);
 	if (CL_DEV_FAILED(tMiscData->errCode))
 	{
 		NATIVE_PRINTF("TaskHandler::init() Failed\n");
@@ -221,7 +221,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 
 
 
-TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
+TaskHandler::TaskHandler() : m_dispatcherData(NULL), m_miscData(NULL), m_lockBufferCount(0), m_lockBufferPointers(NULL), m_lockBufferLengths(NULL), m_task(NULL)
 {
 }
 
@@ -318,18 +318,28 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 	return taskHandler;
 }
 
+void TaskHandler::setTaskError(cl_dev_err_code errorCode)
+{
+	// If m_miscData defined and currently m_miscData->errCode in success mode than set it
+	if ((CL_DEV_SUCCESS != errorCode) && (m_miscData) && (CL_DEV_SUCCESS == m_miscData->errCode))
+	{
+		m_miscData->errCode = errorCode;
+	}
+}
 
 
 
-cl_dev_err_code BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+
+void BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
 	m_dispatcherData = dispatcherData;
+	m_miscData = miscData;
 	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later).
 	m_lockBufferCount = in_BufferCount;
 	m_lockBufferPointers = in_ppBufferPointers;
 	m_lockBufferLengths = in_pBufferLengths;
 
-	return m_task->init(this);
+	setTaskError( m_task->init(this) );
 }
 
 void BlockingTaskHandler::RunTask()
@@ -347,24 +357,27 @@ void BlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLegalBa
 
 
 
-cl_dev_err_code NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
+void NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
 	m_dispatcherData = dispatcherData;
+	m_miscData = miscData;
 	m_lockBufferCount = in_BufferCount;
-	// If the client sent buffers, than We should copy their content and lock them. (In case of OOO)
+	// If the client sent buffers, than We should copy their pointers and lock them. (In case of OOO)
 	if (in_BufferCount > 0)
 	{
 		m_lockBufferPointers = new void*[in_BufferCount];
 		if (NULL == m_lockBufferPointers)
 		{
+			setTaskError( CL_DEV_OUT_OF_MEMORY );
 			m_task->finish(this);
-			return CL_DEV_OUT_OF_MEMORY;
+			return;
 		}
 		m_lockBufferLengths = new uint64_t[in_BufferCount];
 		if (NULL == m_lockBufferLengths)
 		{
+			setTaskError( CL_DEV_OUT_OF_MEMORY );
 			m_task->finish(this);
-			return CL_DEV_OUT_OF_MEMORY;
+			return;
 		}
 		COIRESULT result = COI_SUCCESS;
 		// In case of non blocking task, shall lock all input buffers.
@@ -374,8 +387,9 @@ cl_dev_err_code NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData
 			result = COIBufferAddRef(in_ppBufferPointers[i]);
 			if (result != COI_SUCCESS)
 			{
+				setTaskError( CL_DEV_ERROR_FAIL );
 				m_task->finish(this);
-				return CL_DEV_ERROR_FAIL;
+				return;
 			}
 			m_lockBufferPointers[i] = in_ppBufferPointers[i];
 			m_lockBufferLengths[i] = in_pBufferLengths[i];
@@ -383,19 +397,21 @@ cl_dev_err_code NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData
 	}
 
 	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" - We have to allocate memory for it and copy its content.
+	// (misc_data will always transfer as COIBuffer in case of NonBlocking command)
 	if (m_dispatcherData == in_pMiscData)
 	{
 		m_dispatcherData = NULL;
 		m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
 		if (NULL == m_dispatcherData)
 		{
+			setTaskError( CL_DEV_OUT_OF_MEMORY );
 			m_task->finish(this);
-			return CL_DEV_OUT_OF_MEMORY;
+			return;
 		}
 		memcpy(m_dispatcherData, in_pMiscData, in_MiscDataLength);
 	}
 
-	return m_task->init(this);
+	setTaskError( m_task->init(this) );
 }
 
 
@@ -403,6 +419,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 {
 	// For asynch task We must have legal COIEVENT to signal.
 	assert(isLegalBarrier);
+	COIRESULT coiErr = COI_SUCCESS;
 	// Release resources.
 	if (m_lockBufferPointers)
 	{
@@ -411,11 +428,11 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 		{
 			delete [] ((char*)m_dispatcherData);
 		}
-		COIRESULT result = COI_SUCCESS;
 		for (unsigned int i = 0; i < m_lockBufferCount; i++)
 		{
 			// decrement ref in order to release the buffer
-			COIBufferReleaseRef(m_lockBufferPointers[i]);
+			coiErr = COIBufferReleaseRef(m_lockBufferPointers[i]);
+			assert(COI_SUCCESS == coiErr);
 		}
 		delete [] m_lockBufferPointers;
 	}
@@ -425,7 +442,7 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 	}
 
 	// Signal user completion barrier
-	COIRESULT coiErr = COIEventSignalUserEvent(completionBarrier);
+	coiErr = COIEventSignalUserEvent(completionBarrier);
 	assert(COI_SUCCESS == coiErr);
 
 	// Delete this object as the last operation on it.
@@ -440,6 +457,7 @@ void TBBNonBlockingTaskHandler::RunTask()
 	assert(pTbbTaskInter);
 	if (NULL == pTbbTaskInter)
 	{
+		setTaskError( CL_DEV_ERROR_FAIL );
 		return m_task->finish(this);
 	}
 	// Enqueue the task to tbb task queue, will execute it asynchronous,
@@ -481,7 +499,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 	struct TaskLoopBody1D {
 		TaskInterface* task;
-		TaskLoopBody1D(TaskInterface* t) : task(t) {}
+		bool* result;
+		TaskLoopBody1D(TaskInterface* t, bool* res) : task(t), result(res) {}
 		virtual ~TaskLoopBody1D() {}
 		void operator()(const tbb::blocked_range<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
@@ -493,14 +512,20 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 			{
+				*result = false;
 				assert(0);
 				return;
 			}
 
+			bool tResult = true;
             HWExceptionsJitWrapper hw_wrapper;            
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
-					task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId);
-			task->detachFromThread(uiWorkerId);
+					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			if (false == tResult)
+			{
+				*result = false;
+			}
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
 #endif
@@ -509,7 +534,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 	struct TaskLoopBody2D {
 		TaskInterface* task;
-		TaskLoopBody2D(TaskInterface* t) : task(t) {}
+		bool* result;
+		TaskLoopBody2D(TaskInterface* t, bool* res) : task(t), result(res) {}
 		virtual ~TaskLoopBody2D() {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
@@ -521,21 +547,31 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 			{
+				*result = false;
 				assert(0);
 				return;
 			}
             
+			bool tResult = true;
             HWExceptionsJitWrapper hw_wrapper;            
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-					task->executeIteration(hw_wrapper, k, j, 0, uiWorkerId);
-			task->detachFromThread(uiWorkerId);
+					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, j, 0, uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			if (false == tResult)
+			{
+				*result = false;
+			}
+#ifdef ENABLE_MIC_TRACER
+			tTrace.finish();
+#endif
 		}
 	};
 
 	struct TaskLoopBody3D {
 		TaskInterface* task;
-		TaskLoopBody3D(TaskInterface* t) : task(t) {}
+		bool* result;
+		TaskLoopBody3D(TaskInterface* t, bool* res) : task(t), result(res) {}
 		virtual ~TaskLoopBody3D() {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
@@ -547,16 +583,25 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 			{
+				*result = false;
 				assert(0);
 				return;
 			}
             
+			bool tResult = true;
             HWExceptionsJitWrapper hw_wrapper;            
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-						task->executeIteration(hw_wrapper, k, j, i, uiWorkerId);
-			task->detachFromThread(uiWorkerId);
+						tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, j, i, uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			if (false == tResult)
+			{
+				*result = false;
+			}
+#ifdef ENABLE_MIC_TRACER
+			tTrace.finish();
+#endif
 		}
 	};
 }}};
@@ -599,6 +644,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 	bool result = tProgramService.get_kernel(pDispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
 	if (false == result)
 	{
+		pTaskHandler->setTaskError( CL_DEV_INVALID_KERNEL );
 		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - ProgramService::getInstance().get_kernel failed\n");
 		return CL_DEV_INVALID_KERNEL;
@@ -658,6 +704,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, pDispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);
     if ( CL_DEV_FAILED(errCode) )
 	{
+		pTaskHandler->setTaskError(errCode);
 		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - ProgramService.create_binary() failed\n");
 		return errCode;
@@ -671,6 +718,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
 	if (NULL == m_pMemBuffSizes)
 	{
+		pTaskHandler->setTaskError( CL_DEV_OUT_OF_MEMORY );
 		finish(pTaskHandler);
 		NATIVE_PRINTF("NDRangeTask::Init - Allocation of m_pMemBuffSizes failed\n");
 		return CL_DEV_OUT_OF_MEMORY;
@@ -701,7 +749,6 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 		// Set WG size in dimension "i" for the tracer.
 		m_pCommandTracer->set_work_group_size(0, i);
 	}
-
 	return CL_DEV_SUCCESS;
 }
 
@@ -832,7 +879,7 @@ cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
 	return ret;
 }
 
-void NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+cl_dev_err_code NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId)
 {
 	// Get the WGContext object of this thread
 	WGContext* pCtx = (WGContext*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
@@ -843,7 +890,7 @@ void NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper, size_t x,
 
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
-	hw_wrapper.Execute(pExec, groupId, NULL, NULL);
+	return hw_wrapper.Execute(pExec, groupId, NULL, NULL);
 }
 
 bool NDRangeTask::constructTlsEntry(void** outEntry)
@@ -888,6 +935,7 @@ cl_dev_err_code TBBNDRangeTask::init(TaskHandler* pTaskHandler)
 	assert(m_pTaskExecutor);
 	if (NULL == m_pTaskExecutor)
 	{
+		pTaskHandler->setTaskError( CL_DEV_OUT_OF_MEMORY );
 		finish(pTaskHandler);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
@@ -925,10 +973,12 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 	// Set execution start for tracer
 	m_pTbbNDRangeTask->getCommandTracerPtr()->set_current_time_tbb_exe_in_device_time_start();
 
+	bool result = true;
+
 	if (1 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask), tbb::auto_partitioner());
+		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
 	}
 	else if (2 == m_dim)
 	{
@@ -936,7 +986,7 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 		assert(m_region[1] <= CL_MAX_INT32);
 		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize,
 													0, (int)m_region[0], grainSize),
-													TaskLoopBody2D(m_pTbbNDRangeTask), tbb::auto_partitioner());
+													TaskLoopBody2D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
 	}
 	else
 	{
@@ -946,7 +996,12 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize,
 													0, (int)m_region[1], grainSize,
 													0, (int)m_region[0], grainSize),
-													TaskLoopBody3D(m_pTbbNDRangeTask), tbb::auto_partitioner());
+													TaskLoopBody3D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+	}
+
+	if (false == result)
+	{
+		m_taskHandler->setTaskError( CL_DEV_ERROR_FAIL );
 	}
 
 	// Set execution start for tracer

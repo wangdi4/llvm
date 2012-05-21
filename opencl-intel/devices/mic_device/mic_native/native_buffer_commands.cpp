@@ -100,6 +100,7 @@ cl_dev_err_code TBBFillMemObjTask::init(TaskHandler* pTaskHandler)
 	assert(m_pTaskExecutor);
 	if (NULL == m_pTaskExecutor)
 	{
+		pTaskHandler->setTaskError( CL_DEV_OUT_OF_MEMORY );
 		finish(pTaskHandler);
 		return CL_DEV_OUT_OF_MEMORY;
 	}

@@ -81,10 +81,13 @@ public:
 	static TaskHandler* TaskFactory(TASK_TYPES type, dispatcher_data* dispatcherData, misc_data* miscData);
 
 	/* Initializing the task */
-	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
+	virtual void InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
 
 	/* Run the task */
 	virtual void RunTask() = 0;
+
+	/* Set errorCode as this task error (Do nothing if errorCode = CL_DEV_SUCCESS) */
+	void setTaskError(cl_dev_err_code errorCode);
 
 protected:
 
@@ -100,6 +103,8 @@ protected:
 
 	// The received dispatcher_data
 	dispatcher_data* m_dispatcherData;
+	// The received misc_data
+	misc_data* m_miscData;
 
 	// The input from the main function
 	uint32_t m_lockBufferCount;
@@ -125,7 +130,7 @@ class BlockingTaskHandler : public TaskHandler
 
 public:
 
-	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
+	virtual void InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 	virtual void RunTask();
 
@@ -144,7 +149,7 @@ class NonBlockingTaskHandler : public TaskHandler
 
 public:
 
-	virtual cl_dev_err_code InitTask(dispatcher_data* dispatcherData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
+	virtual void InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
 
 protected:
 
@@ -198,7 +203,7 @@ public:
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) = 0;
 
 	// The function is called with different 'inx' parameters for each iteration number
-	virtual void executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
+	virtual cl_dev_err_code executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() = 0;
@@ -230,7 +235,7 @@ public:
 
 	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
 
-	virtual void executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
+	virtual cl_dev_err_code executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
 
 	/* Static function which create and init the NDRange TLS object. */
 	static bool constructTlsEntry(void** outEntry);
