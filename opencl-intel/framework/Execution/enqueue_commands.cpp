@@ -1011,7 +1011,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		m_pPostfixCommand = NULL;	// in the case 'this' will disappear
 
 		// 'this' may disapper after the self-enqueue is successful!
-		// First command should be BLOCKING
+		// First command should not be BLOCKING
 		err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
 		if (CL_FAILED(err))
 		{
@@ -1024,7 +1024,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
 		if (CL_FAILED(err))
 		{
-			LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event.GetId(), err);
+			LogErrorA("Command - postfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event.GetId(), err);
 			// oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
 			// pEvent and be able to make other commands dependent on it
 			if (NULL != pEvent)
@@ -2668,7 +2668,7 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
 	m_commandType = relatedUserCommand->GetCommandType();
 	
 	m_error_event.Init( this );
-	m_error_event.AddPendency( this ); // ensure event will never be deleted externally
+	GetEvent()->AddPendency(&m_error_event);
 
 	m_task.Init( this );
 }
@@ -2710,7 +2710,7 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
 		m_Event.IncludeProfilingInfo( related_event );
 	}
 	
-	m_error_event.RemovePendency(this);
+	GetEvent()->RemovePendency(&m_error_event);
 
     LogDebugA("Command - DONE  : PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
 	return CL_SUCCESS;
@@ -2730,6 +2730,7 @@ void PrePostFixRuntimeCommand::ErrorDone()
  ******************************************************************/
 void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return )
 {
+	assert( POSTFIX_MODE == m_working_mode && "Calling PrePostFixRuntimeCommand::ErrorEnqueue on prefix." );
 	m_force_error_return = err_to_force_return;
 
 	// add manually and leave postfix floating
@@ -2762,9 +2763,8 @@ void PrePostFixRuntimeCommand::DoAction()
 						:
 						m_relatedUserCommand->PostfixExecute();
 
-	NotifyCmdStatusChanged(id, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
-
 	LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	NotifyCmdStatusChanged(id, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************
@@ -2786,9 +2786,11 @@ cl_err_code PrePostFixRuntimeCommand::Execute()
 		ret = CL_OUT_OF_RESOURCES;
 		m_returnCode = ret;	
 		NotifyCmdStatusChanged(0, CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
+
+		return m_returnCode;
 	}
 
-    return ret;
+    return CL_NOT_READY;
 }
 
 /******************************************************************

@@ -125,6 +125,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 						}
 						m_commandsInExecution++;
 						cmd->GetEvent()->AddPendency(this);
+						cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
 						res = cmd->Execute();
 						if ( CL_SUCCEEDED(res) )
 						{
