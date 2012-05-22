@@ -84,10 +84,6 @@ RoundingMode get_round( void )
 
     int err = _controlfp_s(&oldRound, 0, 0); //get rounding mode into oldRound
     oldRound &= _MCW_RC;
-
-    // avoiding warning on not used variable
-    err = err;
-
     return
         (oldRound == _RC_NEAR)? kRoundToNearestEven :
         (oldRound == _RC_UP)?   kRoundUp :

@@ -17,9 +17,12 @@ File Name:  NEATALUCommonTest.cpp
 \*****************************************************************************/
 
 // \brief Tests for OpenCL common built-in functions (see spec. 6.11.4.) in NEATALU
+
+#include <math.h>
 #include <gtest/gtest.h>            // Test framework
 
 #include "DataGenerator.h"
+#include "DGHelper.h"
 
 #include "NEATVector.h"
 #include "RefALU.h"
@@ -75,7 +78,10 @@ public:
 
 };
 
-typedef ::testing::Types<float, double> FloatTypesCommon;
+
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > FloatTypesCommon2;
+// TODO: add double tests
+typedef ::testing::Types<float> FloatTypesCommon;
 TYPED_TEST_CASE(NEATAluTypedCommon, FloatTypesCommon);
 
 TYPED_TEST(NEATAluTypedCommon, step)
@@ -215,6 +221,7 @@ static NEATValue min_ref(const NEATValue& xVal, const NEATValue& yVal)
     return NEATValue(refOut);
 }
 
+// TODO: add double tests
 TYPED_TEST(NEATAluTypedCommon, min)
 {
     // Check if we are able to test double built-in function.
@@ -389,7 +396,8 @@ static NEATValue max_ref(const NEATValue& xVal, const NEATValue& yVal)
     return NEATValue(refOut);
 }
 
-typedef ::testing::Types<float, double> FloatTypesCommon;
+// TODO: add double tests
+typedef ::testing::Types<float> FloatTypesCommon;
 TYPED_TEST_CASE(NEATAluTypedCommon, FloatTypesCommon);
 
 TYPED_TEST(NEATAluTypedCommon, max)
@@ -680,7 +688,6 @@ template <typename T>
 class NEATDegRadTestRun : public ALUTest {
 };
 
-typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon2;
 TYPED_TEST_CASE(NEATDegRadTestRun, FloatTypesCommon2);
 TYPED_TEST(NEATDegRadTestRun, radians)
 {

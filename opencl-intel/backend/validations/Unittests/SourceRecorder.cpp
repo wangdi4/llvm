@@ -87,10 +87,9 @@ private:
 //
 //Sanity test for the plugin mechanism
 //
-TEST( DISABLED_FEPluginTest, sanity){
-// failes, turned off until CSSD100013413 will be fixed
+TEST(FEPluginTest, sanity){
 #if defined(_WIN32)
-  SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "FePluginMock.dll");
+  SetEnvironmentVariable("OCLBACKEND_PLUGINS", "FePluginMock.dll");
 #else
   setenv("OCLBACKEND_PLUGINS", "libFePluginMock.so", 1);
 #endif
