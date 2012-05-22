@@ -199,6 +199,10 @@ public:
                   pKernelConfig->GetGlobalWorkSize() + MAX_WORK_DIM,
                   workInfo.globalWorkSize);
 
+        //TODO: this number should be similar to how the runtime set it,
+        //      i.e. 2 * number-of-working-threads
+        workInfo.minWorkGroupNum =  2 * (4); //2 * (Intel::OpenCL::Utils::GetNumberOfProcessors());
+
         m_dim = workInfo.workDimension = pKernelConfig->GetWorkDimension();
 
         // adjust the local work group sized in case we are running
