@@ -99,7 +99,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
+		virtual cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithSource    

@@ -16,9 +16,9 @@
 #include "gl_context.h"
 #include "gl_shr_utils.h"
 #include "gl_mem_objects.h"
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
 #include "d3d9_sharing.h"
-#include "d3d9_context.h"
+#include "d3d9_context.hpp"
 #endif
 #endif
 #include <platform_module.h>
@@ -27,6 +27,7 @@
 #include <cl_utils.h>
 #include <assert.h>
 #include <set>
+#include <algorithm>
 #include "GenericMemObj.h"
 #include "Image1DBuffer.h"
 
@@ -75,6 +76,7 @@ cl_err_code ContextModule::Release(  bool bTerminate )
 
 	return CL_SUCCESS;
 }
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateContext
 //////////////////////////////////////////////////////////////////////////
@@ -176,20 +178,28 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
                 }
                 return CL_INVALID_HANDLE;
             }
-            if (CL_CONTEXT_PLATFORM != clProperties[i] &&
-                CL_CONTEXT_INTEROP_USER_SYNC != clProperties[i]
+            
+            static const cl_context_properties legalProperties[] = {
+                CL_CONTEXT_PLATFORM,
+                CL_CONTEXT_INTEROP_USER_SYNC
 #if defined (_WIN32)
-                && CL_GL_CONTEXT_KHR != clProperties[i] && CL_WGL_HDC_KHR != clProperties[i]
-#if defined (DX9_MEDIA_SHARING)
-                && CL_CONTEXT_D3D9_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_D3D9EX_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_DXVA_DEVICE_INTEL != clProperties[i] &&
-                   CL_CONTEXT_ADAPTER_D3D9_KHR != clProperties[i] &&
-                   CL_CONTEXT_ADAPTER_D3D9EX_KHR != clProperties[i] &&
-                   CL_CONTEXT_ADAPTER_DXVA_KHR != clProperties[i]
+                ,
+                CL_GL_CONTEXT_KHR,
+                CL_WGL_HDC_KHR
+#if defined (DX_MEDIA_SHARING)
+                ,
+                CL_CONTEXT_D3D9_DEVICE_INTEL,
+                CL_CONTEXT_D3D9EX_DEVICE_INTEL,
+                CL_CONTEXT_DXVA_DEVICE_INTEL,
+                CL_CONTEXT_ADAPTER_D3D9_KHR,
+                CL_CONTEXT_ADAPTER_D3D9EX_KHR,
+                CL_CONTEXT_ADAPTER_DXVA_KHR,
+                CL_CONTEXT_D3D11_DEVICE_KHR
 #endif
 #endif
-                )
+            };
+            const cl_context_properties* const pEndLegalProperties = &legalProperties[sizeof(legalProperties)/sizeof(legalProperties[0])];
+            if (std::find(legalProperties, pEndLegalProperties, clProperties[i]) == pEndLegalProperties)
             {
                 LOG_ERROR(TEXT("%s"), TEXT("context property name in properties is not a supported property name"));
                 delete[] ppDevices;
@@ -208,15 +218,14 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	cl_context_properties hGLCtx, hDC;
     bool bGLSharingSupported = false;
 	ParseGLContextOptions(clProperties, &hGLCtx, &hDC, &bGLSharingSupported);
-#if defined (DX9_MEDIA_SHARING)
-    IUnknown* pD3D9Device;
+#if defined (DX_MEDIA_SHARING)
+    IUnknown* pD3DDevice;
     int iDevType;
-    const ID3D9Definitions* pd3d9Definitions = NULL;
-    clErrRet = ParseD3D9ContextOptions(propertyMap, pD3D9Device, iDevType, pd3d9Definitions);
+    const ID3DSharingDefinitions* pd3dDefinitions = NULL;
+    clErrRet = ParseD3DContextOptions(propertyMap, pD3DDevice, iDevType, pd3dDefinitions);
     if (CL_SUCCESS != clErrRet)
     {
-        assert(NULL == pd3d9Definitions);
-        LOG_ERROR(TEXT("%s"), TEXT("more than one Direct3D 9 device is specified in properties"));
+        assert(NULL == pd3dDefinitions);
         if (NULL != pRrrcodeRet)
         {
             *pRrrcodeRet = clErrRet;
@@ -224,7 +233,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
         delete[] ppDevices;
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pD3D9Device && bGLSharingSupported)
+    if (NULL != pD3DDevice && bGLSharingSupported)
     {
         LOG_ERROR(TEXT("%S"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
         if (NULL != pRrrcodeRet)
@@ -232,7 +241,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
             *pRrrcodeRet = CL_INVALID_OPERATION;
         }
         delete[] ppDevices;
-        delete pd3d9Definitions;
+        delete pd3dDefinitions;
         return CL_INVALID_HANDLE;
     }
 #endif
@@ -245,13 +254,21 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 		pContext = 	new GLContext(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData);
 	} else
 #endif
-#if defined (DX9_MEDIA_SHARING)
-    if (NULL != pD3D9Device)
+#if defined (DX_MEDIA_SHARING)
+    if (NULL != pD3DDevice)
     {
         const bool bIsInteropUserSync = propertyMap.find(CL_CONTEXT_INTEROP_USER_SYNC) == propertyMap.end() ? false :
-            pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_KHR && (cl_bool)propertyMap[CL_CONTEXT_INTEROP_USER_SYNC] != 0;
-        pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices,
-            pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync);
+            pd3dDefinitions->IsUsingContextInteropUserSync() && (cl_bool)propertyMap[CL_CONTEXT_INTEROP_USER_SYNC] != 0;
+        if (pd3dDefinitions->GetVersion() == ID3DSharingDefinitions::D3D11)
+        {
+            pContext = new D3D11Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3DDevice,
+                iDevType, pd3dDefinitions, bIsInteropUserSync);
+        }
+        else
+        {
+            pContext = new D3D9Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints,
+                m_pGPAData, pD3DDevice, iDevType, pd3dDefinitions, bIsInteropUserSync);
+        }
     }
     else
 #endif
@@ -2325,117 +2342,10 @@ cl_err_code ContextModule::CheckContextSpecificParameters(Context *pContext, con
 	return CL_SUCCESS;
 }
 
-#if defined (DX9_MEDIA_SHARING)
-cl_mem ContextModule::CreateFromD3D9Resource(cl_context clContext, cl_mem_flags clMemFlags,
-                                             D3D9ResourceInfo* const pResourceInfo,
-                                             cl_int *pErrcodeRet, cl_mem_object_type clObjType,
-                                             cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
-{
-    Context* pContext = NULL;
-    MemoryObject* pMemObj = NULL;
-
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
-    
-    if (CL_FAILED(clErr) || NULL == pContext)
-    {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    
-    D3D9Context* const pD3D9Context = dynamic_cast<D3D9Context*>(pContext);    
-    if (NULL == pD3D9Context)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL == pResourceInfo->m_pResource)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    /* check if context was created against the same Direct3D 9 device from which resource was
-        created */
-    IDirect3DDevice9* pResourceDevice;
-    HRESULT res = pResourceInfo->m_pResource->GetDevice(&pResourceDevice);
-    if (D3D_OK != res)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    pResourceDevice->Release();
-    // Matt is aware that there is a hole in the spec regarding checking this device type
-    if (pD3D9Context->Getd3d9Definitions().GetContextAdapterDxva() != pD3D9Context->m_iDeviceType &&
-        pResourceDevice != pD3D9Context->GetD3D9Device())
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    // check if just one of the allowed flags is set
-    if ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & ~CL_MEM_READ_ONLY) ||
-        (clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & ~CL_MEM_WRITE_ONLY) ||
-        (clMemFlags & CL_MEM_READ_WRITE) && (clMemFlags & ~CL_MEM_READ_WRITE) ||
-        (clMemFlags & ~(CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = pD3D9Context->CreateD3D9Resource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, d3dFormat, plane);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("pD3D9Context->CreateD3D9Resource(%d, %d, %d, %d) = %S"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = m_mapMemObjects.AddObject(pMemObj, false);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL != pErrcodeRet)
-    {
-        *pErrcodeRet = CL_SUCCESS;
-    }
-    return pMemObj->GetHandle();
-}
+#if defined (DX_MEDIA_SHARING)
 
 cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags flags, cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo,
-                                            UINT plane, cl_int *errcode_ret, const ID3D9Definitions& d3d9Definitions)
+                                            UINT plane, cl_int *errcode_ret, const ID3DSharingDefinitions& d3d9Definitions)
 {
     LOG_DEBUG(TEXT("Enter CreateFromD3D9Surface(context=%p, flags=%d, adapterType=%d, pSurfaceInfo=%p, plane=%d, errcode_ret=%p)"),
         context, flags, adapterType, pSurfaceInfo, plane, errcode_ret);
@@ -2451,7 +2361,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         }
         return CL_INVALID_HANDLE;
     }
-    D3D9Context* const pD3D9Context = dynamic_cast<D3D9Context*>(pContext);
+    D3DContext<IDirect3DResource9, IDirect3DDevice9>* const pD3D9Context = dynamic_cast<D3DContext<IDirect3DResource9, IDirect3DDevice9>*>(pContext);
     if (NULL == pD3D9Context)
     {
         if (NULL != errcode_ret)
@@ -2460,7 +2370,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         }
         return CL_INVALID_HANDLE;
     }
-    if (d3d9Definitions.GetVersion() != pD3D9Context->Getd3d9Definitions().GetVersion())
+    if (d3d9Definitions.GetVersion() != pD3D9Context->GetD3dDefinitions().GetVersion())
     {
         LOG_ERROR(TEXT("The API call and the context are from different versions of the extension"));
         if (NULL != errcode_ret)
@@ -2474,11 +2384,11 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         LOG_ERROR(TEXT("pSurfaceInfo or resource is NULL"));
         if (NULL != errcode_ret)
         {
-            *errcode_ret = pD3D9Context->Getd3d9Definitions().GetInvalidDx9MediaSurface();
+            *errcode_ret = pD3D9Context->GetD3dDefinitions().GetInvalidResource();
         }
         return CL_INVALID_HANDLE;
     }
-    D3D9ResourceInfo* const pResourceInfo = new D3D9SurfaceResourceInfo(pSurfaceInfo->resource, pSurfaceInfo->shared_handle, plane, adapterType);
+    D3DResourceInfo<IDirect3DResource9>* const pResourceInfo = new D3D9SurfaceResourceInfo(pSurfaceInfo->resource, pSurfaceInfo->shared_handle, plane, adapterType);
     if (NULL == pResourceInfo)
     {
         LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
@@ -2503,7 +2413,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
             }
             return CL_INVALID_HANDLE;
         }
-        return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, plane);
+        return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, plane);
     }
     if (MAKEFOURCC('Y', 'V', '1', '2') == desc.Format)
     {
@@ -2516,7 +2426,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
             }
             return CL_INVALID_HANDLE;
         }
-        return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, plane);
+        return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, plane);
     }
     // non-planar surface
     if (0 != plane)
@@ -2528,112 +2438,63 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         }
         return CL_INVALID_HANDLE;
     }
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, desc.Format, MAXUINT);
+    return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, MAXUINT);
 }
-#endif
 
-#if defined DX9_SHARING
-
-cl_mem ContextModule::CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flags flags, IDirect3DVertexBuffer9* resource, cl_int *errcode_ret)
+cl_mem ContextModule::CreateFromD3D11Buffer(cl_context context, cl_mem_flags flags, ID3D11Buffer* pResource, cl_int* pErrcodeRet)
 {
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9VertexBuffer(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
-        context, flags, resource, errcode_ret);
-    D3D9ResourceInfo* const pResourceInfo = new D3D9ResourceInfo(resource);
+    LOG_DEBUG(TEXT("Enter CreateFromD3D11Buffer(context=%p, flags=%d, resource=%p, errcode_ret=%d)"), context, flags, pResource, pErrcodeRet);
+    
+    D3DResourceInfo<ID3D11Resource>* const pResourceInfo = new D3DResourceInfo<ID3D11Resource>(pResource);
     if (NULL == pResourceInfo)
     {
         LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
-        if (NULL != errcode_ret)
+        if (NULL != pErrcodeRet)
         {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+            *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
         return CL_INVALID_HANDLE;
     }
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_VERTEX_BUFFER, 1, D3DFMT_UNKNOWN);
+    return CreateFromD3DResource<ID3D11Resource, ID3D11Device>(context, flags, pResourceInfo, pErrcodeRet, CL_D3D11_OBJECT_BUFFER, 1);
 }
 
-cl_mem ContextModule::CreateFromD3D9IndexBuffer(cl_context context, cl_mem_flags flags, IDirect3DIndexBuffer9* resource, cl_int* errcode_ret)
+cl_mem ContextModule::CreateFromD3D11Texture2D(cl_context context, cl_mem_flags flags, ID3D11Texture2D* pResource, UINT uiSubresource, cl_int* pErrcodeRet)
 {
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9IndexBuffer(context=%p, flags=%d, resource=%p, errcode_ret=%p)"),
-        context, flags, resource, errcode_ret);
-    D3D9ResourceInfo* const pResourceInfo = new D3D9ResourceInfo(resource);
+    LOG_DEBUG(TEXT("CreateFromD3D11Texture2DKHR(context=%p, flags=%d, pResource=%p, uiSubresource=%d, pErrcodeRet=%p)"), context, flags, pResource, uiSubresource,
+        pErrcodeRet);
+    
+    D3D11TextureResourceInfo* const pResourceInfo = new D3D11TextureResourceInfo(pResource, uiSubresource);
     if (NULL == pResourceInfo)
     {
-        LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
-        if (NULL != errcode_ret)
+        LOG_ERROR(TEXT("could not allocate D3D11Texture2DResourceInfo"));
+        if (NULL != pErrcodeRet)
         {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+            *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
         return CL_INVALID_HANDLE;
     }
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_D3D9_OBJECT_INDEX_BUFFER, 1, D3DFMT_UNKNOWN);
+    return CreateFromD3DResource<ID3D11Resource, ID3D11Device>(context, flags, pResourceInfo, pErrcodeRet, CL_D3D11_OBJECT_TEXTURE2D, 2);
 }
 
-cl_mem ContextModule::CreateFromD3D9Texture(cl_context context, cl_mem_flags flags,
-                                              IDirect3DTexture9 *resource, UINT miplevel,
-                                              cl_int *errcode_ret)
+cl_mem ContextModule::CreateFromD3D11Texture3D(cl_context context, cl_mem_flags flags, ID3D11Texture3D* pResource, UINT uiSubresource,
+                                               cl_int* pErrcodeRet)
 {
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9Texture(context=%p, flags=%d, resource=%p, miplevel=%d, errcode_ret=%p)"),
-        context, flags, resource, miplevel, errcode_ret);
-    D3D9TextureResourceInfo* const pResourceInfo = new D3D9TextureResourceInfo(resource, miplevel);
+    LOG_DEBUG(TEXT("CreateFromD3D11Texture3D(context=%p, flags=%d, pResource=%p, uiSubresource=%d, pErrcodeRet=%p"), context, flags, pResource,
+        uiSubresource, pErrcodeRet);
+
+    D3D11TextureResourceInfo* const pResourceInfo = new D3D11TextureResourceInfo(pResource, uiSubresource);
     if (NULL == pResourceInfo)
     {
-        LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
-        if (NULL != errcode_ret)
+        LOG_ERROR(TEXT("could not allocate D3D11Texture3DResourceInfo"));
+        if (NULL != pErrcodeRet)
         {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+            *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
         return CL_INVALID_HANDLE;
     }
-    D3DSURFACE_DESC desc;
-    HRESULT res = resource->GetLevelDesc(miplevel, &desc);
-    assert(D3D_OK == res);
-    return CreateFromD3D9Resource(context, flags, pResourceInfo, errcode_ret, CL_D3D9_OBJECT_TEXTURE, 2, desc.Format);
+    return CreateFromD3DResource<ID3D11Resource, ID3D11Device>(context, flags, pResourceInfo, pErrcodeRet, CL_D3D11_OBJECT_TEXTURE3D, 3);
 }
 
-cl_mem ContextModule::CreateFromD3D9CubeTexture(cl_context context, cl_mem_flags flags,
-                                                  IDirect3DCubeTexture9 *resource,
-                                                  D3DCUBEMAP_FACES facetype, UINT miplevel,
-                                                  cl_int *errcode_ret)
-{
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9CubeTexture(context=%p, flags=%d, resource=%p, facetype=%d, miplevel=%d, errcode_ret=%p)"),
-        context, flags, resource, facetype, miplevel, errcode_ret);
-    D3D9CubeTextureResourceInfo* const pCubeTextureResourceInfo =
-        new D3D9CubeTextureResourceInfo(resource, miplevel, facetype);
-    if (NULL == pCubeTextureResourceInfo)
-    {
-        if (NULL != errcode_ret)
-        {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    D3DSURFACE_DESC desc;
-    const HRESULT res = resource->GetLevelDesc(miplevel, &desc);
-    assert(D3D_OK == res);
-    return CreateFromD3D9Resource(context, flags, pCubeTextureResourceInfo, errcode_ret, CL_D3D9_OBJECT_CUBE_TEXTURE, 2, desc.Format);
-}
-
-cl_mem ContextModule::CreateFromD3D9VolumeTexture(cl_context context, cl_mem_flags flags,
-                                        IDirect3DVolumeTexture9 *resource, UINT miplevel,
-                                        cl_int *errcode_ret)
-{
-    LOG_DEBUG(TEXT("Enter CreateFromD3D9VolumeTexture(context=%p, flags=%d, resource=%p, miplevel=%d, errcode_ret=%p)"),
-        context, flags, resource, miplevel, errcode_ret);
-    D3D9TextureResourceInfo* const pTextureResourceInfo =
-        new D3D9TextureResourceInfo(resource, miplevel);
-    if (NULL == pTextureResourceInfo)
-    {
-        if (NULL != errcode_ret)
-        {
-            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    D3DVOLUME_DESC desc;
-    const HRESULT res = resource->GetLevelDesc(miplevel, &desc);
-    assert(D3D_OK == res);
-    return CreateFromD3D9Resource(context, flags, pTextureResourceInfo, errcode_ret, CL_D3D9_OBJECT_VOLUME_TEXTURE, 3, desc.Format);
-}
 #endif
 
 /////////////////////////////////////////////////////////////////////

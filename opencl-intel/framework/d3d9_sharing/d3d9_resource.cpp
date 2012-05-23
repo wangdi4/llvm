@@ -26,1264 +26,636 @@ using namespace Intel::OpenCL::Utils;
 namespace Intel { namespace OpenCL { namespace Framework
 {
 
-    // explicit instantiation of template classes
-
-    template class D3D9Buffer<IDirect3DVertexBuffer9, D3DVERTEXBUFFER_DESC>;
-    template class D3D9Buffer<IDirect3DIndexBuffer9, D3DINDEXBUFFER_DESC>;
-
-    /**
-     * @fn  D3D9Resource::~D3D9Resource()
-     */
-
-    D3D9Resource::~D3D9Resource()
+D3D9Surface::~D3D9Surface()
+{
+    if (GetResourceInfo() != NULL)
     {
-        if (m_bAcquired)
+        IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
+        D3D9Context& context = *static_cast<D3D9Context*>(m_pContext);
+        if (NULL != context.GetSurfaceLocker(pSurface))
         {
-            m_pChildObject->Release();
-        }
-        if (NULL != m_pResourceInfo)
-        {
-            (dynamic_cast<D3D9Context*>(m_pContext))->RemoveResourceInfo(*m_pResourceInfo);
-            m_pResourceInfo->m_pResource->Release();
-            delete m_pResourceInfo;
+            context.ReleaseSurfaceLocker(pSurface);
         }        
     }
+}
 
-    /**
-     * @fn  cl_err_code D3D9Resource::Initialize(cl_mem_flags clMemFlags,
-     *      const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
-     *      const size_t* pitches, void* pHostPtr)
-     */
+cl_image_format D3D9Surface::GetClImageFormat(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
+{
+    const D3D9SurfaceResourceInfo& surfaceInfo = static_cast<const D3D9SurfaceResourceInfo&>(resourceInfo);
+    return MapD3DFormat2OclFormat(GetDesc(resourceInfo).Format, surfaceInfo.m_plane);
+}
 
-    cl_err_code D3D9Resource::Initialize(cl_mem_flags clMemFlags,
-        const cl_image_format* pclImageFormat, unsigned int dim_count,
-        const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags)
+D3DSURFACE_DESC D3D9Surface::GetDesc(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
+{
+    IDirect3DSurface9* const pSurface =
+        static_cast<IDirect3DSurface9*>(resourceInfo.m_pResource);
+    D3DSURFACE_DESC desc;
+    const HRESULT res = pSurface->GetDesc(&desc);
+    assert(D3D_OK == res);
+    return desc;
+}
+
+void* D3D9Surface::Lock()
+{
+    IDirect3DSurface9* const pSurface =
+        static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
+    D3DLOCKED_RECT lockedRect;
+    HRESULT res;
+    const D3DFORMAT format = GetDesc(*GetResourceInfo()).Format;
+    if (MAKEFOURCC('N', 'V', '1', '2') != format && MAKEFOURCC('Y', 'V', '1', '2') != format)
     {
-        m_pResourceInfo = (D3D9ResourceInfo*)pHostPtr;
-        m_pResourceInfo->m_pResource->AddRef();
-        m_clMemObjectType = GetChildMemObjectType();
-        if (!ObtainPitches())
-        {
-            /* We obtain the pitches by locking and unlocking the resource. It also sounds
-            reasonable that we shouldn't be able to create an OpenCL memory object from a Direct3D
-            9 resource that has already been locked, otherwise we would need to call
-            clEnqueueReleaseD3D9ObjectsIntel for it, but it would fail according to spec, because we
-            haven't called clEnqueueAcquireD3D9ObjectsIntel for it. We should clarify this point in
-            the spec. */
-            return static_cast<D3D9Context*>(m_pContext)->Getd3d9Definitions().GetDx9MediaSurfaceAlreadyAcquired();
-        }
-        m_stMemObjSize = GetMemObjSize();
-        m_clFlags = clMemFlags;
-        m_uiNumDim = dim_count;
-        if (NULL != pclImageFormat)
-        {
-            m_clImageFormat = *pclImageFormat;
-        }
-        memcpy_s(m_szDimensions, sizeof(m_szDimensions), dimension, dim_count * sizeof(m_szDimensions[0]));
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Resource::ReadData(void* pOutData, const size_t* pszOrigin,
-     *      const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-     */
-
-    cl_err_code D3D9Resource::ReadData(void* pOutData, const size_t* pszOrigin,
-        const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-    {
-        if (NULL == m_pChildObject)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return m_pChildObject->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Resource::WriteData(const void* pOutData, const size_t* pszOrigin,
-     *      const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-     */
-
-    cl_err_code D3D9Resource::WriteData(const void* pOutData, const size_t* pszOrigin,
-        const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-    {
-        if (NULL == m_pChildObject)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Resource::CreateSubBuffer(cl_mem_flags clFlags,
-     *      cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
-     *      MemoryObject** ppBuffer)
-     */
-
-    cl_err_code D3D9Resource::CreateSubBuffer(cl_mem_flags clFlags,
-        cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
-        MemoryObject** ppBuffer)
-    {
-        if (NULL == m_pChildObject)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return m_pChildObject->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
-    }
-
-    /**
-     * @fn  void D3D9Resource::AcquireD3D9()
-     */
-
-    void D3D9Resource::AcquireD3D9()
-    {
-        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
-        
-        if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
-        {
-            // We have already acquired an object
-            return;
-        }
-        m_muAcquireRelease.Lock();
-        void* const pData = Lock();
-        if (NULL == pData)
-        {
-            SetAcquireState(CL_INVALID_OPERATION);
-            return;
-        }
-        // Now we need to create child object
-        MemoryObject* pChild;
-        cl_err_code res =
-            MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU,
-            GetChildMemObjectType(), CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
-        if (CL_FAILED(res))
-        {
-            Unlock();
-            SetAcquireState(res);
-            return;
-        }
-        res = pChild->Initialize(m_clFlags, &m_clImageFormat, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
-        if (CL_FAILED(res))
-        {
-            Unlock();
-            SetAcquireState(CL_OUT_OF_RESOURCES);
-            return;
-        }
-        m_pChildObject.exchange(pChild);
-        pChild->AddPendency(this);
-    }
-
-    /**
-     * @fn  void D3D9Resource::ReleaseD3D9()
-     */
-
-    void D3D9Resource::ReleaseD3D9()
-    {   
-        m_muAcquireRelease.Lock();
-        MemoryObject* const pChild = m_pChildObject.exchange(NULL);
-        assert(NULL != pChild);
-        pChild->RemovePendency(this);
-        pChild->Release();
-        Unlock();
-        m_muAcquireRelease.Unlock();
-    }
-
-    /**
-     * @fn  cl_image_format D3D9Resource::MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat,
-     *      unsigned int uiPlane)
-     */
-
-    cl_image_format D3D9Resource::MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat, unsigned int uiPlane)
-    {
-        cl_image_format clFormat = { 0, 0 };   // invalid value
-
-        switch (d3dFormat)
-        {
-        case D3DFMT_R32F:
-            clFormat.image_channel_order = CL_R;
-            clFormat.image_channel_data_type = CL_FLOAT;
-            break;
-        case D3DFMT_R16F:
-            clFormat.image_channel_order = CL_R;
-            clFormat.image_channel_data_type = CL_HALF_FLOAT;
-            break;
-        case D3DFMT_L16:
-            clFormat.image_channel_order = CL_R;
-            clFormat.image_channel_data_type = CL_UNORM_INT16;
-            break;
-        case D3DFMT_A8:
-            clFormat.image_channel_order = CL_A;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        case D3DFMT_L8:
-            clFormat.image_channel_order = CL_R;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        case D3DFMT_G32R32F:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_FLOAT;
-            break;
-        case D3DFMT_G16R16F:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_HALF_FLOAT;
-            break;
-        case D3DFMT_G16R16:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_UNORM_INT16;
-            break;
-#if defined DX9_SHARING
-        case D3DFMT_V16U16:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_SNORM_INT16;
-            break;
-#endif
-        case D3DFMT_A8L8:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-#if defined DX9_SHARING
-        case D3DFMT_V8U8:
-            clFormat.image_channel_order = CL_RG;
-            clFormat.image_channel_data_type = CL_SNORM_INT8;
-            break;
-#endif
-        case D3DFMT_A32B32G32R32F:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_FLOAT;
-            break;
-        case D3DFMT_A16B16G16R16F:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_HALF_FLOAT;
-            break;
-        case D3DFMT_A16B16G16R16:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_UNORM_INT16;
-            break;
-#if defined DX9_SHARING
-        case D3DFMT_Q16W16V16U16:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_SNORM_INT16;
-            break;
-#endif
-        case D3DFMT_A8B8G8R8:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        case D3DFMT_X8B8G8R8:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        case D3DFMT_A8R8G8B8:
-            clFormat.image_channel_order = CL_BGRA;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        case D3DFMT_X8R8G8B8:
-            clFormat.image_channel_order = CL_BGRA;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-#if defined DX9_SHARING
-        case D3DFMT_Q8W8V8U8:
-            clFormat.image_channel_order = CL_RGBA;
-            clFormat.image_channel_data_type = CL_SNORM_INT8;
-            break;
-#endif
-        case MAKEFOURCC('N','V','1','2'):
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            if (0 == uiPlane)
-            {
-                clFormat.image_channel_order = CL_R;
-            }
-            else if (1 == uiPlane)
-            {
-                clFormat.image_channel_order = CL_RG;
-            }
-            break;
-        case MAKEFOURCC('Y','V','1','2'):
-            clFormat.image_channel_order = CL_R;
-            clFormat.image_channel_data_type = CL_UNORM_INT8;
-            break;
-        }
-        return clFormat;
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Resource::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize,
-     *      void* pParamValue, size_t* pszParamValueSizeRet) const
-     */
-
-    cl_err_code D3D9Resource::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
-    {
-        if (NULL == pParamValue && NULL == pszParamValueSizeRet)
-        {
-            return CL_INVALID_VALUE;
-        }
-        size_t szSize = 0;
-        const cl_err_code clErrCode = GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-        if (CL_SUCCESS != clErrCode)
-        {
-            return clErrCode;
-        }
-        if (NULL != pParamValue && szParamValueSize < szSize)
-        {
-            return CL_INVALID_VALUE;
-        }
-        if (NULL != pszParamValueSizeRet)
-        {
-            *pszParamValueSizeRet = szSize;
-        }
-        // value has already been copied by GetImageInfoInternal
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn cl_err_code D3D9Resource::GetDimensionSizes(size_t* pszRegion) const
-     */
-    cl_err_code D3D9Resource::GetDimensionSizes(size_t* pszRegion) const
-    {
-        FillDimensions(*GetResourceInfo(), pszRegion);
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Resource::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-     *      void* pParamValue, const size_t szParamValueSize) const
-     */
-
-    cl_err_code D3D9Resource::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
-    {
-        size_t szSizeTVar;
-        const void* pValue;
-
-        switch (clParamName)
-        {
-        case CL_IMAGE_FORMAT:
-            szSize = sizeof(cl_image_format);
-            pValue = &m_clImageFormat;
-            break;
-        case CL_IMAGE_ELEMENT_SIZE:
-                szSize = sizeof(size_t);
-                szSizeTVar = GetPixelSize();
-                pValue = &szSizeTVar;
-                break;
-        default:
-            return CL_INVALID_VALUE;
-        }
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> size_t D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::GetMemObjSize() const
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    size_t D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::GetMemObjSize() const
-    {
-        DESC_TYPE desc;
-        RESOURCE_TYPE* const pVertexBuffer =
-            static_cast<RESOURCE_TYPE*>(GetResourceInfo()->m_pResource);
-        const HRESULT res = pVertexBuffer->GetDesc(&desc);
+        res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());            
         assert(D3D_OK == res);
-        return desc.Size;
+        return lockedRect.pBits;
     }
+    /*              NV12 format                                 YV12 format
 
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> bool D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    bool D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
+        +-------------------------------+            +-------------------------------+            
+        |                       |       |            |                       |       |
+        |           Y           |D3D    | plane 0    |           Y           |D3D    | plane 0
+        |                       |cache  |            |                       |cache  |
+        |                       |       |            |                       |       |
+        +-----------------------+-------+            +-----------+---+-------+---+---+
+        |           UV          |D3D    | plane 1    |     U     |ca-|     V     |ca-|
+        |                       |cache  |            |           |che|           |che|
+        +-----------------------+-------+            +-----------+---+-----------+---+
+                                                        plane 1         plane 2
+    */
+    const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
+    SurfaceLocker* const pSurfaceLocker = static_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    void* const pData = pSurfaceLocker->Lock();
+    assert(NULL != pData);
+    assert(0 == plane || 1 == plane || 2 == plane);
+    if (0 == plane)
     {
-        DESC_TYPE desc;
-        RESOURCE_TYPE* const pVertexBuffer =
-            static_cast<RESOURCE_TYPE*>(resourceInfo.m_pResource);
-        const HRESULT res = pVertexBuffer->GetDesc(&desc);
-        assert(D3D_OK == res);
-        return D3DPOOL_DEFAULT == desc.Pool;
-    }
-
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> void* D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Lock()
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    void* D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Lock()
-    {
-        void* pData;
-        RESOURCE_TYPE* const pVertexBuffer =
-            static_cast<RESOURCE_TYPE*>(GetResourceInfo()->m_pResource);
-        const HRESULT res = pVertexBuffer->Lock(0, m_stMemObjSize, &pData, GetD3D9Flags());
-        if (D3D_OK != res)
-        {
-            LOG_ERROR(TEXT("D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Lock() failed with error code %d"), res);
-            return NULL;
-        }
         return pData;
     }
-
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> void D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Unlock()
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    void D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Unlock()
+    const UINT height = GetDesc(*GetResourceInfo()).Height;
+    if (1 == plane)
     {
-        RESOURCE_TYPE* const pVertexBuffer =
-            static_cast<RESOURCE_TYPE*>(GetResourceInfo()->m_pResource);
-        const HRESULT res = pVertexBuffer->Unlock();
-        if (D3D_OK != res)
+        return (char*)pData + height * pSurfaceLocker->GetPitch();
+    }
+    assert(height * pSurfaceLocker->GetPitch() % 4 == 0);
+    return (char*)pData + height * pSurfaceLocker->GetPitch() * 5 / 4;
+}
+
+bool D3D9Surface::ObtainPitch(size_t& szPitch)
+{
+    IDirect3DSurface9* const pSurface =
+        static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
+    const SurfaceLocker* const pSurfaceLocker = static_cast<const D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    if (NULL != pSurfaceLocker)
+    {
+        if (MAKEFOURCC('Y', 'V', '1', '2') != GetDesc(*GetResourceInfo()).Format ||
+            0 == dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane)
         {
-            LOG_ERROR(TEXT("D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::Unlock() failed with error code %d"), res);
+            szPitch = pSurfaceLocker->GetPitch();
         }
+        else
+        {
+            assert(pSurfaceLocker->GetPitch() % 2 == 0);
+            szPitch = pSurfaceLocker->GetPitch() / 2;                
+        }            
+        return true;
     }
-
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> cl_err_code D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::CheckBounds(const size_t* pszOrigin,
-     *      const size_t* pszRegion) const
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    cl_err_code D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+    D3DLOCKED_RECT lockedRect;
+    HRESULT res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());
+    if (D3D_OK != res)
     {
-        return *pszOrigin + *pszRegion <= m_stMemObjSize ? CL_SUCCESS : CL_INVALID_VALUE ;
+        return false;
     }
+    szPitch = lockedRect.Pitch;
+    res = pSurface->UnlockRect();
+    assert(D3D_OK == res);
+    return true;
+}
 
-    /**
-     * @fn  template<typename RESOURCE_TYPE, typename DESC_TYPE> void D3D9Buffer::FillDimensions(const D3D9ResourceInfo& resourceInfo,
-     *      size_t* const pszDims) const
-     */
-
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    void D3D9Buffer<RESOURCE_TYPE, DESC_TYPE>::FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const
+void D3D9Surface::Unlock()
+{
+    IDirect3DSurface9* const pSurface =
+        static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
+    SurfaceLocker* const pSurfaceLocker = static_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    if (NULL != pSurfaceLocker)
     {
-        RESOURCE_TYPE* const pVertexBuffer =
-            static_cast<RESOURCE_TYPE*>(resourceInfo.m_pResource);
-        DESC_TYPE desc;
-        const HRESULT res = pVertexBuffer->GetDesc(&desc);
+        pSurfaceLocker->Unlock();
+    }
+    else
+    {
+        const HRESULT res = pSurface->UnlockRect();            
         assert(D3D_OK == res);
-        pszDims[0] = desc.Size;            
+    }        
+}
+
+UINT D3D9Surface::GetWidth(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
+{
+    return GetDesc(resourceInfo).Width;
+}
+
+UINT D3D9Surface::GetHeight(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
+{
+    return GetDesc(resourceInfo).Height;
+}
+
+cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+    void* pParamValue, const size_t szParamValueSize) const
+{
+    const void* pValue;
+    const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
+    const D3DFORMAT format = GetDesc(*GetResourceInfo()).Format;
+    assert(0 == plane || 1 == plane || 2 == plane);
+    size_t szHeight, szWidth;
+
+    const D3DContext<IDirect3DResource9, IDirect3DDevice9>& context = *static_cast<D3DContext<IDirect3DResource9, IDirect3DDevice9>*>(m_pContext);
+    if (clParamName == static_cast<const ID3D9Definitions&>(context.GetD3dDefinitions()).GetImageDx9MediaPlane())
+    {
+        szSize = sizeof(UINT);
+        pValue = &plane;
     }
-
-    /**
-     * @fn  bool D3D9Image2D::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
-     */
-
-    bool D3D9Image2D::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
+    else
     {
-        return D3DPOOL_DEFAULT == GetDesc(resourceInfo).Pool;
-    }
-
-    /**
-     * @fn  size_t D3D9Image2D::GetPixelSize() const
-     */
-
-    size_t D3D9Image2D::GetPixelSize() const
-    {
-        const cl_image_format clFormat = MapD3DFormat2OclFormat(GetDesc(*GetResourceInfo()).Format);
-        return clGetPixelBytesCount(&clFormat);
-    }    
-
-    /**
-     * @fn  cl_err_code D3D9Image2D::CheckBounds(const size_t* pszOrigin,
-     *      const size_t* pszRegion) const
-     */
-
-    cl_err_code D3D9Image2D::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
-        if (pszOrigin[0] + pszRegion[0] > desc.Width)
-        {
-            return CL_INVALID_VALUE;
-        }
-        if (pszOrigin[1] + pszRegion[1] > desc.Height)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return CL_SUCCESS;            
-    }    
-
-    /**
-     * @fn  size_t D3D9Image2D::GetMemObjSize() const
-     */
-
-    size_t D3D9Image2D::GetMemObjSize() const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
-        const cl_image_format clFormat = MapD3DFormat2OclFormat(desc.Format);
-        return clGetPixelBytesCount(&clFormat) * m_szPitch * desc.Height;
-    }    
-
-    /**
-     * @fn  bool D3D9Image2D::ObtainPitches()
-     */
-
-    bool D3D9Image2D::ObtainPitches()
-    {
-        return ObtainPitch(m_szPitch);
-    }
-
-    /**
-     * @fn  void D3D9Image2D::FillDimensions(const D3D9ResourceInfo& resourceInfo,
-     *      size_t* const pszDims) const
-     */
-
-    void D3D9Image2D::FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(resourceInfo);        
-        pszDims[0] = desc.Width;
-        pszDims[1] = desc.Height;    
-    }    
-
-    /**
-     * @fn  cl_err_code D3D9Image2D::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-     *      void* pParamValue, const size_t szParamValueSize) const
-     */
-
-    cl_err_code D3D9Image2D::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
-    {        
-        size_t szSizeTVar;
-        const void* pValue;
-
         switch (clParamName)
-        {        
-        case CL_IMAGE_ROW_PITCH:
-                szSize = sizeof(size_t);
-                pValue = &m_szPitch;
-                break;            
-        case CL_IMAGE_WIDTH:
-                szSize = sizeof(size_t);
-                szSizeTVar = GetDesc(*GetResourceInfo()).Width;
-                pValue = &szSizeTVar;
-                break;            
+        {
         case CL_IMAGE_HEIGHT:
-                szSize = sizeof(size_t);
-                szSizeTVar = GetDesc(*GetResourceInfo()).Height;
-                pValue = &szSizeTVar;
-                break;            
-        case CL_IMAGE_DEPTH:
-        case CL_IMAGE_SLICE_PITCH:
-                szSize = sizeof(size_t);
-                szSizeTVar = 0;
-                pValue = &szSizeTVar;
-                break;
-#if defined DX9_SHARING
-        case CL_IMAGE_D3D9_FACE_INTEL:
-        case CL_IMAGE_D3D9_LEVEL_INTEL:
-            // if sub-classes can handle this parameter, they should do it.
-            return CL_INVALID_DX9_RESOURCE_INTEL;
-#endif
-        default:
-            return D3D9Resource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-        }
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn D3D9Surface::~D3D9Surface()
-     */
-    D3D9Surface::~D3D9Surface()
-    {
-        if (GetResourceInfo() != NULL)
-        {
-            IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-            D3D9Context& context = *dynamic_cast<D3D9Context*>(m_pContext);
-            if (NULL != context.GetSurfaceLocker(pSurface))
+            if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
             {
-                context.ReleaseSurfaceLocker(pSurface);
-            }        
-        }
+                const UINT height = GetDesc(*GetResourceInfo()).Height;
+                if (0 == plane)
+                {
+                    szHeight = height;
+                }
+                else
+                {
+                    assert(height % 2 == 0);
+                    szHeight = height / 2;
+                }
+                szSize = sizeof(size_t);
+                pValue = &szHeight;
+                break;
+            }
+        case CL_IMAGE_WIDTH:
+            if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
+            {
+                const UINT width = GetDesc(*GetResourceInfo()).Width;
+                if (0 == plane)
+                {
+                    szWidth = width;
+                }
+                else
+                {
+                    assert(width % 2 == 0);
+                    // In NV12 we also divide by 2, since the size of each element is 2.
+                    szWidth = width / 2;
+                }
+                szSize = sizeof(size_t);
+                pValue = &szWidth;
+                break;
+            }
+            // else fall through          
+        default:
+            return D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
+        }            
     }
-
-    /**
-     * @fn  void* D3D9Surface::Lock()
-     */
-
-    void* D3D9Surface::Lock()
+    if (NULL != pParamValue && szSize > 0)
     {
-        IDirect3DSurface9* const pSurface =
-            static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-        D3DLOCKED_RECT lockedRect;
-        HRESULT res;
-        const D3DFORMAT format = GetDesc(*GetResourceInfo()).Format;
-        if (MAKEFOURCC('N', 'V', '1', '2') != format && MAKEFOURCC('Y', 'V', '1', '2') != format)
-        {
-            res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());            
-            assert(D3D_OK == res);
-            return lockedRect.pBits;
-        }
-        /*              NV12 format                                 YV12 format
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+    return CL_SUCCESS;
+}
 
-            +-------------------------------+            +-------------------------------+            
-            |                       |       |            |                       |       |
-            |           Y           |D3D    | plane 0    |           Y           |D3D    | plane 0
-            |                       |cache  |            |                       |cache  |
-            |                       |       |            |                       |       |
-            +-----------------------+-------+            +-----------+---+-------+---+---+
-            |           UV          |D3D    | plane 1    |     U     |ca-|     V     |ca-|
-            |                       |cache  |            |           |che|           |che|
-            +-----------------------+-------+            +-----------+---+-----------+---+
-                                                            plane 1         plane 2
-        */
-        const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
-        SurfaceLocker* const pSurfaceLocker = dynamic_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
-        void* const pData = pSurfaceLocker->Lock();
-        assert(NULL != pData);
+size_t D3D9Surface::GetPixelSize() const
+{
+    const cl_image_format clFormat = MapD3DFormat2OclFormat(GetDesc(*GetResourceInfo()).Format,
+        dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane);
+    return clGetPixelBytesCount(&clFormat);
+}
+
+size_t D3D9Surface::GetMemObjSize() const
+{
+    const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
+    const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
+    const cl_image_format clFormat = MapD3DFormat2OclFormat(desc.Format, plane);
+    switch (desc.Format)
+    {
+    case MAKEFOURCC('N', 'V', '1', '2'):
+        assert(0 == plane || 1 == plane);
+        if (0 == plane)
+        {
+            return sizeof(cl_uchar) * GetPitch() * desc.Height;
+        }
+        assert(GetPitch() * desc.Height % 2 == 0);
+        return sizeof(cl_uchar) * GetPitch() * desc.Height / 2;
+    case MAKEFOURCC('Y', 'V', '1', '2'):
         assert(0 == plane || 1 == plane || 2 == plane);
         if (0 == plane)
         {
-            return pData;
+            return sizeof(cl_uchar) * GetPitch() * desc.Height;
         }
-        const UINT height = GetDesc(*GetResourceInfo()).Height;
-        if (1 == plane)
-        {
-            return (char*)pData + height * pSurfaceLocker->GetPitch();
-        }
-        assert(height * pSurfaceLocker->GetPitch() % 4 == 0);
-        return (char*)pData + height * pSurfaceLocker->GetPitch() * 5 / 4;
-    }
+        assert(GetPitch() * desc.Height % 4 == 0);
+        return sizeof(cl_uchar) * GetPitch() * desc.Height / 4;
+    default:
+        return clGetPixelBytesCount(&clFormat) * GetPitch() * desc.Height;
+    }        
+}
 
-    /**
-     * @fn  bool D3D9Surface::ObtainPitch(size_t& szPitch)
-     */
+cl_err_code D3D9Surface::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
+    const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
 
-    bool D3D9Surface::ObtainPitch(size_t& szPitch)
+    if (MAKEFOURCC('N', 'V', '1', '2') == desc.Format)
     {
-        IDirect3DSurface9* const pSurface =
-            static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-        const SurfaceLocker* const pSurfaceLocker = dynamic_cast<const D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
-        if (NULL != pSurfaceLocker)
+        assert(desc.Height % 2 == 0);
+        if (1 == plane && pszOrigin[1] + pszRegion[1] > desc.Height / 2)
         {
-            if (MAKEFOURCC('Y', 'V', '1', '2') != GetDesc(*GetResourceInfo()).Format ||
-                0 == dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane)
-            {
-                szPitch = pSurfaceLocker->GetPitch();
-            }
-            else
-            {
-                assert(pSurfaceLocker->GetPitch() % 2 == 0);
-                szPitch = pSurfaceLocker->GetPitch() / 2;                
-            }            
-            return true;
+            return CL_INVALID_VALUE;
         }
-        D3DLOCKED_RECT lockedRect;
-        HRESULT res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());
-        if (D3D_OK != res)
+    }
+    else if (MAKEFOURCC('Y', 'V', '1', '2') == desc.Format)
+    {
+        assert(desc.Height % 2 == 0);
+        assert(desc.Width % 2 == 0);
+        if (0 != plane && (pszOrigin[1] + pszRegion[1] > desc.Height / 2 ||
+                           pszOrigin[0] + pszRegion[0] > desc.Width / 2))
         {
-            return false;
+            return CL_INVALID_VALUE;
         }
-        szPitch = lockedRect.Pitch;
-        res = pSurface->UnlockRect();
-        assert(D3D_OK == res);
-        return true;
     }
+    return D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>::CheckBounds(pszOrigin, pszRegion);
+}
 
-    /**
-     * @fn  void D3D9Surface::Unlock()
-     */
-
-    void D3D9Surface::Unlock()
+void D3D9Surface::FillDimensions(const D3DResourceInfo<IDirect3DResource9>& resourceInfo, size_t* const pszDims) const
+{
+    const D3DSURFACE_DESC desc = GetDesc(resourceInfo);        
+    if (MAKEFOURCC('N', 'V', '1', '2') != desc.Format &&
+        MAKEFOURCC('Y', 'V', '1', '2') != desc.Format)
     {
-        IDirect3DSurface9* const pSurface =
-            static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-        SurfaceLocker* const pSurfaceLocker = dynamic_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
-        if (NULL != pSurfaceLocker)
-        {
-            pSurfaceLocker->Unlock();
-        }
-        else
-        {
-            const HRESULT res = pSurface->UnlockRect();            
-            assert(D3D_OK == res);
-        }        
+        pszDims[0] = desc.Width;
+        pszDims[1] = desc.Height;
     }
-
-    /**
-     * @fn  D3DSURFACE_DESC GetDesc(D3D9ResourceInfo& resourceInfo) const
-     */
-
-    D3DSURFACE_DESC D3D9Surface::GetDesc(const D3D9ResourceInfo& resourceInfo) const
+    else
     {
-        IDirect3DSurface9* const pSurface =
-            static_cast<IDirect3DSurface9*>(resourceInfo.m_pResource);
-        D3DSURFACE_DESC desc;
-        const HRESULT res = pSurface->GetDesc(&desc);
-        assert(D3D_OK == res);
-        return desc;
-    }
-
-    /**
-     * @fn cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-     *       void* pParamValue, const size_t szParamValueSize) const
-     */
-
-    cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
-    {
-        const void* pValue;
-        const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
-        const D3DFORMAT format = GetDesc(*GetResourceInfo()).Format;
+        const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo&>(resourceInfo).m_plane;
         assert(0 == plane || 1 == plane || 2 == plane);
-        size_t szHeight, szWidth;
-
-        if (clParamName == static_cast<D3D9Context*>(m_pContext)->Getd3d9Definitions().GetImageDx9MediaPlane())
-        {
-            szSize = sizeof(UINT);
-            pValue = &plane;
-        }
-        else
-        {
-            switch (clParamName)
-            {
-            case CL_IMAGE_HEIGHT:
-                if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
-                {
-                    const UINT height = GetDesc(*GetResourceInfo()).Height;
-                    if (0 == plane)
-                    {
-                        szHeight = height;
-                    }
-                    else
-                    {
-                        assert(height % 2 == 0);
-                        szHeight = height / 2;
-                    }
-                    szSize = sizeof(size_t);
-                    pValue = &szHeight;
-                    break;
-                }
-            case CL_IMAGE_WIDTH:
-                if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
-                {
-                    const UINT width = GetDesc(*GetResourceInfo()).Width;
-                    if (0 == plane)
-                    {
-                        szWidth = width;
-                    }
-                    else
-                    {
-                        assert(width % 2 == 0);
-                        // In NV12 we also divide by 2, since the size of each element is 2.
-                        szWidth = width / 2;
-                    }
-                    szSize = sizeof(size_t);
-                    pValue = &szWidth;
-                    break;
-                }
-                // else fall through          
-            default:
-                return D3D9Image2D::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-            }            
-        }
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn size_t D3D9Surface::GetPixelSize() const
-     */
-
-    size_t D3D9Surface::GetPixelSize() const
-    {
-        const cl_image_format clFormat = MapD3DFormat2OclFormat(GetDesc(*GetResourceInfo()).Format,
-            dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane);
-        return clGetPixelBytesCount(&clFormat);
-    }
-
-    /**
-     * @fn size_t D3D9Surface::GetMemObjSize() const
-     */
-
-    size_t D3D9Surface::GetMemObjSize() const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
-        const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
-        const cl_image_format clFormat = MapD3DFormat2OclFormat(desc.Format, plane);
-        switch (desc.Format)
-        {
-        case MAKEFOURCC('N', 'V', '1', '2'):
-            assert(0 == plane || 1 == plane);
-            if (0 == plane)
-            {
-                return sizeof(cl_uchar) * GetPitch() * desc.Height;
-            }
-            assert(GetPitch() * desc.Height % 2 == 0);
-            return sizeof(cl_uchar) * GetPitch() * desc.Height / 2;
-        case MAKEFOURCC('Y', 'V', '1', '2'):
-            assert(0 == plane || 1 == plane || 2 == plane);
-            if (0 == plane)
-            {
-                return sizeof(cl_uchar) * GetPitch() * desc.Height;
-            }
-            assert(GetPitch() * desc.Height % 4 == 0);
-            return sizeof(cl_uchar) * GetPitch() * desc.Height / 4;
-        default:
-            return clGetPixelBytesCount(&clFormat) * GetPitch() * desc.Height;
-        }        
-    }
-
-    /**
-     * @fn cl_err_code D3D9Surface::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-     */
-    
-    cl_err_code D3D9Surface::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
-        const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
-
-        if (MAKEFOURCC('N', 'V', '1', '2') == desc.Format)
-        {
-            assert(desc.Height % 2 == 0);
-            if (1 == plane && pszOrigin[1] + pszRegion[1] > desc.Height / 2)
-            {
-                return CL_INVALID_VALUE;
-            }
-        }
-        else if (MAKEFOURCC('Y', 'V', '1', '2') == desc.Format)
-        {
-            assert(desc.Height % 2 == 0);
-            assert(desc.Width % 2 == 0);
-            if (0 != plane && (pszOrigin[1] + pszRegion[1] > desc.Height / 2 ||
-                               pszOrigin[0] + pszRegion[0] > desc.Width / 2))
-            {
-                return CL_INVALID_VALUE;
-            }
-        }
-        return D3D9Image2D::CheckBounds(pszOrigin, pszRegion);
-    }
-
-    /**
-     * @fn void D3D9Surface::FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const
-     */
-
-    void D3D9Surface::FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const
-    {
-        const D3DSURFACE_DESC desc = GetDesc(resourceInfo);        
-        if (MAKEFOURCC('N', 'V', '1', '2') != desc.Format &&
-            MAKEFOURCC('Y', 'V', '1', '2') != desc.Format)
+        if (0 == plane)
         {
             pszDims[0] = desc.Width;
             pszDims[1] = desc.Height;
         }
         else
         {
-            const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo&>(resourceInfo).m_plane;
-            assert(0 == plane || 1 == plane || 2 == plane);
-            if (0 == plane)
-            {
-                pszDims[0] = desc.Width;
-                pszDims[1] = desc.Height;
-            }
-            else
-            {
-                assert(desc.Width % 2 == 0);
-                assert(desc.Height % 2 == 0);
-                pszDims[0] = desc.Width / 2;
-                pszDims[1] = desc.Height / 2;
-            }
+            assert(desc.Width % 2 == 0);
+            assert(desc.Height % 2 == 0);
+            pszDims[0] = desc.Width / 2;
+            pszDims[1] = desc.Height / 2;
         }
     }
+}
 
-    /**
-     * @fn  cl_err_code D3D9Texture::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-     *      void* pParamValue, const size_t szParamValueSize) const
-     */
+bool D3D9Surface::IsValidlyCreated(D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
+{
+    const ID3DSharingDefinitions& d3d9Definitions = (static_cast<const D3D9Context*>(GetContext()))->GetD3dDefinitions();
 
-    cl_err_code D3D9Texture::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
-    {
-        const void* pValue;
-
-#if defined DX9_SHARING
-        switch (clParamName)
-        {
-        case CL_IMAGE_D3D9_LEVEL_INTEL:
-            szSize = sizeof(UINT);
-            pValue = &dynamic_cast<const D3D9TextureResourceInfo&>(GetResourceInfo()).m_uiMipLevel;
-            break;
-        default:
-#endif
-            return D3D9Image2D::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-#if defined DX9_SHARING
-        }
-#endif
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  bool D3D9Texture::ObtainPitch(size_t& szPitch)
-     */
-
-    bool D3D9Texture::ObtainPitch(size_t& szPitch)
-    {
-        const D3D9TextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DTexture9* const pTexture =
-            static_cast<IDirect3DTexture9*>(resourceInfo.m_pResource);
-        D3DLOCKED_RECT lockedRect;
-        HRESULT res = pTexture->LockRect(resourceInfo.m_uiMipLevel, &lockedRect, NULL, GetD3D9Flags());
-        if (D3D_OK != res)
-        {
-            return false;
-        }
-        szPitch = lockedRect.Pitch;
-        res = pTexture->UnlockRect(resourceInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-        return true;
-    }
-
-    /**
-     * @fn  void* D3D9Texture::Lock()
-     */
-
-    void* D3D9Texture::Lock()
-    {
-        const D3D9TextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DTexture9* const pTexture =
-            static_cast<IDirect3DTexture9*>(resourceInfo.m_pResource);
-        D3DLOCKED_RECT lockedRect;
-        const HRESULT res = pTexture->LockRect(resourceInfo.m_uiMipLevel, &lockedRect, NULL, GetD3D9Flags());
-        assert(D3D_OK == res);
-        return lockedRect.pBits;
-    }
-
-    /**
-     * @fn  void D3D9Texture::Unlock()
-     */
-
-    void D3D9Texture::Unlock()
-    {
-        const D3D9TextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DTexture9* const pTexture =
-            static_cast<IDirect3DTexture9*>(resourceInfo.m_pResource);
-        const HRESULT res = pTexture->UnlockRect(resourceInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-    }
-
-    /**
-     * @fn  D3DSURFACE_DESC D3D9Texture::GetDesc(const D3D9ResourceInfo& resourceInfo) const }}}
-     */
-
-    D3DSURFACE_DESC D3D9Texture::GetDesc(const D3D9ResourceInfo& resourceInfo) const
-    {
-        const D3D9TextureResourceInfo& textureResourceInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(resourceInfo);
-        IDirect3DTexture9* const pTexture =
-            static_cast<IDirect3DTexture9*>(resourceInfo.m_pResource);
-        D3DSURFACE_DESC desc;
-        const HRESULT res = pTexture->GetLevelDesc(textureResourceInfo.m_uiMipLevel, &desc);
-        assert(D3D_OK == res);
-        return desc;
-    }
-
-    /**
-     * @fn  cl_err_code D3D9CubeTexture::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-     *      void* pParamValue, const size_t szParamValueSize) const
-     */
-
-    cl_err_code D3D9CubeTexture::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
-    {
-        const void* pValue;
-
-#if defined DX9_SHARING
-        switch (clParamName)
-        {
-        case CL_IMAGE_D3D9_LEVEL_INTEL:
-            szSize = sizeof(UINT);
-            pValue = &dynamic_cast<const D3D9TextureResourceInfo&>(GetResourceInfo()).m_uiMipLevel;
-            break;
-        case CL_IMAGE_D3D9_FACE_INTEL:
-            szSize = sizeof(D3DCUBEMAP_FACES);
-            pValue = &dynamic_cast<const D3D9CubeTextureResourceInfo&>(GetResourceInfo()).m_facetype;
-            break;
-        default:
-#endif
-            return D3D9Image2D::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-#if defined DX9_SHARING
-        }
-#endif
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  bool D3D9CubeTexture::ObtainPitch(size_t& szPitch)
-     */
-
-    bool D3D9CubeTexture::ObtainPitch(size_t& szPitch)
-    {
-        const D3D9CubeTextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9CubeTextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DCubeTexture9* const pCubeTexture =
-            static_cast<IDirect3DCubeTexture9*>(resourceInfo.m_pResource);
-        D3DLOCKED_RECT lockedRect;
-        HRESULT res = pCubeTexture->LockRect(resourceInfo.m_facetype, resourceInfo.m_uiMipLevel,
-            &lockedRect, NULL, GetD3D9Flags());
-        if (D3D_OK != res)
-        {
-            return false;
-        }
-        szPitch = lockedRect.Pitch;
-        res = pCubeTexture->UnlockRect(resourceInfo.m_facetype, resourceInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-        return true;
-    }
-
-    /**
-     * @fn  void* D3D9CubeTexture::Lock()
-     */
-
-    void* D3D9CubeTexture::Lock()
-    {
-        const D3D9CubeTextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9CubeTextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DCubeTexture9* const pCubeTexture =
-            static_cast<IDirect3DCubeTexture9*>(resourceInfo.m_pResource);
-        D3DLOCKED_RECT lockedRect;
-        const HRESULT res = pCubeTexture->LockRect(resourceInfo.m_facetype, resourceInfo.m_uiMipLevel,
-            &lockedRect, NULL, GetD3D9Flags());
-        assert(D3D_OK == res);
-        return lockedRect.pBits;
-    }
-
-    /**
-     * @fn  void D3D9CubeTexture::Unlock()
-     */
-
-    void D3D9CubeTexture::Unlock()
-    {
-        const D3D9CubeTextureResourceInfo& resourceInfo =
-            dynamic_cast<const D3D9CubeTextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DCubeTexture9* const pCubeTexture =
-            static_cast<IDirect3DCubeTexture9*>(resourceInfo.m_pResource);
-        const HRESULT res = pCubeTexture->UnlockRect(resourceInfo.m_facetype, resourceInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-    }
-
-    /**
-     * @fn  D3DSURFACE_DESC D3D9CubeTexture::GetDesc(const D3D9ResourceInfo& resourceInfo) const
-     */
-
-    D3DSURFACE_DESC D3D9CubeTexture::GetDesc(const D3D9ResourceInfo& resourceInfo) const
-    {
-        const D3D9CubeTextureResourceInfo& cubeTextureInfo =
-            dynamic_cast<const D3D9CubeTextureResourceInfo&>(resourceInfo);
-        IDirect3DCubeTexture9* const pCubeTexture =
-            static_cast<IDirect3DCubeTexture9*>(resourceInfo.m_pResource);
-        D3DSURFACE_DESC desc;
-        const HRESULT res = pCubeTexture->GetLevelDesc(cubeTextureInfo.m_uiMipLevel, &desc);
-        assert(D3D_OK == res);
-        return desc;
-    }
-
-    /**
-     * @fn  bool D3D9VolumeTexture::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
-     */
-
-    bool D3D9VolumeTexture::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const
+    // In Khronos spec it says that we should check that the surface has been created in D3DPOOL_DEFAULT just for adapter_type CL_ADAPTER_D3D9_KHR
+    if (d3d9Definitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL ||
+        d3d9Definitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR && CL_ADAPTER_D3D9_KHR == static_cast<D3D9SurfaceResourceInfo&>(resourceInfo).m_adapterType)
     {
         return D3DPOOL_DEFAULT == GetDesc(resourceInfo).Pool;
     }
-
-    /**
-     * @fn  void* D3D9VolumeTexture::Lock()
-     */
-
-    void* D3D9VolumeTexture::Lock()
+    else
     {
-        const D3D9TextureResourceInfo& textureInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DVolumeTexture9* const pVolumeTexture =
-            static_cast<IDirect3DVolumeTexture9*>(textureInfo.m_pResource);
-        D3DLOCKED_BOX lockedVolume;
-        const HRESULT res = pVolumeTexture->LockBox(textureInfo.m_uiMipLevel, &lockedVolume, NULL, GetD3D9Flags());
-        assert(D3D_OK == res);
-        return lockedVolume.pBits;
-    }
-
-    /**
-     * @fn  void D3D9VolumeTexture::Unlock()
-     */
-
-    void D3D9VolumeTexture::Unlock()
-    {
-        const D3D9TextureResourceInfo& textureInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DVolumeTexture9* const pVolumeTexture =
-            static_cast<IDirect3DVolumeTexture9*>(textureInfo.m_pResource);
-        const HRESULT res = pVolumeTexture->UnlockBox(textureInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-    }
-
-    /**
-     * @fn  void D3D9VolumeTexture::FillDimensions(const D3D9ResourceInfo& resourceInfo,
-     *      size_t* const pszDims) const
-     */
-
-    void D3D9VolumeTexture::FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const
-    {
-        const D3DVOLUME_DESC desc = GetDesc(resourceInfo);
-        pszDims[0] = desc.Width;
-        pszDims[1] = desc.Height;
-        pszDims[2] = desc.Depth;
-    }
-
-    /**
-     * @fn  size_t D3D9VolumeTexture::GetMemObjSize() const
-     */
-
-    size_t D3D9VolumeTexture::GetMemObjSize() const
-    {
-        const D3DVOLUME_DESC desc = GetDesc(*GetResourceInfo());
-        const cl_image_format clImageFormat = MapD3DFormat2OclFormat(desc.Format);
-        const size_t szPixelByteCnt = clGetPixelBytesCount(&clImageFormat);
-        return szPixelByteCnt * m_szPitches[0] * m_szPitches[1] * desc.Depth;
-    }
-
-    /**
-     * @fn  bool D3D9VolumeTexture::ObtainPitches()
-     */
-
-    bool D3D9VolumeTexture::ObtainPitches()
-    {
-        const D3D9TextureResourceInfo& textureInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(*GetResourceInfo());
-        IDirect3DVolumeTexture9* const pVolumeTexture =
-            static_cast<IDirect3DVolumeTexture9*>(textureInfo.m_pResource);
-        D3DLOCKED_BOX lockedVolume;
-        HRESULT res = pVolumeTexture->LockBox(textureInfo.m_uiMipLevel, &lockedVolume, NULL, GetD3D9Flags());
-        if (D3D_OK != res)
-        {
-            return false;
-        }
-        res = pVolumeTexture->UnlockBox(textureInfo.m_uiMipLevel);
-        assert(D3D_OK == res);
-        m_szPitches[ROW_PITCH] = lockedVolume.RowPitch;
-        m_szPitches[SLICE_PITCH] = lockedVolume.SlicePitch;
         return true;
     }
+}
 
-    /**
-     * @fn  D3DVOLUME_DESC D3D9VolumeTexture::GetDesc(const D3D9ResourceInfo& resourceInfo) const
-     */
+size_t D3D11Buffer::GetMemObjSize() const
+{
+    D3D11_BUFFER_DESC desc;        
+    static_cast<ID3D11Buffer*>(GetResourceInfo()->m_pResource)->GetDesc(&desc);
+    return desc.ByteWidth;
+}
 
-    D3DVOLUME_DESC D3D9VolumeTexture::GetDesc(const D3D9ResourceInfo& resourceInfo) const
+cl_err_code D3D11Buffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+    const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags)
+{
+    D3DResourceInfo<ID3D11Resource>& resourceInfo = *static_cast<D3DResourceInfo<ID3D11Resource>*>(pHostPtr);
+    ID3D11Buffer* const pBuffer = static_cast<ID3D11Buffer*>(resourceInfo.m_pResource);
+    
+    m_pBufferMapper = new D3d11BufferMapper(pBuffer, D3d11BufferMapper::GetD3d11Map(clMemFlags));
+    if (NULL == m_pBufferMapper)
     {
-        const D3D9TextureResourceInfo& textureInfo =
-            dynamic_cast<const D3D9TextureResourceInfo&>(resourceInfo);
-        IDirect3DVolumeTexture9* const pVolumeTexture =
-            static_cast<IDirect3DVolumeTexture9*>(textureInfo.m_pResource);
-        D3DVOLUME_DESC desc;
-        const HRESULT res = pVolumeTexture->GetLevelDesc(textureInfo.m_uiMipLevel, &desc);
-        assert(D3D_OK == res);
-        return desc;
+        return CL_OUT_OF_HOST_MEMORY;
     }
+    return D3DResource::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr, creation_flags);
+}
 
-    /**
-     * @fn  size_t D3D9VolumeTexture::GetPixelSize() const
-     */
+bool D3D11Buffer::IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_BUFFER_DESC desc;        
+    static_cast<ID3D11Buffer*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    return D3D11_USAGE_IMMUTABLE != desc.Usage;
+}
 
-    size_t D3D9VolumeTexture::GetPixelSize() const
+void* D3D11Buffer::Lock()
+{
+    return m_pBufferMapper->Map();
+}
+
+void D3D11Buffer::Unlock()
+{
+    m_pBufferMapper->Unmap();
+}
+
+cl_err_code D3D11Buffer::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    return *pszOrigin + *pszRegion <= m_stMemObjSize ? CL_SUCCESS : CL_INVALID_VALUE ;
+}
+
+void D3D11Buffer::FillDimensions(const D3DResourceInfo<ID3D11Resource>& resourceInfo, size_t* const pszDims) const
+{
+    D3D11_BUFFER_DESC desc;
+    static_cast<ID3D11Buffer*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    pszDims[0] = desc.ByteWidth;
+}
+
+cl_err_code D3D11Texture2D::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize, void* pParamValue, const size_t szParamValueSize) const
+{
+    const void* pValue;
+
+    switch (clParamName)
     {
-        const D3DVOLUME_DESC desc = GetDesc(*GetResourceInfo());
-        const cl_image_format clImageFormat = MapD3DFormat2OclFormat(desc.Format);
-        return clGetPixelBytesCount(&clImageFormat);
+    case CL_IMAGE_D3D11_SUBRESOURCE_KHR:
+        szSize = sizeof(UINT);
+        pValue = &static_cast<const D3D11TextureResourceInfo*>(GetResourceInfo())->m_uiSubresource;
+        break;
+    default:
+        return D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
     }
-
-    /**
-     * @fn  cl_err_code D3D9VolumeTexture::CheckBounds(const size_t* pszOrigin,
-     *      const size_t* pszRegion) const
-     */
-
-    cl_err_code D3D9VolumeTexture::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+    if (NULL != pParamValue && szSize > 0)
     {
-        const D3DVOLUME_DESC desc = GetDesc(*GetResourceInfo());
-
-        if (pszOrigin[0] + pszRegion[0] > desc.Width)
-        {
-            return CL_INVALID_VALUE;
-        }
-        if (pszOrigin[1] + pszRegion[1] > desc.Height)
-        {
-            return CL_INVALID_VALUE;
-        }
-        if (pszOrigin[2] + pszRegion[2] > desc.Depth)
-        {
-            return CL_INVALID_VALUE;
-        }
-        return CL_SUCCESS;
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
+    return CL_SUCCESS;
+}
 
-    /**
-     * @fn  cl_err_code D3D9VolumeTexture::GetImageInfoInternal(const cl_image_info clParamName,
-     *      size_t& szSize, void* pParamValue, const size_t szParamValueSize) const
-     */
-
-    cl_err_code D3D9VolumeTexture::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-        void* pParamValue, const size_t szParamValueSize) const
+cl_err_code D3D11Texture2D::Initialize(cl_mem_flags	clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+    const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags)
+{
+    const D3D11TextureResourceInfo& textureInfo = *static_cast<const D3D11TextureResourceInfo*>(pHostPtr);
+    D3D11_TEXTURE2D_DESC desc;
+    ID3D11Texture2D* const pTexture2d = static_cast<ID3D11Texture2D*>(textureInfo.m_pResource);
+    
+    pTexture2d->GetDesc(&desc);
+    /* If they user has created the texture with MipLevels = 0 to generate a full set of subtextures, then the Direct3D RT updates this field to the actual number of mip levels, so we won't
+        see 0 here */
+    if (textureInfo.m_uiSubresource >= desc.ArraySize * desc.MipLevels)
     {
-        size_t szSizeTVar;
-        const void* pValue;
-
-        switch (clParamName)
-        {        
-        case CL_IMAGE_ROW_PITCH:
-            szSize = sizeof(size_t);
-            pValue = &m_szPitches[ROW_PITCH];
-            break;
-        case CL_IMAGE_SLICE_PITCH:
-            szSize = sizeof(size_t);
-            pValue = &m_szPitches[SLICE_PITCH];
-            break;
-        case CL_IMAGE_WIDTH:
-            szSize = sizeof(size_t);
-            szSizeTVar = GetDesc(*GetResourceInfo()).Width;
-            pValue = &szSizeTVar;
-            break;
-        case CL_IMAGE_HEIGHT:
-            szSize = sizeof(size_t);
-            szSizeTVar = GetDesc(*GetResourceInfo()).Height;
-            pValue = &szSizeTVar;
-            break;
-        case CL_IMAGE_DEPTH:
-            szSize = sizeof(size_t);
-            szSizeTVar = GetDesc(*GetResourceInfo()).Depth;
-            pValue = &szSizeTVar;
-            break;
-#if defined DX9_SHARING
-        case CL_IMAGE_D3D9_LEVEL_INTEL:
-            szSize = sizeof(UINT);
-            pValue = &dynamic_cast<const D3D9TextureResourceInfo&>(GetResourceInfo()).m_uiMipLevel;
-            break;
-#endif
-        default:
-            return D3D9Resource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
-        }
-        if (NULL != pParamValue && szSize > 0)
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-        }
-        return CL_SUCCESS;
+        return CL_INVALID_VALUE;
     }
+    
+    const D3D11_MAP mapType = D3d11Texture2DMapper::GetD3d11Map(clMemFlags);
+    m_pTexture2DMapper = new D3d11Texture2DMapper(pTexture2d, mapType, textureInfo.m_uiSubresource);
+    if (!m_pTexture2DMapper)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    return D3DResource<ID3D11Resource, ID3D11Device>::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr, creation_flags);
+}
+
+bool D3D11Texture2D::IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE2D_DESC desc;
+    static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    return D3D11_USAGE_IMMUTABLE != desc.Usage;
+}
+
+cl_image_format D3D11Texture2D::GetClImageFormat(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE2D_DESC desc;
+    static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    return MapDxgiFormat2OclFormat(desc.Format);
+}
+
+bool D3D11Texture2D::ObtainPitch(size_t& szPitch)
+{
+    szPitch = m_pTexture2DMapper->GetRowPitch();
+    return szPitch > 0;
+}
+
+void* D3D11Texture2D::Lock()
+{
+    return m_pTexture2DMapper->Map();
+}
+
+void D3D11Texture2D::Unlock()
+{
+    m_pTexture2DMapper->Unmap();
+}
+
+UINT D3D11Texture2D::GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE2D_DESC desc;
+    static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    const UINT uiSubresource = static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    // 0 MipLevels is used to generate a full set of sub-textures
+    const UINT uiSubresourceMipLevel = desc.MipLevels > 0 ? uiSubresource % desc.MipLevels : uiSubresource;
+    if (desc.Width > 1)
+    {
+        return desc.Width >> uiSubresourceMipLevel;    // width = desc.Width / 2^uiSubresourceMipLevel
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+UINT D3D11Texture2D::GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE2D_DESC desc;
+    static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    const UINT uiSubresource = static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    // 0 MipLevels is used to generate a full set of sub-textures
+    const UINT uiSubresourceMipLevel = desc.MipLevels > 0 ? uiSubresource % desc.MipLevels : uiSubresource;
+    if (desc.Height > 1)
+    {
+        return desc.Height >> uiSubresourceMipLevel;   // height = desc.Height / 2^uiSubresourceMipLevel
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+cl_err_code D3D11Texture3D::Initialize(cl_mem_flags	clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+    const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags creation_flags)
+{
+    const D3D11TextureResourceInfo& textureInfo = *static_cast<const D3D11TextureResourceInfo*>(pHostPtr);
+    D3D11_TEXTURE3D_DESC desc;        
+    ID3D11Texture3D* const pTexture3D = static_cast<ID3D11Texture3D*>(textureInfo.m_pResource);
+    
+    pTexture3D->GetDesc(&desc);
+    if (textureInfo.m_uiSubresource >= desc.MipLevels)
+    {
+        return CL_INVALID_VALUE;
+    }
+    
+    const D3D11_MAP mapType = D3d11Mapper<ID3D11Texture3D, D3D11_TEXTURE3D_DESC>::GetD3d11Map(clMemFlags);
+    m_pTexture3DMapper = new D3d11Texture3DMapper(pTexture3D, mapType, textureInfo.m_uiSubresource);
+    if (!m_pTexture3DMapper)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    return D3DResource<ID3D11Resource, ID3D11Device>::Initialize(clMemFlags, pclImageFormat, dim_count, dimension, pitches, pHostPtr, creation_flags);
+}
+
+bool D3D11Texture3D::IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE3D_DESC desc;
+    static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    return D3D11_USAGE_IMMUTABLE != desc.Usage;
+}
+
+// for the 3 following methods: dimension X = desc.X / 2^subresource
+
+UINT D3D11Texture3D::GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE3D_DESC desc;
+    static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    if (desc.Width > 1)
+    {
+        return desc.Width >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    }
+    else
+    {
+        return 1;
+    }        
+}
+
+UINT D3D11Texture3D::GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE3D_DESC desc;
+    static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    if (desc.Height > 1)
+    {
+        return desc.Height >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    }
+    else
+    {
+        return 1;
+    }        
+}
+
+UINT D3D11Texture3D::GetDepth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE3D_DESC desc;
+    static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    if (desc.Depth > 1)
+    {
+        return desc.Depth >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+cl_err_code D3D11Texture3D::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+    void* pParamValue, const size_t szParamValueSize) const
+{
+    size_t szVal;
+    const void* pValue;
+
+    switch (clParamName)
+    {
+    case CL_IMAGE_D3D11_SUBRESOURCE_KHR:
+        szSize = sizeof(UINT);
+        pValue = &static_cast<const D3D11TextureResourceInfo*>(GetResourceInfo())->m_uiSubresource;
+        break;
+    case CL_IMAGE_ROW_PITCH:
+        szSize = sizeof(size_t);
+        pValue = m_szPitch;
+        break;            
+    case CL_IMAGE_WIDTH:
+        szSize = sizeof(size_t);
+        szVal = GetWidth(*GetResourceInfo());
+        pValue = &szVal;
+        break;            
+    case CL_IMAGE_HEIGHT:
+        szSize = sizeof(size_t);
+        szVal = GetHeight(*GetResourceInfo());
+        pValue = &szVal;
+        break;            
+    case CL_IMAGE_DEPTH:
+        szSize = sizeof(size_t);
+        szVal = GetDepth(*GetResourceInfo());
+        pValue = &szVal;
+        break;
+    case CL_IMAGE_SLICE_PITCH:
+        szSize = sizeof(size_t);
+        pValue = &m_szPitch[1];
+        break;
+    default:
+        return D3DResource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
+    }
+    if (NULL != pParamValue && szSize > 0)
+    {
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+    return CL_SUCCESS;
+}
+
+void* D3D11Texture3D::Lock()
+{
+    return m_pTexture3DMapper->Map();
+}
+
+void D3D11Texture3D::Unlock()
+{
+    return m_pTexture3DMapper->Unmap();
+}
+
+void D3D11Texture3D::FillDimensions(const D3DResourceInfo<ID3D11Resource>& resourceInfo, size_t* const pszDims) const
+{
+    pszDims[0] = GetWidth(resourceInfo);
+    pszDims[1] = GetHeight(resourceInfo);
+    pszDims[2] = GetDepth(resourceInfo);
+}
+
+bool D3D11Texture3D::ObtainPitches()
+{
+    m_szPitch[0] = m_pTexture3DMapper->GetRowPitch();
+    m_szPitch[1] = m_pTexture3DMapper->GetDepthPitch();
+    return m_szPitch[0] > 0 && m_szPitch[1] > 0;
+}
+
+const size_t* D3D11Texture3D::GetPitches() const { return m_szPitch; }
+
+cl_image_format D3D11Texture3D::GetClImageFormat(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const
+{
+    D3D11_TEXTURE3D_DESC desc;
+    static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
+    return MapDxgiFormat2OclFormat(desc.Format);
+}
+
+size_t D3D11Texture3D::GetMemObjSize() const
+{
+    return m_pTexture3DMapper->GetRowPitch() * m_pTexture3DMapper->GetDepthPitch() * GetDepth(*GetResourceInfo());
+}
+
+cl_err_code D3D11Texture3D::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (pszOrigin[0] + pszRegion[0] > GetWidth(*GetResourceInfo()))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (pszOrigin[1] + pszRegion[1] > GetHeight(*GetResourceInfo()))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (pszOrigin[2] + pszRegion[2] > GetDepth(*GetResourceInfo()))
+    {
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;
+}
 
 }}}

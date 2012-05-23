@@ -34,12 +34,12 @@
 #include "Context.h"
 
 #include <Logger.h>
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
 #include <basetsd.h>
 #include "ocl_object_base.h"
 #include "CL\cl_dx9_media_sharing.h"
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
 #endif
 #endif
@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	template <class HandleType> class OCLObjectsMap;
 	class MemoryObject;
     class Kernel;
-    struct D3D9ResourceInfo;
+    template<typename T> struct D3DResourceInfo;
 
 	/**********************************************************************************************
 	* Class name:	ContextModule
@@ -194,16 +194,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int GetGLTextureInfo(cl_mem clMemObj, cl_gl_texture_info clglPramName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
         // Direct3D 9 Sharing methods
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
         virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags,
-            cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo, UINT plane, cl_int *errcode_ret, const ID3D9Definitions& d3d9Definitions);
-#endif
-#if defined (DX9_SHARING)
-        virtual cl_mem CreateFromD3D9VertexBuffer(cl_context context, cl_mem_flags flags, IDirect3DVertexBuffer9* resource, cl_int* errcode_ret);
-        virtual cl_mem CreateFromD3D9IndexBuffer(cl_context context, cl_mem_flags flags, IDirect3DIndexBuffer9* resource, cl_int* errcode_ret);
-        virtual cl_mem CreateFromD3D9Texture(cl_context context, cl_mem_flags flags, IDirect3DTexture9 *resource, UINT miplevel, cl_int *errcode_ret);
-        virtual cl_mem CreateFromD3D9CubeTexture(cl_context context, cl_mem_flags flags, IDirect3DCubeTexture9 *resource, D3DCUBEMAP_FACES facetype, UINT miplevel, cl_int *errcode_ret);
-        virtual cl_mem CreateFromD3D9VolumeTexture(cl_context context, cl_mem_flags flags, IDirect3DVolumeTexture9 *resource, UINT miplevel, cl_int *errcode_ret);
+            cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo, UINT plane, cl_int *errcode_ret, const ID3DSharingDefinitions& d3d9Definitions);
+        virtual cl_mem CreateFromD3D11Buffer(cl_context context, cl_mem_flags flags, ID3D11Buffer* pResource, cl_int* pErrcodeRet);
+        virtual cl_mem CreateFromD3D11Texture2D(cl_context context, cl_mem_flags flags, ID3D11Texture2D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
+        virtual cl_mem CreateFromD3D11Texture3D(cl_context context, cl_mem_flags flags, ID3D11Texture3D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
 #endif
 
 		/////////////////////////////////////////////////////////////////////
@@ -256,10 +252,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_mem CreateImage1DBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, size_t szImageWidth, cl_mem buffer, cl_int* pErrcodeRet);
 
-#if defined (DX9_MEDIA_SHARING)
-        cl_mem CreateFromD3D9Resource(cl_context clContext, cl_mem_flags flags,
-            D3D9ResourceInfo* const pResourceInfo, cl_int *pErrcodeRet,
-            cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane = MAXUINT);
+#if defined (DX_MEDIA_SHARING)
+        template<typename RESOURCE_TYPE, typename DEV_TYPE>
+        cl_mem CreateFromD3DResource(cl_context clContext, cl_mem_flags flags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
+            cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane = MAXUINT);
 #endif
 
 		PlatformModule *						m_pPlatformModule; // handle to the platform module
@@ -360,5 +356,117 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
         return pImage->GetHandle();
     }
+
+#if defined (DX_MEDIA_SHARING)
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags clMemFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
+                                             cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane)
+{
+    Context* pContext = NULL;
+    MemoryObject* pMemObj = NULL;
+
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(clErr))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+    
+    if (CL_FAILED(clErr) || NULL == pContext)
+    {
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    
+    D3DContext<RESOURCE_TYPE, DEV_TYPE>* const pD3DContext = dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(pContext);    
+    if (NULL == pD3DContext)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL == pResourceInfo->m_pResource)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
+        }
+        return CL_INVALID_HANDLE;
+    }
+    /* check if context was created against the same Direct3D 9 device from which resource was
+        created */
+    DEV_TYPE* const pResourceDevice = pD3DContext->GetDevice(pResourceInfo->m_pResource);
+    if (NULL == pResourceDevice)
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    pResourceDevice->Release(); // we don't need the device, just its address
+    // Matt is aware that there is a hole in the spec regarding checking this device type
+    const ID3DSharingDefinitions& d3dSharingDefs = pD3DContext->GetD3dDefinitions();
+    const ID3D9Definitions* const d3d9Defs = dynamic_cast<const ID3D9Definitions*>(&d3dSharingDefs);
+    if (NULL != d3d9Defs && d3d9Defs->GetContextAdapterDxva() != pD3DContext->m_iDeviceType &&
+        pResourceDevice != pD3DContext->GetD3DDevice())
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
+        }
+        return CL_INVALID_HANDLE;
+    }
+    // check if just one of the allowed flags is set
+    if ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & ~CL_MEM_READ_ONLY) ||
+        (clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & ~CL_MEM_WRITE_ONLY) ||
+        (clMemFlags & CL_MEM_READ_WRITE) && (clMemFlags & ~CL_MEM_READ_WRITE) ||
+        (clMemFlags & ~(CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = pD3DContext->CreateD3DResource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, plane);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("pD3DContext->CreateD3DResource(%d, %d, %d, %d) = %S"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = m_mapMemObjects.AddObject(pMemObj, false);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pMemObj->GetHandle();
+}
+
+#endif
 
 }}}

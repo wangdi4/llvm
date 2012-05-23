@@ -1106,8 +1106,8 @@ cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevi
 }
 
 
-#if defined (DX9_MEDIA_SHARING)
-cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
+#if defined (DX_MEDIA_SHARING)
+cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
                                             cl_uint uiNumMediaAdapters, 
                                             int *pMediaAdaptersType, 
                                             void** ppMediaAdapters, 
@@ -1115,14 +1115,14 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
                                             cl_uint uiNumEntries, 
                                             cl_device_id *pclDevices, 
                                             cl_uint *puiNumDevices,
-                                            const ID3D9Definitions& d3d9Definitions)
+                                            const ID3DSharingDefinitions& d3dDefinitions)
 {
     if (NULL == clPlatform)
     {
         LOG_ERROR(TEXT("clPlatform is NULL"));
         return CL_INVALID_PLATFORM;
     }
-    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D9NV(clPlatform=%d, uiNumMediaAdapters=%d, pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
+    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D(clPlatform=%d, uiNumMediaAdapters=%d, pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
         clPlatform, uiNumMediaAdapters, pMediaAdaptersType, ppMediaAdapters, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
     if (NULL != pclDevices && 0 == uiNumEntries)
     {
@@ -1139,23 +1139,24 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
         LOG_ERROR(TEXT("clPlatform is not a valid platform."));
         return CL_INVALID_PLATFORM;
     }
-    if (d3d9Definitions.GetPreferredDevicsForDx9MediaAdapter() != clD3dDeviceSet && d3d9Definitions.GetAllDevicesForDx9MediaAdapter() != clD3dDeviceSet)
+    if (d3dDefinitions.GetPreferredDevicesForD3D() != clD3dDeviceSet && d3dDefinitions.GetAllDevicesForD3D() != clD3dDeviceSet)
     {
         LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
         return CL_INVALID_VALUE;
     }
-    if (0 == uiNumMediaAdapters || NULL == pMediaAdaptersType || NULL == ppMediaAdapters && d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_KHR)
+    if (0 == uiNumMediaAdapters || NULL == pMediaAdaptersType || NULL == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR)
     {
         return CL_INVALID_VALUE;
     }
-    if (NULL == ppMediaAdapters && d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_INTEL)
+    if (NULL == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
     {
         return CL_DEVICE_NOT_FOUND;
     }
     for (cl_uint i = 0; i < uiNumMediaAdapters; i++)
     {
         const int iType = pMediaAdaptersType[i];
-        if (d3d9Definitions.GetAdapterD3d9() != iType && d3d9Definitions.GetAdapterD3d9Ex() != iType && d3d9Definitions.GetAdapterDxva() != iType)
+        const vector<int>& validDeviceTypes = d3dDefinitions.GetValidDeviceTypes();
+        if (find(validDeviceTypes.begin(), validDeviceTypes.end(), iType) == validDeviceTypes.end())
         {
             return CL_INVALID_VALUE;
         }
@@ -1164,7 +1165,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
             like this. When the spec is fixed, I'll change it. */
         if (1 == uiNumMediaAdapters && NULL == (void*)ppMediaAdapters || uiNumMediaAdapters > 1 && NULL == ((void**)ppMediaAdapters)[i])
         {
-            if (d3d9Definitions.GetVersion() == ID3D9Definitions::D3D9_INTEL)
+            if (d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
             }
@@ -1181,8 +1182,8 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
     }
     size_t szFoundDevices = 0;
 
-    // in case of CL_PREFERRED_DEVICES_FOR_DX9_INTEL, we won't return the CPU device, since it is not the preferred device.
-    if (d3d9Definitions.GetAllDevicesForDx9MediaAdapter() == clD3dDeviceSet)
+    // in case of CL_PREFERRED_DEVICES, we won't return the CPU device, since it is not the preferred device.
+    if (d3dDefinitions.GetAllDevicesForD3D() == clD3dDeviceSet)
     {
         // find all devices that report supporting Direct3D Sharing
         for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
@@ -1200,7 +1201,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D9(cl_platform_id clPlatform,
             {
                 return err;
             }        
-            if (std::string((char*)sDevEx).find(d3d9Definitions.GetExtensionName()) != std::string::npos)
+            if (std::string((char*)sDevEx).find(d3dDefinitions.GetExtensionName()) != std::string::npos)
             {
                 szFoundDevices++;
                 if (NULL != pclDevices && szDevIndex < uiNumEntries)

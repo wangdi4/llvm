@@ -34,7 +34,7 @@
 #include <cl_dynamic_lib.h>
 #include <map>
 #include <list>
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
 
@@ -56,7 +56,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         FissionableDevice(_cl_platform_id_int* platform) :
-		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3D9Device(NULL) {}
+		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(NULL) {}
 
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
         virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
@@ -77,47 +77,45 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void RemovedFromContext() { m_numContexts--; }
 		bool IsInContext() const  { return m_numContexts > 0; }
 
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
         /**
-         * @fn  void FissionableDevice::setD3D9Device(IUnknown* const pD3D9Device)
+         * @fn  void FissionableDevice::setD3D9Device(IUnknown* const pD3DDevice)
          *
-         * @brief   Sets a IDirect3DDevice9*
+         * @brief   Sets a Direct3D device
          *
          * @author  Aharon
          * @date    7/5/2011
          *
-         * @param   the IDirect3DDevice9* to set (may be NULL)
-         * @param   the Direct3D 9 device type: CL_CONTEXT_D3D9_DEVICE_INTEL,
-         * 		   CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL				
+         * @param   the Direct3D device to set (may be NULL)
+         * @param   the Direct3D device type
          */
 
-        void SetD3D9Device(IUnknown* const pD3D9Device, int iDevType)
+        void SetD3DDevice(IUnknown* const pD3DDevice, int iDevType)
         {
-            m_pD3D9Device = pD3D9Device;
-            m_iD3D9DevType = iDevType;
+            m_pD3DDevice = pD3DDevice;
+            m_iD3DDevType = iDevType;
         }
 
         /**
-         * @fn  IUnknown* FissionableDevice::GetD3D9Device() const
+         * @fn  IUnknown* FissionableDevice::GetD3DDevice() const
          *
-         * @brief   Gets the IDirect3DDevice9*.
+         * @brief   Gets the Direct3D device
          *
          * @author  Aharon
          * @date    7/18/2011
          *
-         * @return  the IDirect3DDevice9*.
+         * @return  the Direct3D devicce
          */
 
-        IUnknown* GetD3D9Device() const { return m_pD3D9Device; }
+        IUnknown* GetD3DDevice() const { return m_pD3DDevice; }
 
         /**
-         * @fn  int GetD3D9DevType() const { return m_iD3D9DevType; }
+         * @fn  int GetD3DDevType() const { return m_iD3DDevType; }
          * 		
-         * @return the Direct3D 9 device type: CL_CONTEXT_D3D9_DEVICE_INTEL,
-         * 		   CL_CONTEXT_D3D9EX_DEVICE_INTEL or CL_CONTEXT_DXVA9_DEVICE_INTEL
+         * @return the Direct3D device type
          */
 
-        int GetD3D9DevType() const { return m_iD3D9DevType; }
+        int GetD3DDevType() const { return m_iD3DDevType; }
 #endif
 
         /**
@@ -135,15 +133,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 
-#if ! defined (DX9_MEDIA_SHARING)
+#if ! defined (DX_MEDIA_SHARING)
         struct IUnknown;
 #endif
-        /* I define this attribute even if DX9_MEDIA_SHARING is not defined, since it is too dangerous to
+        /* I define this attribute even if DX_MEDIA_SHARING is not defined, since it is too dangerous to
         make the size of the FissionableDevice object dependent on a macro definition, which may
         differ from one project to another. This might cause bugs that wouldn't be caught by the
         compiler, but appear in runtime and would be very hard to detect. */
-        IUnknown* m_pD3D9Device;
-        int m_iD3D9DevType;
+        IUnknown* m_pD3DDevice;
+        int m_iD3DDevType;
 
     };
 

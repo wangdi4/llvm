@@ -207,7 +207,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
 
 #endif /* CL_VERSION_1_1 */
 
-#if defined DX9_MEDIA_SHARING
+#if defined DX_MEDIA_SHARING
 #include <wtypes.h>
 #include <d3d9types.h>
 #include <d3d9.h>
@@ -225,10 +225,6 @@ typedef cl_uint cl_dx9_device_set_intel;
 #define CL_MEM_DX9_RESOURCE_INTEL               0x4027
 #define CL_MEM_DX9_SHARED_HANDLE_INTEL          0x4074
 #define CL_IMAGE_DX9_PLANE_INTEL                0x4075
-#if defined DX9_SHARING
-#define CL_IMAGE_DX9_FACE_INTEL                 0x4028
-#define CL_IMAGE_DX9_LEVEL_INTEL                0x4029
-#endif
 #define CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL    0x402A
 #define CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL    0x402B
 #define CL_INVALID_DX9_DEVICE_INTEL             -1010
@@ -236,49 +232,7 @@ typedef cl_uint cl_dx9_device_set_intel;
 #define CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL  -1012
 #define CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL      -1013
 #define CL_DX9_OBJECT_SURFACE                0x3002
-#if defined DX9_SHARING
-#define CL_D3D9_OBJECT_VERTEX_BUFFER          0x3000
-#define CL_D3D9_OBJECT_INDEX_BUFFER           0x3001
-#define CL_D3D9_OBJECT_TEXTURE                0x3003
-#define CL_D3D9_OBJECT_CUBE_TEXTURE           0x3004
-#define CL_D3D9_OBJECT_VOLUME_TEXTURE         0x3005
-#endif
-#if defined DX9_SHARING
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9VertexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVertexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9IndexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DIndexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9SurfaceIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DSurface9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9TextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9CubeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DCubeTexture9* /*resource*/,
-    D3DCUBEMAP_FACES /*facetype*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9VolumeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVolumeTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-#endif /* DX9_SHARING */
+
 typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9MediaSurfaceINTEL_fn)(
     cl_context          /*context*/,
     cl_mem_flags        /*flags*/,

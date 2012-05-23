@@ -25,58 +25,86 @@
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
+/**
+ * @class   SyncD3DResources
+ *
+ * @brief   Synchronize Direct3D 9 resources. 
+ *
+ * @param RESOURCE_TYPE the super-type of all Direct 3D resources that can be created by this context
+ * @param DEV_TYPE the type of the Direct 3D device
+ *
+ * @author  Aharon
+ * @date    7/12/2011
+ *
+ * @sa  RuntimeCommand
+ */
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+class SyncD3DResources : public SyncGraphicsApiObjects
+{
+   
+public:
+
     /**
-     * @class   SyncD3D9Resources
-     *
-     * @brief   Synchronize Direct3D 9 resources. 
+     * @brief   Constructor.
      *
      * @author  Aharon
      * @date    7/12/2011
      *
-     * @sa  RuntimeCommand
+     * @param   cmdQueue
+     * @param   pMemObjects             the D3D9Resouce objects to synchronize.
+     * @param   szNumMemObjects         the number of D3D9Resouce objects to synchronize.
+     * @param   cmdType                 the type of the command.
+     * @param   d3d9Definitions          a ID3DSharingDefinitions of the version of the extension used
      */
 
-    class SyncD3D9Resources : public SyncGraphicsApiObjects
+    SyncD3DResources(IOclCommandQueueBase* const cmdQueue, D3DResource<RESOURCE_TYPE, DEV_TYPE>** const pMemObjects, size_t szNumMemObjects, cl_command_type cmdType,
+        const ID3DSharingDefinitions& d3d9Definitions) :
+    SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, (GraphicsApiMemoryObject**)pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDevice()),
+        m_d3dDefinitions(d3d9Definitions)
+    { }
+
+    // overridden methods:
+
+    virtual const char* GetCommandName() const;
+
+    virtual cl_err_code Execute();
+
+private:
+
+    const ID3DSharingDefinitions& m_d3dDefinitions;
+
+};
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+const char* SyncD3DResources<RESOURCE_TYPE, DEV_TYPE>::GetCommandName() const
+{
+    if (m_d3dDefinitions.GetCommandAcquireDevice() == GetCommandType())
     {
-       
-    public:
+        return "CL_COMMAND_ACQUIRE_DX9_OBJECTS";
+    }
+    assert(m_d3dDefinitions.GetCommandReleaseDevice() == GetCommandType());
+    return "CL_COMMAND_RELEASE_DX9_OBJECTS";
+}
 
-        /**
-         * @fn  SyncD3D9Resources::SyncD3D9Resources(IOclCommandQueueBase* const cmdQueue,
-         *      ocl_entry_points* const pOclEntryPoints, D3D9Resource** const pMemObjects,
-         *      size_t szNumMemObjects, cl_command_type cmdType)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/12/2011
-         *
-         * @param   cmdQueue
-         * @param   pOclEntryPoints
-         * @param   pMemObjects             the D3D9Resouce objects to synchronize.
-         * @param   szNumMemObjects         the number of D3D9Resouce objects to synchronize.
-         * @param   cmdType                 the type of the command.
-         * @param   d3d9Definitions          a ID3D9Definitions of the version of the extension used
-         */
-
-        SyncD3D9Resources(IOclCommandQueueBase* const cmdQueue,
-            D3D9Resource** const pMemObjects,
-            size_t szNumMemObjects, cl_command_type cmdType, const ID3D9Definitions& d3d9Definitions) :
-        SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue,
-            (GraphicsApiMemoryObject**)pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDx9MediaSurface()),
-            m_d3d9Definitions(d3d9Definitions)
-        { }
-
-        // overridden methods:
-
-        virtual const char* GetCommandName() const;
-
-        virtual cl_err_code Execute();
-
-    private:
-
-        const ID3D9Definitions& m_d3d9Definitions;
-
-    };
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code SyncD3DResources<RESOURCE_TYPE, DEV_TYPE>::Execute()
+{
+    if (m_d3dDefinitions.GetCommandAcquireDevice() == GetCommandType())
+    {
+        for (unsigned int i = 0; i < GetNumMemObjs(); i++)
+        {
+            dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>&>(GetMemoryObject(i)).AcquireD3D();
+        }
+    }
+    else
+    {
+        for (unsigned int i = 0; i < GetNumMemObjs(); i++)
+        {
+            dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>&>(GetMemoryObject(i)).ReleaseD3D();
+        }
+    }
+    return RuntimeCommand::Execute();
+}
 
 }}}

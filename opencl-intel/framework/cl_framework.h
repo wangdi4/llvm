@@ -81,43 +81,7 @@ extern cl_int CL_API_CALL clGetKernelArgInfo(
 								void *				param_value,
 								size_t *			param_value_size_ret);
 
-#if defined DX9_SHARING
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9VertexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVertexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9IndexBufferIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DIndexBuffer9* /*resource*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9TextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9CubeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DCubeTexture9* /*resource*/,
-    D3DCUBEMAP_FACES /*facetype*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromD3D9VolumeTextureIntel_fn)(
-    cl_context /*context*/,
-    cl_mem_flags /*flags*/,
-    IDirect3DVolumeTexture9* /*resource*/,
-    UINT /*miplevel*/,
-    cl_int* /*errcode_ret*/);
-#endif
-
-#if defined DX9_MEDIA_SHARING
+#if defined DX_MEDIA_SHARING
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)(
     cl_command_queue            /* command_queue */,
@@ -199,7 +163,7 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 struct COCLCRTDispatchTable
 {
     KHRpfn_clGetKernelArgInfo                     clGetKernelArgInfo;
-#ifdef DX9_MEDIA_SHARING
+#ifdef DX_MEDIA_SHARING
     KHRpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
     KHRpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
     KHRpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;

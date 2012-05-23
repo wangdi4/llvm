@@ -32,6 +32,12 @@
 #include "iexecution_gl.h"
 #include "ocl_itt.h"
 #include "ocl_config.h"
+#include "command_queue.h"
+#ifdef DX_MEDIA_SHARING
+#include "d3d9_context.h"
+#include "d3d9_resource.h"
+#include "d3d9_sync_d3d9_resources.h"
+#endif
 
 // forward declarations
 
@@ -132,8 +138,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code EnqueueSyncGLObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem * pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event * pclEventWaitList, cl_event * pclEvent);
 
         // Direct3D 9
-#if defined (DX9_MEDIA_SHARING)
-        cl_int EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent);
+#if defined (DX_MEDIA_SHARING)
+        template<typename RESOURCE_TYPE, typename DEV_TYPE>
+        cl_int EnqueueSyncD3DObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent);
 #endif
 
         cl_err_code         Release(bool bTerminate) { return CL_SUCCESS; }  // Release resources ???
@@ -168,5 +175,118 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
     };
+
+#if defined (DX_MEDIA_SHARING)
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
+                                                 cl_command_type cmdType, cl_uint uiNumObjects,
+                                                 const cl_mem *pclMemObjects,
+                                                 cl_uint uiNumEventsInWaitList,
+                                                 const cl_event *pclEventWaitList,
+                                                 cl_event *pclEvent)
+{
+    cl_err_code errVal = CL_SUCCESS;
+    if (NULL == pclMemObjects && 0 == uiNumObjects)
+    {
+        return CL_SUCCESS;
+    }
+    else if (NULL == pclMemObjects || 0 == uiNumObjects)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    D3DContext<RESOURCE_TYPE, DEV_TYPE>* const pContext = dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
+    if (NULL == pContext)
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    D3DResource<RESOURCE_TYPE, DEV_TYPE>** const pMemObjects = new D3DResource<RESOURCE_TYPE, DEV_TYPE>*[uiNumObjects];
+    if (NULL == pMemObjects)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    for (cl_uint i = 0; i < uiNumObjects; i++)
+    {
+        MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
+        if (NULL == pMemObj)
+        {
+            delete[] pMemObjects;
+            return CL_INVALID_MEM_OBJECT;
+        }
+        if (pMemObj->GetContext()->GetId() != pCommandQueue->GetContextId())
+        {
+            delete[] pMemObjects;
+            return CL_INVALID_CONTEXT;
+        }
+        D3DResource<RESOURCE_TYPE, DEV_TYPE>* const pD3dResource = pMemObjects[i] = dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>*>(pMemObj);
+        // Check if it's a Direct3D 9 object
+        if (NULL != pD3dResource)
+        {
+            if (pContext->GetD3dDefinitions().GetCommandAcquireDevice() == cmdType && pD3dResource->IsAcquired())
+            {
+                delete[] pMemObjects;
+                return pContext->GetD3dDefinitions().GetResourceAlreadyAcquired();
+            }
+            if (pContext->GetD3dDefinitions().GetCommandReleaseDevice() == cmdType && !pD3dResource->IsAcquired())
+            {
+                delete[] pMemObjects;
+                return pContext->GetD3dDefinitions().GetResourceNotAcquired();
+            }
+            continue;
+        }
+        // If we've got here invalid Direct3D 9 object
+        delete[] pMemObjects;
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    const ID3DSharingDefinitions& d3dDefs = pContext->GetD3dDefinitions();
+    Command* const pAcquireCmd = new SyncD3DResources<RESOURCE_TYPE, DEV_TYPE>(pCommandQueue, pMemObjects, uiNumObjects, cmdType, d3dDefs);
+    if (NULL == pAcquireCmd)
+    {
+        delete []pMemObjects;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    errVal = pAcquireCmd->Init();
+    if (CL_SUCCEEDED(errVal))
+    {
+        // In the Intel version of the spec GEN guys interpret the release command to be synchronous - I disagree, but we'll do it this way in order to be aligned with them.
+        const bool bBlocking =
+            pContext->GetD3dDefinitions().GetVersion() == ID3DSharingDefinitions::D3D9_INTEL ?
+            CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType :
+            !pContext->m_bIsInteropUserSync;
+
+        errVal = pAcquireCmd->EnqueueSelf(bBlocking, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        if (CL_FAILED(errVal))
+        {
+            // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            
+            delete pAcquireCmd;
+        }
+        else
+        {
+            /* set the acquired state here already, so that if clEnqueuAcquire/Release is called
+                after this and the command itself has been executed yet, we still return an error */
+            for (size_t i = 0; i < uiNumObjects; i++)   
+            {
+                pMemObjects[i]->SetAcquired(pContext->GetD3dDefinitions().GetCommandAcquireDevice() == cmdType);
+            }
+        }
+    } else
+    {
+        delete pAcquireCmd;
+    }
+
+    delete[] pMemObjects;
+    return errVal;
+}
+
+#endif //  defined (DX_MEDIA_SHARING)
 
 }}}    // Intel::OpenCL::Framework

@@ -48,7 +48,7 @@
 #include "cl_sys_defines.h"
 
 #include <CL/cl_ext.h>
-#if defined (DX9_MEDIA_SHARING)
+#if defined (DX_MEDIA_SHARING)
 #include "d3d9_sharing/d3d9_context.h"
 #include "d3d9_sharing/d3d9_resource.h"
 #include "d3d9_sharing/d3d9_sync_d3d9_resources.h"
@@ -2963,113 +2963,6 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 	}
 	return errVal;
 }
-
-#if defined (DX9_MEDIA_SHARING)
-cl_int ExecutionModule::EnqueueSyncD3D9Objects(cl_command_queue clCommandQueue,
-                                                 cl_command_type cmdType, cl_uint uiNumObjects,
-                                                 const cl_mem *pclMemObjects,
-                                                 cl_uint uiNumEventsInWaitList,
-                                                 const cl_event *pclEventWaitList,
-                                                 cl_event *pclEvent)
-{
-    cl_err_code errVal = CL_SUCCESS;
-    if (NULL == pclMemObjects || 0 == uiNumObjects)
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
-    D3D9Context* const pContext = dynamic_cast<D3D9Context*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
-    if (NULL == pContext)
-    {
-        return CL_INVALID_CONTEXT;
-    }
-
-    D3D9Resource** const pMemObjects = new D3D9Resource*[uiNumObjects];
-    if (NULL == pMemObjects)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    for (cl_uint i = 0; i < uiNumObjects; i++)
-    {
-        MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
-        if (NULL == pMemObj)
-        {
-            delete[] pMemObjects;
-            return CL_INVALID_MEM_OBJECT;
-        }
-        if (pMemObj->GetContext()->GetId() != pCommandQueue->GetContextId())
-        {
-            delete[] pMemObjects;
-            return CL_INVALID_CONTEXT;
-        }
-        D3D9Resource* const pD3d9Resource = pMemObjects[i] = dynamic_cast<D3D9Resource*>(pMemObj);
-        // Check if it's a Direct3D 9 object
-        if (NULL != pD3d9Resource)
-        {
-            if (pContext->Getd3d9Definitions().GetCommandAcquireDx9MediaSurface() == cmdType && pD3d9Resource->IsAcquired())
-            {
-                delete[] pMemObjects;
-                return pContext->Getd3d9Definitions().GetDx9MediaSurfaceAlreadyAcquired();
-            }
-            if (pContext->Getd3d9Definitions().GetCommandReleaseDx9MediaSurface() == cmdType && !pD3d9Resource->IsAcquired())
-            {
-                delete[] pMemObjects;
-                return pContext->Getd3d9Definitions().GetDx9MediaSurfaceNotAcquired();
-            }
-            continue;
-        }
-        // If we've got here invalid Direct3D 9 object
-        delete[] pMemObjects;
-        return CL_INVALID_MEM_OBJECT;
-    }
-
-    Command* const pAcquireCmd = new SyncD3D9Resources(pCommandQueue, pMemObjects, uiNumObjects, cmdType, pContext->Getd3d9Definitions());
-    if (NULL == pAcquireCmd)
-    {
-        delete []pMemObjects;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    errVal = pAcquireCmd->Init();
-    if (CL_SUCCEEDED(errVal))
-    {
-        // In the Intel version of the spec GEN guys interpret the release command to be synchronous - I disagree, but we'll do it this way in order to be aligned with them.
-        const bool bBlocking =
-            pContext->Getd3d9Definitions().GetVersion() == ID3D9Definitions::D3D9_INTEL ?
-            CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType :
-            !pContext->m_bIsInteropUserSync;
-
-        errVal = pAcquireCmd->EnqueueSelf(bBlocking, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
-        if (CL_FAILED(errVal))
-        {
-            // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            
-            delete pAcquireCmd;
-        }
-        else
-        {
-            /* set the acquired state here already, so that if clEnqueuAcquire/Release is called
-                after this and the command itself has been executed yet, we still return an error */
-            for (size_t i = 0; i < uiNumObjects; i++)   
-            {
-                pMemObjects[i]->SetAcquired(pContext->Getd3d9Definitions().GetCommandAcquireDx9MediaSurface() == cmdType);
-            }
-        }
-    } else
-    {
-        delete pAcquireCmd;
-    }
-
-    delete[] pMemObjects;
-    return errVal;
-}
-
-#endif //  defined (DX9_MEDIA_SHARING)
 
 /**
  * internal util function.

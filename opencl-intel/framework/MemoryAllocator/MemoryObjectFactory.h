@@ -36,7 +36,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		CL_MEMOBJ_GFX_SHARE_NONE	= 0,
 		CL_MEMOBJ_GFX_SHARE_GL		= 1,
 		CL_MEMOBJ_GFX_SHARE_DX9		= 2,
-		CL_MEMOBJ_GFX_SHARE_DX10	= 4
+		CL_MEMOBJ_GFX_SHARE_DX10	= 4,
+        CL_MEMOBJ_GFX_SHARE_DX11    = 8
 	};
 
 	class Context;

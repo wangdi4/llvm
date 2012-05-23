@@ -25,717 +25,931 @@
 #include "d3d9_context.h"
 #include "cl_synch_objects.h"
 #include "ocl_event.h"
+#include "d3d11_mapper.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
+/**
+ * @class   D3DResource
+ *
+ * @brief   This class represents a Direct3D resource
+ *
+ * @param RESOURCE_TYPE the super-type of all Direct 3D resources that can be created by this context
+ * @param DEV_TYPE the type of the Direct 3D device
+ *
+ * @author  Aharon
+ * @date    7/6/2011
+ *
+ * @sa  GraphicsApiMemoryObject
+ */
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+class D3DResource : public GraphicsApiMemoryObject
+{
+
+    D3DResourceInfo<RESOURCE_TYPE>* m_pResourceInfo;
+    size_t m_szDimensions[3];
+    bool m_bAcquired;
+
+public:        
+
     /**
-     * @class   D3D9Resource
-     *
-     * @brief   This class represents a Direct3D 9 resource
+     * @brief   Finaliser.
      *
      * @author  Aharon
      * @date    7/6/2011
-     *
-     * @sa  GraphicsApiMemoryObject
      */
 
-    class D3D9Resource : public GraphicsApiMemoryObject
-    {
-
-        D3D9ResourceInfo* m_pResourceInfo;
-        size_t m_szDimensions[3];
-        bool m_bAcquired;
-
-    public:
-
-        /**
-         * @fn  static cl_image_format D3D9Resource::MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat,
-         *      unsigned int uiPlane = 0);
-         *
-         * @brief   Map a D3DFormat to cl_image_format.
-         *
-         * @author  Aharon
-         * @date    7/19/2011
-         *
-         * @param   d3dFormat   the D3DFORMAT.
-         * @param   uiPlane     (optional) the plane.
-         *
-         * @return  the cl_image_format corresponding to &lt;param&gt;format&lt;param&gt; and &lt;
-         *          param&gt;uiPlane&lt;param&gt; and an invalid value (0 in both its fields) in case
-         *          there is no supported OpenCL format that corresponds to the D3DFORMAT specified by
-         *          &lt;param&gt;format&lt;param&gt; and &lt;param&gt;uiPlane&lt;param&gt;.
-         */
-
-        static cl_image_format MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat, unsigned int uiPlane = 0);
-
-        /**
-         * @brief   Gets the Direct3D 9 flags.
-         *
-         * @param   clFlags the cl_mem_flags
-         * 
-         * @return  The Direct3D 9 flags.
-         */
-
-        static DWORD GetD3D9Flags(cl_mem_flags clFlags)
-        {
-            if (clFlags & CL_MEM_READ_ONLY)
-                return D3DLOCK_READONLY;
-            return 0;
-        }
-
-        /**
-         * @fn  virtual D3D9Resource::~D3D9Resource()
-         *
-         * @brief   Finaliser.
-         *
-         * @author  Aharon
-         * @date    7/6/2011
-         */
-
-        virtual ~D3D9Resource();
-
-        /**
-         * @fn  virtual bool D3D9Resource::IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const = 0;
-         *
-         * @brief   Query if this object is created in D3DPOOL_DEFAULT.
-         *
-         * @author  Aharon
-         * @date    7/7/2011
-         *
-         * @param   resourceInfo    Information describing the resource (we give this parameter to
-         * 							enable calling this method before having called Initialize).
-         *
-         * @return  true if created in D3DPOOL_DEFAULT, false if not.
-         */
-
-        virtual bool IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const = 0;
-
-        /**
-         * @fn  virtual void* D3D9Resource::Lock() = 0;
-         *
-         * @brief   Locks the shared region of the Direct3D 9 object
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @return  a pointer to the locked data
-         */
-
-        virtual void* Lock() = 0;
-
-        /**
-         * @fn  virtual void D3D9Resource::Unlock() = 0;
-         *
-         * @brief   Unlocks the shared region of the Direct3D 9 object
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         */
-
-        virtual void Unlock() = 0;
-
-        /**
-         * @fn  virtual void D3D9Resource::FillDimensions(const D3D9ResourceInfo& resourceInfo,
-         *      size_t* const pszDims) const = 0;
-         *
-         * @brief   Fill a dimensions array.
-         *
-         * @author  Aharon
-         * @date    7/19/2011
-         *
-         * @param   resourceInfo    Information describing the resource (we give this parameter to enable
-         *                          calling this method before having called Initialize).
-         * @param [in,out]  pszDims the dimensions array, which is guaranteed to have enough size to
-         *                          accommodate all the dimensions.
-         */
-
-        virtual void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const = 0;
-
-        /**
-         * @fn  virtual bool D3D9Resource::ObtainPitches()
-         *
-         * @brief   Obtain pitches (this is often a costly operation, since it requires locking and
-         *          unlocking the resource). This method is guaranteed to be called early enough to have
-         *          the pitches ready for further use (for instance, for calculating the object's memory
-         *          size).
-         *
-         * @author  Aharon
-         * @date    7/24/2011
-         *
-         * @return  true if it succeeds, false if it fails.
-         */
-
-        virtual bool ObtainPitches() { return true; }
-
-        /**
-         * @fn  const size_t* D3D9Resource::GetPitches() const
-         *
-         * @brief   Gets the pitches.
-         *
-         * @author  Aharon
-         * @date    7/24/2011
-         *
-         * @return  the pitches.
-         */
-
-        virtual const size_t* GetPitches() const { return NULL; }
-
-        /**
-         * @fn  void D3D9Resource::AcquireD3D9();
-         *
-         * @brief   Acquires this object from Direct3D 9
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         */
-
-        void AcquireD3D9();
-
-        /**
-         * @fn  void D3D9Resource::Release();
-         *
-         * @brief   Releases this object to Direct3D 9
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         */
-
-        void ReleaseD3D9();
-
-        /**
-         * @fn  bool D3D9Resource::IsAcquired() const
-         *
-         * @brief   Query if this object is acquired.
-         *
-         * @author  Aharon
-         * @date    7/25/2011
-         *
-         * @return  true if acquired, false if not.
-         */
-
-        bool IsAcquired() const { return m_bAcquired; }
-
-        /**
-         * @brief   Set whether this object is acquired
-         * 			
-         * @param   bAcquired   whether this object is acquired			
-         */
-        void SetAcquired(bool bAcquired) { m_bAcquired = bAcquired; }
-
-        /**
-         * @fn  D3D9ResourceInfo& D3D9Resource::GetResourceInfo()
-         *
-         * @brief   Gets the resource information.
-         *
-         * @author  Aharon
-         * @date    7/7/2011
-         *
-         * @return  The resource information.
-         */
-
-        const D3D9ResourceInfo* GetResourceInfo() const { return m_pResourceInfo; }
-
-        // inherited methods:
-
-        virtual cl_err_code Initialize(cl_mem_flags	clMemFlags,
-            const cl_image_format*	pclImageFormat, unsigned int dim_count,
-            const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
-
-        virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
-            cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
-            MemoryObject** ppBuffer);
-
-        virtual cl_err_code ReadData(void* pOutData, const size_t* pszOrigin,
-            const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);
-
-        virtual cl_err_code WriteData(const void* pOutData, const size_t* pszOrigin,
-            const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);        
-
-        cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const;
-
-        cl_err_code GetDimensionSizes(size_t* pszRegion) const;
-
-    protected:
-
-        /**
-         * @fn  D3D9Resource::D3D9Resource(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   constructor.
-         *
-         * @author  Aharon
-         * @date    7/6/2011
-         */
-
-        D3D9Resource(Context* pContext) :
-			 GraphicsApiMemoryObject(pContext), m_pResourceInfo(NULL),
-                 m_bAcquired(false) { }
-
-        /**
-         * @fn  virtual cl_err_code D3D9Resource::GetImageInfoInternal(const cl_image_info clParamName,
-         *      size_t& szSize, void* pParamValue, const size_t szParamValueSize) const;
-         *
-         * @brief   Gets an image information.
-         *
-         * @author  Aharon
-         * @date    7/25/2011
-         *
-         * @param   clParamName         Name of the OpenCL parameter.
-         * @param [in,out]  szSize      a reference to a variable in which to store the size of the
-         *                              parameter.
-         * @param [in,out]  pParamValue a pointer to a variable in which to store the value of the
-         *                              parameter.
-         * @param   szParamValueSize    Size of the variable pointed to by &lt;param&gt;pParamValue&lt;
-         *                              param&gt;
-         *
-         * @return  CL_SUCCESS in case of success, error code in case of failure.
-         */
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
-
-        /**
-         * @fn  cl_mem_object_type D3D9Resource::GetChildMemObjectType() const = 0;
-         *
-         * @author  Aharon
-         * @date    7/7/2011
-         *
-         * @return  either CL_MEM_OBJECT_BUFFER, CL_MEM_OBJECT_IMAGE2D or CL_MEM_OBJECT_IMAGE3D
-         */
-
-        virtual cl_mem_object_type GetChildMemObjectType() const = 0;
-
-        /**
-         * @fn  size_t D3D9Resource::GetMemObjSize() const = 0;
-         *
-         * @author  Aharon
-         * @date    7/7/2011
-         *
-         * @return  The memory object size in bytes
-         */
-
-        virtual size_t GetMemObjSize() const = 0;
-
-        /**
-         * @fn  DWORD D3D9Resource::GetD3D9Flags() const
-         *
-         * @brief   Gets the Direct3D 9 flags.
-         *
-         * @author  Aharon
-         * @date    7/14/2011
-         *
-         * @return  The Direct3D 9 flags.
-         */
-
-        DWORD GetD3D9Flags() const
-        {
-            return GetD3D9Flags(m_clFlags);
-        }
-
-        // inherited methods:
-
-        virtual cl_err_code CreateChildObject()
-        {
-            return CL_SUCCESS;
-        }
-
-    private:
-
-        // do not implement
-        D3D9Resource(const D3D9Resource&);
-        D3D9Resource& operator=(const D3D9Resource&);
-
-    };
+    virtual ~D3DResource();
 
     /**
-     * @class   D3D9Buffer
-     *
-     * @brief   This class provides the common implementation for Direct3D 9 buffers.
+     * @brief   Query if this object is has been created in a manner valid for sharing.
      *
      * @author  Aharon
-     * @date    7/20/2011
+     * @date    7/7/2011
      *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @param   resourceInfo    Information describing the resource (we give this parameter to
+     * 							enable calling this method before having called Initialize).
      *
-     * ### param    RESOURCE_TYPE   the concrete sub-type of IDirect3DResource9 of the underlying
-     *                              Direct3D 9 resource.
-     * ### param    DESC_TYPE       the type of the output parameter of the resource's GetDesc
-     *                              methods.
+     * @return  true if created in a manner valid for sharing, false if not.
      */
 
-    template<typename RESOURCE_TYPE, typename DESC_TYPE>
-    class D3D9Buffer : public D3D9Resource
-    {
-
-    public:
-
-        /**
-         * @fn  D3D9Buffer::D3D9Buffer(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/20/2011
-         */
-
-        D3D9Buffer(Context* pContext) :
-          D3D9Resource(pContext) { }
-
-        // inherited methods:
-
-        bool IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const;
-
-        virtual size_t GetRowPitchSize() const { return 0; }
-
-        virtual size_t GetSlicePitchSize() const { return 0; }
-
-        virtual size_t GetPixelSize() const { return 0; }
-
-        virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-
-    protected:
-
-        cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_BUFFER; }
-
-        size_t GetMemObjSize() const;
-
-        void* Lock();
-
-        void Unlock();
-
-        void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const;
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const
-        {
-            return CL_INVALID_MEM_OBJECT;
-        }
-
-    };
+    virtual bool IsValidlyCreated(D3DResourceInfo<RESOURCE_TYPE>& resourceInfo) const = 0;
 
     /**
-     * @class   D3D9VertexBuffer
-     *
-     * @brief   This class represents a Direct3D 9 vertex buffer
+     * @brief   Locks the shared region of the Direct3D object
      *
      * @author  Aharon
-     * @date    7/6/2011
+     * @date    7/13/2011
      *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @return  a pointer to the locked data
      */
 
-    typedef D3D9Buffer<IDirect3DVertexBuffer9, D3DVERTEXBUFFER_DESC> D3D9VertexBuffer;
+    virtual void* Lock() = 0;
 
     /**
-     * @class   D3D9IndexBuffer
-     *
-     * @brief   This class represents a Direct3D 9 index buffer
+     * @brief   Unlocks the shared region of the Direct3D object
      *
      * @author  Aharon
-     * @date    7/18/2011
-     *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @date    7/13/2011
      */
 
-    typedef D3D9Buffer<IDirect3DIndexBuffer9, D3DINDEXBUFFER_DESC> D3D9IndexBuffer;
+    virtual void Unlock() = 0;
 
     /**
-     * @class   D3D9Image2D
-     *
-     * @brief   This class provides the common implementation for Direct3D 9 2D images.
-     *
-     * @author  Aharon
-     * @date    7/20/2011
-     *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
-     *
-     */
-
-    class D3D9Image2D : public D3D9Resource
-    {
-
-        size_t m_szPitch;
-
-    public:
-
-        /**
-         * @fn  D3D9Image2D::D3D9Image2D(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/20/2011
-         */
-
-        D3D9Image2D(Context* pContext) :
-          D3D9Resource(pContext) { }
-
-        // inherited methods:
-
-        bool IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const;
-
-        virtual size_t GetRowPitchSize() const { return m_szPitch; }
-
-        virtual size_t GetSlicePitchSize() const { return 0; }
-
-        virtual size_t GetPixelSize() const;
-
-        virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-
-    protected:
-
-        /**
-         * @fn  virtual bool D3D9Image2D::ObtainPitch(size_t& szPitch) = 0;
-         *
-         * @brief   Obtains the pitch (by locking and unlocking the resource)
-         *
-         * @author  Aharon
-         * @date    7/20/2011
-         *
-         * @param [in,out]  szPitch  The pitch.
-         *
-         * @return  whether the operation has succeeded
-         */
-
-        virtual bool ObtainPitch(size_t& szPitch) = 0;
-
-        /**
-         * @fn  DESC_TYPE D3D9Image2D::GetDesc(const D3D9ResourceInfo& resourceInfo) const = 0;
-         *
-         * @brief   Gets a description.
-         *
-         * @author  Aharon
-         * @date    7/20/2011
-         *
-         * @param   resourceInfo    Information describing the resource.
-         *
-         * @return  The description.
-         */
-
-        virtual D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const = 0;
-
-        /**
-         * @fn size_t GetPitch() const
-         * 	   
-         * @return the pitch	   
-         */
-
-        size_t GetPitch() const { return m_szPitch; }
-
-        // inherited methods:
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
-
-        virtual bool ObtainPitches();
-
-        virtual const size_t* GetPitches() const { return &m_szPitch; }
-
-        cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_IMAGE2D; }
-
-        size_t GetMemObjSize() const;
-
-        void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const;
-
-    };
-
-    /**
-     * @class   D3D9Surface
-     *
-     * @brief   This class represents a Direct3D 9 surface
+     * @brief   Fill a dimensions array.
      *
      * @author  Aharon
      * @date    7/19/2011
      *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @param   resourceInfo    Information describing the resource (we give this parameter to enable
+     *                          calling this method before having called Initialize).
+     * @param [in,out]  pszDims the dimensions array, which is guaranteed to have enough size to
+     *                          accommodate all the dimensions.
      */
 
-    class D3D9Surface : public D3D9Image2D
-    {
-
-    public:
-
-        /**
-         * @fn  D3D9Surface::D3D9Surface(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/19/2011
-         */
-
-        D3D9Surface(Context* pContext, cl_mem_object_type clObjType) : D3D9Image2D(pContext) { }
-
-        /**
-         * @brief   Destructor
-         */
-        ~D3D9Surface();
-
-    protected:
-
-        bool ObtainPitch(size_t& szPitch);
-
-        void* Lock();
-
-        void Unlock();
-
-        D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const;
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
-
-        virtual size_t GetPixelSize() const;
-
-        size_t GetMemObjSize() const;
-
-        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-
-        void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const;
-
-    };
+    virtual void FillDimensions(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo, size_t* const pszDims) const = 0;
 
     /**
-     * @class   D3D9Texture
+     * @brief   Obtain pitches (this is often a costly operation, since it requires locking and
+     *          unlocking the resource). This method is guaranteed to be called early enough to have
+     *          the pitches ready for further use (for instance, for calculating the object's memory
+     *          size).
      *
-     * @brief   This class represents a Direct3D 9 texture
+     * @author  Aharon
+     * @date    7/24/2011
+     *
+     * @return  true if it succeeds, false if it fails.
+     */
+
+    virtual bool ObtainPitches() { return true; }
+
+    /**
+     * @brief   Gets the pitches.
+     *
+     * @author  Aharon
+     * @date    7/24/2011
+     *
+     * @return  the pitches.
+     */
+
+    virtual const size_t* GetPitches() const { return NULL; }
+
+    /**
+     * @brief   Acquires this object from Direct3D
+     *
+     * @author  Aharon
+     * @date    7/13/2011
+     */
+
+    void AcquireD3D();
+
+    /**
+     * @brief   Releases this object to Direct3D
+     *
+     * @author  Aharon
+     * @date    7/13/2011
+     */
+
+    void ReleaseD3D();
+
+    /**
+     * @brief   Query if this object is acquired.
+     *
+     * @author  Aharon
+     * @date    7/25/2011
+     *
+     * @return  true if acquired, false if not.
+     */
+
+    bool IsAcquired() const { return m_bAcquired; }
+
+    /**
+     * @brief   Set whether this object is acquired
+     * 			
+     * @param   bAcquired   whether this object is acquired			
+     */
+    void SetAcquired(bool bAcquired) { m_bAcquired = bAcquired; }
+
+    /**
+     * @brief   Gets the resource information.
+     *
+     * @author  Aharon
+     * @date    7/7/2011
+     *
+     * @return  The resource information.
+     */
+
+    const D3DResourceInfo<RESOURCE_TYPE>* GetResourceInfo() const { return m_pResourceInfo; }
+
+    /**
+     * @param resourceInfo the information about the resource
+     * @return the cl_image_format corresponding to the Direct3D image format of this D3DResource
+     */
+    virtual cl_image_format GetClImageFormat(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo) const
+    {
+        const cl_image_format clImgFormat = {0};
+        return clImgFormat;
+    }
+
+    /**
+     * @author  Aharon
+     * @date    7/7/2011
+     *
+     * @return  either CL_MEM_OBJECT_BUFFER, CL_MEM_OBJECT_IMAGE2D or CL_MEM_OBJECT_IMAGE3D
+     */
+
+    virtual cl_mem_object_type GetChildMemObjectType() const = 0;
+
+    // inherited methods:
+
+    virtual cl_err_code Initialize(cl_mem_flags	clMemFlags,
+        const cl_image_format*	pclImageFormat, unsigned int dim_count,
+        const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
+
+    virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
+        cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
+        MemoryObject** ppBuffer);
+
+    virtual cl_err_code ReadData(void* pOutData, const size_t* pszOrigin,
+        const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);
+
+    virtual cl_err_code WriteData(const void* pOutData, const size_t* pszOrigin,
+        const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);        
+
+    cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const;
+
+    cl_err_code GetDimensionSizes(size_t* pszRegion) const;
+
+protected:
+
+    /**
+     * @brief   constructor.
+     *
+     * @author  Aharon
+     * @date    7/6/2011
+     */
+
+    D3DResource(Context* pContext) :
+         GraphicsApiMemoryObject(pContext), m_pResourceInfo(NULL),
+             m_bAcquired(false) { }              
+
+    /**
+     * @brief   Gets an image information.
+     *
+     * @author  Aharon
+     * @date    7/25/2011
+     *
+     * @param   clParamName         Name of the OpenCL parameter.
+     * @param [in,out]  szSize      a reference to a variable in which to store the size of the
+     *                              parameter.
+     * @param [in,out]  pParamValue a pointer to a variable in which to store the value of the
+     *                              parameter.
+     * @param   szParamValueSize    Size of the variable pointed to by &lt;param&gt;pParamValue&lt;
+     *                              param&gt;
+     *
+     * @return  CL_SUCCESS in case of success, error code in case of failure.
+     */
+
+    virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+        void* pParamValue, const size_t szParamValueSize) const;
+
+    /**
+     * @author  Aharon
+     * @date    7/7/2011
+     *
+     * @return  The memory object size in bytes
+     */
+
+    virtual size_t GetMemObjSize() const = 0;        
+
+    // inherited methods:
+
+    virtual cl_err_code CreateChildObject()
+    {
+        return CL_SUCCESS;
+    }
+
+private:
+
+    // do not implement
+    D3DResource(const D3DResource&);
+    D3DResource& operator=(const D3DResource&);
+
+};
+
+/**
+ * @class   D3DImage2D
+ *
+ * @brief   This class provides the common implementation for Direct3D 2D images.
+ *
+ * @param RESOURCE_TYPE the super-type of all Direct 3D resources that can be created by this context
+ * @param DEV_TYPE the type of the Direct 3D device
+ * @param DESC_TYPE the type of the descriptor returned by GetDesc method of RESOURCE_TYPE
+ *
+ * @author  Aharon
+ * @date    7/20/2011
+ *
+ * @sa  Intel::OpenCL::Framework::D3DResource
+ *
+ */
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+class D3DImage2D : public D3DResource<RESOURCE_TYPE, DEV_TYPE>
+{
+
+    size_t m_szPitch;
+
+public:
+
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3DImage2D(Context* pContext) : D3DResource<RESOURCE_TYPE, DEV_TYPE>(pContext) { }
+
+    // inherited methods:
+
+    virtual size_t GetRowPitchSize() const { return m_szPitch; }
+
+    virtual size_t GetSlicePitchSize() const { return 0; }
+
+    virtual size_t GetPixelSize() const;
+
+    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
+    cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_IMAGE2D; }
+
+protected:
+
+    /**
+     * @brief   Obtains the pitch (by locking and unlocking the resource)
      *
      * @author  Aharon
      * @date    7/20/2011
      *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @param [in,out]  szPitch  The pitch.
+     *
+     * @return  whether the operation has succeeded
      */
 
-    class D3D9Texture : public D3D9Image2D
-    {
-
-    public:
-
-        /**
-         * @fn  D3D9Texture::D3D9Texture(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/20/2011
-         */
-
-        D3D9Texture(Context* pContext) :
-          D3D9Image2D(pContext) { }
-
-    protected:
-
-        bool ObtainPitch(size_t& szPitch);
-
-        void* Lock();
-
-        void Unlock();
-
-        D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const;
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
-
-    };
+    virtual bool ObtainPitch(size_t& szPitch) = 0;
 
     /**
-     * @class   D3D9CubeTexture
-     *
-     * @brief   This class represents a Direct3D 9 cube texture
-     *
-     * @author  Aharon
-     * @date    7/24/2011
-     *
-     * @sa  Intel::OpenCL::Framework::D3D9Image2D
+     * @param resourceInfo D3DResourceInfo describing the resource
+     * @return the width of the 2D image
      */
-
-    class D3D9CubeTexture : public D3D9Image2D
-    {
-
-    public:
-
-        D3D9CubeTexture(Context* pContext) :
-          D3D9Image2D(pContext) { }
-
-    protected:
-
-        bool ObtainPitch(size_t& szPitch);
-
-        void* Lock();
-
-        void Unlock();
-
-        D3DSURFACE_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const;
-
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
-
-    };
+    virtual UINT GetWidth(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo) const = 0;
 
     /**
-     * @class   D3D9VolumeTexture
-     *
-     * @brief   This class represents a Direct3D 9 volume texture.
-     *
-     * @author  Aharon
-     * @date    7/24/2011
-     *
-     * @sa  Intel::OpenCL::Framework::D3D9Resource
+     * @param resourceInfo D3DResourceInfo describing the resource
+     * @return the height of the 2D image
+     */
+    virtual UINT GetHeight(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo) const = 0;
+
+    /**
+     * @return the pitch	   
      */
 
-    class D3D9VolumeTexture : public D3D9Resource
+    size_t GetPitch() const { return m_szPitch; }
+
+    // inherited methods:
+
+    virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+        void* pParamValue, const size_t szParamValueSize) const;
+
+    virtual bool ObtainPitches();
+
+    virtual const size_t* GetPitches() const { return &m_szPitch; }        
+
+    size_t GetMemObjSize() const;
+
+    void FillDimensions(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo, size_t* const pszDims) const;
+
+};
+
+/**
+ * @class   D3D9Surface
+ *
+ * @brief   This class represents a Direct3D 9 surface
+ *
+ * @author  Aharon
+ * @date    7/19/2011
+ *
+ * @sa  Intel::OpenCL::Framework::D3DResource
+ */
+
+class D3D9Surface : public D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>
+{
+
+public:
+
+    /**
+     * @brief   Gets the Direct3D 9 flags.
+     *
+     * @param   clFlags the cl_mem_flags
+     * 
+     * @return  The Direct3D 9 flags.
+     */
+
+    static DWORD GetD3D9Flags(cl_mem_flags clFlags)
     {
-        enum Pitches { ROW_PITCH , SLICE_PITCH };
+        if (clFlags & CL_MEM_READ_ONLY)
+            return D3DLOCK_READONLY;
+        return 0;
+    }
 
-        size_t m_szPitches[2];
+    /**
+     * @brief   Gets the Direct3D 9 flags.
+     *
+     * @author  Aharon
+     * @date    7/14/2011
+     *
+     * @return  The Direct3D 9 flags.
+     */
 
-    public:
+    DWORD GetD3D9Flags() const
+    {
+        return GetD3D9Flags(m_clFlags);
+    }
 
-        /**
-         * @fn  D3D9VolumeTexture::D3D9VolumeTexture(Context* pContext, ocl_entry_points* pOclEntryPoints)
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/24/2011
-         */
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/19/2011
+     */
 
-        D3D9VolumeTexture(Context* pContext) :
-            D3D9Resource(pContext) { }
+    D3D9Surface(Context* pContext, cl_mem_object_type clObjType) :
+      D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>(pContext) { }
 
-        // inherited methods:
+    /**
+     * @brief   Destructor
+     */
+    ~D3D9Surface();
 
-        virtual bool IsCreatedInD3DPoolDefault(D3D9ResourceInfo& resourceInfo) const;
+    // overriden methods:
 
-        virtual void* Lock();
+    cl_image_format GetClImageFormat(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
-        virtual void Unlock();
+    bool IsValidlyCreated(D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
-        virtual void FillDimensions(const D3D9ResourceInfo& resourceInfo, size_t* const pszDims) const;
+protected:
 
-        virtual size_t GetRowPitchSize() const { return m_szPitches[ROW_PITCH]; }
+    bool ObtainPitch(size_t& szPitch);
 
-        virtual size_t GetSlicePitchSize() const { return m_szPitches[SLICE_PITCH]; }
+    void* Lock();
 
-        virtual size_t GetPixelSize() const;
+    void Unlock();
 
-        virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+    UINT GetWidth(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
-        virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
-            void* pParamValue, const size_t szParamValueSize) const;
+    UINT GetHeight(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
-    protected:
+    virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+        void* pParamValue, const size_t szParamValueSize) const;
 
-        virtual cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_IMAGE3D; }
+    virtual size_t GetPixelSize() const;
 
-        virtual size_t GetMemObjSize() const;
+    size_t GetMemObjSize() const;
 
-        virtual bool ObtainPitches();
+    cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
-        virtual const size_t* GetPitches() const { return m_szPitches; }
+    void FillDimensions(const D3DResourceInfo<IDirect3DResource9>& resourceInfo, size_t* const pszDims) const;
 
-    private:
+private:
 
-        D3DVOLUME_DESC GetDesc(const D3D9ResourceInfo& resourceInfo) const;
+    D3DSURFACE_DESC GetDesc(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
-    };
+};
+
+/**
+ * @class   D3D11Buffer
+ *
+ * @brief   This class provides the common implementation for Direct3D 11 buffers.
+ *
+ * @author  Aharon
+ * @date    7/20/2011
+ *
+ * @sa  Intel::OpenCL::Framework::D3DResource
+ */  
+
+class D3D11Buffer : public D3DResource<ID3D11Resource, ID3D11Device>
+{
+
+public:
+
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3D11Buffer(Context* pContext, cl_mem_object_type clObjType) :
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(NULL) { }
+
+    // inherited methods:
+
+    ~D3D11Buffer()
+    {
+        if (m_pBufferMapper)
+        {
+            delete m_pBufferMapper;
+        }
+    }
+
+    virtual cl_err_code Initialize(cl_mem_flags	clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+        const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
+
+    bool IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    virtual size_t GetRowPitchSize() const { return 0; }
+
+    virtual size_t GetSlicePitchSize() const { return 0; }
+
+    virtual size_t GetPixelSize() const { return 0; }
+
+    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
+    cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_BUFFER; }
+
+protected:        
+
+    size_t GetMemObjSize() const;
+
+    void* Lock();
+
+    void Unlock();
+
+    void FillDimensions(const D3DResourceInfo<ID3D11Resource>& resourceInfo, size_t* const pszDims) const;
+
+    virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+        void* pParamValue, const size_t szParamValueSize) const
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+private:
+
+    D3d11BufferMapper* m_pBufferMapper;
+
+};    
+
+/**
+ * This class represents a Direct3D 11 2D texture
+ */
+class D3D11Texture2D : public D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>
+{
+
+public:
+
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3D11Texture2D(Context* pContext, cl_mem_object_type clObjType) :
+      D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(NULL) { }
+
+    ~D3D11Texture2D()
+    {
+        if (m_pTexture2DMapper)
+        {
+            delete m_pTexture2DMapper;
+        }
+    }
+
+    // overriden methods:
+
+    virtual cl_err_code Initialize(cl_mem_flags	clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+        const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
+
+    bool IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    virtual cl_image_format GetClImageFormat(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+protected:
+
+    bool ObtainPitch(size_t& szPitch);
+
+    void* Lock();
+
+    void Unlock();
+
+    UINT GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    UINT GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    virtual cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize, void* pParamValue, const size_t szParamValueSize) const;
+
+private:
+
+    D3d11Texture2DMapper* m_pTexture2DMapper;
+
+};
+
+/**
+ * This class represents a Direct3D 11 3D texture
+ */
+class D3D11Texture3D :  public D3DResource<ID3D11Resource, ID3D11Device>
+{
+
+public:
+
+    /**
+     * Constructor
+     */
+    D3D11Texture3D(Context* pContext, cl_mem_object_type clObjType) :
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(NULL) { }
+
+    /**
+     * Destructor
+     */
+    ~D3D11Texture3D()
+    {
+        if (m_pTexture3DMapper)
+        {
+            delete m_pTexture3DMapper;
+        }
+    }
+
+    // overridden methods:
+
+    virtual cl_err_code Initialize(cl_mem_flags	clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count, const size_t* dimension,
+        const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags);
+
+    bool IsValidlyCreated(D3DResourceInfo<ID3D11Resource>& resourceInfo) const;        
+
+    virtual void* Lock();
+
+    virtual void Unlock();
+
+    virtual void FillDimensions(const D3DResourceInfo<ID3D11Resource>& resourceInfo, size_t* const pszDims) const;
+
+    virtual bool ObtainPitches();
+
+    virtual const size_t* GetPitches() const;
+
+    virtual cl_image_format GetClImageFormat(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    virtual size_t GetRowPitchSize() const { return m_szPitch[0]; }
+
+    virtual size_t GetSlicePitchSize() const { return m_szPitch[1]; }
+
+    virtual size_t GetPixelSize() const
+    {
+        const cl_image_format imgFormat = GetClImageFormat(*GetResourceInfo());
+        return clGetPixelBytesCount(&imgFormat);
+    }
+
+    virtual cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
+
+    virtual cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_IMAGE3D; }
+
+protected:        
+
+    virtual size_t GetMemObjSize() const;
+
+    cl_err_code GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize, void* pParamValue,
+        const size_t szParamValueSize) const;
+
+private:
+
+    D3d11Texture3DMapper* m_pTexture3DMapper;
+    size_t m_szPitch[2];
+
+    UINT GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    UINT GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+    UINT GetDepth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
+
+};
+    
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+D3DResource<RESOURCE_TYPE, DEV_TYPE>::~D3DResource()
+{
+    if (m_bAcquired)
+    {
+        m_pChildObject->Release();
+    }
+    if (NULL != m_pResourceInfo)
+    {
+        (dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContext))->RemoveResourceInfo(*m_pResourceInfo);
+        m_pResourceInfo->m_pResource->Release();
+        delete m_pResourceInfo;
+    }        
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::Initialize(cl_mem_flags clMemFlags,
+    const cl_image_format* pclImageFormat, unsigned int dim_count,
+    const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags)
+{
+    m_pResourceInfo = (D3DResourceInfo<RESOURCE_TYPE>*)pHostPtr;
+    m_pResourceInfo->m_pResource->AddRef();
+    m_clMemObjectType = GetChildMemObjectType();
+    if (!ObtainPitches())
+    {
+        /* We obtain the pitches by locking and unlocking the resource. It also sounds
+        reasonable that we shouldn't be able to create an OpenCL memory object from a Direct3D
+        resource that has already been locked, otherwise we would need to call
+        clEnqueueReleaseD3D for it, but it would fail according to spec, because we
+        haven't called clEnqueueAcquireD3D for it. We should clarify this point in
+        the spec. */
+        return static_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContext)->GetD3dDefinitions().GetResourceAlreadyAcquired();
+    }
+    m_stMemObjSize = GetMemObjSize();
+    m_clFlags = clMemFlags;
+    m_uiNumDim = dim_count;
+    if (NULL != pclImageFormat)
+    {
+        m_clImageFormat = *pclImageFormat;
+    }
+    else
+    {
+        m_clImageFormat.image_channel_data_type = m_clImageFormat.image_channel_order = 0;
+    }
+    memcpy_s(m_szDimensions, sizeof(m_szDimensions), dimension, dim_count * sizeof(m_szDimensions[0]));
+    return CL_SUCCESS;
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::ReadData(void* pOutData, const size_t* pszOrigin,
+    const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
+{
+    if (NULL == m_pChildObject)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return m_pChildObject->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::WriteData(const void* pOutData, const size_t* pszOrigin,
+    const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
+{
+    if (NULL == m_pChildObject)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::CreateSubBuffer(cl_mem_flags clFlags,
+    cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
+    MemoryObject** ppBuffer)
+{
+    if (NULL == m_pChildObject)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return m_pChildObject->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
+{
+    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+    
+    if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
+    {
+        // We have already acquired an object
+        return;
+    }
+    m_muAcquireRelease.Lock();
+    void* const pData = Lock();
+    if (NULL == pData)
+    {
+        SetAcquireState(CL_INVALID_OPERATION);
+        return;
+    }
+    // Now we need to create child object
+    MemoryObject* pChild;
+    cl_err_code res =
+        MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU,
+        GetChildMemObjectType(), CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+    if (CL_FAILED(res))
+    {
+        Unlock();
+        SetAcquireState(res);
+        return;
+    }
+    if (m_clImageFormat.image_channel_data_type != 0 || m_clImageFormat.image_channel_order != 0)
+    {
+        res = pChild->Initialize(m_clFlags, &m_clImageFormat, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
+    }
+    else
+    {
+        res = pChild->Initialize(m_clFlags, NULL, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
+    }
+    
+    if (CL_FAILED(res))
+    {
+        Unlock();
+        SetAcquireState(CL_OUT_OF_RESOURCES);
+        return;
+    }
+    m_pChildObject.exchange(pChild);
+    pChild->AddPendency(this);
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+void D3DResource<RESOURCE_TYPE, DEV_TYPE>::ReleaseD3D()
+{   
+    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+    MemoryObject* const pChild = m_pChildObject.exchange(NULL);
+    assert(NULL != pChild);
+    Unlock();
+    pChild->RemovePendency(this);
+    pChild->Release();    
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
+{
+    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    {
+        return CL_INVALID_VALUE;
+    }
+    size_t szSize = 0;
+    const cl_err_code clErrCode = GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
+    if (CL_SUCCESS != clErrCode)
+    {
+        return clErrCode;
+    }
+    if (NULL != pParamValue && szParamValueSize < szSize)
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = szSize;
+    }
+    // value has already been copied by GetImageInfoInternal
+    return CL_SUCCESS;
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetDimensionSizes(size_t* pszRegion) const
+{
+    FillDimensions(*GetResourceInfo(), pszRegion);
+    return CL_SUCCESS;
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+    void* pParamValue, const size_t szParamValueSize) const
+{
+    size_t szSizeTVar;
+    const void* pValue;
+
+    switch (clParamName)
+    {
+    case CL_IMAGE_FORMAT:
+        szSize = sizeof(cl_image_format);
+        pValue = &m_clImageFormat;
+        break;
+    case CL_IMAGE_ELEMENT_SIZE:
+            szSize = sizeof(size_t);
+            szSizeTVar = GetPixelSize();
+            pValue = &szSizeTVar;
+            break;
+    default:
+        return CL_INVALID_VALUE;
+    }
+    if (NULL != pParamValue && szSize > 0)
+    {
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+    return CL_SUCCESS;
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+size_t D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::GetPixelSize() const
+{
+    const cl_image_format clFormat = GetClImageFormat(*GetResourceInfo());
+    return clGetPixelBytesCount(&clFormat);
+}    
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+cl_err_code D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+    if (pszOrigin[0] + pszRegion[0] > GetWidth(*GetResourceInfo()))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (pszOrigin[1] + pszRegion[1] > GetHeight(*GetResourceInfo()))
+    {
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;            
+}    
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+size_t D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::GetMemObjSize() const
+{
+    const cl_image_format clFormat = GetClImageFormat(*GetResourceInfo());
+    return clGetPixelBytesCount(&clFormat) * m_szPitch * GetHeight(*GetResourceInfo());
+}    
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+bool D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::ObtainPitches()
+{
+    return ObtainPitch(m_szPitch);
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+void D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::FillDimensions(const D3DResourceInfo<RESOURCE_TYPE>& resourceInfo, size_t* const pszDims) const
+{
+    pszDims[0] = GetWidth(resourceInfo);
+    pszDims[1] = GetHeight(resourceInfo);
+}    
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE, typename DESC_TYPE>
+cl_err_code D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::GetImageInfoInternal(const cl_image_info clParamName, size_t& szSize,
+    void* pParamValue, const size_t szParamValueSize) const
+{        
+    size_t szSizeTVar;
+    const void* pValue;
+
+    switch (clParamName)
+    {        
+    case CL_IMAGE_ROW_PITCH:
+            szSize = sizeof(size_t);
+            pValue = &m_szPitch;
+            break;            
+    case CL_IMAGE_WIDTH:
+            szSize = sizeof(size_t);
+            szSizeTVar = GetWidth(*GetResourceInfo());
+            pValue = &szSizeTVar;
+            break;            
+    case CL_IMAGE_HEIGHT:
+            szSize = sizeof(size_t);
+            szSizeTVar = GetHeight(*GetResourceInfo());
+            pValue = &szSizeTVar;
+            break;            
+    case CL_IMAGE_DEPTH:
+    case CL_IMAGE_SLICE_PITCH:
+            szSize = sizeof(size_t);
+            szSizeTVar = 0;
+            pValue = &szSizeTVar;
+            break;
+    default:
+        return D3DResource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
+    }
+    if (NULL != pParamValue && szSize > 0)
+    {
+        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+    }
+    return CL_SUCCESS;
+}
 
 }}}

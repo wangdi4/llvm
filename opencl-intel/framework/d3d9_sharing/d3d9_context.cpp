@@ -26,237 +26,299 @@
 
 #pragma comment (lib, "d3dx9d.lib")
 #pragma comment (lib, "d3d9.lib")
+#pragma comment (lib, "d3d11.lib")
 
 using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
-    /**
-     * @fn cl_err_code ParseD3D9ContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap, IUnknown*& device, int& iDevType, const ID3D9Definitions*& pFactory)
-     */
 
-    cl_err_code ParseD3D9ContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
-        IUnknown*& device, int& iDevType, const ID3D9Definitions*& pFactory)
+cl_err_code ParseD3DContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
+    IUnknown*& device, int& iDevType, const ID3DSharingDefinitions*& pD3dDefs)
+{
+    device = NULL;
+    for (std::map<cl_context_properties, cl_context_properties>::const_iterator iter = propertyMap.begin(); iter != propertyMap.end(); iter++)
     {
-        device = NULL;
-        for (std::map<cl_context_properties, cl_context_properties>::const_iterator iter = propertyMap.begin(); iter != propertyMap.end(); iter++)
+        if (CL_CONTEXT_D3D9_DEVICE_INTEL == iter->first || CL_CONTEXT_D3D9EX_DEVICE_INTEL == iter->first || CL_CONTEXT_DXVA_DEVICE_INTEL == iter->first)
         {
-            if (CL_CONTEXT_D3D9_DEVICE_INTEL == iter->first || CL_CONTEXT_D3D9EX_DEVICE_INTEL == iter->first || CL_CONTEXT_DXVA_DEVICE_INTEL == iter->first)
+            if (NULL != device)
             {
-                if (NULL != device)
-                {
-                    device = NULL;
-                    delete pFactory;
-                    return CL_INVALID_DX9_DEVICE_INTEL;
-                }
-                iDevType = iter->first;
-                device = (IUnknown*)iter->second;
-                pFactory = new IntelD3D9Definitions(); // this will be deleted by the context when it is destroyed
+                device = NULL;
+                delete pD3dDefs;
+                return CL_INVALID_DX9_DEVICE_INTEL;
             }
-            else if (CL_CONTEXT_ADAPTER_D3D9_KHR == iter->first || CL_CONTEXT_ADAPTER_D3D9EX_KHR == iter->first || CL_CONTEXT_ADAPTER_DXVA_KHR == iter->first)
+            iDevType = iter->first;
+            device = (IUnknown*)iter->second;
+            pD3dDefs = new IntelD3D9Definitions(); // this will be deleted by the context when it is destroyed
+            if (NULL == pD3dDefs)
             {
-                if (NULL != device)
-                {
-                    device = NULL;
-                    delete pFactory;
-                    return CL_INVALID_DX9_MEDIA_ADAPTER_KHR;
-                }
-                iDevType = iter->first;
-                device = (IUnknown*)iter->second;
-                pFactory = new KhrD3D9Definitions(); // this will be deleted by the context when it is destroyed
-            }
-        }
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn  D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-     *      cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
-     *      void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-     *      ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType,
-     *      const ID3D9Definitions* pd3d9Definitions, bool bIsInteropUserSync)
-     */
-
-    D3D9Context::D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-        cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
-        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3D9Definitions* pd3d9Definitions, bool bIsInteropUserSync) :
-    Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
-        pclErr, pOclEntryPoints, pGPAData),
-        m_pD3D9Device(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync), m_pd3d9Definitions(pd3d9Definitions)
-    {        
-        /* The spec states that we should return "CL_INVALID_D3D9_DEVICE_Intel if the value of the
-        property CL_CONTEXT_D3D9_DEVICE_Intel is non-NULL and does not specify a valid Direct3D 9
-        device with which the cl_device_ids against which this context is to be created may
-        interoperate." However, I don't know how to check the validity of the device. I guess a
-        non-valid device will cause a segmentation fault if one of its methods are called and we
-        don't want that. */
-
-        m_pD3D9Device->AddRef();
-        for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
-        {
-            m_ppAllDevices[i]->SetD3D9Device(pD3D9Device, iDevType);
-        }
-    }
-
-    /**
-     * @fn  D3D9Context::~D3D9Context()
-     */
-
-    D3D9Context::~D3D9Context()
-    {
-        m_pD3D9Device->Release();
-        for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
-        {
-            m_ppAllDevices[i]->SetD3D9Device(NULL, 0);
-        }
-        delete m_pd3d9Definitions;
-    }
-
-    /**
-     * @fn  cl_err_code D3D9Context::CreateD3D9Resource(cl_mem_flags clFlags,
-     *      D3D9ResourceInfo* const pResourceInfo, MemoryObject** const ppMemObj,
-     *      cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
-     */
-
-    cl_err_code D3D9Context::CreateD3D9Resource(cl_mem_flags clFlags,
-        D3D9ResourceInfo* const pResourceInfo, MemoryObject** const ppMemObj,
-        cl_mem_object_type clObjType, cl_uint uiDimCnt, const D3DFORMAT d3dFormat, UINT plane)
-    {
-        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, true);
-
-        if (m_resourceInfoSet.find(pResourceInfo) != m_resourceInfoSet.end())
-        {
-            LOG_ERROR(TEXT("%s"), "A cl_mem from this D3D9ResourceInfo has already been created");
-            delete pResourceInfo;
-            return m_pd3d9Definitions->GetInvalidDx9MediaAdapter();
-        }
-        assert(NULL != ppMemObj);
-        MemoryObject* pMemObj;
-
-        cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask,
-            clObjType, CL_MEMOBJ_GFX_SHARE_DX9, this, &pMemObj);
-        if (CL_FAILED(clErr))
-        {
-            LOG_ERROR(TEXT("Error creating new D3D9Resource, returned: %S"), ClErrTxt(clErr));
-            delete pResourceInfo;
-            return clErr;
-        }
-        // resourceInfo will be deleted in pD3D9Resource's destructor
-        m_resourceInfoSet.insert(pResourceInfo);        
-        D3D9Resource& d3d9Resource = *dynamic_cast<D3D9Resource*>(pMemObj);
-        // In Khronos spec it says that we should check that the surface has been created in D3DPOOL_DEFAULT just for adapter_type CL_ADAPTER_D3D9_KHR
-        if (m_pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_INTEL ||
-            m_pd3d9Definitions->GetVersion() == ID3D9Definitions::D3D9_KHR && CL_ADAPTER_D3D9_KHR == static_cast<D3D9SurfaceResourceInfo*>(pResourceInfo)->m_adapterType)
-        {
-            if (!d3d9Resource.IsCreatedInD3DPoolDefault(*pResourceInfo))
-            {
-                LOG_ERROR(TEXT("%s"), "resource is not a Direct3D 9 resource created in D3DPOOL_DEFAULT");
-                d3d9Resource.Release();
-                return m_pd3d9Definitions->GetInvalidDx9MediaAdapter();
-            }
-        }
-        if (CL_DX9_OBJECT_SURFACE == clObjType && MAXUINT != plane)
-        {
-            clErr = HandlePlanarSurface(pResourceInfo, clFlags);
-            if (CL_SUCCESS != clErr)
-            {
-                d3d9Resource.Release();
-                return clErr;
-            }
-        }
-        size_t dims[3];
-        d3d9Resource.FillDimensions(*pResourceInfo, dims);
-        const cl_image_format clFormat = D3D9Resource::MapD3DFormat2OclFormat(d3dFormat, plane);
-        // we hard code CL_MEM_OBJECT_IMAGE2D, because currently we support only surfaces
-        if (!(clFlags & CL_MEM_WRITE_ONLY))
-        {
-            clErr = CheckSupportedImageFormat(&clFormat, CL_MEM_READ_ONLY, CL_MEM_OBJECT_IMAGE2D);
-        }
-        if (CL_SUCCESS != clErr)
-        {
-            d3d9Resource.Release();
-            return clErr;
-        }
-        if (!(clFlags & CL_MEM_READ_ONLY))
-        {
-            clErr = CheckSupportedImageFormat(&clFormat, CL_MEM_WRITE_ONLY, CL_MEM_OBJECT_IMAGE2D);
-        }        
-        if (CL_SUCCESS != clErr)
-        {
-            d3d9Resource.Release();
-            return clErr;
-        }
-        clErr = d3d9Resource.Initialize(clFlags, D3DFMT_UNKNOWN != d3dFormat ? &clFormat : NULL,
-            uiDimCnt, dims, NULL, pResourceInfo, 0);
-        if (CL_FAILED(clErr))
-        {
-            LOG_ERROR(TEXT("Failed to initialize data, pD3D9Resource->Initialize(pHostPtr = %S"),
-                ClErrTxt(clErr));
-            d3d9Resource.Release();
-            return clErr;
-        }        
-        m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pMemObj);
-        *ppMemObj = pMemObj;
-        return CL_SUCCESS;
-    }
-
-    /**
-     * @fn cl_err_code D3D9Context::HandlePlanarSurface(const D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags)
-     */
-    cl_err_code D3D9Context::HandlePlanarSurface(D3D9ResourceInfo* pResourceInfo, cl_mem_flags clFlags)
-    {
-        IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(pResourceInfo->m_pResource);
-        map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
-        SurfaceLocker* pSurfaceLocker;
-        if (m_surfaceLockers.end() != iter)
-        {
-            pSurfaceLocker = iter->second;
-            if (pSurfaceLocker->GetFlags() != D3D9Resource::GetD3D9Flags(clFlags))
-            {
-                LOG_ERROR(TEXT("%s"), "New D3D9Surface is to be created for an IDirect3DSurface9 for which a D3D9Surface for another plane has already been created, but the flags differ.");
-                return CL_INVALID_VALUE;
-            }
-        }
-        else
-        {
-            pSurfaceLocker = new SurfaceLocker(pSurface, D3D9Resource::GetD3D9Flags(clFlags));
-            if (NULL == pSurfaceLocker)
-            {                
                 return CL_OUT_OF_HOST_MEMORY;
             }
-            m_surfaceLockers[pSurface] = pSurfaceLocker;
         }
-        pSurfaceLocker->AddObject();
+        else if (CL_CONTEXT_ADAPTER_D3D9_KHR == iter->first || CL_CONTEXT_ADAPTER_D3D9EX_KHR == iter->first || CL_CONTEXT_ADAPTER_DXVA_KHR == iter->first)
+        {
+            if (NULL != device)
+            {
+                device = NULL;
+                delete pD3dDefs;
+                return CL_INVALID_DX9_MEDIA_ADAPTER_KHR;
+            }
+            iDevType = iter->first;
+            device = (IUnknown*)iter->second;
+            pD3dDefs = new KhrD3D9Definitions(); // this will be deleted by the context when it is destroyed
+            if (NULL == pD3dDefs)
+            {
+                return CL_OUT_OF_HOST_MEMORY;
+            }
+        }
+        else if (CL_CONTEXT_D3D11_DEVICE_KHR == iter->first)
+        {
+            if (NULL != device)
+            {
+                device = NULL;
+                delete pD3dDefs;
+                return CL_INVALID_D3D11_DEVICE_KHR;
+            }
+            iDevType = iter->first;
+            device = (IUnknown*)iter->second;
+            pD3dDefs = new D3D11Definitions(); // this will be deleted by the context when it is destroyed
+            if (NULL == pD3dDefs)
+            {
+                return CL_OUT_OF_HOST_MEMORY;
+            }
+        }
+    }    
+    return CL_SUCCESS;
+}
+
+cl_image_format MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat, unsigned int uiPlane)
+{
+    cl_image_format clFormat = { 0, 0 };   // invalid value
+
+    switch (d3dFormat)
+    {
+    case D3DFMT_R32F:
+        clFormat.image_channel_order = CL_R;
+        clFormat.image_channel_data_type = CL_FLOAT;
+        break;
+    case D3DFMT_R16F:
+        clFormat.image_channel_order = CL_R;
+        clFormat.image_channel_data_type = CL_HALF_FLOAT;
+        break;
+    case D3DFMT_L16:
+        clFormat.image_channel_order = CL_R;
+        clFormat.image_channel_data_type = CL_UNORM_INT16;
+        break;
+    case D3DFMT_A8:
+        clFormat.image_channel_order = CL_A;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_L8:
+        clFormat.image_channel_order = CL_R;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_G32R32F:
+        clFormat.image_channel_order = CL_RG;
+        clFormat.image_channel_data_type = CL_FLOAT;
+        break;
+    case D3DFMT_G16R16F:
+        clFormat.image_channel_order = CL_RG;
+        clFormat.image_channel_data_type = CL_HALF_FLOAT;
+        break;
+    case D3DFMT_G16R16:
+        clFormat.image_channel_order = CL_RG;
+        clFormat.image_channel_data_type = CL_UNORM_INT16;
+        break;
+    case D3DFMT_A8L8:
+        clFormat.image_channel_order = CL_RG;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_A32B32G32R32F:
+        clFormat.image_channel_order = CL_RGBA;
+        clFormat.image_channel_data_type = CL_FLOAT;
+        break;
+    case D3DFMT_A16B16G16R16F:
+        clFormat.image_channel_order = CL_RGBA;
+        clFormat.image_channel_data_type = CL_HALF_FLOAT;
+        break;
+    case D3DFMT_A16B16G16R16:
+        clFormat.image_channel_order = CL_RGBA;
+        clFormat.image_channel_data_type = CL_UNORM_INT16;
+        break;
+    case D3DFMT_A8B8G8R8:
+        clFormat.image_channel_order = CL_RGBA;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_X8B8G8R8:
+        clFormat.image_channel_order = CL_RGBA;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_A8R8G8B8:
+        clFormat.image_channel_order = CL_BGRA;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case D3DFMT_X8R8G8B8:
+        clFormat.image_channel_order = CL_BGRA;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    case MAKEFOURCC('N','V','1','2'):
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        if (0 == uiPlane)
+        {
+            clFormat.image_channel_order = CL_R;
+        }
+        else if (1 == uiPlane)
+        {
+            clFormat.image_channel_order = CL_RG;
+        }
+        break;
+    case MAKEFOURCC('Y','V','1','2'):
+        clFormat.image_channel_order = CL_R;
+        clFormat.image_channel_data_type = CL_UNORM_INT8;
+        break;
+    }
+    return clFormat;
+}
+
+cl_image_format MapDxgiFormat2OclFormat(const DXGI_FORMAT dxgiFormat)
+{
+    static const struct {
+        DXGI_FORMAT dxgiFormat;
+        int iOrder;
+        int iDataType;
+    } dxgi2oclArr[] = {
+        {DXGI_FORMAT_R32G32B32A32_FLOAT, CL_RGBA, CL_FLOAT},
+        {DXGI_FORMAT_R32G32B32A32_UINT, CL_RGBA, CL_UNSIGNED_INT32},
+        {DXGI_FORMAT_R32G32B32A32_SINT, CL_RGBA, CL_SIGNED_INT32},
+        {DXGI_FORMAT_R16G16B16A16_FLOAT, CL_RGBA, CL_HALF_FLOAT}, 
+        {DXGI_FORMAT_R16G16B16A16_UNORM, CL_RGBA, CL_UNORM_INT16},
+        {DXGI_FORMAT_R16G16B16A16_UINT, CL_RGBA, CL_UNSIGNED_INT16}, 
+        {DXGI_FORMAT_R16G16B16A16_SNORM, CL_RGBA, CL_SNORM_INT16},
+        {DXGI_FORMAT_R16G16B16A16_SINT, CL_RGBA, CL_SIGNED_INT16}, 
+        {DXGI_FORMAT_R8G8B8A8_UNORM, CL_RGBA, CL_UNORM_INT8},
+        {DXGI_FORMAT_R8G8B8A8_UINT, CL_RGBA, CL_UNSIGNED_INT8}, 
+        {DXGI_FORMAT_R8G8B8A8_SNORM, CL_RGBA, CL_SNORM_INT8}, 
+        {DXGI_FORMAT_R8G8B8A8_SINT, CL_RGBA, CL_SIGNED_INT8}, 
+        {DXGI_FORMAT_R32G32_FLOAT, CL_RG, CL_FLOAT}, 
+        {DXGI_FORMAT_R32G32_UINT, CL_RG, CL_UNSIGNED_INT32},
+        {DXGI_FORMAT_R32G32_SINT, CL_RG, CL_SIGNED_INT32}, 
+        {DXGI_FORMAT_R16G16_FLOAT, CL_RG, CL_HALF_FLOAT},
+        {DXGI_FORMAT_R16G16_UNORM, CL_RG, CL_UNORM_INT16}, 
+        {DXGI_FORMAT_R16G16_UINT, CL_RG, CL_UNSIGNED_INT16},
+        {DXGI_FORMAT_R16G16_SNORM, CL_RG, CL_SNORM_INT16}, 
+        {DXGI_FORMAT_R16G16_SINT, CL_RG, CL_SIGNED_INT16}, 
+        {DXGI_FORMAT_R8G8_UNORM, CL_RG, CL_UNORM_INT8}, 
+        {DXGI_FORMAT_R8G8_UINT, CL_RG, CL_UNSIGNED_INT8}, 
+        {DXGI_FORMAT_R8G8_SNORM, CL_RG, CL_SNORM_INT8}, 
+        {DXGI_FORMAT_R8G8_SINT, CL_RG, CL_SIGNED_INT8}, 
+        {DXGI_FORMAT_R32_FLOAT, CL_R, CL_FLOAT}, 
+        {DXGI_FORMAT_R32_UINT, CL_R, CL_UNSIGNED_INT32},
+        {DXGI_FORMAT_R32_SINT, CL_R, CL_SIGNED_INT32}, 
+        {DXGI_FORMAT_R16_FLOAT, CL_R, CL_HALF_FLOAT}, 
+        {DXGI_FORMAT_R16_UNORM, CL_R, CL_UNORM_INT16}, 
+        {DXGI_FORMAT_R16_UINT, CL_R, CL_UNSIGNED_INT16}, 
+        {DXGI_FORMAT_R16_SNORM, CL_R, CL_SNORM_INT16}, 
+        {DXGI_FORMAT_R16_SINT, CL_R, CL_SIGNED_INT16}, 
+        {DXGI_FORMAT_R8_UNORM, CL_R, CL_UNORM_INT8}, 
+        {DXGI_FORMAT_R8_UINT, CL_R, CL_UNSIGNED_INT8}, 
+        {DXGI_FORMAT_R8_SNORM, CL_R, CL_SNORM_INT8}, 
+        {DXGI_FORMAT_R8_SINT, CL_R, CL_SIGNED_INT8}
+    };    
+    cl_image_format clImgFormat = {0};
+
+    for (size_t i = 0; i < sizeof(dxgi2oclArr) / sizeof(dxgi2oclArr[0]); i++)
+    {
+        if (dxgi2oclArr[i].dxgiFormat == dxgiFormat)
+        {
+            clImgFormat.image_channel_order = dxgi2oclArr[i].iOrder;
+            clImgFormat.image_channel_data_type = dxgi2oclArr[i].iDataType;
+            break;
+        }
+    }
+    return clImgFormat;
+}
+
+IDirect3DDevice9* D3D9Context::GetDevice(IDirect3DResource9* pResource) const
+{
+    IDirect3DDevice9* pResourceDevice;
+    HRESULT res = pResource->GetDevice(&pResourceDevice);
+    if (D3D_OK != res)
+    {
+        return NULL;            
+    }        
+    return pResourceDevice;
+}
+
+cl_err_code D3D9Context::HandlePlanarSurface(D3DResourceInfo<IDirect3DResource9>* pResourceInfo, cl_mem_flags clFlags)
+{
+    IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(pResourceInfo->m_pResource);
+    map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
+    SurfaceLocker* pSurfaceLocker;
+    if (m_surfaceLockers.end() != iter)
+    {
+        pSurfaceLocker = iter->second;
+        if (pSurfaceLocker->GetFlags() != D3D9Surface::GetD3D9Flags(clFlags))
+        {
+            LOG_ERROR(TEXT("%s"), "New D3D9Surface is to be created for an IDirect3DSurface9 for which a D3D9Surface for another plane has already been created, but the flags differ.");
+            return CL_INVALID_VALUE;
+        }
+    }
+    else
+    {
+        pSurfaceLocker = new SurfaceLocker(pSurface, D3D9Surface::GetD3D9Flags(clFlags));
+        if (NULL == pSurfaceLocker)
+        {                
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        m_surfaceLockers[pSurface] = pSurfaceLocker;
+    }
+    pSurfaceLocker->AddObject();
+    return CL_SUCCESS;
+}
+
+void D3D9Context::ReleaseSurfaceLocker(const IDirect3DSurface9* pSurface)
+{
+    LockMutex();
+    map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
+    assert(iter != m_surfaceLockers.end());
+    iter->second->RemoveObject();
+    if (0 == iter->second->GetNumObjects())
+    {
+        delete iter->second;
+        m_surfaceLockers.erase(pSurface);            
+    }
+    UnlockMutex();
+}
+
+ID3D11Device* D3D11Context::GetDevice(ID3D11Resource* pResource) const
+{
+    ID3D11Device* pResourceDevice;
+    pResource->GetDevice(&pResourceDevice);
+    return pResourceDevice;
+}
+
+cl_err_code	D3D11Context::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
+{
+    if (CL_CONTEXT_D3D11_PREFER_SHARED_RESOURCES_KHR == (cl_context_info)param_name)
+    {
+        if (param_value != NULL && param_value_size < sizeof(cl_bool))
+        {
+            return CL_INVALID_VALUE;
+        }
+        if (param_value != NULL)
+        {
+            *(cl_bool*)param_value = CL_FALSE;
+        }            
+        if (param_value_size_ret != NULL)
+        {
+            *param_value_size_ret = sizeof(cl_bool);
+        }
         return CL_SUCCESS;
     }
-
-    /**
-     * @fn void D3D9Context::ReleaseSurfaceLocker(const IDirect3DSurface9* pSurface)
-     */
-    void D3D9Context::ReleaseSurfaceLocker(const IDirect3DSurface9* pSurface)
+    else
     {
-        Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
-        map<const IDirect3DSurface9*, SurfaceLocker*>::iterator iter = m_surfaceLockers.find(pSurface);
-        assert(iter != m_surfaceLockers.end());
-        iter->second->RemoveObject();
-        if (0 == iter->second->GetNumObjects())
-        {
-            delete iter->second;
-            m_surfaceLockers.erase(pSurface);            
-        }
+        return D3DContext<ID3D11Resource, ID3D11Device>::GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
     }
-
-    /**
-     * @fn  bool D3D9Context::D3D9ResourceInfoComparator::operator()(const D3D9ResourceInfo* left,
-     *      const D3D9ResourceInfo* right) const
-     */
-
-    bool D3D9Context::D3D9ResourceInfoComparator::operator()(const D3D9ResourceInfo* left, const D3D9ResourceInfo* right) const
-    {
-        if (typeid(*left) != typeid(*right))
-            return &typeid(*left) < &typeid(*right);
-        return *left < *right;
-    }
+}
 
 }}}
