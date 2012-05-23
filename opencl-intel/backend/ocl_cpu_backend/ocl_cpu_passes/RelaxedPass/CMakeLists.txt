@@ -1,0 +1,14 @@
+set(TARGET_NAME RelaxedPass)
+
+set(RELAXEDPASS_SOURCE_FILES
+    RelaxedPass.cpp
+)
+
+add_library(${TARGET_NAME}
+    ${RELAXEDPASS_SOURCE_FILES}
+)
+
+install( TARGETS ${TARGET_NAME}
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin)
