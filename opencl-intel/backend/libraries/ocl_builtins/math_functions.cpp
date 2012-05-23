@@ -752,92 +752,6 @@ float8  __attribute__((overloadable)) nan(_8u32 x)
     return _mm256_or_ps((__m256)x, *(__m256*)mth_nanStorage8);
 }
 #endif // defined(__AVX__)
-/*
-float  __attribute__((overloadable)) logb(float x)
-{
-	float res;
-	__m128 xVec = _mm_load_ss((float*)&x);
-	xVec = _mm_and_ps(xVec, *(__m128*)mth_signMask);
-	__m128 zero = _mm_cmpeq_ss(xVec, _mm_setzero_ps());		//case zero
-
-	__m128 factor = *(__m128*)mth_StorageF127;
-
-	__m128 res1 = _mm_and_ps(xVec, *(__m128*)mth_expMask);		//normal case
-
-	__m128 res2 = _mm_cmpeq_ss(res1, *(__m128*)mth_expMask);	//case NaN or inf
-	__m128 NaNorINF = res2;
-	res2 = _mm_and_ps(res2, xVec);
-
-	__m128 res3 = _mm_cmpeq_ss(res1, _mm_setzero_ps());		//case denom
-
-	factor = _mm_add_ss(_mm_and_ps(res3, *(__m128*)mth_StorageF64), factor);
-
-	xVec = _mm_and_ps(res3, xVec);
-	res3 = _mm_and_ps(res3, *(__m128*)mth_p64Storage);
-	res3 = _mm_mul_ss(res3, xVec);
-	res3 = _mm_and_ps(res3, *(__m128*)mth_expMask);
-
-	__m128 res4 = _mm_and_ps(zero, *(__m128*)mth_minusInfStorage);		//case zero
-
-	res1 = _mm_cvtepi32_ps(_mm_srli_epi32(_mm_castps_si128(res1), 23));
-	res3 = _mm_cvtepi32_ps(_mm_srli_epi32(_mm_castps_si128(res3), 23));
-
-	res2 = BLEND_PS(res2, res2, NaNorINF);
-	res2 = BLEND_PS(res2, res4, zero);
-
-	//now decide whether to take the regular or iregular case
-	__m128 normal = _mm_cmpeq_ss(res2, _mm_setzero_ps());
-	res1 = BLEND_PS(res2, res1, normal);
-
-	//if res is NaN inf or -inf the factor won't matter
-	res1 = _mm_sub_ss(res1, factor);
-
-	_mm_store_ss(&res, res1);
-	return res;
-}
-
-
-float4  __attribute__((overloadable)) logb(float4 x)
-{
-	__m128 factor = *(__m128*)mth_StorageF127;
-
-	x = _mm_and_ps(x, *(__m128*)mth_signMask);
-	__m128 zero = _mm_cmpeq_ps(x, _mm_setzero_ps());		//case zero
-
-	__m128 res1 = _mm_and_ps(x, *(__m128*)mth_expMask);		//normal case
-
-	__m128 res2 = _mm_cmpeq_ps(res1, *(__m128*)mth_expMask);	//case Nan or inf
-	__m128 NaNorINF = res2;
-	res2 = _mm_and_ps(res2, x);
-
-	__m128 res3 = _mm_cmpeq_ps(res1, _mm_setzero_ps());		//case denom
-
-	factor = _mm_add_ps(_mm_and_ps(res3, *(__m128*)mth_StorageF64), factor);
-
-	x    = _mm_and_ps(res3, x);
-	res3 = _mm_and_ps(res3, *(__m128*)mth_p64Storage);
-	res3 = _mm_mul_ps(res3, x);
-	res3 = _mm_and_ps(res3, *(__m128*)mth_expMask);
-
-	__m128 res4 = _mm_and_ps(zero, *(__m128*)mth_minusInfStorage);
-
-	res1 = _mm_cvtepi32_ps(_mm_srli_epi32(_mm_castps_si128(res1), 23));
-	res3 = _mm_cvtepi32_ps(_mm_srli_epi32(_mm_castps_si128(res3), 23));
-
-	//res2-4 are mutually exclusive sor we can "or" between them
-	res2 = BLEND_PS(res3, res2, NaNorINF);
-	res2 = BLEND_PS(res2, res4, zero);
-
-	//now decide whether to take the regular or iregular case
-	__m128 normal = _mm_cmpeq_ps(res2, _mm_setzero_ps());
-	res1 = BLEND_PS(res2, res1, normal);
-
-	//if res is NaN inf or -inf the factor won't matter
-	res1 = _mm_sub_ps(res1, factor);
-
-	return res1;
-}
-*/
 _1i32  __attribute__((overloadable)) ilogb(float x)
 {
 	int ALIGN16 res[4];
@@ -917,7 +831,73 @@ _4i32  __attribute__((overloadable)) ilogb(float4 x)
 	return (_4i32)res1;
 }
 
-#if defined(__AVX__)
+#if defined(__AVX2__)
+_8i32  __attribute__((overloadable)) ilogb(float8 x)
+{
+    const int signMask = 0x7FFFFFFF;
+	const int expMask  = 0x7f800000;
+	const int StorageI64 = 64;
+	const int StorageI127 = 127;
+	const int p64Storage = 0x5f800000;
+	typedef union{ float8 f; uint8 u; int8 i;} f8_t;
+	f8_t isDenorm, isZero, isNaNorINF, isNotDenorm;
+	f8_t xx, res1, res3, factor;
+	
+	xx.f = x;
+	// x = _mm_and_ps(x, *(__m128*)mth_signMask);
+	xx.u &= signMask;
+
+	// __m128i zero = _mm_castps_si128(_mm_cmpeq_ps(x, _mm_setzero_ps()));		//case zero
+	isZero.u = as_uint8(xx.u == 0);
+	// __m128i res1 = _mm_and_si128(_mm_castps_si128(x), *(__m128i*)mth_expMask);		//normal case
+	res1.u = xx.u & expMask;
+
+	// __m128i NaNorINF = _mm_cmpeq_epi32(res1, *(__m128i*)mth_expMask);	//case NaN or inf
+	isNaNorINF.u = as_uint8(res1.u == expMask);
+
+	// __m128 denom = _mm_cmpeq_ps(_mm_castsi128_ps(res1), _mm_setzero_ps());		//case denom
+	isDenorm.u = as_uint8(res1.u == 0);
+
+	// factor = _mm_add_epi32(_mm_and_si128(_mm_castps_si128(denom), *(__m128i*)mth_StorageI64), factor);
+	factor.u = (isDenorm.u & StorageI64) + StorageI127;
+	
+	// x = _mm_and_ps(denom, x);
+	xx.u &= isDenorm.u;
+	
+	// denom = _mm_and_ps(denom, *(__m128*)mth_p64Storage);
+	isDenorm.u &= p64Storage;
+	
+	// denom = _mm_mul_ps(denom, x);
+	isDenorm.f *= xx.f;
+	
+	// denom = _mm_and_ps(denom, *(__m128*)mth_expMask);
+	isDenorm.u &= expMask;
+
+	// res1 = _mm_srli_epi32(res1, 23);
+	res1.u >>= 23;
+	
+	// __m128i res3 = _mm_srli_epi32(_mm_castps_si128(denom), 23);
+	res3.u = isDenorm.u >> 23;
+	
+	// __m128i notDenom = _mm_cmpeq_epi32(res3, _mm_setzero_si128());
+	isNotDenorm.u = as_uint8(res3.u == 0);
+	
+	// res1 = _mm_sub_epi32(res1, factor);
+	res1.u -= factor.u;
+	// res3 = _mm_sub_epi32(res3, factor);	
+	res3.u -= factor.u;
+	
+	// res1 = BLEND_PI(res3, res1, notDenom);
+	res1.u = select(res3.u, res1.u, isNotDenorm.u);
+	// res1 = BLEND_PI(res1, *(__m128i*)mth_intMaxStorage, NaNorINF);
+	res1.u = select(res1.u, INT_MAX, isNaNorINF.u);
+
+	// res1 = BLEND_PI(res1, *(__m128i*)mth_intMinStorage, zero);
+	res1.u = select(res1.u, INT_MIN, isZero.u);
+
+	return as_int8(res1.u);
+}
+#elif defined(__AVX__)
 _8i32  __attribute__((overloadable)) ilogb(float8 x)
 {
     x = _mm256_and_ps(x, *(__m256*)mth_signMask8);
