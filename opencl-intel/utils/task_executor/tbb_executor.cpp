@@ -346,11 +346,7 @@ void ReleaseSchedulerForMasterThread()
 	static_cast<TBBTaskExecutor*>(GetTaskExecutor())->ReleaseResources();
 	
 	ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
-	if ( NULL == prev )
-	{
-		assert(0 && "The old ThreadID allocator is NULL");
-		return;
-	}
+	assert(NULL != prev && "The old ThreadID allocator is NULL");
 
 	unsigned int uiTimeOutCount = 0;
 	long refCount = prev->GetRefCount();
@@ -364,16 +360,19 @@ void ReleaseSchedulerForMasterThread()
 		refCount = prev->GetRefCount();
 		uiTimeOutCount++;
 	}
+  	ThreadIDAssigner::SetThreadIdAllocator(prev);
 
-	assert((1==refCount) && "RefCount of 1 is expected");
+	//assert((1==refCount) && "RefCount of 1 is expected");
 	if ( 1 == refCount )
 	{
 		// We release resources only when all worker threads were shut down,
 		// Otherwise resource leaks and memory corruption inside TBB
 		ThreadIDAssigner::StopObservation();
 	}
-
-	prev->ReleaseId(INVALID_WORKER_ID);
+	if ( NULL != prev )
+	{
+		prev->ReleaseId(INVALID_WORKER_ID);
+	}
 }
 
 #ifdef __LOCAL_RANGES__
@@ -1168,10 +1167,6 @@ protected:
 TBBTaskExecutor::TBBTaskExecutor() :
 	m_pGrpContext(NULL), m_lActivateCount(0), m_pExecutorList(NULL)
 {
-#if defined(USE_GPA)   
-    m_pGPAscheduler = NULL;
-#endif
-
 	INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
 
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
@@ -1250,24 +1245,6 @@ bool TBBTaskExecutor::Activate()
 
 	ThreadIDAssigner::SetScheduler(NULL);
 
-    // if using GPA, initialize the "global" task scheduler init
-    // Otherwise, initialize this master thread's observer
-#if defined(USE_GPA)   
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-	    if (NULL == m_pGPAscheduler)
-	    {
-		    m_pGPAscheduler = new tbb::task_scheduler_init(gWorker_threads);		
-			if ( NULL == m_pGPAscheduler )
-			{
-				LOG_ERROR(TEXT("%s"), "Failed to allocate tbb::task_scheduler_init");
-				return false;
-			}
-	    }
-    }
-    else
-    {
-#endif
     InitSchedulerForMasterThread(-1, true);
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( NULL == pScheduler )
@@ -1275,9 +1252,6 @@ bool TBBTaskExecutor::Activate()
 		LOG_ERROR(TEXT("%s"), "Failed to initilize task scheduler");
 		return false;
 	}
-#if defined(USE_GPA)   
-    }
-#endif
 
 	++m_lActivateCount;
 	return true;
@@ -1327,8 +1301,8 @@ void TBBTaskExecutor::ReleaseResources()
 	assert(NULL!=m_pGrpContext);
 	if ( NULL != m_pGrpContext )
 	{
-		m_pGrpContext->cancel_group_execution();
-		delete m_pGrpContext;
+		//m_pGrpContext->cancel_group_execution();
+		//delete m_pGrpContext;
 		m_pGrpContext = NULL;
 	}
 }

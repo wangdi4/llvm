@@ -116,6 +116,7 @@ bool MultithreadedBuildTest();
 bool EventDependenciesTest();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
+bool ShutdownFromChildThread();
 bool cl_CPU_MIC_IntegerExecuteTest();
 bool cl_CPU_MIC_MigrateTest();
 bool cl_CPU_MIC_MapUnmapTest_InOrder();

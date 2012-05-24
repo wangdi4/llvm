@@ -401,6 +401,12 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
     EXPECT_TRUE(EventDependenciesTest());
 }
 
+TEST(FrameWorkTestType, Test_ShutdownFromChildThread)
+{
+	EXPECT_TRUE(ShutdownFromChildThread());
+}
+
+
 template <typename T>
 class CommandLineOption{
   std::string m_name;
