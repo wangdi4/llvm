@@ -462,6 +462,64 @@ float8  __attribute__((overloadable)) fmin(float8 x, float8 y)
 }
 #endif // __AVX__
 
+/*-------------------------------------------------------
+fmin double,scalar
+--------------------------------------------------------*/
+double2  __attribute__((overloadable)) fmin(double2 x,double y)
+{
+  return fmin(x, (double2)(y));
+}
+
+double3  __attribute__((overloadable)) fmin(double3 x,double y)
+{
+  return fmin(x, (double3)(y));
+}
+
+double4  __attribute__((overloadable)) fmin(double4 x,double y)
+{
+  return fmin(x, (double4)(y));
+}
+
+double8  __attribute__((overloadable)) fmin(double8 x,double y)
+{
+  return fmin(x, (double8)(y));
+}
+
+double16  __attribute__((overloadable)) fmin(double16 x,double y)
+{
+  return fmin(x, (double16)(y));
+}
+
+/*-------------------------------------------------------
+fmax double,scalar
+--------------------------------------------------------*/
+
+double2  __attribute__((overloadable)) fmax(double2 x,double y)
+{
+  return fmax(x, (double2)(y));
+}
+
+double3  __attribute__((overloadable)) fmax(double3 x,double y)
+{
+  return fmax(x, (double3)(y));
+}
+
+double4  __attribute__((overloadable)) fmax(double4 x,double y)
+{
+  return fmax(x, (double4)(y));
+}
+
+double8  __attribute__((overloadable)) fmax(double8 x,double y)
+{
+  return fmax(x, (double8)(y));
+}
+
+double16  __attribute__((overloadable)) fmax(double16 x,double y)
+{
+  return fmax(x, (double16)(y));
+}
+
+
 float  __attribute__((overloadable)) rsqrt(float x)
 {
     float4 tempX;

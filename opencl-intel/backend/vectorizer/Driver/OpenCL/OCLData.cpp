@@ -22,6 +22,8 @@ VFH::hashEntry OCLEntryDB[] = {
   {{"_Z3nanj","_Z3nanDv2_j","_Z3nanDv4_j","_Z3nanDv8_j","_Z3nanDv16_j","_Z3nanDv3_j"},1,1},
   {{"_Z4fmaxff","_Z4fmaxDv2_ff","_Z4fmaxDv4_ff","_Z4fmaxDv8_ff","_Z4fmaxDv16_ff","_Z4fmaxDv3_ff"},1,0},
   {{"_Z4fminff","_Z4fminDv2_ff","_Z4fminDv4_ff","_Z4fminDv8_ff","_Z4fminDv16_ff","_Z4fminDv3_ff"},1,0},
+  {{"_Z4fmaxdd","_Z4fmaxDv2_dd","_Z4fmaxDv4_dd","_Z4fmaxDv8_dd","_Z4fmaxDv16_dd","_Z4fmaxDv3_dd"},1,0},
+  {{"_Z4fmindd","_Z4fminDv2_dd","_Z4fminDv4_dd","_Z4fminDv8_dd","_Z4fminDv16_dd","_Z4fminDv3_dd"},1,0},
   {{"_Z5ldexpfi","_Z5ldexpDv2_fi","_Z5ldexpDv4_fi","_Z5ldexpDv8_fi","_Z5ldexpDv16_fi","_Z5ldexpDv3_fi"},1,0},
   {{"_Z5ilogbf","_Z5ilogbDv2_f","_Z5ilogbDv4_f","_Z5ilogbDv8_f","_Z5ilogbDv16_f","_Z5ilogbDv3_f"},1,1},
   {{"_Z4acosf","_Z4acosDv2_f","_Z4acosDv4_f","_Z4acosDv8_f","_Z4acosDv16_f","_Z4acosDv3_f"},1,1},
