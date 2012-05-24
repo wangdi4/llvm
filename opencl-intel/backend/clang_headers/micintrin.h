@@ -834,12 +834,12 @@ _mm512_mask_mul_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3)
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_sub_pd(__m512d v2, __m512d v3)
 {
-  return __builtin_ia32_mulpd512(v2, v3);
+  return __builtin_ia32_subpd512(v2, v3);
 }
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_sub_pd(__m512d v1_old, __mmask8 k1, __m512d v2, __m512d v3)
 {
-  return __builtin_ia32_mask_mulpd512(v1_old, k1, v2, v3);
+  return __builtin_ia32_mask_subpd512(v1_old, k1, v2, v3);
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))

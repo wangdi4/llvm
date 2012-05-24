@@ -253,45 +253,20 @@ OclBuiltinImpl mul_hi_v16_u8u16 = OclBuiltinImpl<mul_hi, [v16u8, v16u16], 0, [{
     return convert_$ReturnType(as_uint16(_mm512_srl_epi32(_mm512_mullo_epi32((__m512i)t0, (__m512i)t1), (__m512i)(int16)$BitWidth)));
   }]>;
 OclBuiltinImpl mul_hi_v16_i32 = OclBuiltinImpl<mul_hi, [v16i32], 0, [{
-    return as_$ReturnType(_mm512_mulhi_epi32((__m512i)$Arg0VarName, (__m512i)$Arg0VarName));
+    return as_$ReturnType(_mm512_mulhi_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl mul_hi_v16_u32 = OclBuiltinImpl<mul_hi, [v16u32], 0, [{
-    return as_$ReturnType(_mm512_mulhi_epu32((__m512i)$Arg0VarName, (__m512i)$Arg0VarName));
+    return as_$ReturnType(_mm512_mulhi_epu32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl mul_hi_v8_i64 = OclBuiltinImpl<mul_hi, [v8i64], 0, [{
-    // x = x_h, x_l; y = y_h, y_l
-    // p0_h = H(x_l * y_l); p0_l = L(x_l * y_l)
-    // p3_h = H(x_h * y_h); p3_l = L(x_h * y_h)
-    // p1_h = H(x_h * y_l); p1_l = L(x_h * y_l)
-    // p2_h = H(x_l * y_h); p2_l = L(x_l * y_h)
-    //
-    //             p0_h, p0_l
-    //       p1_h, p1_l
-    //       p2_h, p2_l
-    // p3_h, p3_l
-    // ----------------------
-    // hi = ((p0_h + p1_l + p2_l) + ((p1_h + p2_h + p3_l) << 32) + (p3_h << 64)) >> 32
-    __m512i p30l = _mm512_mullo_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName);
-    __m512i p30h = _mm512_mulhi_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName);
-    __m512i p21l = _mm512_mullo_epi32((__m512i)$Arg0VarName, _mm512_swizzle_epi32((__m512i)$Arg1VarName, _MM_SWIZ_REG_CDAB));
-    __m512i p21h = _mm512_mulhi_epi32((__m512i)$Arg0VarName, _mm512_swizzle_epi32((__m512i)$Arg1VarName, _MM_SWIZ_REG_CDAB));
-    ushort c0, c1;
-    __m512i ah, al;
-    c0 = c1 = 0;
-    // = p1_l + p0_h
-    al = _mm512_mask_addsetc_epi32(p30h, 0x55, c0, p21l, &c0);
-    // = p2_l + a0
-    ah = _mm512_mask_addsetc_epi32(al, 0x55, c1, _mm512_swizzle_epi32(p21l, _MM_SWIZ_REG_CDAB), &c1);
-    // al = p2_h + p3_l + c0
-    al = _mm512_mask_adc_epi32(p30l, 0xAA, c0 << 1, p21h, &c0);
-    // al = p1_h + al + c1
-    al = _mm512_mask_adc_epi32(al, 0xAA, c1 << 1, _mm512_swizzle_epi32(p21h, _MM_SWIZ_REG_CDAB), &c1);
-    // ah = p3_h + c0 + c1
-    ah = _mm512_mask_adc_epi32(p30h, 0xAA, c0, (__m512i)(int16)0, &c0);
-    ah = _mm512_mask_adc_epi32(ah, 0xAA, c1, (__m512i)(int16)0, &c1);
-    // (ah, al)
-    return as_$ReturnType(_mm512_mask_mov_epi32(ah, 0x55, _mm512_swizzle_epi32(al, _MM_SWIZ_REG_CDAB)));
-  }]>;
+    ulong8 ures = mul_hi((ulong8)$Arg0VarName, (ulong8)$Arg1VarName);
+    __mmask8 x_sign = 0, y_sign = 0;
+    x_sign = _mm512_cmplt_epi64((__m512i)$Arg0VarName, (__m512i)(long8)0);
+    long8 res = _mm512_mask_sub_epi64((__m512i)ures, x_sign, (__m512i)ures, (__m512i)$Arg1VarName);
+    y_sign = _mm512_cmplt_epi64((__m512i)$Arg1VarName, (__m512i)(long8)0);
+    res = _mm512_mask_sub_epi64((__m512i)res, y_sign, (__m512i)res, (__m512i)$Arg0VarName);
+    return as_$ReturnType(res);
+}]>;
 OclBuiltinImpl mul_hi_v8_u64 = OclBuiltinImpl<mul_hi, [v8u64], 0, [{
     // x = x_h, x_l; y = y_h, y_l
     // p0_h = H(x_l * y_l); p0_l = L(x_l * y_l)
@@ -313,18 +288,18 @@ OclBuiltinImpl mul_hi_v8_u64 = OclBuiltinImpl<mul_hi, [v8u64], 0, [{
     __m512i ah, al;
     c0 = c1 = 0;
     // = p1_l + p0_h
-    al = _mm512_mask_addsetc_epi32(p30h, 0x55, c0, p21l, &c0);
+    al = _mm512_mask_addsetc_epi32(p30h, 0x5555, c0, p21l, &c0);
     // = p2_l + a0
-    ah = _mm512_mask_addsetc_epi32(al, 0x55, c1, _mm512_swizzle_epi32(p21l, _MM_SWIZ_REG_CDAB), &c1);
+    ah = _mm512_mask_addsetc_epi32(al, 0x5555, c1, _mm512_swizzle_epi32(p21l, _MM_SWIZ_REG_CDAB), &c1);
     // al = p2_h + p3_l + c0
-    al = _mm512_mask_adc_epi32(p30l, 0xAA, c0 << 1, p21h, &c0);
+    al = _mm512_mask_adc_epi32(p30l, 0xAAAA, c0 << 1, p21h, &c0);
     // al = p1_h + al + c1
-    al = _mm512_mask_adc_epi32(al, 0xAA, c1 << 1, _mm512_swizzle_epi32(p21h, _MM_SWIZ_REG_CDAB), &c1);
+    al = _mm512_mask_adc_epi32(al, 0xAAAA, c1 << 1, _mm512_swizzle_epi32(p21h, _MM_SWIZ_REG_CDAB), &c1);
     // ah = p3_h + c0 + c1
-    ah = _mm512_mask_adc_epi32(p30h, 0xAA, c0, (__m512i)(uint16)0, &c0);
-    ah = _mm512_mask_adc_epi32(ah, 0xAA, c1, (__m512i)(uint16)0, &c1);
+    ah = _mm512_mask_adc_epi32(p30h, 0xAAAA, c0, (__m512i)(uint16)0, &c0);
+    ah = _mm512_mask_adc_epi32(ah, 0xAAAA, c1, (__m512i)(uint16)0, &c1);
     // (ah, al)
-    return as_$ReturnType(_mm512_mask_mov_epi32(ah, 0x55, _mm512_swizzle_epi32(al, _MM_SWIZ_REG_CDAB)));
+    return as_$ReturnType(_mm512_mask_mov_epi32(ah, 0x5555, _mm512_swizzle_epi32(al, _MM_SWIZ_REG_CDAB)));
   }]>;
 OclBuiltinImpl mul_hi_promote = OclBuiltinImpl<mul_hi, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8/*,  v16i8*/,
                                                          v1u8,  v2u8,  v3u8,  v4u8,  v8u8/*,  v16u8*/,
@@ -379,8 +354,8 @@ OclBuiltinImpl sub_sat_v16_u32 = OclBuiltinImpl<sub_sat, [v16u32], 0, [{
   }]>;
 OclBuiltinImpl sub_sat_v8_u64 = OclBuiltinImpl<sub_sat, [v8u64], 0, [{
     ushort b16;
-    __m512i r = _mm512_mask_subsetb_epi32((__m512i)$Arg0VarName, 0x55, b16, (__m512i)$Arg1VarName, &b16);
-    r = _mm512_mask_sbb_epi32(r, 0xAA, b16 << 1, (__m512i)$Arg1VarName, &b16);
+    __m512i r = _mm512_mask_subsetb_epi32((__m512i)$Arg0VarName, 0x5555, b16, (__m512i)$Arg1VarName, &b16);
+    r = _mm512_mask_sbb_epi32(r, 0xAAAA, b16 << 1, (__m512i)$Arg1VarName, &b16);
     uchar b8 = _mask16z8(b16);
     return as_$ReturnType(_mm512_mask_mov_epi64(r, b8, (__m512i)(ulong8)0));
   }]>;
