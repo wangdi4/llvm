@@ -254,13 +254,12 @@ void Context::Cleanup( bool bTerminate )
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
 		m_ppAllDevices[ui]->RemovedFromContext();
 	}
-/* Workaround to cause SANDRA to work. Makes the TBB executor persistent. 
+
 	if ( m_bTEActivated )
 	{
 		GetTaskExecutor()->Deactivate();
 		m_bTEActivated = false;
 	}
-*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
