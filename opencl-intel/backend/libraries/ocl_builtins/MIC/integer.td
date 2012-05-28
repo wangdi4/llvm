@@ -127,9 +127,9 @@ OclBuiltinImpl mad_sat_v16_i32 = OclBuiltinImpl<mad_sat, [v16i32], 0, [{
     ushort c16;
     __m512i s = _mm512_addsetc_epi32((__m512i)$Arg2VarName, pl, &c16);
     ph = _mm512_adc_epi32(ph, c16, (__m512i)(int16)0, &c16);
-    ushort p16 = _mm512_cmplt_epi32((__m512i)(int16)0, ph) |
-                 (_mm512_cmpeq_epi32(ph, (__m512i)(int16)0) & _mm512_cmplt_epi32(s, (__m512i)(int16)0));
-    ushort n16 = _mm512_cmplt_epi32(ph, (__m512i)(int16)0) |
+    ushort p16 = _mm512_cmplt_epi32((__m512i)(int16)1, ph) |
+                 (_mm512_cmpeq_epi32(ph, (__m512i)(int16)1) & _mm512_cmplt_epi32(s, (__m512i)(int16)0));
+    ushort n16 = _mm512_cmplt_epi32(ph, (__m512i)(int16)-1) |
                  (_mm512_cmpeq_epi32(ph, (__m512i)(int16)-1) & _mm512_cmplt_epi32((__m512i)(int16)0, s));
     __m512i r = _mm512_mask_mov_epi32(_mm512_mask_mov_epi32(s, p16, (__m512i)(int16)INT_MAX), n16, (__m512i)(int16)INT_MIN);
     return as_$ReturnType(r);
@@ -144,19 +144,21 @@ OclBuiltinImpl mad_sat_v16_u32 = OclBuiltinImpl<mad_sat, [v16u32], 0, [{
     __m512i r = _mm512_mask_mov_epi32(s, c16, (__m512i)(uint16)UINT_MAX);
     return as_$ReturnType(r);
   }]>;
-OclBuiltinImpl mad_sat_v16_i64 = OclBuiltinImpl<mad_sat, [v8i64], 0, [{
+OclBuiltinImpl mad_sat_v8_i64 = OclBuiltinImpl<mad_sat, [v8i64], 0, [{
     long8 pl = _mm512_mullo_epi64($Arg0VarName, $Arg1VarName);
     long8 ph = mul_hi($Arg0VarName, $Arg1VarName);
-    uchar c8;
-    long8 s = _addsetc($Arg2VarName, pl, &c8);
-    ph = _adc(ph, c8, (long8)0, &c8);
-    uchar p8 = _mm512_cmplt_epi64((long8)0, ph) |
-               (_mm512_cmpeq_epi64(ph, (long8)0) & _mm512_cmplt_epi64(s, (long8)0));
-    uchar n8 = _mm512_cmplt_epi64(ph, (long8)0) |
-               (_mm512_cmpeq_epi64(ph, (long8)-1) & _mm512_cmplt_epi64((long8)0, s));
+    ushort c16 = 0;
+    long8 s = _mm512_mask_addsetc_epi32($Arg2VarName, 0x5555, c16, pl, &c16);
+    s = _mm512_mask_adc_epi32(s, 0xAAAA, c16 << 1, pl, &c16);
+    __m512i r = _mm512_mask_adc_epi32((__m512i)ph, 0x5555, c16, (__m512i)(long8)0, &c16);
+    ph = _mm512_mask_adc_epi32(r, 0xAAAA, c16 << 1, (__m512i)(long8)0, &c16);
+    uchar p8 = _mm512_cmplt_epi64((__m512i)(long8)1, (__m512i)ph) |
+               (_mm512_cmpeq_epi64((__m512i)ph, (__m512i)(long8)1) & _mm512_cmplt_epi64((__m512i)s, (__m512i)(long8)0));
+    uchar n8 = _mm512_cmplt_epi64((__m512i)ph, (__m512i)(long8)-1) |
+               (_mm512_cmpeq_epi64((__m512i)ph, (__m512i)(long8)-1) & _mm512_cmplt_epi64((__m512i)(long8)0, (__m512i)s));
     return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64((__m512i)s, p8, (__m512i)(long8)LONG_MAX), n8, (__m512i)(long8)LONG_MIN);
   }]>;
-OclBuiltinImpl mad_sat_v16_u64 = OclBuiltinImpl<mad_sat, [v8u64], 0, [{
+OclBuiltinImpl mad_sat_v8_u64 = OclBuiltinImpl<mad_sat, [v8u64], 0, [{
     ulong8 pl = as_ulong8(_mm512_mullo_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
     ulong8 ph = mul_hi($Arg0VarName, $Arg1VarName);
     uchar c8;
@@ -193,7 +195,7 @@ OclBuiltinImpl max_v16_u32 = OclBuiltinImpl<max, [v16u32], 0, [{
     return as_$ReturnType(_mm512_max_epu32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl max_v8_i64 = OclBuiltinImpl<max, [v8i64], 0, [{
-    return _mm512_max_epi64($Arg0VarName, $Arg1VarName);
+    return as_$ReturnType(_mm512_max_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl max_v8_u64 = OclBuiltinImpl<max, [v8u64], 0, [{
     return as_$ReturnType(_mm512_max_epu64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
@@ -226,7 +228,7 @@ OclBuiltinImpl min_v16_u32 = OclBuiltinImpl<min, [v16u32], 0, [{
     return as_$ReturnType(_mm512_min_epu32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl min_v8_i64 = OclBuiltinImpl<min, [v8i64], 0, [{
-    return _mm512_min_epi64($Arg0VarName, $Arg1VarName);
+    return as_$ReturnType(_mm512_min_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
   }]>;
 OclBuiltinImpl min_v8_u64 = OclBuiltinImpl<min, [v8u64], 0, [{
     return as_$ReturnType(_mm512_min_epu64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));

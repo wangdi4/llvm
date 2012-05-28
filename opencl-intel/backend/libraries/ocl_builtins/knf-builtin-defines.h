@@ -732,8 +732,8 @@ long8 __attribute__((__always_inline__, overloadable))
 _addsetc(long8 x, long8 y, uchar *cout)
 {
     ushort c16 = 0;
-    __m512i r = _mm512_mask_addsetc_epi32((__m512i)x, 0x55, c16, y, &c16);
-    r = _mm512_mask_adc_epi32(r, 0xAA, c16 << 1, y, &c16);
+    __m512i r = _mm512_mask_addsetc_epi32((__m512i)x, 0x5555, c16, y, &c16);
+    r = _mm512_mask_adc_epi32(r, 0xAAAA, c16 << 1, y, &c16);
     *cout = _mask16z8(c16);
     return as_long8(r);
 }
@@ -748,8 +748,8 @@ long8 __attribute__((__always_inline__, overloadable))
 _adc(long8 x, uchar cin, long8 y, uchar *cout)
 {
     ushort c16 = _mask8z16e(cin);
-    __m512i r = _mm512_mask_adc_epi32(x, 0x55, c16, y, &c16);
-    r = _mm512_mask_adc_epi32(x, 0xAA, c16 << 1, y, &c16);
+    __m512i r = _mm512_mask_adc_epi32((__m512i)x, 0x5555, c16, (__m512i)y, &c16);
+    r = _mm512_mask_adc_epi32(r, 0xAAAA, c16 << 1, (__m512i)y, &c16);
     *cout = _mask16z8(c16);
     return as_long8(r);
 }
