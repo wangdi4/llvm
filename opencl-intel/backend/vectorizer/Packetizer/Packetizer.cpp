@@ -492,7 +492,17 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   if (MO.Mask)
     obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
+
+  Type *IndexTy = MO.Index->getType();
   obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
+  if (!IndexTy->isIntegerTy(32)) {
+    Type *IndTy = IntegerType::get(MO.Orig->getContext(), 32);
+    VectorType *VecTy = VectorType::get(IndTy, m_packetWidth);
+    Instruction* truncInst = new TruncInst(MO.Index, VecTy, "vindex32", MO.Orig);
+    MO.Index = truncInst;
+    V_PRINT(gather_scatter_stat, "PACKETIZER: TRUNC " << *MO.Index << "\n");
+  }
+ 
   if (MO.Data)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
@@ -521,6 +531,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   FunctionType *intr = FunctionType::get(RetTy, types, false);
   Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(name, intr);
+  V_ASSERT(isa<Function> (new_f) && "mismatch function type");
   return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
@@ -691,6 +702,10 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
     MO.Index = Index;
     MO.Base = Base;
+    // If we decide to generate a scatter/gather (MO.Index != NULL), and the type of MO.Index is not i32,
+    // then it must hold a value truncatable to i32 (forcei32):
+    V_ASSERT((!MO.Index || MO.Index->getType()->isIntegerTy(32) || forcei32) && 
+              "Index is not i32 but forcei32 is false");
   }
   else
     V_PRINT(gather_scatter_stat, "PACKETIZER: PtrDep NOT RANDOM" << *MO.Orig << "\n");
