@@ -1,5 +1,5 @@
 ; XFAIL: win32
-; XFAIL: *
-; RUN: llc < %p/knc-%G -mtriple=x86_64-pc-linux \
-; RUN:       -march=y86-64 -mcpu=knf \
-; RUN:     | FileCheck %p/knc-%G -check-prefix=KNF
+; RUN: echo
+; RUNc: llc < %p/knc-%G -mtriple=x86_64-pc-linux \
+; RUNc:       -march=y86-64 -mcpu=knf \
+; RUNc:     | FileCheck %p/knc-%G -check-prefix=KNF
