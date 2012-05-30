@@ -462,6 +462,7 @@ set (LLVM_LIBS
     LLVMX86AsmPrinter
     LLVMMC
     LLVMMICCodeGenerationEngine
+    LLVMAsmParser
     )
 if (INCLUDE_MIC_DEVICE)
   list(APPEND LLVM_LIBS

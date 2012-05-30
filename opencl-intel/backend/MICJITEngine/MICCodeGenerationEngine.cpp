@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Type.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Pass.h"
@@ -15,6 +16,7 @@
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/IRReader.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -191,16 +193,33 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
 
   if (getenv("DUMPIR"))
     mod.dump();
-  
+
+  // if the user asked to inject an IR file parse it and pass the new
+  // module to code generation
+  std::auto_ptr<Module> M;
+  char *useir_name = getenv("USEIR");
+  if (useir_name != NULL) {
+    SMDiagnostic Err;
+    M.reset(ParseIRFile(useir_name, Err, mod.getContext()));
+    if (M.get() == 0) {
+      errs() << "Can't open injected file defined by USERIR " << useir_name
+          << "\n";
+      return 0;
+    }
+  }
+
+  Module& local_mod = useir_name ? *M.get() : mod;
+  if (useir_name)
+    printf("Injected %s\n", useir_name);
+
   // Add the target data from the target machine, if it exists, or the module.
   if (const TargetData *TD = TM.getTargetData())
     PM.add(new TargetData(*TD));
   else
-    PM.add(new TargetData(&mod));
+    PM.add(new TargetData(&local_mod));
 
   // This pointer will *magically* get updated during PM.run()
   ModuleJITHolder* MJH = 0;
-
 
   // Override default to generate verbose assembly.
   TM.setAsmVerbosityDefault(true);
@@ -241,16 +260,37 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
       return 0;
     }
 
-    PM.run(mod);
+    PM.run(local_mod);
 
     if (OutF)
       fflush(OutF);
     if (OutF != stderr && OutF != stdout)
       fclose(OutF);
-    
+
     // If we reached this far, keep the file
     Out->keep();
 
+    // if we use an injected module we need to transform the jit holder
+    // so the original module functions point into the jit buffer
+    if (useir_name) {
+      ModuleJITHolder* NMJH = new ModuleJITHolder(MJH->getJITBufferPointer(),
+          (unsigned char *)MJH->getJITCodeStartPoint(),
+          (unsigned)MJH->getJITCodeSize(),
+          (unsigned)MJH->getJITCodeAlignment());
+
+      for(llvm::KernelMap::const_iterator
+          it = MJH->getKernelMap().begin();
+          it != MJH->getKernelMap().end();
+          it++)
+      {
+        size_t size = it->second.size;
+        size_t offset = it->second.offset;
+        const Function *F0 = it->first;
+        const Function *F1 = mod.getFunction(F0->getName());
+        NMJH->addKernel(F1, offset, size);
+      }
+      MJH = NMJH;
+    }
   }
 
   assert (MJH && "Compilation resulted with NULL Module JIT Holder");
