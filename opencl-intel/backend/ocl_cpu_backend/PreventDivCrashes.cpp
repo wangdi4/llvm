@@ -12,11 +12,11 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  PreventDivisionCrashes.cpp
+File Name:  PreventDivCrashes.cpp
 
 \*****************************************************************************/
 
-#include "PreventDivisionCrashes.h"
+#include "PreventDivCrashes.h"
 
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
@@ -25,32 +25,32 @@ File Name:  PreventDivisionCrashes.cpp
 #include "llvm/Support/InstIterator.h"
 
 extern "C" {
-  /// @brief Creates new PreventDivisionCrashes module pass
-  /// @returns new PreventDivisionCrashes module pass  
+  /// @brief Creates new PreventDivCrashes module pass
+  /// @returns new PreventDivCrashes module pass  
   void* createPreventDivisionCrashesPass() {
-    return new Intel::OpenCL::DeviceBackend::PreventDivisionCrashes();
+    return new Intel::OpenCL::DeviceBackend::PreventDivCrashes();
   }
 }
 
 /// Register pass to for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::PreventDivisionCrashes> PreventDivisionCrashesPass("prevent-div-crash", "Dynamically handle cases that divisor is zero or there is integer overflow during division");
+static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::PreventDivCrashes> PreventDivisionCrashesPass("prevent-div-crash", "Dynamically handle cases that divisor is zero or there is integer overflow during division");
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  char PreventDivisionCrashes::ID = 0;
+  char PreventDivCrashes::ID = 0;
   
   static const unsigned int DIVIDEND_POSITION = 0;
   static const unsigned int DIVISOR_POSITION = 1;
 
-  bool PreventDivisionCrashes::runOnFunction(Function &F) {
+  bool PreventDivCrashes::runOnFunction(Function &F) {
     m_divInstuctions.clear();
 
     findDivInstructions(F);
     return  handleDiv();
   }
   
-  void PreventDivisionCrashes::findDivInstructions(Function &F) {
+  void PreventDivCrashes::findDivInstructions(Function &F) {
     
     // Go over all instructiuons in the function
     // Add div and rem instruction to m_divInstuctions
@@ -74,7 +74,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
   
-  bool PreventDivisionCrashes::handleDiv() {
+  bool PreventDivCrashes::handleDiv() {
   
     // Check if there are division instrcutions
     if (m_divInstuctions.empty()) return false;

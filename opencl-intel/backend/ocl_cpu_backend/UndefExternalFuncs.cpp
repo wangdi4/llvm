@@ -12,25 +12,25 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  UndefinedExternalFunctions.cpp
+File Name:  UndefExternalFuncs.cpp
 
 \*****************************************************************************/
 
-#include "UndefinedExternalFunctions.h"
+#include "UndefExternalFuncs.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Instructions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  char UndefExternalFunctions::ID = 0;
+  char UndefExternalFuncs::ID = 0;
 
   ModulePass* createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
     const std::vector<llvm::Module*>& runtimeModules) {
-    return new UndefExternalFunctions(undefinedExternalFunctions, runtimeModules);
+    return new UndefExternalFuncs(undefinedExternalFunctions, runtimeModules);
   }
 
-  bool UndefExternalFunctions::runOnModule(Module &M) {
+  bool UndefExternalFuncs::runOnModule(Module &M) {
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-  bool UndefExternalFunctions::SearchForFunction(const std::string& name) {
+  bool UndefExternalFuncs::SearchForFunction(const std::string& name) {
     for(std::vector<llvm::Module*>::iterator it = m_RuntimeModules.begin()
         ,fi = m_RuntimeModules.end(); it != fi; ++it) {
       // look for the required function in all the runtime modules

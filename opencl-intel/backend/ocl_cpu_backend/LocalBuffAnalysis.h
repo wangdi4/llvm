@@ -12,12 +12,12 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  LocalBuffersAnalysis.h
+File Name:  LocalBuffAnalysis.h
 
 \*****************************************************************************/
 
-#ifndef __LOCAL_BUFFERS_ANALYSIS_H__
-#define __LOCAL_BUFFERS_ANALYSIS_H__
+#ifndef __LOCAL_BUFF_ANALYSIS_H__
+#define __LOCAL_BUFF_ANALYSIS_H__
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -29,12 +29,12 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  /// @brief  LocalBuffersAnalysis class used to provide information about the 
+  /// @brief  LocalBuffAnalysis class used to provide information about the 
   ///         local values each function uses directly.
   ///         The analysis class goes over all local values and over all their direct 
   ///         users and maps between functions and the local values they uses.
   /// @Author Marina Yatsina
-  class LocalBuffersAnalysis : public ModulePass {
+  class LocalBuffAnalysis : public ModulePass {
   public:
     /// @brief  A set of local values used by a function
     typedef SmallPtrSet<llvm::GlobalValue*, 16> TUsedLocals;
@@ -46,11 +46,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   public:
       
     /// @brief  Constructor
-    LocalBuffersAnalysis() : ModulePass(ID) {}
+    LocalBuffAnalysis() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-      return "LocalBuffersAnalysis";
+      return "LocalBuffAnalysis";
     }
 
     /// @brief LLVM Module pass entry
@@ -134,4 +134,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-#endif // __LOCAL_BUFFERS_ANALYSIS_H__
+#endif // __LOCAL_BUFF_ANALYSIS_H__

@@ -12,12 +12,12 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  PreventDivisionCrashes.h
+File Name:  PreventDivCrashes.h
 
 \*****************************************************************************/
 
-#ifndef __PREVENT_DEVISION_CRASHES_H__
-#define __PREVENT_DEVISION_CRASHES_H__
+#ifndef __PREVENT_DIV_CRASHES_H__
+#define __PREVENT_DIV_CRASHES_H__
 
 #include "llvm/Pass.h"
 #include "llvm/InstrTypes.h"
@@ -28,24 +28,24 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   using namespace llvm;
 
-  /// @brief  PreventDivisionCrashes class adds dynamic checks that make sure the divisor in
+  /// @brief  PreventDivCrashes class adds dynamic checks that make sure the divisor in
   ///         div and rem instructions is not 0 and that there is no integer overflow (MIN_INT/-1). 
-  ///         In case the divisor is 0, PreventDivisionCrashes or there is integer overflow the pass
+  ///         In case the divisor is 0, PreventDivCrashes or there is integer overflow the pass
   ///         replaces the divisor with 1.
-  ///         PreventDivisionCrashes is intendent to prevent crashes during division.
+  ///         PreventDivCrashes is intendent to prevent crashes during division.
   /// @Author Marina Yatsina
-  class PreventDivisionCrashes : public FunctionPass {
+  class PreventDivCrashes : public FunctionPass {
 
   public:
     /// Pass identification, replacement for typeid
     static char ID;
     
     // Constructor
-    PreventDivisionCrashes() : FunctionPass(ID) {}
+    PreventDivCrashes() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-      return "PreventDivisionCrashes";
+      return "PreventDivCrashes";
     }
 
     /// @brief    LLVM Function pass entry
@@ -73,4 +73,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-#endif // __PREVENT_DEVISION_CRASHES_H__
+#endif // __PREVENT_DIV_CRASHES_H__

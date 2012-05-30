@@ -209,34 +209,34 @@ set (OCL_UTILS_INCLUDE_FILES
     ImplicitArgsUtils.h
     ImplicitArgument.h
     LocalBuffers.h
-    LocalBuffersAnalysis.h
+    LocalBuffAnalysis.h
     PrepareKernelArgs.h
     ResolveWICall.h
     ShiftZeroUpperBits.h
     SystemInfo.h
     TLLVMKernelInfo.h
     TypeAlignment.h
-    UndefinedExternalFunctions.h
-    PreventDivisionCrashes.h
+    UndefExternalFuncs.h
+    PreventDivCrashes.h
     ProcessorDetect.h
   )
 
 set (OCL_UTILS_SOURCE_FILES
     AddImplicitArgs.cpp
-    BuiltInFunctionImport.cpp
+    BuiltInFuncImport.cpp
     CompilationUtils.cpp
     CPUDetect.cpp
     FunctionArgument.cpp
     ImplicitArgsUtils.cpp
     LocalBuffers.cpp
-    LocalBuffersAnalysis.cpp
+    LocalBuffAnalysis.cpp
     PrepareKernelArgs.cpp
     ResolveWICall.cpp
     ShiftZeroUpperBits.cpp
     SystemInfo.cpp
     TypeAlignment.cpp
-    UndefinedExternalFunctions.cpp
-    PreventDivisionCrashes.cpp
+    UndefExternalFuncs.cpp
+    PreventDivCrashes.cpp
     ModuleCleanup.cpp
   )
 

@@ -12,11 +12,11 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  LocalBuffersAnalysis.cpp
+File Name:  LocalBuffAnalysis.cpp
 
 \*****************************************************************************/
 
-#include "LocalBuffersAnalysis.h"
+#include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
 
 #include "cpu_dev_limits.h"
@@ -29,19 +29,19 @@ File Name:  LocalBuffersAnalysis.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
-  /// @brief Creates new LocalBuffersAnalysis module pass
-  /// @returns new LocalBuffersAnalysis module pass
+  /// @brief Creates new LocalBuffAnalysis module pass
+  /// @returns new LocalBuffAnalysis module pass
   ModulePass* createLocalBuffersAnalysisPass() {
-    return new LocalBuffersAnalysis();
+    return new LocalBuffAnalysis();
   }
     
   // Need to register analysis pass, otherwise, the passes that use this analysis cannot get this pass' info 
-  static RegisterPass<LocalBuffersAnalysis>
-    LocalBuffersAnalysisPass("LocalBuffersAnalysis", "LocalBuffersAnalysis provides local values analysis info");
+  static RegisterPass<LocalBuffAnalysis>
+    LocalBuffersAnalysisPass("LocalBuffAnalysis", "LocalBuffAnalysis provides local values analysis info");
 
-  char LocalBuffersAnalysis::ID = 0;
+  char LocalBuffAnalysis::ID = 0;
 
-  bool LocalBuffersAnalysis::runOnModule(Module &M) {
+  bool LocalBuffAnalysis::runOnModule(Module &M) {
 
     m_pModule = &M;
     m_localUsageMap.clear();
@@ -59,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-  void LocalBuffersAnalysis::updateLocalsMap(GlobalValue* pLocalVal, User * user) {
+  void LocalBuffAnalysis::updateLocalsMap(GlobalValue* pLocalVal, User * user) {
     // llvm::Instruction, llvm::Operator and llvm::Constant are the only possible subtypes of llvm::user
     if ( isa<Instruction>(user) ) {
       // Parent of Instruction is BasicBlock
@@ -79,7 +79,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-  void LocalBuffersAnalysis::updateDirectLocals(Module &M) {
+  void LocalBuffAnalysis::updateDirectLocals(Module &M) {
     // Get a list of all the global values in the module
     Module::GlobalListType& lstGlobals = M.getGlobalList();
     
@@ -100,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     } // Find globals done
   }
 
-  size_t LocalBuffersAnalysis::calculateLocalsSize(Function *pFunc) {
+  size_t LocalBuffAnalysis::calculateLocalsSize(Function *pFunc) {
 
     if ( !pFunc || pFunc->isDeclaration () ) {
       // Not module function, no need for local buffer, return size zero

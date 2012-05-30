@@ -19,7 +19,7 @@ File Name:  AddImplicitArgs.h
 #ifndef __ADD_IMPLICIT_ARGS_H__
 #define __ADD_IMPLICIT_ARGS_H__
 
-#include "LocalBuffersAnalysis.h"
+#include "LocalBuffAnalysis.h"
 #include "cl_device_api.h"
 
 #include "llvm/Pass.h"
@@ -57,8 +57,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief LLVM Interface
     /// @param AU Analysis
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      // Depends on LocalBuffersAnalysis for finding all local buffers each function uses directly
-      AU.addRequired<LocalBuffersAnalysis>();
+      // Depends on LocalBuffAnalysis for finding all local buffers each function uses directly
+      AU.addRequired<LocalBuffAnalysis>();
     }
 
   protected:
@@ -78,8 +78,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief The llvm module this pass needs to update
     Module                     *m_pModule;
 
-    /// @brief The LocalBuffersAnalysis pass, on which the current pass depends
-    LocalBuffersAnalysis       *m_localBuffersAnalysis;
+    /// @brief The LocalBuffAnalysis pass, on which the current pass depends
+    LocalBuffAnalysis       *m_localBuffersAnalysis;
 
     /// @brief The llvm context
     LLVMContext                *m_pLLVMContext;

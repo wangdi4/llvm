@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   bool AddImplicitArgs::runOnModule(Module &M) {
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
-    m_localBuffersAnalysis = &getAnalysis<LocalBuffersAnalysis>();
+    m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();

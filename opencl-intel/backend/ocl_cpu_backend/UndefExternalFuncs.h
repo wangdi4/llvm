@@ -12,12 +12,12 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  UndefinedExternalFunctions.h
+File Name:  UndefExternalFuncs.h
 
 \*****************************************************************************/
 
-#ifndef __UNDEFINED_EXTERNAL_FUNCTIONS_H__
-#define __UNDEFINED_EXTERNAL_FUNCTIONS_H__
+#ifndef __UNDEF_EXTERNAL_FUNCS_H__
+#define __UNDEF_EXTERNAL_FUNCS_H__
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -26,9 +26,9 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  /// @brief UndefExternalFunctions analysis pass used to collect the names
+  /// @brief UndefExternalFuncs analysis pass used to collect the names
   ///        undefined external functions called from the module if such exist
-  class UndefExternalFunctions : public ModulePass {
+  class UndefExternalFuncs : public ModulePass {
 
   public:
     /// Pass identification, replacement for typeid
@@ -38,14 +38,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param undefinedExternalFunctions container to fill with undefined function names
     /// @param runtimeModules conatiner for all the runtime BI modules to check if the
     ///     function supplied by them or not.
-    UndefExternalFunctions(std::vector<std::string> &undefinedExternalFunctions, 
+    UndefExternalFuncs(std::vector<std::string> &undefinedExternalFunctions, 
         const std::vector<llvm::Module*>& runtimeModules) :
         ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions), 
         m_RuntimeModules(runtimeModules) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-      return "UndefExternalFunctions";
+      return "UndefExternalFuncs";
     }
 
     /// @brief LLVM Module pass entry

@@ -20,7 +20,7 @@ File Name:  LocalBuffers.h
 #define __LOCAL_BUFFERS_H__
 
 #include "TLLVMKernelInfo.h"
-#include "LocalBuffersAnalysis.h"
+#include "LocalBuffAnalysis.h"
 
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<LocalBuffersAnalysis>();
+      AU.addRequired<LocalBuffAnalysis>();
     }
 
     friend void getKernelInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap);
@@ -80,8 +80,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Module                     *m_pModule;
     /// @brief The llvm context
     LLVMContext                *m_pLLVMContext;
-    /// @brief instance of LocalBuffersAnalysis pass
-    LocalBuffersAnalysis       *m_localBuffersAnalysis;
+    /// @brief instance of LocalBuffAnalysis pass
+    LocalBuffAnalysis       *m_localBuffersAnalysis;
 
     /// @brief map between kernel and its kernel info
     std::map<const Function*, TLLVMKernelInfo>  m_mapKernelInfo;

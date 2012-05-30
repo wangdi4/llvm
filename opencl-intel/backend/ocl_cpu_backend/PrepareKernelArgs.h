@@ -19,7 +19,7 @@ File Name:  PrepareKernelArgs.h
 #ifndef __PREPARE_KERNEL_ARGS_H__
 #define __PREPARE_KERNEL_ARGS_H__
 
-#include "LocalBuffersAnalysis.h"
+#include "LocalBuffAnalysis.h"
 #include "cl_device_api.h"
 
 #include "llvm/Pass.h"
