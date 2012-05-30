@@ -1137,14 +1137,6 @@ void MathMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z8lgamma_rDv4_dPDv4_i"]         = lle_X_lgamma_r<double, 4>;
     funcNames["lle_X__Z8lgamma_rDv8_dPDv8_i"]         = lle_X_lgamma_r<double, 8>;
     funcNames["lle_X__Z8lgamma_rDv16_dPDv16_i"]       = lle_X_lgamma_r<double, 16>;
-#if 0
-    funcNames["lle_X__Z6lgammas"]
-    funcNames["lle_X__Z6lgammaDv2_s"]
-    funcNames["lle_X__Z6lgammaDv3_s"]
-    funcNames["lle_X__Z6lgammaDv4_s"]
-    funcNames["lle_X__Z6lgammaDv8_s"]
-    funcNames["lle_X__Z6lgammaDv16_s"]
-#endif
     funcNames["lle_X__Z3madfff"]                    = lle_X_mad<float, 1>;
     funcNames["lle_X__Z3madDv2_fS_S_"]              = lle_X_mad<float, 2>;
     funcNames["lle_X__Z3madDv3_fS_S_"]              = lle_X_mad<float, 3>;
