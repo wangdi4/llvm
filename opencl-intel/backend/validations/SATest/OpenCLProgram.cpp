@@ -59,6 +59,9 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
     {
         case CL:
             {
+                //building the command line options
+                //
+                //include directives
                 OpenCLIncludeDirs* includeDirs(oclProgramConfig->GetIncludeDirs());
                 std::stringstream buildOptions;
                 if (includeDirs) {
@@ -69,6 +72,8 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                             buildOptions << " -I \""<< *it << "\"";
                      }
                 }
+                //recorded flags
+                buildOptions << " " << oclProgramConfig->GetCompilationFlags();
                 //reading the source file to be compiled
                 std::fstream indata(programFile.c_str());
                 if(!indata.is_open())// file couldn't be opened

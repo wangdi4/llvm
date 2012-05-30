@@ -232,6 +232,12 @@ namespace Validation
             return m_programName;
         }
 
+        /// @brief Returns the compilation flags for the program file
+        std::string GetCompilationFlags() const
+        {
+            return m_compilationFlags;
+        }
+
         /// @brief Returns indicator whether to use vectorizer
         /// @return True if vectorizer should be used, false otherwise.
         bool GetUseVectorizer() const
@@ -299,6 +305,9 @@ namespace Validation
 
         // program name
         std::string m_programName;
+        
+        //compilation options
+        std::string m_compilationFlags;
 
         // program configuration file format
         enum PROGRAM_CONFIG_FILE_FORMAT {

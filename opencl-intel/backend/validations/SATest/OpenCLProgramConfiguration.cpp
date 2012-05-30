@@ -263,6 +263,9 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
             throw Exception::InvalidArgument( stringStream.str() );
         }
         m_programFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+        const char* compilationFlags = element.Attribute("compilation_flags");
+        if ( compilationFlags )
+            m_compilationFlags = compilationFlags;
         m_format = CL_LL_BC;
     }
 
