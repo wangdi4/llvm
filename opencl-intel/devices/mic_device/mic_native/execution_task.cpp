@@ -539,7 +539,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		virtual ~TaskLoopBody2D() {}
 		void operator()(const tbb::blocked_range2d<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
-			TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.rows().size())*(r.cols().size()));
+			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.rows().size())*(r.cols().size()));
 #endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
@@ -575,7 +575,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 		virtual ~TaskLoopBody3D() {}
 		void operator()(const tbb::blocked_range3d<int>& r) const {
 #ifdef ENABLE_MIC_TRACER
-			TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.pages().size())*(r.rows().size())*(r.cols().size()));
+			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.pages().size())*(r.rows().size())*(r.cols().size()));
 #endif
 			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
 			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
