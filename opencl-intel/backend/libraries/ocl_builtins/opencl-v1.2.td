@@ -749,3 +749,44 @@ def atom_xchg_global        : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins 
 def atom_xchg_vol_local    : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], []>, VOLATILE_LOCAL;
 def atom_xchg_local        : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], []>, LOCAL;
 }
+
+// SOA versions of the any/all relational builtins
+// 6 versions are required for each of the two builtins, since
+// the number of parameters depends on the original vector width
+// which can be any one of 1,2,3,4,8,16.
+// There doesn't seem to be a way to generate this without
+// a change to the tablegen backend.
+let Types = [v4i8,  v8i8,  v16i8,
+             v4i16, v8i16, v16i16,
+             v4i32, v8i32, v16i32,
+             v4i64, v8i64, v16i64],
+    Attrs = [OVERLOADABLE],
+	NeedForwardDecl = 1	in {
+def soa_any1 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
+def soa_any2 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
+def soa_any3 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
+def soa_any4 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+	gentype:$x2, gentype:$x3), [], []>;
+def soa_any8 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+	 gentype:$x6, gentype:$x7), [], []>;
+def soa_any16 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
+	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+	 gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
+	 gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
+	 gentype:$x14, gentype:$x15), [], []>;
+def soa_all1 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
+def soa_all2 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
+def soa_all3 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
+def soa_all4 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+	gentype:$x2, gentype:$x3), [], []>;
+def soa_all8 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+	 gentype:$x6, gentype:$x7), [], []>;
+def soa_all16 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
+	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+	 gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
+	 gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
+	 gentype:$x14, gentype:$x15), [], []>;
+}
+

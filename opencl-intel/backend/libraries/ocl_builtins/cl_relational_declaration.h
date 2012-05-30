@@ -572,3 +572,138 @@ DEF_R_PROTO_F_F_F_Y(select, u)
 DEF_R_PROTO_F_F_F_Y(select, i)
 DEF_R_PROTO_D_D_D_Y(select, u)
 DEF_R_PROTO_D_D_D_Y(select, i)
+
+//Definitions for SOA versions of ANY/ALL start here
+
+//Macros to generate a parameter list, x0... xk, of the approrpiate
+//types.
+#define REL_SOA_PARAM1(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0
+#define REL_SOA_PARAM2(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0, _##VEC_WIDTH##i##DATA_SIZE x1
+#define REL_SOA_PARAM3(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0, _##VEC_WIDTH##i##DATA_SIZE x1, \
+_##VEC_WIDTH##i##DATA_SIZE x2
+
+#define REL_SOA_PARAM4(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0, _##VEC_WIDTH##i##DATA_SIZE x1, \
+_##VEC_WIDTH##i##DATA_SIZE x2, _##VEC_WIDTH##i##DATA_SIZE x3
+
+#define REL_SOA_PARAM8(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0, _##VEC_WIDTH##i##DATA_SIZE x1, \
+_##VEC_WIDTH##i##DATA_SIZE x2, _##VEC_WIDTH##i##DATA_SIZE x3, \
+_##VEC_WIDTH##i##DATA_SIZE x4, _##VEC_WIDTH##i##DATA_SIZE x5, \
+_##VEC_WIDTH##i##DATA_SIZE x6, _##VEC_WIDTH##i##DATA_SIZE x7
+
+#define REL_SOA_PARAM16(DATA_SIZE, VEC_WIDTH) \
+_##VEC_WIDTH##i##DATA_SIZE x0, _##VEC_WIDTH##i##DATA_SIZE x1, \
+_##VEC_WIDTH##i##DATA_SIZE x2, _##VEC_WIDTH##i##DATA_SIZE x3, \
+_##VEC_WIDTH##i##DATA_SIZE x4, _##VEC_WIDTH##i##DATA_SIZE x5, \
+_##VEC_WIDTH##i##DATA_SIZE x6, _##VEC_WIDTH##i##DATA_SIZE x7, \
+_##VEC_WIDTH##i##DATA_SIZE x8, _##VEC_WIDTH##i##DATA_SIZE x9, \
+_##VEC_WIDTH##i##DATA_SIZE x10, _##VEC_WIDTH##i##DATA_SIZE x11, \
+_##VEC_WIDTH##i##DATA_SIZE x12, _##VEC_WIDTH##i##DATA_SIZE x13, \
+_##VEC_WIDTH##i##DATA_SIZE x14, _##VEC_WIDTH##i##DATA_SIZE x15
+
+//Build an unrolled loop of up to 16 iterations.
+//e.g., REL_SOA_MAKE_SEQ3(RET, OP) compiles to:
+// RET = x0;
+// RET = ret OP x1;
+// RET = ret OP x2;
+#define REL_SOA_MAKE_SEQ1(RET, OP)\
+  RET = x0;
+#define REL_SOA_MAKE_SEQ2(RET, OP)\
+  REL_SOA_MAKE_SEQ1(RET, OP) \
+  RET = RET OP x1;
+#define REL_SOA_MAKE_SEQ3(RET, OP)\
+  REL_SOA_MAKE_SEQ2(RET, OP) \
+  RET = RET OP x2;
+#define REL_SOA_MAKE_SEQ4(RET, OP)\
+  REL_SOA_MAKE_SEQ3(RET, OP) \
+  RET = RET OP x3;
+#define REL_SOA_MAKE_SEQ5(RET, OP)\
+  REL_SOA_MAKE_SEQ4(RET, OP) \
+  RET = RET OP x4;
+#define REL_SOA_MAKE_SEQ6(RET, OP)\
+  REL_SOA_MAKE_SEQ5(RET, OP) \
+  RET = RET OP x5;
+#define REL_SOA_MAKE_SEQ7(RET, OP)\
+  REL_SOA_MAKE_SEQ6(RET, OP) \
+  RET = RET OP x6;
+#define REL_SOA_MAKE_SEQ8(RET, OP)\
+  REL_SOA_MAKE_SEQ7(RET, OP) \
+  RET = RET OP x7;
+#define REL_SOA_MAKE_SEQ9(RET, OP)\
+  REL_SOA_MAKE_SEQ8(RET, OP) \
+  RET = RET OP x8;
+#define REL_SOA_MAKE_SEQ10(RET, OP)\
+  REL_SOA_MAKE_SEQ9(RET, OP) \
+  RET = RET OP x9;
+#define REL_SOA_MAKE_SEQ11(RET, OP)\
+  REL_SOA_MAKE_SEQ10(RET, OP) \
+  RET = RET OP x10;
+#define REL_SOA_MAKE_SEQ12(RET, OP)\
+  REL_SOA_MAKE_SEQ11(RET, OP) \
+  RET = RET OP x11;
+#define REL_SOA_MAKE_SEQ13(RET, OP)\
+  REL_SOA_MAKE_SEQ12(RET, OP) \
+  RET = RET OP x12;
+#define REL_SOA_MAKE_SEQ14(RET, OP)\
+  REL_SOA_MAKE_SEQ13(RET, OP) \
+  RET = RET OP x13;
+#define REL_SOA_MAKE_SEQ15(RET, OP)\
+  REL_SOA_MAKE_SEQ14(RET, OP) \
+  RET = RET OP x14;
+#define REL_SOA_MAKE_SEQ16(RET, OP)\
+  REL_SOA_MAKE_SEQ15(RET, OP) \
+  RET = RET OP x15;
+
+#define REL_SOA_OP_all &
+#define REL_SOA_OP_any |
+//Template for a single function.
+//Generates a sequence of ORIG_WIDTH ors or ands (depending on FUNC)
+//between all (SOA_WIDTH) vectors. Then to get the high bit into the 
+//low position, an element-wise shift right by DATA-SIZE-1. The cast to 
+//unsigned is neccessary so that a logical (as opposed to an artihmetic)
+//shift is performed.
+//Finally, the return vector must be a vector of i32s, so an appropriate
+//type conversion is required. Again, the cast to unsigned is needed for
+//efficiency: this should cause the convert implementation to compile
+//to a zero extend instead of sign extend.
+#define DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, SOA_WIDTH) \
+_##SOA_WIDTH##i32 __attribute__((overloadable)) \
+soa_##FUNC(REL_SOA_PARAM##ORIG_WIDTH(DATA_SIZE, SOA_WIDTH))\
+{\
+  _##SOA_WIDTH##i##DATA_SIZE ret;\
+  REL_SOA_MAKE_SEQ##ORIG_WIDTH(ret, REL_SOA_OP_##FUNC)\
+  _1u8 shift = DATA_SIZE - 1;\
+  ret = (_##SOA_WIDTH##i##DATA_SIZE)((_##SOA_WIDTH##u##DATA_SIZE)ret >> shift);\
+  return convert_int##SOA_WIDTH((_##SOA_WIDTH##u##DATA_SIZE)ret);\
+} 
+
+//Generate the whole matrix, over 3 parameters:
+//Data type: i8, i16, i32, i64 (only signed types)
+//Vector width, before transpose: 1, 2, 3, 4, 8, 16
+//Width of new SOA vectors: 4, 8, 16
+#define DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, ORIG_WIDTH)\
+DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 4)\
+DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 8)\
+DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 16)
+
+#define DEF_REL_SOA_INT1_FS(FUNC, DATA_SIZE)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 1)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 2)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 3)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 4)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 8)\
+DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 16)
+	
+#define DEF_REL_SOA_INT1_F(FUNC)\
+DEF_REL_SOA_INT1_FS(FUNC, 8)\
+DEF_REL_SOA_INT1_FS(FUNC, 16)\
+DEF_REL_SOA_INT1_FS(FUNC, 32)\
+DEF_REL_SOA_INT1_FS(FUNC, 64)
+	
+DEF_REL_SOA_INT1_F(any)
+DEF_REL_SOA_INT1_F(all)
+
