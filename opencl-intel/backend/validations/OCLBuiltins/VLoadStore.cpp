@@ -1226,7 +1226,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_smPU3AS1s"] = lle_X_vstore<int16_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_tmPU3AS1t"] = lle_X_vstore<uint16_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_imPU3AS1i"] = lle_X_vstore<int32_t,    2>;
-    funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPU3AS1m"] = lle_X_vstore<uint32_t,   2>;
+    funcNames[interpreterPrefix + "_Z7vstore2Dv2_jmPU3AS1j"] = lle_X_vstore<uint32_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_lmPU3AS1l"] = lle_X_vstore<int64_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPU3AS1m"] = lle_X_vstore<uint64_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_fmPU3AS1f"] = lle_X_vstore<float,      2>;
@@ -1235,7 +1235,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_smPU3AS1s"] = lle_X_vstore<int16_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_tmPU3AS1t"] = lle_X_vstore<uint16_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_imPU3AS1i"] = lle_X_vstore<int32_t,    3>;
-    funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPU3AS1m"] = lle_X_vstore<uint32_t,   3>;
+    funcNames[interpreterPrefix + "_Z7vstore3Dv3_jmPU3AS1j"] = lle_X_vstore<uint32_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_lmPU3AS1l"] = lle_X_vstore<int64_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPU3AS1m"] = lle_X_vstore<uint64_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_fmPU3AS1f"] = lle_X_vstore<float,      3>;
@@ -1244,7 +1244,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_smPU3AS1s"] = lle_X_vstore<int16_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_tmPU3AS1t"] = lle_X_vstore<uint16_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_imPU3AS1i"] = lle_X_vstore<int32_t,    4>;
-    funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPU3AS1m"] = lle_X_vstore<uint32_t,   4>;
+    funcNames[interpreterPrefix + "_Z7vstore4Dv4_jmPU3AS1j"] = lle_X_vstore<uint32_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_lmPU3AS1l"] = lle_X_vstore<int64_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPU3AS1m"] = lle_X_vstore<uint64_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_fmPU3AS1f"] = lle_X_vstore<float,      4>;
@@ -1253,7 +1253,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_smPU3AS1s"] = lle_X_vstore<int16_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_tmPU3AS1t"] = lle_X_vstore<uint16_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_imPU3AS1i"] = lle_X_vstore<int32_t,    8>;
-    funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPU3AS1m"] = lle_X_vstore<uint32_t,   8>;
+    funcNames[interpreterPrefix + "_Z7vstore8Dv8_jmPU3AS1j"] = lle_X_vstore<uint32_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_lmPU3AS1l"] = lle_X_vstore<int64_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPU3AS1m"] = lle_X_vstore<uint64_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_fmPU3AS1f"] = lle_X_vstore<float,      8>;
@@ -1262,7 +1262,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_smPU3AS1s"] = lle_X_vstore<int16_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_tmPU3AS1t"] = lle_X_vstore<uint16_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_imPU3AS1i"] = lle_X_vstore<int32_t,    16>;
-    funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPU3AS1m"] = lle_X_vstore<uint32_t,   16>;
+    funcNames[interpreterPrefix + "_Z8vstore16Dv16_jmPU3AS1j"] = lle_X_vstore<uint32_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_lmPU3AS1l"] = lle_X_vstore<int64_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPU3AS1m"] = lle_X_vstore<uint64_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_fmPU3AS1f"] = lle_X_vstore<float,      16>;
@@ -1271,7 +1271,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_smPU3AS3s"] = lle_X_vstore<int16_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_tmPU3AS3t"] = lle_X_vstore<uint16_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_imPU3AS3i"] = lle_X_vstore<int32_t,    2>;
-    funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPU3AS3m"] = lle_X_vstore<uint32_t,   2>;
+    funcNames[interpreterPrefix + "_Z7vstore2Dv2_jmPU3AS3j"] = lle_X_vstore<uint32_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_lmPU3AS3l"] = lle_X_vstore<int64_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPU3AS3m"] = lle_X_vstore<uint64_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_fmPU3AS3f"] = lle_X_vstore<float,      2>;
@@ -1280,7 +1280,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_smPU3AS3s"] = lle_X_vstore<int16_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_tmPU3AS3t"] = lle_X_vstore<uint16_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_imPU3AS3i"] = lle_X_vstore<int32_t,    3>;
-    funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPU3AS3m"] = lle_X_vstore<uint32_t,   3>;
+    funcNames[interpreterPrefix + "_Z7vstore3Dv3_jmPU3AS3j"] = lle_X_vstore<uint32_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_lmPU3AS3l"] = lle_X_vstore<int64_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPU3AS3m"] = lle_X_vstore<uint64_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_fmPU3AS3f"] = lle_X_vstore<float,      3>;
@@ -1289,7 +1289,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_smPU3AS3s"] = lle_X_vstore<int16_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_tmPU3AS3t"] = lle_X_vstore<uint16_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_imPU3AS3i"] = lle_X_vstore<int32_t,    4>;
-    funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPU3AS3m"] = lle_X_vstore<uint32_t,   4>;
+    funcNames[interpreterPrefix + "_Z7vstore4Dv4_jmPU3AS3j"] = lle_X_vstore<uint32_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_lmPU3AS3l"] = lle_X_vstore<int64_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPU3AS3m"] = lle_X_vstore<uint64_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_fmPU3AS3f"] = lle_X_vstore<float,      4>;
@@ -1298,7 +1298,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_smPU3AS3s"] = lle_X_vstore<int16_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_tmPU3AS3t"] = lle_X_vstore<uint16_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_imPU3AS3i"] = lle_X_vstore<int32_t,    8>;
-    funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPU3AS3m"] = lle_X_vstore<uint32_t,   8>;
+    funcNames[interpreterPrefix + "_Z7vstore8Dv8_jmPU3AS3j"] = lle_X_vstore<uint32_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_lmPU3AS3l"] = lle_X_vstore<int64_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPU3AS3m"] = lle_X_vstore<uint64_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_fmPU3AS3f"] = lle_X_vstore<float,      8>;
@@ -1307,7 +1307,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_smPU3AS3s"] = lle_X_vstore<int16_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_tmPU3AS3t"] = lle_X_vstore<uint16_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_imPU3AS3i"] = lle_X_vstore<int32_t,    16>;
-    funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPU3AS3m"] = lle_X_vstore<uint32_t,   16>;
+    funcNames[interpreterPrefix + "_Z8vstore16Dv16_jmPU3AS3j"] = lle_X_vstore<uint32_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_lmPU3AS3l"] = lle_X_vstore<int64_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPU3AS3m"] = lle_X_vstore<uint64_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_fmPU3AS3f"] = lle_X_vstore<float,      16>;
@@ -1316,7 +1316,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_smPs"] = lle_X_vstore<int16_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_tmPt"] = lle_X_vstore<uint16_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_imPi"] = lle_X_vstore<int32_t,    2>;
-    funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPm"] = lle_X_vstore<uint32_t,   2>;
+    funcNames[interpreterPrefix + "_Z7vstore2Dv2_jmPj"] = lle_X_vstore<uint32_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_lmPl"] = lle_X_vstore<int64_t,    2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_mmPm"] = lle_X_vstore<uint64_t,   2>;
     funcNames[interpreterPrefix + "_Z7vstore2Dv2_fmPf"] = lle_X_vstore<float,      2>;
@@ -1325,7 +1325,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_smPs"] = lle_X_vstore<int16_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_tmPt"] = lle_X_vstore<uint16_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_imPi"] = lle_X_vstore<int32_t,    3>;
-    funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPm"] = lle_X_vstore<uint32_t,   3>;
+    funcNames[interpreterPrefix + "_Z7vstore3Dv3_jmPj"] = lle_X_vstore<uint32_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_lmPl"] = lle_X_vstore<int64_t,    3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_mmPm"] = lle_X_vstore<uint64_t,   3>;
     funcNames[interpreterPrefix + "_Z7vstore3Dv3_fmPf"] = lle_X_vstore<float,      3>;
@@ -1334,7 +1334,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_smPs"] = lle_X_vstore<int16_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_tmPt"] = lle_X_vstore<uint16_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_imPi"] = lle_X_vstore<int32_t,    4>;
-    funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPm"] = lle_X_vstore<uint32_t,   4>;
+    funcNames[interpreterPrefix + "_Z7vstore4Dv4_jmPj"] = lle_X_vstore<uint32_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_lmPl"] = lle_X_vstore<int64_t,    4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_mmPm"] = lle_X_vstore<uint64_t,   4>;
     funcNames[interpreterPrefix + "_Z7vstore4Dv4_fmPf"] = lle_X_vstore<float,      4>;
@@ -1343,7 +1343,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_smPs"] = lle_X_vstore<int16_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_tmPt"] = lle_X_vstore<uint16_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_imPi"] = lle_X_vstore<int32_t,    8>;
-    funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPm"] = lle_X_vstore<uint32_t,   8>;
+    funcNames[interpreterPrefix + "_Z7vstore8Dv8_jmPj"] = lle_X_vstore<uint32_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_lmPl"] = lle_X_vstore<int64_t,    8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_mmPm"] = lle_X_vstore<uint64_t,   8>;
     funcNames[interpreterPrefix + "_Z7vstore8Dv8_fmPf"] = lle_X_vstore<float,      8>;
@@ -1352,7 +1352,7 @@ void VLoadStoreMapFiller::addOpenCLBuiltins( std::map<std::string, PBLTFunc>& fu
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_smPs"] = lle_X_vstore<int16_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_tmPt"] = lle_X_vstore<uint16_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_imPi"] = lle_X_vstore<int32_t,    16>;
-    funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPm"] = lle_X_vstore<uint32_t,   16>;
+    funcNames[interpreterPrefix + "_Z8vstore16Dv16_jmPj"] = lle_X_vstore<uint32_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_lmPl"] = lle_X_vstore<int64_t,    16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_mmPm"] = lle_X_vstore<uint64_t,   16>;
     funcNames[interpreterPrefix + "_Z8vstore16Dv16_fmPf"] = lle_X_vstore<float,      16>;
