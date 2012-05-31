@@ -212,21 +212,33 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		ThreadTaskListOrderedImpl()
 		{
 			m_pSelectedWorkerThread = NULL;
+            m_refCount = 1;
 		}
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
 		te_wait_result	WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
+
+        void         Retain() 
+        {
+            m_refCount++;
+        }
+        
 		void         Release()
 		{ 
-			delete this;
+            long prevVal = m_refCount--;
+            if (1 == prevVal)
+            {
+			    delete this;
+            }
 		}
 
 	protected:
 		virtual ~ThreadTaskListOrderedImpl() {};
 
 		WorkerThread * m_pSelectedWorkerThread;
+        AtomicCounter  m_refCount;
 	};
 
 	//////////////////////////////////////////////////////////////////////////
@@ -237,19 +249,31 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		ThreadTaskListUnOrderedImpl()
 		{
+            m_refCount = 1;
 		}
 
 		// ITaskList interface
 		unsigned int Enqueue(ITaskBase* pTaskBase);
 		te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
+
+        void         Retain() 
+        {
+            m_refCount++;
+        }
+        
 		void         Release()
 		{ 
-			delete this;
+            long prevVal = m_refCount--;
+            if (1 == prevVal)
+            {
+			    delete this;
+            }
 		}
 
 	protected:
 		virtual ~ThreadTaskListUnOrderedImpl() {};
+        AtomicCounter  m_refCount;
 	};
 
 	/////////////////////////////////////////////////////////////////////////////

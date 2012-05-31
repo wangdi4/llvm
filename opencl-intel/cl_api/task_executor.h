@@ -180,6 +180,9 @@ public:
 	// all tasks belonging to the list are completed.
 	virtual te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) = 0;
 
+    // Increments Reference Count if required
+    virtual void            Retain() = 0;
+    
     // Releases task object, shall be called instead of delete operator.
     virtual void			Release() = 0;
 };

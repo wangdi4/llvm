@@ -2619,7 +2619,8 @@ cl_err_code MigrateMemObjCommand::Execute()
 
 	// Sending 1 command to the target device
 	cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
-	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
+	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
+    return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
 /******************************************************************

@@ -76,7 +76,8 @@ public:
 	virtual unsigned int	Enqueue(ITaskBase * pTaskBase);
 	virtual bool			Flush();
 	//Todo: WaitForCompletion only immediately returns if bImmediate is true
-	virtual te_wait_result  WaitForCompletion(ITaskBase* pTask) { return TE_WAIT_COMPLETED; }
+	virtual te_wait_result  WaitForCompletion(ITaskBase* pTask) { return TE_WAIT_COMPLETED; };
+    virtual void            Retain();
 	virtual void			Release();
 
 protected:
@@ -111,6 +112,11 @@ unsigned int InPlaceTaskList::Enqueue(ITaskBase *pTaskBase)
 bool InPlaceTaskList::Flush()
 {
 	return true;
+}
+
+void InPlaceTaskList::Retain()
+{
+
 }
 
 void InPlaceTaskList::Release()
@@ -350,8 +356,12 @@ retainCommandList
 *******************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
 {
-	CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Not supported List:%X"), list);
-	return CL_DEV_INVALID_OPERATION;		// Not support retain list
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
+
+	ITaskList* pList = (ITaskList*)list;
+	pList->Retain();
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
+	return CL_DEV_SUCCESS;
 }
 /********************************************************************************************************************
 releaseCommandList
@@ -673,8 +683,10 @@ cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props
 
 cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN list)
 {
+    retainCommandList(list);
 	m_commandListsForFlushing.PushBack(list);
-        m_NonEmptyQueue.Signal();
+    m_NonEmptyQueue.Signal();
+    
 	return CL_DEV_SUCCESS;
 }
 
@@ -689,7 +701,9 @@ cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_li
 
 cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
 {
-    return TaskDispatcher::flushCommandList(list);
+    cl_dev_err_code err = TaskDispatcher::flushCommandList(list);
+    releaseCommandList(list);
+    return err;
 }
 
 bool SubdeviceTaskDispatcher::isThreadAffinityRequried()

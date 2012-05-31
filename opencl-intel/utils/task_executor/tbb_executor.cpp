@@ -848,6 +848,11 @@ public:
 		return true;
 	}
 
+    void Retain() 
+    {
+        ++m_refCount;
+    }
+
 	void Release() 
 	{
 		long newRef = --m_refCount;
