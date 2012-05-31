@@ -699,6 +699,7 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 
 	cl_work_description_type tWorkDesc;
 	pDispatcherData->workDesc.convertToClWorkDescriptionType(&tWorkDesc);
+    tWorkDesc.minWorkGroupNum = gMicExecEnvOptions.min_work_groups_number;
 
 	// Create the binary.
 	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, pDispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);

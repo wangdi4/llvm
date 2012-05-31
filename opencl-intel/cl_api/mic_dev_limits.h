@@ -86,4 +86,5 @@
 #define MIC_DEV_IO_PROXY_TO_HOST            true
 
 #define NOTIFICATION_PORT_MAX_BARRIERS      256
+#define MIC_DEV_MIN_WORK_GROUPS_NUMBER(workers) (2*(workers))
 

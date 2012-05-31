@@ -348,6 +348,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         {
             mic_device_options.num_of_worker_threads = numOfWorkers;
         }
+        mic_device_options.min_work_groups_number   = MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_worker_threads );
 
 		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
 		COIEVENT barrier;

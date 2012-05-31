@@ -356,6 +356,7 @@ struct mic_exec_env_options {
 	uint32_t num_of_worker_threads;
 	uint32_t num_of_cores;
     uint32_t use_TBB_grain_size;
+    uint32_t min_work_groups_number; // recommended amount of workgroups per NDRange
 	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 
