@@ -52,9 +52,9 @@ add_subdirectory(llvm )
 # message ("Generating Built-in functions for ${BIN_OUTPUT_DIR_SUFFIX}")
 set (CL_BUILT_IN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/ocl_builtins)
 set	(CL_BUILT_IN_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/BI_BUILD)
-	
 
-	
+
+
 #set_target_properties( clang PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/clang )
 #set_target_properties( clang-c++tests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/clang/tests )
 #set_target_properties( clang-headers PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/clang/tests )
@@ -160,6 +160,7 @@ set_target_properties( LLVMJIT PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMLinker PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMMC PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMMCDisassembler PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
+set_target_properties( LLVMMCJIT PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMMCParser PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMScalarOpts PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 set_target_properties( LLVMSelectionDAG PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )

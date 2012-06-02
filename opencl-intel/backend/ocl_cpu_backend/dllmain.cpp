@@ -45,11 +45,11 @@ using namespace Intel::OpenCL::DeviceBackend;
 static llvm::sys::SmartMutex<true> s_init_lock;
 // initialization count - used to prevent the multiple initialization
 static int s_init_count = 0;
+static bool s_compiler_initialized = false;
 // initialization result
 static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 // flag used to disable the termination sequence
 bool s_ignore_termination = false;
-
 
 #if defined(_WIN32)
 
@@ -61,7 +61,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        Compiler::Init();
+        // FIXME: Calling this from dll_init on Linux can cause problems 
+        //        because the constructors of static objects in other files 
+        //        haven't necessarily been called before we get there.  By
+        //        extension, it seems like a bad idea to call it from here
+        //        on Windows.  While it may work, the behavior would be
+        //        inconsistent.
+        // Compiler::Init();
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
@@ -69,12 +75,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_DETACH:
         if( s_init_count > 0 )
         {
-            // Dll is unloaded prior to Terminate call - in this case the TerminateDeviceBackend 
+            // Dll is unloaded prior to Terminate call - in this case the TerminateDeviceBackend
             // method should not attempts to free the resources, since the system
             // could be in non-stable state
             s_ignore_termination = true;
         }
-		
+
 		if( !s_ignore_termination)
 		{
 			Compiler::Terminate();
@@ -86,7 +92,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #else
 void __attribute__ ((constructor)) dll_init(void)
 {
-    Compiler::Init();
+  // FIXME: Calling this from here can cause problems because the constructors
+  //        of static objects in other files haven't necessarily been called
+  //        before we get here.
+  //Compiler::Init();
 }
 
 void __attribute__ ((destructor)) dll_fini(void)
@@ -95,7 +104,7 @@ void __attribute__ ((destructor)) dll_fini(void)
     {
         s_ignore_termination = true;
     }
-	
+
 	if( !s_ignore_termination)
 	{
         Compiler::Terminate();
@@ -107,15 +116,23 @@ void __attribute__ ((destructor)) dll_fini(void)
 
 // Defines the exported functions for the DLL application.
 #ifdef __cplusplus
-extern "C" 
+extern "C"
 {
 #endif
     ///@brief
-    /// 
+    ///
     LLVM_BACKEND_API cl_dev_err_code  InitDeviceBackend(const ICLDevBackendOptions* pBackendOptions)
     {
         llvm::sys::SmartScopedLock<true> lock(s_init_lock);
-        
+
+        // The compiler can only be initialized once, even if the backend is 
+        //   terminated.  The s_init_count check is not sufficient.
+        if (!s_compiler_initialized)
+        {
+            Compiler::Init();
+            s_compiler_initialized = true;
+        }
+
         ++s_init_count;
         if( s_init_count > 1 )
         {
@@ -138,7 +155,7 @@ extern "C"
             Intel::OpenCL::PluginManager::Init();
 #endif
             DefaultJITMemoryManager::Init();
-            // Attempt to initialize the debug service. If debugging is 
+            // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
             //
             if (CL_DEV_FAILED(DebuggingServiceWrapper::GetInstance().Init()))
@@ -164,7 +181,7 @@ extern "C"
         llvm::sys::SmartScopedLock<true> lock(s_init_lock);
         //
         // Only perform the termination when initialization count drops to zero
-        // 
+        //
         --s_init_count;
         assert( s_init_count >= 0 );
         if( s_init_count > 0 )

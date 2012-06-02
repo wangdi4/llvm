@@ -37,7 +37,6 @@ File Name:  Compiler.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -80,7 +79,7 @@ void dumpModule(llvm::Module& m){
 /*
  * Utility methods
  */
-namespace Utils 
+namespace Utils
 {
 /**
  * Generates the log record (to the given stream) enumerating the given external function names
@@ -98,42 +97,42 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
 
 bool TerminationBlocker::s_released = false;
 
-} //namespace Utils 
+} //namespace Utils
 
 
 ProgramBuildResult::ProgramBuildResult():
     m_result(CL_DEV_SUCCESS),
     m_logStream(m_buildLog) { }
 
-bool ProgramBuildResult::Succeeded() const 
-{ 
-    return CL_DEV_SUCCEEDED(m_result); 
-}
-
-bool ProgramBuildResult::Failed() const 
-{ 
-    return CL_DEV_FAILED(m_result); 
-}
-
-std::string ProgramBuildResult::GetBuildLog() const 
-{ 
-    m_logStream.flush();
-    return m_buildLog; 
-}
-
-llvm::raw_ostream& ProgramBuildResult::LogS() 
-{ 
-    return m_logStream; 
-}
-
-void ProgramBuildResult::SetBuildResult( cl_dev_err_code code ) 
+bool ProgramBuildResult::Succeeded() const
 {
-    m_result = code; 
+    return CL_DEV_SUCCEEDED(m_result);
 }
 
-cl_dev_err_code ProgramBuildResult::GetBuildResult() 
-{ 
-    return m_result; 
+bool ProgramBuildResult::Failed() const
+{
+    return CL_DEV_FAILED(m_result);
+}
+
+std::string ProgramBuildResult::GetBuildLog() const
+{
+    m_logStream.flush();
+    return m_buildLog;
+}
+
+llvm::raw_ostream& ProgramBuildResult::LogS()
+{
+    return m_logStream;
+}
+
+void ProgramBuildResult::SetBuildResult( cl_dev_err_code code )
+{
+    m_result = code;
+}
+
+cl_dev_err_code ProgramBuildResult::GetBuildResult()
+{
+    return m_result;
 }
 
 void ProgramBuildResult::SetFunctionsWidths( FunctionWidthVector* pv)
@@ -166,7 +165,7 @@ std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
 bool Compiler::s_globalStateInitialized = false;
 
 /*
- * This is a static method which must be called from the 
+ * This is a static method which must be called from the
  * single threaded environment before any instance of Compiler
  * class is created
  */
@@ -227,7 +226,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
 
 /*
- * This is a static method which must be called from the 
+ * This is a static method which must be called from the
  * single threaded environment after all instanced of the
  * Compiler class are deleted
  */
@@ -257,7 +256,7 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
-llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer, 
+llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                      const CompilerBuildOptions* pOptions,
                                      ProgramBuildResult* pResult)
 {
@@ -266,7 +265,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     assert(pOptions && "Build options pointer must not be NULL");
 
     //TODO: Add log
-    std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer)); 
+    std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
     assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
 
     //
@@ -284,7 +283,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             pOptions->GetlibraryModule());
     Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
-    
+
     if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
@@ -324,7 +323,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     //
-    // Parse the module IR 
+    // Parse the module IR
     //
     std::string strErr;
     llvm::Module* pModule = llvm::ParseBitcodeFile( pIRBuffer, *m_pLLVMContext, &strErr);
@@ -339,17 +338,17 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 {
     llvm::MemoryBuffer* pRtlBuffer = pLibrary->GetRtlBuffer();
     std::auto_ptr<llvm::Module> spModule(llvm::ParseBitcodeFile(pRtlBuffer, *m_pLLVMContext));
- 
+
     if ( NULL == spModule.get())
     {
         // Failed to load runtime library
         spModule.reset( new llvm::Module("dummy", *m_pLLVMContext));
-        if ( NULL == spModule.get() ) 
+        if ( NULL == spModule.get() )
         {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
-    } 
-    else 
+    }
+    else
     {
         spModule->setModuleIdentifier("RTLibrary");
     }
@@ -361,13 +360,14 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 
 void SetTargetTripple(llvm::Module *pModule)
 {
+    //Force ELF codegen, even on Windows.
 #if defined(_M_X64)
-    pModule->setTargetTriple( "x86_64-pc-win32");
+    pModule->setTargetTriple( "x86_64-pc-win32-elf");
 #elif defined(__LP64__)
     pModule->setTargetTriple( "x86_64-pc-linux");
 #else
-    pModule->setTargetTriple( "i686-pc-win32");
-#endif 
+    pModule->setTargetTriple( "i686-pc-win32-elf");
+#endif
 }
 
 }}}

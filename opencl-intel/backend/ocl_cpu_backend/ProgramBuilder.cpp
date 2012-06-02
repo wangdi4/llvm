@@ -41,7 +41,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"

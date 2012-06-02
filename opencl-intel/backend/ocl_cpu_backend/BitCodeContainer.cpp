@@ -33,7 +33,7 @@ BitCodeContainer::BitCodeContainer(const cl_prog_container_header* pContainer):
 
 BitCodeContainer::~BitCodeContainer()
 {
-    delete (llvm::Module*)m_pModule; 
+    delete static_cast<llvm::Module*>(m_pModule);
     delete m_pBuffer;
 }
 
@@ -48,23 +48,23 @@ size_t BitCodeContainer::GetCodeSize() const
 }
 
 void   BitCodeContainer::SetModule( void* pModule)
-{ 
-    m_pModule = pModule; 
+{
+    m_pModule = pModule;
 }
 
-void*  BitCodeContainer::GetModule() const 
-{ 
-    return m_pModule; 
+void*  BitCodeContainer::GetModule() const
+{
+    return m_pModule;
 }
 
-const cl_llvm_prog_header* BitCodeContainer::GetProgramHeader() const 
-{ 
+const cl_llvm_prog_header* BitCodeContainer::GetProgramHeader() const
+{
     return m_pBuffer->GetProgHeader();
 }
 
-void* BitCodeContainer::GetMemoryBuffer() const 
+void* BitCodeContainer::GetMemoryBuffer() const
 {
-    return m_pBuffer; 
+    return m_pBuffer;
 }
 
 void BitCodeContainer::Release()

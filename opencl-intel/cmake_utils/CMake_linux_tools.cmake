@@ -62,29 +62,34 @@ else()
 endif (OCL_BUILD32)
 
 # set CMAKE SVN client to be first SVN client in the PATH
-execute_process(COMMAND which svn OUTPUT_VARIABLE Subversion_SVN_EXECUTABLE OUTPUT_STRIP_TRAILING_WHITESPACE )	
+execute_process(COMMAND which svn OUTPUT_VARIABLE Subversion_SVN_EXECUTABLE OUTPUT_STRIP_TRAILING_WHITESPACE )
 
 if (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
 	execute_process(COMMAND ${IWHICH_FOUND}  ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_FOUND OUTPUT_STRIP_TRAILING_WHITESPACE )
-	if (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")		
+	if (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
 		set( INTEL_IT_BUILD_ENV_FOUND ON )
 	endif (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
 endif (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
 
 if (DEFINED INTEL_IT_BUILD_ENV_FOUND)
-    # setup Intel IT tools versions database	
+    # setup Intel IT tools versions database
     set( ENV{USER_ITOOLS} ${CMAKE_SOURCE_DIR}/cmake_utils/intel_it_linux_tool_versions.txt )
 
-    # find required compiler setup    	
-    execute_process(COMMAND ${IWHICH_FOUND} ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_PATH OUTPUT_STRIP_TRAILING_WHITESPACE )	
+    # find required compiler setup
+    execute_process(COMMAND ${IWHICH_FOUND} ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_PATH OUTPUT_STRIP_TRAILING_WHITESPACE )
     string( REPLACE /bin/${CMAKE_C_COMPILER} "" INTEL_IT_COMPILER_PATH  ${INTEL_IT_COMPILER_PATH} )
 
     # prepend all cmake paths intel IT path
     set( CMAKE_PREFIX_PATH  /usr/intel ${INTEL_IT_COMPILER_PATH})
 endif (DEFINED INTEL_IT_BUILD_ENV_FOUND)
 
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
 # Warning level
-set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter" )
+if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
+  set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-int-to-pointer-cast -Wno-unused-but-set-variable" )
+else ()
+  set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
+endif ()
 
 # Compiler switches that CANNOT be modified during makefile generation
 

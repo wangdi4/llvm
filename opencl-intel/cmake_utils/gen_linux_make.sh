@@ -197,6 +197,7 @@ cmake -G "$generator" \
     -D INTEL_COMPILER=$use_intc \
     -D BUILD_JAVA:BOOL=$incl_java \
     -D LLVM_USE_INTEL_JITEVENTS:BOOL=ON \
+    -D LLVM_USE_OPROFILE:BOOL=OFF \
     -D CMAKE_INSTALL_PREFIX:PATH=${install_prefix} \
     ${CROSS_COMPILATION_OPTIONS} \
     ${src_dir}

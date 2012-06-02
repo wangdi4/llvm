@@ -58,7 +58,7 @@ public:
 
     // Returns pointer to jitted function if function hasn't been compiled
     // Otherwise function is jitted and pointer is returned
-    void *GetPointerToFunction(llvm::Function *pf) const;
+    void *GetPointerToFunction(llvm::Function *pf);
 
     // Create execution engine for the given module
     // Execution engine depends on module configuration
@@ -70,6 +70,8 @@ public:
     virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
 
     void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
+
+protected:
 
     /**
      * Returns pointer to the RTL library module

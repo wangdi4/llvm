@@ -107,6 +107,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  LLVMJIT
 									  LLVMLinker									  
 									  LLVMMCDisassembler
+									  LLVMMCJIT
 									  LLVMScalarOpts									  
 									  LLVMSupport									  
 									  LLVMTransformUtils

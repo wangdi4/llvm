@@ -96,6 +96,7 @@ public:
 
     void setProgram(ICLDevBackendProgram_* pProgram)
     {   
+        // Disabling assertion to allow setting SATest build iterations > 1
         assert( NULL == m_pProgram && "Resetting the program is not supported");
         m_pProgram = pProgram;
     }

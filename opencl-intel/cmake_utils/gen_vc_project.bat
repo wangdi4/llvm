@@ -202,6 +202,7 @@ cmake ^
     -D BUILD_X64=%use_x64% ^
     -D CMAKE_BUILD_TYPE=%build_type%  ^
     -DLLVM_USE_INTEL_JITEVENTS:BOOL=ON ^
+    -DLLVM_USE_OPROFILE:BOOL=OFF ^
     -DCMAKE_INSTALL_PREFIX:PATH=%CD%/../install/%BUILD_CONFIG%/\${BUILD_TYPE}/ ^
     %top_dir%\src
 

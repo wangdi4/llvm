@@ -29,20 +29,23 @@ File Name:  CPUCompiler.cpp
 #include "exceptions.h"
 #include "CompilationUtils.h"
 #include "BuiltinModuleManager.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetData.h"
+
+// Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/MCJIT.h"
+
 #include "llvm/ExecutionEngine/JITEventListener.h"
+#include "llvm/ExecutionEngine/JITMemoryManager.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -67,7 +70,7 @@ extern const char* CPU_ARCH_AUTO;
 /*
  * Utility methods
  */
-namespace Utils 
+namespace Utils
 {
 /**
  * Return the CPU identifier (from CPUDetect enumeration) given the CPU name.
@@ -77,8 +80,8 @@ Intel::ECPU GetOrDetectCpuId(const std::string& cpuArch)
 {
     Intel::ECPU cpuId = Intel::DEVICE_INVALID;
     Utils::CPUDetect* pCpuDetect = Utils::CPUDetect::GetInstance();
-    
-    if ( CPU_ARCH_AUTO == cpuArch ) 
+
+    if ( CPU_ARCH_AUTO == cpuArch )
     {
         cpuId = pCpuDetect->GetCPUId().GetCPU();
     }
@@ -135,7 +138,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 {
     unsigned int  cpuFeatures = CFS_SSE2;
 
-    // Add standard features 
+    // Add standard features
     if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
     {
         cpuFeatures |= CFS_SSE41 | CFS_SSE42;
@@ -219,9 +222,10 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
         m_pBuiltinModule = new BuiltinModule( pModule);
     }
 
+    // Create the listener that allows Amplifier to profile OpenCL kernels
     if(config.GetUseVTune())
     {
-        m_pVTuneListener = llvm::createIntelJITEventListener();
+        m_pVTuneListener = llvm::JITEventListener::createIntelJITEventListener();
     }
 }
 
@@ -230,6 +234,7 @@ CPUCompiler::~CPUCompiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
+
     delete m_pBuiltinModule;
     delete m_pVTuneListener;
 }
@@ -240,23 +245,27 @@ unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType) const
     return m_pExecEngine->getTargetData()->getTypeAllocSize(pType);
 }
 
-void *CPUCompiler::GetPointerToFunction(llvm::Function *pf) const
+void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
 {
-    assert(m_pExecEngine);
+    llvm::Module *pM = pf->getParent();
+
+    // Perform codegen if needed (by constructing an EE for the module)
+    if(!m_pExecEngine)
+      m_pExecEngine = CreateCPUExecutionEngine(pM);
+
     return m_pExecEngine->getPointerToFunction(pf);
 }
 
 void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
 {
-    assert(m_pExecEngine);
-    m_pExecEngine->freeMachineCodeForFunction(pf);
+    // With MCJIT, memory is freed on a per-module basis, not per-function.
 }
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
 {
     Intel::ECPU selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
     Utils::SplitString( cpuFeatures, ",", m_forcedCpuFeatures);
-   
+
     bool DisableAVX = false;
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
     if( CPU_ARCH_AUTO == cpuName)
@@ -292,11 +301,8 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
 
 void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 {
-    // Compiler keeps a pointer to the latest execution engine object
+    // Compiler keeps a pointer to the execution engine object
     // and is not responsible for EE release
-
-    // The module's owner should keep the poiner and be 
-    // responsible for releasing the EE object
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 
     if (m_needLoadBuiltins)
@@ -307,7 +313,6 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     {
         m_pExecEngine->RegisterJITEventListener(m_pVTuneListener);
     }
-
 }
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
@@ -318,22 +323,26 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
 
     string strErr;
     bool AllocateGVsWithCode = true;
+    CodeGenOpt::Level OLevel = llvm::CodeGenOpt::Default;
 
     // FP_CONTRACT defined in module
-	// Exclude FMA instructions when FP_CONTRACT is disabled
+    // Exclude FMA instructions when FP_CONTRACT is disabled
     std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
 
     if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
       cpuFeatures.push_back("-fma3");
 
-	SetTargetTripple(pModule);
+    SetTargetTripple(pModule);
 
     llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
                   .setEngineKind(llvm::EngineKind::JIT)
+                  .setUseMCJIT(true)
+                  .setJITMemoryManager(llvm::JITMemoryManager::CreateDefaultMemManager())
                   .setErrorStr(&strErr)
-                  .setOptLevel(llvm::CodeGenOpt::Default)
+                  .setOptLevel(OLevel)
                   .setAllocateGVsWithCode(AllocateGVsWithCode)
                   .setCodeModel(llvm::CodeModel::JITDefault)
+                  .setRelocationModel(llvm::Reloc::Default)
                   .setMArch(MArch)
                   .setMCPU(MCPU)
                   .setMAttrs(cpuFeatures)
@@ -342,6 +351,9 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     {
         throw Exceptions::CompilerException("Failed to create execution engine");
     }
+
+    if (m_pVTuneListener) 
+        pExecEngine->RegisterJITEventListener(m_pVTuneListener);
 
     return pExecEngine;
 }
@@ -355,7 +367,6 @@ llvm::Module* CPUCompiler::GetRtlModule() const
     else
         return m_pBuiltinModule->GetRtlModule();
 }
-
 
 void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) const
 {

@@ -23,6 +23,7 @@ File Name:  CPUProgram.h
 
 namespace llvm {
   class ExecutionEngine;
+  class Function;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -42,6 +43,8 @@ public:
     llvm::ExecutionEngine* GetExecutionEngine() { return m_pExecutionEngine; }
     
     void ReleaseExecutionEngine();
+
+    void* GetPointerToFunction(llvm::Function* F);
 
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;

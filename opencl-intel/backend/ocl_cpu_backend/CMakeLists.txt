@@ -399,10 +399,14 @@ include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
     ../dynamic_lib
 )
 
-# Add additional lib direcories
+# Add additional lib directories
 if( LLVM_USE_INTEL_JITEVENTS )
     link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
 endif( LLVM_USE_INTEL_JITEVENTS )
+
+if( LLVM_USE_OPROFILE )
+    link_directories ( ${LLVM_OPROFILE_INCDIR} )
+endif( LLVM_USE_OPROFILE )
 
 # Create DLL
 add_library (${TARGET_NAME} SHARED
@@ -445,6 +449,7 @@ set (LLVM_LIBS
     LLVMTarget
     LLVMExecutionEngine
     LLVMJIT
+    LLVMMCJIT
     LLVMCodeGen
     LLVMBitReader
     LLVMBitWriter
@@ -474,6 +479,19 @@ if (INCLUDE_MIC_DEVICE)
         LLVMY86AsmPrinter
        )
 endif (INCLUDE_MIC_DEVICE)
+
+# Add additional profiling libraries
+if( LLVM_USE_OPROFILE )
+  list(APPEND LLVM_LIBS
+        LLVMOProfileJIT
+      )
+endif( LLVM_USE_OPROFILE )
+
+if( LLVM_USE_INTEL_JITEVENTS )
+    list(APPEND LLVM_LIBS
+          LLVMIntelJITEvents
+        )
+endif( LLVM_USE_INTEL_JITEVENTS )
 
 # the following targets are necessary for successful build of OCL Back-End shared library outside of OCL SDK framework
 # they are about C/C++ backends for LLVM (not to be confused with OCL backend)

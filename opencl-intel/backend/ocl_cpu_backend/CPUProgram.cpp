@@ -37,11 +37,13 @@ void CPUProgram::ReleaseExecutionEngine()
 
 CPUProgram::~CPUProgram()
 {
-    for (unsigned i = 0; i < m_kernels->GetCount(); ++i)
-    {
-        m_kernels->GetKernel(i)->FreeAllJITs();
-    }
+    // Freeing the execution engine is sufficient to cleanup all memory in
+    // MCJIT
     ReleaseExecutionEngine();
+}
+
+void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
+    return m_pExecutionEngine->getPointerToFunction(F);
 }
 
 }}}

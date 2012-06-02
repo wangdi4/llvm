@@ -124,3 +124,4 @@ add_dependencies( ${TARGET} clang clang_compiler )
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} externals/*.cl )
 install(FILES ${CP_FILES} DESTINATION bin)
 install(FILES ${CP_FILES} DESTINATION ${CREATE_DIR_NAME})
+
