@@ -71,6 +71,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @returns The new function that receives the implicit arguemnts
     Function* runOnFunction(Function *pFunc, bool isAKernel);
 
+    /// @brief Updates metadata nodes with new Function signature
+    /// @param pMetadata The current metadata node
+    void iterateMDTree(MDNode* pMetadata);
+
     /// @brief Adds implicit arguments structure declarations to the module
     void addWIInfoDeclarations();
 
@@ -98,7 +102,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Type* m_struct_PaddedDimId;
     Type* m_struct_WorkDim;
 
-
+    Function* m_pFunc;
+    Function* m_pNewF;
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

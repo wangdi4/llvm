@@ -118,6 +118,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       CallInst *pNewCall = CallInst::Create(pCallee, ArrayRef<Value*>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
 
+      // Copy debug metadata to new function if available
+      if (pCall->hasMetadata()) {
+        pNewCall->setDebugLoc(pCall->getDebugLoc());
+      }
+
       delete [] pCallArgs;
 
       pCall->replaceAllUsesWith(pNewCall);
@@ -272,7 +277,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         
       // Replace the original function with a call 
       CallInst* pNewCall = CallInst::Create(pNewF, ArrayRef<Value*>(arguments), "", CI);
-            
+
+      // Copy debug metadata to new function if available
+      if (CI->hasMetadata()) {
+        pNewCall->setDebugLoc(CI->getDebugLoc());
+      }
+
       // Update CI in the m_fixupCalls, now the map needs to have only the newly created call
       if (m_fixupCalls.count(CI) > 0) {        
         Value **pCallArgs = m_fixupCalls[CI];
@@ -309,6 +319,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Module *pModule = pFunc->getParent();
     Module::named_metadata_iterator MDIter = pModule->named_metadata_begin();
     Module::named_metadata_iterator EndMDIter = pModule->named_metadata_end();
+    m_pFunc = pFunc;
+    m_pNewF = pNewF;
 
     for(;MDIter != EndMDIter; MDIter++)
     {
@@ -316,26 +328,31 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       { 
         // Replace metadata with metada containing information about the wrapper
         MDNode* pMetadata = MDIter->getOperand(ui);
-        
-        SmallVector<Value *, 16> values;
-        for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
-          Value *elem = pMetadata->getOperand(i);
-
-          if(pFunc == dyn_cast<Function>(elem))
-            elem = pNewF;
-
-          values.push_back(elem);
-        }
-          
-        // &(values[0]) gets the pointer to the metadata values array
-        MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
-        // TODO: Why may pMetadata and pNewMetadata be the same value ?
-        if (pMetadata != pNewMetadata)
-          pMetadata->replaceAllUsesWith(pNewMetadata);
+        iterateMDTree(pMetadata);
       }
     }
 
     return pNewF;
+  }
+
+  void AddImplicitArgs::iterateMDTree(MDNode* pMetadata) {
+    SmallVector<Value *, 16> values;
+    for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
+      Value *elem = pMetadata->getOperand(i);
+      if (elem) {
+        if (MDNode *Node = dyn_cast<MDNode>(elem))
+          iterateMDTree(Node);
+        // Elem needs to be set again otherwise changes will be undone.
+        elem = pMetadata->getOperand(i);
+        if (m_pFunc == dyn_cast<Function>(elem))
+          elem = m_pNewF;
+      }  
+      values.push_back(elem);
+    }
+    MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
+    // TODO: Why may pMetadata and pNewMetadata be the same value ?
+    if (pMetadata != pNewMetadata)
+      pMetadata->replaceAllUsesWith(pNewMetadata);
   }
 
   void AddImplicitArgs::addWIInfoDeclarations() {

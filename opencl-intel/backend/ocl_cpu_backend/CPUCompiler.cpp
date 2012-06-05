@@ -45,7 +45,6 @@ File Name:  CPUCompiler.cpp
 #include "llvm/ExecutionEngine/MCJIT.h"
 
 #include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/ExecutionEngine/JITMemoryManager.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -337,7 +336,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
                   .setEngineKind(llvm::EngineKind::JIT)
                   .setUseMCJIT(true)
-                  .setJITMemoryManager(llvm::JITMemoryManager::CreateDefaultMemManager())
                   .setErrorStr(&strErr)
                   .setOptLevel(OLevel)
                   .setAllocateGVsWithCode(AllocateGVsWithCode)
