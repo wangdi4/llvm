@@ -373,7 +373,7 @@ bool Vectorizer::runOnModule(Module &M)
           }
 
           m_optimizerFunctions->push_back(m_targetFunctionsList[i]);
-          m_optimizerWidths->push_back(m_targetFunctionsWidth[i]);
+          m_optimizerWidths->push_back(m_targetFunctionsWidth[i] ? m_targetFunctionsWidth[i] : 1);
         }
         
         {

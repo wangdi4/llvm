@@ -30,6 +30,7 @@ namespace Validation
         virtual ~IPerformanceVisitor() {}
         
         virtual void OnKernelSample(const std::string& kernel,  
+                                    unsigned int vectorSize,
                                     cl_long buildTicks, 
                                     double buildSDMean,
                                     cl_long executionTicks,
@@ -49,17 +50,6 @@ namespace Validation
   public:
     virtual ~IPerformance(void) {}
 
-    /// @brief Returns build time
-    /// @return Build time 
-    /// returns -1 otherwise
-    virtual cl_long GetBuildTime() const = 0;
-
-    /// @brief Returns execution time
-    /// @return Execution time for specified kernel
-    /// returns -1 otherwise
-    virtual cl_long GetExecutionTime(const std::string& name) const = 0;
-    
-    
     /// @brief Visits the performance data
     virtual void Visit(IPerformanceVisitor* pVisitor) const = 0;
     

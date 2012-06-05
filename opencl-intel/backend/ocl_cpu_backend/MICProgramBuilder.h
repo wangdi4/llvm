@@ -64,13 +64,10 @@ protected:
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const;
 
 private:
-    MICKernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
-                                                   llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info) const;
 
     MICKernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
-    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps) const;
+    void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
 
     // Klockwork Issue

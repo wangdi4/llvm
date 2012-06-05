@@ -253,24 +253,11 @@ void Performance::SetDeserializationTime(const Sample& sample)
     m_deserializationSample.AddSample(sample);
 }
 
-void Performance::SetExecutionTime(const std::string& name, const Sample& sample)
+void Performance::SetExecutionTime(const std::string& name, unsigned int vectorSize, const Sample& sample)
 {
-    m_executionSamples[name].AddSample(sample);
+    m_executionSamples[KernelID(name, vectorSize)].AddSample(sample);
 }
 
-cl_long Performance::GetBuildTime() const
-{
-    return m_buildSample.MinimalSample().TotalTicks();
-}
-
-cl_long Performance::GetExecutionTime(const std::string& name) const
-{
-    Samples::const_iterator sample = m_executionSamples.find(name);
-    assert( sample != m_executionSamples.end() );
-    
-    return sample->second.MinimalSample().TotalTicks();
-}
-    
 void Performance::Visit(IPerformanceVisitor* pVisitor) const
 {
     cl_long buildTicks = m_buildSample.MinimalSample().TotalTicks();
@@ -296,7 +283,8 @@ void Performance::Visit(IPerformanceVisitor* pVisitor) const
         double sd     = it->second.StandardDeviation();
         double sdmean = sd / mean;
 
-        pVisitor->OnKernelSample(it->first,  
+        pVisitor->OnKernelSample(it->first.first, // kernel name
+                                 it->first.second, // vector size used
                                  buildTicks, 
                                  buildSDMean,
                                  it->second.MinimalSample().TotalTicks(),

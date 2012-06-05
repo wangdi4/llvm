@@ -58,7 +58,11 @@ using std::string;
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
 void dumpModule(llvm::Module& m){
 #ifndef NDEBUG
   static unsigned counter=0;
@@ -74,7 +78,6 @@ void dumpModule(llvm::Module& m){
   outf << buffer;
 #endif
 }
-
 
 /*
  * Utility methods
@@ -130,9 +133,9 @@ void ProgramBuildResult::SetBuildResult( cl_dev_err_code code )
     m_result = code;
 }
 
-cl_dev_err_code ProgramBuildResult::GetBuildResult()
-{
-    return m_result;
+cl_dev_err_code ProgramBuildResult::GetBuildResult() const
+{ 
+    return m_result; 
 }
 
 void ProgramBuildResult::SetFunctionsWidths( FunctionWidthVector* pv)
@@ -151,16 +154,22 @@ void ProgramBuildResult::SetKernelsInfo( KernelsInfoMap* pKernelsInfo)
     m_pKernelsInfo = pKernelsInfo;
 }
 
-KernelsInfoMap& ProgramBuildResult::GetKernelsInfo()
+TLLVMKernelInfo ProgramBuildResult::GetKernelsInfo(const llvm::Function* pFunc) const
 {
     assert(m_pKernelsInfo);
-    return *m_pKernelsInfo;
+    return (*m_pKernelsInfo)[pFunc];
 }
 
 std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
 {
     return m_privateMemorySizeMap;
 }
+
+const std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize() const
+{
+    return m_privateMemorySizeMap;
+}
+
 
 bool Compiler::s_globalStateInitialized = false;
 
@@ -307,6 +316,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
       optimizer.getPrivateMemorySize(pResult->GetPrivateMemorySize());
       pResult->SetFunctionsWidths( vectorizedFunctions.release() );
       pResult->SetKernelsInfo( kernelsMap.release());
+      fillNoBarrierPathSet(spModule.get(), pResult->GetNoBarrierSet());
     }
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 

@@ -24,8 +24,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 KernelJITProperties::KernelJITProperties(): 
     m_useVTune(false),
-    m_VTuneId(0),
-    m_stackSize(0),
     m_vectorSize(1)
 {}
 

@@ -494,7 +494,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
             for (uint32_t j = 0; j < exeOptions->executeIterationsCount; ++j)
             {
                 DEBUG(llvm::dbgs()<< "Iteration: " << j << "\tIndex: " << dispatcherIndex*exeOptions->executeIterationsCount + j + 1 << "\tTotal time: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTime() << "\t total ticks: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTicks() << "\t samples count: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].SamplesCount() << "\n");
-                perfResults.SetExecutionTime(kernelName, micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1]);
+                perfResults.SetExecutionTime(kernelName, 0, micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1]);
             }
         }
         else

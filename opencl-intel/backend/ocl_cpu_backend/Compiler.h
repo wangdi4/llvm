@@ -19,6 +19,7 @@ File Name:  Compiler.h
 
 #include <assert.h>
 #include <string>
+#include <set>
 #include "CPUDetect.h"
 #include "exceptions.h"
 #include "CompilerConfig.h"
@@ -126,7 +127,7 @@ public:
 
     void SetBuildResult( cl_dev_err_code code );
     
-    cl_dev_err_code GetBuildResult();
+    cl_dev_err_code GetBuildResult() const;
 
     // Set the functions width vector. 
     // The passed pointer will be owned by the ProgramBuildResult
@@ -138,9 +139,16 @@ public:
     // The passed pointer will be owned by the ProgramBuildResult
     void SetKernelsInfo( KernelsInfoMap* pKernelsInfo);
 
-    KernelsInfoMap& GetKernelsInfo();
+    TLLVMKernelInfo GetKernelsInfo(const llvm::Function* pFunc) const;
 
     std::map<std::string, unsigned int>& GetPrivateMemorySize();
+
+    const std::map<std::string, unsigned int>& GetPrivateMemorySize() const;
+
+    std::set<std::string>& GetNoBarrierSet() { return m_noBarrierSet; }
+
+    const std::set<std::string>& GetNoBarrierSet() const { return m_noBarrierSet; }
+
 
 private:
     cl_dev_err_code m_result;
@@ -149,6 +157,7 @@ private:
     FunctionWidthVector* m_pFunctionWidths; 
     KernelsInfoMap*      m_pKernelsInfo;
     std::map<std::string, unsigned int> m_privateMemorySizeMap;
+    std::set<std::string> m_noBarrierSet;
 };
 
 //*****************************************************************************************

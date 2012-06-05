@@ -34,6 +34,7 @@ public:
 
 private:
     void OnKernelSample(const std::string& kernel,  
+                        unsigned int vectorSize,
                         cl_long buildTicks, 
                         double buildSDMean,
                         cl_long executionTicks,

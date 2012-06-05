@@ -93,7 +93,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
     {
         Compiler* pCompiler = GetCompiler();
 
-
         CompilerBuildOptions buildOptions(pProgram->GetDebugInfoFlag(),
                                           pProgram->GetProfilingFlag(),
                                           pProgram->GetDisableOpt(),
@@ -129,9 +128,18 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
     return buildResult.GetBuildResult();
 }
 
+KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
+{
+    KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
+    pProps->SetUseVTune(m_useVTune);
+    pProps->SetVectorSize(vectorSize);
+    return pProps;
+}
+
 KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
                                                    Function *func, 
-                                                   const TLLVMKernelInfo& info) const
+                                                         Function *pWrapperFunc,
+                                                         const ProgramBuildResult& buildResult) const
 {
     // Set optimal WG size
     unsigned int optWGSize = 0;
@@ -146,7 +154,8 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     NamedMDNode *KernelsMD = pModule->getNamedMetadata("opencl.kernels");
 
     MDNode *FuncInfo = NULL; 
-    for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) {
+    for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) 
+    {
       FuncInfo = KernelsMD->getOperand(i);
       Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
 
@@ -156,57 +165,77 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     MDNode *MDWGSH = NULL;
     //look for work group size hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) 
+    {
       MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
       MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
       
-      if (tag->getString() == "work_group_size_hint") {
+        if (tag->getString() == "work_group_size_hint") 
+        {
         MDWGSH = tmpMD;
         break;
       }
     }
         
-    if(MDWGSH) {
+    if(MDWGSH) 
+    {
       hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(1))->getValue().getZExtValue();
       hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(2))->getValue().getZExtValue();
       hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(3))->getValue().getZExtValue();
+
       if(hintWGSize[0])
       {
         optWGSize = 1;
         for(int i=0; i<MAX_WORK_DIM; ++i)
         {
-          if(hintWGSize[i]) optWGSize*=hintWGSize[i];
+                if(hintWGSize[i])
+                {
+                    optWGSize*=hintWGSize[i];
         }
       }
+    }
     }
 
 
     // Set required WG size
     MDNode *MDRWGS = NULL;
     //look for work group size hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) 
+    {
       MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
       MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
       
-      if (tag->getString() == "reqd_work_group_size") {
+        if (tag->getString() == "reqd_work_group_size") 
+        {
         MDRWGS = tmpMD;
         break;
       }
     }
         
-    if(MDRWGS) {
+    if(MDRWGS) 
+    {
       reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(1))->getValue().getZExtValue();
       reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(2))->getValue().getZExtValue();
       reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(3))->getValue().getZExtValue();
+
       if(reqdWGSize[0])
       {
         optWGSize = 1;
         for(int i=0; i<MAX_WORK_DIM; ++i)
         {
-          if(reqdWGSize[i]) optWGSize*=reqdWGSize[i];
+                if(reqdWGSize[i])
+                {
+                    optWGSize*=reqdWGSize[i];
         }
       }
     }
+    }
+
+    // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
+    // This also means that this a 1-sise Jit (no vector kernel)
+    std::string wrapperName = pWrapperFunc->getNameStr();
+    bool bJitCreateWIids = buildResult.GetNoBarrierSet().count(wrapperName);
+    TLLVMKernelInfo info = buildResult.GetKernelsInfo(func);
 
     KernelProperties* pProps = new KernelProperties();
 
@@ -216,6 +245,15 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetTotalImplSize(info.stTotalImplSize);
     pProps->SetDAZ( pProgram->GetDAZ());
     pProps->SetCpuId( GetCompiler()->GetCpuId() );
+    pProps->SetJitCreateWIids(bJitCreateWIids);
+
+    // Private memory size contains the max size between
+    // the needed size for scalar and needed size for vectorized versions.
+    unsigned int privateMemorySize = buildResult.GetPrivateMemorySize().at(pWrapperFunc->getNameStr());
+    // TODO: This is workaround till the SDK hanlde case of zero private memory size!
+    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
+    pProps->SetPrivateMemorySize( privateMemorySize );
+
     return pProps;
 }
 

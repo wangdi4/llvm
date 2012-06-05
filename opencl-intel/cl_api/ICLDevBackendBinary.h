@@ -33,6 +33,8 @@ public:
 	// Returns the actual number of Work Items handled by each executable instance
 	virtual const size_t* GetWorkGroupSize() const = 0;
 
+	// Returns the actual vector size used for run this kernel
+	virtual unsigned int GetVectorSize() const = 0;
 
 	// Create execution context that will be used by specific execution threads
 	virtual cl_dev_err_code CreateExecutable(void* IN *pMemoryBuffers, 

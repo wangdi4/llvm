@@ -44,7 +44,7 @@ public:
         { };
     MICJITContainer(const ModuleJITHolder* pModuleHolder,
                     unsigned long long int funcID,
-                    MICKernelJITProperties* pProps);
+                    KernelJITProperties* pProps);
     ~MICJITContainer();
 
     /*
@@ -69,7 +69,7 @@ private:
     const ModuleJITHolder*  m_pModuleJITHolder; // not owned by the class
     unsigned long long int  m_funcID;
 
-    MICKernelJITProperties*   m_pProps;
+    KernelJITProperties*    m_pProps;
 
     // Klockwork Issue
     MICJITContainer ( const MICJITContainer& x );

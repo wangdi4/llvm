@@ -55,7 +55,6 @@ File Name:  CPUProgramBuilder.cpp
 #include "CompilationUtils.h"
 
 using std::string;
-extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -104,13 +103,9 @@ CPUProgramBuilder::~CPUProgramBuilder()
 {
 }
 
-    
-   
-
-
 Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
 {
-std::vector<cl_kernel_argument> arguments;
+    std::vector<cl_kernel_argument> arguments;
 
     // TODO : consider separating into a different analisys pass
     CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments);
@@ -126,14 +121,13 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
     llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
     llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
-    if ( !pModuleMetadata ) {
+    if ( !pModuleMetadata ) 
+    {
       //Module contains no MetaData, thus it contains no kernels
       return spKernels.release();
     }
 
     std::vector<FunctionWidthPair>::const_iterator vecIter = buildResult.GetFunctionsWidths().begin();
-    std::set<std::string> noBarrier;
-    fillNoBarrierPathSet(pModule, noBarrier);
 
     for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) 
     {
@@ -149,43 +143,40 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             continue;   // Not a function pointer
         }
 
-        // Obtain parameters definition
-        //llvm::MDString *pFuncArgs = llvm::dyn_cast<llvm::MDString>(elt->getOperand(4));
-        //if (NULL == pFuncArgs)
-        //{
-        //    throw Exceptions::CompilerException( "Invalid argument's map", CL_DEV_BUILD_ERROR);
-        //}
-
         // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram, pFunc, buildResult.GetKernelsInfo()[pFunc]));
-        std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( pModule,
+        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram, 
+                                                                               pFunc, 
                                                                                         pWrapperFunc,
-                                                                                        buildResult.GetKernelsInfo()[pFunc]));
-        // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
-        // This also means that this a 1-sise Jit (no vector kernel)
-        std::string wrapperName = pWrapperFunc->getNameStr();
-        bool bJitCreateWIids = noBarrier.count(wrapperName);
-        spKernelProps->SetJitCreateWIids(bJitCreateWIids);
+                                                                               buildResult));
+        unsigned int vecSize = 1;
+        
+        if( spKernelProps->GetJitCreateWIids() && vecIter != buildResult.GetFunctionsWidths().end())
+        {
+            vecSize = vecIter->second;
+            spKernelProps->SetMinGroupSizeFactorial(vecSize);
+        }
 
-        // Private memory size contains the max size between
-        // the needed size for scalar and needed size for vectorized versions.
-        unsigned int privateMemorySize = buildResult.GetPrivateMemorySize()[pWrapperFunc->getNameStr()];
-        // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-        privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
-        spKernelProps->SetPrivateMemorySize( privateMemorySize );
+        std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        // Create a kernel 
         std::auto_ptr<Kernel>           spKernel( CreateKernel( pFunc, 
                                                                 pWrapperFunc->getName().str(), 
                                                                 spKernelProps.get()));
 
         // We want the JIT of the wrapper function to be called
-        AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
-                     pWrapperFunc, spKernelJITProps.release());
+        AddKernelJIT(static_cast<CPUProgram*>(pProgram), 
+                     spKernel.get(), 
+                     pModule, 
+                     pWrapperFunc, 
+                     spKernelJITProps.release());
 
 
         // Check if vectorized kernel present
-
+        if( !buildResult.GetFunctionsWidths().empty())
+        {
+            assert(vecIter != buildResult.GetFunctionsWidths().end());
+            assert( !(spKernelProps->GetJitCreateWIids() && vecIter->first) &&
+                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+            
         const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
         bool dontVectorize = false;
 
@@ -199,19 +190,11 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                 dontVectorize = true;
             }
         }
-
-        if( !buildResult.GetFunctionsWidths().empty())
-        {
-            assert(vecIter != buildResult.GetFunctionsWidths().end());
-            assert( !(bJitCreateWIids && vecIter->first) &&
-                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+            
             if(NULL != vecIter->first && !dontVectorize)
             {
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<KernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties(pModule, 
-                                                                                      vecIter->first,
-                                                                                      buildResult.GetKernelsInfo()[vecIter->first]));
-                spVKernelJITProps->SetVectorSize(vecIter->second);
+                std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecIter->second));
                 spKernelProps->SetMinGroupSizeFactorial(vecIter->second);
                 AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
                              vecIter->first, spVKernelJITProps.release());
@@ -221,7 +204,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             {
                 buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
             }
-            else if ( 0 == vecIter->second )
+            else if ( vecIter->second <= 1)
             {
                 buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
             }
@@ -245,14 +228,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     return spKernels.release();
 }
 
-KernelJITProperties* CPUProgramBuilder::CreateKernelJITProperties(llvm::Module* pModule, 
-                                                         llvm::Function* pFunc,
-                                                         const TLLVMKernelInfo& info) const
-{
-    KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
-    pProps->SetUseVTune(m_useVTune);
-    return pProps;
-}
 
 void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, 
                                      llvm::Function* pFunc, KernelJITProperties* pProps) const

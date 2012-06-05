@@ -33,16 +33,12 @@ MICKernelProperties::MICKernelProperties(KernelProperties* pKernelProps)
 void MICKernelJITProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
 {
     Serializer::SerialPrimitive<bool>(&m_useVTune, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_VTuneId, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_stackSize, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_vectorSize, ost);
 }
 
 void MICKernelJITProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     Serializer::DeserialPrimitive<bool>(&m_useVTune, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_VTuneId, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_stackSize, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_vectorSize, ist);
 }
 

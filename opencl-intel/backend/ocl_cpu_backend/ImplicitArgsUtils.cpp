@@ -142,7 +142,7 @@ void ImplicitArgsUtils::setImplicitArgsPerWG(std::vector<ImplicitArgument>& impl
 void ImplicitArgsUtils::initWILocalIds(const Executable* pExecutable, size_t* pWIids) {
   // Initialize local id buffer
   const Binary* m_pBinary = pExecutable->m_pBinary;
-  size_t uiVectWidth = m_pBinary->m_bVectorized ? m_pBinary->m_uiVectorWidth : 1;
+  size_t uiVectWidth = m_pBinary->m_uiVectorWidth;
   switch (m_pBinary->m_WorkInfo.uiWorkDim) {
   case 1:
     for ( size_t i=0, j=0;(i + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0];i+=uiVectWidth, j++ ) {

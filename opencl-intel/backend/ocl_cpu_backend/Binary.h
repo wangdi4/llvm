@@ -74,6 +74,13 @@ public:
     {
         return m_WorkInfo.LocalSize;
     }
+
+    // Returns the actual vector size that was used for the kernel 
+    virtual unsigned int GetVectorSize() const
+    {
+        return m_uiVectorWidth;
+    }
+
     // Create execution context that will be used by specific execution threads
     virtual cl_dev_err_code CreateExecutable(void* IN *pMemoryBuffers, 
                                              size_t IN stBufferCount, 
@@ -107,7 +114,6 @@ private:
     friend class Executable;
     friend class ImplicitArgsUtils;
 
-    const void*             m_pEntryPoint;
     size_t                  m_stFormalParamSize;
     size_t                  m_stKernelParamSize;
     size_t                  m_stAlignedKernelParamSize;
@@ -123,10 +129,7 @@ private:
     Intel::CPUId            m_cpuId;
     bool                    m_bJitCreateWIids;
     // Vectorizer data
-    bool                    m_bVectorized;
     unsigned int            m_uiVectorWidth;
-    const void*             m_pVectEntryPoint;
-    // Points to m_pEntryPoint or m_pVectEntryPoint according to m_bVectorized!
     const void*             m_pUsedEntryPoint;
 };
 

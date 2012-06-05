@@ -34,6 +34,7 @@ PerformancePrinter::PerformancePrinter(const IProgramConfiguration * pProgramCon
 
 void PerformancePrinter::OnKernelSample(
                     const std::string& kernel,
+                    unsigned int vectorSize,
                     cl_long buildTicks, 
                     double buildSDMean,
                     cl_long executionTicks,
@@ -56,7 +57,7 @@ void PerformancePrinter::OnKernelSample(
               << deserializationTicks << ","
               << deserializationSDMean << ","
 #endif
-              << "0" << "," // Actualy vector size
+              << vectorSize << "," // Actualy vector size
               << m_IRFilename << ","
               << m_JITFilename 
               << std::endl;

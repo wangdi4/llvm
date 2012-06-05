@@ -76,10 +76,6 @@ protected:
 
 private:
 
-    KernelJITProperties* CreateKernelJITProperties(llvm::Module* pModule, 
-                                                   llvm::Function* pFunc,
-                                                   const TLLVMKernelInfo& info) const;
-
     Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
 

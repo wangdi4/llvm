@@ -41,8 +41,6 @@ public:
 
 protected:
     bool m_useVTune;
-    unsigned int m_VTuneId;
-    unsigned int m_stackSize;
     unsigned int m_vectorSize;
 };
 

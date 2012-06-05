@@ -91,15 +91,6 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
     return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps ));
 }
 
-MICKernelJITProperties* MICProgramBuilder::CreateKernelJITProperties(llvm::Module* pModule, 
-                                                         llvm::Function* pFunc,
-                                                         const TLLVMKernelInfo& info) const
-{
-    MICKernelJITProperties* pProps = static_cast<MICKernelJITProperties*>(m_pBackendFactory->CreateKernelJITProperties());
-    pProps->SetUseVTune(m_useVTune);
-    return pProps;
-}
-
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
                                     llvm::Module* pModule, 
                                     ProgramBuildResult& buildResult) const
@@ -132,64 +123,60 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
             continue;   // Not a function pointer
         }
         
-
         // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, pFunc, buildResult.GetKernelsInfo()[pFunc]));
-        std::auto_ptr<MICKernelJITProperties> spKernelJITProps( CreateKernelJITProperties( pModule,
-                                                                                        pWrapperFunc,
-                                                                                        buildResult.GetKernelsInfo()[pFunc]));
-
-        // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
-        std::string wrapperName = pWrapperFunc->getNameStr();
-        bool bJitCreateWIids = noBarrier.count(wrapperName);
-        spMICKernelProps->SetJitCreateWIids(bJitCreateWIids);
-
-        // Private memory size contains the max size between
-        // the needed size for scalar and needed size for vectorized versions.
-        unsigned int privateMemorySize = buildResult.GetPrivateMemorySize()[pWrapperFunc->getNameStr()];
-        // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-        privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
-        spMICKernelProps->SetPrivateMemorySize( privateMemorySize );
+        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, 
+                                                                                  pFunc, 
+                                                                                  pWrapperFunc,
+                                                                                  buildResult));
+        // get the vector size used to generate the function
+        unsigned int vecSize = 1;
+        
+        if( spMICKernelProps->GetJitCreateWIids() && vecIter != buildResult.GetFunctionsWidths().end())
+        {
+            vecSize = vecIter->second;
+            spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
+        }
+                                                                              
+        std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
         // Create a kernel 
-        std::auto_ptr<MICKernel>           spKernel( CreateKernel( pFunc, 
-                                                                pWrapperFunc->getName().str(),
-                                                                spMICKernelProps.get()));
+        std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc, 
+                                                         pWrapperFunc->getName().str(),
+                                                         spMICKernelProps.get()));
         spKernel->SetKernelID(i);
 
-        AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, 
-                     pWrapperFunc, spKernelJITProps.release());
-
+        AddKernelJIT( static_cast<const MICProgram*>(pProgram), 
+                      spKernel.get(), 
+                      pModule, 
+                      pWrapperFunc, 
+                      spKernelJITProps.release());
 
         // Check if vectorized kernel present
-
-        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
-        bool dontVectorize = false;
-
-        if( NULL != vTypeHint)
-        {
-            //currently if the vector_type_hint attribute is set
-            //we types that vector length is below 4, vectorizer restriction
-            const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
-            {
-                dontVectorize = true;
-            }
-        }
-
         if( !buildResult.GetFunctionsWidths().empty())
         {
             assert(vecIter != buildResult.GetFunctionsWidths().end());
-            assert( !(bJitCreateWIids && vecIter->first) &&
+            assert( !(spMICKernelProps->GetJitCreateWIids() && vecIter->first) &&
                 "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+
+            const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
+            bool dontVectorize = false;
+
+            if( NULL != vTypeHint)
+            {
+                //currently if the vector_type_hint attribute is set
+                //we types that vector length is below 4, vectorizer restriction
+                const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
+                if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+                {
+                    dontVectorize = true;
+                }
+            }
+
             if(NULL != vecIter->first && !dontVectorize)
             {
                 //
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<MICKernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties(pModule, 
-                                                                                      vecIter->first,
-                                                                                      buildResult.GetKernelsInfo()[vecIter->first]));
-                spVKernelJITProps->SetVectorSize(vecIter->second);
+                std::auto_ptr<KernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties( vecIter->second));
                 spMICKernelProps->SetMinGroupSizeFactorial(vecIter->second);
                 AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, vecIter->first, spVKernelJITProps.release());
             }
@@ -197,7 +184,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
             {
                 buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
             }
-            else if ( 0 == vecIter->second )
+            else if ( vecIter->second <= 1)
             {
                 buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
             }
@@ -221,11 +208,11 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
     return spKernels.release();
 }
 
-void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, MICKernelJITProperties* pProps) const
+void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
     IKernelJITContainer* pJIT = new MICJITContainer( pProgram->GetModuleJITHolder(),
-                                           (unsigned long long int)pFunc,
-                                           pProps);
+                                                     (unsigned long long int)pFunc,
+                                                     pProps);
     pKernel->AddKernelJIT( pJIT );
 }
 

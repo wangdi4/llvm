@@ -65,7 +65,8 @@ class OpenCLExecutionContext
 public:
     OpenCLExecutionContext(const BERunOptions* config):
         m_stPrivMemAllocSize(2*CPU_DEV_MIN_WI_PRIVATE_SIZE),
-        m_config(config)
+        m_config(config),
+        m_vectorSize(1)
     {
         auto_ptr_aligned pLocalMem  ( (char*)align_malloc(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN));
         auto_ptr_aligned pPrivateMem( (char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));
@@ -105,6 +106,12 @@ public:
         {
             throw Exception::TestRunnerException("Create executable failed\n");
         }
+        m_vectorSize = pBinary->GetVectorSize();
+    }
+
+    unsigned int GetVectorSize()
+    {
+        return m_vectorSize;
     }
 
     void ExecuteWorkGroup( size_t x, size_t y, size_t z)
@@ -168,6 +175,7 @@ private:
     size_t                      m_stPrivMemAllocSize;
     const BERunOptions*         m_config;
     Sample                      m_sample;
+    unsigned int                m_vectorSize; // vector size that was actually used 
 };
 
 class OpenCLBinaryContext
@@ -491,7 +499,7 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
         Performance& perfResults = (Performance&)runResult->GetPerformance();
-        perfResults.SetExecutionTime(kernelName, spContext->GetSampling());
+        perfResults.SetExecutionTime(kernelName, spContext->GetVectorSize(), spContext->GetSampling());
     }
     else // Do not save output in PERF mode.
     {

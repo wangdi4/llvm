@@ -26,7 +26,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICJITContainer::MICJITContainer(const ModuleJITHolder* pModuleHolder,
                                  unsigned long long int funcID,
-                                 MICKernelJITProperties* pProps):
+                                 KernelJITProperties* pProps):
     m_pModuleJITHolder(pModuleHolder),
     m_funcID(funcID),
     m_pProps(pProps) // get ownership of the pProps pointer

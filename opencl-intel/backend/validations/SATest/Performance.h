@@ -105,14 +105,6 @@ namespace Validation
     class Performance : public IPerformance
     {
     public:
-        /// @brief Returns build time
-        /// @return Build time in ticks
-        virtual cl_long GetBuildTime() const ;
-
-        /// @brief Returns execution time
-        /// @return Execution time for specified kernel in ticks
-        virtual cl_long GetExecutionTime(const std::string& name) const;
-
         /// @brief Set the build time
         void SetBuildTime(const Sample& sample);
 
@@ -123,13 +115,14 @@ namespace Validation
         void SetDeserializationTime(const Sample& sample);
 
         /// @brief Add the sample to the sample vector for given kernel
-        void SetExecutionTime(const std::string& name, const Sample& sample);
+        void SetExecutionTime(const std::string& name, unsigned int vectorSize, const Sample& sample);
 
         /// @brief Visits the performance data
         void Visit(IPerformanceVisitor* pVisitor) const;
 
     private:
-        typedef std::map<std::string, SampleVector > Samples;
+        typedef std::pair<std::string,unsigned int> KernelID;
+        typedef std::map<KernelID, SampleVector> Samples;
 
         Samples m_executionSamples;
         SampleVector m_buildSample;

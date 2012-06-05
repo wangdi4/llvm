@@ -87,7 +87,12 @@ protected:
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) const = 0;
 
-    KernelProperties* CreateKernelProperties(const Program* pProgram, Function *func, const TLLVMKernelInfo& info) const;
+    KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
+    
+    KernelProperties* CreateKernelProperties(const Program* pProgram, 
+                                             Function *func, 
+                                             Function *pWrapperFunc,
+                                             const ProgramBuildResult& buildResult) const;
 
 
 protected:

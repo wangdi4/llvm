@@ -60,7 +60,6 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
                char* IN pArgsBuffer, 
                size_t IN ArgBuffSize):
      m_pBackendFactory(pBackendFactory),
-     m_pEntryPoint(pScalarJIT->GetJITCode()),
      m_stFormalParamSize(0),
      m_stKernelParamSize(0),
      m_stAlignedKernelParamSize(0),
@@ -70,9 +69,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
      m_DAZ( pKernelProperties->GetDAZ()),
      m_cpuId( pKernelProperties->GetCpuId()),
      m_bJitCreateWIids(pKernelProperties->GetJitCreateWIids()),
-     m_bVectorized(false),
      m_uiVectorWidth(1), 
-     m_pVectEntryPoint(0),
      m_pUsedEntryPoint(0)
 {
     InitWorkInfo(pWorkInfo);
@@ -83,31 +80,40 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
 #endif
 
     InitParams(args, pArgsBuffer);
-
-    if( NULL != pVectorJIT )
+    
+    if( m_bJitCreateWIids )
     {
-        m_bVectorized = true;
-        m_pVectEntryPoint = pVectorJIT->GetJITCode();
-        m_uiVectorWidth = pVectorJIT->GetProps()->GetVectorSize();
-
-        assert (m_pVectEntryPoint);
+        // vectorized kernel is inlined 
+        m_pUsedEntryPoint = pScalarJIT->GetJITCode();
+        m_uiVectorWidth   = pScalarJIT->GetProps()->GetVectorSize();
     }
+    else
+    {
+        // vectorized and scalar kernels could both be present
+        if( NULL != pVectorJIT )
+        {
+            m_pUsedEntryPoint = pVectorJIT->GetJITCode();
+            m_uiVectorWidth   = pVectorJIT->GetProps()->GetVectorSize();
+        }
+        else
+        {
+            m_pUsedEntryPoint = pScalarJIT->GetJITCode();
+            m_uiVectorWidth   = pScalarJIT->GetProps()->GetVectorSize();
+        }
 
-    if(m_bVectorized && (m_WorkInfo.LocalSize[0] % m_uiVectorWidth)) {
-        // Disable vectorization for workgroup sizes that are not
-        // a multiple of the vector width (Guy)
-        m_bVectorized = false;
+        if(m_WorkInfo.LocalSize[0] % m_uiVectorWidth) 
+        {
+            // Disable vectorization for workgroup sizes that are not
+            // a multiple of the vector width (Guy)
+            m_pUsedEntryPoint = pScalarJIT->GetJITCode();
+            m_uiVectorWidth   = 1;
+        }
+        assert( !( 1 != m_uiVectorWidth && 1 == m_uiWGSize) && "vectorized with WGsize = 1!" );
     }
-    assert( (!m_bVectorized || m_uiWGSize != 1) && "vectorized with WGsize = 1!" );
-
-    m_pUsedEntryPoint = m_bVectorized ? m_pVectEntryPoint : m_pEntryPoint;
-
-    unsigned int uiWGSizeLocal = m_uiWGSize;
-    if ( m_bVectorized ) {
-      uiWGSizeLocal = uiWGSizeLocal / m_uiVectorWidth;
-    }
-    m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(
-      uiWGSizeLocal * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
+    
+    unsigned int uiWGSizeLocal = m_uiWGSize / m_uiVectorWidth;
+    m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN( 
+                            uiWGSizeLocal * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
 
 }
 
@@ -254,9 +260,7 @@ cl_dev_err_code Binary::CreateExecutable(void* IN *pMemoryBuffers,
     unsigned int uiWGSizeLocal = m_uiWGSize;
     assert(pExec);
 
-    if ( m_bVectorized ) {
-      uiWGSizeLocal = uiWGSizeLocal / m_uiVectorWidth;
-    }
+    uiWGSizeLocal = uiWGSizeLocal / m_uiVectorWidth;
     Executable* pExecutable =  m_pBackendFactory->CreateExecutable(this); 
 
     // Initial the context to be start of the stack frame
