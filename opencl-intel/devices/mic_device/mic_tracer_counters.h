@@ -23,6 +23,14 @@
 * File mic_tracer_counters.h
 *
 */
+#ifdef KNF_CARD
+	#define MIC_TRACER_NUM_OF_THREADS 120
+#elif KNC_CARD
+	#define MIC_TRACER_NUM_OF_THREADS 256
+#else
+    #error "MIC_TRACER: Unknown KN* card"
+#endif
+
 public:
 	typedef unsigned int unsigned_int;
 	typedef unsigned long long unsigned_long_long;
@@ -74,11 +82,11 @@ public:
 
 	TRACE_COMMAND_SIMPLE(unsigned_long_long, work_group_size, 3, global_work_size);
 
-	TRACE_COMMAND_COUNTER(unsigned_int, thread_num_of_invocations, 120, work_group_size);
+	TRACE_COMMAND_COUNTER(unsigned_int, thread_num_of_invocations, MIC_TRACER_NUM_OF_THREADS, work_group_size);
 
-	TRACE_COMMAND_TIMER(unsigned_long_long, thread_overall_time, 120, thread_num_of_invocations);
+	TRACE_COMMAND_TIMER(unsigned_long_long, thread_overall_time, MIC_TRACER_NUM_OF_THREADS, thread_num_of_invocations);
 
-	TRACE_COMMAND_COUNTER(unsigned_long_long, thread_num_wg_exe, 120, thread_overall_time);
+	TRACE_COMMAND_COUNTER(unsigned_long_long, thread_num_wg_exe, MIC_TRACER_NUM_OF_THREADS, thread_overall_time);
 
 
 
