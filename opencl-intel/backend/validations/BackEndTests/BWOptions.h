@@ -40,15 +40,17 @@ class CompilationServiceOptions: public ICLDevBackendOptions
 {
 public:
     /// @brief initiate the options from a given set
-    void InitFromTestConfiguration(const std::string    cpu,
-                                   const std::string    cpuFeatures,
+    void InitFromTestConfiguration(const std::string    device,
+	                               const std::string    subdevice,
+                                   const std::string    subdeviceFeatures,
                                    const ETransposeSize transposeSize,
                                    const bool           useVTune)
     {
-        m_cpu           = cpu;
-        m_cpuFeatures   = cpuFeatures;
-        m_transposeSize = transposeSize;
-        m_useVTune      = useVTune;
+        m_device            = device;
+		m_subdevice         = subdevice;
+        m_subdeviceFeatures = subdeviceFeatures;
+        m_transposeSize     = transposeSize;
+        m_useVTune          = useVTune;
     }
 
     /// @brief implementing the interface's method, added the VTune option
@@ -80,10 +82,12 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
-            return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
-            return m_cpuFeatures.c_str();
+		case CL_DEV_BACKEND_OPTION_DEVICE:
+			return m_device.length() > 0 ? m_device.c_str() : defaultValue;
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
+            return m_subdevice.c_str();
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
+            return m_subdeviceFeatures.c_str();
         default:
             return defaultValue;
         }
@@ -96,8 +100,9 @@ public:
     }
 
 private:
-    std::string    m_cpu;
-    std::string    m_cpuFeatures;
+	std::string    m_device;
+    std::string    m_subdevice;
+    std::string    m_subdeviceFeatures;
     ETransposeSize m_transposeSize;
     bool           m_useVTune;
 };
@@ -113,9 +118,11 @@ class ExecutionServiceOptions: public ICLDevBackendOptions
 {
 public:
     /// @brief initiate the options from a given set
-    void InitFromTestConfiguration(const std::string cpu)
+    void InitFromTestConfiguration(const std::string device,
+	                               const std::string subdevice)
     {
-        m_cpu           = cpu;
+        m_device    = device;
+		m_subdevice = subdevice;
     }
 
     /// @brief implementing the interface's method, didn't add an option to return
@@ -135,8 +142,10 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
-            return m_cpu.c_str();
+		case CL_DEV_BACKEND_OPTION_DEVICE:
+			return m_device.length() > 0 ? m_device.c_str() : defaultValue;
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
+            return m_subdevice.c_str();
         default:
             return defaultValue;
         }
@@ -148,7 +157,8 @@ public:
         return false;
     }
 private:
-    std::string    m_cpu;
+    std::string    m_device;
+    std::string    m_subdevice;
 };
 
 
@@ -188,10 +198,12 @@ class SerializationServiceOptions: public ICLDevBackendOptions
 {
 public:
     /// @brief initiate the options from a given set
-    void InitFromTestConfiguration(const std::string   cpu,
+    void InitFromTestConfiguration(const std::string&  device,
+                                   const std::string&  subdevice,
                                    JITAllocator* jitAllocator)
     {
-        m_cpu           = cpu;
+        m_device        = device;
+        m_subdevice     = subdevice;
         m_JITAllocator  = jitAllocator;
     }
 
@@ -212,8 +224,10 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
-            return m_cpu.c_str();
+		case CL_DEV_BACKEND_OPTION_DEVICE:
+			return m_device.length() > 0 ? m_device.c_str() : defaultValue;
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
+            return m_subdevice.c_str();
         default:
             return defaultValue;
         }
@@ -234,7 +248,8 @@ public:
         }
     }
 private:
-    std::string    m_cpu;
+    std::string    m_device;
+    std::string    m_subdevice;
     JITAllocator * m_JITAllocator;
 };
 
@@ -251,7 +266,7 @@ public:
     /// @brief initiate the options from a given set
     void InitFromTestConfiguration(const std::string cpu)
     {
-        m_cpu           = cpu;
+        m_subdevice           = cpu;
     }
 
     /// @brief implementing the interface's method, didn't add an option to return
@@ -271,8 +286,8 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
-            return m_cpu.c_str();
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE:
+            return m_subdevice.c_str();
         default:
             return defaultValue;
         }
@@ -284,7 +299,7 @@ public:
         return false;
     }
 private:
-    std::string    m_cpu;
+    std::string    m_subdevice;
 };
 
 #endif // BW_OPTIONS_H

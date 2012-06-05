@@ -149,9 +149,9 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             return m_cpuFeatures.c_str();
         default:
             return defaultValue;
@@ -162,9 +162,9 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             m_cpu = std::string(value);
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             m_cpuFeatures = std::string(value);
         default:
             return;

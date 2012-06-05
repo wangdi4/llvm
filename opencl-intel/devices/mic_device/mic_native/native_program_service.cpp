@@ -180,11 +180,14 @@ const char* MICNativeBackendOptions::GetStringValue( int optionId, const char* d
 {
     switch (optionId)
     {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH:
-			return gMicExecEnvOptions.mic_cpu_arch_str;
+        case CL_DEV_BACKEND_OPTION_DEVICE:
+            return "mic";
 
-        case CL_DEV_BACKEND_OPTION_DUMPFILE:
-            assert(false && "OPTION NOT SUPPORTED ON DEVICE SIDE");
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE:
+            return gMicExecEnvOptions.mic_cpu_arch_str;
+
+        //case CL_DEV_BACKEND_OPTION_DUMPFILE:
+        //    assert(false && "OPTION NOT SUPPORTED ON DEVICE SIDE");
 
         default:
             return defaultValue;

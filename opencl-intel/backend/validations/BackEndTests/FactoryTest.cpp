@@ -45,10 +45,10 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
 
     //-----------------------------------------------------------------
     // create valid set of options
-    options.InitFromTestConfiguration("auto", "", TRANSPOSE_SIZE_AUTO, false);
+    options.InitFromTestConfiguration("", "auto", "", TRANSPOSE_SIZE_AUTO, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
     // call GetCompilationService with valid parameters - should success
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -58,10 +58,10 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
     //-----------------------------------------------------------------
     // create another set of valid options
     std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName(); 
-    options.InitFromTestConfiguration(currCPU, "", TRANSPOSE_SIZE_1, true);
+    options.InitFromTestConfiguration("", currCPU, "", TRANSPOSE_SIZE_1, true);
     EXPECT_TRUE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_1,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
     // call GetCompilationService with valid parameters - should success
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -72,10 +72,10 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
     // create another set of valid options - enabling special features
     const bool avx1Support = Utils::CPUDetect::GetInstance()->GetCPUId().HasAVX1();
     if(avx1Support){
-        options.InitFromTestConfiguration(currCPU, "+avx", TRANSPOSE_SIZE_16, false);
+        options.InitFromTestConfiguration("", currCPU, "+avx", TRANSPOSE_SIZE_16, false);
         EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-        EXPECT_TRUE(STRING_EQ("+avx",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
-        EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+        EXPECT_TRUE(STRING_EQ("+avx",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+        EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
         EXPECT_EQ(TRANSPOSE_SIZE_16,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
         // call GetCompilationService with valid parameters - should success
         ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -99,11 +99,11 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid set of options - unsupported architecture
-    options.InitFromTestConfiguration(ARCH_UNSUPPORTED, "", TRANSPOSE_SIZE_AUTO, false);
+    options.InitFromTestConfiguration("", ARCH_UNSUPPORTED, "", TRANSPOSE_SIZE_AUTO, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
+    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
-    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto")));
+    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto")));
     // call GetCompilationService with Options invalid - should fail
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
@@ -111,10 +111,10 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
 
     //-----------------------------------------------------------------
     // create another invalid set of options - unsupported transpose size
-    options.InitFromTestConfiguration("auto", "", (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED, false);
+    options.InitFromTestConfiguration("", "auto", "", (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_UNSUPPORTED,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO));
     // call GetCompilationService with Options invalid - should fail
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -126,8 +126,8 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
     /*
     options.InitFromTestConfiguration("auto", CPU_FEATURES_UNSUPPORTED, TRANSPOSE_SIZE_AUTO, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ(CPU_FEATURES_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    EXPECT_TRUE(STRING_EQ(CPU_FEATURES_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED));
     // call GetCompilationService with Options invalid - should fail
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -158,8 +158,8 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceCreation)
 
     //-----------------------------------------------------------------
     // create valid set of options
-    options.InitFromTestConfiguration("auto");
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    options.InitFromTestConfiguration(BW_CPU_DEVICE, "auto");
+    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     // call GetExecutionService with valid parameters - should success
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
@@ -168,8 +168,8 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceCreation)
     //-----------------------------------------------------------------
     // create another set of valid options
     std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName();
-    options.InitFromTestConfiguration(currCPU);
-    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    options.InitFromTestConfiguration("", currCPU);
+    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     // call GetExecutionService with valid parameters - should success
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
@@ -191,8 +191,8 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid opthions parameters - unsupported architecture
-    options.InitFromTestConfiguration(ARCH_UNSUPPORTED);
-    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto")));
+    options.InitFromTestConfiguration(ARCH_UNSUPPORTED, ARCH_UNSUPPORTED);
+    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto")));
     // call GetExecutionService with Options invalid - should fail
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
@@ -226,8 +226,8 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceCreation)
 
     //-----------------------------------------------------------------
     // create valid set of options
-    options.InitFromTestConfiguration(MIC_ARCH, pJITAllocator);
-    EXPECT_TRUE(STRING_EQ(MIC_ARCH,options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    options.InitFromTestConfiguration(BW_MIC_DEVICE, MIC_ARCH, pJITAllocator);
+    EXPECT_TRUE(STRING_EQ(MIC_ARCH,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     pJITAllocatorTemp = NULL;
     size = 0;
     options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
@@ -258,8 +258,8 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid set of options - unsupported architecture
-    options.InitFromTestConfiguration(ARCH_UNSUPPORTED, pJITAllocator);
-    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto")));
+    options.InitFromTestConfiguration(BW_CPU_DEVICE,ARCH_UNSUPPORTED, pJITAllocator);
+    EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto")));
     pJITAllocatorTemp = NULL;
     size = 0;
     options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
@@ -271,8 +271,8 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
 
     //-----------------------------------------------------------------
     // create another set of invalid options - CPU mode and not MIC mode
-    options.InitFromTestConfiguration("auto", pJITAllocator);
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    options.InitFromTestConfiguration(BW_CPU_DEVICE,"auto", pJITAllocator);
+    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     pJITAllocatorTemp = NULL;
     size = 0;
     options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
@@ -284,7 +284,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
 
     //-----------------------------------------------------------------
     // create another set of options - invalid jit allocator pointer
-    options.InitFromTestConfiguration(MIC_ARCH, NULL);
+    options.InitFromTestConfiguration(BW_MIC_DEVICE,MIC_ARCH, NULL);
     pJITAllocatorTemp = NULL;
     size = 0;
     options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);

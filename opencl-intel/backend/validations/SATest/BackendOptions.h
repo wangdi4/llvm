@@ -121,9 +121,9 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             return m_cpuFeatures.c_str();
         case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
             return m_DumpIRDir.c_str();
@@ -170,7 +170,7 @@ public:
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
         m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO);
-        m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto-remote");
+        m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "knf");
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
         m_fileName      = runConfig.GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "-");
@@ -216,12 +216,14 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+        case CL_DEV_BACKEND_OPTION_DEVICE :
+            return "mic";
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             return m_cpuFeatures.c_str();
-        case CL_DEV_BACKEND_OPTION_DUMPFILE :
-            return m_fileName.c_str();
+        //case CL_DEV_BACKEND_OPTION_DUMPFILE :
+        //    return m_fileName.c_str();
         default:
             return defaultValue;
         }
@@ -231,9 +233,9 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH :
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             m_cpu = std::string(value);
-        case CL_DEV_BACKEND_OPTION_CPU_FEATURES:
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             m_cpuFeatures = std::string(value);
         default:
             return;
@@ -355,6 +357,17 @@ public:
         {
             m_pTargetDesc = new char[m_targetDescSize];
             pExecutionService->GetTargetMachineDescription(m_pTargetDesc, m_targetDescSize);
+        }
+    }
+
+    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
+    {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_DEVICE :
+            return "mic";
+        default:
+            return CPUBackendOptions::GetStringValue(optionId, defaultValue);
         }
     }
 

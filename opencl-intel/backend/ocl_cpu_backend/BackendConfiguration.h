@@ -27,7 +27,7 @@ class ICLDevBackendOptions;
 
 namespace Utils
 {
-    OPERATION_MODE SelectOperationMode(const char* cpuArch);
+    DEVICE_TYPE SelectDevice(const char* cpuArch);
 }
 
 class GlobalCompilerConfig: public IGlobalCompilerConfig
@@ -70,10 +70,6 @@ public:
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
     bool IsValidTransposeSize();
-    /**
-     * Return operation mode for current architecture
-     */
-    OPERATION_MODE GetOperationMode();
 
     std::string GetCpuArch() const     { return m_cpuArch; }
     std::string GetCpuFeatures() const { return m_cpuFeatures; }

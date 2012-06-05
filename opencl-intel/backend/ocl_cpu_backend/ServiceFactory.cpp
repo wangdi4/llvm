@@ -60,6 +60,10 @@ File Name:  ServiceFactory.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+extern const char* CPU_DEVICE;
+extern const char* MIC_DEVICE;
+
+
 ServiceFactory* ServiceFactory::s_pInstance = NULL;
 
 ServiceFactory::ServiceFactory()
@@ -107,11 +111,11 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
         }
         
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
-        OPERATION_MODE mode = CPU_MODE;
+        DEVICE_TYPE mode = CPU_MODE;
         if(NULL != pBackendOptions)
         {
-            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-            mode = Utils::SelectOperationMode(cpuArch.c_str());
+            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            mode = Utils::SelectDevice(device.c_str());
         }
         if(MIC_MODE == mode)
         {
@@ -150,17 +154,17 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         }
 
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        OPERATION_MODE mode = CPU_MODE;
+        DEVICE_TYPE mode = CPU_MODE;
         if(NULL != pBackendOptions)
         {
-            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-            mode = Utils::SelectOperationMode(cpuArch.c_str());
+            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            mode = Utils::SelectDevice(device.c_str());
         }
 
         if(MIC_MODE == mode)
         {
         #ifdef ENABLE_SDE
-            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
+            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto");
             Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
             Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
             assert(cpuId.IsMIC() && "MIC mode chosen but CPU ID is not right");
@@ -198,11 +202,11 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
         }
 
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        OPERATION_MODE mode = CPU_MODE;
+        DEVICE_TYPE mode = CPU_MODE;
         if(NULL != pBackendOptions)
         {
-            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-            mode = Utils::SelectOperationMode(cpuArch.c_str());
+            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            mode = Utils::SelectDevice(device.c_str());
         }
 
         if(MIC_MODE == mode)
@@ -237,17 +241,18 @@ cl_dev_err_code ServiceFactory::GetImageService(
 {
     try
     {
-        OPERATION_MODE mode = CPU_MODE;
-        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
-        mode = Utils::SelectOperationMode(config.GetCpuArch().c_str());
+        //TODO:vlad
+        DEVICE_TYPE mode = CPU_MODE;
+
         if(NULL != pBackendOptions)
         {
-            std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, "auto");
-            mode = Utils::SelectOperationMode(cpuArch.c_str());
+            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            mode = Utils::SelectDevice(device.c_str());
         }
 
         /// WORKAROUND!! Wee need to skip built-in module load for
         /// Image compiler instance
+        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         config.SkipBuiltins();
        
         *ppBackendImageService = new ImageCallbackService(config, mode == CPU_MODE);

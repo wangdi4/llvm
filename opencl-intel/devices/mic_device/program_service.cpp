@@ -178,11 +178,14 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
 {
     switch (optionId)
     {
-        case CL_DEV_BACKEND_OPTION_CPU_ARCH:
+        case CL_DEV_BACKEND_OPTION_DEVICE:
+            return "mic";
+
+        case CL_DEV_BACKEND_OPTION_SUBDEVICE:
 			return get_mic_cpu_arch();
 
-        case CL_DEV_BACKEND_OPTION_DUMPFILE:
-            return m_dump_file_name.c_str();
+        //case CL_DEV_BACKEND_OPTION_DUMPFILE:
+        //    return m_dump_file_name.c_str();
 
         default:
             return defaultValue;

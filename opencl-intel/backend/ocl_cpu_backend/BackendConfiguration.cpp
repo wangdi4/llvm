@@ -33,20 +33,22 @@ File Name:  BackendConfiguration.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
+
+const char* CPU_DEVICE = "cpu";
+const char* MIC_DEVICE = "mic";
+
+
 const char* CPU_ARCH_AUTO = "auto";
 
 namespace Utils
 {
-    OPERATION_MODE SelectOperationMode(const char* cpuArch)
+    DEVICE_TYPE SelectDevice(const char* cpuArch)
     {
-        if(0 == strcmp(cpuArch, CPU_ARCH_AUTO)) return CPU_MODE;
-        if (!Intel::CPUId::IsValidCPUName(cpuArch))
-        {
-            throw Exceptions::DeviceBackendExceptionBase("Unsupported operation mode", CL_DEV_INVALID_OPERATION_MODE);
+        if(0 == strcmp(cpuArch, CPU_DEVICE)) return CPU_MODE;
+        if(0 == strcmp(cpuArch, MIC_DEVICE)) return MIC_MODE;
+
+        throw Exceptions::DeviceBackendExceptionBase("Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
         }
-        return (Intel::CPUId::IsMIC(Intel::CPUId::GetCPUByName(cpuArch))) 
-            ? MIC_MODE : CPU_MODE;
-    }
 }
 
 DEFINE_EXCEPTION(BadConfigException)
@@ -180,8 +182,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     {
         return;
     }
-    m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_ARCH, m_cpuArch.c_str());
-    m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_CPU_FEATURES, m_cpuFeatures.c_str());
+    m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, m_cpuArch.c_str());
+    m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
     m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
     m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);

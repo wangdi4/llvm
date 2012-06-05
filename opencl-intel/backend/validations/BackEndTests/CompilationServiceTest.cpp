@@ -126,7 +126,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // create valid ProgramBuilderBuild options
     ProgramBuilderBuildOptions buildOptions;
     buildOptions.InitFromTestConfiguration("auto");
-    EXPECT_TRUE(STRING_EQ("auto",buildOptions.GetStringValue(CL_DEV_BACKEND_OPTION_CPU_ARCH, "")));
+    EXPECT_TRUE(STRING_EQ("auto",buildOptions.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with kernels - valid options

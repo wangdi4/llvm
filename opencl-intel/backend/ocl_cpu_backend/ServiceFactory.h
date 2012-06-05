@@ -23,7 +23,7 @@ File Name:  ServiceFactory.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Backend Operation Modes enumeration
-enum OPERATION_MODE
+enum DEVICE_TYPE
 {
     CPU_MODE = 0,
     MIC_MODE
