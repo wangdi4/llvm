@@ -39,21 +39,6 @@
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
 
-#if defined(USE_GPA)   
-// This code was removed for the initial porting of TAL
-// to GPA 4.0 and might be used in later stages
-//#include "tal\tal.h"
-#endif
-
-#if defined(USE_GPA)
-// This code was removed for the initial porting of TAL
-// to GPA 4.0 and might be used in later stages
-//#ifdef _DEBUG
-//#pragma comment(lib, "gpasdk_dd_2008.lib")
-//#else
-//#pragma comment(lib, "gpasdk_dr_2008.lib")
-//#endif
-#endif
 using namespace Intel::OpenCL::Utils;
 
 //#define _EXTENDED_LOG
@@ -79,7 +64,7 @@ AtomicCounter	glTaskSchedCounter;
   #if defined(__WIN_XP__)
     #error "Windows XP is not supported"
   #endif
-__declspec(thread) ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {false, INVALID_WORKER_ID, NULL, NULL};
+__declspec(thread) ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {INVALID_WORKER_ID, NULL, NULL};
 #ifdef _DEBUG
 	typedef struct tagTHREADNAME_INFO
 	{
@@ -90,7 +75,7 @@ __declspec(thread) ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {false
 	} THREADNAME_INFO;
 #endif
 #else
-__thread ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {false, INVALID_WORKER_ID, NULL, NULL};
+__thread ThreadIDAssigner::thread_local_data_t t_ThreadIDInfo = {INVALID_WORKER_ID, NULL, NULL};
 #endif
 
 // -----------------------------------------------------------
@@ -139,6 +124,7 @@ void ThreadIDAllocator::ReleaseId(unsigned int uiId)
 // Initialize static value
 Intel::OpenCL::Utils::AtomicPointer<ThreadIDAllocator> ThreadIDAssigner::m_spIdAllocator;
 ThreadIDAssigner* ThreadIDAssigner::_this = NULL;
+Intel::OpenCL::Utils::OclReaderWriterLock ThreadIDAssigner::m_IDAllocatorLock;
 
 //Implementation of the interface to be notified on thread addition/removal from the working thread pool
 ThreadIDAssigner::ThreadIDAssigner() : tbb::task_scheduler_observer()
@@ -154,7 +140,7 @@ ThreadIDAssigner::~ThreadIDAssigner()
 
 unsigned int ThreadIDAssigner::GetWorkerID()
 {
-	return t_ThreadIDInfo.bIsAvailable ? t_ThreadIDInfo.uiWorkerId : INVALID_WORKER_ID;
+	return t_ThreadIDInfo.uiWorkerId;
 }
 
 void ThreadIDAssigner::SetWorkerID(unsigned int id)
@@ -200,24 +186,30 @@ void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
 {
 	unsigned int uiWorkerId = 0;
 
-	assert(!t_ThreadIDInfo.bIsAvailable && "Thread record should be empty");
-	assert((NULL==t_ThreadIDInfo.pIDAllocator) && "IDAllocator expected to be NULL");
+	//assert((NULL==t_ThreadIDInfo.pIDAllocator) && "IDAllocator expected to be NULL");
 
 	if ( is_worker && (INVALID_WORKER_ID == GetWorkerID()))
 	{
-		t_ThreadIDInfo.pIDAllocator = m_spIdAllocator;
-		uiWorkerId = m_spIdAllocator->GetNextAvailbleId();
+		m_IDAllocatorLock.EnterRead();
+		ThreadIDAllocator* pAllocator = m_spIdAllocator;
+		if (NULL == pAllocator)
+		{
+			m_IDAllocatorLock.LeaveRead();
+			return;
+		}
+		t_ThreadIDInfo.pIDAllocator = pAllocator;
+		uiWorkerId = pAllocator->GetNextAvailbleId();
+		m_IDAllocatorLock.LeaveRead();
 		assert((uiWorkerId>0) && "Worker ID shall be > 0");
 		SetScheduler(WORKER_SCHEDULER_ID);
 	}
 	SetWorkerID(uiWorkerId);
-	t_ThreadIDInfo.bIsAvailable = true;
 
 #ifdef _EXTENDED_LOG
 	LOG_INFO("------->%s %d was joined as %d\n", is_worker ? "worker" : "master",
 		GetThreadId(GetCurrentThread()), uiWorkerId);
 #endif
-
+	
 #if defined(WIN32) && defined (_DEBUG)
 	if ( !is_worker )
 	{
@@ -246,13 +238,11 @@ void ThreadIDAssigner::on_scheduler_exit( bool is_worker )
 	LOG_INFO("------->%s %d was left as %d\n", is_worker ? "worker" : "master",
 		GetThreadId(GetCurrentThread()), GetWorkerID());
 #endif
-	assert((is_worker || t_ThreadIDInfo.bIsAvailable) && "For master thread record should be available");
 	if ( (is_worker)  && (INVALID_WORKER_ID != GetWorkerID()))
 	{
 		ReleaseWorkerID();
 		SetScheduler(WORKER_SCHEDULER_ID);
 	}
-	t_ThreadIDInfo.bIsAvailable = false;
 
 #if defined(WIN32) && defined (_DEBUG)
 	if ( !is_worker )
@@ -344,11 +334,14 @@ void ReleaseSchedulerForMasterThread()
 	}
 
 	static_cast<TBBTaskExecutor*>(GetTaskExecutor())->ReleaseResources();
-	
-	ThreadIDAllocator* prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
-	if ( NULL == prev )
+    ThreadIDAllocator* prev;
+    {
+		OclAutoWriter CS(&ThreadIDAssigner::m_IDAllocatorLock);
+	    prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
+	}
+	if (NULL == prev)
 	{
-		assert(0 && "The old ThreadID allocator is NULL");
+	    assert(0 && "The old ThreadID allocator is NULL");
 		return;
 	}
 
@@ -364,16 +357,19 @@ void ReleaseSchedulerForMasterThread()
 		refCount = prev->GetRefCount();
 		uiTimeOutCount++;
 	}
+  	//ThreadIDAssigner::SetThreadIdAllocator(prev);
 
-	assert((1==refCount) && "RefCount of 1 is expected");
+	//assert((1==refCount) && "RefCount of 1 is expected");
 	if ( 1 == refCount )
 	{
 		// We release resources only when all worker threads were shut down,
 		// Otherwise resource leaks and memory corruption inside TBB
 		ThreadIDAssigner::StopObservation();
 	}
-
-	prev->ReleaseId(INVALID_WORKER_ID);
+	if ( NULL != prev )
+	{
+		prev->ReleaseId(INVALID_WORKER_ID);
+	}
 }
 
 #ifdef __LOCAL_RANGES__
@@ -1173,10 +1169,6 @@ protected:
 TBBTaskExecutor::TBBTaskExecutor() :
 	m_pGrpContext(NULL), m_lActivateCount(0), m_pExecutorList(NULL)
 {
-#if defined(USE_GPA)   
-    m_pGPAscheduler = NULL;
-#endif
-
 	INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
 
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
@@ -1255,24 +1247,6 @@ bool TBBTaskExecutor::Activate()
 
 	ThreadIDAssigner::SetScheduler(NULL);
 
-    // if using GPA, initialize the "global" task scheduler init
-    // Otherwise, initialize this master thread's observer
-#if defined(USE_GPA)   
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-	    if (NULL == m_pGPAscheduler)
-	    {
-		    m_pGPAscheduler = new tbb::task_scheduler_init(gWorker_threads);		
-			if ( NULL == m_pGPAscheduler )
-			{
-				LOG_ERROR(TEXT("%s"), "Failed to allocate tbb::task_scheduler_init");
-				return false;
-			}
-	    }
-    }
-    else
-    {
-#endif
     InitSchedulerForMasterThread(-1, true);
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( NULL == pScheduler )
@@ -1280,9 +1254,6 @@ bool TBBTaskExecutor::Activate()
 		LOG_ERROR(TEXT("%s"), "Failed to initilize task scheduler");
 		return false;
 	}
-#if defined(USE_GPA)   
-    }
-#endif
 
 	++m_lActivateCount;
 	return true;
@@ -1332,8 +1303,10 @@ void TBBTaskExecutor::ReleaseResources()
 	assert(NULL!=m_pGrpContext);
 	if ( NULL != m_pGrpContext )
 	{
-		m_pGrpContext->cancel_group_execution();
-		delete m_pGrpContext;
+		// Commenting out the delete as a work-around
+		// Currently deleting the context while worker threads are executing causes crashes
+		//m_pGrpContext->cancel_group_execution();
+		//delete m_pGrpContext;
 		m_pGrpContext = NULL;
 	}
 }

@@ -90,12 +90,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		struct thread_local_data_t
 		{
-			bool						bIsAvailable;
 			unsigned int				uiWorkerId;
 			tbb::task_scheduler_init*	pScheduler;
 			ThreadIDAllocator*			pIDAllocator;
 		};
-
+		static Intel::OpenCL::Utils::OclReaderWriterLock m_IDAllocatorLock;
 	};
 
 	class TBBTaskExecutor : public ITaskExecutor
@@ -137,11 +136,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// Independent tasks will be executed by this task group
 		ITaskList*							m_pExecutorList;
-#if defined(USE_GPA)
-		// When using GPA, keep an extra task_scheduler_init to keep the same worker pool even after CPU device shutdown
-		// This is a deliberate memory leak and is never freed
-		tbb::task_scheduler_init*			m_pGPAscheduler;
-#endif
 		ThreadIDAssigner*					m_threadPoolChangeObserver;
 		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
 	};
