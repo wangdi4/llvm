@@ -88,8 +88,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											int *        OUT pErrcodeRet) = 0;
 
 		/******************************************************************************************
-		* Function: 	CreateFromGLTexture2D    
-		* Description:	creates an OpenCL 2D image object from an OpenGL 2D texture object, or a 
+		* Function: 	CreateFromGLTexture    
+		* Description:	creates an OpenCL image object from an OpenGL 2D/3D/Others texture objects, or a 
 		*				single face of an OpenGL cubemap texture object..
 		* Arguments:	clContext [in] -	a valid OpenCL context created from an OpenGL context
 		*				clMemFlags [in] -	is a bit-field that is used to specify usage 
@@ -151,70 +151,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			June 2009
 		******************************************************************************************/
-		virtual cl_mem CreateFromGLTexture2D(	cl_context    IN clContext,
-												cl_mem_flags  IN clMemFlags,
-												GLenum        IN glTextureTarget,
-												GLint         IN glMipLevel,
-												GLuint        IN glTexture,
-												cl_int *     OUT pErrcodeRet) = 0;
-
-		/******************************************************************************************
-		* Function: 	CreateFromGLTexture3D    
-		* Description:	creates an OpenCL 3D image object from an OpenGL 3D texture object
-		* Arguments:	clContext [in] -	a valid OpenCL context created from an OpenGL context
-		*				clMemFlags [in] -	is a bit-field that is used to specify usage 
-		*									information. Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY 
-		*									and CL_MEM_READ_WRITE values can be used
-		*				glTextureTarget [in] -	must be GL_TEXTURE_3D. glTextureTarget is used 
-		*									only to define the image type of texture. No reference
-		*									to a bound GL texture object is made or implied by this
-		*									parameter
-		*				glMipLevel [in] -	is the mipmap level to be used
-		*				glTexture [in] -	is the name of a GL 3D texture object. The texture 
-		*									object must be a complete texture as per OpenGL rules
-		*									on texture completeness. The texture format and 
-		*									dimensions defined by OpenGL for the specified miplevel
-		*									of the texture will be used to create the 3D image 
-		*									object. Only GL texture objects with an internal format
-		*									that maps to appropriate image channel order and data 
-		*									type specified in tables 5.4 and 5.5 can be used to 
-		*									create the 3D image object
-		*				pErrcodeRet [in] -	will return an appropriate error code as described 
-		*									below. If errcode_ret is NULL, no error code is 
-		*									returned
-		* Return value:	a valid non-zero OpenCL image object and pErrcodeRet is set to CL_SUCCESS
-		*				if the image object is created successfully. Otherwise, it returns a NULL
-		*				value with one of the following error values
-		*				CL_INVALID_CONTEXT		if context is not a valid context or was not 
-		*										created from a GL context
-		*				CL_INVALID_VALUE		if values specified in clMemFlags are not valid 
-		*										or if value specified in glTarget is not one of 
-		*										the values specified in the description of 
-		*										glTexture
-		*				CL_INVALID_MIPLEVEL		if glMipLevel is less than the value of levelbase
-		*										(for OpenGL implementations) or zero (for OpenGL
-		*										ES implementations); or greater than the value of
-		*										q (for both OpenGL and OpenGL ES). levelbase and q
-		*										are defined for the texture in section 3.8.10 
-		*										(Texture Completeness) of the OpenGL 2.1 
-		*										specification and section 3.7.10 of the OpenGL ES 
-		*										2.0
-		*				CL_INVALID_MIPLEVEL		if glMipLevel is greather than zero and the OpenGL
-		*										implementation does not support creating from 
-		*										non-zero mipmap levels
-		*				CL_INVALID_GL_OBJECT	if texture is not a GL texture object whose type 
-		*										matches texture_target, if the specified miplevel 
-		*										of texture is not defined, or if the width, height
-		*										or depth of the specified miplevel is zero
-		*				CL_INVALID_IMAGE_FORMAT_DESCRIPTOR	if the OpenGL texture internal format
-		*													does not map to a supported OpenCL 
-		*													image format
-		*				CL_OUT_OF_HOST_MEMORY	if there is a failure to allocate resources 
-		*										required by the OpenCL implementation on the host
-		* Author:		Uri Levy
-		* Date:			June 2009
-		******************************************************************************************/
-		virtual cl_mem CreateFromGLTexture3D(	cl_context    IN clContext,
+		virtual cl_mem CreateFromGLTexture(	cl_context    IN clContext,
 												cl_mem_flags  IN clMemFlags,
 												GLenum        IN glTextureTarget,
 												GLint         IN glMipLevel,

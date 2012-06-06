@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "gl_mem_objects.h"
+#include "gl_texture2D.h"
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -30,26 +30,18 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class GLRenderBuffer : public GLTexture
+	class GLRenderBuffer : public GLTexture2D
 	{
 	public:
-		GLRenderBuffer::GLRenderBuffer(Context * pContext, cl_mem_object_type clObjType):
-			GLTexture(pContext, clObjType)
-			{
-			}
+		GLRenderBuffer::GLRenderBuffer(Context * pContext, cl_gl_object_type clglObjType);
 		~GLRenderBuffer();
 
 		cl_err_code AcquireGLObject();
 		cl_err_code ReleaseGLObject();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_RENDERBUFFER;}
 
 		// MemoryObject Interface
 		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
-
-		size_t GetSlicePitchSize() const  { return 0;}
-
-        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 	protected:
 		// do not implement

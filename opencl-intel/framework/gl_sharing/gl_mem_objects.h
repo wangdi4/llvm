@@ -22,8 +22,9 @@
 
 #include "MemoryAllocator/GraphicsApiMemoryObject.h"
 #include "gl_context.h"
-
+#include "gl_shr_utils.h"
 #include <cl_synch_objects.h>
+
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -33,25 +34,16 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	struct cl_image_format_ext
-	{
-		cl_image_format clType;	// Original CL format
-		bool			isGLExt; // is true if GL extended format
-	};
-
-	cl_image_format_ext ImageFrmtConvertGL2CL(GLuint glFrmt);
-	GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt);
-	GLenum GetTargetBinding( GLenum target );
-	GLenum GetBaseTarget( GLenum target );
-	GLenum GetGLType(cl_channel_type clType);
-	GLenum GetGLFormat(cl_channel_type clType, bool isExt);
+	class GLContext;
 
 	class GLMemoryObject : public GraphicsApiMemoryObject
 	{
 	public:
 		virtual cl_err_code AcquireGLObject() = 0;
 		virtual cl_err_code ReleaseGLObject() = 0;
-		virtual cl_gl_object_type GetObjectType() = 0;
+		
+		cl_gl_object_type GetObjectType() const { return m_clglObjectType;}
+
 		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
 
 		// Memory Object interface
@@ -70,33 +62,44 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			size_t          szSlicePitch = 0);
 		size_t GetSize() const {return m_stMemObjSize;}
 
+		// Texture desription structure. This structure is used to pass parameters of the user texture.
+		// A pointer to this structure is passed to Initialize() method via pHostPtr parameter
+		struct GLTextureDescriptor
+		{
+			GLenum	glTextureTarget;
+			GLint	glMipLevel;
+			GLuint	glTexture;
+		};
+
 	protected:
-		GLMemoryObject(Context * pContext);
+		GLMemoryObject(Context * pContext, cl_gl_object_type lglObjectType);
 
 		cl_err_code	SetGLMemFlags();
 		
-		GLuint	m_glObjHandle;
-		GLuint	m_glMemFlags;
+		GLuint		m_glObjHandle;
+		GLuint		m_glMemFlags;
+		GLContext*	m_pGLContext;
 
+		cl_gl_object_type m_clglObjectType;
 	};
 
 	class GLTexture : public GLMemoryObject
 	{
 	public:
-		  cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
+		cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 
-		  // Texture desription structure. This structure is used to pass parameters of the user texture.
-		  // A pointer to this structure is passed to Initialize() method via pHostPtr parameter
-		  struct GLTextureDescriptor
-		  {
-			  GLenum	glTextureTarget;
-			  GLint		glMipLevel;
-			  GLuint	glTexture;
-		  };
+		// MemoryObject Interface
+		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
+			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
 
-		size_t GetPixelSize() const { return m_szElementSize;}
+		cl_err_code AcquireGLObject();
+		cl_err_code ReleaseGLObject();
+
+		size_t GetPixelSize() const { return m_stElementSize;}
+
 		// Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
-		size_t GetRowPitchSize() const { return m_szImageRowPitch; }
+		size_t GetRowPitchSize() const { return m_stPitches[0]; }
+		size_t GetSlicePitchSize() const { return m_stPitches[1]; }
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, MemoryObject** ppBuffer) {return CL_INVALID_OPERATION;}
@@ -105,20 +108,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 
+		virtual GLint CalculateTextureDimensions() = 0;
+
 	protected:
-		GLTexture(Context * pContext, cl_mem_object_type clObjType):
-		GLMemoryObject(pContext),  m_glFramebuffer(0), m_glPBO(0) {}
+		GLTexture(Context * pContext, cl_gl_object_type clglObjType):
+		GLMemoryObject(pContext, clglObjType),  m_glFramebuffer(0), m_glPBO(0) {}
 		~GLTexture();
+
+		// Virtual function required for appropriate handling of 1D and 2D textures
+		virtual void BindFramebuffer2Texture() = 0;
+		virtual void TexSubImage() = 0;
 
 		cl_err_code CreateChildObject();
 
 		GLTextureDescriptor	m_txtDescriptor;
 		cl_image_format_ext m_clFormat;
-		size_t				m_szElementSize;
+		size_t				m_stElementSize;
 
-		size_t	m_szImageWidth;
-		size_t	m_szImageHeight;
-		size_t	m_szImageRowPitch;
+		size_t				m_stDimensions[3];
+		size_t				m_stPitches[2];
+
+		GLenum	m_glReadBackFormat;
+		GLenum	m_glReadBackType;
 
 		GLint	m_glInternalFormat;
 		GLint	m_glBorder;

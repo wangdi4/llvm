@@ -1698,7 +1698,11 @@ cl_err_code NDRangeKernelCommand::Init()
 			IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)pArgValuesCurrentLocation;
             MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
 			res = GetMemObjectDescriptor(pMemObj, devObjSrc);
-            assert( CL_SUCCESS == res );
+			if ( CL_FAILED(res) )
+			{
+				assert( 0 && "GetMemObjectDescriptor() supposed to success" );
+				return res;
+			}
         }
         else if( pArg->IsSampler() )
         {

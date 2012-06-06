@@ -866,6 +866,19 @@ cl_mem CL_API_CALL clCreateFromGLBuffer(cl_context   context,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLBuffer(context, flags, bufobj, errcode_ret));
 }
 
+SET_ALIAS(clCreateFromGLTexture);
+REGISTER_EXTENSION_FUNCTION(clCreateFromGLTexture, clCreateFromGLTexture);
+cl_mem CL_API_CALL clCreateFromGLTexture(cl_context   context,
+							   cl_mem_flags flags,
+							   GLenum       target,
+							   GLint        miplevel,
+							   GLuint       texture,
+							   cl_int *     errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
+}
+
+// Old 1.1 functions
 SET_ALIAS(clCreateFromGLTexture2D);
 REGISTER_EXTENSION_FUNCTION(clCreateFromGLTexture2D, clCreateFromGLTexture2D);
 cl_mem CL_API_CALL clCreateFromGLTexture2D(cl_context   context,
@@ -875,7 +888,7 @@ cl_mem CL_API_CALL clCreateFromGLTexture2D(cl_context   context,
 							   GLuint       texture,
 							   cl_int *     errcode_ret)
 {
-	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture2D(context, flags, target, miplevel, texture, errcode_ret));
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
 }
 
 SET_ALIAS(clCreateFromGLTexture3D);
@@ -887,7 +900,7 @@ cl_mem CL_API_CALL clCreateFromGLTexture3D(cl_context   context,
 							   GLuint       texture,
 							   cl_int *     errcode_ret)
 {
-	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture3D(context, flags, target, miplevel, texture, errcode_ret));
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
 }
 
 SET_ALIAS(clCreateFromGLRenderbuffer);

@@ -1370,39 +1370,3 @@ cl_err_code	GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szParam
     }
     return CL_SUCCESS;
 }
-
-cl_err_code Image1DBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
-{
-    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
-    {
-        return CL_INVALID_VALUE;
-    }    
-    if (CL_IMAGE_BUFFER == clParamName)
-    {
-        if (NULL != pParamValue && szParamValueSize < sizeof(cl_mem))
-        {
-            return CL_INVALID_VALUE;
-        }
-        if (NULL != pParamValue)
-        {
-            *(cl_mem*)pParamValue = m_pBuffer->GetHandle();
-        }
-        if (NULL != pszParamValueSizeRet)
-        {
-            *pszParamValueSizeRet = sizeof(cl_mem);
-        }
-        return CL_SUCCESS;
-    }
-    return GenericMemObject::GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
-}
-
-void Image1DBuffer::SetBuffer(GenericMemObject* pBuffer)
-{
-    m_pBuffer = pBuffer;
-    pBuffer->AddPendency(this);
-}
-
-Image1DBuffer::~Image1DBuffer()
-{
-    m_pBuffer->RemovePendency(this);
-}

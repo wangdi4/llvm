@@ -21,7 +21,6 @@
 #pragma once
 
 #include "gl_mem_objects.h"
-#include "gl_context.h"
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -31,39 +30,25 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class GLBuffer : public GLMemoryObject
+	class GLTexture1D : public GLTexture
 	{
 	public:
-		GLBuffer(Context* pContext, cl_gl_object_type clglObjType);
+		GLTexture1D(Context * pContext, cl_gl_object_type clglObjType);
 
-		cl_err_code AcquireGLObject();
-		cl_err_code ReleaseGLObject();
-
-		// MemoryObject Interface
 		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
 
-		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer);
-
-		size_t GetPixelSize() const {return 1;}
-		// Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
-		size_t GetRowPitchSize() const { return 0;};
-		size_t GetSlicePitchSize() const  { return 0;};
+		GLint CalculateTextureDimensions();
 
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
-        cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
-
 	protected:
-		cl_err_code CreateChildObject();
-
 		// do not implement
-        GLBuffer(const GLBuffer&);
-        GLBuffer& operator=(const GLBuffer&);
+        GLTexture1D(const GLTexture1D&);
+        GLTexture1D& operator=(const GLTexture1D&);
 
-		GLenum	m_glBufferTarget;
-		GLenum	m_glBufferTargetBinding;
+		void BindFramebuffer2Texture();
+		void TexSubImage();
 	};
 
 }}}

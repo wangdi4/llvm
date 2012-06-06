@@ -33,36 +33,44 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_BUFFER, GLBuffer)
 
+GLBuffer::GLBuffer(Context* pContext, cl_gl_object_type clglObjType) :
+	GLMemoryObject(pContext, clglObjType)
+{
+    m_uiNumDim = 1;
+	m_glBufferTarget = CL_GL_OBJECT_BUFFER == clglObjType ? GL_ARRAY_BUFFER : GL_TEXTURE_BUFFER;
+	m_glBufferTargetBinding = GetTargetBinding(m_glBufferTarget);
+	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
+}
+
 cl_err_code GLBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 					   const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
 {
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
-
 	m_glObjHandle = (GLuint)pHostPtr;
+
 	// Retrieve open GL buffer size
 	GLint	currBuff;
 	GLint	buffSize;
 	GLint	glErr = 0;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
+
+	// Retrieve open GL buffer size
+	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
 	glErr |= glGetError();
-	pGLContext->glBindBuffer(GL_ARRAY_BUFFER, m_glObjHandle);
+
+	m_pGLContext->glBindBuffer(m_glBufferTarget, m_glObjHandle);
 	glErr |= glGetError();
-	pGLContext->glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &buffSize);
+	m_pGLContext->glGetBufferParameteriv(m_glBufferTarget, GL_BUFFER_SIZE, &buffSize);
 	glErr |= glGetError();
-	pGLContext->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+	m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 	glErr |= glGetError();
 	if ( 0 != glErr )
 	{
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	m_clMemObjectType = CL_MEM_OBJECT_BUFFER;
-
 	m_stMemObjSize = buffSize;
 
 	m_clFlags = clMemFlags;
 
-    m_uiNumDim = 1;
 	SetGLMemFlags();
 
 	return CL_SUCCESS;
@@ -103,39 +111,45 @@ cl_err_code GLBuffer::AcquireGLObject()
 	m_muAcquireRelease.Lock();
 
 	GLint	currBuff;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, m_glObjHandle);
-	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(GL_ARRAY_BUFFER, m_glMemFlags);
+	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
+	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, m_glObjHandle);
+	void *pBuffer = m_pGLContext->glMapBuffer(m_glBufferTarget, m_glMemFlags);
 	if ( NULL == pBuffer )
 	{
-		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+		m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
 
 	// Now we need to create child object
 	MemoryObject* pChild;
-	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, CL_MEM_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
-		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
+		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
 		SetAcquireState(res);
 		return res;
 	}
 
-	res = pChild->Initialize(m_clFlags, NULL, 1, &m_stMemObjSize, NULL, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
+	const cl_image_format* pCLFormat = NULL;
+	if ( CL_GL_OBJECT_TEXTURE_BUFFER == m_clglObjectType )
+	{
+		pCLFormat = &m_clImageFormat;
+	}
+
+	res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, NULL, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
-		((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
+		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
 		SetAcquireState(CL_OUT_OF_RESOURCES);
 		return CL_OUT_OF_RESOURCES;
 	}
 
 	m_pChildObject.exchange(pChild);
 
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+	m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 
 	return CL_SUCCESS;
 }
@@ -152,11 +166,11 @@ cl_err_code GLBuffer::ReleaseGLObject()
 	pChild->Release();
 
 	GLint	currBuff;
-	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, m_glObjHandle);
+	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
+	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, m_glObjHandle);
 
-	((GLContext*)m_pContext)->glUnmapBuffer(GL_ARRAY_BUFFER);
-	((GLContext*)m_pContext)->glBindBuffer(GL_ARRAY_BUFFER, currBuff);
+	((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
+	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
 
 	return CL_SUCCESS;
 }

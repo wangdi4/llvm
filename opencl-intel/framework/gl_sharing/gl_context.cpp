@@ -33,7 +33,12 @@
 #include <cl\cl_gl.h>
 #include <cl_utils.h>
 
+#ifdef WIN32
 #pragma comment (lib, "opengl32.lib")
+#define GL_GET_PROC_ADDRESS wglGetProcAddress
+#else
+#define GL_GET_PROC_ADDRESS glXGetProcAddressARB
+#endif
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -41,7 +46,7 @@ using namespace Intel::OpenCL::Utils;
 GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData) :
-	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData)
+	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData), m_hGLBackupCntx(NULL)
 {
     if (NULL == hGLCtx)
     {
@@ -78,29 +83,52 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
         m_ppExplicitRootDevices[idx]->SetGLProperties(m_hGLCtx, m_hDC);
     }
 	// Init GL extension functions
+	this->glBindBuffer = (pFnglBindBuffer*)GL_GET_PROC_ADDRESS("glBindBuffer");
+	this->glMapBuffer = (pFnglMapBuffer*)GL_GET_PROC_ADDRESS("glMapBuffer");
+	this->glUnmapBuffer = (pFnglUnmapBuffer*)GL_GET_PROC_ADDRESS("glUnmapBuffer");
+	this->glGetBufferParameteriv = (pFnglGetBufferParameteriv*)GL_GET_PROC_ADDRESS("glGetBufferParameteriv");
+	this->glBufferData = (pFnglBufferData*)GL_GET_PROC_ADDRESS("glBufferData");
+	this->glTexImage3D = (pFnglTexImage3D*)GL_GET_PROC_ADDRESS("glTexImage3D");
+	this->glGetRenderbufferParameterivEXT = (pFnglGetRenderbufferParameterivEXT*)GL_GET_PROC_ADDRESS("glGetRenderbufferParameterivEXT");
+	this->glBindRenderbufferEXT = (pFnglBindRenderbufferEXT*)GL_GET_PROC_ADDRESS("glBindRenderbufferEXT");
+	this->glGenFramebuffersEXT = (pFnglGenFramebuffersEXT*)GL_GET_PROC_ADDRESS("glGenFramebuffersEXT");
+	this->glDeleteFramebuffersEXT = (pFnglDeleteFramebuffersEXT*)GL_GET_PROC_ADDRESS("glDeleteFramebuffersEXT");
+	this->glBindFramebufferEXT = (pFnglBindFramebufferEXT*)GL_GET_PROC_ADDRESS("glBindFramebufferEXT");
+	this->glFramebufferRenderbufferEXT = (pFnglFramebufferRenderbufferEXT*)GL_GET_PROC_ADDRESS("glFramebufferRenderbufferEXT");
+	this->glFramebufferTexture1DEXT = (pFnglFramebufferTextureXDEXT*)GL_GET_PROC_ADDRESS("glFramebufferTexture1DEXT");
+	this->glFramebufferTexture2DEXT = (pFnglFramebufferTextureXDEXT*)GL_GET_PROC_ADDRESS("glFramebufferTexture2DEXT");
+	this->glCheckFramebufferStatusEXT = (pFnglCheckFramebufferStatusEXT*)GL_GET_PROC_ADDRESS("glCheckFramebufferStatusEXT");
+	this->glGenBuffers = (pFnglGenBuffers*)GL_GET_PROC_ADDRESS("glGenBuffers");
+	this->glDeleteBuffers = (pFnglDeleteBuffers*)GL_GET_PROC_ADDRESS("glDeleteBuffers");
 #ifdef WIN32
-	this->glBindBuffer = (pFnglBindBuffer*)wglGetProcAddress("glBindBuffer");
-	this->glMapBuffer = (pFnglMapBuffer*)wglGetProcAddress("glMapBuffer");
-	this->glUnmapBuffer = (pFnglUnmapBuffer*)wglGetProcAddress("glUnmapBuffer");
-	this->glGetBufferParameteriv = (pFnglGetBufferParameteriv*)wglGetProcAddress("glGetBufferParameteriv");
-	this->glBufferData = (pFnglBufferData*)wglGetProcAddress("glBufferData");
-	this->glTexImage3D = (pFnglTexImage3D*)wglGetProcAddress("glTexImage3D");
-	this->glGetRenderbufferParameterivEXT = (pFnglGetRenderbufferParameterivEXT*)wglGetProcAddress("glGetRenderbufferParameterivEXT");
-	this->glBindRenderbufferEXT = (pFnglBindRenderbufferEXT*)wglGetProcAddress("glBindRenderbufferEXT");
-	this->glGenFramebuffersEXT = (pFnglGenFramebuffersEXT*)wglGetProcAddress("glGenFramebuffersEXT");
-	this->glDeleteFramebuffersEXT = (pFnglDeleteFramebuffersEXT*)wglGetProcAddress("glDeleteFramebuffersEXT");
-	this->glBindFramebufferEXT = (pFnglBindFramebufferEXT*)wglGetProcAddress("glBindFramebufferEXT");
-	this->glFramebufferRenderbufferEXT = (pFnglFramebufferRenderbufferEXT*)wglGetProcAddress("glFramebufferRenderbufferEXT");
-	this->glFramebufferTexture2DEXT = (pFnglFramebufferTexture2DEXT*)wglGetProcAddress("glFramebufferTexture2DEXT");
-	this->glCheckFramebufferStatusEXT = (pFnglCheckFramebufferStatusEXT*)wglGetProcAddress("glCheckFramebufferStatusEXT");
-	this->glGenBuffers = (pFnglGenBuffers*)wglGetProcAddress("glGenBuffers");
-	this->glDeleteBuffers = (pFnglDeleteBuffers*)wglGetProcAddress("glDeleteBuffers");
+	this->wglCreateContextAttribsARB = (pFnwglCreateContextAttribsARB*)GL_GET_PROC_ADDRESS("wglCreateContextAttribsARB");
+	if ( NULL == this->wglCreateContextAttribsARB )
+	{
+		*pclErr = CL_OUT_OF_RESOURCES;
+        return;
+	}
 #endif
 
+	// Need allocate new one
+	m_hGLBackupCntx = wglCreateContextAttribsARB((HDC)m_hDC, (HGLRC)m_hGLCtx, NULL);
+	if ( NULL == m_hGLBackupCntx )
+	{
+		*pclErr = CL_OUT_OF_RESOURCES;
+        return;
+	}
 }
 
 GLContext::~GLContext()
 {
+#ifdef WIN32
+	// Remove previously allocated GL contexts
+	if ( NULL != m_hGLBackupCntx )
+	{
+		wglDeleteContext(m_hGLBackupCntx);
+		m_hGLBackupCntx = NULL;
+	}
+#endif
+
 	// All device passed, update GL info
     for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
     {
@@ -138,7 +166,7 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Mem
 	return CL_SUCCESS;
 }
 
-cl_err_code GLContext::CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage)
+cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, MemoryObject* *ppImage)
 {
 
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
@@ -147,56 +175,22 @@ cl_err_code GLContext::CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextu
 	assert ( NULL != ppImage );
 
 	MemoryObject * pImage;
-	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_TEXTURE2D, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
+	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new GLTexture2D, returned: %S"), ClErrTxt(clErr));
 		return clErr;
 	}
 
-	GLTexture::GLTextureDescriptor txtDesc;
+	GLMemoryObject::GLTextureDescriptor txtDesc;
 	txtDesc.glTexture = glTexture;
 	txtDesc.glMipLevel = glMipLevel;
 	txtDesc.glTextureTarget = glTextureTarget;
 
-	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
+	clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %S", ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
-	}
-
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
-
-	*ppImage = pImage;
-	return CL_SUCCESS;
-}
-
-cl_err_code GLContext::CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage)
-{
-	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
-		clMemFlags, glTextureTarget, glMipLevel, glTexture, ppImage);
-
-	assert ( NULL != ppImage );
-
-	MemoryObject * pImage;
-	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_TEXTURE3D, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Error creating new GLTexture3D, returned: %S"), ClErrTxt(clErr));
-		return clErr;
-	}
-
-	GLTexture::GLTextureDescriptor txtDesc;
-	txtDesc.glTexture = glTexture;
-	txtDesc.glMipLevel = glMipLevel;
-	txtDesc.glTextureTarget = glTextureTarget;
-
-	clErr = pImage->Initialize(clMemFlags, NULL, 3, NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}
@@ -234,4 +228,16 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 
 	*ppImage = pImage;
 	return CL_SUCCESS;
+}
+
+HGLRC GLContext::GetBackupGLCntx()
+{
+	m_muGLBkpCntx.Lock();
+
+	return m_hGLBackupCntx;
+}
+
+void GLContext::RecycleBackupGLCntx(HGLRC hGLRC)
+{
+	m_muGLBkpCntx.Unlock();
 }

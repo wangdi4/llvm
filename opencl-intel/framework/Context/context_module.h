@@ -187,8 +187,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// IContextGL methods
 		///////////////////////////////////////////////////////////////////////////////////////////
 		virtual cl_mem CreateFromGLBuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glBufObj, int * pErrcodeRet);
-		virtual cl_mem CreateFromGLTexture2D(cl_context clContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_int * pErrcodeRet);
-		virtual cl_mem CreateFromGLTexture3D(cl_context clContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_int * pErrcodeRet);
+		virtual cl_mem CreateFromGLTexture(cl_context clContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_int * pErrcodeRet);
 		virtual cl_mem CreateFromGLRenderbuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glRenderBuffer, cl_int * pErrcodeRet);
 		virtual cl_int GetGLObjectInfo(cl_mem clMemObj, cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
 		virtual cl_int GetGLTextureInfo(cl_mem clMemObj, cl_gl_texture_info clglPramName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);

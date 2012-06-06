@@ -31,162 +31,17 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-
-struct fmt_cvt
+GLMemoryObject::GLMemoryObject(Context * pContext, cl_gl_object_type clglObjectType) : 
+GraphicsApiMemoryObject(pContext), m_glObjHandle(NULL), m_glMemFlags(0), m_clglObjectType(clglObjectType)
 {
-	cl_image_format_ext		clType;
-	GLuint					glInternalType;
-};
-
-fmt_cvt formatConvert[] =
-{
-	{{{CL_RGBA, CL_UNSIGNED_INT8}, false}, GL_RGBA},
-	{{{CL_RGBA, CL_UNORM_INT8}, false}, GL_RGBA8},
-	{{{CL_RGBA, CL_UNORM_INT16}, false}, GL_RGBA16},
-	{{{CL_RGBA, CL_SIGNED_INT8}, true}, GL_RGBA8I},
-	{{{CL_RGBA, CL_SIGNED_INT16}, true}, GL_RGBA16I},
-	{{{CL_RGBA, CL_SIGNED_INT32}, true}, GL_RGBA32I},
-	{{{CL_RGBA, CL_UNSIGNED_INT8}, true}, GL_RGBA8UI},
-	{{{CL_RGBA, CL_UNSIGNED_INT16}, true}, GL_RGBA16UI},
-	{{{CL_RGBA, CL_UNSIGNED_INT32}, true}, GL_RGBA32UI},
-	{{{CL_RGBA, CL_HALF_FLOAT}, true}, GL_RGBA16F},
-	{{{CL_RGBA, CL_FLOAT}, false}, GL_RGBA32F},
-	{{{0,0},false}, 0}
-};
-
-cl_image_format_ext Intel::OpenCL::Framework::ImageFrmtConvertGL2CL(GLuint glFrmt)
-{
-	unsigned int i=0;
-	while (formatConvert[i].glInternalType != 0)
-	{
-		if (glFrmt == formatConvert[i].glInternalType)
-		{
-			return formatConvert[i].clType;
-		}
-		++i;
-	}
-	return formatConvert[i].clType;
-}
-
-GLuint Intel::OpenCL::Framework::ImageFrmtConvertCL2GL(cl_image_format clFrmt)
-{
-	unsigned int i=0;
-	while (formatConvert[i].glInternalType != 0)
-	{
-		if ( (clFrmt.image_channel_order == formatConvert[i].clType.clType.image_channel_order) &&
-			 (clFrmt.image_channel_data_type == formatConvert[i].clType.clType.image_channel_data_type) )
-		{
-			return formatConvert[i].glInternalType;
-		}
-		++i;
-	}
-	return formatConvert[i].glInternalType;
-}
-
-GLenum Intel::OpenCL::Framework::GetTargetBinding( GLenum target )
-{
-	switch( target )
-	{
-	case GL_TEXTURE_2D:
-		return GL_TEXTURE_BINDING_2D;
-	case GL_TEXTURE_RECTANGLE:
-		return GL_TEXTURE_BINDING_RECTANGLE;
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:	
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:	
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:	
-		return GL_TEXTURE_BINDING_CUBE_MAP;
-	default:
-		return target;
-	}
-}
-
-GLenum Intel::OpenCL::Framework::GetBaseTarget( GLenum target )
-{
-	switch( target )
-	{
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:	
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:	
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:	
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:	
-		return GL_TEXTURE_CUBE_MAP;
-	default:
-		return target;
-	}
-}
-
-GLenum Intel::OpenCL::Framework::GetGLType(cl_channel_type clType)
-{
-	switch (clType)
-	{
-	case CL_UNORM_INT8:
-		return GL_UNSIGNED_BYTE;
-	case CL_UNORM_INT16:
-		return GL_UNSIGNED_SHORT;
-	case CL_SIGNED_INT8:
-		return GL_BYTE;
-	case CL_SIGNED_INT16:
-		return GL_SHORT;
-	case CL_SIGNED_INT32:
-		return GL_INT;
-	case CL_UNSIGNED_INT8:
-		return GL_UNSIGNED_BYTE;
-	case CL_UNSIGNED_INT16:
-		return GL_UNSIGNED_SHORT;
-	case CL_UNSIGNED_INT32:
-		return GL_UNSIGNED_INT;
-	case CL_FLOAT:
-		return GL_FLOAT;
-	}
-	return 0;
-}
-
-GLenum Intel::OpenCL::Framework::GetGLFormat(cl_channel_type clType, bool isExt)
-{
-	if ( isExt )
-	{
-		return GL_RGBA_INTEGER_EXT;
-	}
-	else
-	{
-		return GL_RGBA;
-	}
-
-	/*
-	switch (clType)
-	{
-	case CL_UNORM_INT8:
-	case CL_UNORM_INT16:
-		return GL_RGBA;
-	case CL_SIGNED_INT8:
-	case CL_SIGNED_INT16:
-	case CL_SIGNED_INT32:
-	case CL_UNSIGNED_INT8:
-	case CL_UNSIGNED_INT16:
-	case CL_UNSIGNED_INT32:
-	case CL_HALF_FLOAT:
-		return GL_RGBA_INTEGER_EXT;
-	case CL_FLOAT:
-		return GL_RGBA;
-	}
-	*/
-	return 0;
-}
-
-GLMemoryObject::GLMemoryObject(Context * pContext) : 
-GraphicsApiMemoryObject(pContext), m_glObjHandle(NULL), m_glMemFlags(0)
-{
+	m_pGLContext = static_cast<GLContext*>(pContext);
 }
 
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
 {
 	if ( NULL != pglObjectType)
 	{
-		*pglObjectType = GetObjectType();
+		*pglObjectType = m_clglObjectType;
 	}
 
 	if ( NULL != pglObjectName)
@@ -237,16 +92,14 @@ cl_err_code	GLMemoryObject::SetGLMemFlags()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 GLTexture::~GLTexture()
 {
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
-
 	if ( 0 != m_glFramebuffer )
 	{
-		pGLContext->glDeleteFramebuffersEXT( 1, &m_glFramebuffer );
+		m_pGLContext->glDeleteFramebuffersEXT( 1, &m_glFramebuffer );
 	}
 
 	if ( 0 != m_glPBO )
 	{
-		pGLContext->glDeleteBuffers( 1, &m_glPBO );
+		m_pGLContext->glDeleteBuffers( 1, &m_glPBO );
 	}
 
 }
@@ -267,19 +120,19 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 		break;
 	case CL_IMAGE_ELEMENT_SIZE:
 		szSize = sizeof(size_t);
-		pValue = &m_szElementSize;
+		pValue = &m_stElementSize;
 		break;
 	case CL_IMAGE_ROW_PITCH:
 		szSize = sizeof(size_t);
-		pValue = &m_szImageRowPitch;
+		pValue = &m_stPitches[0];
 		break;
 	case CL_IMAGE_WIDTH:
 		szSize = sizeof(size_t);
-		pValue = &m_szImageWidth;
+		pValue = &m_stDimensions[0];
 		break;
 	case CL_IMAGE_HEIGHT:
 		szSize = sizeof(size_t);
-		pValue = &m_szImageHeight;
+		pValue = &m_stDimensions[1];
 		break;
 	default:
         return CL_INVALID_VALUE;
@@ -301,7 +154,6 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 	}
 	
 	return CL_SUCCESS;
-
 }
 
 cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
@@ -311,8 +163,8 @@ cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
     {
         return CL_INVALID_VALUE;
     }
-    pszRegion[0] = m_szImageWidth;
-    pszRegion[1] = m_szImageHeight;
+    pszRegion[0] = m_stDimensions[0];
+    pszRegion[1] = m_stDimensions[1];
     return CL_SUCCESS;
 }
 
@@ -360,8 +212,6 @@ cl_err_code GLTexture::CreateChildObject()
 	GLint glErr = 0;
 	GLint pboBinding;
 
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
-
 	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
 		glBindingType = GL_PIXEL_PACK_BUFFER_BINDING_ARB;
@@ -376,7 +226,7 @@ cl_err_code GLTexture::CreateChildObject()
 
 	// read pixels from framebuffer to PBO
 	// glReadPixels() should return immediately, the transfer is in background by DMA
-	pGLContext->glBindBuffer(glBind, m_glPBO);
+	m_pGLContext->glBindBuffer(glBind, m_glPBO);
 	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(glBind, m_glMemFlags);
 	if ( NULL == pBuffer )
 	{
@@ -387,7 +237,7 @@ cl_err_code GLTexture::CreateChildObject()
 
 	// Now we need to create child object
 	MemoryObject* pChild;
-	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, CL_MEM_OBJECT_IMAGE2D, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
@@ -396,8 +246,8 @@ cl_err_code GLTexture::CreateChildObject()
 		return res;
 	}
 
-	size_t dim[] = {m_szImageWidth, m_szImageHeight};
-	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_szImageRowPitch, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
+	size_t dim[] = {m_stDimensions[0], m_stDimensions[1]};
+	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_stPitches[0], pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
@@ -411,6 +261,239 @@ cl_err_code GLTexture::CreateChildObject()
 	m_pChildObject.exchange(pChild);
 
 	((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+
+	return CL_SUCCESS;
+}
+
+cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
+			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
+{
+	GLTextureDescriptor* pTxtDescriptor = (GLTextureDescriptor*)pHostPtr;
+
+	// Retrieve open GL texture information
+	GLint	currTexture;
+	GLenum	targetBinding = GetTargetBinding(pTxtDescriptor->glTextureTarget);
+	GLint glErr = 0;
+	glGetIntegerv(targetBinding, &currTexture);
+	glErr |= glGetError();
+
+	GLenum glBaseTarget = GetBaseTarget(pTxtDescriptor->glTextureTarget);
+	glBindTexture(glBaseTarget, pTxtDescriptor->glTexture);
+	glErr |= glGetError();
+
+	m_txtDescriptor = *pTxtDescriptor;
+	m_glObjHandle = m_txtDescriptor.glTexture;
+
+	glGetTexLevelParameteriv( pTxtDescriptor->glTextureTarget, pTxtDescriptor->glMipLevel, GL_TEXTURE_BORDER, &m_glBorder );
+	glErr |= glGetError();
+	glGetTexLevelParameteriv( pTxtDescriptor->glTextureTarget, pTxtDescriptor->glMipLevel, GL_TEXTURE_INTERNAL_FORMAT, &m_glInternalFormat );
+	glErr |= glGetError();
+
+	m_clFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
+	if ( 0 == m_clFormat.clType.image_channel_order)
+	{
+		glBindTexture(glBaseTarget, currTexture);
+		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+	}
+
+	m_stElementSize = clGetPixelBytesCount(&m_clFormat.clType);
+
+	m_glReadBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
+	m_glReadBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
+
+	glErr |= CalculateTextureDimensions();
+
+	glBindTexture(glBaseTarget, currTexture);
+	glErr |= glGetError();
+
+	if ( 0 != glErr)
+	{
+		return CL_INVALID_GL_OBJECT;
+	}
+
+	if (0 == m_glInternalFormat)
+	{
+		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+	}
+
+	m_clFlags = clMemFlags;
+	SetGLMemFlags();
+
+	return CL_SUCCESS;
+}
+
+cl_err_code GLTexture::AcquireGLObject()
+{
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+
+	if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
+	{
+		// We have already acquired object
+		return CL_SUCCESS;
+	}
+
+	m_muAcquireRelease.Lock();
+
+	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
+	{
+		GLint	currFBO;
+		GLint glErr = 0;
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currFBO);
+		glErr |= glGetError();
+
+		// Create and bind a frame buffer to texture
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, m_glFramebuffer );
+		if( glGetError() != GL_NO_ERROR )
+		{
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+
+		BindFramebuffer2Texture();
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+		if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER_EXT ) != GL_FRAMEBUFFER_COMPLETE_EXT )
+		{
+			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+
+		GLint pboBinding;
+		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
+
+		// read pixels from framebuffer to PBO
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+		GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
+		m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+		// glReadPixels() should return immediately, the transfer is in background by DMA
+		glReadPixels(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, 0);
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+
+		// Bind Old FBO
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+
+	}
+	else if ( m_clFlags & CL_MEM_WRITE_ONLY )
+	{
+		GLint pboBinding;
+		glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING_ARB, &pboBinding);
+
+		// bind PBO to update texture source
+		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_glPBO);
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+
+		// Note that glMapBufferARB() causes sync issue.
+		// If GPU is working with this buffer, glMapBufferARB() will wait(stall)
+		// until GPU to finish its job. To avoid waiting (idle), you can call
+		// first glBufferDataARB() with NULL pointer before glMapBufferARB().
+		// If you do that, the previous data in PBO will be discarded and
+		// glMapBufferARB() returns a new allocated pointer immediately
+		// even if GPU is still working with the previous data.
+		m_pGLContext->glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_stMemObjSize, NULL, GL_STREAM_DRAW_ARB);
+		if( glGetError() != GL_NO_ERROR )
+		{
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			SetAcquireState(CL_INVALID_OPERATION);
+			return CL_INVALID_OPERATION;
+		}
+
+		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
+	}
+
+	SetAcquireState(CL_NOT_READY);
+
+	return CL_SUCCESS;
+}
+
+cl_err_code GLTexture::ReleaseGLObject()
+{
+	MemoryObject* pChild = m_pChildObject.exchange(NULL);
+
+	if ( NULL == pChild )
+	{
+		return CL_INVALID_OPERATION;
+	}
+
+	pChild->Release();
+
+	if ( (m_clFlags & CL_MEM_WRITE_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
+	{
+		GLenum pboBinding = m_clFlags & CL_MEM_WRITE_ONLY ? GL_PIXEL_UNPACK_BUFFER_BINDING_ARB : GL_PIXEL_PACK_BUFFER_BINDING_ARB;
+		GLenum pboTarget = m_clFlags & CL_MEM_WRITE_ONLY ? GL_PIXEL_UNPACK_BUFFER_ARB : GL_PIXEL_PACK_BUFFER_ARB;
+
+		GLint pboCurrent;
+		glGetIntegerv(pboBinding, &pboCurrent);
+
+		// bind PBO to update texture source
+		m_pGLContext->glBindBuffer(pboTarget, m_glPBO);
+		m_pGLContext->glUnmapBuffer(pboTarget);
+
+		// If texture is read/write we need to remap the PBO as an UNPACK buffer
+		if ( CL_MEM_READ_WRITE == m_clFlags )
+		{
+			// Bind old PACK buffer
+			m_pGLContext->glBindBuffer(pboTarget, pboCurrent);
+
+			pboBinding = GL_PIXEL_UNPACK_BUFFER_BINDING_ARB;
+			pboTarget = GL_PIXEL_UNPACK_BUFFER_ARB;
+			glGetIntegerv(pboBinding, &pboCurrent);
+
+			// now bind PBO as UNPACK to update texture source
+			m_pGLContext->glBindBuffer(pboTarget, m_glPBO);
+		}
+
+		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
+
+		GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
+		GLint	currTexture;
+		glGetIntegerv(targetBinding, &currTexture);
+		glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
+
+		TexSubImage();
+
+		m_pGLContext->glBindBuffer(pboTarget, pboCurrent);
+		glBindTexture(glBaseTarget, currTexture);
+	}
+	else if ( m_clFlags & CL_MEM_READ_ONLY )
+	{
+		GLint pboBinding;
+		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
+
+		// bind PBO to update texture source
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+
+		m_pGLContext->glUnmapBuffer(GL_PIXEL_PACK_BUFFER_ARB);
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+	}
 
 	return CL_SUCCESS;
 }

@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,12 +14,12 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
 
-#include "gl_texture2D.h"
+#include "gl_texture_array.h"
 
 #include <gl\GL.h>
 #include <gl\glext.h>
@@ -29,23 +29,38 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// GLTexture2D
+// GLTexture3D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture2D)
-GLTexture2D::GLTexture2D(Context * pContext, cl_gl_object_type clglObjType) :
-	GLTexture1D(pContext, clglObjType)
+//REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture3D)
+GLTextureArray::GLTextureArray(Context * pContext, cl_gl_object_type clglObjType) :
+	GLTexture3D(pContext, clglObjType)
 {
-	m_uiNumDim = 2;
-	m_clMemObjectType = CL_GL_OBJECT_TEXTURE1D_ARRAY == clglObjType ? CL_MEM_OBJECT_IMAGE1D_ARRAY : CL_MEM_OBJECT_IMAGE2D;
+	switch (clglObjType)
+	{
+	case CL_GL_OBJECT_TEXTURE1D_ARRAY:
+		m_clMemObjectType = CL_MEM_OBJECT_IMAGE1D_ARRAY;
+		m_uiNumDim = 2;
+		break;
+	case CL_GL_OBJECT_TEXTURE2D_ARRAY:
+		m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+		m_uiNumDim = 3;
+		break;
+	default:
+		assert(0 && "Got unexpected CL_GL_XX image type");
+		m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+	}
 }
 
-GLint GLTexture2D::CalculateTextureDimensions()
+GLint GLTextureArray::CalculateTextureDimensions()
 {
-	GLint realWidth, realHeight, glErr = 0;
+	GLint realWidth, realHeight, realDepth, glErr = 0;
 	glGetTexLevelParameteriv( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, GL_TEXTURE_WIDTH, &realWidth );
 	glErr |= glGetError();
 	glGetTexLevelParameteriv( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, GL_TEXTURE_HEIGHT, &realHeight );
+	glErr |= glGetError();
+	glGetTexLevelParameteriv( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, GL_TEXTURE_DEPTH, &realDepth );
 	glErr |= glGetError();
 
 	if ( 0 == glErr)
@@ -54,30 +69,32 @@ GLint GLTexture2D::CalculateTextureDimensions()
 		m_stDimensions[1] = realHeight;
 
 		m_stPitches[0] = m_stDimensions[0] * m_stElementSize;
+		if ( 3 == m_uiNumDim )
+		{
+			m_stDimensions[2] = realDepth;
+			m_stPitches[1] = m_stPitches[0]*m_stDimensions[1];
+		} else
+		{
+			m_stDimensions[2] = 1;
+			m_stPitches[1] = 0;
+		}
 
+		assert(m_uiNumDim>=2 && "m_uiNumDim expected to be at least 2");
 		// create buffer for image data
-		m_stMemObjSize = m_stPitches[0] * m_stDimensions[1];
+		m_stMemObjSize = m_stPitches[m_uiNumDim-2]*m_stDimensions[m_uiNumDim-1];
 	}
 
 	return 	glErr;
 }
 
-cl_err_code GLTexture2D::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+cl_err_code GLTextureArray::GetDimensionSizes(size_t* pszRegion) const
 {
-    if (pszOrigin[0] + pszRegion[0] > m_stDimensions[0] ||
-        pszOrigin[1] + pszRegion[1] > m_stDimensions[1])
+    assert(pszRegion);
+    if (NULL == pszRegion)
     {
         return CL_INVALID_VALUE;
     }
+    GLTexture::GetDimensionSizes(pszRegion);
+    pszRegion[2] = m_stDimensions[2];
     return CL_SUCCESS;
-}
-
-void GLTexture2D::BindFramebuffer2Texture()
-{
-	m_pGLContext->glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, m_txtDescriptor.glTextureTarget, m_txtDescriptor.glTexture, m_txtDescriptor.glMipLevel);
-}
-
-void GLTexture2D::TexSubImage()
-{
-	glTexSubImage2D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, 0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, NULL);
 }

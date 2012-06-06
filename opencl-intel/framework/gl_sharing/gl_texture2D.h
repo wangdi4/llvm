@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "gl_mem_objects.h"
+#include "gl_texture1D.h"
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -30,21 +30,12 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-	class GLTexture2D : public GLTexture
+	class GLTexture2D : public GLTexture1D
 	{
 	public:
-		GLTexture2D(Context * pContext,cl_mem_object_type clObjType) :
-		  GLTexture(pContext, clObjType) {}
+		GLTexture2D(Context * pContext, cl_gl_object_type clglObjType);
 
-		cl_err_code AcquireGLObject();
-		cl_err_code ReleaseGLObject();
-		cl_gl_object_type GetObjectType() {return CL_GL_OBJECT_TEXTURE2D;}
-
-		// MemoryObject Interface
-		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
-			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
-
-		size_t GetSlicePitchSize() const  { return 0;}
+		GLint CalculateTextureDimensions();
 
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
@@ -52,6 +43,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// do not implement
         GLTexture2D(const GLTexture2D&);
         GLTexture2D& operator=(const GLTexture2D&);
+
+		void BindFramebuffer2Texture();
+		void TexSubImage();
+
 	};
 
 }}}

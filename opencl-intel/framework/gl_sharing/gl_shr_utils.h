@@ -22,10 +22,30 @@
 
 #include "cl_types.h"
 
+#ifdef WIN32
+#include <Windows.h>
+#endif
+#include <gl\gl.h>
+
 #include <cl\cl.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+struct cl_image_format_ext
+{
+	cl_image_format clType;	// Original CL format
+	bool			isGLExt; // is true if GL extended format
+};
+
+cl_image_format_ext ImageFrmtConvertGL2CL(GLuint glFrmt);
+GLuint ImageFrmtConvertCL2GL(cl_image_format clFrmt);
+GLenum GetTargetBinding( GLenum target );
+GLenum GetBaseTarget( GLenum target );
+GLenum GetGLType(cl_channel_type clType);
+GLenum GetGLFormat(cl_channel_type clType, bool isExt);
+
 cl_int ParseGLContextOptions(const cl_context_properties * properties, cl_context_properties *hGL,  cl_context_properties *hDC,
                              bool* pbGLSharingSupported = NULL);
+
+
 }}}

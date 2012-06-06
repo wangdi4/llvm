@@ -21,9 +21,11 @@
 #pragma once
 
 #include "context.h"
-#ifdef _MSC_VER
+#ifdef WIN32
 #include <Windows.h> // Required for gl.h
+#include <cl_synch_objects.h>
 #endif
+
 #include "gl/gl.h"
 #include "gl/glext.h"
 
@@ -41,10 +43,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	typedef void APIENTRY pFnglDeleteFramebuffersEXT(GLsizei n, GLuint* framebuffers);
 	typedef void APIENTRY pFnglBindFramebufferEXT(GLenum target, GLuint framebuffer);
 	typedef void APIENTRY pFnglFramebufferRenderbufferEXT(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);;
-	typedef void APIENTRY pFnglFramebufferTexture2DEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+	typedef void APIENTRY pFnglFramebufferTextureXDEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+	typedef void APIENTRY pFnglFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLint level);
 	typedef GLenum APIENTRY pFnglCheckFramebufferStatusEXT(GLenum target);
 	typedef void APIENTRY pFnglGenBuffers(GLsizei n, GLuint *buffers); 
 	typedef void APIENTRY pFnglDeleteBuffers(GLsizei n, const GLuint *   buffers);
+	typedef HGLRC APIENTRY pFnwglCreateContextAttribsARB(HDC hDC, HGLRC hShareContext, const int *attribList);
+
 
 
 	class GLContext : public Context
@@ -59,8 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// create GL buffer object
 		cl_err_code CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, MemoryObject ** ppBuffer);
-		cl_err_code CreateGLTexture2D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage);
-		cl_err_code CreateGLTexture3D(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, MemoryObject* *ppImage);
+		cl_err_code CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, MemoryObject* *ppImage);
 		cl_err_code CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRenderBuffer, MemoryObject* *ppImage);
 
 		pFnglBindBuffer*			glBindBuffer;
@@ -75,14 +79,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		pFnglDeleteFramebuffersEXT*	glDeleteFramebuffersEXT;
 		pFnglBindFramebufferEXT*	glBindFramebufferEXT;
 		pFnglFramebufferRenderbufferEXT* glFramebufferRenderbufferEXT;
-		pFnglFramebufferTexture2DEXT*	glFramebufferTexture2DEXT;
+		pFnglFramebufferTextureXDEXT*	glFramebufferTexture1DEXT;
+		pFnglFramebufferTextureXDEXT*	glFramebufferTexture2DEXT;
 		pFnglCheckFramebufferStatusEXT*	glCheckFramebufferStatusEXT;
 		pFnglGenBuffers*				glGenBuffers;
 		pFnglDeleteBuffers*				glDeleteBuffers;
+#ifdef WIN32
+		pFnwglCreateContextAttribsARB*	wglCreateContextAttribsARB;
 
+		// Blocks execution, until GLBackup context becomes available
+		HGLRC	GetBackupGLCntx();
+		void	RecycleBackupGLCntx(HGLRC hGLRC);
+#endif
 	protected:
 		~GLContext();
 		cl_context_properties m_hDC;
 		cl_context_properties m_hGLCtx;
+
+#ifdef WIN32
+		Intel::OpenCL::Utils::OclMutex	m_muGLBkpCntx;
+		HGLRC							m_hGLBackupCntx;
+#endif
 	};
 }}}

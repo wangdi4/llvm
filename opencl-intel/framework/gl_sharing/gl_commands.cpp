@@ -60,21 +60,33 @@ cl_err_code SyncGLObjects::Init()
 cl_err_code SyncGLObjects::Execute()
 {
     // Attach GL context to thread
-    HGLRC hGL = wglGetCurrentContext();
-    HDC hDC = wglGetCurrentDC();
+    HGLRC hCurrentGL = wglGetCurrentContext();
+    HDC hCurrentDC = wglGetCurrentDC();
+	HGLRC hCntxGL = (HGLRC)m_pContext->GetGLCtx();
+	HDC hCntxDC = (HDC)m_pContext->GetDC();
+	HGLRC hBackupGL = NULL;
 
-    if ( ((HGLRC)m_pContext->GetGLCtx() == hGL) &&
-        ((HDC)m_pContext->GetDC() == hDC))
+    if ( ( hCntxGL != hCurrentGL) || ( hCntxDC != hCurrentDC))
     {
-        // We are in the same thread as the context, so execute directly
-        ExecGLSync(this);
-        return CL_SUCCESS;
+		hBackupGL = m_pContext->GetBackupGLCntx();
+		if ( NULL == hBackupGL )
+		{
+			return CL_OUT_OF_RESOURCES;
+		}
+
+		wglMakeCurrent(hCntxDC, hBackupGL);
     }
 
-    // Set event to RED
-    m_Event.SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-    QueueUserAPC((PAPCFUNC)ExecGLSync, m_hCallingThread, (ULONG_PTR)this);
-    return CL_NOT_READY;
+    // We are in the same thread as the context, so execute directly
+    ExecGLSync(this);
+
+	if ( NULL != hBackupGL )
+	{
+		wglMakeCurrent(hCurrentDC, hCurrentGL);
+		m_pContext->RecycleBackupGLCntx(hBackupGL);
+	}
+
+    return CL_SUCCESS;
 }
 
 void SyncGLObjects::ExecGLSync(SyncGraphicsApiObjects* _this)

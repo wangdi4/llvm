@@ -36,7 +36,8 @@ public:
     /**
      * Constructor
      */
-    Image1DBuffer(Context* pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType) { }
+    Image1DBuffer(Context* pContext, cl_mem_object_type clObjType) :
+	  GenericMemObject(pContext, clObjType),  m_pBuffer(NULL) {}
 
     /**
      * Destructor

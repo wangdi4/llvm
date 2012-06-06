@@ -1874,7 +1874,35 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 #endif
 }
 
-cl_mem ContextModule::CreateFromGLTexture2D(cl_context clContext, 
+cl_mem_object_type ConvertGLTargetToCLObject(GLenum glTextureTarget)
+{
+	switch(glTextureTarget)
+	{
+	case GL_TEXTURE_1D:
+		return CL_GL_OBJECT_TEXTURE1D;
+	case GL_TEXTURE_BUFFER:
+		return CL_GL_OBJECT_TEXTURE_BUFFER;
+	
+	case GL_TEXTURE_2D:case GL_TEXTURE_RECTANGLE:
+	case GL_TEXTURE_CUBE_MAP_POSITIVE_X: case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z: case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y: case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+		return CL_GL_OBJECT_TEXTURE2D;
+
+	case GL_TEXTURE_3D:
+		return CL_GL_OBJECT_TEXTURE3D;
+
+	case GL_TEXTURE_1D_ARRAY:
+		return CL_GL_OBJECT_TEXTURE1D_ARRAY;
+
+	case GL_TEXTURE_2D_ARRAY:
+		return CL_GL_OBJECT_TEXTURE2D_ARRAY;
+	}
+
+	return CL_INVALID_GL_OBJECT;
+}
+
+cl_mem ContextModule::CreateFromGLTexture(cl_context clContext, 
 							 cl_mem_flags clMemFlags, 
 							 GLenum glTextureTarget, 
 							 GLint glMipLevel, 
@@ -1882,13 +1910,14 @@ cl_mem ContextModule::CreateFromGLTexture2D(cl_context clContext,
 							 cl_int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_DEBUG(TEXT("Enter CreateFromGLTexture2D (clContext=%d, clFlags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%, pErrcodeRet=%d)"), 
+	LOG_DEBUG(TEXT("Enter CreateFromGLTexture (clContext=%d, clFlags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%, pErrcodeRet=%d)"), 
 		clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture, pErrcodeRet);
 
 	Context * pContext = NULL;
 	MemoryObject * pMemObj = NULL;
 
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_TEXTURE2D, 0, 0, 0, 0, 0, 0, NULL);
+	cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType, 0, 0, 0, 0, 0, 0, NULL);
     if (CL_FAILED(clErr))
     {
         if (NULL != pErrcodeRet)
@@ -1925,93 +1954,11 @@ cl_mem ContextModule::CreateFromGLTexture2D(cl_context clContext,
         }
         return CL_INVALID_HANDLE;
     }
-	clErr = pGLContext->CreateGLTexture2D(clMemFlags, glTextureTarget, glMipLevel, glTexture, &pMemObj);
+
+	clErr = pGLContext->CreateGLTexture(clMemFlags, glTextureTarget, glMipLevel, glTexture, clObjType, &pMemObj);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("pGLContext->CreateGLTexture2D(%d, %d, %d, %d, %d) = %S"), clMemFlags, glTextureTarget, glMipLevel, glTexture,
-			&pMemObj, ClErrTxt(clErr))
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
-		}
-		return CL_INVALID_HANDLE;
-	}
-	clErr = m_mapMemObjects.AddObject(pMemObj, false);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
-			if (NULL != pErrcodeRet)
-			{
-				*pErrcodeRet = CL_ERR_OUT(clErr);
-			}
-			return CL_INVALID_HANDLE;
-	}
-	if (NULL != pErrcodeRet)
-	{
-		*pErrcodeRet = CL_SUCCESS;
-	}
-	return pMemObj->GetHandle();
-#else
-	assert (0 && "NOT Implemented on Linux");
-  return CL_INVALID_HANDLE; 
-#endif
-}
-
-cl_mem ContextModule::CreateFromGLTexture3D(cl_context clContext, 
-							 cl_mem_flags clMemFlags, 
-							 GLenum glTextureTarget, 
-							 GLint glMipLevel, 
-							 GLuint glTexture, 
-							 cl_int * pErrcodeRet)
-{
-#if defined (_WIN32)  //TODO GL support for Linux
-	LOG_DEBUG(TEXT("Enter CreateFromGLTexture3D (clContext=%d, clFlags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%, pErrcodeRet=%d)"), 
-		clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture, pErrcodeRet);
-
-	Context * pContext = NULL;
-	MemoryObject * pMemObj = NULL;
-
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_TEXTURE3D, 0, 0, 0, 0, 0, 0, NULL);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
-	if (CL_FAILED(clErr) || NULL == pContext)
-	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
-			if (NULL != pErrcodeRet)
-			{
-				*pErrcodeRet = CL_INVALID_CONTEXT;
-			}
-			return CL_INVALID_HANDLE;
-	}
-
-	GLContext* pGLContext = dynamic_cast<GLContext*>(pContext);
-	if ( NULL == pGLContext )
-	{
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_INVALID_CONTEXT;
-		}
-		return CL_INVALID_HANDLE;
-	}
-    if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-	clErr = pGLContext->CreateGLTexture3D(clMemFlags, glTextureTarget, glMipLevel, glTexture, &pMemObj);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("pGLContext->CreateGLTexture3D(%d, %d, %d, %d, %d) = %S"), clMemFlags, glTextureTarget, glMipLevel, glTexture,
 			&pMemObj, ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{

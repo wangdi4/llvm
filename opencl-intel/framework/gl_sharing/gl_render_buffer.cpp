@@ -33,6 +33,14 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_RENDERBUFFER, GLRenderBuffer)
 
+GLRenderBuffer::GLRenderBuffer(Context * pContext, cl_gl_object_type clglObjType):
+	GLTexture2D(pContext, clglObjType)
+{
+	m_uiNumDim = 2;
+
+	m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D;
+}
+
 cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
 {
@@ -43,23 +51,21 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 
 	m_glObjHandle = (GLuint)pHostPtr;
 
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
-
-	pGLContext->glBindRenderbufferEXT(GL_RENDERBUFFER, m_glObjHandle);
+	m_pGLContext->glBindRenderbufferEXT(GL_RENDERBUFFER, m_glObjHandle);
 
 	GLint realWidth, realHeight;
-	pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &realWidth);
+	m_pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &realWidth);
 	glErr |= glGetError();
-	pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &realHeight);
+	m_pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &realHeight);
 	glErr |= glGetError();
-	pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_INTERNAL_FORMAT_EXT, &m_glInternalFormat);
+	m_pGLContext->glGetRenderbufferParameterivEXT(GL_RENDERBUFFER, GL_RENDERBUFFER_INTERNAL_FORMAT_EXT, &m_glInternalFormat);
 	glErr |= glGetError();
     if (0 == realWidth || 0 == realHeight)
     {
         return CL_INVALID_GL_OBJECT;
     }
 
-	pGLContext->glBindRenderbufferEXT(GL_RENDERBUFFER, currBuffer);
+	m_pGLContext->glBindRenderbufferEXT(GL_RENDERBUFFER, currBuffer);
 	glErr |= glGetError();
 	if ( 0 != glErr )
 	{
@@ -67,7 +73,7 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 	}
 
 	// Now we need to create PBO
-	pGLContext->glGenBuffers(1, &m_glPBO);
+	m_pGLContext->glGenBuffers(1, &m_glPBO);
 	if ( 0 != glGetError() )
 	{
 		return CL_OUT_OF_RESOURCES;
@@ -77,7 +83,7 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 	SetGLMemFlags();
 
 	// Now we need to create a frame buffer
-	pGLContext->glGenFramebuffersEXT( 1, &m_glFramebuffer );
+	m_pGLContext->glGenFramebuffersEXT( 1, &m_glFramebuffer );
 	if ( 0 != glGetError() )
 	{
 		return CL_INVALID_GL_OBJECT;
@@ -87,11 +93,10 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 	{
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
-	// Setup internal parameters
-	m_clMemObjectType = CL_MEM_OBJECT_IMAGE2D;
 
-	m_szImageWidth = realWidth;
-	m_szImageHeight = realHeight;
+	// Setup internal parameters
+	m_stDimensions[0] = realWidth;
+	m_stDimensions[1] = realHeight;
 
 	m_clFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_clFormat.clType.image_channel_order)
@@ -99,13 +104,14 @@ cl_err_code GLRenderBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_f
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
 
-	m_uiNumDim = 2;
+	m_glReadBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
+	m_glReadBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
 
-	m_szElementSize = clGetPixelBytesCount(&m_clFormat.clType);
-	m_szImageRowPitch = m_szImageWidth * m_szElementSize;
+	m_stElementSize = clGetPixelBytesCount(&m_clFormat.clType);
+	m_stPitches[0] = m_stDimensions[0] * m_stElementSize;
 
 	// create buffer for image data
-	m_stMemObjSize = m_szImageRowPitch * m_szImageHeight;
+	m_stMemObjSize = m_stPitches[0] * m_stDimensions[1];
 
 	return CL_SUCCESS;
 }
@@ -126,8 +132,6 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 
 	m_muAcquireRelease.Lock();
 
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
-
 	// First of all bing Render buffer to FBO
 	GLint	currentFBO;
 	GLint glErr = 0;
@@ -135,7 +139,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 	glErr |= glGetError();
 
 	// Create and bind a frame buffer to render with
-	pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
+	m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
 	if( glGetError() != GL_NO_ERROR )
 	{
 		SetAcquireState(CL_INVALID_OPERATION);
@@ -143,16 +147,16 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 	}
 
 	// Attach to the framebuffer
-	pGLContext->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER, m_glObjHandle );
+	m_pGLContext->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER, m_glObjHandle );
 	if( glGetError() != GL_NO_ERROR )
 	{
-		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
 		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
-	if( pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
+	if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
-		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currentFBO );
 		SetAcquireState(CL_INVALID_OPERATION);
 		return CL_INVALID_OPERATION;
 	}
@@ -164,53 +168,51 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &currentPBO);
 
 		// read pixels from framebuffer to PBO
-		pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
 		if( glGetError() != GL_NO_ERROR )
 		{
-			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
-			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
+			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
 			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 		GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
-		pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
+		m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
 		if( glGetError() != GL_NO_ERROR )
 		{
-			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
-			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
+			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
 			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
-		GLenum readBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
-		GLenum readBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
 
 		// glReadPixels() should return immediately, the transfer is in background by DMA
-		glReadPixels(0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, readBackFormat, readBackType, 0);
+		glReadPixels(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, 0);
 		if( glGetError() != GL_NO_ERROR )
 		{
-			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
-			pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
+			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
 			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 
-		pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
-		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
 
 	}
 	// when write only just allocate space  in PBO
 	else if ( m_clFlags & CL_MEM_WRITE_ONLY )
 	{
-		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currentFBO );
 
 		GLint pboBinding;
 		glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING_ARB, &pboBinding);
 
 		// bind PBO to update texture source
-		pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_glPBO);
+		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_glPBO);
 		if( glGetError() != GL_NO_ERROR )
 		{
-			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
 			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
@@ -222,15 +224,15 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 		// If you do that, the previous data in PBO will be discarded and
 		// glMapBufferARB() returns a new allocated pointer immediately
 		// even if GPU is still working with the previous data.
-		pGLContext->glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_stMemObjSize, NULL, GL_STREAM_DRAW_ARB);
+		m_pGLContext->glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_stMemObjSize, NULL, GL_STREAM_DRAW_ARB);
 		if( glGetError() != GL_NO_ERROR )
 		{
-			pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
 			SetAcquireState(CL_INVALID_OPERATION);
 			return CL_INVALID_OPERATION;
 		}
 
-		pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
+		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
 	}
 
 	SetAcquireState(CL_NOT_READY);
@@ -256,10 +258,10 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
 
 		// bind PBO to update texture source
-		pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
 
-		pGLContext->glUnmapBuffer(GL_PIXEL_PACK_BUFFER_ARB);
-		pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+		m_pGLContext->glUnmapBuffer(GL_PIXEL_PACK_BUFFER_ARB);
+		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
 	} else if ( m_clFlags & CL_MEM_WRITE_ONLY )
 	{
 		// Update texture context
@@ -273,8 +275,8 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glGetIntegerv(pboBinding, &currentPBO);
 
 		// bind PBO to update texture source
-		pGLContext->glBindBuffer(pboTarget, m_glPBO);
-		pGLContext->glUnmapBuffer(pboTarget);
+		m_pGLContext->glBindBuffer(pboTarget, m_glPBO);
+		m_pGLContext->glUnmapBuffer(pboTarget);
 
 		// Create and fill a texture with updated data
 		GLint currTex;
@@ -287,9 +289,9 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, 0/*Border*/, readBackFormat, readBackType, NULL);
+		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], 0/*Border*/, readBackFormat, readBackType, NULL);
 
-		pGLContext->glBindBuffer(pboTarget, currentPBO);
+		m_pGLContext->glBindBuffer(pboTarget, currentPBO);
 
 		// Need bing again the FBO
 		GLint	currBuffer;
@@ -300,7 +302,7 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glEnable( GL_TEXTURE_RECTANGLE_ARB );
 
 		// Create and bind a frame buffer to render with
-		pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
+		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
 		if( glGetError() != GL_NO_ERROR )
 		{
 			return CL_INVALID_OPERATION;
@@ -309,7 +311,7 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		// Now need render back to FBO
 		// Render fullscreen textured quad 
 		glDisable( GL_LIGHTING );
-		glViewport(0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight);
+		glViewport(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1]);
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 		glMatrixMode( GL_TEXTURE );
@@ -324,11 +326,11 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 			glColor3f(1.0f, 1.0f, 1.0f);
 			glTexCoord2f( 0.0f, 0.0f );
 			glVertex3f( -1.0f, -1.0f, 0.0f );
-			glTexCoord2f( 0.0f, (float)m_szImageHeight );
+			glTexCoord2f( 0.0f, (float)m_stDimensions[1] );
 			glVertex3f( -1.0f, 1.0f, 0.0f );
-			glTexCoord2f( (float)m_szImageWidth, (float)m_szImageHeight );
+			glTexCoord2f( (float)m_stDimensions[0], (float)m_stDimensions[1] );
 			glVertex3f( 1.0f, 1.0f, 0.0f );
-			glTexCoord2f( (float)m_szImageWidth, 0.0f );
+			glTexCoord2f( (float)m_stDimensions[0], 0.0f );
 			glVertex3f( 1.0f, -1.0f, 0.0f );
 		}
 		glEnd();
@@ -340,16 +342,6 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glBindTexture( GL_TEXTURE_RECTANGLE_ARB, currTex );
 	}
 	return CL_SUCCESS;
-}
-
-cl_err_code GLRenderBuffer::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-{
-    if (pszOrigin[0] + pszRegion[0] > m_szImageWidth ||
-        pszOrigin[1] + pszRegion[1] > m_szImageHeight)
-    {
-        return CL_INVALID_VALUE;
-    }
-    return CL_SUCCESS;
 }
 
 #if 0
@@ -367,16 +359,16 @@ void GLRenderBuffer::SetGLObjectData()
 	glErr |= glGetError();
 
 	// Create and bind a frame buffer to render with
-	pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
+	m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, m_glFramebuffer );
 	if( glGetError() != GL_NO_ERROR )
 		return;
 
 	// Attach to the framebuffer
-	pGLContext->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
+	m_pGLContext->glFramebufferRenderbufferEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
 		GL_RENDERBUFFER, m_glBufObj );
 	if( glGetError() != GL_NO_ERROR )
 		return;
-	if( pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
+	if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 	{
 		return;
 	}
@@ -396,13 +388,13 @@ void GLRenderBuffer::SetGLObjectData()
     glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
     glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexImage2D( GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat,
-		(GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, 0/*Border*/,
+		(GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], 0/*Border*/,
 		glFormat, glType, m_pMemObjData );
     glEnable( GL_TEXTURE_RECTANGLE_ARB );
 
     // Render fullscreen textured quad 
     glDisable( GL_LIGHTING );
-    glViewport(0, 0, (GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight);
+    glViewport(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1]);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glMatrixMode( GL_TEXTURE );
@@ -417,11 +409,11 @@ void GLRenderBuffer::SetGLObjectData()
         glColor3f(1.0f, 1.0f, 1.0f);
         glTexCoord2f( 0.0f, 0.0f );
         glVertex3f( -1.0f, -1.0f, 0.0f );
-        glTexCoord2f( 0.0f, (float)m_szImageHeight );
+        glTexCoord2f( 0.0f, (float)m_stDimensions[1] );
         glVertex3f( -1.0f, 1.0f, 0.0f );
-        glTexCoord2f( (float)m_szImageWidth, (float)m_szImageHeight );
+        glTexCoord2f( (float)m_stDimensions[0], (float)m_stDimensions[1] );
         glVertex3f( 1.0f, 1.0f, 0.0f );
-        glTexCoord2f( (float)m_szImageWidth, 0.0f );
+        glTexCoord2f( (float)m_stDimensions[0], 0.0f );
         glVertex3f( 1.0f, -1.0f, 0.0f );
     }
     glEnd();
@@ -432,9 +424,9 @@ void GLRenderBuffer::SetGLObjectData()
 	glDeleteTextures(1, &texture);
     
 #else
-	glDrawPixels((GLsizei)m_szImageWidth, (GLsizei)m_szImageHeight, glFormat, glType, m_pMemObjData );
+	glDrawPixels((GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], glFormat, glType, m_pMemObjData );
 	glErr = glGetError();
 #endif
-	pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currBuffer );
+	m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER, currBuffer );
 }
 #endif
