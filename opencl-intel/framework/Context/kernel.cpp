@@ -787,11 +787,17 @@ bool Kernel::IsValidKernelArgs() const
 DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) const
 {
 	assert (m_ppDeviceKernels);
-	for (size_t i = 0; i < m_szAssociatedDevices; ++i)
+	cl_int relatedDeviceObjId = 0;
+	// Get the object id of the device that I'm inherite its binary
+	bool isFound = m_pProgram->GetMyRelatedProgramDeviceIDInternal((const_cast<FissionableDevice*> (pDevice))->GetHandle(), &relatedDeviceObjId);
+	if (isFound)
 	{
-		if (NULL != m_ppDeviceKernels[i] && pDevice->GetId() == m_ppDeviceKernels[i]->GetDeviceId())
+		for (size_t i = 0; i < m_szAssociatedDevices; ++i)
 		{
-			return m_ppDeviceKernels[i];
+			if (NULL != m_ppDeviceKernels[i] && relatedDeviceObjId == m_ppDeviceKernels[i]->GetDeviceId())
+			{
+				return m_ppDeviceKernels[i];
+			}
 		}
 	}
 	return NULL;

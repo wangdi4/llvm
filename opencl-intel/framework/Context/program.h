@@ -120,6 +120,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Notifies that we're done working with this object
 		void Unacquire(cl_device_id clDevice);
 
+		typedef std::map<cl_device_id, DeviceProgram*> tDeviceProgramMap;
+
+		// Create map from cl_device_id that exist in the context and have or its parent (recursively) have built program (DeviceProgram*), to its related DeviceProgram*
+		void SetContextDevicesToProgramMappingInternal();
+
+		// Find the DeviceProgram related to devID and set in pOutID the ID of this DeviceProgram device.
+		// If not found return false, otherwise return true
+		bool GetMyRelatedProgramDeviceIDInternal(cl_device_id devID, cl_int* pOutID);
+
 	protected:
 		virtual ~Program();
 
@@ -132,5 +141,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
 
+		tDeviceProgramMap m_deviceToProgram;
+
+	private:
+
+		// Mutex for m_deviceToProgram 
+		mutable Intel::OpenCL::Utils::OclMutex m_deviceProgramMapMutex;
 	};
 }}}

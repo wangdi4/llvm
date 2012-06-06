@@ -57,12 +57,21 @@ Program::~Program()
 
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
-	const DeviceProgram* pDeviceProgram = GetDeviceProgram(clDevice);
-	if (!pDeviceProgram)
+	OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+	DeviceProgram* pDeviceProgram = NULL;
+	tDeviceProgramMap::iterator deviceIdToProgramIter = m_deviceToProgram.find(clDevice);
+	if ((m_deviceToProgram.end() == deviceIdToProgramIter) || (NULL == deviceIdToProgramIter->second))
+	{
+		pDeviceProgram = GetDeviceProgram(clDevice);
+	}
+	else
+	{
+		pDeviceProgram = deviceIdToProgramIter->second;
+	}
+	if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
-
     return pDeviceProgram->GetBuildInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
@@ -96,9 +105,9 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		break;
 
 	case CL_PROGRAM_NUM_DEVICES:
-		szParamValueSize = sizeof(m_szNumAssociatedDevices);
-		pValue = &m_szNumAssociatedDevices;
-		break;
+			szParamValueSize = sizeof(m_szNumAssociatedDevices);
+			pValue = &m_szNumAssociatedDevices;
+			break;
 
 	case CL_PROGRAM_DEVICES:
         {
@@ -118,6 +127,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	case CL_PROGRAM_BINARY_SIZES:
 		{
+			OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
 			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
 			if (NULL != param_value)
 			{
@@ -125,11 +135,20 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 				{
 					return CL_INVALID_VALUE;
 				}
-				assert(param_value_size >= m_szNumAssociatedDevices * sizeof(size_t));
+				assert(param_value_size >= szParamValueSize);
 				size_t * pParamValue = static_cast<size_t *>(param_value);
+				tDeviceProgramMap::const_iterator deviceToProgramIter;
+				tDeviceProgramMap::const_iterator deviceToProgramEnd = m_deviceToProgram.end();
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					cl_int clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, pParamValue + i);
+					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
+					deviceToProgramIter = m_deviceToProgram.find(pDeviceProgram->GetDeviceId());
+					if (deviceToProgramEnd != deviceToProgramIter)
+					{
+						pDeviceProgram = deviceToProgramIter->second;
+					}
+					assert(NULL != pDeviceProgram);
+					cl_int clErrRet = pDeviceProgram->GetBinary(0, NULL, pParamValue + i);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -145,6 +164,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
 	case CL_PROGRAM_BINARIES:
 		{
+			OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
 			szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
 			char ** pParamValue = static_cast<char **>(param_value);
             size_t uiParam = 0;
@@ -155,14 +175,23 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 				{
 					return CL_INVALID_VALUE;
 				}
+				tDeviceProgramMap::const_iterator deviceToProgramIter;
+				tDeviceProgramMap::const_iterator deviceToProgramEnd = m_deviceToProgram.end();
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					cl_int clErrRet = m_ppDevicePrograms[i]->GetBinary(0, NULL, &uiParam);
+					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
+					deviceToProgramIter = m_deviceToProgram.find(pDeviceProgram->GetDeviceId());
+					if (deviceToProgramEnd != deviceToProgramIter)
+					{
+						pDeviceProgram = deviceToProgramIter->second;
+					}
+					assert(NULL != pDeviceProgram);
+					cl_int clErrRet = pDeviceProgram->GetBinary(0, NULL, &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
 					}
-					clErrRet = m_ppDevicePrograms[i]->GetBinary(uiParam, pParamValue[i], &uiParam);
+					clErrRet = pDeviceProgram->GetBinary(uiParam, pParamValue[i], &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -778,4 +807,67 @@ void Program::Unacquire(cl_device_id clDevice)
 	}
 
     return pDeviceProgram->Unacquire();
+}
+
+void Program::SetContextDevicesToProgramMappingInternal()
+{
+	OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+	// Clear the previous mapping
+	m_deviceToProgram.clear();
+	unsigned int numDevicesInContext = 0;
+	tDeviceProgramMap realBuiltDeviceToDeviceProgram;
+	// Collect all the devices that really execute build.
+	for (unsigned int i = 0; i < m_szNumAssociatedDevices; i++)
+	{
+		if (CL_BUILD_NONE != m_ppDevicePrograms[i]->GetBuildStatus())
+		{
+			realBuiltDeviceToDeviceProgram.insert( pair<cl_device_id, DeviceProgram*>(m_ppDevicePrograms[i]->GetDeviceId(), m_ppDevicePrograms[i]) );
+		}
+	}
+	FissionableDevice** ppContextDevices = m_pContext->GetDevices(&numDevicesInContext);
+	assert(ppContextDevices);
+	// Collect all context devices in as set
+	set<FissionableDevice*> contextDevicesSet;
+	for (unsigned int i = 0; i < numDevicesInContext; i++)
+	{
+		contextDevicesSet.insert(ppContextDevices[i]);
+	}
+	set<FissionableDevice*>::const_iterator contextDevicesEnd = contextDevicesSet.end();
+	tDeviceProgramMap::iterator realBuiltDeviceIter;
+	tDeviceProgramMap::const_iterator realBuiltDeviceEnd = realBuiltDeviceToDeviceProgram.end();
+	// Traverse over all the devices in the context
+	for (unsigned int i = 0; i < numDevicesInContext; i++)
+	{
+		FissionableDevice* pCurrentLevelDevice = ppContextDevices[i];
+		while (true)
+		{
+			realBuiltDeviceIter = realBuiltDeviceToDeviceProgram.find(pCurrentLevelDevice->GetHandle());
+			// Is this device have built program? and this device in the same context
+			if ((realBuiltDeviceEnd != realBuiltDeviceIter) && (contextDevicesEnd != contextDevicesSet.find(pCurrentLevelDevice)))
+			{
+				m_deviceToProgram.insert( pair<cl_device_id, DeviceProgram*>(ppContextDevices[i]->GetHandle(), realBuiltDeviceIter->second) );
+				break;
+			}
+			// If this device is root device than ppContextDevices[i] does not have parent with built program
+			if (pCurrentLevelDevice->IsRootLevelDevice())
+			{
+				break;
+			}
+			pCurrentLevelDevice = ((SubDevice*)pCurrentLevelDevice)->GetParentDevice();
+		}
+	}
+}
+
+bool Program::GetMyRelatedProgramDeviceIDInternal(cl_device_id devID, cl_int* pOutID)
+{
+	OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+	// Find the DeviceProgram that related to me (myne or my parent recursively (if in the same context))
+	tDeviceProgramMap::iterator deviceProgramIter = m_deviceToProgram.find(devID);
+	if (m_deviceToProgram.end() == deviceProgramIter)
+	{
+		return false;
+	}
+	// Set the Object ID of the device that built this Program and have DeviceProgram
+	*pOutID = deviceProgramIter->second->GetDevice()->GetId();
+	return true;
 }

@@ -552,6 +552,12 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 		{
 			return CL_INVALID_DEVICE;
 		}
+		if (CL_DEVICE_PARTITION_STYLE_EXT == clParamName)
+		{
+			//Not supporting this query from the 1.1 EXT as we only cache the 1.2 tokens as the partition style of the sub device
+			//And the return size changed between 1.1 and 1.2
+			return CL_INVALID_PROPERTY;
+		}
 		clParamName = translatePartitionSelectorExt(clParamName);
 		return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}

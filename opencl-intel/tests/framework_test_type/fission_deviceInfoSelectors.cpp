@@ -176,7 +176,7 @@ bool fission_deviceInfoSelectors_test(){
 	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-  if (!((0 == actual_size) || ((1 == actual_size) && (0 == prop[0]))))
+  if (!((0 == actual_size) || ((sizeof(cl_device_partition_property) == actual_size) && (0 == prop[0]))))
 	{
 		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
 		printf("\t\texpected size of zero or a single NULL property: %d, result: %d properties - %d\n", properties[0], actual_size, prop[0]);
@@ -188,7 +188,7 @@ bool fission_deviceInfoSelectors_test(){
 	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	for (size_t i = 0; i < actual_size; i++)
+	for (size_t i = 0; i < actual_size / sizeof(cl_device_partition_property); ++i)
 	{
 		if (prop[i] != properties[i])
 		{

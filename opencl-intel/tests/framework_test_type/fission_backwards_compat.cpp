@@ -52,6 +52,7 @@ bool fission_backwards_compatability_test()
 	cl_uint num_entries = 1;
 	cl_uint num_devices = 1;
 	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_BY_COUNTS_EXT, 1,CL_PARTITION_BY_COUNTS_LIST_END_EXT, CL_PROPERTIES_LIST_END_EXT};
+    const size_t num_props = sizeof(properties)/sizeof(properties[0]);
 	err = clCreateSubDevicesEXT(devices[0], properties, num_entries, devices + 1, &num_devices);
 	bResult &= SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
@@ -59,7 +60,11 @@ bool fission_backwards_compatability_test()
 	//init context
 	context = clCreateContext(NULL, 2, devices, NULL, NULL, &err);
 	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+	if (!bResult)	
+	{
+		clReleaseDeviceEXT(devices[1]);
+		return bResult;
+	}
 
 	//init Command Queue
 	cmd_queue = clCreateCommandQueue(context, devices[1], 0, &err);

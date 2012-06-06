@@ -1320,7 +1320,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             }
             size_t partitionSize = *((size_t *)param);
 			//Todo: at the moment disallowing a partition that's equal to the parent device
-            if (partitionSize >= availableComputeUnits)
+            if ((partitionSize >= availableComputeUnits) || (0 == partitionSize))
             {
                 return CL_DEV_INVALID_VALUE;
             }

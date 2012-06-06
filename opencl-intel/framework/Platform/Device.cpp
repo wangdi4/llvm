@@ -459,6 +459,10 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         {
             return CL_INVALID_PROPERTY;
         }
+        if (0 == partitionSize)
+        {
+            return CL_INVALID_VALUE;
+        }
 
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &partitionSize, out_devices);
         if (NULL != sizes)
@@ -613,7 +617,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         break;
 
     case CL_DEVICE_PARTITION_TYPE:
-        szParamValueSize = m_cachedFissionLength;// * sizeof(cl_device_partition_property);
+        szParamValueSize = m_cachedFissionLength * sizeof(cl_device_partition_property);
         pValue = m_cachedFissionMode;
         break;
 
@@ -632,12 +636,6 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     if (NULL != param_value_size_ret)
     {
         *param_value_size_ret = szParamValueSize;
-    }
-
-    //Hack, but spec defines the "size" as the size of the list
-    if (CL_DEVICE_PARTITION_TYPE == param_name)
-    {
-        szParamValueSize *= sizeof(cl_device_partition_property);
     }
 
     if (NULL != param_value && szParamValueSize > 0)

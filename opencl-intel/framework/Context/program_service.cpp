@@ -428,6 +428,8 @@ bool PostBuildTask::Execute()
         m_pProg->Unacquire(devID);
     }
 
+	m_pProg->SetContextDevicesToProgramMappingInternal();
+
     if (m_pfn_notify)
     {
         m_pfn_notify(program, m_user_data);
