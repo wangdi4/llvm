@@ -139,6 +139,12 @@ public:
 	}
 };
 
+// setSecondDeviceType - sets second device in the common runtime to be device_type
+void setSecondDeviceType(cl_device_type device_type);
+
+// getSecondDeviceType - returns type of the second device in the common runtime
+int getSecondDeviceType();
+
 /**
  * Encapsulates main OpenCL function calls and their validation
  **/

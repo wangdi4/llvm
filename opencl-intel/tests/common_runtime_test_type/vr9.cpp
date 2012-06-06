@@ -66,7 +66,7 @@ TEST_F(VR9, CPUwaitOnEvents)
 //|
 TEST_F(VR9, GPUwaitOnEvents)
 {
-	ASSERT_NO_FATAL_FAILURE(waitOnSingleDevice(ocl_descriptor, CL_DEVICE_TYPE_GPU));
+	ASSERT_NO_FATAL_FAILURE(waitOnSingleDevice(ocl_descriptor, getSecondDeviceType()));
 }
 
 //|	TEST: CommonRuntime.CPUGPUwaitOnEvents (TC-59)
@@ -141,7 +141,7 @@ TEST_F(VR9, CPU100KernelswaitOnEvents)
 //|
 TEST_F(VR9, GPU100KernelswaitOnEvents)
 {
-	ASSERT_NO_FATAL_FAILURE(executeKernelOnSingleDevice(ocl_descriptor, CL_DEVICE_TYPE_GPU));
+	ASSERT_NO_FATAL_FAILURE(executeKernelOnSingleDevice(ocl_descriptor, getSecondDeviceType()));
 }
 
 //|	TEST: VR9.CPUGPU200KernelswaitOnEvents (TC-62)

@@ -73,7 +73,7 @@ TEST_F(VR24, CL3DImage)
 	cl_uint numdevices;
 	//get gpu only devices
 	cl_device_id devices[maxdevices];
-	err = clGetDeviceIDs(platforms[0],CL_DEVICE_TYPE_GPU,maxdevices,devices,&numdevices);
+	err = clGetDeviceIDs(platforms[0],getSecondDeviceType(),maxdevices,devices,&numdevices);
 	EXPECT_EQ(err,CL_SUCCESS)<<"Error getting GPU ONLY DEVICE\n";
 	EXPECT_GT(numdevices,(unsigned int)0)<<"Error No Devices returned";
 	//properties for context

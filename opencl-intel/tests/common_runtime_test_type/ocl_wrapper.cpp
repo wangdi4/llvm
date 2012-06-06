@@ -26,6 +26,20 @@
 #include <iostream>
 #include <fstream>
 
+int SECOND_DEVICE_TYPE;
+
+// setSecondDeviceType - sets second device in the common runtime to be device_type
+void setSecondDeviceType(cl_device_type device_type)
+{
+	SECOND_DEVICE_TYPE=device_type;
+}
+
+// getSecondDeviceType - returns type of the second device in the common runtime
+int getSecondDeviceType()
+{
+	return SECOND_DEVICE_TYPE;
+}
+
 // getPlatformIDs - calls and validates clGetPlatformIDs
 void getPlatformIDs(cl_uint num_entries, cl_platform_id* platforms, cl_uint* num_platforms)
 {
@@ -89,7 +103,7 @@ void getGPUDevice(cl_platform_id* platform, cl_device_id* device){
 	{
 		ASSERT_TRUE(false) << "Null argument provided";
 	}
-	ASSERT_NO_FATAL_FAILURE(getSpecificDevice(platform, device, CL_DEVICE_TYPE_GPU));
+	ASSERT_NO_FATAL_FAILURE(getSpecificDevice(platform, device, getSecondDeviceType()));
 }
 
 //	getCPUGPUDevices - returns CPU and GPU platfrom and devices (index 0 for CPU device and index 1 for GPU device)
@@ -120,7 +134,7 @@ void getCPUGPUDevices(cl_platform_id* platform, cl_device_id* devices)
 		for(int d=0;d<2;++d){
 			devices[d]=0;
 		}
-		ASSERT_TRUE(num_entries>=2) << "Platform returned " << num_entries << "deviuces";
+		ASSERT_TRUE(num_entries>=2) << "Platform returned " << num_entries << "devices";
 		// expect return of at most 2 devices
 		cl_device_id* tmpDevices = NULL;
 		tmpDevices = new cl_device_id[num_entries];
@@ -134,7 +148,7 @@ void getCPUGPUDevices(cl_platform_id* platform, cl_device_id* devices)
 				// found requested device				
 				devices[0] = tmpDevices[j];
 			}
-			if(CL_DEVICE_TYPE_GPU == param_value){
+			if(getSecondDeviceType() == param_value){
 				// found requested device				
 				devices[1] = tmpDevices[j];
 			}

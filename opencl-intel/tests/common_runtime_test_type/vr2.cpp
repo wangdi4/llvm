@@ -64,7 +64,7 @@ TEST_F(VR2, SinglePlatformCPUGPU)
 	// overall exactly 2 devices
 	EXPECT_EQ(2, num_devices) << "num_devices is not 2";
 	// one device is CPU, another is GPU
-	EXPECT_TRUE((CL_DEVICE_TYPE_CPU == param_value[0] && CL_DEVICE_TYPE_GPU == param_value[1]) || (CL_DEVICE_TYPE_CPU == param_value[1] && CL_DEVICE_TYPE_GPU == param_value[0])) << "Did not return CPU and GPU devices";
+	EXPECT_TRUE((CL_DEVICE_TYPE_CPU == param_value[0] && getSecondDeviceType() == param_value[1]) || (CL_DEVICE_TYPE_CPU == param_value[1] && CL_DEVICE_TYPE_GPU == param_value[0])) << "Did not return CPU and GPU devices";
 }
 
 //| testSingleDevice - helper function to test that the platfrom returns device of type device_type
@@ -145,7 +145,7 @@ TEST_F(VR2, SinglePlatformCPUTest)
 //|
 TEST_F(VR2, SinglePlatformGPUTest)
 {
-	ASSERT_NO_FATAL_FAILURE(testSingleDevice(CL_DEVICE_TYPE_GPU, ocl_descriptor.platforms, ocl_descriptor.devices));
+	ASSERT_NO_FATAL_FAILURE(testSingleDevice(getSecondDeviceType(), ocl_descriptor.platforms, ocl_descriptor.devices));
 }
 
 
