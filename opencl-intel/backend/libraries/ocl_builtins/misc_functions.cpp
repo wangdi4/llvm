@@ -124,7 +124,6 @@ __m128i SHUFFLE_EPI32(__m128i x, __m128i mask)
 	mask = _mm_adds_epu8(mask, *((__m128i *)shuffle_epi32_amask));
 	return SHUFFLE_EPI8(x, mask);		
 }
-
 __m128i SHUFFLE_EPI64(__m128i x, __m128i mask)
 {
 	mask = SHUFFLE_EPI8(mask, *((__m128i *)shuffle_epi64_smask));
@@ -132,7 +131,6 @@ __m128i SHUFFLE_EPI64(__m128i x, __m128i mask)
 	mask = _mm_adds_epu8(mask, *((__m128i *)shuffle_epi64_amask));
 	return SHUFFLE_EPI8(x, mask);		
 }
-
 
 _2i8 __attribute__((overloadable)) shuffle(_2i8 x, _2u8 mask)
 {
@@ -616,32 +614,74 @@ _16u16 __attribute__((overloadable)) shuffle(_16u16 x, _16u16 mask)
 	return (_16u16)shuffle((_16i16)x, mask);
 }
 
-
-_2i32 __attribute__((overloadable)) shuffle(_2i32 x, _2u32 mask)
+#if defined (__AVX2__)
+_8i32 __attribute__((overloadable)) shuffle(_2i32 x, _8u32 mask)
 {
-	_4u32 tMask;
+	_8i32 tx;
+	tx.s01 = x;
+	return shuffle(tx, mask);
+}
+_8i32 __attribute__((overloadable)) shuffle(_4i32 x, _8u32 mask)
+{
+	_8i32 tx;
+	tx.lo = x;
+	return shuffle(tx, mask);
+}
+_8i32 __attribute__((overloadable)) shuffle(_8i32 x, _8u32 mask)
+{
+	return (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask , (__m256i) x);
+}
+
+_16i32 __attribute__((overloadable)) shuffle(_8i32 x, _16u32 mask)
+{
+	_16i32 res;
+	res.lo = (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask.lo , (__m256i) x);
+	res.hi = (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask.hi , (__m256i) x);
+	return res;
+}
+_16i32 __attribute__((overloadable)) shuffle(_4i32 x, _16u32 mask)
+{
+	_16i32 res;
+	_8i32 tx;
+	tx.lo = x;
+	res.lo = shuffle(tx, mask.lo);
+	res.hi = shuffle(tx, mask.hi);
+	return res;
+}
+_2i32 __attribute__((overloadable)) shuffle(_8i32 x, _2u32 mask)
+{
+	_8u32 tMask;
 	tMask.s01 = mask;
 	return shuffle(x, tMask).s01;
 }
 
-_4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
+_4i32 __attribute__((overloadable)) shuffle(_8i32 x, _4u32 mask)
 {
-	_4i32 tX;
-	tX.s01 = x;
-	mask = __builtin_astype(
-           _mm_and_si128(
-             __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_int2_mask)),
-           _4u32);
-	tX = __builtin_astype(
-         SHUFFLE_EPI32(
-           __builtin_astype(tX, __m128i),
-           __builtin_astype(mask, __m128i)),
-         _4i32);
-	return tX;
+	_8u32 tMask;
+	tMask.lo = mask;
+	return shuffle(x, tMask).lo;
 }
 
+#else
 _8i32 __attribute__((overloadable)) shuffle(_2i32 x, _8u32 mask)
+{
+	_8i32 res;
+	_4i32 tx;
+	tx.lo = x;
+	res.lo = shuffle(tx, mask.lo);
+	res.hi = shuffle(tx, mask.hi);
+	return res;
+}
+
+_8i32 __attribute__((overloadable)) shuffle(_4i32 x, _8u32 mask)
+{
+	_8i32 res;
+	res.lo = shuffle(x, mask.lo);
+	res.hi = shuffle(x, mask.hi);
+	return res;
+}
+
+_8i32 __attribute__((overloadable)) shuffle(_8i32 x, _8u32 mask)
 {
 	_8i32 res;
 
@@ -651,7 +691,7 @@ _8i32 __attribute__((overloadable)) shuffle(_2i32 x, _8u32 mask)
 	return res;
 }
 
-_16i32 __attribute__((overloadable)) shuffle(_2i32 x, _16u32 mask)
+_16i32 __attribute__((overloadable)) shuffle(_8i32 x, _16u32 mask)
 {
 	_16i32 res;
 
@@ -662,39 +702,6 @@ _16i32 __attribute__((overloadable)) shuffle(_2i32 x, _16u32 mask)
 
 	return res;
 }
-
-_2i32 __attribute__((overloadable)) shuffle(_4i32 x, _2u32 mask)
-{
-	_4u32 tMask;
-	tMask.s01 = mask;
-	return shuffle(x, tMask).s01;
-}
-
-_4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
-{
-	mask = __builtin_astype(
-           _mm_and_si128(
-             __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_int4_mask)),
-           _4u32);
-	x = __builtin_astype(
-        SHUFFLE_EPI32(
-          __builtin_astype(x, __m128i),
-          __builtin_astype(mask, __m128i)),
-        _4i32);
-	return x;
-}
-
-_8i32 __attribute__((overloadable)) shuffle(_4i32 x, _8u32 mask)
-{
-	_8i32 res;
-
-	res.lo = shuffle(x, mask.lo);
-	res.hi = shuffle(x, mask.hi);
-
-	return res;
-}
-
 _16i32 __attribute__((overloadable)) shuffle(_4i32 x, _16u32 mask)
 {
 	_16i32 res;
@@ -706,7 +713,6 @@ _16i32 __attribute__((overloadable)) shuffle(_4i32 x, _16u32 mask)
 
 	return res;
 }
-
 _2i32 __attribute__((overloadable)) shuffle(_8i32 x, _2u32 mask)
 {
 	_4u32 tMask;
@@ -742,17 +748,81 @@ _4i32 __attribute__((overloadable)) shuffle(_8i32 x, _4u32 mask)
            _4i32);
 }
 
-_8i32 __attribute__((overloadable)) shuffle(_8i32 x, _8u32 mask)
+#endif
+
+#if defined (__AVX2__) ||  defined(__AVX__) 
+_2i32 __attribute__((overloadable)) shuffle(_2i32 x, _2u32 mask)
 {
-	_8i32 res;
+	_4u32 tMask;
+	_4i32 tx;
+	tMask.s01 = mask;
+	tx.s01 = x;
+	return shuffle(tx, tMask).s01;
+}
 
-	res.lo = shuffle(x, mask.lo);
-	res.hi = shuffle(x, mask.hi);
+_4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
+{
+	_4i32 tx;
+	tx.s01 = x;
+	return shuffle(tx, mask);
+}
 
+_4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
+{
+	return (_4i32)_mm_permutevar_ps((__m128)x,(__m128i)mask);
+}
+
+_16i32 __attribute__((overloadable)) shuffle(_2i32 x, _16u32 mask)
+{
+	_8i32 tx;
+	_16i32 res;
+	tx.s01 = x;
+	res.lo = shuffle(tx, mask.lo);
+	res.hi = shuffle(tx, mask.hi);
 	return res;
 }
 
-_16i32 __attribute__((overloadable)) shuffle(_8i32 x, _16u32 mask)
+#else
+_2i32 __attribute__((overloadable)) shuffle(_2i32 x, _2u32 mask)
+{
+	_4u32 tMask;
+	tMask.s01 = mask;
+	return shuffle(x, tMask).s01;
+}
+
+_4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
+{
+	_4i32 tX;
+	tX.s01 = x;
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_int2_mask)),
+           _4u32);
+	tX = __builtin_astype(
+         SHUFFLE_EPI32(
+           __builtin_astype(tX, __m128i),
+           __builtin_astype(mask, __m128i)),
+         _4i32);
+	return tX;
+}
+
+_4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
+{
+	mask = __builtin_astype(
+           _mm_and_si128(
+             __builtin_astype(mask, __m128i),
+             *((__m128i*)shuffle_int4_mask)),
+           _4u32);
+	x = __builtin_astype(
+        SHUFFLE_EPI32(
+          __builtin_astype(x, __m128i),
+          __builtin_astype(mask, __m128i)),
+        _4i32);
+	return x;
+}
+
+_16i32 __attribute__((overloadable)) shuffle(_2i32 x, _16u32 mask)
 {
 	_16i32 res;
 
@@ -762,6 +832,15 @@ _16i32 __attribute__((overloadable)) shuffle(_8i32 x, _16u32 mask)
 	res.hi.hi = shuffle(x, mask.hi.hi);
 
 	return res;
+}
+
+#endif
+
+_2i32 __attribute__((overloadable)) shuffle(_4i32 x, _2u32 mask)
+{
+	_4u32 tMask;
+	tMask.s01 = mask;
+	return shuffle(x, tMask).s01;
 }
 
 _2i32 __attribute__((overloadable)) shuffle(_16i32 x, _2u32 mask)
@@ -948,8 +1027,6 @@ _16u32 __attribute__((overloadable)) shuffle(_16u32 x, _16u32 mask)
 {
 	return (_16u32)shuffle((_16i32)x, mask);
 }
-
-
 _2i64 __attribute__((overloadable)) shuffle(_2i64 x, _2u64 mask)
 {
 	mask = __builtin_astype(
@@ -974,7 +1051,6 @@ _4i64 __attribute__((overloadable)) shuffle(_2i64 x, _4u64 mask)
 
 	return res;
 }
-
 _8i64 __attribute__((overloadable)) shuffle(_2i64 x, _8u64 mask)
 {
 	_8i64 res;
@@ -1002,19 +1078,40 @@ _16i64 __attribute__((overloadable)) shuffle(_2i64 x, _16u64 mask)
 
 	return res;
 }
-
-_2i64 __attribute__((overloadable)) shuffle(_4i64 x, _2u64 mask)
+#if defined (__AVX2__)
+_4i64 __attribute__((overloadable)) shuffle(_4i64 x, _4u64 mask)
 {
-	_2i64 res;
-	_1i64 xVec[4];
-	memcpy(xVec, &x, sizeof(_4i64));
-
-	res.s0 = xVec[mask.s0 & 3];
-	res.s1 = xVec[mask.s1 & 3];
-
+	__m256i tmplo = _mm256_setzero_si256();
+	__m256i tmphi = _mm256_setzero_si256();
+	_4i64 res;
+	_8u32 tmaskhi;
+	_8u32 tmask;
+	_8u32 tmasklo = (_8u32) mask;
+	tmasklo = tmasklo+tmasklo;
+	tmaskhi = tmasklo+1;
+	tmaskhi = (_8u32) _mm256_slli_epi64( (__m256i) tmaskhi, 32);
+	tmask = (_8u32)_mm256_or_si256( (__m256i) tmasklo, (__m256i) tmaskhi);
+	res = (_4i64) _mm256_permutevar8x32_epi32( (__m256i) tmask, (__m256i) x);
 	return res;
 }
 
+_8i64 __attribute__((overloadable)) shuffle(_4i64 x, _8u64 mask)
+{
+	_8i64 res;
+	res.lo = shuffle (x, mask.lo);
+	res.hi = shuffle (x, mask.hi);
+	return res;
+}
+
+_16i64 __attribute__((overloadable)) shuffle(_4i64 x, _16u64 mask)
+{
+	_16i64 res;
+	res.lo = shuffle (x, mask.lo);
+	res.hi = shuffle (x, mask.hi);
+	return res;
+}
+
+#else //__AVX2__
 _4i64 __attribute__((overloadable)) shuffle(_4i64 x, _4u64 mask)
 {
 	_4i64 res;
@@ -1069,6 +1166,20 @@ _16i64 __attribute__((overloadable)) shuffle(_4i64 x, _16u64 mask)
 	res.sD = xVec[mask.sD & 3];
 	res.sE = xVec[mask.sE & 3];
 	res.sF = xVec[mask.sF & 3];
+
+	return res;
+}
+
+#endif
+
+_2i64 __attribute__((overloadable)) shuffle(_4i64 x, _2u64 mask)
+{
+	_2i64 res;
+	_1i64 xVec[4];
+	memcpy(xVec, &x, sizeof(_4i64));
+
+	res.s0 = xVec[mask.s0 & 3];
+	res.s1 = xVec[mask.s1 & 3];
 
 	return res;
 }
@@ -1337,7 +1448,30 @@ float2 __attribute__((overloadable)) shuffle(float8 x, _2u32 mask)
 {
 	return (float2)shuffle((_8i32)x, mask);
 }
+#if defined (__AVX2__)
 
+float4 __attribute__((overloadable)) shuffle(float8 x, _4u32 mask)
+{
+	_8u32 tmask = (_8u32) _mm256_setzero_si256();
+	float8 res;
+	tmask.lo = mask;
+	res = (float8)_mm256_permutevar8x32_ps ((__m256)tmask,(__m256) x);
+	return res.lo;
+}
+float8 __attribute__((overloadable)) shuffle(float8 x, _8u32 mask)
+{
+	return (float8)_mm256_permutevar8x32_ps ((__m256)mask, (__m256) x);
+}
+
+float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
+{
+	float16 res;
+	res.lo = (float8)shuffle(x, mask.lo);
+	res.hi = (float8)shuffle(x, mask.hi);
+	return res; 
+}
+
+#else
 float4 __attribute__((overloadable)) shuffle(float8 x, _4u32 mask)
 {
 	return (float4)shuffle((_8i32)x, mask);
@@ -1352,6 +1486,9 @@ float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
 {
 	return (float16)shuffle((_8i32)x, mask);
 }
+
+#endif
+
 
 float2 __attribute__((overloadable)) shuffle(float16 x, _2u32 mask)
 {
@@ -2008,7 +2145,66 @@ _2i32 __attribute__((overloadable)) shuffle2(_2i32 x, _2i32 y, _2u32 mask)
 	tMask.s01 = mask;
 	return shuffle2(x, y, tMask).s01;
 }
+#if defined (__AVX2__) || defined (__AVX__)
+_8i32 __attribute__((overloadable)) shuffle2(_2i32 x, _2i32 y, _8u32 mask)
+{
+	return shuffle((_4i32)(x,y), mask);
+}
 
+_16i32 __attribute__((overloadable)) shuffle2(_2i32 x, _2i32 y, _16u32 mask)
+{
+	_16i32 res;
+
+	res.lo = shuffle((_4i32)(x, y), mask.lo);
+	res.hi = shuffle((_4i32)(x, y), mask.hi);
+	
+	return res;
+}
+
+_8i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _8u32 mask)
+{
+
+	return shuffle((_8i32)(x, y), mask);
+}
+
+_16i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _16u32 mask)
+{
+	_16i32 res;
+
+	res.lo = shuffle((_8i32)(x, y), mask.lo);
+	res.hi = shuffle((_8i32)(x, y), mask.hi);
+	
+	return res;
+}
+
+_4i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _4u64 mask)
+{
+
+	return shuffle((_4i64)(x,y), mask);
+}
+
+_8i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _8u64 mask)
+{
+	_8i64 res;
+	
+	res.lo = shuffle((_4i64)(x, y), mask.lo);
+	res.hi = shuffle((_4i64)(x, y), mask.hi);
+	
+	return res;
+}
+
+_16i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _16u64 mask)
+{
+	_16i64 res;
+	res.lo.lo = shuffle((_4i64)(x, y), mask.lo.lo);
+	res.lo.hi = shuffle((_4i64)(x, y), mask.lo.hi);
+	res.hi.lo = shuffle((_4i64)(x, y), mask.hi.lo);
+	res.hi.hi = shuffle((_4i64)(x, y), mask.hi.hi);
+	
+	return res;
+}
+
+#else
 _8i32 __attribute__((overloadable)) shuffle2(_2i32 x, _2i32 y, _8u32 mask)
 {
 	_8i32 res;
@@ -2030,6 +2226,91 @@ _16i32 __attribute__((overloadable)) shuffle2(_2i32 x, _2i32 y, _16u32 mask)
 	
 	return res;
 }
+
+_8i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _8u32 mask)
+{
+	_8i32 res;
+
+	res.lo = shuffle2(x, y, mask.lo);
+	res.hi = shuffle2(x, y, mask.hi);
+	
+	return res;
+}
+
+_16i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _16u32 mask)
+{
+	_16i32 res;
+
+	res.lo.lo = shuffle2(x, y, mask.lo.lo);
+	res.lo.hi = shuffle2(x, y, mask.lo.hi);
+	res.hi.lo = shuffle2(x, y, mask.hi.lo);
+	res.hi.hi = shuffle2(x, y, mask.hi.hi);
+	
+	return res;
+}
+
+_4i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _4u64 mask)
+{
+	_4i64 res;
+	_1i64 xVec[4];
+	memcpy(&xVec[0], &x, sizeof(_2i64));
+	memcpy(&xVec[2], &y, sizeof(_2i64));
+
+	res.s0 = xVec[mask.s0 & 3];
+	res.s1 = xVec[mask.s1 & 3];
+	res.s2 = xVec[mask.s2 & 3];
+	res.s3 = xVec[mask.s3 & 3];
+
+	return res;
+}
+
+_8i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _8u64 mask)
+{
+	_8i64 res;
+	_1i64 xVec[4];
+	memcpy(&xVec[0], &x, sizeof(_2i64));
+	memcpy(&xVec[2], &y, sizeof(_2i64));
+
+	res.s0 = xVec[mask.s0 & 3];
+	res.s1 = xVec[mask.s1 & 3];
+	res.s2 = xVec[mask.s2 & 3];
+	res.s3 = xVec[mask.s3 & 3];
+	res.s4 = xVec[mask.s4 & 3];
+	res.s5 = xVec[mask.s5 & 3];
+	res.s6 = xVec[mask.s6 & 3];
+	res.s7 = xVec[mask.s7 & 3];
+
+	return res;
+}
+
+_16i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _16u64 mask)
+{
+	_16i64 res;
+	_1i64 xVec[4];
+	memcpy(&xVec[0], &x, sizeof(_2i64));
+	memcpy(&xVec[2], &y, sizeof(_2i64));
+
+	res.s0 = xVec[mask.s0 & 3];
+	res.s1 = xVec[mask.s1 & 3];
+	res.s2 = xVec[mask.s2 & 3];
+	res.s3 = xVec[mask.s3 & 3];
+	res.s4 = xVec[mask.s4 & 3];
+	res.s5 = xVec[mask.s5 & 3];
+	res.s6 = xVec[mask.s6 & 3];
+	res.s7 = xVec[mask.s7 & 3];
+	res.s8 = xVec[mask.s8 & 3];
+	res.s9 = xVec[mask.s9 & 3];
+	res.sA = xVec[mask.sA & 3];
+	res.sB = xVec[mask.sB & 3];
+	res.sC = xVec[mask.sC & 3];
+	res.sD = xVec[mask.sD & 3];
+	res.sE = xVec[mask.sE & 3];
+	res.sF = xVec[mask.sF & 3];
+
+	return res;
+}
+
+#endif
 
 _4i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _4u32 mask)
 {
@@ -2064,28 +2345,6 @@ _2i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _2u32 mask)
 	_4u32 tMask;
 	tMask.s01 = mask;
 	return shuffle2(x, y, tMask).s01;
-}
-
-_8i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _8u32 mask)
-{
-	_8i32 res;
-
-	res.lo = shuffle2(x, y, mask.lo);
-	res.hi = shuffle2(x, y, mask.hi);
-	
-	return res;
-}
-
-_16i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _16u32 mask)
-{
-	_16i32 res;
-
-	res.lo.lo = shuffle2(x, y, mask.lo.lo);
-	res.lo.hi = shuffle2(x, y, mask.lo.hi);
-	res.hi.lo = shuffle2(x, y, mask.hi.lo);
-	res.hi.hi = shuffle2(x, y, mask.hi.hi);
-	
-	return res;
 }
 
 _4i32 __attribute__((overloadable)) shuffle2(_8i32 x, _8i32 y, _4u32 mask)
@@ -2464,66 +2723,6 @@ _2i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _2u64 mask)
 	return res;
 }
 
-_4i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _4u64 mask)
-{
-	_4i64 res;
-	_1i64 xVec[4];
-	memcpy(&xVec[0], &x, sizeof(_2i64));
-	memcpy(&xVec[2], &y, sizeof(_2i64));
-
-	res.s0 = xVec[mask.s0 & 3];
-	res.s1 = xVec[mask.s1 & 3];
-	res.s2 = xVec[mask.s2 & 3];
-	res.s3 = xVec[mask.s3 & 3];
-
-	return res;
-}
-
-_8i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _8u64 mask)
-{
-	_8i64 res;
-	_1i64 xVec[4];
-	memcpy(&xVec[0], &x, sizeof(_2i64));
-	memcpy(&xVec[2], &y, sizeof(_2i64));
-
-	res.s0 = xVec[mask.s0 & 3];
-	res.s1 = xVec[mask.s1 & 3];
-	res.s2 = xVec[mask.s2 & 3];
-	res.s3 = xVec[mask.s3 & 3];
-	res.s4 = xVec[mask.s4 & 3];
-	res.s5 = xVec[mask.s5 & 3];
-	res.s6 = xVec[mask.s6 & 3];
-	res.s7 = xVec[mask.s7 & 3];
-
-	return res;
-}
-
-_16i64 __attribute__((overloadable)) shuffle2(_2i64 x, _2i64 y, _16u64 mask)
-{
-	_16i64 res;
-	_1i64 xVec[4];
-	memcpy(&xVec[0], &x, sizeof(_2i64));
-	memcpy(&xVec[2], &y, sizeof(_2i64));
-
-	res.s0 = xVec[mask.s0 & 3];
-	res.s1 = xVec[mask.s1 & 3];
-	res.s2 = xVec[mask.s2 & 3];
-	res.s3 = xVec[mask.s3 & 3];
-	res.s4 = xVec[mask.s4 & 3];
-	res.s5 = xVec[mask.s5 & 3];
-	res.s6 = xVec[mask.s6 & 3];
-	res.s7 = xVec[mask.s7 & 3];
-	res.s8 = xVec[mask.s8 & 3];
-	res.s9 = xVec[mask.s9 & 3];
-	res.sA = xVec[mask.sA & 3];
-	res.sB = xVec[mask.sB & 3];
-	res.sC = xVec[mask.sC & 3];
-	res.sD = xVec[mask.sD & 3];
-	res.sE = xVec[mask.sE & 3];
-	res.sF = xVec[mask.sF & 3];
-
-	return res;
-}
 
 
 _2i64 __attribute__((overloadable)) shuffle2(_4i64 x, _4i64 y, _2u64 mask)
