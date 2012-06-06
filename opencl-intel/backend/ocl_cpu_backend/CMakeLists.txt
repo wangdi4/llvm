@@ -563,6 +563,9 @@ if (WIN32)
                                 LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
                                 )
     endif (${MSVC_VERSION} EQUAL 1500)
+    if (INSTALL_PDBS)
+        install(FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+    endif(INSTALL_PDBS)
     install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 endif(WIN32)
 

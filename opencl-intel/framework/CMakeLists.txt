@@ -124,6 +124,10 @@ if (WIN32)
             )
     endif(${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+    if (INSTALL_PDBS)    
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+    endif(INSTALL_PDBS)   
+    
 	list( APPEND LINK_LIBS delayimp.lib )
 endif(WIN32)
 
