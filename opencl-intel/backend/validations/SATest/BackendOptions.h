@@ -34,6 +34,7 @@ public:
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
         m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
+        m_DisableStackDump = runConfig.GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false);
     }
 
 
@@ -50,6 +51,13 @@ public:
 
     bool GetBooleanValue(int optionId, bool defaultValue) const
     {
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP:
+            return m_DisableStackDump;
+        default:
+            return defaultValue;
+        }
         return defaultValue;
     }
 
@@ -65,6 +73,7 @@ public:
 
 private:
     std::string m_TimePasses;
+    bool        m_DisableStackDump;
 };
 
 

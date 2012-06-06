@@ -61,6 +61,12 @@ using std::string;
 
 extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
 
+
+namespace llvm 
+{
+  extern bool DisablePrettyStackTrace;
+}
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 void dumpModule(llvm::Module& m){
@@ -230,6 +236,9 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     }
 
     llvm::cl::ParseCommandLineOptions(argv.size(), &argv[0]);
+
+    llvm::DisablePrettyStackTrace = config.DisableStackDump();
+
     s_globalStateInitialized = true;
 }
 

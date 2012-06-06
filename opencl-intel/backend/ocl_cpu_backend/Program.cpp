@@ -73,9 +73,16 @@ cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
         return CL_DEV_INVALID_OPERATION;
     }
     
+    try
+    {
         *pKernel = (ICLDevBackendKernel_*)m_kernels->GetKernel(pKernelName);
         return CL_DEV_SUCCESS; 
     }
+    catch(Exceptions::DeviceBackendExceptionBase& )
+    {
+        return CL_DEV_INVALID_KERNEL_NAME;
+    }
+}
 
 int Program::GetKernelsCount() const
 {
@@ -96,9 +103,9 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     }
     //TODO: exception handling
 
-        *ppKernel = m_kernels->GetKernel(kernelIndex);
-        return CL_DEV_SUCCESS; 
-    }
+    *ppKernel = m_kernels->GetKernel(kernelIndex);
+    return CL_DEV_SUCCESS; 
+}
 
 
 void Program::SetBitCodeContainer(BitCodeContainer* bitCodeContainer)

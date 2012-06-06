@@ -43,6 +43,12 @@ public:
      * File to append -stats and -timer output to
      */
     virtual std::string InfoOutputFile() const = 0;
+    /**
+     * Disables printing the stack dump upon crash - used
+     * primarity to disable the SEH handling by llvm library 
+     * usually for SDE tracing support.
+     */
+    virtual bool DisableStackDump() const = 0;
 };
 
 

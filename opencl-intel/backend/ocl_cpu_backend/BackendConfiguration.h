@@ -39,10 +39,12 @@ public:
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
     bool EnableTiming() const { return m_enableTiming;  }
+    bool DisableStackDump() const { return m_disableStackDump; }
     std::string InfoOutputFile() const { return m_infoOutputFile; }
 
 private:
     bool m_enableTiming;
+    bool m_disableStackDump;
     std::string m_infoOutputFile;
 };
 
