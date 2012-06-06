@@ -291,6 +291,7 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
 
     if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL)) {
       m_forcedCpuFeatures.push_back("+avx2");
+      m_forcedCpuFeatures.push_back("+f16c");
       //m_forcedCpuFeatures.push_back("+fma3");
     }
 
