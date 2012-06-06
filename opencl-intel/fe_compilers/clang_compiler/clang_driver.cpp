@@ -367,7 +367,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
 	// Add CPU type
 	unsigned int uFeatures = CPUDetect::GetInstance()->GetCPUFeatureSupport();
-	std::string CPUType = "pentium4";
+	std::string CPUType = "nocona";
 	if ( uFeatures & CFS_SSE42 )
 	{
 		CPUType = "corei7";
