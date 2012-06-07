@@ -156,6 +156,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Blocking function, returns after NotifyComplete is done
 		virtual void    Wait();
 
+        cl_int GetEventExecState(const OclEventState state) const;
 		cl_int GetEventExecState() const;
 
         virtual cl_int  GetExpectedExecState() const { return CL_COMPLETE; }

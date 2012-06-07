@@ -194,13 +194,17 @@ OclEventState OclEvent::SetEventState(const OclEventState newEventState)
 {
 	//Todo: do we need atomic exchange here?
 	OclEventState oldEventState = GetEventState();
-	cl_int        oldExecState  = GetEventExecState();
-	m_eventState = newEventState;
-	assert( !((newEventState==EVENT_STATE_DONE) && (oldEventState == EVENT_STATE_DONE)) );
+	cl_int        oldExecState  = GetEventExecState(oldEventState);
 
-	if (GetEventExecState() != oldExecState)
+	m_eventState = newEventState;
+
+	assert( !((newEventState==EVENT_STATE_DONE) && (oldEventState == EVENT_STATE_DONE)) );
+	
+	cl_int newExecState = GetEventExecState(newEventState);
+
+	if (newExecState != oldExecState)
 	{
-		switch (GetEventExecState())
+		switch (newExecState)
 		{
 		case CL_QUEUED:
 			// queued, but without notification.
@@ -414,7 +418,12 @@ void OclEvent::WaitOSEvent()
 ******************************************************************/
 cl_int OclEvent::GetEventExecState() const
 {
-	switch(GetEventState())
+    return GetEventExecState(GetEventState());
+}
+
+cl_int OclEvent::GetEventExecState(const OclEventState state) const
+{
+	switch(state)
 	{
 	case EVENT_STATE_CREATED:
 		return CL_QUEUED;
