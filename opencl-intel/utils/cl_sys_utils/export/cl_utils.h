@@ -30,7 +30,9 @@
 #include <cl_types.h>
 #include <cl_device_api.h>
 #include <cl_monitor.h>
-
+#include <string>
+#include <iostream>
+#include <sstream>
 #ifdef WIN32
 typedef int threadid_t;
 #else
@@ -48,6 +50,66 @@ typedef pid_t  threadid_t;
 * Date:			December 2008
 **************************************************************************************************/
 const wchar_t* ClErrTxt(cl_err_code error_code);
+
+/**************************************************************************************************
+* Function: 	stringify
+* Description:	Turn any type supporting the ostream&<< operator into a string
+* Arguments:	a variable to convert into string
+* Return value:	string
+* Author:		Eli Bendersky
+* Date:			?
+**************************************************************************************************/
+template<typename T> inline std::string stringify(const T& x)
+{
+	std::ostringstream out;
+	out << x;
+	return out.str();
+}
+
+// Specialization for booleans
+//
+template<> inline std::string stringify(const bool& b)
+{
+	return b ? "true" : "false";
+}
+
+// Specialization for signed and unsigned chars: we want them to be just
+// displayed as numbers
+//
+template<> inline std::string stringify(const unsigned char& c)
+{
+	return stringify(static_cast<unsigned int>(c));
+}
+
+
+template<> inline std::string stringify(const signed char& c)
+{
+	return stringify(static_cast<signed int>(c));
+}
+
+/**************************************************************************************************
+* Function: 	XXXtoString
+* Description:	Turn some kind of OpenCL objects defines into strings
+				Note: can not overload stringfy because most of the object are merely a typedefs
+* Arguments:	a variable to convert into string
+* Return value:	string
+* Author:		Nitzan Dori
+* Date:			May 2012
+**************************************************************************************************/
+const string channelOrderToString(const cl_channel_order& co);
+const string channelTypeToString(const cl_channel_type& ct);
+const string imageFormatToString (const cl_image_format& format);
+const string memTypeToString(const cl_mem_object_type& mo);
+const string memFlagsToString(const cl_mem_flags& flags);
+const string addressingModeToString(const cl_addressing_mode& am);
+const string filteringModeToString(const cl_filter_mode& fm);
+const string commandQueuePropertiesToString(const cl_command_queue_properties& prop);
+const string fpConfigToString(const cl_device_fp_config& fp_config);
+const string memCacheTypeToString(const cl_device_mem_cache_type& memType);
+const string localMemTypeToString(const cl_device_local_mem_type& memType);
+const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap);
+const string commandTypeToString(const cl_command_type& type);
+
 
 /**************************************************************************************************
 * Function: 	clIsNumaAvailable

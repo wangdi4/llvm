@@ -3,7 +3,7 @@
 
 #include <string>
 #include <sstream>
-
+#include "cl_utils.h"
 namespace debugservermessages {
     class VarTypeDescriptor;
 }
@@ -12,37 +12,6 @@ namespace debugservermessages {
 namespace llvm {
     class DIType;
 }
-
-// Turn any type supporting the ostream&<< operator into a string
-//
-template<typename T> inline std::string stringify(const T& x)
-{
-    std::ostringstream out;
-    out << x;
-    return out.str();
-}
-
-// Specialization for booleans
-//
-template<> inline std::string stringify(const bool& b)
-{
-    return b ? "true" : "false";
-}
-
-// Specialization for signed and unsigned chars: we want them to be just
-// displayed as numbers
-//
-template<> inline std::string stringify(const unsigned char& c)
-{
-    return stringify(static_cast<unsigned int>(c));
-}
-
-
-template<> inline std::string stringify(const signed char& c)
-{
-    return stringify(static_cast<signed int>(c));
-}
-
 
 std::string DescribeVarType(const llvm::DIType& di_type);
 std::string DescribeVarValue(const llvm::DIType& di_type, void* addr, std::string type_name = "");

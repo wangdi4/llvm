@@ -210,7 +210,7 @@ if not errorlevel 0 goto error_end
 
 echo -- Fix C# projects referencies
 python "%script_dir%\c++_2_c#.py" OCL.sln iocgui
-if %incl_dbg% == ON python "%script_dir%\c++_2_c#.py" OCL.sln OCLDebugEngine OCLDebugConfigPackage
+if %incl_dbg% == ON python "%script_dir%\c++_2_c#.py" OCL.sln OCLDebugEngine OCLDebugConfigPackage ApiDebugger
 
 echo -- Convert relevant projects to Intel C++, please wait...
 set converter="C:\Program Files (x86)\Common Files\Intel\shared files\ia32\Bin\ICProjConvert121.exe"
