@@ -20,6 +20,8 @@ File Name:  plugin_manager.h
 #include "DynamicLib.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Atomic.h"
+#include "llvm/Support/Mutex.h"
 #include <string>
 #include <stdexcept>
 
@@ -36,8 +38,8 @@ const int INIT_PLUGIN_COUNT = 10;
 
 class PluginManagerException : public std::runtime_error{
 public:
-  virtual ~PluginManagerException() throw();
-  PluginManagerException(std::string message);
+    virtual ~PluginManagerException() throw();
+    PluginManagerException(std::string message);
 };
 
 /**
@@ -124,6 +126,8 @@ private:
     class PluginInfo{
         Intel::OpenCL::DeviceBackend::Utils::DynamicLib m_dll;
         IPlugin* m_pPlugin;
+        //lock for the cleanup operation
+        llvm::sys::Mutex m_lock;
      public:
         PluginInfo(const std::string& dllName);
         ~PluginInfo();

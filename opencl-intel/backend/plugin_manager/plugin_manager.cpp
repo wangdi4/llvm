@@ -17,6 +17,7 @@ File Name:  plugin_manager.cpp
 \*****************************************************************************////////////////////////////////////////////////////////////
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/MutexGuard.h"
 #include <assert.h>
 #include <algorithm>
 #include <cstdio>
@@ -81,7 +82,7 @@ void PluginManager::Terminate()
 PluginManager::~PluginManager()
 {
     for(PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; it++)
-      if(*it) delete *it;
+        if(*it) delete *it;
 }
 
 void PluginManager::LoadPlugins()
@@ -188,15 +189,20 @@ PluginManager::PluginInfo::PluginInfo(const std::string& dllName)
 {
     m_dll.Load(dllName.c_str());
     PLUGIN_CREATE_FUNCPTR factory 
-      = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
+        = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
     m_pPlugin = factory();
 }
 
 PluginManager::PluginInfo::~PluginInfo()
 {
     PLUGIN_RELEASE_FUNCPTR cleanup
-      = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
-    cleanup(m_pPlugin);
+        = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
+    {
+        assert(m_pPlugin && "NULL plugin");
+        llvm::MutexGuard cleanlock(m_lock);
+        cleanup(m_pPlugin);
+    }
+    m_pPlugin = NULL;
     m_dll.Close();
 }
 

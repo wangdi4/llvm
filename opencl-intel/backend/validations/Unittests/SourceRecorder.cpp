@@ -351,3 +351,4 @@ TEST(OCLSourceRecorder1_1, header_source_connection){
 
   CompileDataFactory::free(pFactory);
 }
+

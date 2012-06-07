@@ -831,7 +831,8 @@ namespace Validation
     //OclRecorderPlugin
     //
     class OclRecorderPlugin: public IPlugin{
-      public:
+    public:
+
         ~OclRecorderPlugin(){
             if(pOclRecorder)
                 delete pOclRecorder;
@@ -886,9 +887,9 @@ namespace Validation
         static llvm::sys::Mutex lock;
         //a pointer to the plugin instance
         static OclRecorderPlugin* instance;
-
         //Assigns a reference to the source recorder, whithin the backend recorder
-        //Note: should be only called once, after the instanciation of the second recorder.
+        //Note: should be only called once, after the instantiation of the second
+        //recorder.
         void assignSourceRecorder(){
             if (pOclRecorder && pSourceRecorder)
                 pOclRecorder->SetSourceRecorder(pSourceRecorder);
@@ -896,13 +897,12 @@ namespace Validation
 
         OclRecorderPlugin() : pOclRecorder(NULL), pSourceRecorder(NULL){
         }
-
-    };//End IPlugin
+    };//End OclRecorderPlugin
 
     OclRecorderPlugin* OclRecorderPlugin::instance = NULL;
 
     llvm::sys::Mutex OclRecorderPlugin::lock;
-}
+}//end Validation
 
 // Defines the exported functions for the DLL application.
 #ifdef __cplusplus
@@ -916,7 +916,9 @@ extern "C"
 
     OCL_RECORDER_API void ReleasePlugin(IPlugin* pPlugin)
     {
-        delete pPlugin;
+      assert (pPlugin == Validation::OclRecorderPlugin::Instance() &&
+        "where did this pointer come from??" );
+      //intentionally ignore that call, since its a singleton object..
     }
 #ifdef __cplusplus
 }
