@@ -206,10 +206,21 @@ bool clRelaxedFunctionTest()
      
     for( unsigned y=0; (y < stBuffSize) && bResult; ++y )
     {
-		if( fabs(pDstBuff[y] - pDstBuffRelaxed[y]) > 0.15 )
-		{            
-			bResult = false;
-            break;
+		if( 0 == fabs(pDstBuff[y]))
+		{
+			if( fabs(pDstBuff[y] - pDstBuffRelaxed[y]) > 0.15 )
+			{            
+				bResult = false;
+				break;
+			}
+		} 
+		else
+		{
+			if( fabs((pDstBuff[y] - pDstBuffRelaxed[y])/pDstBuff[y]) > 0.15 )
+			{            
+				bResult = false;
+				break;
+			}
 		}
     }
 
