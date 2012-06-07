@@ -96,7 +96,8 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                             COMMAND ${DEVICE_LINKER} ${TARGET_EXE} ${OBJ_FILES}
 
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT}
+                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${OCL_BINARY_DIR}/backend/llvm/lib/libOclDeviceExecutor.a
+
                             WORKING_DIRECTORY ${BIN_DIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
                             VERBATIM
@@ -129,7 +130,6 @@ function ( add_device_executable TARGET_NAME )
         LINK_DEVICE_EXE( ${EXE_FILE} ${OBJ_LIST} )
 
         add_custom_target( ${TARGET_NAME} ALL DEPENDS ${EXE_FILE} )
-        #add_custom_target( ${TARGET_NAME} ALL DEPENDS ${EXE_FILE} OclDeviceExecutor )
         install( FILES ${EXE_FILE} DESTINATION bin)
         # copy coi libraries to build subdirectory
         file(COPY ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION ${OUTPUT_DIR})
