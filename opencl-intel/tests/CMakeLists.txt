@@ -31,10 +31,10 @@ if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
 
 endif (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
 
-if (WIN32 AND INCLUDE_CMRT)
+if (INCLUDE_CMRT)
     message ("Adding Common runtime tests ...")
     add_subdirectory ( common_runtime_test_type )
-endif(WIN32 AND INCLUDE_CMRT)
+endif(INCLUDE_CMRT)
 
 #Samples
 option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
