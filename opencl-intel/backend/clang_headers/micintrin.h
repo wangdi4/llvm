@@ -535,6 +535,152 @@ typedef enum {
     _MM_DOWNCONV_EPI64_NONE       /* no conversion      */
 } _MM_DOWNCONV_EPI64_ENUM;
 
+
+__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_check_load_epi32(__m512i v1_old, void const *mt,
+                             _MM_UPCONV_EPI32_ENUM upconv,
+                             const int hint)
+{
+  __m512i tmp = (__m512i)__builtin_ia32_loadunpacklpi512((__v16si)v1_old, mt, upconv, hint);
+  return (__m512i)__builtin_ia32_loadunpackhpi512((__v16si)tmp, mt+64, upconv, hint);
+}
+
+__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_check_load_epi32(__m512i v1_old, __mmask16 k1, void const *mt,
+                              _MM_UPCONV_EPI32_ENUM upconv,
+                              const int hint, unsigned int size)
+{
+  __m512i tmp = (__m512i)__builtin_ia32_mask_loadunpacklpi512((__v16si)v1_old, k1, mt, upconv, hint);
+  if ((uintptr_t) mt % 64 > 64 - size){
+    tmp = (__m512i)__builtin_ia32_mask_loadunpackhpi512((__v16si)tmp, k1, mt+64, upconv, hint);
+  }
+  return tmp;
+}
+
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_check_load_ps(__m512 v1_old, void const *mt,
+                          _MM_UPCONV_PS_ENUM upconv,
+                          const int hint)
+{
+  __m512 tmp = __builtin_ia32_loadunpacklps512(v1_old, mt, upconv, hint);
+  return __builtin_ia32_loadunpackhps512(tmp, mt+64, upconv, hint);
+}
+
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_check_load_ps(__m512 v1_old, __mmask16 k1, void const *mt,
+                               _MM_UPCONV_PS_ENUM upconv,
+                               const int hint, unsigned int size)
+{
+  __m512 tmp = __builtin_ia32_mask_loadunpacklps512(v1_old, k1, mt, upconv, hint);
+  if ((uintptr_t) mt % 64 > 64 - size){
+    tmp = __builtin_ia32_mask_loadunpackhps512(tmp, k1, mt+64, upconv, hint);
+  }
+  return tmp;
+}
+
+__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_check_load_epi64(__m512i v1_old, void const *mt,
+                             _MM_UPCONV_EPI64_ENUM upconv,
+                             const int hint)
+{
+  __m512i tmp = __builtin_ia32_loadunpacklpq512(v1_old, mt, upconv, hint);
+  return __builtin_ia32_loadunpackhpq512(tmp, mt+64, upconv, hint);
+}
+
+__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_check_load_epi64(__m512i v1_old, __mmask16 k1, void const *mt,
+                                  _MM_UPCONV_EPI64_ENUM upconv,
+                                  const int hint, unsigned int size)
+{
+  __m512i tmp = __builtin_ia32_mask_loadunpacklpq512(v1_old, k1, mt, upconv, hint);
+  if ((uintptr_t) mt % 64 > 64 - size){
+    tmp = __builtin_ia32_mask_loadunpackhpq512(tmp, k1, mt+64, upconv, hint);
+  }
+  return tmp;
+}
+
+__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
+_mm512_check_load_pd(__m512d v1_old, void const *m,
+                          _MM_UPCONV_PD_ENUM upconv,
+                          const int hint)
+{
+  __m512d tmp = __builtin_ia32_loadunpacklpd512(v1_old, m, upconv, hint);
+  return __builtin_ia32_loadunpackhpd512(tmp, m+64, upconv, hint);
+}
+
+__inline__ __m512d __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_check_load_pd(__m512d v1_old, __mmask8 k1, void const *mt,
+                               _MM_UPCONV_PD_ENUM upconv,
+                               const int hint, unsigned int size)
+{
+  __m512d tmp = __builtin_ia32_mask_loadunpacklpd512(v1_old, k1, mt, upconv, hint);
+  if ((uintptr_t) mt % 64 > 64 - size){
+    tmp = __builtin_ia32_mask_loadunpackhpd512(tmp, k1, mt+64, upconv, hint);
+  }
+  return tmp;
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm512_check_store_ps(void *m, __m512 v1,
+                 const _MM_DOWNCONV_PS_ENUM downconv,
+                 const int hint)
+{
+  __builtin_ia32_packstorelps512(m, v1, downconv, hint);
+  __builtin_ia32_packstorehps512(m+64, v1, downconv, hint);
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+ _mm512_mask_check_store_ps(void *m, __mmask16 k1, __m512 v1,
+                      _MM_DOWNCONV_PS_ENUM downconv,
+                      const int hint, unsigned int size)
+{
+  __builtin_ia32_mask_packstorelps512(m, k1, v1, downconv, hint);
+  if ((uintptr_t) m % 64 > 64 - size){
+    __builtin_ia32_mask_packstorehps512(m+64, k1, v1, downconv, hint);
+  }
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+ _mm512_check_store_pd(void *m, __m512d v1,
+                 const _MM_DOWNCONV_PD_ENUM downconv,
+                 const int hint)
+{
+  __builtin_ia32_packstorelpd512(m, v1, downconv, hint);
+  __builtin_ia32_packstorehpd512(m+64, v1, downconv, hint);
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+ _mm512_mask_check_store_pd(void *m, __mmask8 k1, __m512d v1,
+                      _MM_DOWNCONV_PD_ENUM downconv,
+                      const int hint, unsigned int size)
+{
+  __builtin_ia32_mask_packstorelpd512(m, k1, v1, downconv, hint);
+  if ((uintptr_t) m % 64 > 64 - size){
+    __builtin_ia32_mask_packstorehpd512(m+64, k1, v1, downconv, hint);
+  }
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+ _mm512_check_store_epi32(void *m, __m512i v1,
+                 const _MM_DOWNCONV_EPI32_ENUM downconv,
+                 const int hint)
+{
+  __builtin_ia32_packstorelpi512(m, (__v16si)v1, downconv, hint);
+  __builtin_ia32_packstorehpi512(m+64, (__v16si)v1, downconv, hint);
+}
+
+ __inline__ void __attribute__((__always_inline__, __nodebug__))
+ _mm512_mask_check_store_epi32(void *m, __mmask16 k1, __m512i v1,
+                      _MM_DOWNCONV_EPI32_ENUM downconv,
+                      const int hint, unsigned int size)
+{
+  __builtin_ia32_mask_packstorelpi512(m, k1, (__v16si)v1, downconv, hint);
+  if ((uintptr_t) m % 64 > 64 - size){
+    __builtin_ia32_mask_packstorehpi512(m+64, k1, (__v16si)v1, downconv, hint);
+  }
+}
+
+
 __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm512_extstore_ps(void *m, __m512 v1,
                    const _MM_DOWNCONV_PS_ENUM downconv,
