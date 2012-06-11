@@ -197,6 +197,19 @@ void FuncResolver::resolve(CallInst* caller) {
   }
 }
 
+Constant *FuncResolver::getDefaultValForType(Type *ty) {
+  Constant *defaultVal = UndefValue::get(ty);
+  Type *scalarTy = ty->getScalarType();
+  if (scalarTy->isFloatingPointTy()) {
+    defaultVal = ConstantFP::get(scalarTy, 1.0);
+    if (VectorType *VT = dyn_cast<VectorType>(ty)) {
+      defaultVal = ConstantVector::get(
+      std::vector<Constant *> (VT->getNumElements(), defaultVal));
+    }
+  }
+  return defaultVal;
+}
+
 void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
   V_ASSERT(!insts.empty() && pred && "Bad instruction");
 
@@ -224,7 +237,6 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
   for (size_t i=0; i< insts.size(); ++i) {
     // Nothing to do for void type
     if (insts[i]->getType()->isVoidTy()) continue;
-    UndefValue* undef = UndefValue::get(insts[i]->getType());
     PHINode* phi = PHINode::Create(insts[i]->getType(), 2, "phi", footer->getFirstNonPHI());
 
     // replace all users which are not skipped (this will create a broken module)
@@ -242,7 +254,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
       }
     }//end of for
 
-    phi->addIncoming(undef, header);
+	phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
     phi->addIncoming(insts[i], body);
   }
 }

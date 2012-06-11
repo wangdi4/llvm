@@ -51,6 +51,11 @@ private:
   /// @param inst Instruction to predicate using control flow
   /// @param pred Predicator to use
   void CFInstruction(std::vector<Instruction*> insts, Value* pred);
+  /// @brief Returns a constant deafult value for givan type. On integers
+  ///        return undef, on FP return 1.0 to avoid denormals calculation.
+  /// @param ty - given type.
+  /// @returns default value for input type.
+  Constant *getDefaultValForType(Type *ty);
   /// @brief Add instruction to the data structure which records which
   /// instructions need to be predicated.
   /// @param inst Instruction to predicate using control flow
