@@ -184,6 +184,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../../cl_api
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend/utils
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../arch_headers
                 )
 
@@ -227,12 +228,12 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/KernelProperties.cpp
     ../ocl_cpu_backend/MICKernelProperties.cpp
     ../ocl_cpu_backend/MICJITContainer.cpp
-    ../ocl_cpu_backend/TypeAlignment.cpp
+    ../ocl_cpu_backend/utils/TypeAlignment.cpp
     ../ocl_cpu_backend/Binary.cpp
-    ../ocl_cpu_backend/ImplicitArgsUtils.cpp
+    ../ocl_cpu_backend/utils/ImplicitArgsUtils.cpp
     ../ocl_cpu_backend/Executable.cpp
     ../ocl_cpu_backend/MICExecutable.cpp
-    ../ocl_cpu_backend/FunctionArgument.cpp
+    ../ocl_cpu_backend/utils/FunctionArgument.cpp
     main.cpp)
 
 if(MIC_TARGET) 

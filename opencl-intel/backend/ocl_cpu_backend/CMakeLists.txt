@@ -1,5 +1,4 @@
 set(TARGET_NAME OclCpuBackEnd)
-set(TARGET_UTILS_NAME OclUtils)
 
 project(${TARGET_NAME})
 
@@ -194,51 +193,9 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
 
 endmacro( CREATE_ASM_RULES )
 
-# Create target utils project
-set (OCL_UTILS_INCLUDE_FILES
-    AddImplicitArgs.h
-    CompilationUtils.h
-    CPUDetect.h
-    exceptions.h
-    ExplicitArgument.h
-    ExplicitLocalMemArgument.h
-    ExplicitGlobalMemArgument.h
-    FunctionArgument.h
-    IArgument.h
-    ImplicitArgProperties.h
-    ImplicitArgsUtils.h
-    ImplicitArgument.h
-    LocalBuffers.h
-    LocalBuffAnalysis.h
-    PrepareKernelArgs.h
-    ResolveWICall.h
-    ShiftZeroUpperBits.h
-    SystemInfo.h
-    TLLVMKernelInfo.h
-    TypeAlignment.h
-    UndefExternalFuncs.h
-    PreventDivCrashes.h
-    ProcessorDetect.h
-  )
-
-set (OCL_UTILS_SOURCE_FILES
-    AddImplicitArgs.cpp
-    BuiltInFuncImport.cpp
-    CompilationUtils.cpp
-    CPUDetect.cpp
-    FunctionArgument.cpp
-    ImplicitArgsUtils.cpp
-    LocalBuffers.cpp
-    LocalBuffAnalysis.cpp
-    PrepareKernelArgs.cpp
-    ResolveWICall.cpp
-    ShiftZeroUpperBits.cpp
-    SystemInfo.cpp
-    TypeAlignment.cpp
-    UndefExternalFuncs.cpp
-    PreventDivCrashes.cpp
-    ModuleCleanup.cpp
-  )
+# Create utils project & OCL passes
+add_subdirectory(utils)
+add_subdirectory(passes)
 
 # Create target project
 
@@ -249,7 +206,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     MICDeviceBackendFactory.h
     ${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
     TargetDescription.h
-    exceptions.h
     Logger.h
     Compiler.h
     CPUCompiler.h
@@ -266,7 +222,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CompilerConfig.h
     MICCompilerConfig.h
     ProgramBuilder.h
-    CompilationUtils.h
     CPUProgramBuilder.h
     MICProgramBuilder.h
     Optimizer.h
@@ -290,8 +245,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     Executable.h
     CPUExecutable.h
     MICExecutable.h
-    TypeAlignment.h
-    PrintIRPass.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
@@ -307,9 +260,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     mic_builtin_functions.cpp
     TargetDescription.cpp
     dllmain.cpp
-    InstToFuncCall.cpp
     opencl_printf_ext.cpp
-    RelaxedPass.cpp
     Logger.cpp
     ServiceFactory.cpp
     CompileService.cpp
@@ -320,7 +271,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     MICSerializationService.cpp
     BackendConfiguration.cpp
     ProgramBuilder.cpp
-    CompilationUtils.cpp
     Compiler.cpp
     CPUCompiler.cpp
     MICCompiler.cpp
@@ -347,15 +297,11 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     Executable.cpp
     CPUExecutable.cpp
     MICExecutable.cpp
-    TypeAlignment.cpp
-    PrintIRPass.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
-    debuginfopass.cpp
-    profilinginfopass.cpp
   )
 
 if (ENABLE_SDE)
@@ -397,6 +343,9 @@ include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
     ..
     ../plugin_manager
     ../dynamic_lib
+    utils
+    passes/InstToFuncCall
+    passes/PrintIRPass
 )
 
 # Add additional lib directories
@@ -413,11 +362,6 @@ add_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
     ${OCL_CPU_BACKEND_SOURCE_FILES}
     ${OCL_CPU_BACKEND_RESOURCE_FILES}
-    ${ASM_ADD_TO_SOURCES_LIST}
-    )
-add_library(${TARGET_UTILS_NAME}
-    ${OCL_UTILS_INCLUDE_FILES}
-    ${OCL_UTILS_SOURCE_FILES}
     ${ASM_ADD_TO_SOURCES_LIST}
 )
 
@@ -517,7 +461,7 @@ target_link_libraries (${TARGET_NAME}
     dynamic_load 
 
     # Utils lib
-    ${TARGET_UTILS_NAME}
+    OclUtils
 
     # LLVM LIBS
     ${LLVM_LIBS}
@@ -526,11 +470,27 @@ target_link_libraries (${TARGET_NAME}
     ${JITPROFLIB}
 
     OclPluginManager
+    
+    # Backend passes
+    AddImplicitArgs
+    BuiltInFuncImport
+    DebugInfoPass
+    InstToFuncCall
+    LocalBuffers
+    ModuleCleanup
+    PrepareKernelArgs
+    PreventDivCrashes
+    PrintIRPass
+    ProfilingInfoPass
+    RelaxedPass
+    ResolveWICall
+    ShiftZeroUpperBits
+    UndefExternalFuncs
 )
 
 add_dependencies(${TARGET_NAME}
     # Utils lib
-    ${TARGET_UTILS_NAME}
+    OclUtils
 
     # LLVM PROJECTS
     ${LLVM_LIBS}
@@ -538,6 +498,22 @@ add_dependencies(${TARGET_NAME}
     dynamic_load
 
     OclPluginManager
+    
+    # Backend passes
+    AddImplicitArgs
+    BuiltInFuncImport
+    DebugInfoPass
+    InstToFuncCall 
+    LocalBuffers
+    ModuleCleanup
+    PrepareKernelArgs
+    PreventDivCrashes
+    PrintIRPass
+    ProfilingInfoPass
+    RelaxedPass
+    ResolveWICall
+    ShiftZeroUpperBits
+    UndefExternalFunctions
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
@@ -569,7 +545,7 @@ if (WIN32)
     install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 endif(WIN32)
 
-install( TARGETS ${TARGET_NAME} ${TARGET_UTILS_NAME}
+install( TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)

@@ -12,7 +12,7 @@ Copyright (c) Intel Corporation (2012).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  profilinginfopass.cpp
+File Name:  ProfilingInfoPass.cpp
 
 \*****************************************************************************/
 
