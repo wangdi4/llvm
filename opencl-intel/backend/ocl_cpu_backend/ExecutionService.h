@@ -19,6 +19,7 @@ File Name:  ExecutionService.h
 
 #include "cl_dev_backend_api.h"
 #include "IAbstractBackendFactory.h"
+#include "plugin_manager.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -110,6 +111,9 @@ public:
 protected:
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_pBackendFactory; 
+    #ifdef OCL_DEV_BACKEND_PLUGINS
+    mutable Intel::OpenCL::PluginManager m_pluginManager;
+    #endif
 };
 
 }}}

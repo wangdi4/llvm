@@ -57,10 +57,10 @@ cl_dev_err_code ExecutionService::CreateBinary(
             
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin manager
-        PluginManager::Instance().OnCreateBinary( pKernel, 
-                                                  pWorkDescription,
-                                                  contextSize,
-                                                  pContext);
+        m_pluginManager.OnCreateBinary( pKernel, 
+                                        pWorkDescription,
+                                        contextSize,
+                                        pContext);
 #endif
 
         return CL_DEV_SUCCESS;

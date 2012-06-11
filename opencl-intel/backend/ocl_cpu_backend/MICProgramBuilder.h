@@ -23,6 +23,7 @@ File Name:  MICProgramBuilder.h
 #include "cl_dev_backend_api.h"
 #include "ProgramBuilder.h"
 #include "MICCompiler.h"
+#include "plugin_manager.h"
 
 namespace llvm {
     class Module;
@@ -78,6 +79,9 @@ private:
 private:
     std::string m_ErrorStr;
     MICCompiler m_compiler;
+    #ifdef OCL_DEV_BACKEND_PLUGINS
+    mutable Intel::OpenCL::PluginManager   m_pluginManager;
+    #endif
 };
 
 }}}

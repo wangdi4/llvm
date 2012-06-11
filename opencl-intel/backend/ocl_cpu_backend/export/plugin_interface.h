@@ -24,6 +24,8 @@ File Name:  plugin_interface.h
 */
 #pragma once
 
+#include <cstdlib>
+
 #ifdef __cplusplus
 extern "C" 
 {

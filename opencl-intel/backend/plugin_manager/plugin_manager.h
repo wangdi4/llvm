@@ -15,26 +15,43 @@ to any intellectual property rights is granted herein.
 File Name:  plugin_manager.h
 
 \*****************************************************************************/
-#pragma once
-#include "plugin_interface.h"
+#ifndef __PLUGIN_MANAGER_H__
+#define __PLUGIN_MANAGER_H__
+
 #include "DynamicLib.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Atomic.h"
-#include "llvm/Support/Mutex.h"
 #include <string>
 #include <stdexcept>
+#include <cstdlib>
 
 #include "link_data.h"
 #include "compile_data.h"
 
+//we define those just before the llvm inclusion, so if stdint.h was not
+//included thus far, we won't break compilation
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
+#endif//__STDC_LIMIT_MACROS
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-class ICLDevBackendKernel_;
-class ICLDevBackendProgram_;
+#ifndef __STDC_CONSTANT_MACROS
+#define __STDC_CONSTANT_MACROS
+#endif//__STDC_CONSTANT_MACROS
+
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Atomic.h"
+#include "llvm/Support/Mutex.h"
+
+namespace llvm{
+class Function;
 }
 
-const int INIT_PLUGIN_COUNT = 10;
+namespace Intel { namespace OpenCL { 
+namespace DeviceBackend {
+class ICLDevBackendKernel_;
+class ICLDevBackendProgram_;
+}//end DeviceBackend
+
+struct IPlugin;
 
 class PluginManagerException : public std::runtime_error{
 public:
@@ -63,9 +80,8 @@ public:
 class PluginManager
 {
 public:
-    static void Init();
-    static void Terminate();
-    static PluginManager& Instance();
+    ~PluginManager();
+    PluginManager();
     
     /////////////////////////////////////////////////
     //Description:
@@ -114,10 +130,6 @@ public:
     void OnCompile(const Frontend::CompileData* compileData);
 
 private:
-    PluginManager(){}
-    PluginManager(const PluginManager&);
-    PluginManager& operator =(const PluginManager&);
-    ~PluginManager();
     //
     //Load the plugins which corresponds the OCLXXX_PLUGINS environment variables
     void LoadPlugins();
@@ -132,13 +144,14 @@ private:
         PluginInfo(const std::string& dllName);
         ~PluginInfo();
         IPlugin* plugin();
-    };
+    };//end class PluginInfo
 
-    typedef llvm::SmallPtrSet<PluginInfo*, INIT_PLUGIN_COUNT> PluginsList;
-    //list of registered plugins    
+    typedef llvm::SmallPtrSet<PluginInfo*, 10> PluginsList;
+    //list of registered plugins
     PluginsList m_listPlugins;
-    //singleton instance
-    static PluginManager* s_instance;
-};
+};//end class PluginManager
 
 }}
+
+
+#endif

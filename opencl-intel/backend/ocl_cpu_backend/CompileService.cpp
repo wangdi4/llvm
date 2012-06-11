@@ -67,8 +67,7 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
         *ppProgram = spProgram.release();
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin manager
-        PluginManager::Instance().OnCreateProgram( pByteCodeContainer, 
-                                                   *ppProgram);
+        m_pluginManager.OnCreateProgram(pByteCodeContainer, *ppProgram);
 #endif
         return CL_DEV_SUCCESS;
     }
@@ -86,7 +85,7 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 {
     llvm::MutexGuard lock(m_buildLock);
 #ifdef OCL_DEV_BACKEND_PLUGINS  
-    PluginManager::Instance().OnReleaseProgram(pProgram);
+    m_pluginManager.OnReleaseProgram(pProgram);
 #endif  
     delete pProgram;
 }

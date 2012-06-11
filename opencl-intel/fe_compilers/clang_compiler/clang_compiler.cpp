@@ -8,7 +8,6 @@
 #include "compile_data.h"
 #include "link_data.h"
 #include "source_file.h"
-#include "plugin_manager.h"
 #endif //OCLFRONTEND_PLUGINS
 
 #include <Logger.h>
@@ -74,9 +73,6 @@ int InitClangDriver()
   INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
 
 	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
-#ifdef OCLFRONTEND_PLUGINS 
-  Intel::OpenCL::PluginManager::Init();
-#endif //OCLFRONTEND_PLUGINS
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
 
 	llvm::InitializeAllTargets();
@@ -200,7 +196,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLF
         "", //include files comes without compliation flags
         headerCount+1
       ));
-    Intel::OpenCL::PluginManager::Instance().OnCompile(&compileData);
+    m_pluginManager.OnCompile(&compileData);
   }
 #endif //OCLFRONTEND_PLUGINS
 	return ret;

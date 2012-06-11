@@ -29,11 +29,9 @@ File Name:  dllmain.cpp
 #include "ImageCallbackManager.h"
 #include "Compiler.h"
 #include "MICSerializationService.h"
-#include "plugin_manager.h"
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
-
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -48,6 +46,7 @@ static int s_init_count = 0;
 static bool s_compiler_initialized = false;
 // initialization result
 static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
+
 // flag used to disable the termination sequence
 bool s_ignore_termination = false;
 
@@ -151,9 +150,6 @@ extern "C"
             MICDeviceBackendFactory::Init();
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
-#ifdef OCL_DEV_BACKEND_PLUGINS
-            Intel::OpenCL::PluginManager::Init();
-#endif
             DefaultJITMemoryManager::Init();
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
@@ -190,9 +186,6 @@ extern "C"
         }
 
         DefaultJITMemoryManager::Terminate();
-#ifdef OCL_DEV_BACKEND_PLUGINS
-        Intel::OpenCL::PluginManager::Terminate();
-#endif
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();
         MICDeviceBackendFactory::Terminate();

@@ -99,6 +99,7 @@ if(PYTHONINTERP_FOUND)
                 --param llvm_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
                 --param build_config=${CMAKE_CFG_INTDIR}
                 --param build_mode=${RUNTIME_BUILD_MODE}
+                --param install_path=${CMAKE_INSTALL_PREFIX}/bin
                 ${LIT_ARGS}
                 ${CMAKE_CURRENT_BINARY_DIR}
                 COMMENT "Running LLVM regression tests")
@@ -111,5 +112,4 @@ if(PYTHONINTERP_FOUND)
                 FileCheck count not
 		SATest NEATChecker)
   set_target_properties(check_ocl_ref.deps PROPERTIES FOLDER "Tests")
-
 endif()

@@ -30,7 +30,6 @@ File Name:  MICProgramBuilder.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "plugin_manager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -196,7 +195,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin managerModuleJITHolder
-        PluginManager::Instance().OnCreateKernel(pProgram, spKernel.get(), pFunc);
+        m_pluginManager.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
         spKernels->AddKernel(spKernel.release());
         spMICKernelProps.release();

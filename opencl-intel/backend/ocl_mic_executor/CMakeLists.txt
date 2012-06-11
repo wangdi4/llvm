@@ -5,6 +5,7 @@ if (NOT INCLUDE_MIC_DEVICE)
     message (FATAL_ERROR "Entered this file without INCLUDE_MIC_DEVICE ON")
 endif ()
 
+
 set( TARGET_NAME OclDeviceExecutor )
 
 set( LIB_FILE_EXTENSION .a )
@@ -186,7 +187,13 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../ocl_cpu_backend/utils
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../arch_headers
+                -I ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend
+                -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
+                -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+                -I ${CMAKE_SOURCE_DIR}/backend/llvm/include
                 )
+
+message(STATUS Elior:${CMAKE_SOURCE_DIR}/backend/plugin_manager)
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     # Debug

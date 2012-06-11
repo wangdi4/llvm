@@ -90,6 +90,9 @@ private:
 
 private:
     CPUCompiler m_compiler;
+    #ifdef OCL_DEV_BACKEND_PLUGINS  
+    mutable Intel::OpenCL::PluginManager m_pluginManger;
+    #endif
 };
 
 }}}

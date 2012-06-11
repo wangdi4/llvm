@@ -2,6 +2,7 @@ set(TARGET_NAME OclPluginManager)
 
 project(${TARGET_NAME})
 
+
 cmake_minimum_required(VERSION 2.8.4)
 
 include_directories(

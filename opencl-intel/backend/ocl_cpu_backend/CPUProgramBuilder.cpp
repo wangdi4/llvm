@@ -216,7 +216,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin manager
-        PluginManager::Instance().OnCreateKernel(pProgram, spKernel.get(), pFunc);
+        m_pluginManger.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
         spKernels->AddKernel(spKernel.release());
         spKernelProps.release();

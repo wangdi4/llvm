@@ -24,6 +24,11 @@ File Name:  CompileService.h
 #include "IAbstractBackendFactory.h"
 #include "llvm/Support/Mutex.h"
 
+#ifdef OCL_DEV_BACKEND_PLUGINS
+#include "plugin_manager.h"
+#endif
+
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class CompileService: public ICLDevBackendCompilationService
@@ -110,6 +115,10 @@ protected:
     IAbstractBackendFactory* m_backendFactory;
     // temporary solution for MT build problem on OCL SDK	
     mutable llvm::sys::Mutex       m_buildLock;
+    #ifdef OCL_DEV_BACKEND_PLUGINS
+    mutable Intel::OpenCL::PluginManager   m_pluginManager;
+    #endif
+
 };
 
 }}}

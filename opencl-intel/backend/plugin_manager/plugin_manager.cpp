@@ -14,7 +14,7 @@ to any intellectual property rights is granted herein.
 
 File Name:  plugin_manager.cpp
 
-\*****************************************************************************////////////////////////////////////////////////////////////
+\*****************************************************************************/
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MutexGuard.h"
@@ -29,7 +29,7 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 namespace Intel { namespace OpenCL {
 
-DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(IPlugin* plugin)
+static DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(IPlugin* plugin)
 {
     assert (plugin && "Null plugin given!");
     DeviceBackend::ICLDevBackendPlugin* ret = plugin->getBackendPlugin();
@@ -37,7 +37,7 @@ DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(IPlugin* plugin)
     return ret;
 }
 
-Frontend::ICLFrontendPlugin* getFrontendPlugin(IPlugin* plugin)
+static Frontend::ICLFrontendPlugin* getFrontendPlugin(IPlugin* plugin)
 {
     assert (plugin && "Null plugin given!");
     Frontend::ICLFrontendPlugin* ret = plugin->getFrontendPlugin();
@@ -45,38 +45,11 @@ Frontend::ICLFrontendPlugin* getFrontendPlugin(IPlugin* plugin)
     return ret;
 }
 
-PluginManager* PluginManager::s_instance = NULL;
-
-/**
- * Will be called on OCL Backend initialization.
- * 
- * Responsible for creating and initializing the static instance of the
- * PluginManager and loading all the plugin dlls
- * Note! this method should be called exactly one time before any other
- * usage of the PluginManager methods.
- */
-void PluginManager::Init()
-{
-    assert (NULL == s_instance);
-    try
-    {
-        s_instance = new PluginManager();
-        s_instance->LoadPlugins();
-    }
-    catch(PluginManagerException& )
-    {
-        //LLVMBackend::GetInstance()->m_logger->Log( Logger::ERROR_LEVEL, ex.what());
-        throw;
-    }
-}
-
-void PluginManager::Terminate()
-{
-    if( NULL != s_instance)
-    {
-        delete s_instance;
-        s_instance = NULL;
-    }
+//
+//PluginManager
+//
+PluginManager::PluginManager(){
+  LoadPlugins();
 }
 
 PluginManager::~PluginManager()
@@ -106,15 +79,6 @@ void PluginManager::LoadPlugins()
             throw PluginManagerException(ex.what());
         }
     }
-}
-
-/**
- * Returns the static instance of the PluginManager.
- */
-PluginManager& PluginManager::Instance()
-{
-    assert( NULL != s_instance );
-    return *s_instance;
 }
 
 /**

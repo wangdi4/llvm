@@ -93,17 +93,15 @@ TEST(FEPluginTest, sanity){
 #else
   setenv("OCLBACKEND_PLUGINS", "libFePluginMock.so", 1);
 #endif
-  PluginManager::Init();
-  PluginManager& manager = PluginManager::Instance();
+  PluginManager pluginManager;
   TestData* data = new TestData();
-  manager.OnLink(data);
-  manager.OnCompile(data);
+  pluginManager.OnLink(data);
+  pluginManager.OnCompile(data);
   //the pluging should set the following fields:
   const SourceFile& file = data->sourceFile();
   ASSERT_STREQ("my name is", file.getName().c_str());
   ASSERT_STREQ("slim shady", file.getContents().c_str());
   delete data;
-  PluginManager::Terminate();
 }
 
 //
@@ -352,3 +350,27 @@ TEST(OCLSourceRecorder1_1, header_source_connection){
   CompileDataFactory::free(pFactory);
 }
 
+TEST(OCLSourceRecorder1_1, referenceContension){
+  #if defined(_WIN32)
+  SetEnvironmentVariable("OCLBACKEND_PLUGINS", "OclRecorder.dll");
+#else
+  setenv("OCLBACKEND_PLUGINS", "libOclRecorder.so", 1);
+#endif
+  PluginManager pluginManager;
+  //compile data
+  unsigned char b[2] = {0x0, 0x0};
+  CompileDataFactory* pFactory = CompileDataFactory::init();
+  CompileData* pCompileData = pFactory->withFileName("test123.cl").
+  withContent("__kernel void(__global int* a){ printf(\"hello\\n\"); }").
+  withBuffer(b, sizeof(b)).create();
+  {
+    //wrapped in a new scope, we make sure the destruction of this object does
+    //not interfere with the other one
+    PluginManager manager2;
+    manager2.OnCompile(pCompileData);
+  }
+  pluginManager.OnCompile(pCompileData);
+  //cleanup
+  delete pCompileData;
+  CompileDataFactory::free(pFactory);
+}

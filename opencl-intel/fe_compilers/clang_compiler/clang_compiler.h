@@ -11,6 +11,10 @@
 #include <frontend_api.h>
 #include "clang_device_info.h"
 
+#ifdef OCLFRONTEND_PLUGINS 
+#include "plugin_manager.h"
+#endif
+
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
@@ -41,6 +45,9 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
 		// Static members
 		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;
+    #ifdef OCLFRONTEND_PLUGINS 
+    mutable Intel::OpenCL::PluginManager m_pluginManager;
+    #endif //OCLFRONTEND_PLUGINS
 	};
 
 }}}
