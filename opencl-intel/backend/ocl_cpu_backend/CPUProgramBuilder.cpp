@@ -134,14 +134,11 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         // Obtain kernel function from annotation
         llvm::MDNode *elt = pModuleMetadata->getOperand(i);
         llvm::MDNode *welt = WrapperMD->getOperand(i);
-        llvm::Function *pFunc = llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
+        // We expect the metadata nodes to be llvm::Function
+        // In case the cast is wrong an assertion failure will be thrown
+        llvm::Function *pFunc = llvm::cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());        
         // The wrapper function that receives a single buffer as argument is the last node in the metadata
-        llvm::Function *pWrapperFunc = llvm::dyn_cast<llvm::Function>(
-                                       welt->getOperand(0)->stripPointerCasts());
-        if ( NULL == pFunc )
-        {
-            continue;   // Not a function pointer
-        }
+        llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(welt->getOperand(0)->stripPointerCasts());
 
         // Create a kernel and kernel JIT properties 
         std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram, 

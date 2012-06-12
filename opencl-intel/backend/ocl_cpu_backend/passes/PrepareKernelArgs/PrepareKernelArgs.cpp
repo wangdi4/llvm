@@ -262,7 +262,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       for(int i = 0, e = WrapperMD->getNumOperands(); i < e ; i++) {
         Value *op = WrapperMD->getOperand(i)->getOperand(0);
-        if(pFunc == dyn_cast<Function>(op))
+        // We expect the metadata nodes to be llvm::Function
+        // In case the cast is wrong an assertion failure will be thrown
+        if(pFunc == cast<Function>(op))
           Operands.push_back(pWrapper);
         else
           Operands.push_back(WrapperMD->getOperand(i)->getOperand(0));

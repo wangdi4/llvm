@@ -145,10 +145,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
     for (unsigned i = 0, e = WrapperMD->getNumOperands(); i != e; ++i)
     {
       MDNode *welt = WrapperMD->getOperand(i);
-      Function *pWrapperFunc = llvm::dyn_cast<llvm::Function>(
+      // We expect the metadata nodes to be llvm::Function
+      // In case the cast is wrong an assertion failure will be thrown
+      Function *pWrapperFunc = llvm::cast<llvm::Function>(
         welt->getOperand(0)->stripPointerCasts());
-      if (!pWrapperFunc) continue;
-
       m_neededFuncsSet.insert(pWrapperFunc);
     }
 
