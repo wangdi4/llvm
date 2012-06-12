@@ -56,10 +56,8 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest, std::vector<ImplicitArgu
         e = m_implicitArgProps.end(); 
           implicitArgIterator != e; ++implicitArgIterator) {
         
-    ImplicitArgProperties implicitArgProps = *implicitArgIterator;
-    
     // Create implicit argument pointing at the right place in the dest buffer
-    ImplicitArgument arg(pArgValueDest, implicitArgProps);
+    ImplicitArgument arg(pArgValueDest, *implicitArgIterator);
     
     implicitArgs.push_back(arg);
     
