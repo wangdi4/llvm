@@ -26,6 +26,13 @@ File Name:  SamplePlugin.h
 
 #define OCL_SAMPLEPLUGIN_EXPORTS
 
+// defines the SamplePlugin APIs
+#if defined(_WIN32)
+    #define OCL_SAMPLEPLUGIN_API __declspec(dllexport)
+#else
+    #define OCL_SAMPLEPLUGIN_API
+#endif
+
 using namespace Intel::OpenCL::DeviceBackend;
 
 /** @brief SamplePlugin used for testing the loading of the plugins in the backend tests
@@ -76,12 +83,21 @@ private:
     static bool pluginWorked;
 };
 
-
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+OCL_SAMPLEPLUGIN_API void ReleasePlugin(Intel::OpenCL::IPlugin* pPlugin);
+#ifdef __cplusplus
+}
+#endif
 /** @brief OclSamplePlugin used for returning the backend plugin SamplePlugin
  *         to the plugin manager       
  */
 class OclSamplePlugin: public Intel::OpenCL::IPlugin
 {
+    friend void ReleasePlugin(Intel::OpenCL::IPlugin*);
+    
 public:
     /// @brief return the singleton instance
     static OclSamplePlugin* Instance();

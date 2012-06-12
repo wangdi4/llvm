@@ -11,6 +11,7 @@ include_directories(${BACKEND_ROOT_DIR}/validations/Common)      #for auto-point
 include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)             #for DLL loading
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export ) #for plugins interface
 include_directories(${BACKEND_ROOT_DIR}/arch_headers)            #including CPUDetect headers
+include_directories(${BACKEND_ROOT_DIR}/plugin_manager)            #including CPUDetect headers
 
 set (BACKEND_TESTS_INCLUDE_FILES
     BackendWrapper.h
@@ -35,7 +36,11 @@ set(GOOGLE_TEST_LIBS
   LLVMSupport # gtest needs it for raw_ostream.
 )
 
-target_link_libraries(${TARGET_NAME} ${GOOGLE_TEST_LIBS} OclUtils dynamic_load)
+target_link_libraries(${TARGET_NAME} ${GOOGLE_TEST_LIBS}
+  OclUtils
+  dynamic_load
+  OclPluginManager
+)
 
 # install the bitcode files that the project loads
 install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION bin)

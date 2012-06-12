@@ -19,6 +19,8 @@ File Name:  PluginsTest.cpp
 #define _POSIX_SOURCE
 
 #include "BackendWrapper.h"
+#include "plugin_manager.h"
+
 #include <gtest/gtest.h>
 #include <assert.h>
 #include <stdio.h>
@@ -88,10 +90,12 @@ TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
     // envString = "environmentname=fakepath/PLUGIN_DLL_NAME"
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + currentPath + "/fakepathblabla/" + PLUGIN_DLL_NAME;
     ASSERT_EQ(putenv(&(envString[0])), 0);
-
-    // init the backend - should fail
-    cl_dev_err_code ret = GetInstance().Init(NULL);
-    ASSERT_NE(CL_DEV_SUCCESS, ret);
+    try{
+      Intel::OpenCL::PluginManager pluginManger;
+    } catch (Intel::OpenCL::PluginManagerException e){
+      return;
+    }
+    FAIL() << "exception was expected";
 }
 
 

@@ -15,18 +15,11 @@ to any intellectual property rights is granted herein.
 File Name:  SamplePlugin.cpp
 
 \*****************************************************************************/
-
+#include <assert.h>
 #include "SamplePlugin.h"
 #include "cl_device_api.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
-
-// defines the SamplePlugin APIs
-#if defined(_WIN32)
-    #define OCL_SAMPLEPLUGIN_API __declspec(dllexport)
-#else
-    #define OCL_SAMPLEPLUGIN_API
-#endif
 
 // return the singleton instance
 OclSamplePlugin* OclSamplePlugin::Instance()
@@ -65,7 +58,9 @@ extern "C"
 
     OCL_SAMPLEPLUGIN_API void ReleasePlugin(Intel::OpenCL::IPlugin* pPlugin)
     {
-        delete pPlugin;
+        if ( OclSamplePlugin::instance == pPlugin)
+            return; //don't delete singleton!! (other may have a fererence to it)
+        assert (false && "where did this pointer came from??");
     }
 
     OCL_SAMPLEPLUGIN_API bool getTheFlag()
