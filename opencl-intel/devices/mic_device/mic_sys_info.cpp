@@ -29,7 +29,7 @@ using namespace Intel::OpenCL::MICDevice;
 
 volatile unsigned int       MICSysInfo::m_singletonKeeper = BEFORE_INIT;
 MICSysInfo*                 MICSysInfo::m_singleton = NULL;
-MICSysInfo::TSku2DevData    MICSysInfo::m_info_db;
+MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = NULL;
 
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
@@ -206,6 +206,8 @@ MICSysInfo::MICSysInfo()
     m_guardedInfoArr = NULL;
     pthread_mutex_init(&m_mutex, NULL);
 
+	// It is thread safe to allocate this static member here because "m_singleton" the only MICSysInfo instance is guarded.
+	m_info_db = new TSku2DevData;
     // add static info tables for supported SKUs
     add_mic_info();
 }
@@ -227,7 +229,11 @@ MICSysInfo::~MICSysInfo()
     }
     pthread_mutex_destroy(&m_mutex);
 
-    clear_sku_info();
+	if (m_info_db)
+	{
+		clear_sku_info();
+		delete m_info_db;
+	}
 }
 
 MICSysInfo& MICSysInfo::getInstance()
@@ -585,8 +591,8 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         InfoKeyType sku;
         sku.full_key = 0;
         sku.fields.device_type = tEngineInfo->micDeviceInfoStruct.ISA;
-        TSku2DevData::iterator it = m_info_db.find( sku.full_key );
-        if (m_info_db.end() == it)
+        TSku2DevData::iterator it = m_info_db->find( sku.full_key );
+        if (m_info_db->end() == it)
         {
             delete tEngineInfo;
             PRINT_DEBUG("MIC: cannot find static MICSysInfo table for the SKU %lu\n", sku.full_key );
@@ -657,16 +663,16 @@ void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_
         type2data->data_map[ entry.info_id ] = &entry;
     }
 
-    assert( m_info_db.find( sku_key ) == m_info_db.end()
+    assert( m_info_db->find( sku_key ) == m_info_db->end()
                                        && "MICDevice: error in static info map - repeated adding of the same device SKU info" );
 
-    m_info_db[ sku_key ] = type2data;
+    m_info_db->insert(pair<uint64_t, InfoType2DataEntry*>( sku_key, type2data ));
 }
 
 void MICSysInfo::clear_sku_info( void )
 {
-    TSku2DevData::iterator db_it  = m_info_db.begin();
-    TSku2DevData::iterator db_end = m_info_db.end();
+    TSku2DevData::iterator db_it  = m_info_db->begin();
+    TSku2DevData::iterator db_end = m_info_db->end();
 
     for (; db_it != db_end; ++db_it)
     {
@@ -674,7 +680,7 @@ void MICSysInfo::clear_sku_info( void )
         delete type2data;
     }
 
-    m_info_db.clear();
+    m_info_db->clear();
 }
 
 //TODO - AdirD change the MICSysInfo::getInstance().get...(0) from 0 to real device ID.

@@ -5,8 +5,8 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-InOrderCommandSynchHandler		CommandSynchHandler::m_singletonInOrderCommandSynchHandler;
-OutOfOrderCommandSynchHandler	CommandSynchHandler::m_singletonOuOfOrderCommandSynchHandler;
+InOrderCommandSynchHandler*		CommandSynchHandler::m_singletonInOrderCommandSynchHandler = NULL;
+OutOfOrderCommandSynchHandler*	CommandSynchHandler::m_singletonOuOfOrderCommandSynchHandler = NULL;
 
 Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
 m_pCommandList(pCommandList), m_pFrameworkCallBacks(pFrameworkCallBacks)
@@ -106,6 +106,20 @@ cl_dev_err_code FailureNotification::execute()
 }
 
 
+//
+// Helper class
+//
+class CommandSynchHandler::StaticInitializer
+{
+public:
+    StaticInitializer() 
+    {
+        m_singletonInOrderCommandSynchHandler   = new InOrderCommandSynchHandler;
+        m_singletonOuOfOrderCommandSynchHandler = new OutOfOrderCommandSynchHandler;
+    };
+};
+
+CommandSynchHandler::StaticInitializer CommandSynchHandler::init_statics;
 
 void InOrderCommandSynchHandler::getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
 {

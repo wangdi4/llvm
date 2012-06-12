@@ -153,7 +153,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         typedef std::map< uint64_t, InfoType2DataEntry*>            TSku2DevData;
 
         // the whole data base
-        static TSku2DevData                                         m_info_db;
+        static TSku2DevData*                                        m_info_db;
 
         ///////////////////////////////////////////////////////////////////
         //

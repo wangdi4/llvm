@@ -5,16 +5,33 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-template <> RunFuncDataUsingMisc<DispatcherDataHandler::data> RunFuncDataUsingMisc<DispatcherDataHandler::data>::m_singletonRunFuncData = RunFuncDataUsingMisc<DispatcherDataHandler::data>();
-template <> RunFuncDataUsingBuffer<DispatcherDataHandler::data> RunFuncDataUsingBuffer<DispatcherDataHandler::data>::m_singletonRunFuncData = RunFuncDataUsingBuffer<DispatcherDataHandler::data>();
+RunFuncData<DispatcherDataHandler::data>* DispatcherDataHandler::m_dispatcherDataOptionsArr[2] = { NULL, NULL };
 
-RunFuncData<DispatcherDataHandler::data>* DispatcherDataHandler::m_dispatcherDataOptionsArr[2] = { &(RunFuncDataUsingBuffer<DispatcherDataHandler::data>::getInstance()), &(RunFuncDataUsingMisc<DispatcherDataHandler::data>::getInstance()) };
+class DispatcherDataHandler::StaticInitializer
+{
+public:
+    StaticInitializer() 
+    {
+		DispatcherDataHandler::m_dispatcherDataOptionsArr[0] = new RunFuncDataUsingBuffer<DispatcherDataHandler::data>;
+		DispatcherDataHandler::m_dispatcherDataOptionsArr[1] = new RunFuncDataUsingMisc<DispatcherDataHandler::data>;
+    };
+};
 
+DispatcherDataHandler::StaticInitializer DispatcherDataHandler::init_statics;
 
-template <> RunFuncDataUsingMisc<MiscDataHandler::data> RunFuncDataUsingMisc<MiscDataHandler::data>::m_singletonRunFuncData = RunFuncDataUsingMisc<MiscDataHandler::data>();
-template <> RunFuncDataUsingBuffer<MiscDataHandler::data> RunFuncDataUsingBuffer<MiscDataHandler::data>::m_singletonRunFuncData = RunFuncDataUsingBuffer<MiscDataHandler::data>();
+RunFuncData<MiscDataHandler::data>* MiscDataHandler::m_miscDataOptionsArr[2] = { NULL, NULL };
 
-RunFuncData<MiscDataHandler::data>* MiscDataHandler::m_miscDataOptionsArr[2] = { &(RunFuncDataUsingMisc<MiscDataHandler::data>::getInstance()), &(RunFuncDataUsingBuffer<MiscDataHandler::data>::getInstance()) };
+class MiscDataHandler::StaticInitializer
+{
+public:
+    StaticInitializer() 
+    {
+        MiscDataHandler::m_miscDataOptionsArr[0] = new RunFuncDataUsingMisc<MiscDataHandler::data>;
+        MiscDataHandler::m_miscDataOptionsArr[1] = new RunFuncDataUsingBuffer<MiscDataHandler::data>;
+    };
+};
+
+MiscDataHandler::StaticInitializer MiscDataHandler::init_statics;
 
 
 DispatcherDataHandler::DispatcherDataHandler() : m_size(0), m_pDispatcherData(NULL)

@@ -79,6 +79,9 @@ private:
 	// Static array which contains at the first location pointer to RunFuncDataUsingBuffer singleton object and in the second location pointer to RunFuncDataUsingMisc singleton object.
 	// This array is just for optimization in order to avoid "if" statement.
 	static RunFuncData<data>* m_dispatcherDataOptionsArr[2];
+
+	class StaticInitializer;
+    static StaticInitializer init_statics;
 };
 
 
@@ -128,6 +131,9 @@ private:
 	// Static array which contains at the first location pointer to RunFuncDataUsingMisc singleton object and in the second location pointer to RunFuncDataUsingBuffer singleton object.
 	// This array is just for optimization in order to avoid "if" statement.
 	static RunFuncData<data>* m_miscDataOptionsArr[2];
+
+	class StaticInitializer;
+    static StaticInitializer init_statics;
 };
 
 
@@ -160,6 +166,8 @@ class RunFuncDataUsingMisc : public RunFuncData<T>
 {
 public:
 
+	RunFuncDataUsingMisc() {};
+
 	/* In case of RunFuncDataUsingMisc there is nothing to do. */
 	cl_dev_err_code init(T& data, const size_t size, COIPROCESS* pCoiProcess) { return CL_DEV_SUCCESS; };
 
@@ -177,21 +185,14 @@ public:
 
 	/* In case of RunFuncDataUsingMisc there is nothing to do. */
 	void release(T& data) {};
-
-	/* Return singleton instance of this object. */
-	static RunFuncData<T>& getInstance() { return m_singletonRunFuncData; };
-
-private:
-
-	RunFuncDataUsingMisc() {};
-
-	static RunFuncDataUsingMisc<T> m_singletonRunFuncData;
 };
 
 template <class T>
 class RunFuncDataUsingBuffer : public RunFuncData<T>
 {
 public:
+
+	RunFuncDataUsingBuffer() {};
 
 	/* Create a new COIBUFFER. TODO - consider using pool of COIBUFFERs instead of creating each every time. */
 	cl_dev_err_code init(T& data, const size_t size, COIPROCESS* pCoiProcess);
@@ -210,15 +211,6 @@ public:
 
 	/* Release the created COIBUFFER. */
 	void release(T& data);
-
-	/* Return singleton instance of this object. */
-	static RunFuncData<T>& getInstance() { return m_singletonRunFuncData; };
-
-private:
-
-	RunFuncDataUsingBuffer() {};
-
-	static RunFuncDataUsingBuffer<T> m_singletonRunFuncData;
 };
 
 

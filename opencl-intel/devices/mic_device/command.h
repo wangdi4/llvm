@@ -129,7 +129,7 @@ public:
 	/* Return the appropriate singleton object */
 	static CommandSynchHandler* getCommandSyncHandler(bool isInOrder) 
 	{ 
-		return (isInOrder == true) ? (CommandSynchHandler*)(&m_singletonInOrderCommandSynchHandler) : (CommandSynchHandler*)(&m_singletonOuOfOrderCommandSynchHandler) ;
+		return (isInOrder == true) ? (CommandSynchHandler*)(m_singletonInOrderCommandSynchHandler) : (CommandSynchHandler*)(m_singletonOuOfOrderCommandSynchHandler) ;
 	};
 	/* Return true if the CommandList is In order */
 	virtual bool isInOrderType() = 0;
@@ -152,8 +152,11 @@ public:
 
 private:
 
-	static InOrderCommandSynchHandler		m_singletonInOrderCommandSynchHandler;
-	static OutOfOrderCommandSynchHandler	m_singletonOuOfOrderCommandSynchHandler;
+	static InOrderCommandSynchHandler*		m_singletonInOrderCommandSynchHandler;
+	static OutOfOrderCommandSynchHandler*	m_singletonOuOfOrderCommandSynchHandler;
+
+	class StaticInitializer;
+    static StaticInitializer init_statics;
 };
 
 
