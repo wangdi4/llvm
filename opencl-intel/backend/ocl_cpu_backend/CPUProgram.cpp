@@ -31,7 +31,8 @@ void CPUProgram::ReleaseExecutionEngine()
     // since this module is owned by compiler
     if (m_pBIModule) 
       m_pExecutionEngine->removeModule((llvm::Module*)m_pBIModule);
-    m_pExecutionEngine->removeModule((llvm::Module*)m_pCodeContainer->GetModule());
+    if (m_pCodeContainer->GetModule())
+      m_pExecutionEngine->removeModule((llvm::Module*)m_pCodeContainer->GetModule());
     delete m_pExecutionEngine;
 }
 
