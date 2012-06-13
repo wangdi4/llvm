@@ -123,7 +123,7 @@ OclBuiltinImpl fabs_svml = OclBuiltinImpl<fabs, fabs.Types, 0, [{
 
 // fdim
 OclBuiltinImpl fdim_svml = OclBuiltinImpl<fdim, fdim.Types, 0, [{
-    return __ocl_svml_$Target_fdim$SVMLSuffix($Arg0VarName);
+    return __ocl_svml_$Target_fdim$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // floor

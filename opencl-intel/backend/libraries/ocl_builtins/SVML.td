@@ -28,7 +28,7 @@ def svml_exp2       : OclBuiltin<"__ocl_svml_$Target_exp2$SVMLSuffix",       (ou
 def svml_exp10      : OclBuiltin<"__ocl_svml_$Target_exp10$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_expm1      : OclBuiltin<"__ocl_svml_$Target_expm1$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_fabs       : OclBuiltin<"__ocl_svml_$Target_fabs$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_fdim       : OclBuiltin<"__ocl_svml_$Target_fdim$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_fdim       : OclBuiltin<"__ocl_svml_$Target_fdim$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def svml_floor      : OclBuiltin<"__ocl_svml_$Target_floor$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_fma        : OclBuiltin<"__ocl_svml_$Target_fma$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], []>;
 def svml_fmax       : OclBuiltin<"__ocl_svml_$Target_fmax$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
