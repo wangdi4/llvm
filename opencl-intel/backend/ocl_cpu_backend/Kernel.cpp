@@ -150,13 +150,57 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
                 // Thus, need set minMultiplyFactor to 1, and let local size be any high number.
                 minMultiplyFactor = 1;
             }
+            if (m_pProps->GetJitCreateWIids()) {
+              // In case of one JIT minMultiplyFactor should be equal to 1 for the new heuristic.
+              minMultiplyFactor = 1;
+            }
 
             globalGroupSizeX /= minMultiplyFactor;
             localSizeMaxLimit /= minMultiplyFactor;
             for (; localSizeMaxLimit>0; localSizeMaxLimit--) {
                 if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
             }
-            outputWorkSizes.localWorkSize[0] = max(1, minMultiplyFactor * localSizeMaxLimit);
+            unsigned int newHeuristic = max(1, minMultiplyFactor * localSizeMaxLimit);
+
+            unsigned int oldHeuristic = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
+            globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
+            workGroupNumMinLimit = max(1, (outputWorkSizes.minWorkGroupNum/2 + (globalGroupSizeYZ-1)) / globalGroupSizeYZ);
+            if (m_pProps->GetJitCreateWIids()) {
+              // In case of one JIT we want to use the vector size used in the vector loop.
+              minMultiplyFactor = GetKernelJIT(0)->GetProps()->GetVectorSize();
+            }
+
+#if 0 // 0 to use second heuristic factor - 1 to use first hueristic factors.
+            // One Option for creating the Heuristic factor: (A + B) where,
+            // A = #WorkGroups * [unutilized lanes in tail scalar loop]
+            // B = #LocalSize * [unutilized cores in last work-group iteration]
+            unsigned int newHeuristicFactor = workGroupNumMinLimit * ((minMultiplyFactor - (newHeuristic % minMultiplyFactor)) % minMultiplyFactor) + 
+                                 minMultiplyFactor * ((workGroupNumMinLimit-((globalGroupSizeX / newHeuristic) % workGroupNumMinLimit)) % workGroupNumMinLimit);
+
+            unsigned int oldHeuristicFactor = workGroupNumMinLimit * ((minMultiplyFactor - (oldHeuristic % minMultiplyFactor)) % minMultiplyFactor) + 
+                                 minMultiplyFactor * ((workGroupNumMinLimit-((globalGroupSizeX / oldHeuristic) % workGroupNumMinLimit)) % workGroupNumMinLimit);
+#else
+            // Second option for creating the Heuristic factor
+            // A = number of iterations in vectorized loop + number of iterations in tail scalar loop.
+            // B = number of iterations in the work-group loop.
+            unsigned int newHeuristicFactor = ((newHeuristic / minMultiplyFactor) + (newHeuristic % minMultiplyFactor)) *
+              (((globalGroupSizeX / newHeuristic) + workGroupNumMinLimit - 1) / workGroupNumMinLimit);
+
+            unsigned int oldHeuristicFactor = ((oldHeuristic / minMultiplyFactor) + (oldHeuristic % minMultiplyFactor)) *
+              (((globalGroupSizeX / oldHeuristic) + workGroupNumMinLimit - 1) / workGroupNumMinLimit);
+#endif
+            // lower factor is better
+            outputWorkSizes.localWorkSize[0] = oldHeuristicFactor < newHeuristicFactor ? oldHeuristic : newHeuristic;
+
+            if( 1 == minMultiplyFactor ) {
+              // No vectorized loop, only scalar -> choose new heuristic
+              outputWorkSizes.localWorkSize[0] = newHeuristic;
+            }
+
+            // This line is for debugging
+            //printf("heuristic = %d, newF=%d, oldF=%d, new=%d, old=%d, tsize=%d, minGroupNum=%d, global_size=%d\n",
+            //  outputWorkSizes.localWorkSize[0],newHeuristicFactor, oldHeuristicFactor, newHeuristic, oldHeuristic,
+            //  minMultiplyFactor, workGroupNumMinLimit, globalGroupSizeX);
         }
     }
 }
