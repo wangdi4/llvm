@@ -29,10 +29,9 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          Function* all_zero,
                                          PostDominatorTree* PDT,
                                          DominatorTree*  DT,
-                                         RegionInfo *RI,
-                                         LoopInfo *LI):
+                                         RegionInfo *RI):
   m_pred(pred), m_func(func),
-  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI), m_LI(LI),
+  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
   m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
 
@@ -97,42 +96,6 @@ bool FunctionSpecializer::RegionHasSuccessor( Region * reg) {
 	if (!exit) return false;
     if (succ_begin(exit) == succ_end(exit)) return false;
 	return true;
-}
-
-void FunctionSpecializer::ObtainMasksToZero(Region *reg, BasicBlock *exit,
-                                            BasicBlock *foot) {
-  V_ASSERT(reg && exit && foot && "NULL argumnets?");
-  std::vector<std::pair<BasicBlock*, BasicBlock*> > outMasks;
-  // We need to make sure the outmask on the region exit edge is zero if 
-  // we by pass the region.
-  outMasks.push_back (std::make_pair(exit, foot));
-
-  // It can be that we bypass the preheader of a loop but we will not bypass
-  // the loop itself when the exit edge is between the loop preheader and the 
-  // loop header. The preheader initializes the loop\exit masks of the loop 
-  // so we need to enforce them being 0 in case the preheader is skipped (which
-  // means the loop should be masked out, and the exit edges are zero also).
-  Loop *footLoop = m_LI->getLoopFor(foot);
-  if (footLoop && footLoop->getLoopPreheader() == exit) {
-    V_ASSERT(footLoop->getHeader() == foot &&
-          "only edge entering the loop should be from preheader to header");
-    // Adding the in mask of the loop header.
-    m_inMasksToZero[reg] = foot;
-
-    // Adding the out masks of the loop exit edges.
-    SmallVector<BasicBlock *, 4> exitingBlocks;
-    footLoop->getExitingBlocks(exitingBlocks);
-    for (unsigned i=0; i<exitingBlocks.size(); ++i) {
-      BasicBlock *exitingBB = exitingBlocks[i];
-      for (succ_iterator succIt = succ_begin(exitingBB),
-          succE = succ_end(exitingBB); succIt != succE; ++succIt) {
-        if (!footLoop->contains(*succIt)) {
-          outMasks.push_back(std::make_pair(exitingBB, *succIt));
-        }
-      }
-    }
-  }
-  m_outMasksToZero[reg] = outMasks;
 }
 
 void FunctionSpecializer::CollectDominanceInfo() {
@@ -212,7 +175,6 @@ void FunctionSpecializer::CollectDominanceInfo() {
     BBVector skipped;
     findSkippedBlocks(reg, skipped);
     m_skipped[reg] = skipped;
-    ObtainMasksToZero(reg, reg->getExit(), foot);
   }
 }
 
@@ -288,29 +250,6 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
   BranchInst::Create(after,new_block);
   V_ASSERT(new_block->getSinglePredecessor());
   return new_block;
-}
-
-void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
-                                    BasicBlock *exit, BasicBlock *footer) {
-  // Some mask are initialized or computed inisude the region but are used
-  // outside the region. These edges, blocks of these masks were collected 
-  // in the collectDominanceInfo stage. we use phi node that collect the 
-  // value computed inside the region or zero if the region is bypassed, and
-  // set the mask in the region footer.
-  std::map<Region*, BasicBlock*>::iterator inIt = m_inMasksToZero.find(reg);
-  if (inIt != m_inMasksToZero.end()) {
-    BasicBlock *BB = inIt->second;
-    Value *maskP = m_pred->getInMask(BB);
-    propagateMask(maskP, src, exit, footer);
-  }
-  MapRegToBBPairVec::iterator outIt = m_outMasksToZero.find(reg);
-  if (outIt != m_outMasksToZero.end()) {
-    BBPairVec &edges = outIt->second;
-    for (unsigned i=0; i<edges.size(); ++i) {
-      Value *maskP = m_pred->getEdgeMask(edges[i].first, edges[i].second);
-      propagateMask(maskP, src, exit, footer);
-    }
-  }
 }
 
 void FunctionSpecializer::specializeEdge(Region* reg) {
@@ -416,9 +355,41 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
     new_phi->addIncoming(undef, src);
   }
 
-  // Zero masks that are used outside the region but are computed
-  // inside the region.
-  ZeroBypassedMasks(reg, src, exitBlock, footer);
+  // In some cases, the selector of the errside-user would want to use
+  // the mask from the skipped blocks. We need to zero this mask because
+  // it is skipped (and known to be zero). We will use a phinode.
+  V_ASSERT(m_skipped.find(reg) != m_skipped.end());
+  for(BBVector::iterator bit = skipped.begin(), 
+      be = skipped.end(); bit != be; ++bit) { 
+
+    // If this is a 'masked block' (not a new block) - enforce all-zero mask for bypass
+    Value* mask_target = m_pred->getInMask(*bit);
+    if (mask_target) {
+      propagateMask( mask_target, src, exitBlock, footer, false);
+    }
+
+    // If this block has out masks - enforce all-zero mask for bypass
+    llvm::succ_iterator succIt = succ_begin(*bit);
+    llvm::succ_iterator succE  = succ_end(*bit);
+    for (; succIt!=succE; ++succIt) {
+      Value* out_mask_target = m_pred->getEdgeMask(*bit, *succIt);
+      if (out_mask_target) {
+        propagateMask( out_mask_target, src, exitBlock, footer, false);
+      }
+    }
+
+    // If this block has exit masks - enforce all-one mask for bypass
+    Value* exit_mask_target = m_pred->getExitMask(*bit);
+    if (exit_mask_target) {
+      propagateMask( exit_mask_target, src, exitBlock, footer, true);
+    }
+
+    // If this block has loop masks - enforce all-one mask for bypass
+    Value* loop_mask_target = m_pred->getLoopMask(*bit);
+    if (loop_mask_target) {
+      propagateMask( loop_mask_target, src, exitBlock, footer, true);
+    }
+  }
 
   // New start and end nodes are a part of this region
   addNewToRegion(reg->getEntry(), src);
@@ -428,10 +399,9 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
 
 }
 
-void FunctionSpecializer::propagateMask(Value *mask_target, BasicBlock *header,
-                                   BasicBlock *exitBlock, BasicBlock *footer) {
-  V_ASSERT(mask_target && header && exitBlock && footer &&
-           mask_target->getType() == PointerType::get(m_zero->getType(),0));
+void FunctionSpecializer::propagateMask( Value *mask_target, BasicBlock *header,
+                                         BasicBlock *exitBlock, BasicBlock *footer,
+                                         bool isOneMask) {
   Value* non_bypass_mask =
     new LoadInst(mask_target, mask_target->getName() + "_non_bypass",
                  exitBlock->getTerminator());
@@ -441,7 +411,7 @@ void FunctionSpecializer::propagateMask(Value *mask_target, BasicBlock *header,
                     mask_target->getName() + "_maskspec", footer->begin());
 
   new_phi->addIncoming(non_bypass_mask, exitBlock);
-  new_phi->addIncoming(m_zero, header);
+  new_phi->addIncoming(isOneMask? m_one : m_zero, header);
   new StoreInst(new_phi, mask_target, footer->getFirstNonPHI());
 }
 

@@ -39,7 +39,7 @@ public:
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
                       PostDominatorTree* PDT, DominatorTree*  DT,
-                      RegionInfo* RI, LoopInfo *LI);
+                      RegionInfo* RI);
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
   ///  Of all the CD-ed children, It finds the one which post-dominates
@@ -113,25 +113,12 @@ private:
   /// @param header      header basic block of the bypass
   /// @param exitBlock   exit block of the region
   /// @param footer      footer basic block of the bypass
+  /// @param isOneMask   'true' if mask of the bypass is to be all-one
   void propagateMask( Value *mask_target, BasicBlock *header, BasicBlock *exitBlock, 
-                      BasicBlock *footer);
+                      BasicBlock *footer, bool isOneMask);
   /// @brief Helper which returns 'true' if region has a successor or 'false' otherwise
   /// @param reg Region in question
   bool RegionHasSuccessor( Region * reg);
-
-  /// @brief obtains the masks needed to be zeroed in the region header.
-  /// @param reg - current region.
-  /// @param exit - the block inside the region on the exit edge.
-  /// @param foot - the block outside the region on the exit edge.
-  void ObtainMasksToZero(Region *reg, BasicBlock *exit, BasicBlock *foot);
-
-  /// @brief zero masks that are computed inside the region but used outside.
-  /// @param reg - Current region.
-  /// @param src - region header.
-  /// @param exit - region exit block.
-  /// @param footer - region footer.
-  void ZeroBypassedMasks(Region *reg, BasicBlock *src, BasicBlock *exit,
-                         BasicBlock *footer);
 
 private:
   /// Predicator pass
@@ -146,20 +133,12 @@ private:
   DominatorTree* m_DT;
   // RegionInfo
   RegionInfo* m_RI;
-  // LoopInfo
-  LoopInfo *m_LI;
   /// Zero
   Value* m_zero;
   /// One
   Value* m_one;
   /// Region preheader
   std::map<Region*, BasicBlock*> m_heads;
-  /// Region out masks to zero 
-  typedef std::vector<std::pair<BasicBlock*, BasicBlock*> > BBPairVec;
-  typedef std::map<Region*, BBPairVec > MapRegToBBPairVec;
-  MapRegToBBPairVec m_outMasksToZero;
-  /// Region in masks to zero 
-  std::map<Region*, BasicBlock*> m_inMasksToZero;
   /// specialization regions
   std::vector<Region*> m_region_vector;
   /// All skipped blocks

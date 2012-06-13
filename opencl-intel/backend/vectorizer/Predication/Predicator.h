@@ -268,8 +268,15 @@ public:
   /// @param B dst Block
   Value* getEdgeMask(BasicBlock* A, BasicBlock* B);
   /// @brief requests the in-mask for edge in graph
-  /// @param block src Block
+  /// @param A src Block
+  /// @param B dst Block
   Value* getInMask(BasicBlock* block);
+  /// @brief requests a loop mask for edge in graph
+  /// @param block src Block
+  Value* getLoopMask(BasicBlock* block);
+  /// @brief requests the exit mask for edge in graph
+  /// @param block src Block
+  Value* getExitMask(BasicBlock* block);
   /*! \} */
 
 private:
@@ -286,6 +293,10 @@ private:
   DenseMap<BasicBlock*, Instruction*> m_inInst;
   /// Outgoing predicators for edges between basic blocks
   DenseMap<CFGEdge, Value*> m_outMask;
+  /// Masks for edges exiting the loop
+  DenseMap<BasicBlock*, Value*> m_exitMask;
+  /// Masks for active threads inside the loop
+  DenseMap<BasicBlock*, Value*> m_loopMask;
   /// Instructions to predicate (load/store/calls, etc)
   SmallInstVector m_toPredicate;
   /// Instructions which has outside users (for selection)
