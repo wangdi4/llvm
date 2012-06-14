@@ -254,7 +254,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   }
 
-  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG) {
+  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG && uiOptLevel != 0) {
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
@@ -263,10 +263,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
         m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig, 
                                                 m_vectFunctions, m_vectWidths);
         m_modulePasses.add(m_vectorizerPass);
-    }
-    if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
-        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
-               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
     }
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,

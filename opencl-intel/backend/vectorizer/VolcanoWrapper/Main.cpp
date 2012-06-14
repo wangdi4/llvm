@@ -100,6 +100,7 @@ m_pConfig(pConfig),
 m_optimizerFunctions(&optimizerFunctions),
 m_optimizerWidths(&optimizerWidths)
 {
+  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
   // init debug prints
   V_INIT_PRINT;
 }
