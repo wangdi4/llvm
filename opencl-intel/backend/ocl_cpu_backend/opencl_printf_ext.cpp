@@ -31,7 +31,6 @@
 #include "llvm/Support/Mutex.h"
 #include "llvm/Instructions.h"
 #include <stdio.h>
-
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -329,12 +328,16 @@ int build_format_string(char* buf, int buflen,
             break;
         case MODIFIER_LONG:
             modifier_buf[0] = 'l';
+#if defined (_WIN32) || (_WIN64)
+            //windows formaating is buggy, since %l shows 32bit only
+            modifier_buf[1] = 'l';
+#endif
             break;
         case MODIFIER_LONGLONG:
             modifier_buf[0] = 'l';
             modifier_buf[1] = 'l';
             break;
-        case MODIFIER_INTMAX:
+        case MODIFIER_INTMAX:   
             modifier_buf[0] = 'j';
             break;
         case MODIFIER_SIZE_T:
@@ -376,7 +379,39 @@ inline bool is_unsigned_specifier(char c)
     return (c == 'X' || c == 'x' || c == 'o' || c == 'u');
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+//union for double bit operations
+union DoubleUtil{
+    static const __int64 MASK = 0x8000000000000000;
+    double m_d;
+    __int64 m_i;
 
+    DoubleUtil(double d): m_d(d){}
+    bool isNan()const{ return _isnan(m_d); }
+    bool isInf()const{ return std::numeric_limits<double>::infinity() == m_d;  }
+    bool isNegative()const {return MASK == (m_i & MASK);}
+};
+#endif //WIN
+
+//Purpose: appends a string to the output buffer, with respect to the value of
+//the given double value (d).
+static void purgeDouble(OutputAccumulator& output, const double& d, char* buffer){
+//window's sprintf does not conform with OpenCL when it comes to NAN and INF values
+#if defined(_WIN32) || defined(_WIN64)
+    DoubleUtil dutil(d);
+    if (dutil.isNan()){
+        char* nan = dutil.isNegative() ? "-nan" : "nan";
+        output.append(nan);
+        return;
+    }
+    if(dutil.isInf()){
+        char* inf = dutil.isNegative() ? "-inf" : "inf";
+        output.append(inf);
+        return;
+    }
+#endif
+    output.append(buffer);
+}
 // Does the heavy lifting of formatted printing - called by the interface
 // functions.
 // Return 0 if everything is OK and a negative value in case of an error.
@@ -704,8 +739,9 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     float_val = NEXT_ARG(args, double);
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, float_val)) >= cbuflen)
                         return -1;
-                    output.append(cbuf);
-
+                    //in some cases (i.e., inf, nan), values, we need to reformat
+                    //the string representation of double values
+                    purgeDouble(output, float_val, cbuf);
                     if (i < vector_len - 1)
                         output.append(',');
                 }
