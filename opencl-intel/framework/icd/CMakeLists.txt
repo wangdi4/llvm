@@ -27,7 +27,14 @@ install(TARGETS ${TARGET_NAME}
 		RUNTIME DESTINATION bin
 		ARCHIVE DESTINATION lib
 		LIBRARY DESTINATION bin)
-
+if (WIN32)        
+    install(TARGETS ${TARGET_NAME} 
+		ARCHIVE DESTINATION lib/x86)  
+        
+    install(TARGETS ${TARGET_NAME} 
+		ARCHIVE DESTINATION lib/x64)   
+endif (WIN32)
+        
 target_link_libraries( ${TARGET_NAME} cl_sys_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRAMEWORK_FOLDER_NAME} )
 
