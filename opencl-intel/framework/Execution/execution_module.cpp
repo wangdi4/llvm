@@ -1474,6 +1474,21 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
  ******************************************************************/
 
 /**
+ * Convert void* to PROPERLY aligned CL vector type.
+ * It is required, since the void* input may not be aligned at all, and CL
+ * vectors are aligned by definition. This may cause runtime errors -
+ * see CSSD100013698 - where the compiler called movdqa on CL vector that was
+ * C-style casted from a non-aligned void*.
+ * @param in non-aligned pointer
+ * @param out the target CL vector.
+ */
+template<typename TrgtCLVecType>
+void voidToCLVec(const void *in, TrgtCLVecType &out)
+{
+	memcpy(&out, in, sizeof(TrgtCLVecType));
+}
+
+/**
  * Allocate buffer, and convert origColor to the relevant format,
  * as described in clEnqueueFillImage
  * @param buf target buffer.
@@ -1501,19 +1516,25 @@ static cl_uint buffer_from_converted_fill_color(
 	case CL_UNORM_INT_101010:
 	case CL_HALF_FLOAT:
 	case CL_FLOAT:
-		Intel::OpenCL::Framework::norm_float_to_image((cl_float4*)origColor, order, type, buf, bufLen);
+		cl_float4 alignedf4;
+		voidToCLVec(origColor, alignedf4);
+		Intel::OpenCL::Framework::norm_float_to_image(&alignedf4, order, type, buf, bufLen);
 		break;
 
 	case CL_SIGNED_INT8:
 	case CL_SIGNED_INT16:
 	case CL_SIGNED_INT32:
-		Intel::OpenCL::Framework::non_norm_signed_to_image((cl_int4*)origColor, order, type, buf, bufLen);
+		cl_int4 alignedint4;
+		voidToCLVec(origColor, alignedint4);
+		Intel::OpenCL::Framework::non_norm_signed_to_image(&alignedint4, order, type, buf, bufLen);
 		break;
 
 	case CL_UNSIGNED_INT8:
 	case CL_UNSIGNED_INT16:
 	case CL_UNSIGNED_INT32:
-		Intel::OpenCL::Framework::non_norm_unsigned_to_image((cl_uint4*)origColor, order, type, buf, bufLen);
+		cl_uint4 aligneduint4;
+		voidToCLVec(origColor, aligneduint4);
+		Intel::OpenCL::Framework::non_norm_unsigned_to_image(&aligneduint4, order, type, buf, bufLen);
 		break;
 
 	default:
