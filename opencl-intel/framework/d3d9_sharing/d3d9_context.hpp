@@ -28,7 +28,7 @@ template<typename RESOURCE_TYPE, typename DEV_TYPE>
 D3DContext<RESOURCE_TYPE, DEV_TYPE>::D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
     cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
     void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-    ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3DSharingDefinitions* pd3d9Definitions, bool bIsInteropUserSync) :
+    ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions, bool bIsInteropUserSync) :
 Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
     pclErr, pOclEntryPoints, pGPAData),
     m_pD3DDevice(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync), m_pd3dDefinitions(pd3d9Definitions)

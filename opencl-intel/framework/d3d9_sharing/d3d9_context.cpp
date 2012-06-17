@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 {
 
 cl_err_code ParseD3DContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
-    IUnknown*& device, int& iDevType, const ID3DSharingDefinitions*& pD3dDefs)
+    IUnknown*& device, cl_context_properties& iDevType, const ID3DSharingDefinitions*& pD3dDefs)
 {
     device = NULL;
     for (std::map<cl_context_properties, cl_context_properties>::const_iterator iter = propertyMap.begin(); iter != propertyMap.end(); iter++)

@@ -61,11 +61,14 @@ using namespace Intel::OpenCL::TaskExecutor;
 // Function to compare two image formats.
 static bool compareImageFormats(cl_image_format f1, cl_image_format f2);
 // Function to get format map key
-static int getFormatsKey(int clObjType , int clMemFlags);
+static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemFlags);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma warning (disable : 4355)    // 'this' : used in base member initializer list
+
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify,
 				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
 	: OCLObject<_cl_context_int>(NULL, "Context"), // Context doesn't have conext to belong
@@ -902,8 +905,14 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
         0 :
         0 == pClImageDesc->image_slice_pitch ? szPitchDim1 * pClImageDesc->image_height : pClImageDesc->image_slice_pitch;
 
+    cl_err_code clErr = CheckSupportedImageFormatByMemFlags(clFlags, *pclImageFormat, pClImageDesc->image_type);
+    if (CL_FAILED(clErr))
+    {
+        return clErr;
+    }
+
     // flags and imageFormat are validated by Image2D and MemoryObject contained inside Image2DArray and hostPtr by MemoryObject::initialize.
-	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, pClImageDesc->image_type, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImageArr);
+	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, pClImageDesc->image_type, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImageArr);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
@@ -1247,7 +1256,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 	}
 
 	// Calculate supported format key
-	int key = getFormatsKey(clObjType, clMemFlags);
+	cl_ulong key = getFormatsKey(clObjType, clMemFlags);
 
 	tImageFormatMap::iterator mapIT;
 	{	// Critical section
@@ -1290,7 +1299,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType )
 {
 	// Calculate supported format key
-	int key = getFormatsKey(clObjType, clMemFlags);
+	cl_ulong key = getFormatsKey(clObjType, clMemFlags);
 
 	OclAutoMutex mu(&m_muFormatsMap);
 
@@ -1399,10 +1408,9 @@ bool compareImageFormats(cl_image_format f1, cl_image_format f2)
 	return false;
 }
 
-static int getFormatsKey(int clObjType , int clMemFlags)
+static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemFlags)
 {
-	int key = clObjType << 16 | clMemFlags;
-	return key;
+	return clObjType << 16 | clMemFlags;
 }
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
@@ -1430,4 +1438,32 @@ void Context::RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent)
 	pEvent->Reset();
 	m_OsEventPool.PushBack(pEvent);
 }
+
 #endif
+
+cl_err_code Context::CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, const cl_image_format& clImageFormat, cl_mem_object_type objType)
+{    
+    assert(((CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY) & clFlags) != (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY));
+    // Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
+    // If WRITE_ONLY flag is not set check for read image support
+    if (0 == (CL_MEM_WRITE_ONLY & clFlags))
+    {
+        const cl_err_code clErr = CheckSupportedImageFormat(&clImageFormat, CL_MEM_READ_ONLY, objType);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+            return clErr;
+        }
+    }
+    // If READ_ONLY flag is not set check for write image support
+    if (0 == (CL_MEM_READ_ONLY & clFlags))
+    {
+        const cl_err_code clErr = CheckSupportedImageFormat(&clImageFormat, CL_MEM_WRITE_ONLY, objType);
+        if (CL_FAILED(clErr))
+        {
+            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
+            return clErr;
+        }
+    }
+    return CL_SUCCESS;
+}

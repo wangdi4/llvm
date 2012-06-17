@@ -159,7 +159,7 @@ struct D3D11TextureResourceInfo : public D3DResourceInfo<ID3D11Resource>
  */
 
 cl_err_code ParseD3DContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
-    IUnknown*& device, int& iDevType, const ID3DSharingDefinitions*& pFactory);
+    IUnknown*& device, cl_context_properties& iDevType, const ID3DSharingDefinitions*& pFactory);
 
 /**
  * @param   d3dFormat   the D3DFORMAT.

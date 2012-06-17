@@ -220,7 +220,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	ParseGLContextOptions(clProperties, &hGLCtx, &hDC, &bGLSharingSupported);
 #if defined (DX_MEDIA_SHARING)
     IUnknown* pD3DDevice;
-    int iDevType;
+    cl_context_properties iDevType;
     const ID3DSharingDefinitions* pd3dDefinitions = NULL;
     clErrRet = ParseD3DContextOptions(propertyMap, pD3DDevice, iDevType, pd3dDefinitions);
     if (CL_SUCCESS != clErrRet)

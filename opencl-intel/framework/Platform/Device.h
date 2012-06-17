@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param   the Direct3D device type
          */
 
-        void SetD3DDevice(IUnknown* const pD3DDevice, int iDevType)
+        void SetD3DDevice(IUnknown* const pD3DDevice, cl_context_properties iDevType)
         {
             m_pD3DDevice = pD3DDevice;
             m_iD3DDevType = iDevType;
@@ -110,12 +110,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         IUnknown* GetD3DDevice() const { return m_pD3DDevice; }
 
         /**
-         * @fn  int GetD3DDevType() const { return m_iD3DDevType; }
+         * @fn  cl_context_properties GetD3DDevType() const { return m_iD3DDevType; }
          * 		
          * @return the Direct3D device type
          */
 
-        int GetD3DDevType() const { return m_iD3DDevType; }
+        cl_context_properties GetD3DDevType() const { return m_iD3DDevType; }
 #endif
 
         /**
@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         differ from one project to another. This might cause bugs that wouldn't be caught by the
         compiler, but appear in runtime and would be very hard to detect. */
         IUnknown* m_pD3DDevice;
-        int m_iD3DDevType;
+        cl_context_properties m_iD3DDevType;
 
     };
 

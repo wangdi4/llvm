@@ -79,7 +79,7 @@ public:
      * type of device: CL_CONTEXT_D3D9_DEVICE_INTEL, CL_CONTEXT_D3D9EX_DEVICE_INTEL or
      * CL_CONTEXT_DXVA9_DEVICE_INTEL
      */
-    const int m_iDeviceType;
+    const cl_context_properties m_iDeviceType;
 
     /**
      * whether the context was created with CL_INTEROP_USER_SYNC property
@@ -110,7 +110,7 @@ public:
     D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false);
 
     /**
@@ -241,7 +241,7 @@ public:
     D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false) :
     D3DContext<IDirect3DResource9, IDirect3DDevice9>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
         pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
@@ -329,7 +329,7 @@ public:
     D3D11Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, int iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false) :
     D3DContext<ID3D11Resource, ID3D11Device>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
         pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }

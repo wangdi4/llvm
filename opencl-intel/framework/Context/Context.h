@@ -344,6 +344,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 */
 		size_t		CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType );
 
+        cl_err_code CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, const cl_image_format& clImageFormat, cl_mem_object_type objType);
 
 		bool									m_bTEActivated;
 
@@ -387,7 +388,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t									m_szArraySize;
 
 		typedef std::list<cl_image_format>		tImageFormatList;
-		typedef std::map<int, tImageFormatList>	tImageFormatMap;
+        typedef std::map<cl_ulong, tImageFormatList>	tImageFormatMap;
 		Intel::OpenCL::Utils::OclSpinMutex		m_muFormatsMap;
 		tImageFormatMap							m_mapSupportedFormats;
 
@@ -454,27 +455,10 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
         }
     }    
 
-    cl_err_code clErr;
-    // Need to perform inverse checking, becuase CL_MEM_READ_WRITE value is 0
-    // If WRITE_ONLY flag is not set check for read image support
-    if ( 0 == (CL_MEM_WRITE_ONLY & clFlags) )
+    cl_err_code clErr = CheckSupportedImageFormatByMemFlags(clFlags, *pclImageFormat, OBJ_TYPE);
+    if (CL_FAILED(clErr))
     {
-        clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_READ_ONLY, OBJ_TYPE);
-        if (CL_FAILED(clErr))
-        {
-            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-            return clErr;
-        }
-    }
-    // If READ_ONLY flag is not set check for write image support
-    if ( 0 == (CL_MEM_READ_ONLY & clFlags) )
-    {
-        clErr = CheckSupportedImageFormat(pclImageFormat, CL_MEM_WRITE_ONLY, OBJ_TYPE);
-        if (CL_FAILED(clErr))
-        {
-            LOG_ERROR(TEXT("Image format not supported: %S"), ClErrTxt(clErr));
-            return clErr;
-        }
+        return clErr;
     }
 
     clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
