@@ -201,14 +201,14 @@ void Predicator::LinearizeBlock(
     //is replaced by a conditional branch with edges to the header and the next
     //block in the list with the exit mask of the block as the branch condition.
     if (succ0 == header) {
-      Value* loop_mask_p = m_loopMask[loop->getHeader()];
+      Value* loop_mask_p = m_inMask[loop->getHeader()];
       Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
-      V_ASSERT(m_allone && "Unable to find allone func");
-      CallInst *call_allone =
-        CallInst::Create(m_allone, loop_mask, "leave", block);
+      V_ASSERT(m_allzero && "Unable to find allzero func");
+      CallInst *call_allzero =
+        CallInst::Create(m_allzero, loop_mask, "leave", block);
 
       term->eraseFromParent();
-      BranchInst::Create(next_after_loop, header, call_allone, block);
+      BranchInst::Create(next_after_loop, header, call_allzero, block);
       return LinearizeFixPhiNode(next_after_loop, block);
     }
   }
@@ -645,37 +645,6 @@ void Predicator::maskDummyEntry(BasicBlock *BB) {
     IntegerType::get(BB->getParent()->getContext(), 1), // type
     BB->getName() + "_in_mask",                         // name
     BB->getParent()->getEntryBlock().begin());          // where
-
-
-  /// Set exit mask to ALL basic blocks. (even if there is no exiting)
-  m_exitMask[BB] = new AllocaInst(
-    IntegerType::get(BB->getParent()->getContext(), 1), // type
-    BB->getName() + "_exit_mask",                       // name
-    BB->getParent()->getEntryBlock().begin());          // where
-
-  /// Set loop mask for this loop
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  Loop* loop = LI->getLoopFor(BB);
-
-  // On preheader of loop, zero the value of edge exit mask
-  // this mask stores the values which left on this edge
-  // naturally, need to set it to zero in preheader, before loop.
-  if (loop) {
-    BasicBlock* preheader = loop->getLoopPreheader();
-    V_ASSERT (preheader && "Loop must have a preheader");
-    new StoreInst(m_zero , m_exitMask[BB], preheader->getTerminator());
-  }
-
-  /// Create a loop mask, index it acording to the loop header
-  /// Only If previously, we didn't set a mask for this loop
-  /// (and this is a loop)
-  if (loop && m_loopMask.find(loop->getHeader()) == m_loopMask.end()) {
-    m_loopMask[loop->getHeader()] =
-      new AllocaInst(
-        IntegerType::get(BB->getParent()->getContext(), 1),  // type
-        loop->getHeader()->getName() + "_loop_mask",         // name
-        BB->getParent()->getEntryBlock().begin());           // where
-  }
 }
 
 void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
@@ -695,102 +664,102 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   TerminatorInst* term = BB->getTerminator();
   BranchInst* br = dyn_cast<BranchInst>(term);
-  V_ASSERT(br && "Unable to handle non branch terminators");
+  V_ASSERT(br && br->isConditional() && "expected conditional branch");
+
+  // Get the loop for the basic block.
+  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  Loop *L = LI->getLoopFor(BB);
+  V_ASSERT(L && L->isLoopExiting(BB) && "expected exiting block");
 
   // Below we handle conditional branches
-  Value* cond = br->getCondition();
-  BasicBlock *BBsucc0 = br->getSuccessor(0);
+  Value *cond = br->getCondition();
+  Value *notCond = BinaryOperator::CreateNot(cond, "notCond", br);
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  V_ASSERT(LI && "Unable to get loop analysis");
-  // Are the predecessor BBs in the same loop as me?
-  Loop* LoopCurrentBB = LI->getLoopFor(BB);
-  Loop* LoopForBB0  = LI->getLoopFor(BBsucc0);
+  /// Decide which edge is the exit edge and which one is the loop-local edge.
+  BasicBlock *BBsucc1 = br->getSuccessor(1);
+  bool exitFirst = L->contains(BBsucc1);
+  unsigned localIndex = exitFirst;
+  BasicBlock* BBexit =  br->getSuccessor(1-localIndex);
+  BasicBlock* BBlocal = br->getSuccessor(localIndex);
+  Value *localCond = exitFirst ? notCond : cond;
+  Value *exitCond  = exitFirst ? cond : notCond;
 
-  BasicBlock* BBexit;
-  BasicBlock* BBlocal;
-  bool exitFirst;
-
-  /// Decide which edge is the exit edge
-  // and which one is the loop-local edge.
-  if (LoopForBB0 == LoopCurrentBB) {
-    BBexit  =  br->getSuccessor(1);
-    BBlocal =  br->getSuccessor(0);
-    exitFirst = false;
-  } else {
-    BBexit  =  br->getSuccessor(0);
-    BBlocal =  br->getSuccessor(1);
-    exitFirst = true;
-  }
-
+  // Get incoming mask for the block.
   Value* entry_mask_p = m_inMask[BB];
-  Value* exit_mask_p  = m_exitMask[BB];
   Value* entry_mask   = new LoadInst(entry_mask_p, "entry_mask", br);
-  Value* exit_mask    = new LoadInst(exit_mask_p,  "exit_mask", br);
   
-  /// ---- calculate the exit mask. Who has left the loop ?
-  BinaryOperator* notCond =
-    BinaryOperator::Create(Instruction::Xor, cond, m_one, "notCond", br);
-  BinaryOperator* who_left_tr = BinaryOperator::Create(Instruction::And,
-                                                       entry_mask, (exitFirst ? cond : notCond) , "who_left_tr", br);
-
-  BinaryOperator* who_ever_left_edge = BinaryOperator::Create(Instruction::Or,
-                                                              exit_mask, who_left_tr, "ever_left_loop", br);
-  new StoreInst(who_ever_left_edge, exit_mask_p, br);
-
-  /// Calculate the loop exit. Who had left the loop on all exits ?
-  /// Update all parent loops
-  while (LoopCurrentBB && !LoopCurrentBB->contains(BBexit)) {
-    Value* loop_mask_p = m_loopMask[LoopCurrentBB->getHeader()];
-    V_ASSERT(m_loopMask.find(LoopCurrentBB->getHeader()) != m_loopMask.end()
-           && "BB has no loop-mask");
-    Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", br);
-    // update global loop mask based on who had left the loop (calculated before)
-    BinaryOperator* or1 = BinaryOperator::Create(
-        Instruction::Or, loop_mask, who_left_tr, "loop_mask", br);
-    new StoreInst(or1, loop_mask_p, br);
-    LoopCurrentBB = LoopCurrentBB->getParentLoop();
-  }
-
-  /// Update the exit condition for the current loop
-  /// Use the current 
-  Loop* CurrentLoop = LI->getLoopFor(BB);
-  Value* cloop_mask_p = m_loopMask[CurrentLoop->getHeader()];
-  Value* cloop_mask   = new LoadInst(cloop_mask_p, "current_loop_mask", br);  
-  BinaryOperator* cor1 = BinaryOperator::Create(Instruction::Or, cloop_mask, who_left_tr, "curr_loop_mask", br);
-
-  /// ----  Create the exit condition. When to leave the loop
-  V_ASSERT(m_allone && "Unable to find allone func");
-  CallInst *call_allone = CallInst::Create(m_allone, cor1, "shouldexit", br);
-  BinaryOperator* notExit = BinaryOperator::Create(
-    Instruction::Xor, call_allone, m_one, "shouldexit_not", br);
-
-  // Make sure that we set the right exit condition
-  // If the first operand of the branch command is a jump
-  // back to itself then settng it to 'should exit' would
-  // create an inf loop. TODO: Another (more optimized) way to solve
-  // this would be to flip the jump targets.
-  if (exitFirst) {
-    br->setCondition(call_allone);
-  } else {
-    br->setCondition(notExit);
-  }
-  
-  /// ---- Create the masks for inside the loop
-  Value* local_edge_mask_p = new AllocaInst(IntegerType::get(
-      BB->getParent()->getContext(), 1),
+  /// Handles the out mask for the edge inside the loop.
+  Value* local_edge_mask_p = new AllocaInst(
+    IntegerType::get(BB->getParent()->getContext(), 1),
     BB->getName() + "_to_" + BBlocal->getName()+"_mask",
     BB->getParent()->getEntryBlock().begin());
-
-  BinaryOperator* and3 =
-    BinaryOperator::Create(Instruction::And, entry_mask,
-                           ((!exitFirst) ? cond : notCond) , "local_edge", br);
-
-  new StoreInst(and3, local_edge_mask_p, br);
-
-  /// Save outgoing edges
-  m_outMask[std::make_pair(BB, BBexit)] = exit_mask_p;
+  BinaryOperator* localOutMask = BinaryOperator::Create(Instruction::And,
+      entry_mask, localCond , "local_edge", br);
+  new StoreInst(localOutMask, local_edge_mask_p, br);
   m_outMask[std::make_pair(BB, BBlocal)] = local_edge_mask_p;
+
+  /// Handles out mask for the exit edge.
+  BasicBlock *preHeader = L->getLoopPreheader();
+  Value* who_left_tr = BinaryOperator::Create(Instruction::And,
+                                     entry_mask, exitCond , "who_left_tr", br);
+  if (L->getExitingBlock()) {
+    V_ASSERT(BB == L->getExitingBlock() && 
+        "incase there is only one exiting block it should be the current");
+    // Incase there is only one exiting block can use the incoming mask
+    // of the preheader since all work items entering the loop will exit
+    // through this edge.
+    V_ASSERT(preHeader && m_inMask.count(preHeader) && "no in mask for preheader");
+    m_outMask[std::make_pair(BB, BBexit)] = m_inMask[preHeader];
+  } else {
+    // The out mask holds whether the current work item ever left the loop
+    // using this edge. we zero the exit edge mask when entering the loop (in
+    // preheader) and on each iteration we or the mask with the exit condition.
+    Value *exit_edge_mask_p = new AllocaInst(
+      IntegerType::get(BB->getParent()->getContext(), 1),
+      BB->getName() + "_to_" + BBexit->getName()+"_mask",
+      BB->getParent()->getEntryBlock().begin());
+    // Zero the exit edge mask before entering the loop.
+    new StoreInst(m_zero, exit_edge_mask_p, preHeader->getTerminator());
+    Value* exit_edge_mask = new LoadInst(exit_edge_mask_p,  "exit_mask", br);
+    BinaryOperator* who_ever_left_edge = BinaryOperator::Create(Instruction::Or,
+                exit_edge_mask, who_left_tr, "ever_left_loop", br);
+    new StoreInst(who_ever_left_edge, exit_edge_mask_p, br);
+    m_outMask[std::make_pair(BB, BBexit)] = exit_edge_mask_p;
+  }
+
+  /// Update loop masks for all loop that BB is exiting (possible parent loops).
+  Value *curLoopMask = NULL;
+  do {
+    V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
+    // If this the common case with one exiting block then the updated
+    // loop mask is simply the local edge value. (and inMask, localCond)
+    // Note that we know that in this case the mask the current block is
+    // the same as the loop header block mask.
+    Value *newLoopMask = localOutMask;
+    Value* loopMask_p = m_inMask[L->getHeader()];
+    if (!L->getExitingBlock()) {
+      // There are more than one exiting block than we need to update loop
+      // mask with negation of exit edge .
+      Value* who_left_tr_not = 
+          BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
+      Value* loopMask   = new LoadInst(loopMask_p, "loop_mask", br);
+      newLoopMask = BinaryOperator::Create(
+      Instruction::And, loopMask, who_left_tr_not, "loop_mask", br);
+    }
+    
+    if (!curLoopMask) curLoopMask = newLoopMask;
+    new StoreInst(newLoopMask, loopMask_p, br);
+    L = L->getParentLoop();
+  } while (L && !L->contains(BBexit));
+
+  /// ----  Create the exit condition. When to leave the loop
+  V_ASSERT(m_allzero && "Unable to find allzero func");
+  CallInst *call_allzero = 
+      CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
+
+  // Make sure the exit block is the first successor.
+  BranchInst::Create(BBexit, BBlocal, call_allzero, br);
+  br->eraseFromParent();
 }
 
 void Predicator::maskOutgoing_fork(BasicBlock *BB) {
@@ -912,26 +881,21 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
   }
-  // Below we handle conditional brancs
-  BasicBlock *BBsucc0 = br->getSuccessor(0);
-  BasicBlock *BBsucc1 = br->getSuccessor(1);
 
   /// We will need loop information to know if this BB
   /// has edges leaving the loop
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get analysis");
   // Are the predecessor BBs in the same loop as me?
-  Loop* LoopCurrentBB = LI->getLoopFor(BB);
-  Loop* LoopForBB0  = LI->getLoopFor(BBsucc0);
-  Loop* LoopForBB1  = LI->getLoopFor(BBsucc1);
-  ///
-  /// In here we handle Loop exit
-  ///
-  if (LoopCurrentBB != LoopForBB0 || LoopCurrentBB != LoopForBB1) {
+  Loop* L = LI->getLoopFor(BB);
+
+  if (L && L->isLoopExiting(BB)) {
+    /// In here we handle Loop exit
     maskOutgoing_loopexit(BB);
   } else {
+    // in-loop split
     maskOutgoing_fork(BB);
-  } // in-loop split
+  } 
 }
 
 void Predicator::maskIncoming_optimized(BasicBlock *BB, BasicBlock* pred) {
@@ -980,52 +944,14 @@ void Predicator::maskIncoming_singlePred(BasicBlock *BB, BasicBlock* pred) {
 
 void Predicator::maskIncoming_loopHeader(BasicBlock *BB, BasicBlock* preheader){
   /// Find the old dummy mask
-  V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
-  Value* old_in = m_inMask[BB];
+  V_ASSERT(m_inMask.count(BB) && m_inMask.count(preheader) && "no in masks");
+  Instruction *loc = preheader->getTerminator();
+  Value *preHeadMask =  new LoadInst(m_inMask[preheader], "prehead_mask", loc);
+  new StoreInst(preHeadMask, m_inMask[BB], loc);
 
-  // create phi node
-  unsigned numPhiEntries = std::distance(pred_begin(BB), pred_end(BB));
-  PHINode* new_phi = PHINode::Create(
-    IntegerType::get(BB->getParent()->getContext(), 1), numPhiEntries,
-    BB->getName() + "_Min", BB->begin());
-
-  // For each incoming edge into the block
-  for (pred_iterator it = pred_begin(BB), e = pred_end(BB); it != e; ++it) {
-    BasicBlock* inBB = *it;
-    CFGEdge edge = std::make_pair(inBB, BB);
-    V_ASSERT(m_outMask.find(edge) != m_outMask.end() && "Edge has no out-mask");
-    Value* in_mask_p = m_outMask[edge]; // edge from inBB to this BB
-    Value* in_mask   = new LoadInst(in_mask_p, "in_mask", inBB->getTerminator());
-    new_phi->addIncoming(in_mask, inBB);
-  }
-
-  Instruction* st = new StoreInst(new_phi, old_in, BB->getFirstNonPHI());
-  m_inInst[BB] = st;
-
-  /// On loop headers we also set the loop masks, which
-  //indicates if we need to leave the loop.
-  // In this mask:
-  // 1 - already left the loop
-  // 0 - waiting to leave the loop.
-  // This means that we exit when mask is all-one.
-  // The initial mask is All-one XOR incoming mask (from preheader)
-  V_ASSERT(preheader && "No preheader ?");
-  CFGEdge pedge = std::make_pair(preheader, BB);
-  V_ASSERT(m_outMask.find(pedge) != m_outMask.end() &&
-           "Preheader has no out-mask");
-  Value* in_loop_mask_p = m_outMask[pedge]; // edge from preheader to this BB
-
-  Value* in_loop_mask =
-    new LoadInst(in_loop_mask_p, "in_lp_mask", preheader->getTerminator());
-  BinaryOperator* neg_incoming_loop_mask =
-    BinaryOperator::Create(Instruction::Xor,
-                           in_loop_mask, m_one,
-                           "negIncomingLoopMask",
-                           preheader->getTerminator());
-
-  V_ASSERT(m_loopMask.find(BB) != m_loopMask.end()&& "Unable to find loop mask");
-  new StoreInst(neg_incoming_loop_mask,
-                m_loopMask[BB], preheader->getTerminator());
+  // updating of the in mask when exiting the loop is done when dealing with
+  // out_masks on edges.
+  m_inInst[BB] = BB->getFirstNonPHI();
 }
 
 void Predicator::maskIncoming_simpleMerge(BasicBlock *BB) {
@@ -1113,8 +1039,6 @@ void Predicator::predicateFunction(Function *F) {
   m_inMask.clear();
   m_inInst.clear();
   m_outMask.clear();
-  m_exitMask.clear();
-  m_loopMask.clear();
   m_toPredicate.clear();
   m_outsideUsers.clear();
   m_optimizedMasks.clear();
@@ -1123,8 +1047,10 @@ void Predicator::predicateFunction(Function *F) {
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
   DominatorTree* DT      = &getAnalysis<DominatorTree>();
   RegionInfo* RI         = &getAnalysis<RegionInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  V_ASSERT(LI && "Unable to get loop analysis");
   FunctionSpecializer specializer(
-    this, F, m_allzero, PDT, DT, RI);
+    this, F, m_allzero, PDT, DT, RI, LI);
 
   V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 
@@ -1165,8 +1091,6 @@ void Predicator::predicateFunction(Function *F) {
           m_outsideUsers.size()<<" instructions\n");
 
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  V_ASSERT(LI && "Unable to get loop analysis");
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     
     // Assert that each block has at most two preds
@@ -1226,16 +1150,6 @@ Value* Predicator::getEdgeMask(BasicBlock* A, BasicBlock* B) {
 
 Value* Predicator::getInMask(BasicBlock* block) {
   if (m_inMask.find(block) != m_inMask.end()) return m_inMask[block];
-  return NULL;
-}
-
-Value* Predicator::getLoopMask(BasicBlock* block) {
-  if (m_loopMask.find(block) != m_loopMask.end()) return m_loopMask[block];
-  return NULL;
-}
-
-Value* Predicator::getExitMask(BasicBlock* block) {
-  if (m_exitMask.find(block) != m_exitMask.end()) return m_exitMask[block];
   return NULL;
 }
 
