@@ -26,24 +26,25 @@ File Name:  ImplicitArgsUtils.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Initialize the implicit arguments properties
-const std::vector<ImplicitArgProperties> ImplicitArgsUtils::m_implicitArgProps = ImplicitArgsUtils::initArgPropsVector();
+std::vector<ImplicitArgProperties> ImplicitArgsUtils::m_implicitArgProps;
 
-std::vector<ImplicitArgProperties> ImplicitArgsUtils::initArgPropsVector() {
-  
-  std::vector<ImplicitArgProperties> implicitArgProps;
-  
+void ImplicitArgsUtils::init() {
+   
+  // Initialize m_implicitArgProps
   // Add argument name, size, alignment (if different from size)
-  implicitArgProps.push_back(ImplicitArgProperties("pLocalMem",       sizeof(void*)));
-  implicitArgProps.push_back(ImplicitArgProperties("pWorkDim",        sizeof(sWorkInfo*),       0));
-  implicitArgProps.push_back(ImplicitArgProperties("pWGId",           sizeof(size_t*)));
-  implicitArgProps.push_back(ImplicitArgProperties("BaseGlbId",       sizeof(void*)));
-  implicitArgProps.push_back(ImplicitArgProperties("pLocalIds",       sizeof(void*)));
-  implicitArgProps.push_back(ImplicitArgProperties("contextpointer",  sizeof(void*)));
-  implicitArgProps.push_back(ImplicitArgProperties("iterCount",       sizeof(size_t)));
-  implicitArgProps.push_back(ImplicitArgProperties("pSpecialBuf",     sizeof(void*)));
-  implicitArgProps.push_back(ImplicitArgProperties("pCurrWI",         sizeof(unsigned int*)));
-  
-  return implicitArgProps;
+  m_implicitArgProps.push_back(ImplicitArgProperties("pLocalMem",       sizeof(void*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("pWorkDim",        sizeof(sWorkInfo*),       0));
+  m_implicitArgProps.push_back(ImplicitArgProperties("pWGId",           sizeof(size_t*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("BaseGlbId",       sizeof(void*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("pLocalIds",       sizeof(void*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("contextpointer",  sizeof(void*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("iterCount",       sizeof(size_t)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("pSpecialBuf",     sizeof(void*)));
+  m_implicitArgProps.push_back(ImplicitArgProperties("pCurrWI",         sizeof(unsigned int*)));
+}
+
+void ImplicitArgsUtils::terminate() {
+  m_implicitArgProps.clear();
 }
 
 void ImplicitArgsUtils::createImplicitArgs(char* pDest, std::vector<ImplicitArgument>& /* OUT */ implicitArgs) {

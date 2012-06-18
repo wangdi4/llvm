@@ -34,6 +34,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   class ImplicitArgsUtils {
   
   public:
+
+     /// @brief Initialized the implicit arguments properties
+     static void init();
+
+     /// @brief Terminates what has been initialized by init() if neede
+     static void terminate();
+
     /// @brief Returns the implicit arguments properties
     /// @returns The implicit arguments properties
     static unsigned int getNumArgs() {  return m_implicitArgProps.size(); }
@@ -81,16 +88,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          void* pParams);
   
   private:
-     /// @brief Initialized the implicit arguments properties
-     /// @returns The implicit arguments properties
-     static std::vector<ImplicitArgProperties> initArgPropsVector();
      
      /// @brief Initialized the work item local IDs
      static void initWILocalIds(const Executable* pExecutable, size_t* pWIids);
   
   private:
     // TODO : make it small vector?
-    static const std::vector<ImplicitArgProperties> m_implicitArgProps;    
+    static std::vector<ImplicitArgProperties> m_implicitArgProps;    
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

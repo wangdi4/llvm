@@ -32,6 +32,7 @@ File Name:  dllmain.cpp
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
+#include "utils/ImplicitArgsUtils.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -151,6 +152,7 @@ extern "C"
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
             DefaultJITMemoryManager::Init();
+            ImplicitArgsUtils::init();
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
             //
@@ -185,6 +187,7 @@ extern "C"
             return;
         }
 
+        ImplicitArgsUtils::terminate();
         DefaultJITMemoryManager::Terminate();
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();
