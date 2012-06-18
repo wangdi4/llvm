@@ -2,7 +2,8 @@
 <RunConfiguration>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>
-  <ByteCodeFile>v8u64cmplt.c.bc</ByteCodeFile>
+  <ProgramFile>v8u64cmplt.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
   <KernelConfiguration Name="test_v8u64cmplt">
     <WorkDimention>1</WorkDimention>
     <LocalWorkSize>3</LocalWorkSize>

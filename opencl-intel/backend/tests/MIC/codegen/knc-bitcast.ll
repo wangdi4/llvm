@@ -9,7 +9,8 @@ target datalayout = "e-p:64:64"
 
 define i16 @bitcast16(<16 x i1> %m) nounwind ssp {
 ; CHECK: bitcast16:
-; CHECK: vkmov %k1, %eax
+; CHECK: vkmov %k1, %edx
+; CHECK: movswq    %dx, %rax
   %mask = bitcast <16 x i1> %m to i16
   ret i16 %mask
 }

@@ -53,7 +53,7 @@ entry:
 
 define i16 @load_i16(i16 * %a) nounwind readnone ssp {
 entry:
-; CHECK: movzwl    (%rdi), %eax
+; CHECK: movswl    (%rdi), %eax
   %0 = load i16 *%a
   ret i16 %0
 }
