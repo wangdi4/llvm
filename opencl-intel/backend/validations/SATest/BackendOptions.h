@@ -130,6 +130,8 @@ public:
     {
         switch(optionId)
         {
+        case CL_DEV_BACKEND_OPTION_DEVICE :
+            return "cpu";
         case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             return m_cpu.c_str();
         case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
@@ -374,7 +376,7 @@ public:
         switch(optionId)
         {
         case CL_DEV_BACKEND_OPTION_DEVICE :
-            return "mic";
+            return isMIC() ? "mic" : "cpu";
         default:
             return CPUBackendOptions::GetStringValue(optionId, defaultValue);
         }
@@ -410,7 +412,7 @@ public:
 
 
 private:
-    bool isMIC()
+    bool isMIC() const
     {
         return m_cpu == "knf" || m_cpu == "knc";
     }
