@@ -1379,26 +1379,125 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 }
 
 
+bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
+                             SmallVectorImpl<ExtractElementInst *> &extracts) {
+  VectorType *VT = dyn_cast<VectorType>(vectorValue->getType());
+  if (!VT) return false;
+  unsigned inputVectorWidth = VT->getNumElements();
+  if (inputVectorWidth < 2) return false;
+
+  extracts.assign(inputVectorWidth, NULL);
+  for (Value::use_iterator useIt = vectorValue->use_begin(), 
+       useE = vectorValue->use_end(); useIt != useE; ++useIt) {
+    if (ExtractElementInst *EEUser = dyn_cast<ExtractElementInst>(*useIt)) {
+      Value * scalarIndexVal = EEUser->getIndexOperand();
+      ConstantInt *constInd = dyn_cast<ConstantInt>(scalarIndexVal);
+      if (!constInd) return false;
+      unsigned ind = constInd->getZExtValue();
+      if (ind >= inputVectorWidth || extracts[ind]) return false;
+      extracts[ind] = EEUser;
+    } 
+  }
+  return true;
+}
+
+void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
+                                           SmallVectorImpl<Instruction *> &OUT,
+                                           Instruction *loc) {
+  int Seq64L_seq[] = {0,1,4,5};
+  int Seq64H_seq[] = {2,3,6,7};
+
+  int Seq32L_seq[] = {0, 2, 4, 6};
+  int Seq32H_seq[] = {1, 3, 5, 7};
+
+  Constant *Seq64L = createIndicesForShuffles(m_packetWidth, Seq64L_seq);
+  Constant *Seq64H = createIndicesForShuffles(m_packetWidth, Seq64H_seq);
+  Constant *Seq32L = createIndicesForShuffles(m_packetWidth, Seq32L_seq);
+  Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
+
+  llvm::SmallVector<Value*, 8> Level64;
+  Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64L , "Seq_64_0", loc)); // x0,y0,x1,y1
+  Level64.push_back(new ShuffleVectorInst(IN[2], IN[3], Seq64L , "Seq_64_1", loc)); // x2,y2,x3,y3
+  Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64H , "Seq_64_2", loc)); // z0,w0,z1,w1
+  Level64.push_back(new ShuffleVectorInst(IN[2], IN[3], Seq64H , "Seq_64_3", loc)); // z2,w2,z3,w3
+
+  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc)); // x0,x1,x2,x3
+  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc)); // y0,y1,y2,y3
+  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc)); // z0,z1,z2,z3
+  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc)); // w0,w1,w2,w3
+}
+
+void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
+                                           SmallVectorImpl<Instruction *> &OUT,
+                                           Instruction *loc){
+  llvm::SmallVector<Value*, 8> Level128;
+  llvm::SmallVector<Value*, 8> Level64;
+
+  int Seq128L_seq[] = {0,1,2,3,8,9,10,11};
+  int Seq128H_seq[] = {4,5,6,7,12,13,14,15};
+
+  int Seq64L_seq[] = {0,1,8,9,4,5,12,13};
+  int Seq64H_seq[] = {2,3,10,11,6,7,14,15};
+
+  int Seq32L_seq[] = {0,8,2,10,4,12,6,14};
+  int Seq32H_seq[] = {1,9,3,11,5,13,7,15};
+
+  Constant *Seq128L = createIndicesForShuffles(m_packetWidth, Seq128L_seq);
+  Constant *Seq128H = createIndicesForShuffles(m_packetWidth, Seq128H_seq);
+  Constant *Seq64L = createIndicesForShuffles(m_packetWidth, Seq64L_seq);
+  Constant *Seq64H = createIndicesForShuffles(m_packetWidth, Seq64H_seq);
+  Constant *Seq32L = createIndicesForShuffles(m_packetWidth, Seq32L_seq);
+  Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
+
+  Level128.push_back(new ShuffleVectorInst(IN[0], IN[4], Seq128L , "Seq_128_0", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[1], IN[5], Seq128L , "Seq_128_1", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[2], IN[6], Seq128L , "Seq_128_2", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[3], IN[7], Seq128L , "Seq_128_3", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[0], IN[4], Seq128H , "Seq_128_4", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[1], IN[5], Seq128H , "Seq_128_5", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[2], IN[6], Seq128H , "Seq_128_6", loc));
+  Level128.push_back(new ShuffleVectorInst(IN[3], IN[7], Seq128H , "Seq_128_7", loc));
+
+  Level64.push_back(new ShuffleVectorInst(Level128[0], Level128[2], Seq64L , "Seq_64_0", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[1], Level128[3], Seq64L , "Seq_64_1", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[0], Level128[2], Seq64H , "Seq_64_2", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[1], Level128[3], Seq64H , "Seq_64_3", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[4], Level128[6], Seq64L , "Seq_64_4", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[5], Level128[7], Seq64L , "Seq_64_5", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[4], Level128[6], Seq64H , "Seq_64_6", loc));
+  Level64.push_back(new ShuffleVectorInst(Level128[5], Level128[7], Seq64H , "Seq_64_7", loc));
+  
+  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32L , "Seq_32_4", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32H , "Seq_32_5", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32L , "Seq_32_6", loc));
+  OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32H , "Seq_32_7", loc));
+}
+
 void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 {
   // ExtractElement instruction, when packetized, is transformed to
   // a sort of matrix transpose
   V_PRINT(packetizer, "\t\tExtractElement Instruction\n");
   V_ASSERT(EI && "instruction type dynamic cast failed");
-  Value * vectorValue = EI->getVectorOperand();
-  unsigned inputVectorWidth = EI->getVectorOperandType()->getNumElements();
-  Value * scalarIndexVal = EI->getIndexOperand();
 
-  // For transposing, Make sure the index is a constant, and the vector width is 2 or more
-  if (!isa<ConstantInt>(scalarIndexVal) || inputVectorWidth < 2) {
+  SmallVector<ExtractElementInst *, 16> extracts;
+  Value *vectorValue = EI->getVectorOperand();
+  if (!obtainExtracts(vectorValue, extracts)) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" index should be a constant, and the vector width is 2 or more\n");
     V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(EI);
   }
 
+  unsigned inputVectorWidth = EI->getVectorOperandType()->getNumElements();
+  
   // Obtain the packetized version of the vector input (actually multiple vectors)
-  Value * inputOperands[MAX_PACKET_WIDTH];
-  obtainMultiScalarValues(inputOperands, vectorValue, EI);
+  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> inputOperands;
+  inputOperands.assign(MAX_INPUT_VECTOR_WIDTH, NULL);
+  obtainMultiScalarValues(&(inputOperands[0]), vectorValue, EI);
   V_ASSERT(inputOperands[0]->getType() == vectorValue->getType() && "input type error");
 
   // Make the transpose optimization only while arch vector is 4,
@@ -1434,104 +1533,31 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
         undefVect, vectExtend , "extend_vec", EI);
     }
   }
-    // Create the indices for the shuffle instructions
-  uint64_t scalarIndex = dyn_cast<ConstantInt>(scalarIndexVal)->getZExtValue();
+
+  // Create the transpose sequence.
+  SmallVector<Instruction *, 16> SOA;
+  if (m_packetWidth == 8) {
+    if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
+      inputVectorWidth < 4) {
+        V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth == 8 && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
+        V_STAT(m_cannotHandleCtr++;)
+        return duplicateNonPacketizableInst(EI);
+    }
+    obtainTranspVals32bitV8(inputOperands, SOA, EI);
+  } else {
+    V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8");
+    obtainTranspVals32bitV4(inputOperands, SOA, EI);
+  }
   
-  if (m_packetWidth == 8)
-  {
-      if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
-        inputVectorWidth < 4) {
-          V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth == 8 && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
-          V_STAT(m_cannotHandleCtr++;)
-          return duplicateNonPacketizableInst(EI);
-      }
-
-      assert(scalarIndex < 8);
-      llvm::SmallVector<Value*, 8> Level128;
-      llvm::SmallVector<Value*, 8> Level64;
-      llvm::SmallVector<Value*, 8> Level32;
-
-      int Seq128L_seq[] = {0,1,2,3,8,9,10,11};
-      int Seq128H_seq[] = {4,5,6,7,12,13,14,15};
-
-      int Seq64L_seq[] = {0,1,8,9,4,5,12,13};
-      int Seq64H_seq[] = {2,3,10,11,6,7,14,15};
-
-      int Seq32L_seq[] = {0,8,2,10,4,12,6,14};
-      int Seq32H_seq[] = {1,9,3,11,5,13,7,15};
-
-      Constant *Seq128L = createIndicesForShuffles(m_packetWidth, Seq128L_seq);
-      Constant *Seq128H = createIndicesForShuffles(m_packetWidth, Seq128H_seq);
-      Constant *Seq64L = createIndicesForShuffles(m_packetWidth, Seq64L_seq);
-      Constant *Seq64H = createIndicesForShuffles(m_packetWidth, Seq64H_seq);
-      Constant *Seq32L = createIndicesForShuffles(m_packetWidth, Seq32L_seq);
-      Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
-
-      Level128.push_back(new ShuffleVectorInst(inputOperands[0], inputOperands[4], Seq128L , "Seq_128_0", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[1], inputOperands[5], Seq128L , "Seq_128_1", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[2], inputOperands[6], Seq128L , "Seq_128_2", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[3], inputOperands[7], Seq128L , "Seq_128_3", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[0], inputOperands[4], Seq128H , "Seq_128_4", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[1], inputOperands[5], Seq128H , "Seq_128_5", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[2], inputOperands[6], Seq128H , "Seq_128_6", EI));
-      Level128.push_back(new ShuffleVectorInst(inputOperands[3], inputOperands[7], Seq128H , "Seq_128_7", EI));
-
-      Level64.push_back(new ShuffleVectorInst(Level128[0], Level128[2], Seq64L , "Seq_64_0", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[1], Level128[3], Seq64L , "Seq_64_1", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[0], Level128[2], Seq64H , "Seq_64_2", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[1], Level128[3], Seq64H , "Seq_64_3", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[4], Level128[6], Seq64L , "Seq_64_4", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[5], Level128[7], Seq64L , "Seq_64_5", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[4], Level128[6], Seq64H , "Seq_64_6", EI));
-      Level64.push_back(new ShuffleVectorInst(Level128[5], Level128[7], Seq64H , "Seq_64_7", EI));
-
-      Level32.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32L , "Seq_32_0", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32L , "Seq_32_4", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32H , "Seq_32_5", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32L , "Seq_32_6", EI));
-      Level32.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32H , "Seq_32_7", EI));
-
-      // Add new values to VCM
-      createVCMEntryWithVectorValue(EI, dyn_cast<Instruction>(Level32[scalarIndex]));
-
-      // Remove original instruction
-      m_removedInsts.insert(EI);
-      return;
+  // add new value/s to VCM and Remove original instruction
+  for (unsigned i=0, e = extracts.size(); i<e; ++i) {
+    ExtractElementInst *curEI = extracts[i];
+    if (curEI) {
+      createVCMEntryWithVectorValue(curEI, SOA[i]);  
+      m_removedInsts.insert(curEI);
+    }
   }
 
-
-  // replace the extractElement with a sequence (or similar):
-  //    %vec0 = shufflevector <4 x Type> %inp0, <4 x Type> %inp1, <4 x i32> <0, 1, 4, 5>
-  //    %vec2 = shufflevector <4 x Type> %inp2, <4 x Type> %inp3, <4 x i32> <0, 1, 4, 5>
-  //    %vector = shufflevector <4 x Type> %vec0, <4 x Type> %vec2, <4 x i32> <0, 2, 4, 6>
-  bool isIndexEven = (scalarIndex % 2 == 0);
-  int evenIndex = isIndexEven ? scalarIndex : scalarIndex - 1;
-
-  V_ASSERT(4 == m_packetWidth && "Code below not supported for vecWidth != 4 !!!");
-  int sequence[4/*PACKET_WIDTH*/] =
-  {evenIndex, evenIndex + 1, 4/*PACKET_WIDTH*/ + evenIndex, 4/*PACKET_WIDTH*/ + evenIndex + 1};
-  int even_sequence[4/*PACKET_WIDTH*/] = {0, 2, 4, 6};
-  int odd_sequence[4/*PACKET_WIDTH*/] = {1, 3, 5, 7};
-  Constant * vectIndexer0 = createIndicesForShuffles(m_packetWidth, sequence);
-  Constant * vectIndexer1 = createIndicesForShuffles(m_packetWidth,
-    isIndexEven ? even_sequence : odd_sequence);
-
-  // Create the shuffleVector instructions
-  ShuffleVectorInst *shuffle0 =
-    new ShuffleVectorInst(inputOperands[0], inputOperands[1], vectIndexer0 , "shuffle0", EI);
-  ShuffleVectorInst *shuffle1 =
-    new ShuffleVectorInst(inputOperands[2], inputOperands[3], vectIndexer0 , "shuffle1", EI);
-  ShuffleVectorInst *shuffleMerge =
-    new ShuffleVectorInst(shuffle0, shuffle1, vectIndexer1 , "shuffleMerge", EI);
-
-  // Add new value/s to VCM
-  createVCMEntryWithVectorValue(EI, shuffleMerge);
-
-  // Remove original instruction
-  m_removedInsts.insert(EI);
 }
 
 

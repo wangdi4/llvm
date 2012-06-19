@@ -108,6 +108,26 @@ private:
   void packetizeInstruction(PHINode *PI);
   void packetizeInstruction(ReturnInst *RI);
 
+  /// @brief obtain the extract users of vector value into extracts vector.
+  /// @param vectorValue the vector to obtain extract users
+  /// @param extracts - container to fill.
+  bool obtainExtracts(Value  *vectorValue,
+                      SmallVectorImpl<ExtractElementInst *> &extracts);
+
+  ///@brief creates the transpose shuffle sequence for 4x4 matirx
+  ///@param IN input vectors
+  ///@param OUT output vectors
+  void obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN, 
+                 	           SmallVectorImpl<Instruction *> &OUT,
+                 	           Instruction *loc);
+  
+  ///@brief creates the transpose shuffle sequence for 8x8 matirx
+  ///@param IN input vectors
+  ///@param OUT output vectors
+  void obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
+                               SmallVectorImpl<Instruction *> &OUT,
+                               Instruction *loc);
+
   // Packetize load/store family of functions
 
   void packetizeMemoryOperand(MemoryOperation &MemOp);
