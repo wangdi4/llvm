@@ -22,6 +22,7 @@ File Name:  main.cpp
 #include "ICLDevBackendOptions.h"
 #include "MICDeviceServiceFactory.h"
 #include "MICSerializationService.h"
+#include "../ocl_cpu_backend/utils/ImplicitArgsUtils.h"
 #include <new>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -33,6 +34,7 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
         MICDeviceServiceFactory::Init();
         MICDeviceBackendFactory::Init();
         DefaultJITMemoryManager::Init();
+        ImplicitArgsUtils::init();
     }
     catch( std::bad_alloc& )
     {
@@ -43,6 +45,7 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
 
 extern "C" void TerminateDeviceBackend()
 {
+    ImplicitArgsUtils::terminate();
     DefaultJITMemoryManager::Terminate();
     MICDeviceBackendFactory::Terminate();
     MICDeviceServiceFactory::Terminate();
