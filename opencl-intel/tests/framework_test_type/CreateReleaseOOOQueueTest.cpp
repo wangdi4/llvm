@@ -1,5 +1,9 @@
 #include <CL/cl.h>
 #include <stdio.h>
+
+// Need to know if ITT/GPA is active, to determine number of iterations - to prevent timeouts.
+#include "../../utils/cl_sys_utils/export/cl_config.h"
+
 #include "FrameworkTest.h"
 //|
 //| TEST: Memoryleak.CreateReleaseOOOQueueTest
@@ -22,6 +26,10 @@
 
 extern cl_device_type gDeviceType;
 
+
+#define ITERATION_COUNT 500000
+#define REDUCED_ITERATION_COUNT 5000
+
 bool CreateReleaseOOOQueueTest()
 {
 	printf("CreateReleaseOOOQueueTest\n");
@@ -31,8 +39,6 @@ bool CreateReleaseOOOQueueTest()
 	cl_command_queue            queue;
 	cl_command_queue_properties queue_properties;
 	cl_device_id                device_id;
-
-	const size_t                ITERATION_COUNT = 500000;
 
 	bool bResult = true;
 	cl_int iRet = CL_SUCCESS;
@@ -95,7 +101,22 @@ bool CreateReleaseOOOQueueTest()
 		return bResult;
 	}
 
-	for (size_t i = 0; i < ITERATION_COUNT; ++i)
+    size_t numOfInterations = ITERATION_COUNT;
+
+    /* 
+     * Check if GPA/ITT is active
+     * see: CSSD100013767 - [CI] FrameworkTestType_gpa: Test_CreateReleaseOOOQueueTest timeout
+     */
+    std::string strUseGPAVal;
+    Intel::OpenCL::Utils::GetEnvVar(strUseGPAVal, "CL_CONFIG_USE_GPA");
+    bool bUseGPA = Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
+    Intel::OpenCL::Utils::GetEnvVar(strUseGPAVal, "CL_CONFIG_USE_ITT");
+    bUseGPA |= Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
+    if (bUseGPA) {
+        numOfInterations = REDUCED_ITERATION_COUNT;        
+    }
+
+	for (size_t i = 0; i < numOfInterations; ++i)
 	{
     	queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
 	    bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);

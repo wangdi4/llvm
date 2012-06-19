@@ -55,7 +55,7 @@ bool clGetKernelArgInfoTest()
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -65,7 +65,7 @@ bool clGetKernelArgInfoTest()
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		return false;
 	}
@@ -74,7 +74,7 @@ bool clGetKernelArgInfoTest()
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		return false;
 	}
@@ -93,7 +93,7 @@ bool clGetKernelArgInfoTest()
     cl_kernel clKernel1 = clCreateKernel (clProg, "test_kernel1", &iRet);
     if (CL_SUCCESS != iRet)
     {
-	    printf("clCreateKernel = %ws\n",ClErrTxt(iRet));
+	    printf("clCreateKernel = %s\n",ClErrTxt(iRet));
 
         clReleaseContext(context);
         clReleaseProgram(clProg);
@@ -105,7 +105,7 @@ bool clGetKernelArgInfoTest()
     cl_kernel clKernel2 = clCreateKernel (clProg, "test_kernel2", &iRet);
     if (CL_SUCCESS != iRet)
     {
-	    printf("clCreateKernel = %ws\n",ClErrTxt(iRet));
+	    printf("clCreateKernel = %s\n",ClErrTxt(iRet));
 
         clReleaseContext(context);
         clReleaseProgram(clProg);
@@ -179,7 +179,7 @@ bool clGetKernelArgInfoTest()
 
     if (CL_SUCCESS != iRet)
     {
-	    printf("clGetKernelArgInfo = %ws\n",ClErrTxt(iRet));
+	    printf("clGetKernelArgInfo = %s\n",ClErrTxt(iRet));
 
         clReleaseContext(context);
         clReleaseProgram(clProg);

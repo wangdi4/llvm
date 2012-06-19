@@ -19,24 +19,12 @@ static const char* DEFAULT_DEVICES_LIST = "cpu_device"
 
 OCLConfig::OCLConfig()
 {
-	m_pConfigFile = NULL;
+    // BasicCLConfigWrapper
 }
+
 OCLConfig::~OCLConfig()
 {
-	Release();
-}
-cl_err_code OCLConfig::Initialize(std::string filename)
-{
-	m_pConfigFile = new ConfigFile(filename);
-	return CL_SUCCESS;
-}
-void OCLConfig::Release()
-{
-	if (NULL != m_pConfigFile)
-	{
-		delete m_pConfigFile;
-		m_pConfigFile = NULL;
-	}
+    // ~BasicCLConfigWrapper
 }
 
 string OCLConfig::GetDefaultDevice() const

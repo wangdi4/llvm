@@ -25,10 +25,9 @@
  *  Implementation of the log message class
  *  Original author: ulevy
  ****************************************************/
-
+#include <stdio.h>
 
 #include "cl_logger.h"
-#include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -50,19 +49,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// va [in]			- message arguments
 		LogMessage(	ELogLevel		eLevel,
 					ELogConfigField	eConfig,
-					const wchar_t *		pwsClientName,
-					const wchar_t *		pwsSourceFile,
-					const wchar_t *		pwsFunctionName,
-					__int32			i32SourceLine,
-					const wchar_t *		pwsMessage,
-					va_list			va );
-
-		LogMessage(	ELogLevel		eLevel,
-					ELogConfigField	eConfig,
 					const char *			psClientName,
 					const char *			psSourceFile,
 					const char *			psFunctionName,
-					__int32			i32SourceLine,
+					__int32			        i32SourceLine,
 					const char *			psMessage,
 					va_list			va );
 
@@ -73,15 +63,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// return message body
 		const char * GetLogMessage() { return m_psMessage; }
 
-		const wchar_t * GetLogMessageW() { return m_pwsMessage; }
-
 		// GetFunctionName
 		// return message function name
-		const wchar_t* GetFunctionName() { return m_pwsFunctionName; }
+		const char* GetFunctionName() { return m_psFunctionName; }
 
 		// GetSourceFile
 		// return message source filename
-		const wchar_t* GetSourceFile() { return m_pwsSourceFile; }
+		const char* GetSourceFile() { return m_psSourceFile; }
 
 		// GetsourceLine
 		// return message source line number
@@ -100,9 +88,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// returned message includes all message properties (FileName, LineNumber, FunctionName,
 		// ThreadID, Body) in a single string.
 		char* GetFormattedMessage() { return m_psFormattedMsg; }
-		wchar_t* GetFormattedMessageW() { return m_pwsFormattedMsg; }
 
-	private:
+    private:
 
 		// CreateFormattedMessage
 		// construct formatted message from its fields and stores the result into m_formattedMsg
@@ -118,16 +105,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		__int32			m_i32SourceLine;		// message line number at sourceFile
 		va_list			m_va;					// message argument list
 
-		const wchar_t*		m_pwsMessage;			// ptr to wide character message body
-		const wchar_t*		m_pwsSourceFile;		// wide character message source filename
-		const wchar_t*		m_pwsFunctionName;		// wide character message function name
-		wchar_t*		m_pwsFormattedMsg;		// formatted wide character message including header
-		const wchar_t*		m_pwsClientName;		// wide character client name
-
 		const char*		m_psMessage;			// ptr to message body
 		const char*		m_psSourceFile;			// message source filename
 		const char*		m_psFunctionName;		// message function name
-		char*		m_psFormattedMsg;		// formatted message including header
+		char*		    m_psFormattedMsg;		// formatted message including header
 		const char*		m_psClientName;			// client name
 	};
 

@@ -5,6 +5,7 @@ endif (NOT WIN32)
 
 #include helping functions of cmake.
 include (../../cmake_utils/CMakeFuncs.txt)
+include( ../../cmake_utils/itt.cmake )
 
 if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
@@ -18,8 +19,7 @@ else (WIN32)
     set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 endif (WIN32)
 
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/lib/${TAL_LIB_DIR_SUFFIX} 
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
+link_directories( ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
 		${TBB_LIB_DIR}
 )
 

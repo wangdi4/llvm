@@ -28,7 +28,6 @@
 #pragma once
 
 #include <string.h>
-#include <wchar.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -49,18 +48,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	*/
 	errno_t safeStrCpy(char* dst, size_t len, const char* src );
 
-	/* Safe copy of source wide character string into destination wide character string.
-	   dst - location of destination string.
-	   src - location of source string.
-	   len - size of destination string buffer.
-	   If src or dst are NULL pointer than EINVAL return.
-	   If len is less or equal to 0 than ERANGE return.
-	   If src size is greater than or equal to len, than dst doesn't modify and ERANGE return.
-	   If src size is smaller than len, this function pads the remainder of dst with null bytes (L"\0").
-	   On success 0 is returned.
-	*/
-	errno_t safeWStrCpy(wchar_t* dst, size_t len, const wchar_t* src );
-
 	/* Safe append of source string into destination string.
 	   dst - location of destination string.
 	   src - location of source string.
@@ -73,18 +60,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	*/
 	errno_t safeStrCat(char* dst, size_t len, const char* src );
 
-	/* Safe append of source wide character string into destination wide character string.
-	   dst - location of destination string.
-	   src - location of source string.
-	   len - the total size of dst buffer, not the remaining size.
-	   If src or dst are NULL pointer than EINVAL return.
-	   If len is less or equal to 0 than ERANGE return.
-	   If src size is greater than or equal to remaining place in dst buffer, than dst doesn't modify and -ERANGE return.
-	   If src size is smaller than remaining place in dst buffer, this function pads the remainder of dst with null bytes (L"\0").
-	   On success 0 is returned.
-	*/
-	errno_t safeWStrCat(wchar_t* dst, size_t len, const wchar_t* src );
-
 	/* Write formated data to a string.
 	   dst - location of destination string.
 	   len - size of destination string buffer.
@@ -96,18 +71,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	   Return the number of characters written, or –1 if an error occurred.
 	*/
 	int safeStrPrintf(char* dst, size_t len, const char* format, ...);
-
-	/* Write formated data to a wide character string.
-	   dst - location of destination string.
-	   len - size of destination string buffer.
-	   format - format control string.
-	   ... - optional arguments.
-	   If src or dst are NULL pointer than -1 return and errno sets to EINVAL.
-	   If len is less or equal to 0 than -1 return and errno sets to ERANGE.
-	   If the buffer is too small for the text being printed then the buffer is set to an empty string and -1 returned and errno sets to ERANGE.
-	   Return the number of characters written, or –1 if an error occurred.
-	*/
-	int safeWStrPrintf(wchar_t* dst, size_t len, const wchar_t* format, ...);
 
 	/* Same behaviour as vsnprintf. Also check that dst, format are not NULL pointer and that len is greater than 0.
 	   On error return negative integer and errno set accordingly.
@@ -125,25 +88,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	   On success 0 is returned.
 	*/
 	errno_t safeMemCpy(void* dst, size_t numOfElements, const void* src, size_t count);
-
-	/* Converts a sequence of multibyte characters to a corresponding sequence of wide characters.
-	   pReturnValue - The number of characters converted.
-	   wcstr - Address of buffer for the resulting converted wide character string.
-	   sizeInWords - The size of the wcstr buffer in words.
-	   mbstr - The address of a sequence of null terminated multibyte characters.
-	   count - The maximum number of wide characters to store in the wcstr buffer, not including the terminating null.
-	   If wcstr is NULL and sizeInWords > 0, return ERANGE.
-	   If mbstr is NULL, return EINVAL.
-	   If the destination buffer is too small to contain the converted string, return ERANGE.
-	   The mbstowcs_s function converts a string of multibyte characters pointed to by mbstr into wide characters stored in the buffer pointed to by wcstr. The conversion will continue for each character until one of these conditions is met:
-	   * A multibyte null character is encountered.
-	   * An invalid multibyte character is encountered.
-	   * The number of wide characters stored in the wcstr buffer equals count.
-	   The destination string is always null-terminated (even in the case of an error).
-	   If safeMbToWc successfully converts the source string, it puts the size in wide characters of the converted string, including the null terminator, into *pReturnValue (provided pReturnValue is not NULL). This occurs even if the wcstr argument is NULL and provides a way to determine the required buffer size. Note that if wcstr is NULL, count is ignored.
-	   If safeMbToWc encounters an invalid multibyte character, it puts 0 in *pReturnValue, sets the destination buffer to an empty string and return EILSEQ.
-	*/
-	errno_t safeMbToWc(size_t* pReturnValue, wchar_t* wcstr, size_t sizeInWords, const char* mbstr, size_t count);
 
 	/* The safe_strtok() function parses a string into a sequence of tokens.  On the first call to safe_strtok() the string to be parsed should be specified in strToken.
            In each subsequent call that should parse the same string, strToken should be NULL.

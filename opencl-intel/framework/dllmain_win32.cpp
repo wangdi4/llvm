@@ -6,9 +6,6 @@
 #pragma comment(lib, "cl_logger.lib")
 #pragma comment(lib, "task_executor.lib")
 
-#if defined(USE_GPA)
-#pragma comment(lib, "gpasdk_d.lib")
-#endif
 extern char clFRAMEWORK_CFG_PATH[];
 
 BOOL APIENTRY DllMain( HMODULE hModule,

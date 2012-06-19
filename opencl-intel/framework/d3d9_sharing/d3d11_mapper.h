@@ -218,7 +218,7 @@ template<typename RESOURCE_TYPE, typename DESC_TYPE>
 D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::D3d11Mapper(RESOURCE_TYPE* pResource, D3D11_MAP mapType, UINT uiSubresource = 0) :
 m_resource(*pResource), m_mapType(mapType), m_uiSubresource(uiSubresource), m_pDevice(NULL), m_pImmediateContext(NULL), m_pStagingResource(NULL)
 {
-    INIT_LOGGER_CLIENT(L"D3d11Mapper", Intel::OpenCL::Utils::LL_ERROR);
+    INIT_LOGGER_CLIENT("D3d11Mapper", Intel::OpenCL::Utils::LL_ERROR);
     m_mappedSubresource.RowPitch = m_mappedSubresource.DepthPitch = 0;
     /* Constructors of sub-classes should call Map() and Unmap() to update m_mappedSubresource (they can't be called here, since Map() itself may call a pure virtual method,
        which isn't yet initialized at this stage). */

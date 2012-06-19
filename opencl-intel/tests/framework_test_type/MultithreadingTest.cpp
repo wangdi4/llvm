@@ -310,7 +310,7 @@ bool MultithreadedContextRefCount()
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -324,14 +324,14 @@ bool MultithreadedContextRefCount()
 		iRet = clRetainContext(context);
 		if (CL_SUCCESS != iRet)
 		{
-			printf("clRetainContext = %ws\n",ClErrTxt(iRet));
+			printf("clRetainContext = %s\n",ClErrTxt(iRet));
 			return false;
 		}
 	}
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context ref count (after single threaded retains) = %d\n",uiCntxRefCnt);
@@ -357,7 +357,7 @@ bool MultithreadedContextRefCount()
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context ref count (after multi threaded retains) = %d\n",uiCntxRefCnt);

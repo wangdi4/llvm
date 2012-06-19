@@ -55,7 +55,7 @@ bool clKernelAttributesTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -66,7 +66,7 @@ bool clKernelAttributesTest()
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 

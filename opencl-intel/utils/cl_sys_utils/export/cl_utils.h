@@ -49,7 +49,7 @@ typedef pid_t  threadid_t;
 * Author:		Uri Levy
 * Date:			December 2008
 **************************************************************************************************/
-const wchar_t* ClErrTxt(cl_err_code error_code);
+const char* ClErrTxt(cl_err_code error_code);
 
 /**************************************************************************************************
 * Function: 	stringify

@@ -42,11 +42,11 @@ Device::Device(_cl_platform_id_int* platform) :
 	FissionableDevice(platform),m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
 {
 	// initialize logger client
-	INIT_LOGGER_CLIENT(L"Device", LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
 	m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
 	m_pFrontEndCompiler = NULL;
 
-	LOG_DEBUG(TEXT("%S"), TEXT("Device constructor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Device constructor enter"));
 
 	m_hGLContext = 0;
 	m_hHDC = 0;
@@ -54,7 +54,7 @@ Device::Device(_cl_platform_id_int* platform) :
 
 Device::~Device()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("Device destructor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter"));
 }
 
 void Device::Cleanup( bool bIsTerminate )
@@ -165,11 +165,11 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath)
 	}
 
     // Get pointer to the GetInfo function
-	LOG_DEBUG(TEXT("%S"), TEXT("GetProcAddress(clDevGetDeviceInfo)"));
+	LOG_DEBUG(TEXT("%s"), TEXT("GetProcAddress(clDevGetDeviceInfo)"));
 	m_pFnClDevGetDeviceInfo = (fn_clDevGetDeviceInfo*)m_dlModule.GetFunctionPtrByName("clDevGetDeviceInfo");
 	if (NULL == m_pFnClDevGetDeviceInfo)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("GetProcAddress(clDevGetDeviceInfo) failed (m_pFnClDevGetDeviceInfo==NULL)"));
+		LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevGetDeviceInfo) failed (m_pFnClDevGetDeviceInfo==NULL)"));
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
@@ -191,19 +191,19 @@ cl_err_code Device::CreateInstance()
 	fn_clDevCreateDeviceInstance *devCreateInstance;
 	if (0 == m_pDeviceRefCount)
 	{
-		LOG_DEBUG(TEXT("%S"), TEXT("Need to create a new device instance (Device::CreateInstance)"));
+		LOG_DEBUG(TEXT("%s"), TEXT("Need to create a new device instance (Device::CreateInstance)"));
 		OclAutoMutex CS(&m_deviceInitializationMutex);
 		if (0 == m_pDeviceRefCount)
 		{
-			LOG_DEBUG(TEXT("%S"), TEXT("Creating new device instance (Device::CreateInstance)"));
+			LOG_DEBUG(TEXT("%s"), TEXT("Creating new device instance (Device::CreateInstance)"));
 			devCreateInstance = (fn_clDevCreateDeviceInstance*)m_dlModule.GetFunctionPtrByName("clDevCreateDeviceInstance");
 			if (NULL == devCreateInstance)
 			{
-				LOG_ERROR(TEXT("%S"), TEXT("GetProcAddress(clDevCreateDeviceInstance) failed (devCreateInstance==NULL)"));
+				LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevCreateDeviceInstance) failed (devCreateInstance==NULL)"));
 				return CL_ERR_DEVICE_INIT_FAIL;
 			}
 
-			LOG_DEBUG(TEXT("%S"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
+			LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
 			int clDevErr = devCreateInstance(m_iId, this, this, &m_pDevice);
 			if (clDevErr != (int)CL_DEV_SUCCESS)
 			{
@@ -211,19 +211,19 @@ cl_err_code Device::CreateInstance()
 				return CL_DEVICE_NOT_AVAILABLE;
 			}
 			m_pDeviceRefCount++;
-			LOG_DEBUG(TEXT("%S"), TEXT("Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)"));
+			LOG_DEBUG(TEXT("%s"), TEXT("Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)"));
 			return CL_SUCCESS;
 		}
 	}
 	m_pDeviceRefCount++;
-	LOG_DEBUG(TEXT("%S"), TEXT("Device::CreateInstance exit without doing anything"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Device::CreateInstance exit without doing anything"));
 	return CL_SUCCESS;
 }
 
 cl_err_code Device::CloseDeviceInstance()
 {
 	OclAutoMutex CS(&m_deviceInitializationMutex);
-    LOG_DEBUG(TEXT("%S"), TEXT("CloseDeviceInstance enter"));
+    LOG_DEBUG(TEXT("%s"), TEXT("CloseDeviceInstance enter"));
 	if (0 == --m_pDeviceRefCount)
 	{
 		if ( !m_bTerminate )
@@ -236,7 +236,7 @@ cl_err_code Device::CloseDeviceInstance()
     return CL_SUCCESS;
 }
 
-cl_int Device::clLogCreateClient(cl_int device_id, const wchar_t* client_name, cl_int * client_id)
+cl_int Device::clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id)
 {
 	if (NULL == client_id)
 	{
@@ -274,35 +274,10 @@ cl_int Device::clLogReleaseClient(cl_int client_id)
 }
 
 cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
-								const wchar_t* IN source_file,
-								const wchar_t* IN function_name,
-								cl_int line_num,
-								const wchar_t* IN message, ...)
-{
-	map<cl_int,LoggerClient*>::iterator it =  m_mapDeviceLoggerClinets.find(client_id);
-	if (it == m_mapDeviceLoggerClinets.end())
-	{
-		return CL_ERR_KEY_NOT_FOUND;
-	}
-	LoggerClient *pLoggerClient = it->second;
-	if (NULL != pLoggerClient)
-	{
-		va_list va;
-		va_start(va, message);
-
-		pLoggerClient->LogArgListW((ELogLevel)log_level, (wchar_t*)source_file, (wchar_t*)function_name, line_num, (wchar_t*)message, va);
-
-		va_end(va);
-
-	}
-	return CL_SUCCESS;
-}
-
-cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
 								const char* IN source_file,
 								const char* IN function_name,
 								cl_int line_num,
-								const wchar_t* IN message, ...)
+								const char* IN message, ...)
 {
 	map<cl_int,LoggerClient*>::iterator it =  m_mapDeviceLoggerClinets.find(client_id);
 	if (it == m_mapDeviceLoggerClinets.end())
@@ -312,44 +287,12 @@ cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
 	LoggerClient *pLoggerClient = it->second;
 	if (NULL != pLoggerClient)
 	{
-		int err = 0;
-		size_t sourceFileSize = 0;
-		err = MULTIBYTE_TO_WIDE_CHARACTER_S(&sourceFileSize, NULL, 0, source_file, strlen(source_file));
-		if (err != 0)
-		{
-		    return -1;
-		}
-		wchar_t* wSourceFile = (wchar_t*)malloc(sizeof(wchar_t) * sourceFileSize);
-		err = MULTIBYTE_TO_WIDE_CHARACTER_S(&sourceFileSize, wSourceFile, sourceFileSize, source_file, sourceFileSize - 1);
-		if (err != 0)
-		{
-		    free(wSourceFile);
-		    return -1;
-		}
-		size_t functionNameSize = 0;
-		err = MULTIBYTE_TO_WIDE_CHARACTER_S(&functionNameSize, NULL, 0, function_name, strlen(function_name));
-		if (err != 0)
-		{
-		    return -1;
-		}
-		wchar_t* wFunctionName = (wchar_t*)malloc(sizeof(wchar_t) * functionNameSize);
-		err = MULTIBYTE_TO_WIDE_CHARACTER_S(&functionNameSize, wFunctionName, functionNameSize, function_name, functionNameSize - 1);
-		if (err != 0)
-		{
-		    free(wSourceFile);
-		    free(wFunctionName);
-		    return -1;
-		}
 		va_list va;
 		va_start(va, message);
 
-		pLoggerClient->LogArgListW((ELogLevel)log_level, (wchar_t*)wSourceFile, (wchar_t*)wFunctionName, line_num, (wchar_t*)message, va);
+		pLoggerClient->LogArgList((ELogLevel)log_level, source_file, function_name, line_num, message, va);
 
 		va_end(va);
-
-    		free(wSourceFile);
-		free(wFunctionName);
-
 	}
 	return CL_SUCCESS;
 }

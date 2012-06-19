@@ -26,11 +26,12 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <stdio.h>
+
 #include "cl_logger.h"
 #include "log_message.h"
 #include "log_handler.h"
 #include "cl_synch_objects.h"
-#include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -56,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		LoggerClient(const wchar_t* handle, ELogLevel loglevel);
+		LoggerClient(const char* handle, ELogLevel loglevel);
 
 		/******************************************************************************************
 		* Function: 	~LoggerClient
@@ -81,10 +82,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		void Log(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, ...);
 
-		void LogW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, ...);
-
-		void LogW(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const wchar_t* message, ...);
-
 		/******************************************************************************************
 		* Function: 	Log
 		* Description:	log message to the logger client
@@ -100,10 +97,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		void LogArgList(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va);
 
-		void LogArgListW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, va_list va);
-
 	private:
-		wchar_t*			m_handle;           // unique string handle representation
+		char*			    m_handle;           // unique string handle representation
 		ELogLevel			m_logLevel;         // client log level (ignore levels < m_logLevel)
 		ELogConfigField		m_eLogConfig;		// configuration flags
 
@@ -166,8 +161,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		void Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message,  va_list va);
 
-		void LogW(ELogLevel level, ELogConfigField config, const wchar_t* pwsClientName, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message,  va_list va);
-
 		/******************************************************************************************
 		* Function: 	GetLogHandlerParams
 		* Description:	add new logger handler
@@ -178,7 +171,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		const wchar_t*  GetLogHandlerParams(const wchar_t* handle);
+		const char*  GetLogHandlerParams(const char* handle);
 
 		/******************************************************************************************
 		* Function: 	AddLogHandler

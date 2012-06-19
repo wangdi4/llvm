@@ -59,7 +59,7 @@ bool writeMemory(bool profiling, IOCLDevMemoryObject* memObj, void *pBuffer, siz
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 		
@@ -87,14 +87,14 @@ bool writeMemory(bool profiling, IOCLDevMemoryObject* memObj, void *pBuffer, siz
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -106,7 +106,7 @@ bool writeMemory(bool profiling, IOCLDevMemoryObject* memObj, void *pBuffer, siz
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	return true;
@@ -128,7 +128,7 @@ bool readMemory(bool profiling, IOCLDevMemoryObject* memObj, void* pBuffer, size
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 		
@@ -158,14 +158,14 @@ bool readMemory(bool profiling, IOCLDevMemoryObject* memObj, void* pBuffer, size
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -178,7 +178,7 @@ bool readMemory(bool profiling, IOCLDevMemoryObject* memObj, void* pBuffer, size
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	return true;
@@ -196,7 +196,7 @@ bool memoryTest(bool profiling)
 	
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -235,7 +235,7 @@ bool memoryTest(bool profiling)
 	iRes = memObj->clDevMemObjRelease();
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 

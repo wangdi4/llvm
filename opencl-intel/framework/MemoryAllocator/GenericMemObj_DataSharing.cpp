@@ -25,10 +25,11 @@
 //  Original author: kdmitry
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "GenericMemObj.h"
-
 #include <Device.h>
 #include <assert.h>
+
+#include "cl_logger.h"
+#include "GenericMemObj.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;

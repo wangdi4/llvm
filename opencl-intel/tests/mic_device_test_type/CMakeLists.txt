@@ -5,6 +5,7 @@ endif (NOT WIN32)
 
 #include helping functions of cmake.
 include (../../cmake_utils/CMakeFuncs.txt)
+include( ../../cmake_utils/itt.cmake )
 
 if (KNC_CARD)
 	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knc )
@@ -14,8 +15,7 @@ endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )
 
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tal/lib/${TAL_LIB_DIR_SUFFIX} 
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
+link_directories( ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
 		${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 )
 

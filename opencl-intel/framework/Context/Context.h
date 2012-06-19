@@ -464,7 +464,7 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
     clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
+        LOG_ERROR(TEXT("Error creating new Image3D, returned: %s"), ClErrTxt(clErr));
         return clErr;
     }
 
@@ -487,7 +487,7 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
     }    
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+        LOG_ERROR(TEXT("Error Initialize new buffer, returned: %s"), ClErrTxt(clErr));
         (*ppImage)->Release();
         return clErr;
     }

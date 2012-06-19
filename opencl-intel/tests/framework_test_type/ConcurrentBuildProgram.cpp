@@ -63,7 +63,7 @@ bool ConcurrentBuildProgramTest()
 	if (CL_SUCCESS != iRet)
 	{
 		delete[] oclProgram;
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -75,7 +75,7 @@ bool ConcurrentBuildProgramTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		delete[] oclProgram;
 		delete []pDevices;
 		delete []pBinarySizes;
@@ -87,7 +87,7 @@ bool ConcurrentBuildProgramTest()
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		delete[] oclProgram;
 		delete []pDevices;
 		delete []pBinarySizes;

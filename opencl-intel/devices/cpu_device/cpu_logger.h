@@ -24,13 +24,6 @@
 //  Implementation of Helper functions for logger
 ///////////////////////////////////////////////////////////
 
-#if defined (_WIN32)
-#define WIDEN2(x) L ## x
-#define WIDEN(x) WIDEN2(x)
-#else
-#define WIDEN(x) x
-#endif
-
 enum CpuELogLevel
 	{
 		CPU_LL_DEBUG     = 100,
@@ -43,15 +36,15 @@ enum CpuELogLevel
 
 
 #define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_INFO),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_INFO),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #ifdef _DEBUG
 #define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_DEBUG),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_DEBUG),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #else
 #define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
 #endif
 
 #define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);

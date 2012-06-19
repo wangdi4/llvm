@@ -33,10 +33,7 @@
 #include "wg_context.h"
 #include "cl_synch_objects.h"
 
-#if defined(USE_GPA)    
-    #include <ittnotify.h>
-#endif
-
+#include "ocl_itt.h"
 
 #define COLOR_TABLE_SIZE 64
 
@@ -54,6 +51,7 @@ class DispatcherCommand
 {
 public:
     DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
+    virtual ~DispatcherCommand();
 
 protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
@@ -65,6 +63,10 @@ protected:
     cl_int                      m_iLogHandle;
     cl_dev_cmd_desc*            m_pCmd;
     ocl_gpa_data*               m_pGPAData;
+#if defined(USE_ITT)
+	__itt_id                    m_ittID;
+#endif
+
 	volatile bool				m_bCompleted;
 };
 
@@ -219,12 +221,11 @@ protected:
 	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
 	long										m_lNDRangeId;
 
-#if defined(USE_GPA)
-    // This code was removed for the initial porting of TAL
-    // to GPA 4.0 and might be used in later stages
-//  TAL_STRING_HANDLE           m_talKernelNameHandle;
-//  unsigned int                m_talRGBColor;
+#if defined (USE_ITT)
+	// name string for ITT tasks
+	__itt_string_handle*                        m_pTaskNameHandle;
 #endif
+
 #ifdef _DEBUG
     // For debug
     AtomicCounter m_lExecuting;

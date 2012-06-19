@@ -171,7 +171,7 @@ cl_dev_err_code CPUDevice::Init()
     cl_dev_err_code ret = CL_DEV_SUCCESS;
     if ( NULL != m_pLogDescriptor )
     {
-        ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, L"CPU Device", &m_iLogHandle);
+        ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, "CPU Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;
@@ -187,7 +187,7 @@ cl_dev_err_code CPUDevice::Init()
     m_pCPUDeviceConfig = new CPUDeviceConfig();
     m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
 
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateDevice function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
     m_pProgramService = new ProgramService(m_uiCpuId, 
                                            m_pFrameworkCallBacks, 
@@ -1625,7 +1625,7 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateCommandList Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = new cl_dev_internal_cmd_list();
     if (NULL == pList)
     {
@@ -1710,7 +1710,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevFlushCommandList Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevFlushCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {
@@ -1724,7 +1724,7 @@ cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevRetainCommandList Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevRetainCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {
@@ -1738,7 +1738,7 @@ cl_dev_err_code CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevReleaseCommandList Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {
@@ -1778,7 +1778,7 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCommandListExecute Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
     if (NULL != list)
     {
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
@@ -1812,7 +1812,7 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCommandListWaitCompletion Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListWaitCompletion Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {
@@ -1830,13 +1830,13 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
 cl_dev_err_code CPUDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedImageFormats Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetSupportedImageFormats Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetSupportedImageFormats(flags, imageType, numEntries, formats, numEntriesRet);
 }
 
 cl_dev_err_code CPUDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType, cl_dev_alloc_prop* OUT pAllocProp )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetMemoryAllocProperties Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetMemoryAllocProperties Function enter"));
     return m_pMemoryAllocator->GetAllocProperties(memObjType, pAllocProp);
 }
 
@@ -1847,7 +1847,7 @@ cl_dev_err_code CPUDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN 
 cl_dev_err_code CPUDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
                                     size_t  IN dim_count, const size_t* IN dim_size, IOCLDevRTMemObjectService* pRTService, IOCLDevMemoryObject* OUT *memObj)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateMemoryObject Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateMemoryObject Function enter"));
     return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, pRTService, memObj);
 }
 
@@ -1857,7 +1857,7 @@ cl_dev_err_code CPUDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id,
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCheckProgramBinary( size_t IN binSize, const void* IN bin )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCheckProgramBinary Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCheckProgramBinary Function enter"));
     return (cl_dev_err_code)m_pProgramService->CheckProgramBinary(binSize, bin );
 }
 
@@ -1868,7 +1868,7 @@ clDevCreateProgram
 
 cl_dev_err_code CPUDevice::clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateProgram Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateProgram Function enter"));
     return (cl_dev_err_code)m_pProgramService->CreateProgram(binSize, bin, prop, prog );
 }
 
@@ -1879,7 +1879,7 @@ clDevBuildProgram
 
 cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevBuildProgram Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevBuildProgram Function enter"));
     return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
 
@@ -1890,7 +1890,7 @@ clDevReleaseProgram
 
 cl_dev_err_code CPUDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevReleaseProgram Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseProgram Function enter"));
     return (cl_dev_err_code)m_pProgramService->ReleaseProgram( prog );
 }
 
@@ -1900,7 +1900,7 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevUnloadCompiler()
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevUnloadCompiler Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevUnloadCompiler Function enter"));
     return (cl_dev_err_code)m_pProgramService->UnloadCompiler();
 }
 /*******************************************************************************************************************
@@ -1909,7 +1909,7 @@ clDevGetProgramBinary
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetProgramBinary Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetProgramBinary Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet );
 }
 /*******************************************************************************************************************
@@ -1918,7 +1918,7 @@ clDevGetBuildLog
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT sizeRet)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetBuildLog Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetBuildLog Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
 }
 /*******************************************************************************************************************
@@ -1927,7 +1927,7 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetSupportedBinaries Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetSupportedBinaries Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
 }
 /*******************************************************************************************************************
@@ -1936,7 +1936,7 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetKernelId Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetKernelId Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetKernelId(prog, name, kernelId );
 }
 /*******************************************************************************************************************
@@ -1946,7 +1946,7 @@ clDevUnloadCompiler
 cl_dev_err_code CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetProgramKernels Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetProgramKernels Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
 }
 /*******************************************************************************************************************
@@ -1956,7 +1956,7 @@ clDevGetKernelInfo
 cl_dev_err_code CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                     void* OUT value, size_t* OUT valueSizeRet )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevGetKernelInfo Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetKernelInfo Function enter"));
     return (cl_dev_err_code)m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
 }
 
@@ -1979,7 +1979,7 @@ cl_dev_err_code CPUDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
     m_pLogDescriptor = pLogDescriptor;
     if ( NULL != m_pLogDescriptor )
     {
-        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, L"CPU Device", &m_iLogHandle);
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, "CPU Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;
@@ -1993,7 +1993,7 @@ clDevCloseDevice
 **********************************************************************************************************************/
 void CPUDevice::clDevCloseDevice(void)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clCloseDevice Function enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clCloseDevice Function enter"));
 
 	if ( NULL != m_defaultCommandList )
 	{

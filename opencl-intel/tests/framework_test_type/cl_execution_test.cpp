@@ -69,13 +69,13 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcA, CL_FALSE, 0, 7*sizeof(cl_uint), srcA, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueWriteBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
 		return false;
 	}
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, CL_FALSE, 0, 4*sizeof(cl_uint), srcB, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueWriteBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -91,7 +91,7 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     iRet = clEnqueueNativeKernel( queue1, _KerenlTestFunc, &params, sizeof(SKernelTestParams), 3, memList, (const void**)ppArgsMemLoc, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueNativeKernel(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueNativeKernel(1) = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -99,7 +99,7 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, iDstSize*sizeof(cl_uint), dst, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueReadBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueReadBuffer(1) = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 

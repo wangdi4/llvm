@@ -56,7 +56,7 @@ bool clCreateContextTest()
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -65,7 +65,7 @@ bool clCreateContextTest()
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -73,7 +73,7 @@ bool clCreateContextTest()
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context = %p\n", context);
@@ -82,7 +82,7 @@ bool clCreateContextTest()
 	if (CL_SUCCESS != iRet)
 	{
 		delete []pDevices;
-		printf("clCreateContextFromType = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context2 = %p\n", context2);
@@ -92,7 +92,7 @@ bool clCreateContextTest()
 	iRet = clGetContextInfo(context, CL_CONTEXT_NUM_DEVICES, sizeof(cl_uint), &uiCntxCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		return false;
 	}
@@ -102,7 +102,7 @@ bool clCreateContextTest()
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		return false;
 	}
@@ -110,13 +110,13 @@ bool clCreateContextTest()
 	iRet = clRetainContext(context);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clRetainContext = %ws\n",ClErrTxt(iRet));
+		printf("clRetainContext = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetContextInfo = %ws\n",ClErrTxt(iRet));
+		printf("clGetContextInfo = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context ref count (after retain) = %d\n",uiCntxRefCnt);

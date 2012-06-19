@@ -54,7 +54,7 @@ GenericMemObject::GenericMemObject(Context * pContext, cl_mem_object_type clObjT
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 GenericMemObject::~GenericMemObject()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("Enter GenericMemObject D'tor"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter GenericMemObject D'tor"));
 
 	NotifyDestruction();
     remove_device_objects();
@@ -632,7 +632,7 @@ cl_err_code GenericMemObject::ReadData(void * pData,
                                        const size_t * pszOrigin, const size_t * pszRegion,
                                        size_t szRowPitch, size_t szSlicePitch)
 {
-	LOG_DEBUG(L"Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
+	LOG_DEBUG("Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
 
 	SMemCpyParams			sCpyParam;
 
@@ -670,7 +670,7 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
                                         const size_t * pszOrigin, const size_t * pszRegion,
                                         size_t szRowPitch, size_t szSlicePitch)
 {
-	LOG_DEBUG(L"Enter WriteData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
+	LOG_DEBUG("Enter WriteData (szRowPitch=%d, pData=%d, szSlicePitch=%d)", szRowPitch, pData, szSlicePitch);
 
 	SMemCpyParams			sCpyParam;
 

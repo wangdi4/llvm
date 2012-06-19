@@ -70,9 +70,7 @@ extern DECLARE_LOGGER_CLIENT;
 
 int InitClangDriver()
 {
-  INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
-
-	INIT_LOGGER_CLIENT(L"ClangCompiler", LL_DEBUG);
+	INIT_LOGGER_CLIENT("ClangCompiler", LL_DEBUG);
 	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
 
 	llvm::InitializeAllTargets();

@@ -123,12 +123,12 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MI
             m_iLogHandle = 0;
         }
     }
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Created"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Created"));
 }
 
 MemoryAllocator::~MemoryAllocator()
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Distructed"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Distructed"));
 
     if (0 != m_iLogHandle)
     {
@@ -217,7 +217,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 					 IOCLDevRTMemObjectService* pRTMemObjService,
                      IOCLDevMemoryObject*  *memObj )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateObject enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateObject enter"));
 
     assert(NULL != memObj);
     assert(NULL != dim);
@@ -229,7 +229,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 															pRTMemObjService);
     if ( NULL == pMemObj )
     {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object allocation failed"));
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Memory Object allocation failed"));
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
@@ -391,7 +391,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object COI buffer Allocation failed"));
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("Memory Object COI buffer Allocation failed"));
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
@@ -404,7 +404,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 {
     COIRESULT coi_err = COI_SUCCESS;
 
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseObject enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("ReleaseObject enter"));
 
     if ((0 != m_coi_buffer) && (!MICDevice::isDeviceLibraryUnloaded()))
     {
@@ -442,7 +442,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
         return CL_DEV_ERROR_FAIL;
     }
     
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("CreateMappedRegion enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("CreateMappedRegion enter"));
 
 	// Assume that calling this method only once.
     SMemMapParamsList* coi_params = new SMemMapParamsList;
@@ -471,7 +471,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
         return CL_DEV_SUCCESS;
     }
 
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("ReleaseMappedRegion enter"));
     assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
 
     SMemMapParamsList* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
@@ -517,7 +517,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
         return CL_DEV_ERROR_FAIL;
     }
 
-	MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjUpdateBackingStore enter"));
+	MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
 
     assert( NULL != pUpdateState );
 
@@ -561,7 +561,7 @@ void MICDevMemoryObject::fireCallBack(void* arg)
         return;
      }
 
-     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("BackingStoreUpdateFinished enter"));
+     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("BackingStoreUpdateFinished enter"));
 
      m_pRTMemObjService->BackingStoreUpdateFinished(arg, CL_DEV_SUCCESS );
 }
@@ -576,7 +576,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
         return CL_DEV_ERROR_FAIL;
     }
 
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
 
     assert( NULL != pUpdateState );
 
@@ -616,7 +616,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
         return CL_DEV_ERROR_FAIL;
     }
 
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("clDevMemObjInvalidateData enter"));
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("clDevMemObjInvalidateData enter"));
 
     COI_ProcessesArray coi_processes = get_active_processes();
 
@@ -700,7 +700,7 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%S"), TEXT("Memory Object COI sub-buffer Allocation failed"));
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("Memory Object COI sub-buffer Allocation failed"));
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 

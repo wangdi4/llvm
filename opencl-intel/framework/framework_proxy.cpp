@@ -18,11 +18,6 @@
 #include "cl_secure_string_linux.h"
 #include "cl_framework_alias_linux.h"
 #endif
-#if defined(USE_GPA)
-	// This code was removed for the initial porting of TAL
-	// to GPA 4.0 and might be used in later stages
-//	#include "tal\tal.h"
-#endif
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
@@ -250,25 +245,16 @@ void FrameworkProxy::Initialize()
             procId.resize(strlen(&procId[0]));
 			str.insert(ext, procId);
 
-			//null-call to get the size
-			size_t needed;
-			MULTIBYTE_TO_WIDE_CHARACTER_S(&needed, NULL, 0, &str[0], str.length());
-			// allocate
-			std::wstring wstr;
-			wstr.resize(needed);
-			// real call
-			MULTIBYTE_TO_WIDE_CHARACTER_S(&needed, &wstr[0], wstr.length(), &str[0], str.length());
-
 			// Prepare log title
-			wchar_t		strProcName[MAX_PATH];
+			char     strProcName[MAX_PATH];
 			GetProcessName(strProcName, MAX_PATH);
-			std::wstring title = L"---------------------------------> ";
+			std::string title = "---------------------------------> ";
 			title += strProcName;
-			title += L" <-----------------------------------\n";
+			title += " <-----------------------------------\n";
 
 			// initialise logger
-			m_pFileLogHandler = new FileLogHandler(L"cl_framework");
-			cl_err_code clErrRet = m_pFileLogHandler->Init(LL_DEBUG, wstr.c_str(), title.c_str());
+			m_pFileLogHandler = new FileLogHandler(TEXT("cl_framework"));
+			cl_err_code clErrRet = m_pFileLogHandler->Init(LL_DEBUG, str.c_str(), title.c_str());
 			if (CL_SUCCEEDED(clErrRet))
 			{
 				Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
@@ -277,17 +263,8 @@ void FrameworkProxy::Initialize()
 	}
 	Logger::GetInstance().SetActive(bUseLogger);
 
-	INIT_LOGGER_CLIENT(L"FrameworkProxy", LL_DEBUG);
-#if defined(USE_GPA)
-	// This code was removed for the initial porting of TAL
-	// to GPA 4.0 and might be used in later stages
-	
-	// Open the trace file before any task started in order 
-	// to prevent it as showing as part of the task
-	//if(m_pConfig->UseTaskalyzer())
-	//{
-	//	TAL_GetThreadTrace();
-	//}
+	INIT_LOGGER_CLIENT(TEXT("FrameworkProxy"), LL_DEBUG);
+#if defined(USE_ITT)
 	m_GPAData.bUseGPA = m_pConfig->UseGPA();
 	m_GPAData.bEnableAPITracing = m_pConfig->EnableAPITracing();
 	m_GPAData.bEnableContextTracing = m_pConfig->EnableContextTracing();
@@ -304,43 +281,49 @@ void FrameworkProxy::Initialize()
 			m_GPAData.cStatusMarkerFlags += GPA_SHOW_COMPLETED_MARKER;
 
 		// Create domains
-		m_GPAData.pDeviceDomain = __itt_domain_createA("com.intel.open_cl.device");
-		m_GPAData.pAPIDomain = __itt_domain_createA("com.intel.open_cl.api");
+		m_GPAData.pDeviceDomain = __itt_domain_create("com.intel.open_cl.device");
+		m_GPAData.pAPIDomain = __itt_domain_create("com.intel.open_cl.api");
+
+		#if defined(USE_GPA)
 		if (m_GPAData.bEnableContextTracing)
 		{
-			m_GPAData.pContextDomain = __itt_domain_createA("com.intel.open_cl.context");
+			m_GPAData.pContextDomain = __itt_domain_create("com.intel.open_cl.context");
 			
 			// Create Context task group
-			__itt_string_handle* pContextTrackGroupHandle = __itt_string_handle_createA("Context Track Group");
+			__itt_string_handle* pContextTrackGroupHandle = __itt_string_handle_create("Context Track Group");
 			m_GPAData.pContextTrackGroup = __itt_track_group_create(pContextTrackGroupHandle, __itt_track_group_type_normal);
 
 			// Create task states
 			m_GPAData.pWaitingTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
 			m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
 		}
+		#endif
 
-		m_GPAData.pReadHandle = __itt_string_handle_createA("Read");
-		m_GPAData.pWriteHandle = __itt_string_handle_createA("Write");
-		m_GPAData.pCopyHandle = __itt_string_handle_createA("Copy");
-		m_GPAData.pMapHandle = __itt_string_handle_createA("Map");
-		m_GPAData.pUnmapHandle = __itt_string_handle_createA("Unmap");
-		m_GPAData.pSyncDataHandle = __itt_string_handle_createA("Sync Data");
-		m_GPAData.pSizeHandle = __itt_string_handle_createA("Size");
-		m_GPAData.pWidthHandle = __itt_string_handle_createA("Width");
-		m_GPAData.pHeightHandle = __itt_string_handle_createA("Height");
-		m_GPAData.pDepthHandle = __itt_string_handle_createA("Depth");
-		m_GPAData.pWorkGroupSizeHandle = __itt_string_handle_createA("Work Group Size");
-		m_GPAData.pNumberOfWorkGroupsHandle = __itt_string_handle_createA("Number of Work Groups");
-		m_GPAData.pWorkGroupRangeHandle = __itt_string_handle_createA("Work Group Range");
-		m_GPAData.pMarkerHandle = __itt_string_handle_createA("Marker");
-		m_GPAData.pWorkDimensionHandle = __itt_string_handle_createA("Work Dimension");
-		m_GPAData.pGlobalWorkSizeHandle = __itt_string_handle_createA("Global Work Size");
-		m_GPAData.pLocalWorkSizeHandle = __itt_string_handle_createA("Local Work Size");
-		m_GPAData.pGlobalWorkOffsetHandle = __itt_string_handle_createA("Global Work Offset");
+		m_GPAData.pReadHandle = __itt_string_handle_create("Read");
+		m_GPAData.pWriteHandle = __itt_string_handle_create("Write");
+		m_GPAData.pCopyHandle = __itt_string_handle_create("Copy");
+		m_GPAData.pMapHandle = __itt_string_handle_create("Map");
+		m_GPAData.pUnmapHandle = __itt_string_handle_create("Unmap");
+		m_GPAData.pSyncDataHandle = __itt_string_handle_create("Sync Data");
+		m_GPAData.pSizeHandle = __itt_string_handle_create("Size W/H/D");
+		m_GPAData.pWorkGroupSizeHandle = __itt_string_handle_create("Work Group Size");
+		m_GPAData.pNumberOfWorkGroupsHandle = __itt_string_handle_create("Number of Work Groups");
+		m_GPAData.pWorkGroupRangeHandle = __itt_string_handle_create("Work Group Range");
+		m_GPAData.pMarkerHandle = __itt_string_handle_create("Marker");
+		m_GPAData.pWorkDimensionHandle = __itt_string_handle_create("Work Dimension");
+		m_GPAData.pGlobalWorkSizeHandle = __itt_string_handle_create("Global Work Size W/H/D");
+		m_GPAData.pLocalWorkSizeHandle = __itt_string_handle_create("Local Work Size W/H/D");
+		m_GPAData.pGlobalWorkOffsetHandle = __itt_string_handle_create("Global Work Offset");
+
+		m_GPAData.pStartPos    = __itt_string_handle_create("Start W/H/D");
+		m_GPAData.pEndPos      = __itt_string_handle_create("End W/H/D");
+
+		m_GPAData.pIsBlocking = __itt_string_handle_create("Blocking");
+		m_GPAData.pNumEventsInWaitList = __itt_string_handle_create("#Events in Wait List");
 	}
-#endif
+#endif // ITT
 	
-	LOG_INFO(TEXT("%S"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
+	LOG_INFO(TEXT("%s"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
 	m_pPlatformModule = new PlatformModule();
 	m_pPlatformModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
@@ -353,7 +336,7 @@ void FrameworkProxy::Initialize()
 	m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
 	// Initialize TaskExecutor
-	LOG_INFO(TEXT("%S"), TEXT("Initialize Executor"));
+	LOG_INFO(TEXT("%s"), TEXT("Initialize Executor"));
 	GetTaskExecutor()->Init(0, &m_GPAData);
 }
 
@@ -375,7 +358,7 @@ void FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate)
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("FrameworkProxy::Release enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
 
     if (NULL != m_pExecutionModule)
     {

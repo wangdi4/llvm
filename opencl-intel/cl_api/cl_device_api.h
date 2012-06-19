@@ -1333,7 +1333,7 @@ public:
 		\retval		CL_DEV_FAILED		Logger internal error occurred.
 	*/
 	virtual cl_int clLogCreateClient( cl_int IN dev_id,
-							  const wchar_t* IN client_name,
+							  const char* IN client_name,
 							  cl_int* OUT client_id
 							  ) = 0;
 
@@ -1359,16 +1359,10 @@ public:
 	*/
 	virtual cl_int clLogAddLine( cl_int IN client_id,
 									 cl_int IN log_level,
-									 const wchar_t* IN source_file,
-									 const wchar_t* IN function_name,
-									 cl_int IN line_num,
-									 const wchar_t* IN message, ...) = 0;
-	virtual cl_int clLogAddLine( cl_int IN client_id,
-									 cl_int IN log_level,
 									 const char* IN source_file,
 									 const char* IN function_name,
 									 cl_int IN line_num,
-									 const wchar_t* IN message, ...) = 0;
+									 const char* IN message, ...) = 0;
 
 };
 

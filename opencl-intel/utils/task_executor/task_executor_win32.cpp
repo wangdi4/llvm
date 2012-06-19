@@ -36,10 +36,6 @@
 #pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
-#if defined(USE_GPA)
-#pragma comment(lib, "gpasdk_d.lib")
-#endif
-
 #include <Windows.h>
 #include <stdio.h>
 

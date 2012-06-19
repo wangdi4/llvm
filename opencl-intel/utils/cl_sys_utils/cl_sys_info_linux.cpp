@@ -162,14 +162,12 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 /////////////////////////////////////////////////////////////////////////////////////////
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////
-void Intel::OpenCL::Utils::GetProcessName(wchar_t* pProcName, size_t strLen)
+void Intel::OpenCL::Utils::GetProcessName(char* pProcName, size_t strLen)
 {
-	char buf[MAX_PATH];
-	const int readChars = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-	if (readChars != -1)
+	const int readChars = readlink("/proc/self/exe", pProcName, strLen);
+	if (-1 == readChars)
 	{
-		buf[readChars] = 0;
-		mbstowcs(pProcName, buf, readChars + 1);
+        pProcName[0] = 0;
 	}
 }
 

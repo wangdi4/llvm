@@ -66,14 +66,14 @@ ProgramService::ProgramService(cl_int devId,
 
     if ( NULL != logDesc )
     {
-        cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, L"CPU Device: Program Service", &m_iLogHandle);
+        cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: Program Service", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             m_iLogHandle = 0;
         }
     }
     
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CPUDevice: Program Service - Created"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Created"));
 }
 
 ProgramService::~ProgramService()
@@ -90,7 +90,7 @@ ProgramService::~ProgramService()
 //  m_kernelIdAlloc.Clear();
     m_mapPrograms.clear();
 
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CPUDevice: Program Service - Distructed"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Distructed"));
 
     if (0 != m_iLogHandle)
     {
@@ -184,19 +184,19 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
 {
     const cl_prog_container_header* pProgCont = (cl_prog_container_header*)bin;
 
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CheckProgramBinary enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CheckProgramBinary enter"));
 
     // Check container size
     if ( sizeof(cl_prog_container_header) > binSize )
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Binary Size was provided"));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Binary Size was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
     // Check container mask
     if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Container Mask was provided"));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Mask was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
@@ -208,7 +208,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
         break;
 
     default:
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Container Type was provided"));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Type was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
@@ -250,18 +250,18 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
                                    cl_dev_program* OUT prog
                                    )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateProgram enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateProgram enter"));
 
     // Input parameters validation
     if(0 == binSize || NULL == bin)
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid binSize or bin parameters"));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid binSize or bin parameters"));
         return CL_DEV_INVALID_VALUE;
     }
 
     if ( NULL == prog )
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid prog parameter"));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid prog parameter"));
         return CL_DEV_INVALID_VALUE;
     }
 
@@ -272,7 +272,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         cl_dev_err_code rc = CheckProgramBinary(binSize, bin);
         if ( CL_DEV_FAILED(rc) )
         {
-            CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Check program binary failed"));
+            CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Check program binary failed"));
             return rc;
         }
     }
@@ -282,7 +282,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     TProgramEntry*  pEntry      = new TProgramEntry;
     if ( NULL == pEntry )
     {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Cann't allocate program entry"));
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cann't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
     }
     pEntry->pProgram = NULL;
@@ -313,7 +313,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     if ( !m_progIdAlloc.AllocateHandle(&newProgId) )
     {
         delete pEntry;
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to allocate new handle"));
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate new handle"));
         return CL_DEV_OUT_OF_MEMORY;
     }
 
@@ -352,7 +352,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
     TProgramMap::iterator   it;
 
@@ -393,7 +393,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     pEntry->clBuildStatus = CL_BUILD_IN_PROGRESS;
 
-    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Starting build"));
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Starting build"));
 
     cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, NULL);
 
@@ -415,7 +415,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 		*buildStatus = status;
 	}
 
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Exit"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
     return CL_DEV_SUCCESS;
 }
 
@@ -433,7 +433,7 @@ clDevReleaseProgram
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseProgram enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
     TProgramMap::iterator   it;
 
@@ -472,7 +472,7 @@ clDevUnloadCompiler
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::UnloadCompiler()
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("UnloadCompiler enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("UnloadCompiler enter"));
     return CL_DEV_SUCCESS;
 }
 
@@ -497,7 +497,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
                                         size_t* OUT sizeRet
                                         )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramBinary enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
     TProgramMap::iterator   it;
 
@@ -545,7 +545,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
                                   size_t* OUT sizeRet
                                   )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetBuildLog enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
     TProgramMap::iterator   it;
 
@@ -609,7 +609,7 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
                                        size_t* OUT sizeRet
                                        )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetSupportedBinaries enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetSupportedBinaries enter"));
     if ( NULL != sizeRet )
     {
         // TODO: Create supported list
@@ -635,7 +635,7 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
 
 cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetKernelId enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelId enter"));
 
     if ( (NULL == name) || (NULL == kernelId) )
     {
@@ -698,7 +698,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramKernels enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
     TProgramMap::const_iterator it;
     // Access program map
@@ -744,7 +744,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     pKernels = new const ICLDevBackendKernel_*[uiNumProgKernels];
     if ( NULL == pKernels )
     {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Can't allocate memory for kernels"));
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Can't allocate memory for kernels"));
         return CL_DEV_OUT_OF_MEMORY;
     }
 
@@ -791,7 +791,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
                     void* OUT value, size_t* OUT valueSizeRet ) const
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetKernelInfo enter"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelInfo enter"));
 
     const ICLDevBackendKernel_* pKernel = (const ICLDevBackendKernel_*)kernel;
     const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();

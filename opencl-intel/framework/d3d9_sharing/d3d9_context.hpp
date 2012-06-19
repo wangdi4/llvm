@@ -73,7 +73,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
     cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, m_pd3dDefinitions->GetGfxSysSharing(), this, &pMemObj);
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("Error creating new D3DResource, returned: %S"), ClErrTxt(clErr));
+        LOG_ERROR(TEXT("Error creating new D3DResource, returned: %s"), ClErrTxt(clErr));
         delete pResourceInfo;
         return clErr;
     }
@@ -126,7 +126,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
     // resourceInfo will be deleted in pD3D9Resource's destructor    
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("Failed to initialize data, pD3D9Resource->Initialize(pHostPtr = %S"),
+        LOG_ERROR(TEXT("Failed to initialize data, pD3D9Resource->Initialize(pHostPtr = %s"),
             ClErrTxt(clErr));
         d3d9Resource.Release();
         return clErr;

@@ -280,10 +280,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer);
 
 		// IOCLLoggerDescriptor
-		cl_int clLogCreateClient(cl_int device_id, const wchar_t* client_name, cl_int * client_id);
+		cl_int clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id);
 		cl_int clLogReleaseClient(cl_int client_id);
-		cl_int clLogAddLine(cl_int client_id, cl_int log_level, const wchar_t* IN source_file, const wchar_t* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
-		cl_int clLogAddLine(cl_int client_id, cl_int log_level, const char* IN source_file, const char* IN function_name, cl_int IN line_num, const wchar_t* IN message, ...);
+		cl_int clLogAddLine(cl_int client_id, cl_int log_level, const char* IN source_file, const char* IN function_name, cl_int IN line_num, const char* IN message, ...);
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// class private members

@@ -264,8 +264,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		static int tokenize(const string & sin, std::vector<string> & tokens);
 
-	protected:
-
 		/******************************************************************************************
 		* Function: 	T_as_string
 		* Description:	convert class T to string
@@ -286,7 +284,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		template<class T> static T ConvertStringToType( const string& str );
 
-		/******************************************************************************************
+	protected:
+
+        /******************************************************************************************
 		* Function: 	trim
 		* Description:	trim operation - remove unnecessary empty strings
 		* Arguments:	string& s [in] -	reference to input string
@@ -434,4 +434,47 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		m_mapContents[strKey] = strValue;
 		return;
 	}
+
+
+    // General config strings:
+    #define	CL_CONFIG_USE_GPA				"CL_CONFIG_USE_GPA"				// bool
+    #define	CL_CONFIG_USE_ITT    			"CL_CONFIG_USE_ITT"				// bool
+
+    /**
+     * This is the base class to all config wrappers.
+     */
+    class BasicCLConfigWrapper
+    {
+    public:
+        BasicCLConfigWrapper()
+            : m_pConfigFile(NULL)
+        {}
+
+        ~BasicCLConfigWrapper()
+        {
+            Release();
+        }
+
+        cl_err_code Initialize(std::string filename)
+        {
+	        m_pConfigFile = new ConfigFile(filename);
+	        return CL_SUCCESS;
+        }
+
+        void Release()
+        {
+	        if (NULL != m_pConfigFile)
+	        {
+		        delete m_pConfigFile;
+		        m_pConfigFile = NULL;
+	        }
+        }
+
+        bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
+		bool		   UseITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT, false); }
+
+    protected:
+        ConfigFile * m_pConfigFile;
+    };
+
 }}}

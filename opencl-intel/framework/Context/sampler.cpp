@@ -25,10 +25,12 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <assert.h>
+
+#include "cl_logger.h"
 #include "cl_sys_defines.h"
 #include "sampler.h"
 #include "Context.h"
-#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -39,7 +41,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Sampler::Sampler(_cl_context_int* context) : OCLObject<_cl_sampler_int>(context, "Sampler")
 {
-	INIT_LOGGER_CLIENT(L"Sampler",LL_DEBUG);
+	INIT_LOGGER_CLIENT("Sampler",LL_DEBUG);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler D'tor
@@ -47,14 +49,14 @@ Sampler::Sampler(_cl_context_int* context) : OCLObject<_cl_sampler_int>(context,
 Sampler::~Sampler()
 {
     m_pContext->RemovePendency(this);
-	LOG_DEBUG(TEXT("%S"), TEXT("Enter Sampler D'tor"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter Sampler D'tor"));
 
 	RELEASE_LOGGER_CLIENT;
 }
 
 cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode)
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("Enter Initialize"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter Initialize"));
 
 	assert( pContext != NULL );
 

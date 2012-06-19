@@ -7,6 +7,8 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME task_executor )
 
+include( ../../cmake_utils/itt.cmake )
+
 if (WIN32)
     # the /Ob0 flag is set instead of /Ob2 flag in order to prevent inline function  
     # expansion optimization in Visual Studio due to a bug in device fission.
@@ -41,27 +43,6 @@ if (NOT WIN32)
     set( IGNORE_FILES thread_executor|xn_ )
 endif(NOT WIN32)
 
-if (WIN32)
-     # tbb name is encoded in windows sources to use the right one
-	 
-	 # add GPA include files, libs and defines
-	 include_directories(
-						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include 
-				    )
-	link_directories(
-					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
-				)						
-    add_definitions( -DUSE_GPA )
-else ()
-     if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX}
-                              ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
-     else ()
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
-                              ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
-     endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-endif (WIN32)
-
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
@@ -76,9 +57,6 @@ install(TARGETS ${TARGET_NAME}
 if (WIN32)
 	list(APPEND LINK_LIBS delayimp.lib )
 endif(WIN32)
-
-target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 
 if (WIN32)
     file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
@@ -97,10 +75,18 @@ if (WIN32)
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-    if (INSTALL_PDBS)    
+    if (INSTALL_PDBS)
         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)  
-    
-endif(WIN32)
+    endif(INSTALL_PDBS)
+else (WIN32)
+    if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX}
+                              ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
+     else ()
+        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
+                              ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
+     endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+endif (WIN32)
 
-
+target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

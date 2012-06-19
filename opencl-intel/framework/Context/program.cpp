@@ -587,7 +587,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	cl_err_code clErrRet = pKernel->CreateDeviceKernels(m_ppDevicePrograms);
 	if (CL_FAILED(clErrRet))
 	{
-		LOG_ERROR(TEXT("pKernel->CreateDeviceKernels(ppBinaries) = %S"), ClErrTxt(clErrRet));
+		LOG_ERROR(TEXT("pKernel->CreateDeviceKernels(ppBinaries) = %s"), ClErrTxt(clErrRet));
 		pKernel->Release();
 		return clErrRet;
 	}

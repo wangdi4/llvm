@@ -39,7 +39,7 @@ bool clEnqueueCopyBufferTest()
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContextFromType = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		goto release_end;
 	}
 	printf("context = %p\n", context);
@@ -50,7 +50,7 @@ bool clEnqueueCopyBufferTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		goto release_context;
 	}
 	printf("device = %p\n", clDefaultDeviceId);
@@ -63,7 +63,7 @@ bool clEnqueueCopyBufferTest()
 		cl_mem buffer1 = clCreateBuffer(context, CL_MEM_READ_WRITE, UINT_BUFFER_LEN, NULL, &iRet);
 		if (CL_SUCCESS != iRet)
 		{
-			printf("clCreateBuffer (CL_MEM_READ_WRITE)= %ws\n",ClErrTxt(iRet));
+			printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 			goto release_context;
 		}
 	printf("buffer1 = %p\n", buffer1);
@@ -73,7 +73,7 @@ bool clEnqueueCopyBufferTest()
 
 			if (CL_SUCCESS != iRet)
 			{
-				printf("clCreateBuffer (CL_MEM_READ_WRITE)= %ws\n",ClErrTxt(iRet));
+				printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 				goto release_buffer1;
 			}
 	printf("buffer2 = %p\n", buffer2);
@@ -83,7 +83,7 @@ bool clEnqueueCopyBufferTest()
 
 				if (CL_SUCCESS != iRet)
 				{
-					printf("clCreateBuffer (CL_MEM_READ_WRITE)= %ws\n",ClErrTxt(iRet));
+					printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 					goto release_buffer2;
 				}
 	printf("buffer3 = %p\n", buffer3);
@@ -95,7 +95,7 @@ bool clEnqueueCopyBufferTest()
 					cl_command_queue queue = clCreateCommandQueue(context, clDefaultDeviceId, 0 /*NO PROPERTIES*/, &iRet);
 					if (CL_SUCCESS != iRet)
 					{
-		printf("clCreateCommandQueue = %ws\n",ClErrTxt(iRet));
+		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
 		goto release_memory;
 	}
 	printf("queue = %p\n", queue);
@@ -120,28 +120,28 @@ bool clEnqueueCopyBufferTest()
     iRet = clEnqueueWriteBuffer (queue, buffer1, CL_FALSE, 0, UINT_BUFFER_LEN, array1, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueWriteBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
 		goto release_queue;
 	}
     
     iRet = clEnqueueWriteBuffer (queue, buffer2, CL_FALSE, 0, UINT_BUFFER_LEN, array2, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueWriteBuffer(2) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueWriteBuffer(2) = %s\n",ClErrTxt(iRet));
 		goto release_queue;
 	}
 
     iRet = clEnqueueCopyBuffer (queue, buffer1, buffer3, 0, UINT_BUFFER_LEN/2, UINT_BUFFER_LEN/2, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueCopyBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueCopyBuffer(1) = %s\n",ClErrTxt(iRet));
 		goto release_queue;
 	}
 
     iRet = clEnqueueCopyBuffer (queue, buffer2, buffer3, UINT_BUFFER_LEN/2, 0, UINT_BUFFER_LEN/2, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueCopyBuffer(1) = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueCopyBuffer(1) = %s\n",ClErrTxt(iRet));
 		goto release_queue;
 	}
 
@@ -151,7 +151,7 @@ bool clEnqueueCopyBufferTest()
     iRet = clEnqueueReadBuffer (queue, buffer3, CL_TRUE, 0, UINT_BUFFER_LEN, array3, 0, NULL, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clEnqueueReadBuffer = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueReadBuffer = %s\n",ClErrTxt(iRet));
 		goto release_queue;
 	}
      

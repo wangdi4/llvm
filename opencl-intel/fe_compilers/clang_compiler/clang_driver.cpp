@@ -431,13 +431,13 @@ int ClangFECompilerCompileTask::Compile()
 	// Get the handle to the current module
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
 					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-					  (LPCWSTR)L"clang_compiler",
+					  "clang_compiler",
 					  &hMod);
 
 	// Locate the resource
 	if( NULL != hMod )
 	{
-		hRes = FindResource(hMod, L"#101", L"PCH");
+		hRes = FindResource(hMod, "#101", "PCH");
 	}
     else
     {

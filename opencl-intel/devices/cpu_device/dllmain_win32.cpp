@@ -28,10 +28,6 @@
 #pragma comment(lib, "cl_logger.lib")
 #pragma comment(lib, "task_executor.lib")
 
-#if defined(USE_GPA)
-#pragma comment(lib, "gpasdk_d.lib")
-#endif
-
 #include "cpu_device.h"
 #include "backend_wrapper.h"
 #include<stdlib.h>

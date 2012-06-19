@@ -69,14 +69,14 @@ ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallback
 {
     if ( NULL != logDesc )
     {
-        cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, L"MIC Device: Program Service", &m_iLogHandle);
+        cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "MIC Device: Program Service", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             m_iLogHandle = 0;
         }
     }
 
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MICDevice: Program Service - Created"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MICDevice: Program Service - Created"));
 }
 
 bool ProgramService::Init( void )
@@ -92,7 +92,7 @@ bool ProgramService::Init( void )
     if (! CL_DEV_SUCCEEDED(err))
     {
         assert( false && "MIC Device Agent cannot initialize BE" );
-        MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot initialize BE"));
+        MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MIC Device Agent cannot initialize BE"));
 
         return false;
     }
@@ -114,7 +114,7 @@ ProgramService::~ProgramService()
 
     ReleaseBackendServices();
 
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MICDevice: Program Service - Distructed"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MICDevice: Program Service - Distructed"));
 
     if (0 != m_iLogHandle)
     {
@@ -357,7 +357,7 @@ bool ProgramService::LoadBackendServices(void)
         if (NULL == be_factory)
         {
             assert( false && "MIC Device Agent cannot create BE Factory" );
-            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot create BE Factory"));
+            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MIC Device Agent cannot create BE Factory"));
             break;
         }
 
@@ -372,7 +372,7 @@ bool ProgramService::LoadBackendServices(void)
         if (CL_DEV_FAILED( err ))
         {
             assert( false && "MIC Device Agent cannot create Backend Compilation Service" );
-            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot create Backend Compilation Service"));
+            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MIC Device Agent cannot create Backend Compilation Service"));
             break;
         }
 
@@ -382,7 +382,7 @@ bool ProgramService::LoadBackendServices(void)
         if (CL_DEV_FAILED( err ))
         {
             assert( false && "MIC Device Agent cannot create Backend Serialization Service" );
-            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MIC Device Agent cannot create Backend Serialization Service"));
+            MicCriticLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MIC Device Agent cannot create Backend Serialization Service"));
             break;
         }
 
@@ -502,19 +502,19 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
 {
     const cl_prog_container_header*    pProgCont = (cl_prog_container_header*)bin;
 
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CheckProgramBinary enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CheckProgramBinary enter"));
 
     // Check container size
     if ( sizeof(cl_prog_container_header) > binSize )
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Binary Size was provided"));
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Binary Size was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
     // Check container mask
     if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Container Mask was provided"));
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Mask was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
@@ -526,7 +526,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
         break;
 
     default:
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid Container Type was provided"));
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Type was provided"));
         return CL_DEV_INVALID_BINARY;
     }
 
@@ -568,18 +568,18 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
                                    cl_dev_program* OUT prog
                                    )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateProgram enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateProgram enter"));
 
     // Input parameters validation
     if(0 == binSize || NULL == bin)
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid binSize or bin parameters"));
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid binSize or bin parameters"));
         return CL_DEV_INVALID_VALUE;
     }
 
     if ( NULL == prog )
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Invalid prog parameter"));
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid prog parameter"));
         return CL_DEV_INVALID_VALUE;
     }
 
@@ -590,7 +590,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         cl_dev_err_code rc = CheckProgramBinary(binSize, bin);
         if ( CL_DEV_FAILED(rc) )
         {
-            MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Check program binary failed"));
+            MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Check program binary failed"));
             return rc;
         }
     }
@@ -600,7 +600,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     TProgramEntry*    pEntry        = new TProgramEntry(m_iDevId);
     if ( NULL == pEntry )
     {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Cann't allocate program entry"));
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cann't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
     }
     pEntry->pProgram = NULL;
@@ -642,7 +642,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     *prog = newProgId;
 
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateProgram Exit"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateProgram Exit"));
     return CL_DEV_SUCCESS;
 }
 
@@ -671,7 +671,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
     TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
 
@@ -705,7 +705,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     }
 
     pEntry->clBuildStatus = CL_BUILD_IN_PROGRESS;
-    MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Starting build"));
+    MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Starting build"));
 
     CommandTracer cmdTracer;
     cmdTracer.set_command_type((char*)"Build");
@@ -752,7 +752,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         *buildStatus = status;
     }
 
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("BuildProgram Exit"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram Exit"));
     return CL_DEV_SUCCESS;
 }
 
@@ -770,7 +770,7 @@ clDevReleaseProgram
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseProgram enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
     TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
 
@@ -835,7 +835,7 @@ clDevUnloadCompiler
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::UnloadCompiler()
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("UnloadCompiler enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("UnloadCompiler enter"));
     return CL_DEV_SUCCESS;
 }
 
@@ -860,7 +860,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
                                         size_t* OUT sizeRet
                                         )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramBinary enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
     TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
 
@@ -904,7 +904,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
                                   size_t* OUT sizeRet
                                   )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetBuildLog enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
     TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
 
@@ -964,7 +964,7 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
                                        size_t* OUT sizeRet
                                        )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetSupportedBinaries enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetSupportedBinaries enter"));
     if ( NULL != sizeRet )
     {
         // TODO: Create supported list
@@ -990,7 +990,7 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
 
 cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetKernelId enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelId enter"));
 
     if ( (NULL == name) || (NULL == kernelId) )
     {
@@ -1026,7 +1026,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetProgramKernels enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
     TProgramEntry* pEntry = cl_dev_program_2_program_entry( prog );
 
@@ -1081,7 +1081,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN value_size,
                     void* OUT value, size_t* OUT valueSizeRet ) const
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetKernelInfo enter"));
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelInfo enter"));
 
     const TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry( kernel );
 
@@ -1389,7 +1389,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         {
 
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                TEXT("MICDevice: Program Service failed to create COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
+                TEXT("MICDevice: Program Service failed to create COI buffer for program serialization. Buffer size is %d bytes. COI returned %s"),
                 prog_blob_size,
                 COIResultGetName( coi_err ));
 
@@ -1410,7 +1410,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         {
 
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                TEXT("MICDevice: Program Service failed to map COI buffer for program serialization. Buffer size is %d bytes. COI returned %S"),
+                TEXT("MICDevice: Program Service failed to map COI buffer for program serialization. Buffer size is %d bytes. COI returned %s"),
                 prog_blob_size,
                 COIResultGetName( coi_err ));
 
@@ -1441,7 +1441,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         if ( COI_SUCCESS != coi_err )
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                TEXT("MICDevice: Program Service failed to unmap COI buffer for program serialization after it was filled. Buffer size is %d bytes. COI returned %S"),
+                TEXT("MICDevice: Program Service failed to unmap COI buffer for program serialization after it was filled. Buffer size is %d bytes. COI returned %s"),
                 prog_blob_size,
                 COIResultGetName( coi_err ));
 
@@ -1460,7 +1460,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         if (COI_SUCCESS != coi_err)
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                TEXT("MICDevice: Program Service failed to create COI buffer from memory for device kernels list. Buffer size is %d bytes. COI returned %S"),
+                TEXT("MICDevice: Program Service failed to create COI buffer from memory for device kernels list. Buffer size is %d bytes. COI returned %s"),
                 output_size,
                 COIResultGetName( coi_err ));
 
@@ -1494,7 +1494,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         if (COI_SUCCESS != coi_err)
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                TEXT("MICDevice: Program Service failed to map COI buffer with device kernels list. Buffer size is %d bytes. COI returned %S"),
+                TEXT("MICDevice: Program Service failed to map COI buffer with device kernels list. Buffer size is %d bytes. COI returned %s"),
                 output_size,
                 COIResultGetName( coi_err ));
 

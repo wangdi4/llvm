@@ -24,6 +24,10 @@
 //  Created on:      23-Dec-2008 3:23:05 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include <sstream>
+// Debug
+#include <assert.h>
+
 #include "ocl_command_queue.h"
 #include "Context.h"
 #include "events_manager.h"
@@ -33,9 +37,7 @@
 #include "out_of_order_command_queue.h"
 #include "Device.h"
 
-#include <sstream>
-// Debug
-#include <assert.h>
+#include "cl_logger.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -63,7 +65,7 @@ OclCommandQueue::OclCommandQueue(
 	m_pContext->AddPendency(this);
     // Set logger
 
-	INIT_LOGGER_CLIENT(L"OclCommandQueue Logger Client",LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"),LL_DEBUG);
 
 	LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
 
@@ -187,6 +189,7 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
     return false;
  }
 
+
  cl_err_code OclCommandQueue::Initialize()
  {
      cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
@@ -200,10 +203,12 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 	 return CL_SUCCESS;
  }
 
+
  cl_int OclCommandQueue::GetContextId() const
  { 
 	 return m_pContext->GetId();      
- }   
+ }
+
 
  cl_err_code OclCommandQueue::GPA_InitializeQueue()
  {
@@ -228,6 +233,8 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 #endif
      return CL_SUCCESS;
  }
+
+
  cl_err_code OclCommandQueue::GPA_ReleaseQueue()
  {
 #if defined(USE_GPA)

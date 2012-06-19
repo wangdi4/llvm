@@ -39,9 +39,9 @@ using namespace Intel::OpenCL::Framework;
 //////////////////////////////////////////////////////////////////////////
 ContextModule::ContextModule(PlatformModule *pPlatformModule) : OCLObjectBase("ContextModule")
 {
-	INIT_LOGGER_CLIENT(L"ContextModule",LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("ContextModule"),LL_DEBUG);
 
-	LOG_INFO(TEXT("%S"), TEXT("ContextModule constructor enter"));
+	LOG_INFO(TEXT("%s"), TEXT("ContextModule constructor enter"));
 
 	m_pPlatformModule = pPlatformModule;
 }
@@ -50,7 +50,7 @@ ContextModule::ContextModule(PlatformModule *pPlatformModule) : OCLObjectBase("C
 //////////////////////////////////////////////////////////////////////////
 ContextModule::~ContextModule()
 {
-	LOG_INFO(TEXT("%S"), TEXT("ContextModule destructor enter"));
+	LOG_INFO(TEXT("%s"), TEXT("ContextModule destructor enter"));
 
 	RELEASE_LOGGER_CLIENT;
 }
@@ -60,7 +60,7 @@ ContextModule::~ContextModule()
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
 {
-	LOG_INFO(TEXT("%S"), TEXT("ContextModule::Initialize enter"));
+	LOG_INFO(TEXT("%s"), TEXT("ContextModule::Initialize enter"));
 
 	m_pOclEntryPoints = pOclEntryPoints;
 	m_pGPAData = pGPAData;
@@ -72,7 +72,7 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, ocl_gp
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Release(  bool bTerminate )
 {
-	LOG_INFO(TEXT("%S"), TEXT("ContextModule::Release enter"));
+	LOG_INFO(TEXT("%s"), TEXT("ContextModule::Release enter"));
 
 	return CL_SUCCESS;
 }
@@ -94,7 +94,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	
 	if (!pDevices)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("(!pDevices); return CL_INVALID_VALUE"));
+		LOG_ERROR(TEXT("%s"), TEXT("(!pDevices); return CL_INVALID_VALUE"));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_VALUE;
@@ -104,7 +104,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 
 	if (!pfnNotify && pUserData)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
+		LOG_ERROR(TEXT("%s"), TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_INVALID_VALUE;
@@ -120,7 +120,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	FissionableDevice ** ppDevices = new FissionableDevice * [uiNumDevices];
 	if (NULL == ppDevices)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Failed to allocate memory for devices: new Device[uiNumDevices] = NULL"));
+		LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for devices: new Device[uiNumDevices] = NULL"));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = CL_OUT_OF_HOST_MEMORY;
@@ -235,7 +235,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
     }
     if (NULL != pD3DDevice && bGLSharingSupported)
     {
-        LOG_ERROR(TEXT("%S"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
+        LOG_ERROR(TEXT("%s"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
         if (NULL != pRrrcodeRet)
         {
             *pRrrcodeRet = CL_INVALID_OPERATION;
@@ -277,7 +277,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 	}
 	if (CL_FAILED(clErrRet))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Create context failed"));
+		LOG_ERROR(TEXT("%s"), TEXT("Create context failed"));
 		if (NULL != pRrrcodeRet)
 		{	
 			*pRrrcodeRet = clErrRet;
@@ -316,7 +316,7 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 	cl_err_code clErrRet = m_pPlatformModule->GetDeviceIDs(NULL, clDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_FAILED(clErrRet))
 	{
-		LOG_ERROR(TEXT("GetDeviceIDs(%d, 0, NULL, %d) = %S"), clDeviceType, &uiNumDevices, ClErrTxt(clErrRet));
+		LOG_ERROR(TEXT("GetDeviceIDs(%d, 0, NULL, %d) = %s"), clDeviceType, &uiNumDevices, ClErrTxt(clErrRet));
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
@@ -339,7 +339,7 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
 	clErrRet = m_pPlatformModule->GetDeviceIDs(NULL, clDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_FAILED(clErrRet))
 	{
-		LOG_ERROR(TEXT("GetDeviceIDs(%d, %d, %d, NULL) = %S"), clDeviceType, uiNumDevices, pDevices, ClErrTxt(clErrRet));
+		LOG_ERROR(TEXT("GetDeviceIDs(%d, %d, %d, NULL) = %s"), clDeviceType, uiNumDevices, pDevices, ClErrTxt(clErrRet));
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErrRet;
@@ -533,7 +533,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
 	{
 		// invalid value
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
 		if (NULL != pErrRet)
 		{
 			*pErrRet = CL_INVALID_VALUE;
@@ -904,7 +904,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 	cl_err_code clErrRet = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram, (OCLObject<_cl_program_int>**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("clProgram is invalid program"));
+		LOG_ERROR(TEXT("%s"), TEXT("clProgram is invalid program"));
 		if (NULL != piErr)
 		{
 			*piErr = CL_INVALID_PROGRAM;
@@ -951,7 +951,7 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 	cl_err_code clErrRet = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram, (OCLObject<_cl_program_int>**)&pProgram);
 	if (CL_FAILED(clErrRet) || NULL == pProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("clProgram is invalid program"));
+		LOG_ERROR(TEXT("%s"), TEXT("clProgram is invalid program"));
 		return CL_INVALID_PROGRAM;
 	}
 
@@ -1006,7 +1006,7 @@ cl_int ContextModule::RetainKernel(cl_kernel clKernel)
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 	
@@ -1027,7 +1027,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 
@@ -1080,7 +1080,7 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 	clErr = pKernel->SetKernelArg(uiArgIndex, szArgSize, pArgValue);
@@ -1104,7 +1104,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 
@@ -1130,7 +1130,7 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 
@@ -1141,7 +1141,7 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 		clErr = m_pPlatformModule->GetDevice(deviceId, &pDevice);
 		if (CL_FAILED(clErr) || NULL == pDevice)
 		{
-			LOG_ERROR(TEXT("GetDevice(%d, %d) returned %S"), deviceId, &pDevice, ClErrTxt(clErr));
+			LOG_ERROR(TEXT("GetDevice(%d, %d) returned %s"), deviceId, &pDevice, ClErrTxt(clErr));
 			return CL_INVALID_DEVICE;
 		}
 	}
@@ -1165,7 +1165,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1183,7 +1183,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 	clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %S"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
+		LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1193,7 +1193,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 	clErr = m_mapMemObjects.AddObject(pBuffer, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1236,7 +1236,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	cl_err_code clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clBuffer, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clBuffer, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clBuffer, &pMemObj, ClErrTxt(clErr));
 		iErr = CL_INVALID_MEM_OBJECT;		
 		return CL_INVALID_HANDLE;
 	}
@@ -1267,7 +1267,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 	clErr = m_mapMemObjects.AddObject(pBuffer, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			iErr = CL_ERR_OUT(clErr);
@@ -1383,7 +1383,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
     if (CL_FAILED(clErr) || NULL == pContext)
     {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1397,7 +1397,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
         pClImageDesc->image_slice_pitch, pClImageDesc->image_array_size, pHostPtr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Parameter check failed"));
+		LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
         if (NULL != pErrcodeRet)
         {
 		    *pErrcodeRet = clErr;
@@ -1419,7 +1419,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 	}
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
         if (NULL != pErrcodeRet)
         {
 		    *pErrcodeRet = clErr;
@@ -1430,7 +1430,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     clErr = pContext->CreateImageArray(clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr);
     if (CL_FAILED(clErr) || NULL == pImageArr)
     {
-        LOG_ERROR(TEXT("pContext->CreateImage2DArray(%d, %p, %p, %p, %p) = %S"), clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr, ClErrTxt(clErr));
+        LOG_ERROR(TEXT("pContext->CreateImage2DArray(%d, %p, %p, %p, %p) = %s"), clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr, ClErrTxt(clErr));
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1440,7 +1440,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 	clErr = m_mapMemObjects.AddObject(pImageArr, false);
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pImageArr, pImageArr->GetHandle(), ClErrTxt(clErr))
+        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pImageArr, pImageArr->GetHandle(), ClErrTxt(clErr))
             if (NULL != pErrcodeRet)
             {
                 *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1467,7 +1467,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
 	clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clMemObj, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
 	return pMemObj->Retain();
@@ -1486,7 +1486,7 @@ cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj)
 	clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clMemObj, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
 	pContext = const_cast<Context *>(pMemObj->GetContext());
@@ -1540,7 +1540,7 @@ cl_int ContextModule::GetSupportedImageFormats(cl_context clContext,
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
 		return CL_INVALID_CONTEXT;
 	}
 	return pContext->GetSupportedImageFormats(clFlags, clImageType, uiNumEntries, pclImageFormats, puiNumImageFormats);
@@ -1563,7 +1563,7 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj,
 	clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clMemObj, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
 
@@ -1587,7 +1587,7 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage,
 	clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImage, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clImage, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clImage, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
 
@@ -1608,7 +1608,7 @@ cl_int ContextModule::SetMemObjectDestructorCallback (cl_mem memObj,
 	clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)memObj, (OCLObject<_cl_mem_int>**)&pMemObj);
 	if (CL_FAILED(clErr) || NULL == pMemObj)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), memObj, &pMemObj, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), memObj, &pMemObj, ClErrTxt(clErr));
 		return CL_INVALID_MEM_OBJECT;
 	}
 
@@ -1634,7 +1634,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1644,7 +1644,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 	clErr = pContext->CreateSampler(bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("pContext->CreateSampler(%d, %d, %d, %d) = %S"), bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler, ClErrTxt(clErr))
+		LOG_ERROR(TEXT("pContext->CreateSampler(%d, %d, %d, %d) = %s"), bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler, ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1654,7 +1654,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 	clErr = m_mapSamplers.AddObject(pSampler, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pSampler, pSampler->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pSampler, pSampler->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1680,7 +1680,7 @@ cl_int ContextModule::RetainSampler(cl_sampler clSampler)
 	clErr = m_mapSamplers.GetOCLObject((_cl_sampler_int*)clSampler, (OCLObject<_cl_sampler_int>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clSampler, &pSampler, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler, ClErrTxt(clErr));
 		return CL_INVALID_SAMPLER;
 	}
 	return pSampler->Retain();
@@ -1700,7 +1700,7 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 	clErr = m_mapSamplers.GetOCLObject((_cl_sampler_int*)clSampler, (OCLObject<_cl_sampler_int>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clSampler, &pSampler, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler, ClErrTxt(clErr));
 		return CL_INVALID_SAMPLER;
 	}
 	pContext = const_cast<Context *>(pSampler->GetContext());
@@ -1752,7 +1752,7 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
 	clErr = m_mapSamplers.GetOCLObject((_cl_sampler_int*)clSampler, (OCLObject<_cl_sampler_int>**)&pSampler);
 	if (CL_FAILED(clErr) || NULL == pSampler)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clSampler, &pSampler, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler, ClErrTxt(clErr));
 		return CL_INVALID_SAMPLER;
 	}
 
@@ -1817,7 +1817,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
 			if (NULL != pErrcodeRet)
 			{
 				*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1846,7 +1846,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 	clErr = pGLContext->CreateGLBuffer(clMemFlags, glBufObj, &pBuffer);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("pGLContext->CreateGLBuffer(%d, %d, %d, %d) = %S"), clMemFlags, glBufObj, &pBuffer, ClErrTxt(clErr))
+		LOG_ERROR(TEXT("pGLContext->CreateGLBuffer(%d, %d, %d, %d) = %s"), clMemFlags, glBufObj, &pBuffer, ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1856,7 +1856,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 	clErr = m_mapMemObjects.AddObject(pBuffer, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1929,7 +1929,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
 	clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1958,7 +1958,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
 	clErr = pGLContext->CreateGLTexture(clMemFlags, glTextureTarget, glMipLevel, glTexture, clObjType, &pMemObj);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("pGLContext->CreateGLTexture2D(%d, %d, %d, %d, %d) = %S"), clMemFlags, glTextureTarget, glMipLevel, glTexture,
+		LOG_ERROR(TEXT("pGLContext->CreateGLTexture2D(%d, %d, %d, %d, %d) = %s"), clMemFlags, glTextureTarget, glMipLevel, glTexture,
 			&pMemObj, ClErrTxt(clErr))
 		if (NULL != pErrcodeRet)
 		{
@@ -1969,7 +1969,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
 	clErr = m_mapMemObjects.AddObject(pMemObj, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
 			if (NULL != pErrcodeRet)
 			{
 				*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -2001,7 +2001,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
 	cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext)
 			if (NULL != pErrcodeRet)
 			{
 				*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -2029,7 +2029,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
 	clErr = pGLContext->CreateGLRenderBuffer(clMemFlags, glRenderBuffer, &pMemObj);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("pGLContext->CreateGLRenderBuffer(%d, %d, %d) = %S"), clMemFlags, glRenderBuffer, &pMemObj, ClErrTxt(clErr))
+		LOG_ERROR(TEXT("pGLContext->CreateGLRenderBuffer(%d, %d, %d) = %s"), clMemFlags, glRenderBuffer, &pMemObj, ClErrTxt(clErr))
 			if (NULL != pErrcodeRet)
 			{
 				*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -2039,7 +2039,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
 	clErr = m_mapMemObjects.AddObject(pMemObj, false);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
+		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
 			if (NULL != pErrcodeRet)
 			{
 				*pErrcodeRet = CL_ERR_OUT(clErr);
@@ -2301,7 +2301,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     const cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)context, (OCLObject<_cl_context_int>**)&pContext);
     if (CL_FAILED(clErr) || NULL == pContext)
     {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
         if (NULL != errcode_ret)
         {
             *errcode_ret = CL_INVALID_CONTEXT;
@@ -2467,7 +2467,7 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
 	clErr = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel, (OCLObject<_cl_kernel_int>**)&pKernel);
 	if (CL_FAILED(clErr) || NULL == pKernel)
 	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), clKernel, &pKernel, ClErrTxt(clErr));
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
 		return CL_INVALID_KERNEL;
 	}
 
@@ -2484,7 +2484,7 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
 
 	if (CL_FAILED(clErr) || NULL == pContext)
 	{
-		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), context, pContext, ClErrTxt(clErr), pContext);
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = CL_INVALID_CONTEXT;
@@ -2495,7 +2495,7 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
     clErr = m_mapMemObjects.GetOCLObject((_cl_mem_int*)buffer, (OCLObject<_cl_mem_int>**)&pBuffer);
     if (CL_FAILED(clErr) || NULL == pBuffer)
     {
-        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %S"), buffer, &pBuffer, ClErrTxt(clErr));
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer, ClErrTxt(clErr));
         if (pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
@@ -2522,7 +2522,7 @@ cl_mem ContextModule::CreateImage1DBuffer(cl_context context, cl_mem_flags clFla
     clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)CL_MEM_OBJECT_IMAGE1D_BUFFER, szImageWidth, 0, 0, 0);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
 		if (NULL != pErrcodeRet)
 		{
 			*pErrcodeRet = clErr;

@@ -83,9 +83,9 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
     m_pOclCommandQueueMap(NULL),
     m_pEventsManager(NULL)
 {
-	INIT_LOGGER_CLIENT(L"ExecutionModel",LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("ExecutionModel"),LL_DEBUG);
 
-    LOG_DEBUG(TEXT("%S"), TEXT("ExecutionModule created"));
+    LOG_DEBUG(TEXT("%s"), TEXT("ExecutionModule created"));
 }
 
 /******************************************************************

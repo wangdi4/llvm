@@ -28,18 +28,15 @@ class CPUTestLogger : public IOCLDevLogDescriptor
 {
 public:
 	//Create logger callback
-	cl_int clLogCreateClient(cl_int device_id, const wchar_t* client_name, cl_int * client_id);
+	cl_int clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id);
+
 	//Release logger callback
 	cl_int clLogReleaseClient(cl_int client_id);
+
 	//Add Line logger callback
-	cl_int clLogAddLine(cl_int client_id, cl_int log_level, 
-		const wchar_t* IN source_file, 
-		const wchar_t* IN function_name, 
-		cl_int line_num, 
-		const wchar_t* IN message, ...);
 	cl_int clLogAddLine(cl_int client_id, cl_int log_level, 
 		const char* IN source_file, 
 		const char* IN function_name, 
 		cl_int line_num, 
-		const wchar_t* IN message, ...);
+		const char* IN message, ...);
 };

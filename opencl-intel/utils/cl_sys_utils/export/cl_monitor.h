@@ -54,10 +54,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		~Sample(){}		// Destructor
 
 		// Start the sampling
-		void Start(wchar_t * pwsName)
+		void Start(char* psName)
 		{
 			m_StopWatch.Start();
-			WCSCPY_S(m_wsName, MAX_SAMPLE_NAME, pwsName);
+            STRCPY_S(m_sName, MAX_SAMPLE_NAME, psName);
 		}
 
 		// Stop the sampling
@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		}
 
 		// get the name of the sampling object
-		const wchar_t * GetName() const { return m_wsName; }
+		const char* GetName() const { return m_sName; }
 
 		// get the total time from the start of the sampling to the end
 		unsigned long long GetTime() const { return m_ullTime; }
@@ -76,7 +76,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	protected:
 
-		wchar_t				m_wsName[MAX_SAMPLE_NAME];
+		char				m_sName[MAX_SAMPLE_NAME];
 		unsigned long long	m_ullTime;
 
 		StopWatch			m_StopWatch;
@@ -95,13 +95,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	{
 	public:
 
-		static int Start(wchar_t * pwsSampleName)
+		static int Start(char* psSampleName)
 		{
 			if (MAX_SAMPLES_COUNT == g_uiSamplesCount)
 			{
 				return MAX_SAMPLES_COUNT;
 			}
-			g_pSamples[g_uiSamplesCount].Start(pwsSampleName);
+			g_pSamples[g_uiSamplesCount].Start(psSampleName);
 			g_uiSamplesCount++;
 			return g_uiSamplesCount-1;
 		}
@@ -143,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	Sample * pSamples = PerformanceMeter::GetSamples(&uiSamplesCount);		\
 	for(unsigned int ui=0; ui<uiSamplesCount; ++ui)							\
 {																		\
-	printf("%ws,%llu\n", pSamples[ui].GetName(), pSamples[ui].GetTime());	\
+	printf("%s,%llu\n", pSamples[ui].GetName(), pSamples[ui].GetTime());	\
 }
 
 #else

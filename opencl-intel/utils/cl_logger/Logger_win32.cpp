@@ -24,13 +24,14 @@
  *  Implementation of the logger class
  *  Original author: ulevy
  ****************************************************/
-#include "Logger.h"
-
 #include <stdio.h>
 #include <stdarg.h>
-#include <windows.h>            // required by: GetCurrentThreadId()
 #include <sstream>              // required by: owstringstream
 #include <assert.h>
+
+#include "Logger.h"
+#include <windows.h>            // required by: GetCurrentThreadId()
+
 using namespace Intel::OpenCL::Utils;
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -57,17 +58,17 @@ Logger::~Logger()
 // Shared memory for singleton object storage
 // We need this shared memory because we use static library and want to have singleton across DLL's
 // We need assure that the name is unique for each process
-const wchar_t g_szMemoryNameTemplate[]=L"LoggerSharedMemory(%06d)";
-const wchar_t g_szMutexNameTemplate[]=L"LoggerMutex(%06d)";
+const char g_szMemoryNameTemplate[]="LoggerSharedMemory(%06d)";
+const char g_szMutexNameTemplate[]="LoggerMutex(%06d)";
 
 struct LoggerSingletonHandler
 {
 	LoggerSingletonHandler()
 	{
-		wchar_t szName[sizeof(g_szMemoryNameTemplate)/sizeof(wchar_t)+6];
+		char szName[sizeof(g_szMemoryNameTemplate)/sizeof(char)+6];
 
 		// Create process unique name
-		swprintf_s(szName, sizeof(szName)/sizeof(wchar_t), g_szMemoryNameTemplate, GetCurrentProcessId());
+		sprintf_s(szName, sizeof(szName)/sizeof(char), g_szMemoryNameTemplate, GetCurrentProcessId());
 
 		// Open shared memory, we are looking for previously allocated executor
 		hMapFile = CreateFileMapping(
@@ -95,7 +96,7 @@ struct LoggerSingletonHandler
 		}
 
 		// Test for singleton existence
-		swprintf_s(szName, sizeof(szName)/sizeof(wchar_t), g_szMutexNameTemplate, GetCurrentProcessId());
+		sprintf_s(szName, sizeof(szName)/sizeof(char), g_szMutexNameTemplate, GetCurrentProcessId());
 		hMutex = CreateMutex(NULL, TRUE, szName);
 		if ( NULL == hMutex)
 		{
@@ -190,32 +191,20 @@ void Logger::Log(ELogLevel level, ELogConfigField config, const char* psClientNa
     }
 }
 
-void Logger::LogW(ELogLevel level, ELogConfigField config, const wchar_t* psClientName, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, va_list va)
-{
-    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
-    for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
-    {
-        if (m_logHandlers[i] != NULL)
-        {
-            m_logHandlers[i]->LogW(logMessage);
-        }
-    }
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetLogHandlerParams
 /////////////////////////////////////////////////////////////////////////////////////////
-const wchar_t*  Logger::GetLogHandlerParams(const wchar_t* logHandler)
+const char*  Logger::GetLogHandlerParams(const char* logHandler)
 {
     // not implemented yet
     assert(false);
-    return L"";
+    return "";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-LoggerClient::LoggerClient(const wchar_t* clientHandle, ELogLevel loglevel)
+LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
 {
     m_logLevel = loglevel;
 	m_eLogConfig =	(ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
@@ -248,63 +237,7 @@ void LoggerClient::Log(ELogLevel level, const char* sourceFile, const char* func
 
     va_end( va );
 }
-void LoggerClient::LogW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, ...)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    va_list va;
-    va_start(va, message);
 
-    Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
-
-    va_end( va );
-}
-void LoggerClient::LogW(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const wchar_t* message, ...)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    errno_t err = 0;
-    size_t sourceFileSize = 0;
-    err = mbstowcs_s(&sourceFileSize, NULL, 0, sourceFile, strlen(sourceFile));
-    if (err != 0)
-    {
-        return;
-    }
-    wchar_t* wSourceFile = (wchar_t*)malloc(sizeof(wchar_t) * sourceFileSize);
-    err = mbstowcs_s(&sourceFileSize, wSourceFile, sourceFileSize, sourceFile, sourceFileSize - 1);
-    if (err != 0)
-    {
-        free(wSourceFile);
-        return;
-    }
-    size_t functionNameSize = 0;
-    err = mbstowcs_s(&functionNameSize, NULL, 0, functionName, strlen(functionName));
-    if (err != 0)
-    {
-        return;
-    }
-    wchar_t* wFunctionName = (wchar_t*)malloc(sizeof(wchar_t) * functionNameSize);
-    err = mbstowcs_s(&functionNameSize, wFunctionName, functionNameSize, functionName, functionNameSize - 1);
-    if (err != 0)
-    {
-        free(wSourceFile);
-        free(wFunctionName);
-        return;
-    }
-
-    va_list va;
-    va_start(va, message);
-
-    Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, wSourceFile, wFunctionName,  sourceLine, message, va);
-
-    va_end( va );
-    free(wSourceFile);
-    free(wFunctionName);
-}
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::LogArgList
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -316,13 +249,4 @@ void LoggerClient::LogArgList(ELogLevel level, const char* sourceFile, const cha
     }
 	Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
 }
-void LoggerClient::LogArgListW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, va_list va)
-{
-	if (m_logLevel > level)
-    {
-        return;
-    }
-	Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
-}
-
 

@@ -48,7 +48,7 @@
 #include "ocl_itt.h"
 #include "cl_sys_info.h"
 
-#if defined(USE_GPA) 
+#if defined(USE_ITT)
 #if defined(_M_X64)
     #define ITT_SIZE_T_METADATA_TYPE    __itt_metadata_u64
 #else
@@ -117,10 +117,16 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
 //Todo: remove clCmdId param
 cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
 {
-#if defined(USE_GPA)
-	//char pMarkerString[64];
-	const char* pCommandName;
+#if defined(USE_ITT)
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+
+	/// unique ID to pass all tasks, and markers.
+	__itt_id ittID;
+    if ((NULL != pGPAData) && (pGPAData->bUseGPA)) 
+    {
+        ittID = __itt_id_make(&ittID, (unsigned long long)this);
+	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
+    }
 #endif
     cl_err_code res = CL_SUCCESS;
     switch(iCmdStatus)
@@ -137,42 +143,40 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     case CL_RUNNING:
         LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
 		// Running marker
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
 			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_RUNNING_MARKER)
 			{
+				#if defined(USE_GPA)
 				// Write this data to the thread track
 				__itt_set_track(NULL);
+				#endif
 
-				char pMarkerString[64] = "Running - ";
-				pCommandName = this->GetCommandName();
-				strcat_s(pMarkerString, 64,pCommandName);
-
-				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
+				char pMarkerString[ITT_TASK_NAME_LEN];
+				SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Running - %s", GetCommandName());
+				__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
 
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pMarkerHandle);
-				
-				__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
-
+				__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
+				__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
 				__itt_task_end(pGPAData->pDeviceDomain);
 			}
 
+		#if defined(USE_GPA)
 			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
 			{
 				// Set custom track 
 				__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-
 				__ittx_task_set_state(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId, pGPAData->pRunningTaskState);
 				
 				// This feature does not work now due to GPA bug, should be added in later stages.
 				//GPA_WriteCommandMetadata();
 			}
-
+		#endif
 		}  
-#endif
+#endif // ITT
 		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
         m_Event.SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
@@ -195,29 +199,27 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         res = CommandDone();
         m_Event.SetEventState(EVENT_STATE_DONE);
 // Complete marker
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
 			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_COMPLETED_MARKER)
 			{
+				#if defined(USE_GPA)
 				// Write this data to the thread track
 				__itt_set_track(NULL);
+				#endif
 
-				char pMarkerString[64] = "Completed - ";
-				pCommandName = this->GetCommandName();
-				strcat_s(pMarkerString, 64,pCommandName);
-
-				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
-
+				char pMarkerString[ITT_TASK_NAME_LEN];
+				SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Completed - %s", GetCommandName());
+				__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pMarker);
-				
-				__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
-
+				__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
+				__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
 				__itt_task_end(pGPAData->pDeviceDomain);
 			}
 
+			#if defined(USE_GPA)
 			// Complete the running task on the context view and destroy the id
 			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
 			{
@@ -228,9 +230,10 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 				__itt_task_end_overlapped(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId);
 				__itt_id_destroy(pGPAData->pContextDomain,m_pGpaCommand->m_CmdId);
 			}
+			#endif
 		}
+#endif // ITT
 
-#endif
 		m_Event.RemovePendency(NULL);
 		break;
     default:
@@ -368,7 +371,7 @@ void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, si
 
 void Command::GPA_InitCommand()
 {
-#if defined (USE_GPA)
+#if defined (USE_ITT)
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
 	{
@@ -380,22 +383,23 @@ void Command::GPA_InitCommand()
 			const char* commandName = GPA_GetCommandName();
 			if (NULL != commandName)
 			{
-				m_pGpaCommand->m_strCmdName = __itt_string_handle_createA(commandName);
+				m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
 			}
 		}
 	}
-#endif
+#endif // ITT
 }
 
 void Command::GPA_DestroyCommand()
 {
-#if defined (USE_GPA)
+#if defined (USE_ITT)
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
 	{
+        // not an error, the internal m_pGpaCommand depends on global pGPAData is active.
 		delete m_pGpaCommand;
 	}
-#endif
+#endif // ITT
 }
 
 cl_dev_cmd_desc* Command::GetDeviceCommandDescriptor()
@@ -1061,13 +1065,18 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
 {
 	cl_err_code err;
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
-
+	/// unique ID to pass all tasks, and markers.
+	__itt_id ittID;
+    
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
-		cl_mem_obj_descriptor*	pMemObj;
+	    ittID = __itt_id_make(&ittID, (unsigned long long)this);
+	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
+    
+        cl_mem_obj_descriptor*	pMemObj;
 		size_t regionInBytes[MAX_WORK_DIM] = {m_pMappedRegion->region[0],m_pMappedRegion->region[1],m_pMappedRegion->region[2]};	
 
 		// Calculate each region size in bytes
@@ -1077,34 +1086,34 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
 			regionInBytes[i] *= pMemObj->uiElementSize;
 		}
 
+		char pMarkerString[ITT_TASK_NAME_LEN];
+		SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Postfix - %s", GetCommandName());
+		__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
+		#if defined(USE_GPA)
 		// Start Sync Data GPA task
 		__itt_set_track(NULL);
-		__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pSyncDataHandle);
-		TAL_SetNamedTaskColor("Sync Data", 255, 0, 0);
+		#endif
+		__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
 		// Add region metadata to the Sync Data task
-		switch(m_pMappedRegion->dim_count)
-		{
-		case 3:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pDepthHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[2]);
-		case 2:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pHeightHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[1]);
-		case 1:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, (m_pMappedRegion->dim_count > 1) ? pGPAData->pWidthHandle : pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[0]);
-		}
+		__itt_metadata_add(pGPAData->pDeviceDomain, ittID, pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, m_pMappedRegion->dim_count, regionInBytes);
 	}
-#endif
+#endif // ITT
 	
 	err = m_pMemObj.pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
+		#if defined(USE_GPA)
 		// End Sync Data GPA task
 		__itt_set_track(NULL);
+		#endif
 		__itt_task_end(pGPAData->pDeviceDomain);
+
+		__itt_id_destroy(pGPAData->pDeviceDomain, ittID);
 	} 
-#endif
+#endif // ITT
 
 	return err;
 }
@@ -1268,12 +1277,16 @@ cl_err_code	UnmapMemObjectCommand::PrefixExecute()
 {
 	cl_err_code err;
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+	/// unique ID to pass all tasks, and markers.
+	__itt_id ittID;
 
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
+        ittID = __itt_id_make(&ittID, (unsigned long long)this);
+	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
 		cl_mem_obj_descriptor*	pMemObj;
 		size_t regionInBytes[MAX_WORK_DIM] = {m_pMappedRegion->region[0],m_pMappedRegion->region[1],m_pMappedRegion->region[2]};	
 
@@ -1284,35 +1297,35 @@ cl_err_code	UnmapMemObjectCommand::PrefixExecute()
 			regionInBytes[i] *= pMemObj->uiElementSize;
 		}
 
+		char pMarkerString[ITT_TASK_NAME_LEN];
+		SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Prefix - %s", GetCommandName());
+		__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
+
+		#if defined(USE_GPA)
 		// Start Sync Data GPA task
 		__itt_set_track(NULL);
-		__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pGPAData->pSyncDataHandle);
-		TAL_SetNamedTaskColor("Sync Data", 255, 0, 0);
+		#endif
+		__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
 		// Add region metadata to the Sync Data task
-		switch(m_pMappedRegion->dim_count)
-		{
-		case 3:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pDepthHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[2]);
-		case 2:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, pGPAData->pHeightHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[1]);
-		case 1:
-			__itt_metadata_add(pGPAData->pDeviceDomain, __itt_null, (m_pMappedRegion->dim_count > 1) ? pGPAData->pWidthHandle : pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, 1, &regionInBytes[0]);
-		}
+        __itt_metadata_add(pGPAData->pDeviceDomain, ittID, pGPAData->pSizeHandle, ITT_SIZE_T_METADATA_TYPE, m_pMappedRegion->dim_count, regionInBytes);
 	}
-#endif
+#endif // ITT
 
 	err = m_pMemObject.pMemObj->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
 		// End Sync Data GPA task
-
+		#if defined(USE_GPA)
 		__itt_set_track(NULL);
+		#endif
 		__itt_task_end(pGPAData->pDeviceDomain);
+
+		__itt_id_destroy(pGPAData->pDeviceDomain, ittID);
 	} 
-#endif
+#endif // ITT
 
 	return err;
 }
@@ -1809,7 +1822,7 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata()
 #if defined (USE_GPA)
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 	
-	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
 		// Set custom track 
 		__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
@@ -1819,33 +1832,36 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata()
 		GPA_WriteWorkMetadata(m_cpszLocalWorkSize, pGPAData->pLocalWorkSizeHandle);
 		GPA_WriteWorkMetadata(m_cpszGlobalWorkOffset, pGPAData->pGlobalWorkOffsetHandle);
 	}
-#endif
+#endif // GPA
 }
 /******************************************************************
  *
  ******************************************************************/
-#if defined (USE_GPA)
-void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* stringHandle) const
+void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const
 { 
-	if (pWorkMetadata != NULL)
+#if defined (USE_GPA)
+	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+
+    if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pWorkMetadata != NULL))
 	{
-		ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
-		std::stringstream ssWorkMetadata;
+        ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 
 		// Set custom track 
 		__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
 
-		ssWorkMetadata << pWorkMetadata[0];
-		for (unsigned int i = 1 ; i < m_uiWorkDim ; i++)
+        // Make sure all metadata is 64 bit, and not platform dependant (size_t)
+        cl_ulong metaData64[MAX_WORK_DIM];
+        for (unsigned int i = 1 ; i < m_uiWorkDim ; ++i)
 		{
-			ssWorkMetadata << pWorkMetadata[i];
+			metaData64[i] = pWorkMetadata[i];
 		}
 
 		// Write Metadata to trace
-		__itt_metadata_str_addA(pGPAData->pContextDomain, __itt_null, stringHandle, ssWorkMetadata.str().c_str(), ssWorkMetadata.str().size() + 1);
+		__itt_metadata_add(pGPAData->pContextDomain, __itt_null, keyStrHandle, __itt_metadata_u64, m_uiWorkDim, metaData64);
 	}
+#endif // GPA
 }
-#endif
+
 /******************************************************************
  * Command: ReadBufferCommand
  * The functions below implement the Read Buffer functinoality

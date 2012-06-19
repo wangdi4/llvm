@@ -27,11 +27,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 /**************************************************************************************************
 * Configuration keys
 **************************************************************************************************/
+#ifdef WIN32
+    #define DEFAULT_LOG_FILE_NAME "C:\\cl.log"
+#else
+    #define DEFAULT_LOG_FILE_NAME "~/intel_ocl.log"
+#endif
 
 #define	CL_CONFIG_LOG_FILE				"CL_CONFIG_LOG_FILE"			// string
 #define	CL_CONFIG_USE_LOGGER			"CL_CONFIG_USE_LOGGER"			// bool
 #define	CL_CONFIG_DEVICES				"CL_CONFIG_DEVICES"				// string (use tokenize to get substrings)
-#define	CL_CONFIG_USE_GPA				"CL_CONFIG_USE_GPA"				// bool
 
 #define	CL_GPA_CONFIG_ENABLE_API_TRACING		"CL_GPA_CONFIG_ENABLE_API_TRACING"	    // bool
 #define CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING    "CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING"  // bool
@@ -49,22 +53,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class OCLConfig
+	class OCLConfig : public Intel::OpenCL::Utils::BasicCLConfigWrapper
 	{
 	public:
-
 		OCLConfig();
 		~OCLConfig();
 
-		cl_err_code    Initialize(string file_name);
-		void           Release();
-
-		string		   GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, "C:\\cl.log"); }
+		string		   GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, DEFAULT_LOG_FILE_NAME); }
 		bool		   UseLogger() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false); }
 		
 		vector<string> GetDevices() const;
 		string         GetDefaultDevice() const;
-		bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
 
 		bool			EnableAPITracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_API_TRACING, false); }
 		bool			EnableContextTracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING, true); }
@@ -73,11 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER, false); }
 		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_RUNNING_MARKER, false); }
 		bool			ShowCompletedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_COMPLETED_MARKER, true); }
-
-	private:
-
-		Intel::OpenCL::Utils::ConfigFile * m_pConfigFile;
-	};
+    };
 
 }}}
 

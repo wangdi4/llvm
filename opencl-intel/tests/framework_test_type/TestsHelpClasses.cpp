@@ -214,11 +214,7 @@ void validateSubstringInFile(string fileName, string subString, bool doesExist){
 oclErr::oclErr( cl_err_code errCode_ )
 {
 	errCode = errCode_;
-	wstring tmp = ClErrTxt(errCode);
-
-	//good enough for us
-	err = string(tmp.begin(), tmp.end());
-	err.assign(tmp.begin(), tmp.end());
+	err = ClErrTxt(errCode);
 }
 
 string oclErr::gerErrString() const

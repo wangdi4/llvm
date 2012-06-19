@@ -55,7 +55,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 	assert ( pErr != NULL );
 
 	SET_LOGGER_CLIENT(pLoggerClient);
-	LOG_DEBUG(TEXT("%S"), TEXT("DeviceKernel C'tor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("DeviceKernel C'tor enter"));
     m_sKernelPrototype.m_psKernelName = NULL;
 	m_sKernelPrototype.m_uiArgsCount  = 0;
 	m_sKernelPrototype.m_pArgs        = NULL;
@@ -63,7 +63,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 
 	if (NULL == m_pKernel || NULL == m_pDevice || NULL == psKernelName || CL_INVALID_HANDLE == devProgramId)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == m_pKernel || NULL == m_pDevice || NULL == psKernelName || CL_INVALID_HANDLE == devProgramId"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == m_pKernel || NULL == m_pDevice || NULL == psKernelName || CL_INVALID_HANDLE == devProgramId"));
 		*pErr = CL_INVALID_VALUE;
 		return;
 	}
@@ -87,7 +87,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 	cl_dev_err_code clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelId(devProgramId, m_sKernelPrototype.m_psKernelName, &m_clDevKernel);
 	if (CL_DEV_FAILED(clErrRet))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Device->GetKernelId failed"));
+		LOG_ERROR(TEXT("%s"), TEXT("Device->GetKernelId failed"));
 		delete[] m_sKernelPrototype.m_psKernelName;
 		m_sKernelPrototype.m_psKernelName = NULL;
 		*pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
@@ -147,7 +147,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 DeviceKernel::~DeviceKernel()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("DeviceKernel D'tor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("DeviceKernel D'tor enter"));
 	if (NULL != m_sKernelPrototype.m_psKernelName)
 	{
 		delete[] m_sKernelPrototype.m_psKernelName;
@@ -296,7 +296,7 @@ m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_num
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Kernel::~Kernel()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("Kernel D'tor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Kernel D'tor enter"));
 
 	// release kernel prototype
 	if (m_sKernelPrototype.m_psKernelName)
@@ -497,7 +497,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 		}
 		if (CL_FAILED(clErrRet))
 		{
-			LOG_ERROR(TEXT("new DeviceKernel(...) failed (returned %S)"), ClErrTxt(clErrRet));
+			LOG_ERROR(TEXT("new DeviceKernel(...) failed (returned %s)"), ClErrTxt(clErrRet));
 			delete pDeviceKernel;
 			break;
 		}
@@ -508,7 +508,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 			bResult = pDeviceKernel->CheckKernelDefinition(pPrevDeviceKernel);
 			if (false == bResult)
 			{
-				LOG_ERROR(TEXT("%S"), TEXT("CheckKernelDefinition failed (returned false)"));
+				LOG_ERROR(TEXT("%s"), TEXT("CheckKernelDefinition failed (returned false)"));
 				delete pDeviceKernel;
 				clErrRet = CL_INVALID_KERNEL_DEFINITION;
 				break;

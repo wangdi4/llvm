@@ -52,7 +52,7 @@ bool VecTypeHintTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -64,7 +64,7 @@ bool VecTypeHintTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
@@ -75,7 +75,7 @@ bool VecTypeHintTest()
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;

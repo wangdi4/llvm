@@ -34,11 +34,6 @@
 #include "cl_sys_defines.h"
 #include "ocl_itt.h"
 
-#if defined(USE_GPA)
-	#include "tal.h"
-	#include <ittnotify.h>
-#endif
-
 #define getR(color) ((color >> 16) & 0xFF)
 #define getG(color) ((color >> 8) & 0xFF)
 #define getB(color) (color & 0xFF)
@@ -86,6 +81,24 @@ m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
 	m_iLogHandle = pTD->m_iLogHandle;
 	m_pMemAlloc = pTD->m_pMemoryAllocator;
 	m_pGPAData = pTD->m_pGPAData;
+#if defined(USE_ITT)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    {
+	    // unique ID to pass all tasks, and markers.
+	    m_ittID = __itt_id_make(&m_ittID, (unsigned long long)this);
+	    __itt_id_create(m_pGPAData->pDeviceDomain, m_ittID);
+    }
+#endif
+}
+
+DispatcherCommand::~DispatcherCommand()
+{
+#if defined(USE_ITT)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    {
+	    __itt_id_destroy(m_pGPAData->pDeviceDomain, m_ittID);
+    }
+#endif
 }
 
 inline WGContext* DispatcherCommand::GetWGContext(unsigned int id)
@@ -235,58 +248,40 @@ bool ReadWriteMemObject::Execute()
 	}
 
 	// Execute copy routine
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
 
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
+#endif
+		__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
 
-		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
-
+#if defined(USE_GPA)
 		TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"), 255, 0, 0);
+#endif
 
-		switch(cmdParams->dim_count)
-		{
-#if defined(_M_X64)
-		case 1:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64, 1, &sCpyParam.vRegion[0]);
-			break;
-		case 2:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			break;
-		case 3:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
-			break;
-#else
-		case 1:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			break;
-		case 2:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			break;
-		case 3:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
-			break;
-#endif
-		}
+		// Copy dimensions to 64 bit, for uniformity.
+		cl_ulong copyParams64[MAX_WORK_DIM];
+		copyParams64[0] = sCpyParam.vRegion[0];
+		copyParams64[1] = cmdParams->region[1];
+		copyParams64[2] = cmdParams->region[2];
+
+        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pSizeHandle, __itt_metadata_u64, cmdParams->dim_count, copyParams64);
 	}
-#endif
+#endif // ITT
 
 	clCopyMemoryRegion(&sCpyParam);
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
+#endif
 		__itt_task_end(m_pGPAData->pDeviceDomain);
 	}
-#endif
+#endif // ITT
 
 #ifdef _DEBUG_PRINT
 	printf("--> ReadWriteMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
@@ -408,57 +403,37 @@ bool CopyMemObject::Execute()
 	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] *= uiSrcElementSize;
 
+#if defined(USE_ITT)
 	// Execute copy routine
-#if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
-
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
-		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pCopyHandle);
-		TAL_SetNamedTaskColor("Copy", 255, 0, 0);
-
-		switch(cmdParams->src_dim_count)
-		{
-#if defined(_M_X64)
-		case 1:
-			
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			break;
-		case 2:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			break;
-		case 3:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u64 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u64 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u64 , 1, &cmdParams->region[2]);
-			break;
-#else
-		case 1:
-			
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pSizeHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			break;
-		case 2:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			break;
-		case 3:
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWidthHandle, __itt_metadata_u32 , 1, &sCpyParam.vRegion[0]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pHeightHandle, __itt_metadata_u32 , 1, &cmdParams->region[1]);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pDepthHandle, __itt_metadata_u32 , 1, &cmdParams->region[2]);
-			break;
 #endif
-		}
+		__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pCopyHandle);
+#if defined(USE_GPA)
+		TAL_SetNamedTaskColor("Copy", 255, 0, 0);
+#endif
+
+		// Copy dimensions to 64 bit, for uniformity.
+		cl_ulong copyParams64[MAX_WORK_DIM];
+		copyParams64[0] = sCpyParam.vRegion[0];
+		copyParams64[1] = cmdParams->region[1];
+		copyParams64[2] = cmdParams->region[2];
+
+        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pSizeHandle, __itt_metadata_u64 , cmdParams->src_dim_count, copyParams64);
 	}
-#endif	
+#endif // ITT
 	
 	// Execute copy routine
 	clCopyMemoryRegion(&sCpyParam);
 
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
+#endif
 		__itt_task_end(m_pGPAData->pDeviceDomain);
 	} 
 #endif
@@ -497,7 +472,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 	if ( NULL == pArgV )
 	{
 #ifdef _DEBUG
-		CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%S"), TEXT("Can't allocate memory for parameters"));
+		CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"), TEXT("Can't allocate memory for parameters"));
 #endif
 		delete pCommand;
 		return CL_DEV_OUT_OF_MEMORY;
@@ -621,20 +596,24 @@ bool MapMemObject::Execute()
 	printf("--> MapMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
-	// Write Map task to TAL trace
-#if defined(USE_GPA)
+#if defined(USE_ITT)
+	// Write Map task to ITT trace
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
-		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pMapHandle);
-		TAL_SetNamedTaskColor("Map", 255, 0, 0);
-	}
 #endif
-
+		__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pMapHandle);
 #if defined(USE_GPA)
+		TAL_SetNamedTaskColor("Map", 255, 0, 0);
+#endif
+	}
+
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
+#endif
 		__itt_task_end(m_pGPAData->pDeviceDomain);
 	} 
 #endif
@@ -733,6 +712,19 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITas
 
 	assert(pTask);
 	*pTask = static_cast<ITaskBase*>(pCommand);
+
+#if defined (USE_ITT)
+    if ((NULL != pCommand->m_pGPAData) && (pCommand->m_pGPAData->bUseGPA))
+    {
+	    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCommand->m_pCmd->params;
+	    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+
+	    char  strTaskName[ITT_TASK_NAME_LEN];
+	    SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s %lu", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
+	    pCommand->m_pTaskNameHandle = __itt_string_handle_create(strTaskName);
+    }
+#endif
+
 	return CL_DEV_SUCCESS;
 }
 
@@ -968,15 +960,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 		return clRet;
 	}
 
-#if defined(USE_GPA)
-	// This code was removed for the initial porting of TAL
-	// to GPA 4.0 and might be used in later stages
-//	if (m_bUseTaskalyzer)
-//	{
-//		m_talKernelNameHandle = TAL_GetStringHandle(m_pBinary->GetKernel()->GetKernelName());
-//		m_talRGBColor = RGBTable[(RGBTableCounter++) % COLOR_TABLE_SIZE];
-//	}
-#endif
 	// Update buffer parameters
     m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
 	m_pMemBuffSizes = new size_t[m_MemBuffCount];
@@ -1068,7 +1051,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	WGContext* pCtx = GetWGContext(uiWorkerId);
 	if ( NULL == pCtx )
 	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
 #ifdef _DEBUG
 	--m_lAttaching ;
@@ -1081,7 +1064,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 		cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 		if ( CL_DEV_FAILED(ret) )
 		{
-			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
 			m_lastError = (int)ret;
 	#ifdef _DEBUG
 			--m_lAttaching ;
@@ -1092,35 +1075,19 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 
 	pCtx->GetExecutable()->PrepareThread();
 
+#if defined(USE_ITT)
 	// Start execution task
-#if defined(USE_GPA)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+		#if defined(USE_GPA)
 		__itt_set_track(NULL);
-
-		char pWGRangeString[GPA_RANGE_STRING_SIZE];
+		#endif
 	
 		unsigned int uiWorkGroupSize = 1;
 		const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-        const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 
-
-		switch(cmdParams->work_dim)
-		{
-		case 1:
-			sprintf_s(pWGRangeString, "%d - %d", firstWGID[0], lastWGID[0]);
-			break;
-		case 2:
-			sprintf_s(pWGRangeString, "%d.%d - %d.%d", firstWGID[0], firstWGID[1], lastWGID[0], lastWGID[1]);
-			break;
-		case 3:
-			sprintf_s(pWGRangeString, "%d.%d.%d - %d.%d.%d", firstWGID[0], firstWGID[1], firstWGID[2], lastWGID[0], lastWGID[1], lastWGID[2]);
-			break;
-		}
-		
-        __itt_string_handle* pKernelNameHandle = __itt_string_handle_createA(pKernel->GetKernelName());
-		__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pKernelNameHandle);
+		__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pTaskNameHandle);
 		// This coloring will be enabled in the future
 		//TAL_SetNamedTaskColor(m_pBinary->GetKernel()->GetKernelName(), getR(m_talRGBColor), getG(m_talRGBColor), getB(m_talRGBColor));
 		for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
@@ -1128,17 +1095,25 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 			uiWorkGroupSize *= (unsigned int)pWGSize[i];
 		}
 		
-		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
 
-#if defined(_M_X64)
-		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &uiNumberOfWorkGroups);
-#else
-		__itt_metadata_add(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u32 , 1, &uiNumberOfWorkGroups);
-#endif
+		cl_ulong numOfWGs64 = uiNumberOfWorkGroups;
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &numOfWGs64);
 
-			__itt_metadata_str_addA(m_pGPAData->pDeviceDomain, __itt_null, m_pGPAData->pWorkGroupRangeHandle, pWGRangeString, GPA_RANGE_STRING_SIZE);
+		// Make sure all values are 64 bit.
+		cl_ulong firstWGID64[MAX_WORK_DIM];
+		cl_ulong lastWGID64[MAX_WORK_DIM];
+		for (int i=0 ; i < MAX_WORK_DIM ; ++i)
+		{
+			firstWGID64[i] = firstWGID[i];
+			lastWGID64[i]  = lastWGID[i];
 		}
-#endif
+
+		// Do not use string metadata, it is VERY slow.
+        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pStartPos, __itt_metadata_u64 , cmdParams->work_dim, firstWGID64);
+		__itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pEndPos, __itt_metadata_u64 , cmdParams->work_dim, lastWGID64);
+	}
+#endif // ITT
 
 #ifdef _DEBUG
 	-- m_lAttaching;
@@ -1150,13 +1125,16 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 int NDRange::DetachFromThread(unsigned int uiWorkerId)
 {
 	// End execution task
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
+#if defined(USE_GPA)
 		__itt_set_track(NULL);
+#endif
 		__itt_task_end(m_pGPAData->pDeviceDomain);
 	}
-#endif
+#endif // ITT
+
     WGContext* pCtx = GetWGContext(uiWorkerId);
     int ret = pCtx->GetExecutable()->RestoreThreadState();
 

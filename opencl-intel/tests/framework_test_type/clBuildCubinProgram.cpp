@@ -57,7 +57,7 @@ bool clBuildCudaProgramTest()
 	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -69,7 +69,7 @@ bool clBuildCudaProgramTest()
 	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -77,7 +77,7 @@ bool clBuildCudaProgramTest()
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 	printf("context = %d\n", context);

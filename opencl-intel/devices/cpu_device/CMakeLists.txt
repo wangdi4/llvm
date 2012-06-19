@@ -16,10 +16,7 @@ include_directories( BEFORE ../../backend/ocl_cpu_backend/export
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR} )
 							
-if(WIN32)
-include_directories(
-						${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/include )
-endif(WIN32)
+include( ../../cmake_utils/itt.cmake )
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
@@ -47,18 +44,16 @@ if(WIN32)
 link_directories(
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
 					${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
-					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
 				)
 else(WIN32)
 link_directories(
 					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
 					${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
-					${CMAKE_CURRENT_SOURCE_DIR}/../../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX} 
 				)
 endif(WIN32)
 
 if (WIN32)
-     add_definitions( -D_WINDOWS -DUSE_GPA )
+     add_definitions( -D_WINDOWS )
 else ()
 	add_definitions( -D_LINUX )
  	message( WARNING " ERROR-in-CPU-device: Task Analizer DLLs for Linux are not ready yet" )

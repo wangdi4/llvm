@@ -295,7 +295,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         if (CL_FAILED(clErr) || NULL == pContext)
         {
-            LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+            LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
             if (NULL != pErrcodeRet)
             {
                 *pErrcodeRet = CL_INVALID_CONTEXT;
@@ -308,7 +308,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr);
         if (CL_FAILED(clErr))
         {
-            LOG_ERROR(TEXT("%S"), TEXT("Parameter check failed"));
+            LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
             if (NULL != pErrcodeRet)
             {
                 *pErrcodeRet = clErr;
@@ -319,7 +319,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     	clErr = CheckContextSpecificParameters(pContext, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, 0);
     	if (CL_FAILED(clErr))
     	{
-    		LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+    		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
             if (NULL != pErrcodeRet)
             {
     		    *pErrcodeRet = clErr;
@@ -332,7 +332,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         clErr = pContext->CreateImage<DIM, OBJ_TYPE>(clFlags, clImageFormat, pHostPtr, szDims, szPitches, &pImage, bIsImageBuffer);
         if (CL_FAILED(clErr))
         {
-            LOG_ERROR(TEXT("pContext->CreateImage(%d, %d, %d, %d, %d, %d, %d, %d, %d) = %S"), clFlags, clImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, &pImage, ClErrTxt(clErr));
+            LOG_ERROR(TEXT("pContext->CreateImage(%d, %d, %d, %d, %d, %d, %d, %d, %d) = %s"), clFlags, clImageFormat, pHostPtr, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, &pImage, ClErrTxt(clErr));
             if (NULL != pErrcodeRet)
             {
                 *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -342,7 +342,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         clErr = m_mapMemObjects.AddObject(pImage, false);
         if (CL_FAILED(clErr))
         {
-            LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pImage, pImage->GetHandle(), ClErrTxt(clErr))
+            LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pImage, pImage->GetHandle(), ClErrTxt(clErr))
                 if (NULL != pErrcodeRet)
                 {
                     *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -378,7 +378,7 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
     
     if (CL_FAILED(clErr) || NULL == pContext)
     {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %S , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
@@ -442,7 +442,7 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
     clErr = pD3DContext->CreateD3DResource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, plane);
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("pD3DContext->CreateD3DResource(%d, %d, %d, %d) = %S"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
+        LOG_ERROR(TEXT("pD3DContext->CreateD3DResource(%d, %d, %d, %d) = %s"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -452,7 +452,7 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
     clErr = m_mapMemObjects.AddObject(pMemObj, false);
     if (CL_FAILED(clErr))
     {
-        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
+        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);

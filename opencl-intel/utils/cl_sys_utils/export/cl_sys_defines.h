@@ -63,10 +63,15 @@
 #define CL_MAX_UINT32	UINT_MAX
 #define API_FUNCTION
 #define ASM_FUNCTION
-#define CDECL   __attribute((cdecl))
+// A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
+#if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
+	#define CDECL
+#else
+	#define CDECL   __attribute__((cdecl))
+#endif
 #define STDCALL
 
-#define PACKED  __attribute ((packed))
+#define PACKED  __attribute__((packed))
 #define PACK_ON
 #define PACK_OFF
 #define UNUSED(var) var  __attribute__((unused))
@@ -112,14 +117,10 @@ typedef int errno_t;
 #if defined (_WIN32)
 
 #define MEMCPY_S                          memcpy_s
-#define MULTIBYTE_TO_WIDE_CHARACTER_S	::mbstowcs_s
 #define STRCPY_S                          strcpy_s
 #define STRCAT_S                          strcat_s
 #define STRTOK_S                          strtok_s
 #define SPRINTF_S                         sprintf_s
-#define WCSCAT_S                          wcscat_s
-#define SWPRINTF_S                        swprintf_s
-#define WCSCPY_S                          wcscpy_s
 #define VSPRINTF_S                        vsprintf_s
 
 typedef unsigned long long               affinityMask_t;
@@ -134,14 +135,10 @@ typedef unsigned long long               affinityMask_t;
 #include "cl_secure_string_linux.h"
 
 #define MEMCPY_S                        Intel::OpenCL::Utils::safeMemCpy
-#define MULTIBYTE_TO_WIDE_CHARACTER_S   Intel::OpenCL::Utils::safeMbToWc
 #define STRCPY_S                        Intel::OpenCL::Utils::safeStrCpy
 #define STRCAT_S                        Intel::OpenCL::Utils::safeStrCat
 #define STRTOK_S                        Intel::OpenCL::Utils::safe_strtok
 #define SPRINTF_S                       snprintf
-#define WCSCAT_S                        Intel::OpenCL::Utils::safeWStrCat
-#define SWPRINTF_S                      Intel::OpenCL::Utils::safeWStrPrintf
-#define WCSCPY_S                        Intel::OpenCL::Utils::safeWStrCpy
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
 #include <sched.h>

@@ -92,7 +92,7 @@ bool clLinkProgramTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -104,7 +104,7 @@ bool clLinkProgramTest()
 	{
 		delete []pDevices;
 
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -112,7 +112,7 @@ bool clLinkProgramTest()
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		return false;
 	}
@@ -125,7 +125,7 @@ bool clLinkProgramTest()
 
         delete []pDevices;
 
-		printf("clCreateCommandQueue = %ws\n",ClErrTxt(iRet));
+		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -138,7 +138,7 @@ bool clLinkProgramTest()
         
 		delete []pDevices;
 
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -152,7 +152,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -167,7 +167,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -183,7 +183,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCompileProgram = %ws\n",ClErrTxt(iRet));
+		printf("clCompileProgram = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -199,7 +199,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -216,7 +216,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -234,7 +234,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCompileProgram = %ws\n",ClErrTxt(iRet));
+		printf("clCompileProgram = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -252,7 +252,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCompileProgram = %ws\n",ClErrTxt(iRet));
+		printf("clCompileProgram = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -270,7 +270,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCompileProgram = %ws\n",ClErrTxt(iRet));
+		printf("clCompileProgram = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -293,7 +293,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCompileProgram = %ws\n",ClErrTxt(iRet));
+		printf("clCompileProgram = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -313,7 +313,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateKernel = %ws\n",ClErrTxt(iRet));
+		printf("clCreateKernel = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -338,7 +338,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateBuffer = %ws\n",ClErrTxt(iRet));
+		printf("clCreateBuffer = %s\n",ClErrTxt(iRet));
 		return false;
 	}
     
@@ -362,7 +362,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clCreateBuffer = %ws\n",ClErrTxt(iRet));
+		printf("clCreateBuffer = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -389,7 +389,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clEnqueueNDRangeKernel = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueNDRangeKernel = %s\n",ClErrTxt(iRet));
 		return false;
 	}
    
@@ -416,7 +416,7 @@ bool clLinkProgramTest()
 
 		delete []pDevices;
 
-		printf("clEnqueueReadBuffer = %ws\n",ClErrTxt(iRet));
+		printf("clEnqueueReadBuffer = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -441,7 +441,7 @@ bool clLinkProgramTest()
 
             delete []pDevices;
 
-		    printf("varification failed = %ws\n",ClErrTxt(iRet));
+		    printf("varification failed = %s\n",ClErrTxt(iRet));
 		    return false;
         }
     }

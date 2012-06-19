@@ -182,7 +182,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL != logDesc )
 	{
-		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, L"CPU Device: TaskDispatcher", &m_iLogHandle);
+		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: TaskDispatcher", &m_iLogHandle);
 		if(CL_DEV_SUCCESS != ret)
 		{
 			//TBD
@@ -190,7 +190,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 		}
 	}
 
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Created"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Created"));
 	
 	m_pTaskExecutor = GetTaskExecutor();	
 	m_pGPAData = m_pTaskExecutor->GetGPAData();
@@ -215,7 +215,7 @@ TaskDispatcher::~TaskDispatcher()
 	{	
 		TaskExecutor::GetTaskExecutor()->Deactivate();
 	}
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("TaskDispatcher Released"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)
 	{
 		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
@@ -312,7 +312,7 @@ createCommandList
 **************************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, void** OUT list)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Enter"));
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
 	assert( list );
     ITaskList* pList = NULL;
 

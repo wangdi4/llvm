@@ -173,7 +173,7 @@ bool opencl_printf_test()
             << ")"
             << endl;
 
-        fprintf(stderr, "ClErrTxt error: %ws\n", ClErrTxt(err.err()));
+        fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
         return false;
     }
 

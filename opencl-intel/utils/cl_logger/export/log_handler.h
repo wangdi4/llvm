@@ -26,10 +26,11 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <stdio.h>
+
 #include "cl_logger.h"
 #include "log_message.h"
 #include "cl_synch_objects.h"
-#include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -56,7 +57,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		LogHandler(){};
+		LogHandler() : m_handle(NULL)
+        {};
 
 		/******************************************************************************************
 		* Function: 	~LogHandler
@@ -65,7 +67,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual ~LogHandler(){};
+		virtual ~LogHandler()
+        {
+            delete m_handle;
+        };
 
 		/******************************************************************************************
 		* Function: 	Log
@@ -95,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code Init(ELogLevel level, const wchar_t* fileName, const wchar_t* title) =0;
+		virtual cl_err_code Init(ELogLevel level, const char* fileName, const char* title) =0;
 
 		/******************************************************************************************
 		* Function: 	Flush
@@ -110,7 +115,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	protected:
 
-		wchar_t*		m_handle;         // unique string handle representation
+		char*           m_handle;         // unique string handle representation
 		ELogLevel		m_logLevel;       // log handler log level (ignore levels < m_logLevel)
 		OclMutex		m_CS;             // Log function Critical Section object
 	};
@@ -135,7 +140,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		FileLogHandler(const wchar_t* handle);
+		FileLogHandler(const char* handle);
 
 		/******************************************************************************************
 		* Function: 	~FileLogHandler
@@ -157,7 +162,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const wchar_t* fileName, const wchar_t* title);
+		cl_err_code Init(ELogLevel level, const char* fileName, const char* title);
 
 		/******************************************************************************************
 		* Function: 	Log
@@ -182,7 +187,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		void Flush();
 
 	private:
-		wchar_t*	m_fileName;             // filename of the logging file
+		char*	m_fileName;             // filename of the logging file
 		FILE*   m_fileHandler;          // file handle of the logging file
 	};
 
@@ -207,7 +212,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		ConsoleLogHandler(const wchar_t* handle);
+		ConsoleLogHandler(const char* handle);
 
 		/******************************************************************************************
 		* Function: 	~ConsoleLogHandler
@@ -228,8 +233,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const wchar_t* fileName, const wchar_t* title = NULL);
-//		cl_err_code Init(ELogLevel level, wchar_t* fileName = NULL);
+		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = NULL);
 
 		/******************************************************************************************
 		* Function: 	Log
@@ -240,8 +244,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Date:			December 2008
 		******************************************************************************************/
 		void Log(LogMessage& logMessage);
-
-		void LogW(LogMessage& logMessage);
 
 		/******************************************************************************************
 		* Function: 	Flush

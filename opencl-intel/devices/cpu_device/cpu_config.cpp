@@ -30,22 +30,11 @@ using namespace Intel::OpenCL::CPUDevice;
 
 CPUDeviceConfig::CPUDeviceConfig()
 {
-	m_pConfigFile = NULL;
+    // BasicCLConfigWrapper
 }
+
 CPUDeviceConfig::~CPUDeviceConfig()
 {
-	Release();
+    // ~BasicCLConfigWrapper
 }
-cl_err_code CPUDeviceConfig::Initialize(std::string filename)
-{
-	m_pConfigFile = new ConfigFile(filename);
-	return CL_SUCCESS;
-}
-void CPUDeviceConfig::Release()
-{
-	if (NULL != m_pConfigFile)
-	{
-		delete m_pConfigFile;
-		m_pConfigFile = NULL;
-	}
-}
+

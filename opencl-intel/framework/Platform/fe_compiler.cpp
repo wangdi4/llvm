@@ -57,7 +57,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 {
 	FreeResources();
 
-	INIT_LOGGER_CLIENT(L"FrontEndCompiler", LL_DEBUG);
+	INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
 	if ( !m_dlModule.Load(psModuleName) )
 	{
@@ -68,7 +68,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 	m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
 	if ( NULL == m_pfnCreateInstance )
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Can't find entry function"));
+		LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
 		return CL_COMPILER_NOT_AVAILABLE;
 	}
 

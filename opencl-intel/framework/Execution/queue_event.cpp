@@ -34,8 +34,6 @@
 #include <assert.h>
 #include "cl_utils.h"
 
-#include "ocl_itt.h"
-
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
@@ -62,6 +60,15 @@ QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue) :
 	}
 
 	m_pGPAData = cmdQueue->GetGPAData();
+#if defined(USE_ITT)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	{
+	    // unique ID to pass all tasks, and markers.
+	    m_ittID = __itt_id_make(&m_ittID, (unsigned long long)this);
+	    __itt_id_create(m_pGPAData->pDeviceDomain, m_ittID);
+    }
+#endif
+
 }
 
 /******************************************************************
@@ -69,6 +76,12 @@ QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue) :
 ******************************************************************/
 QueueEvent::~QueueEvent()
 {
+#if defined(USE_ITT)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	{
+	    __itt_id_destroy(m_pGPAData->pDeviceDomain, m_ittID);
+    }
+#endif
 }
 
 /******************************************************************
@@ -322,26 +335,27 @@ long QueueEvent::RemovePendency(OCLObjectBase* pObj)
 OclEventState QueueEvent::SetEventState(OclEventState newColor)
 {
 	OclEventState retval = OclEvent::SetEventState(newColor);
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
-	{	
+	{
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
 			if (m_pGPAData->cStatusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
 			{
+				#if defined(USE_GPA)
 				// Write this data to the thread track
 				__itt_set_track(NULL);
+				#endif
 
-				char pMarkerString[64] = "Submitted - ";
-				const char* pCommandName = m_pCommand->GetCommandName();
-				strcat_s(pMarkerString, 64,pCommandName);
-				
-				__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
+				char  strMarkerString[ITT_TASK_NAME_LEN];
+				SPRINTF_S(strMarkerString, ITT_TASK_NAME_LEN, "Ready To Execute - %s",m_pCommand->GetCommandName());
+
+				__itt_string_handle* pMarker = __itt_string_handle_create(strMarkerString);
 				//Due to a bug in GPA 4.0 the marker is within a task
 				//Should be removed in GPA 4.1 
-				__itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, m_pGPAData->pMarkerHandle);
+				__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pMarkerHandle);
 				
-				__itt_marker(m_pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
+				__itt_marker(m_pGPAData->pDeviceDomain, m_ittID, pMarker, __itt_marker_scope_global);
 
 				__itt_task_end(m_pGPAData->pDeviceDomain);
 			}

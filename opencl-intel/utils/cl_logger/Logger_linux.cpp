@@ -119,39 +119,26 @@ void Logger::Log(ELogLevel level, ELogConfigField config, const char* psClientNa
     }
 }
 
-void Logger::LogW(ELogLevel level, ELogConfigField config, const wchar_t* psClientName, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, va_list va)
-{
-    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
-    for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
-    {
-        if (m_logHandlers[i] != NULL)
-        {
-            m_logHandlers[i]->LogW(logMessage);
-        }
-    }
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetLogHandlerParams
 /////////////////////////////////////////////////////////////////////////////////////////
-const wchar_t*  Logger::GetLogHandlerParams(const wchar_t* logHandler)
+const char* Logger::GetLogHandlerParams(const char* logHandler)
 {
     // not implemented yet
     assert(false);
-    return L"";
+    return "";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-LoggerClient::LoggerClient(const wchar_t* clientHandle, ELogLevel loglevel)
+LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
 {
     m_logLevel = loglevel;
 	m_eLogConfig =	(ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
 										LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
 	m_handle = NULL;
 }
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Dtor
@@ -177,63 +164,7 @@ void LoggerClient::Log(ELogLevel level, const char* sourceFile, const char* func
 
     va_end( va );
 }
-void LoggerClient::LogW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, ...)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    va_list va;
-    va_start(va, message);
 
-    Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
-
-    va_end( va );
-}
-void LoggerClient::LogW(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const wchar_t* message, ...)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    int err = 0;
-    size_t sourceFileSize = 0;
-    err = safeMbToWc(&sourceFileSize, NULL, 0, sourceFile, strlen(sourceFile));
-    if (err != 0)
-    {
-        return;
-    }
-    wchar_t* wSourceFile = (wchar_t*)malloc(sizeof(wchar_t) * sourceFileSize);
-    err = safeMbToWc(&sourceFileSize, wSourceFile, sourceFileSize, sourceFile, sourceFileSize - 1);
-    if (err != 0)
-    {
-        free(wSourceFile);
-        return;
-    }
-    size_t functionNameSize = 0;
-    err = safeMbToWc(&functionNameSize, NULL, 0, functionName, strlen(functionName));
-    if (err != 0)
-    {
-        return;
-    }
-    wchar_t* wFunctionName = (wchar_t*)malloc(sizeof(wchar_t) * functionNameSize);
-    err = safeMbToWc(&functionNameSize, wFunctionName, functionNameSize, functionName, functionNameSize - 1);
-    if (err != 0)
-    {
-        free(wSourceFile);
-        free(wFunctionName);
-        return;
-    }
-
-    va_list va;
-    va_start(va, message);
-
-    Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, wSourceFile, wFunctionName,  sourceLine, message, va);
-
-    va_end( va );
-    free(wSourceFile);
-    free(wFunctionName);
-}
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::LogArgList
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -245,13 +176,3 @@ void LoggerClient::LogArgList(ELogLevel level, const char* sourceFile, const cha
     }
 	Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
 }
-void LoggerClient::LogArgListW(ELogLevel level, const wchar_t* sourceFile, const wchar_t* functionName, __int32 sourceLine, const wchar_t* message, va_list va)
-{
-	if (m_logLevel > level)
-    {
-        return;
-    }
-	Logger::GetInstance().LogW(level, m_eLogConfig, m_handle, sourceFile, functionName,  sourceLine, message, va);
-}
-
-

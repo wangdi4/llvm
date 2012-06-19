@@ -13,25 +13,37 @@
 #include "cl_framework_alias_linux.h"
 #endif
 
+using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
+#if defined(USE_ITT)
 
+inline void __startITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID, const char *fnctName)
+{
+    ittID = __itt_id_make(&ittID, (unsigned long long)0);
+	__itt_id_create(pGPAData->pDeviceDomain, ittID);
+	__itt_string_handle* pAPINameHandle = __itt_string_handle_create(fnctName);
+	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
+}
 
-
-#if defined(USE_GPA)
+inline void __endITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID)
+{
+	__itt_task_end(pGPAData->pAPIDomain);
+    __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
+}
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
 if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 { \
-    __itt_string_handle* pAPINameHandle = __itt_string_handle_createA(__FUNCTION__); \
-    __itt_task_begin(pGPAData->pAPIDomain, __itt_null, __itt_null, pAPINameHandle); \
-} \
-return_type ret_val = module->function_call; \
-if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
-{ \
-	__itt_task_end(pGPAData->pAPIDomain); \
-} \
-return ret_val;
+    __itt_id ittID; \
+    __startITTTask(pGPAData, ittID, __FUNCTION__); \
+    return_type ret_val = module->function_call; \
+    __endITTTask(pGPAData, ittID); \
+    return ret_val; \
+} else { \
+    return module->function_call; \
+}
 
 #else
 
@@ -40,8 +52,6 @@ return module->function_call;
 
 #endif
 
-using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 ExtensionFunctionAddressResolveMap g_extFuncResolveMap;
 void* RegisterExtensionFunctionAddress(const char* pFuncName, void* pFuncPtr)

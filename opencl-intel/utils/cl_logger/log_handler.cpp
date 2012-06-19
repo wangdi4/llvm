@@ -25,16 +25,23 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "log_handler.h"
-#include "cl_synch_objects.h"
+// Eliminate Windows unsecure CRT code, to be able to use POSIX style functions.
+#define _CRT_SECURE_NO_WARNINGS 1
+
 #include <assert.h>
 #include <malloc.h>
 #include <string.h>
+
 #if !defined (_WIN32)
-#include <stdlib.h>
-#include "cl_secure_string_linux.h"
+    #include <stdlib.h>
+    #include "cl_secure_string_linux.h"
 #endif
+
 #include "cl_sys_defines.h"
+
+#include "log_handler.h"
+#include "cl_synch_objects.h"
+
 using namespace Intel::OpenCL::Utils;
 
 #if defined (_WIN32)
@@ -42,27 +49,34 @@ using namespace Intel::OpenCL::Utils;
 #else
     #define WCSDUP    wcsdup
 #endif
+
+#define MAX_STRDUP_SIZE 1024
+
+/**
+ * Safe version of strdup.
+ */
+char *strdup_safe(const char *src)
+{
+    size_t actual = strlen(src);
+    actual = (actual > MAX_STRDUP_SIZE) ? MAX_STRDUP_SIZE : actual;
+
+    char *retStr = (char*)malloc((actual+1) * sizeof(char));
+    if (NULL == retStr) return NULL;
+
+    STRCPY_S(retStr, actual+1, src);
+    return retStr;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::FileLogHandler(const wchar_t* handle)
+FileLogHandler::FileLogHandler(const char* handle) :
+    m_fileName(NULL), m_fileHandler(NULL)
 {
     if (NULL != handle)
     {
-        m_handle = WCSDUP(handle);
-
-        if (NULL != m_handle)
-		{
-            WCSCPY_S(m_handle, wcslen(handle) + 1, handle);
-		}
-        else
-		{
-            m_handle = NULL;
-		}
+        m_handle = strdup_safe(handle);
     }
-
-    m_fileName   = NULL;
-    m_fileHandler = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -70,22 +84,20 @@ FileLogHandler::FileLogHandler(const wchar_t* handle)
 /////////////////////////////////////////////////////////////////////////////////////////
 FileLogHandler::~FileLogHandler()
 {
+    free(m_handle);
     if (m_fileHandler)
 	{
         fclose(m_fileHandler);
 	}
 
-    if (m_fileName)
-	{
-        free(m_fileName);
-	}
+    free(m_fileName);
 }
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(ELogLevel level, const wchar_t* fileName, const wchar_t* title)
+cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const char* title)
 {
     if (m_handle == NULL)
 	{
@@ -94,53 +106,26 @@ cl_err_code FileLogHandler::Init(ELogLevel level, const wchar_t* fileName, const
 
     m_logLevel = level;       // retrieve this info from Logger (not implemented yet)
 
-    m_fileName = WCSDUP(fileName);
+    m_fileName = strdup_safe(fileName);
     if (m_fileName)
     {
-#if defined (_WIN32)
-        errno_t err;
-
-        if(err = _wfopen_s(&m_fileHandler, m_fileName, L"wt" ))
+        m_fileHandler = fopen(m_fileName, "w" );
+        if(NULL == m_fileHandler)
         {
-            wprintf(L"can't open log file for writing\n");
+            printf("can't open log file for writing\n");
             return CL_ERR_LOGGER_FAILED;
         }
-#else
-	/* Win32 can open a file which his name type is wchar_t* (Unicode)
-	Linux OS can open file which his name type is char* only, so I have to
-	convert the input filename from wchar_t* to char* */
-	// wcstombs convert from wchar_t* to char*, but because the destination buffer is NULL,
-	//	it returns the size of the source buffer (m_fileName)
-	int tFileNameSize = wcstombs(NULL,m_fileName,0)+1;
-	if (tFileNameSize <= 0)
-	{
-	    printf("can't open log file for writing\n");
-            return CL_ERR_LOGGER_FAILED;
-	}
-	char* tFileName = (char*)malloc(sizeof(char) * tFileNameSize);
-	// convert wchar_t* to char*.
-	wcstombs(tFileName, m_fileName, tFileNameSize);
-	m_fileHandler = fopen(tFileName, "w");
-	free(tFileName);
-	if (NULL == m_fileHandler)
-	{
-	    printf("can't open log file for writing\n");
-            return CL_ERR_LOGGER_FAILED;
-	}
-
-#endif
-        assert (m_fileHandler != NULL);
 
 		{
 			// Lock
 			OclAutoMutex CS(&m_CS);
-			const wchar_t* pTitle = (NULL == title) ?
-				L"\n##########################################################################################################\n" :
+			const char* pTitle = (NULL == title) ?
+				"\n##########################################################################################################\n" :
 				title;
 
-			if (!fwprintf(m_fileHandler, pTitle) )
+			if (!fprintf(m_fileHandler, pTitle) )
 			{
-				wprintf(L"fwrite failed\n");
+				printf("fwrite failed\n");
 				assert(false);
 				return CL_ERR_LOGGER_FAILED;
 			}
@@ -172,7 +157,7 @@ void FileLogHandler::Log(LogMessage& logMessage)
         OclAutoMutex CS(&m_CS);
         if (!fprintf(m_fileHandler, "%s", formattedMsg) )
         {
-            wprintf(L"fwrite failed\n");
+            printf("fwrite failed\n");
             assert(false);
             return;
         }
@@ -192,13 +177,13 @@ void FileLogHandler::LogW(LogMessage& logMessage)
         return;
     }
 
-    wchar_t* formattedMsg = logMessage.GetFormattedMessageW();
+    char* formattedMsg = logMessage.GetFormattedMessage();
     {
         // Lock
         OclAutoMutex CS(&m_CS);
-        if (!fwprintf(m_fileHandler, formattedMsg) )
+        if (!fprintf(m_fileHandler, formattedMsg) )
         {
-            wprintf(L"fwrite failed\n");
+            printf("fwrite failed\n");
             assert(false);
             return;
         }
@@ -224,23 +209,19 @@ void FileLogHandler::Flush()
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-ConsoleLogHandler::ConsoleLogHandler(const wchar_t* handle)
+ConsoleLogHandler::ConsoleLogHandler(const char* handle)
 {
     if (handle)
     {
-        m_handle = WCSDUP(handle);
-
-        if (m_handle)
-            WCSCPY_S(m_handle, wcslen(handle) + 1, handle);
-        else
-            m_handle = NULL;
+        free(m_handle);
+        m_handle = strdup_safe(handle);
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // ConsoleLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code ConsoleLogHandler::Init(ELogLevel level, const wchar_t* fileName, const wchar_t* title)
+cl_err_code ConsoleLogHandler::Init(ELogLevel level, const char* fileName, const char* title)
 {
     if (m_handle == NULL)
 	{
@@ -276,23 +257,6 @@ void ConsoleLogHandler::Log(LogMessage& logMessage)
         // Lock
         OclAutoMutex CS(&m_CS);
         fprintf ( stdout, "%s", formattedMsg) ;
-        Flush();
-        // UnLock
-    }
-}
-void ConsoleLogHandler::LogW(LogMessage& logMessage)
-{
-    if (m_logLevel > logMessage.GetLogLevel())
-    {
-        // ignore messages with lower log level
-        return;
-    }
-
-    wchar_t* formattedMsg = logMessage.GetFormattedMessageW();
-    {
-        // Lock
-        OclAutoMutex CS(&m_CS);
-        fwprintf ( stdout, formattedMsg) ;
         Flush();
         // UnLock
     }

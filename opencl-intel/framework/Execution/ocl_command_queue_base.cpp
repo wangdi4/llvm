@@ -32,31 +32,39 @@ using namespace Intel::OpenCL::Framework;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
-#if defined(USE_GPA)
+#if defined(USE_ITT)
 	ocl_gpa_data* pGPAData = m_pContext->GetGPAData();
+	// unique ID to pass all tasks, and markers.
+	__itt_id ittID;
 
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 	{
+        ittID = __itt_id_make(&ittID, (unsigned long long)pCommand);
+	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
+
 		if (pGPAData->cStatusMarkerFlags & GPA_SHOW_QUEUED_MARKER)
 		{
+			#if defined(USE_GPA)
 			// Write this data to the thread track
 			__itt_set_track(NULL);
+			#endif
 
-			char pMarkerString[64] = "Queued - ";
-			const char* pCommandName = pCommand->GetCommandName();
-			strcat_s(pMarkerString, 64,pCommandName);
+			char pMarkerString[ITT_TASK_NAME_LEN];
+			SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Enqueued - %s", pCommand->GetCommandName());
 
-			__itt_string_handle* pMarker = __itt_string_handle_createA(pMarkerString);
+			__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
 
 			//Due to a bug in GPA 4.0 the marker is within a task
 			//Should be removed in GPA 4.1  
-			__itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pMarker);
-
-			__itt_marker(pGPAData->pDeviceDomain, __itt_null, pMarker, __itt_marker_scope_global);
-			
+			__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
+			__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
+			cl_ushort isBlocking = bBlocking ? 1 : 0;
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pIsBlocking, __itt_metadata_u16, 1, &isBlocking);
+			__itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pNumEventsInWaitList, __itt_metadata_u32 , 1, &uNumEventsInWaitList);
 			__itt_task_end(pGPAData->pDeviceDomain);		
 		}
 
+		#if defined(USE_GPA)
 		if ((pGPAData->bEnableContextTracing) && (NULL != pCommand->GPA_GetCommand()))
 		{
 			// Set custom track 
@@ -70,8 +78,13 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 			__itt_task_begin_overlapped(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, __itt_null, pCommand->GPA_GetCommand()->m_strCmdName);
 			__ittx_task_set_state(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, pGPAData->pWaitingTaskState);
 		}
-	}
-#endif
+		#endif
+	
+        __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
+    }
+
+
+#endif // ITT
 	cl_err_code errVal = CL_SUCCESS;
 	// If blocking and no event, than it is needed to create dummy cl_event for wait
 	cl_event waitEvent = NULL;

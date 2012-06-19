@@ -52,7 +52,7 @@ bool clBuildProgramMaxArgsTest()
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -67,7 +67,7 @@ bool clBuildProgramMaxArgsTest()
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 

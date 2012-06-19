@@ -76,7 +76,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
-	LOG_DEBUG(TEXT("%S"), TEXT("Context constructor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Context constructor enter"));
 
 	m_bTEActivated = GetTaskExecutor()->Activate();
 	if ( !m_bTEActivated )
@@ -271,7 +271,7 @@ void Context::Cleanup( bool bTerminate )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::~Context()
 {
-	LOG_DEBUG(TEXT("%S"), TEXT("Context destructor enter"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Context destructor enter"));
     LOG_DEBUG(TEXT("CONTEXT_TEST: Context destructor enter. (id = %d)"), m_iId);
 
     //
@@ -395,7 +395,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	// check input parameters
 	if (NULL == ppProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
 		return CL_INVALID_VALUE;
 	}
 	cl_err_code clErrRet = CL_SUCCESS;
@@ -439,14 +439,14 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
     // check input parameters
 	if (NULL == ppProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
 		return CL_INVALID_VALUE;
 	}
 
     if (NULL == pclDeviceList || 0 == uiNumDevices)
 	{
 		// invalid input args
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
 		return CL_INVALID_VALUE;
 	}
 
@@ -455,7 +455,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
 	if (NULL == ppDevices)
 	{
 		// can't allocate memory for devices
-		LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
+		LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
@@ -463,7 +463,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
 	bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
 	if (false == bRes)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+		LOG_ERROR(TEXT("%s"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
 		delete[] ppDevices;
 		return CL_INVALID_DEVICE;
 	}
@@ -474,7 +474,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint				IN  uiNumDevices,
 
 	if (!pProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+		LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -632,7 +632,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
 	if (0 == uiNumDevices || NULL == pclDevices)
 	{
 		// invalid inputs
-		LOG_ERROR(TEXT("%S"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+		LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
 		return false;
 	}
 	Device* pDevice;
@@ -658,7 +658,7 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclD
 	if (0 == uiNumDevices || NULL == pclDevices)
 	{
 		// invalid inputs
-		LOG_ERROR(TEXT("%S"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+		LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
 		return false;
 	}
 	cl_err_code clErrRet = CL_SUCCESS;
@@ -695,7 +695,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
 	{
 		// invalid input args
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
 		return CL_INVALID_VALUE;
 	}
 	// check items in pszLengths and in ppBinaries
@@ -717,7 +717,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	if (NULL == ppDevices)
 	{
 		// can't allocate memory for devices
-		LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
+		LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
@@ -725,7 +725,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
 	if (false == bRes)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+		LOG_ERROR(TEXT("%s"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
 		delete[] ppDevices;
 		return CL_INVALID_DEVICE;
 	}
@@ -736,7 +736,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 
 	if (!pProgram)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+		LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -796,14 +796,14 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_NONE, this, ppBuffer);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new buffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new buffer, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
 	clErr = (*ppBuffer)->Initialize(clFlags, NULL, 1, &szSize, NULL, pHostPtr, 0);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %s"), ClErrTxt(clErr));
 		(*ppBuffer)->Release();
 		return clErr;
 	}
@@ -870,7 +870,7 @@ cl_err_code Context::CreateSubBuffer(MemoryObject* pBuffer, cl_mem_flags clFlags
 	clErr = pBuffer->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error initializing sub buffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error initializing sub buffer, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
@@ -915,7 +915,7 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
 	clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, pClImageDesc->image_type, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImageArr);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new Image3D, returned: %ws"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new Image3D, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
@@ -935,7 +935,7 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
     }	
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error Initialize new buffer, returned: %s"), ClErrTxt(clErr));
 		(*ppImageArr)->Release();
 		return clErr;
 	}
@@ -957,13 +957,13 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 
 	if ( (uiNumEntries == 0 && pclImageFormats != NULL) )
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
+		LOG_ERROR(TEXT("%s"), TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
 		return CL_INVALID_VALUE;
 	}
 
 	if (clType == CL_MEM_OBJECT_BUFFER)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D"));
+		LOG_ERROR(TEXT("%s"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D"));
 		return CL_INVALID_VALUE;
 	}
 
@@ -1011,7 +1011,7 @@ cl_ulong Context::GetMaxMemAllocSize()
 		return m_ulMaxMemAllocSize;
 	}
 
-	LOG_DEBUG(TEXT("%S"), TEXT("Enter GetDeviceMaxMemAllocSize"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter GetDeviceMaxMemAllocSize"));
 
 	cl_ulong ulMemAllocSize = 0;
 	
@@ -1042,7 +1042,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 {
 	assert ( "wrong input params" && ((psz2dWidth != NULL) || (psz2dHeight != NULL) || (psz3dWidth != NULL) || (psz3dHeight != NULL) || (psz3dDepth != NULL)) );
 
-	LOG_DEBUG(TEXT("%S"), TEXT("Enter GetMaxAllowedImageWidth"));
+	LOG_DEBUG(TEXT("%s"), TEXT("Enter GetMaxAllowedImageWidth"));
 
 	size_t sz2dWith = 0, sz2dHeight = 0, szMax2dWith = 0, szMax2dHeight = 0;
 	size_t sz3dWith = 0, sz3dHeight = 0, szMax3dWith = 0, szMax3dHeight = 0, sz3dDepth = 0, szMax3dDepth = 0;
@@ -1178,7 +1178,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode
 	cl_err_code clErr = pSampler->Initialize(this, bNormalizedCoords, clAddressingMode, clFilterMode);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new Sampler, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new Sampler, returned: %s"), ClErrTxt(clErr));
         pSampler->Release();
 		return clErr;
 	}

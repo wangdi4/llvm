@@ -55,12 +55,12 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl
 		}
 	}
 
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Created"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Created"));
 }
 
 MemoryAllocator::~MemoryAllocator()
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("MemoryAllocator Distructed"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Distructed"));
 
 	if (0 != m_iLogHandle)
 	{
@@ -98,7 +98,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 					 IOCLDevRTMemObjectService* pRTMemObjService,
 					 IOCLDevMemoryObject*  *memObj)
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateObject enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateObject enter"));
 
 	assert(NULL != memObj);
 	assert(NULL != dim);
@@ -113,7 +113,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 															pRTMemObjService, m_pImageService);
 	if ( NULL == pMemObj )
 	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Memory Object allocation failed"));
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Memory Object allocation failed"));
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 
@@ -213,14 +213,14 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 		auxObject = ALIGNED_MALLOC( auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
 		if( NULL == auxObject )
 		{
-			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Allocate aux image object failed"));
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Allocate aux image object failed"));
 			return CL_DEV_ERROR_FAIL;
 		}
 
 		cl_dev_err_code rtErr = m_pImageService->CreateImageObject(&m_objDecr, (image_aux_data*)auxObject);
 		if( CL_DEV_FAILED(rtErr) )
 		{
-			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("Create image failed"));
+			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Create image failed"));
 			return CL_DEV_ERROR_FAIL;
 		}
 	}
@@ -232,7 +232,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseObject enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseObject enter"));
 
 	void* auxObject = NULL;
 	if(m_pImageService != NULL)
@@ -259,7 +259,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams)
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateMappedRegion enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateMappedRegion enter"));
 
 	pMapParams->memObj = this;
 
@@ -276,7 +276,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("ReleaseMappedRegion enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseMappedRegion enter"));
 	return CL_DEV_SUCCESS;
 }
 
@@ -306,7 +306,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore( 
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevMemObjUpdateBackingStore enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
     assert( NULL != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
     return CL_DEV_SUCCESS;
@@ -315,7 +315,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore(
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
     assert( NULL != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
     return CL_DEV_SUCCESS;
@@ -323,7 +323,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore(
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjInvalidateData( )
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevMemObjInvalidateData enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjInvalidateData enter"));
     return CL_DEV_SUCCESS;
 }
 
@@ -365,7 +365,7 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     if (CL_DEV_FAILED(bsErr) || (NULL == m_pBackingStore))
     {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("GetBackingStore failed"));
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBackingStore failed"));
         return CL_DEV_ERROR_FAIL;
     }    
     

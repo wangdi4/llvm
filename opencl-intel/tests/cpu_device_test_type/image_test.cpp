@@ -65,7 +65,7 @@ bool clGetSupportedImageFormats_Test()
 								   formats, &num_entries_ret);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevGetSupportedImageFormats failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevGetSupportedImageFormats failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -77,7 +77,7 @@ bool clGetSupportedImageFormats_Test()
 	
 	if (!CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevGetSupportedImageFormats failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevGetSupportedImageFormats failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -86,7 +86,7 @@ bool clGetSupportedImageFormats_Test()
 								   NULL, 0);
 	if (CL_DEV_FAILED(iRes)) //test suppose to fail
 	{
-		printf("pclDevGetSupportedImageFormats failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevGetSupportedImageFormats failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -95,7 +95,7 @@ bool clGetSupportedImageFormats_Test()
 								   NULL, &num_entries_ret);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevGetSupportedImageFormats failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevGetSupportedImageFormats failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -121,7 +121,7 @@ bool copyImage(bool profiling, IOCLDevMemoryObject* srcMemObj, IOCLDevMemoryObje
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	//Execute command
@@ -151,13 +151,13 @@ bool copyImage(bool profiling, IOCLDevMemoryObject* srcMemObj, IOCLDevMemoryObje
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -170,7 +170,7 @@ bool copyImage(bool profiling, IOCLDevMemoryObject* srcMemObj, IOCLDevMemoryObje
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -193,7 +193,7 @@ bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, u
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 		
@@ -236,13 +236,13 @@ bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, u
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -254,7 +254,7 @@ bool writeImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage, u
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -278,7 +278,7 @@ bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,uns
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 		
@@ -322,14 +322,14 @@ bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,uns
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -342,7 +342,7 @@ bool readImage(bool profiling, IOCLDevMemoryObject* memObj, void *pHostImage,uns
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -369,7 +369,7 @@ bool clReadWrite2DImage_Test(bool profiling)
 	
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		free(hostReadImage);
 		free(hostWriteImage);
 		return false;
@@ -413,7 +413,7 @@ bool clReadWrite2DImage_Test(bool profiling)
 	iRes = memObj->clDevMemObjRelease();
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -442,7 +442,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		free(hostReadImage);
 		free(hostWriteImage);
 		return false;
@@ -452,7 +452,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		free(hostReadImage);
 		free(hostWriteImage);
 		return false;
@@ -571,7 +571,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	if (CL_DEV_FAILED(iRes))
 	{
 		
-		printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -579,7 +579,7 @@ bool clCopy2DImageto2DImage_Test(bool profiling)
 	iRes = dstMemObj->clDevMemObjRelease();
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -602,7 +602,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -613,7 +613,7 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -675,13 +675,13 @@ bool clCopy2DImageToBuffer_Test(bool profiling)
 		iRes = srcMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	  
@@ -704,7 +704,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -715,7 +715,7 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -775,13 +775,13 @@ bool clCopyBufferToBuffer_Test(bool profiling)
 		iRes = srcMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	  
@@ -809,7 +809,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostReadImage);
 			free(hostWriteImage);
 			return false;
@@ -819,7 +819,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostReadImage);
 			free(hostWriteImage);
 			return false;
@@ -943,7 +943,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		if (CL_DEV_FAILED(iRes))
 		{
 			
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -951,7 +951,7 @@ bool clCopy3DImageto3DImage_Test(bool profiling)
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	
@@ -976,7 +976,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -989,7 +989,7 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -1052,13 +1052,13 @@ bool clCopy3DImageToBuffer_Test(bool profiling)
 		iRes = srcMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	  
@@ -1082,7 +1082,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -1095,7 +1095,7 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -1158,13 +1158,13 @@ bool clCopyBufferTo3DImage_Test(bool profiling)
 		iRes = srcMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	  
@@ -1193,7 +1193,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostReadImage);
 			free(hostWriteImage);
 			return false;
@@ -1203,7 +1203,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostReadImage);
 			free(hostWriteImage);
 			return false;
@@ -1325,7 +1325,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		if (CL_DEV_FAILED(iRes))
 		{
 			
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -1333,7 +1333,7 @@ bool clCopy3DImageto2DImage_Test(bool profiling)
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	
@@ -1362,7 +1362,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 	    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, dst_dim_count, dim, &localRTMemService, &dstMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostDstImage);
 			free(hostSourceImage);
 			return false;
@@ -1372,7 +1372,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		iRes = dev_entry->clDevCreateMemoryObject(0, flags, &format, src_dim_count, dim, &localRTMemService, &srcMemObj);
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			free(hostDstImage);
 			free(hostSourceImage);
 			return false;
@@ -1500,7 +1500,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		if (CL_DEV_FAILED(iRes))
 		{
 			
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 
@@ -1508,7 +1508,7 @@ bool clCopy2DImageto3DImage_Test(bool profiling)
 		iRes = dstMemObj->clDevMemObjRelease();
 		if (CL_DEV_FAILED(iRes))
 		{
-			printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+			printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 			return false;
 		}
 	

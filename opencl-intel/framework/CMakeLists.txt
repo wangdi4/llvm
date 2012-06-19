@@ -24,19 +24,11 @@ endif ()
 endif ()
 
 add_subdirectory( icd )
+
+include( ../cmake_utils/itt.cmake )
+
+# these sub-directories must be added here in order to recieve the ITT definitions
 add_subdirectory( Platform )
-
-if(WIN32)
-	include_directories(
-						${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/include
-				    )
-	link_directories(
-					${CMAKE_CURRENT_SOURCE_DIR}/../externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
-				)
-    add_definitions( -DUSE_GPA )
-endif(WIN32)
-
-# these sub-directories must be added here in order to recieve the GPA definitions
 add_subdirectory( Context )
 add_subdirectory( Execution )
 add_subdirectory( MemoryAllocator )

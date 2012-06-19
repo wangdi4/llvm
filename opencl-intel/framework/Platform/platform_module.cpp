@@ -92,7 +92,7 @@ PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
 	
 	memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
 	// initialize logger
-	INIT_LOGGER_CLIENT(L"PlatformModule", LL_DEBUG);
+	INIT_LOGGER_CLIENT("PlatformModule", LL_DEBUG);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::~PlatformModule
@@ -211,7 +211,7 @@ cl_err_code PlatformModule::ReleaseFECompilers(bool bTerminate)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig, ocl_gpa_data * pGPAData)
 {
-	LOG_INFO(TEXT("%S"), TEXT("Platform module logger initialized"));
+	LOG_INFO(TEXT("%s"), TEXT("Platform module logger initialized"));
 
 	m_pOclEntryPoints = pOclEntryPoints;
 
@@ -236,7 +236,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 	cl_err_code clErr = InitDevices(strDevices, strDefaultDevice);
 	if (CL_FAILED(clErr))
     {
-		LOG_CRITICAL(TEXT("%S"), TEXT("Failed to initialize devices compilers"));
+		LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
     }
 
 	return clErr;
@@ -248,7 +248,7 @@ cl_err_code	PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLCo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code	PlatformModule::Release(bool bTerminate)
 {
-	LOG_INFO(TEXT("%S"), TEXT("Enter Release"));
+	LOG_INFO(TEXT("%s"), TEXT("Enter Release"));
 
 	// release front-end compilers
 	ReleaseFECompilers(bTerminate);
@@ -263,7 +263,7 @@ cl_err_code	PlatformModule::Release(bool bTerminate)
 		m_ppRootDevices = NULL;
 	}
 
-	LOG_INFO(TEXT("%S"), TEXT("Platform module logger release"));
+	LOG_INFO(TEXT("%s"), TEXT("Platform module logger release"));
 	RELEASE_LOGGER_CLIENT;
 
 	return CL_SUCCESS;
@@ -281,7 +281,7 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
 	if ( ((0 == uiNumEntries) && (NULL != pclPlatforms)) ||
 		 ((NULL == puiNumPlatforms) && (NULL == pclPlatforms)) )
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("((0 == uiNumEntries) && (NULL != pclPlatforms)) || ((NULL == puiNumPlatforms) && (NULL != pclPlatforms))"));
+		LOG_ERROR(TEXT("%s"), TEXT("((0 == uiNumEntries) && (NULL != pclPlatforms)) || ((NULL == puiNumPlatforms) && (NULL != pclPlatforms))"));
 		return CL_INVALID_VALUE;
 	}
 
@@ -430,7 +430,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	if ((NULL != pclDevices && 0 == uiNumEntries) ||
 		(NULL == pclDevices && NULL == puiNumDevices))
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
+		LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
 		return CL_INVALID_VALUE;
 	}
 
@@ -452,14 +452,14 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	ppDevices = new Device * [uiNumDevices];
 	if (NULL == ppDevices)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
+		LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
     MEMCPY_S(ppDevices, uiNumDevices * sizeof(Device *), m_ppRootDevices, m_uiRootDevicesCount * sizeof(Device *));
 	pDeviceIds = new cl_device_id[uiNumDevices];
 	if (NULL == pDeviceIds)
 	{
-		LOG_ERROR(TEXT("%S"), TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
+		LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
         delete[] ppDevices;
 		return CL_OUT_OF_HOST_MEMORY;
 	}

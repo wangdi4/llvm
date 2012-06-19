@@ -100,60 +100,32 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	}
 
 #ifdef _DEBUG
-#define LogDebugW(DBG_PRINT, ...)		\
-    if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_DEBUG		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#else
-#define LogDebugW(DBG_PRINT, ...)
-#endif
-#define LogInfoW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_INFO		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogErrorW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_ERROR		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogCriticalW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_CRITICAL	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogStatisticW(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->LogW(Intel::OpenCL::Utils::LL_STATISTIC	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-
-#ifdef _DEBUG
 #define LogDebugA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(LL_DEBUG		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_DEBUG		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #else
 #define LogDebugA(DBG_PRINT, ...)
 #endif
 #define LogInfoA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(LL_INFO		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_INFO		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogErrorA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(LL_ERROR		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_ERROR		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogCriticalA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(LL_CRITICAL	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_CRITICAL	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define LogStatisticA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(LL_STATISTIC	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-
-#ifdef _DEBUG
-#define DbgLogW(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) (CLIENT)->LogW(LL_DEBUG		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#else
-#define DbgLogW(DBG_PRINT, ...)
-#endif
-#define InfoLogW(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) CLIENT->LogW(LL_INFO		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define ErrLogW(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) CLIENT->LogW(LL_ERROR		, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define CriticLogW(CLIENT, DBG_PRINT, ...)		\
-	if (CLIENT) CLIENT->LogW(LL_CRITICAL	, WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_STATISTIC	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 
 #ifdef _DEBUG
 #define DbgLogA(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) (CLIENT)->Log(LL_DEBUG		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT) (CLIENT)->Log(Intel::OpenCL::Utils::LL_DEBUG		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #else
 #define DbgLogA(DBG_PRINT, ...)
 #endif
 #define InfoLogA(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) CLIENT->Log(LL_INFO		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT) CLIENT->Log(Intel::OpenCL::Utils::LL_INFO		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define ErrLogA(CLIENT, DBG_PRINT, ...)			\
-	if (CLIENT) CLIENT->Log(LL_ERROR		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT) CLIENT->Log(Intel::OpenCL::Utils::LL_ERROR		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define CriticLogA(CLIENT, DBG_PRINT, ...)		\
-	if (CLIENT) CLIENT->Log(LL_CRITICAL	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT) CLIENT->Log(Intel::OpenCL::Utils::LL_CRITICAL	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 
 
 #ifdef _UNICODE

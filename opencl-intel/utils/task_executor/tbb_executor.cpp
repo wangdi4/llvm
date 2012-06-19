@@ -21,7 +21,6 @@
 // means config.h
 #include "tbb_executor.h"
 #include "Logger.h"
-#include <ocl_itt.h>
 
 #include <stdafx.h>
 #include <vector>
@@ -1169,7 +1168,7 @@ protected:
 TBBTaskExecutor::TBBTaskExecutor() :
 	m_pGrpContext(NULL), m_lActivateCount(0), m_pExecutorList(NULL)
 {
-	INIT_LOGGER_CLIENT(L"TBBTaskExecutor", LL_DEBUG);
+	INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_DEBUG);
 
 	m_threadPoolChangeObserver = new ThreadIDAssigner;
 	if ( NULL == m_threadPoolChangeObserver )

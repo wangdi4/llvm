@@ -31,8 +31,7 @@
 #include <cl_synch_objects.h>
 #include "queue_event.h"
 #include "ocl_event.h"
-
-struct ocl_gpa_data;
+#include "ocl_itt.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -99,6 +98,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	
 	private:
 		ocl_gpa_data*           m_pGPAData;
+	#if defined(USE_ITT)
+		__itt_id                m_ittID;
+	#endif
+
 	};
 
 }}}    // Intel::OpenCL::Framework

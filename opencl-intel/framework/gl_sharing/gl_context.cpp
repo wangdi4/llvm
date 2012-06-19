@@ -26,10 +26,14 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <cassert>
+
+#include "cl_logger.h"
+
 #include "gl_context.h"
 #include "gl_shr_utils.h"
 #include "device.h"
 #include "gl_mem_objects.h"
+
 #include <cl\cl_gl.h>
 #include <cl_utils.h>
 
@@ -148,14 +152,14 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Mem
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pBuffer);
 	if ( CL_FAILED(clErr) )
 	{
-		LOG_ERROR(TEXT("Error creating new GL buffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GL buffer, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
 	clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
 		pBuffer->Release();
 		return clErr;
 	}
@@ -178,7 +182,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new GLTexture2D, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GLTexture2D, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
@@ -190,7 +194,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 	clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %S", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}
@@ -212,14 +216,14 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_RENDERBUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(TEXT("Error creating new GLRederBuffer, returned: %S"), ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Error creating new GLRederBuffer, returned: %s"), ClErrTxt(clErr));
 		return clErr;
 	}
 
 	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(clErr))
 	{
-		LOG_ERROR(L"Failed to initialize data, pImage->Initialize(pHostPtr = %ws", ClErrTxt(clErr));
+		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
 		pImage->Release();
 		return clErr;
 	}

@@ -160,10 +160,10 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 /////////////////////////////////////////////////////////////////////////////////////////
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////
-void Intel::OpenCL::Utils::GetProcessName(wchar_t* pProcName, size_t strLen)
+void Intel::OpenCL::Utils::GetProcessName(char* pProcName, size_t strLen)
 {
 	assert(strLen <= MAXUINT32);
-	GetModuleFileNameW((HMODULE)NULL, pProcName, (DWORD)strLen);
+	GetModuleFileName((HMODULE)NULL, pProcName, (DWORD)strLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

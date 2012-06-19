@@ -988,8 +988,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Intermediate data
         MemoryObjectArgList                 m_MemOclObjects;
         std::list<OCLObject<_cl_mem_int>*>  m_NonMemOclObjects;
-        #if defined (USE_GPA)
-        void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* stringHandle) const;
+        #if defined (USE_ITT)
+        void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
         #endif
     };
     

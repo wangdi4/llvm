@@ -46,23 +46,6 @@ errno_t Intel::OpenCL::Utils::safeStrCpy(char* dst, size_t len, const char* src 
 	return 0;
 }
 
-errno_t Intel::OpenCL::Utils::safeWStrCpy(wchar_t* dst, size_t len, const wchar_t* src )
-{
-	errno = 0;
-	if ((src == NULL) || (dst == NULL))
-	{
-		errno = EINVAL;
-		return errno;
-	}
-	if ((len <= 0) || (wcsnlen(src, len) >= len))
-	{
-		errno = ERANGE;
-		return errno;
-	}
-	wcsncpy(dst, src, len);
-	return 0;
-}
-
 errno_t Intel::OpenCL::Utils::safeStrCat(char* dst, size_t len, const char* src )
 {
 	errno = 0;
@@ -86,30 +69,6 @@ errno_t Intel::OpenCL::Utils::safeStrCat(char* dst, size_t len, const char* src 
 	return 0;
 }
 
-errno_t Intel::OpenCL::Utils::safeWStrCat(wchar_t* dst, size_t len, const wchar_t* src )
-{
-	errno = 0;
-	if ((src == NULL) || (dst == NULL))
-	{
-		errno = EINVAL;
-		return errno;
-	}
-	if (len <= 0)
-	{
-		errno = ERANGE;
-		return errno;
-	}
-	size_t tRemain = len - wcsnlen(dst, len);
-	if (wcsnlen(src, len) >= tRemain)
-	{
-		errno = ERANGE;
-		return errno;
-	}
-	wcsncat(dst, src, tRemain -1);
-	return 0;
-}
-
-
 int Intel::OpenCL::Utils::safeStrPrintf(char* dst, size_t len, const char* format, ...)
 {
 	errno = 0;
@@ -128,32 +87,6 @@ int Intel::OpenCL::Utils::safeStrPrintf(char* dst, size_t len, const char* forma
 	size_t tSrcOrgSize = vsnprintf(dst, len, format, src);
 	va_end(src);
 	if (tSrcOrgSize >= len)
-	{
-		dst[0] = '\0';
-		errno = ERANGE;
-		return -1;
-	}
-	return tSrcOrgSize;
-}
-
-int Intel::OpenCL::Utils::safeWStrPrintf(wchar_t* dst, size_t len, const wchar_t* format, ...)
-{
-	errno = 0;
-	if ((format == NULL) || (dst == NULL))
-	{
-		errno = EINVAL;
-		return -1;
-	}
-	if (len <= 0)
-	{
-		errno = ERANGE;
-		return -1;
-	}
-	va_list src;
-	va_start(src, format);
-	size_t tSrcOrgSize = vswprintf(dst, len, format, src);
-	va_end(src);
-	if ((tSrcOrgSize == (size_t)-1) || (tSrcOrgSize >= len))
 	{
 		dst[0] = '\0';
 		errno = ERANGE;
@@ -192,66 +125,6 @@ errno_t Intel::OpenCL::Utils::safeMemCpy(void* dst, size_t numOfElements, const 
 		return errno;
 	}
 	memcpy(dst, src, count);
-	return 0;
-}
-
-errno_t Intel::OpenCL::Utils::safeMbToWc(size_t* pReturnValue, wchar_t* wcstr, size_t sizeInWords, const char* mbstr, size_t count)
-{
-	errno = 0;
-	if ((wcstr == NULL) && ((sizeInWords > 0) || (mbstr == NULL)))
-	{
-		errno = EINVAL;
-		return errno;
-	}
-	if ((wcstr != NULL) && ((count >= sizeInWords) || (mbstr == NULL)))
-	{
-		wcstr[0] = 0;
-		errno = ERANGE;
-		return errno;
-	}
-	size_t counter = 0;
-	mbstate_t state;
-	memset (&state, '\0', sizeof(state));
-	size_t len = strlen(mbstr);
-	wchar_t tmp[1];
-	size_t alreadyRead = 0;
-	size_t nBytes = 0;
-	while ((nBytes = mbrtowc (tmp, mbstr + alreadyRead, len - alreadyRead, &state)) > 0)
-	{
-		// Invalid input string.
-		if (nBytes >= (size_t)-2)
-		{
-			if (wcstr != NULL)
-			{
-				wcstr[0] = 0;
-			}
-			if (pReturnValue != NULL)
-			{
-				*pReturnValue = 0;
-			}
-			errno = EILSEQ;
-			return errno;
-		}
-		if (wcstr != NULL)
-		{
-			*(wcstr + counter) = tmp[0];
-		}
-		counter ++;
-		alreadyRead = alreadyRead + nBytes;
-		if ((wcstr != NULL) && (counter >= count))
-		{
-			break;
-		}
-	}
-	if (wcstr != NULL)
-	{
-		wcstr[counter] = 0;
-	}
-	if (pReturnValue != NULL)
-	{
-		*pReturnValue = counter + 1;
-	}
-
 	return 0;
 }
 

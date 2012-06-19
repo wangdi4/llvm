@@ -51,7 +51,7 @@ bool clBuildProgramTwiceTest()
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		return false;
 	}
 
@@ -63,7 +63,7 @@ bool clBuildProgramTwiceTest()
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ws\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
@@ -74,7 +74,7 @@ bool clBuildProgramTwiceTest()
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContext = %ws\n",ClErrTxt(iRet));
+		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
@@ -85,7 +85,7 @@ bool clBuildProgramTwiceTest()
     clProg = clCreateProgramWithSource(context, 1, ocl_test_program, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateProgramWithSource = %ws\n",ClErrTxt(iRet));
+		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
         delete []pDevices;
 	    delete []pBinarySizes;
 	    delete []pBinaryStatus;
@@ -98,7 +98,7 @@ bool clBuildProgramTwiceTest()
 	iRet = clBuildProgram(clProg, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
     if (CL_SUCCESS != iRet)
 	{
-		printf("first clBuildProgram = %ws\n",ClErrTxt(iRet));
+		printf("first clBuildProgram = %s\n",ClErrTxt(iRet));
         delete []pDevices;
 	    delete []pBinarySizes;
 	    delete []pBinaryStatus;
@@ -111,7 +111,7 @@ bool clBuildProgramTwiceTest()
     iRet = clBuildProgram(clProg, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
     if (CL_SUCCESS != iRet)
 	{
-		printf("second clBuildProgram = %ws\n",ClErrTxt(iRet));
+		printf("second clBuildProgram = %s\n",ClErrTxt(iRet));
         delete []pDevices;
 	    delete []pBinarySizes;
 	    delete []pBinaryStatus;
