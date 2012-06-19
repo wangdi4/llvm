@@ -234,6 +234,15 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 	return CL_SUCCESS;
 }
 
+bool FrontEndCompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions) const
+{
+    return m_pFECompiler->CheckCompileOptions(szOptions, szUnrecognizedOptions);
+}
+
+bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions) const
+{
+  return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions);
+}
 
 cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin, 
                                                const char*          szKernelName, 

@@ -215,144 +215,22 @@ ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 	}
 }
 
-void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts)
+void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const char *buildOpts)
 {
-  bool cl_std_set = false;
+    bool cl_std_set = false;
+    
+    ParseCompileOptions(buildOpts,
+                        NULL,
+                        &list,
+                        &cl_std_set,
+                        &OptDebugInfo,
+                        &OptProfiling,
+                        &Opt_Disable,
+                        &Denorms_Are_Zeros,
+                        &Fast_Relaxed_Math,
+                        &m_source_filename);
 
-    // Reset options
-    OptDebugInfo = false;
-    OptProfiling = false;
-    Opt_Disable = false;
-    Denorms_Are_Zeros = false;
-    Fast_Relaxed_Math = false;
-	
-    if (!buildOpts)
-        buildOpts = "";
-
-    // Parse the build options - handle the ones we understand and pass the
-    // rest into 'ignored'. Use " quoting to accept token with whitespace, but
-    // don't use escaping (since we only need path tokens).
-    //
-    vector<string> opts = quoted_tokenize(buildOpts, " \t", '"', '\x00');
-    vector<string>::const_iterator opt_i = opts.begin();
-    while (opt_i != opts.end()) {
-        if (*opt_i == "-g") {
-            list.push_back(*opt_i);
-            OptDebugInfo = true;
-        }
-        else if (*opt_i == "-profiling") {
-            // Pass -g on to clang to make it generate debug info
-            list.push_back("-g");
-            OptProfiling = true;
-        }
-        else if (*opt_i == "-w") {
-            list.push_back(*opt_i);
-        }
-        else if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) {
-            if (opt_i->length() == 2) {
-                // Definition is separated from the flag, so grab it from the
-                // next token
-                //
-                string flag = *opt_i;
-                if (++opt_i != opts.end()) {
-                    list.push_back(flag);
-                    list.push_back(*opt_i);
-                }
-                else {
-                    ignored.push_back(flag);
-                    continue;
-                }
-            }
-            else {
-                // Definition is attached to the flag, so pass it as is
-                //
-                list.push_back(*opt_i);
-            }
-        }
-        else if (*opt_i == "-s") {
-            // Expect the file name as the next token
-            //
-            if (++opt_i != opts.end()) {
-                m_source_filename = *opt_i;
-                // Normalize path to contain forward slashes
-                replace(
-                    m_source_filename.begin(), 
-                    m_source_filename.end(), 
-                    '\\', '/');
-
-                // On Windows only, normalize the filename to lowercase, since
-                // LLVM saves buffer names in a case-sensitive manner, while
-                // other Windows tools don't.
-                //
-#ifdef _WIN32
-                transform(
-                    m_source_filename.begin(),
-                    m_source_filename.end(),
-                    m_source_filename.begin(),
-                    ::tolower);
-#endif
-            }
-        }
-        else if (*opt_i == "-Werror") {
-            list.push_back(*opt_i);
-        }
-        else if (*opt_i == "-cl-single-precision-constant") {
-            list.push_back("-cl-single-precision-constant");
-        }
-        else if (*opt_i == "-cl-denorms-are-zero") {
-            list.push_back("-cl-denorms-are-zero");
-            Denorms_Are_Zeros = true;
-        }
-        else if (*opt_i == "-cl-fp32-correctly-rounded-divide-sqrt") {
-            list.push_back("-cl-fp32-correctly-rounded-divide-sqrt");
-        }
-        else if (*opt_i == "-cl-opt-disable") {
-            list.push_back("-cl-opt-disable");
-            Opt_Disable = true;
-        }
-        else if (*opt_i == "-cl-mad-enable") {
-            list.push_back("-cl-mad-enable");
-        }
-        else if (*opt_i == "-cl-no-signed-zeros") {
-            list.push_back("-cl-no-signed-zeros");
-        }
-        else if (*opt_i == "-cl-unsafe-math-optimizations") {
-            list.push_back("-cl-unsafe-math-optimizations");
-        }
-        else if (*opt_i == "-cl-finite-math-only") {
-            list.push_back("-cl-finite-math-only");
-			list.push_back("-D");
-            list.push_back("__FINITE_MATH_ONLY__=1");
-        }
-        else if (*opt_i == "-cl-fast-relaxed-math") {
-            list.push_back("-cl-fast-relaxed-math");
-			list.push_back("-D");
-            list.push_back("__FAST_RELAXED_MATH__=1");
-            Fast_Relaxed_Math = true;
-        }
-        else if (*opt_i == "-cl-kernel-arg-info") {
-          list.push_back("-cl-kernel-arg-info");
-        }
-        else if (*opt_i == "-cl-std=CL1.1") {
-          cl_std_set = true;
-          list.push_back("-cl-std=CL1.1");
-          list.push_back("-D");
-	      list.push_back("__OPENCL_C_VERSION__=110");
-        }
-        else if (*opt_i == "-cl-std=CL1.2") {
-          cl_std_set = true;
-          list.push_back("-cl-std=CL1.2");
-          list.push_back("-D");
-	        list.push_back("__OPENCL_C_VERSION__=120");
-        }       
-        else {
-            ignored.push_back(*opt_i);
-        }
-
-        ++opt_i;
-    }
-
-	// Add standard OpenCL options
+    // Add standard OpenCL options
 
   if(!cl_std_set) {
     list.push_back("-cl-std=CL1.2");
@@ -476,9 +354,8 @@ int ClangFECompilerCompileTask::Compile()
     {   // create a new scope to make sure the mutex will be released last
 
 	ArgListType ArgList;
-	ArgListType IgnoredArgs;
 
-	PrepareArgumentList(ArgList, IgnoredArgs, m_pProgDesc->pszOptions);
+	PrepareArgumentList(ArgList, m_pProgDesc->pszOptions);
 
 	const char **argArray = new const char *[ArgList.size()];
 	ArgListType::iterator iter = ArgList.begin();
@@ -491,14 +368,6 @@ int ClangFECompilerCompileTask::Compile()
 
 	SmallVector<char, 4096>	Log;
 	llvm::raw_svector_ostream errStream(Log);
-
-	while(!IgnoredArgs.empty())
-	{
-		errStream << "warning: ignoring build option: \"";
-		errStream << IgnoredArgs.front();
-		errStream << "\"\n";
-		IgnoredArgs.pop_front();
-	}
 
 	llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
     llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
@@ -921,78 +790,15 @@ int ClangFECompilerLinkTask::Link()
 
 void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
 {
-    // Reset options
-	bCreateLibrary = false;
-    bEnableLinkOptions = false;
-
-    bDenormsAreZero = false;
-    bNoSignedZeroes = false;
-    bUnsafeMath = false;
-    bFiniteMath = false;
-    bFastRelaxedMath = false;
-	
-    if (!buildOpts)
-        buildOpts = "";
-
-    // Parse the build options - handle the ones we understand and ignore the rest.
-    //
-    vector<string> opts = quoted_tokenize(buildOpts, " \t", '"', '\x00');
-    vector<string>::const_iterator opt_i = opts.begin();
-
-    while (opt_i != opts.end()) {
-        if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) 
-        {
-            if (opt_i->length() == 2) 
-            {
-                // Definition is separated from the flag, so, we need to discard
-                // the next token
-                //
-                if (++opt_i == opts.end()) 
-                {
-                    continue;
-                }
-            }
-        }
-        else if (*opt_i == "-s") 
-        {
-            // Expect the file name as the next token and discard it
-            //
-            if (++opt_i == opts.end()) 
-            {
-                continue;
-            }
-        }
-        else if (*opt_i == "-cl-denorms-are-zero") 
-        {
-            bDenormsAreZero = true;
-        }
-        else if (*opt_i == "-cl-no-signed-zeroes") 
-        {
-            bNoSignedZeroes = true;
-        }
-        else if (*opt_i == "-cl-unsafe-math-optimizations") 
-        {
-            bUnsafeMath = true;
-        }
-        else if (*opt_i == "-cl-finite-math-only") 
-        {
-            bFiniteMath = true;
-        }
-        else if (*opt_i == "-cl-fast-relaxed-math") 
-        {
-            bFastRelaxedMath = true;
-        }
-        else if (*opt_i == "-create-library") 
-        {
-            bCreateLibrary = true;
-        }
-        else if (*opt_i == "-enable-link-options") 
-        {
-            bEnableLinkOptions = true;
-        }
-
-        ++opt_i;
-    }
+    ParseLinkOptions(buildOpts,
+                     NULL,
+                     &bCreateLibrary,
+	                   &bEnableLinkOptions,
+                     &bDenormsAreZero,
+                     &bNoSignedZeroes,
+                     &bUnsafeMath,
+                     &bFiniteMath,
+                     &bFastRelaxedMath);
 }
 
 
@@ -1093,6 +899,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
         }
     }
 }
+
 ClangFECompilerGetKernelArgInfoTask::ClangFECompilerGetKernelArgInfoTask()
 : m_numArgs(0), m_argsInfo(NULL)
 {
@@ -1323,4 +1130,392 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     return CL_SUCCESS;
 
     }
+}
+
+bool Intel::OpenCL::ClangFE::ClangFECompilerCheckCompileOptions(const char*  szOptions,
+                                                                char**       szUnrecognizedOptions)
+{
+    return ParseCompileOptions(szOptions, szUnrecognizedOptions);
+}
+
+bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)
+{
+    return ParseLinkOptions(szOptions, szUnrecognizedOptions);
+}
+
+bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
+                                                 char**       szUnrecognizedOptions,
+                                                 ArgListType* pList,
+                                                 bool*        pbCLStdSet,
+                                                 bool*        pbOptDebugInfo,
+                                                 bool*        pbOptProfiling,
+                                                 bool*        pbOptDisable,
+                                                 bool*        pbDenormsAreZeros,
+                                                 bool*        pbFastRelaxedMath,
+                                                 std::string* pszFileName)
+{
+    // Reset options
+    bool bCLStdSet = false;
+    bool bOptDebugInfo = false;
+    bool bOptProfiling = false;
+    bool bOptDisable = false;
+    bool bDenormsAreZeros = false;
+    bool bFastRelaxedMath = false;
+    std::string szFileName = "";
+	
+    if (!szOptions)
+        szOptions = "";
+
+    bool res = true;
+
+    ArgListType UnrecognizedArgs;
+    ArgListType RecognizedArgs;
+    size_t UnrecognizedArgsLength = 0;
+
+    if (NULL == pList)
+    {
+        pList = &RecognizedArgs;
+    }
+
+    // Parse the build options - handle the ones we understand and pass the
+    // rest into 'ignored'. Use " quoting to accept token with whitespace, but
+    // don't use escaping (since we only need path tokens).
+    //
+    vector<string> opts = quoted_tokenize(szOptions, " \t", '"', '\x00');
+    vector<string>::const_iterator opt_i = opts.begin();
+    while (opt_i != opts.end()) {
+        if (*opt_i == "-g") {
+            pList->push_back(*opt_i);
+            bOptDebugInfo = true;
+        }
+        else if (*opt_i == "-profiling") {
+            // Pass -g on to clang to make it generate debug info
+            pList->push_back("-g");
+            bOptProfiling = true;
+        }
+        else if (*opt_i == "-w") {
+            pList->push_back(*opt_i);
+        }
+        else if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) {
+            if (opt_i->length() == 2) {
+                // Definition is separated from the flag, so grab it from the
+                // next token
+                //
+                string flag = *opt_i;
+                if (++opt_i != opts.end()) {
+                    pList->push_back(flag);
+                    pList->push_back(*opt_i);
+                }
+                else {
+                    // Check compile options should prevent this case
+                    UnrecognizedArgs.push_back(flag);
+                    UnrecognizedArgsLength += flag.length() + 1;
+                    res = false;
+                    continue;
+                }
+            }
+            else {
+                // Definition is attached to the flag, so pass it as is
+                //
+                pList->push_back(*opt_i);
+            }
+        }
+        else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
+        else if (*opt_i == "-s") {
+            // Expect the file name as the next token
+            //
+            string flag = *opt_i;
+            if (++opt_i != opts.end()) {
+                szFileName = *opt_i;
+                // Normalize path to contain forward slashes
+                replace(
+                    szFileName.begin(), 
+                    szFileName.end(), 
+                    '\\', '/');
+
+                // On Windows only, normalize the filename to lowercase, since
+                // LLVM saves buffer names in a case-sensitive manner, while
+                // other Windows tools don't.
+                //
+#ifdef _WIN32
+                transform(
+                    szFileName.begin(),
+                    szFileName.end(),
+                    szFileName.begin(),
+                    ::tolower);
+#endif
+            }
+            else {
+                UnrecognizedArgs.push_back(flag);
+                UnrecognizedArgsLength += flag.length() + 1;
+                res = false;
+                continue;
+            }
+        }
+        else if (*opt_i == "-Werror") {
+            pList->push_back(*opt_i);
+        }
+        else if (*opt_i == "-cl-single-precision-constant") {
+            pList->push_back("-cl-single-precision-constant");
+        }
+        else if (*opt_i == "-cl-denorms-are-zero") {
+            pList->push_back("-cl-denorms-are-zero");
+            bDenormsAreZeros = true;
+        }
+        else if (*opt_i == "-cl-fp32-correctly-rounded-divide-sqrt") {
+            pList->push_back("-cl-fp32-correctly-rounded-divide-sqrt");
+        }
+        else if (*opt_i == "-cl-opt-disable") {
+            pList->push_back("-cl-opt-disable");
+            bOptDisable = true;
+        }
+        else if (*opt_i == "-cl-mad-enable") {
+            pList->push_back("-cl-mad-enable");
+        }
+        else if (*opt_i == "-cl-no-signed-zeros") {
+            pList->push_back("-cl-no-signed-zeros");
+        }
+        else if (*opt_i == "-cl-unsafe-math-optimizations") {
+            pList->push_back("-cl-unsafe-math-optimizations");
+        }
+        else if (*opt_i == "-cl-finite-math-only") {
+            pList->push_back("-cl-finite-math-only");
+			      pList->push_back("-D");
+            pList->push_back("__FINITE_MATH_ONLY__=1");
+        }
+        else if (*opt_i == "-cl-fast-relaxed-math") {
+            pList->push_back("-cl-fast-relaxed-math");
+			      pList->push_back("-D");
+            pList->push_back("__FAST_RELAXED_MATH__=1");
+            bFastRelaxedMath = true;
+        }
+        else if (*opt_i == "-cl-kernel-arg-info") {
+            pList->push_back("-cl-kernel-arg-info");
+        }
+        else if (*opt_i == "-cl-std=CL1.1") {
+            bCLStdSet = true;
+            pList->push_back("-cl-std=CL1.1");
+            pList->push_back("-D");
+	          pList->push_back("__OPENCL_C_VERSION__=110");
+        }
+        else if (*opt_i == "-cl-std=CL1.2") {
+            bCLStdSet = true;
+            pList->push_back("-cl-std=CL1.2");
+            pList->push_back("-D");
+	          pList->push_back("__OPENCL_C_VERSION__=120");
+        }       
+        else {
+            UnrecognizedArgs.push_back(*opt_i);
+            UnrecognizedArgsLength += opt_i->length() + 1;
+            res = false;
+        }
+
+        ++opt_i;
+    }
+
+    if (szUnrecognizedOptions)
+    {
+        if ( !UnrecognizedArgs.empty() )
+        {
+            *szUnrecognizedOptions = new char[UnrecognizedArgsLength];
+            *szUnrecognizedOptions[0] = '\0';
+
+            if ( *szUnrecognizedOptions != NULL )
+            {
+                STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, UnrecognizedArgs.front().c_str());
+                UnrecognizedArgs.pop_front();
+
+                while(!UnrecognizedArgs.empty())
+                {
+                    STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, " ");
+                    STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, UnrecognizedArgs.front().c_str());
+                    UnrecognizedArgs.pop_front();
+                }
+            }
+        }
+    }
+
+    if (pbCLStdSet)
+    {
+        *pbCLStdSet = bCLStdSet;
+    }
+
+    if (pbOptDebugInfo)
+    {
+        *pbOptDebugInfo = bOptDebugInfo;
+    }
+
+    if (pbOptProfiling)
+    {
+        *pbOptProfiling = bOptProfiling;
+    }
+
+    if (pbOptDisable)
+    {
+        *pbOptDisable = bOptDisable;
+    }
+
+    if (pbDenormsAreZeros)
+    {
+        *pbDenormsAreZeros = bDenormsAreZeros;
+    }
+
+    if (pbFastRelaxedMath)
+    {
+        *pbFastRelaxedMath = bFastRelaxedMath;
+    }
+
+    if (pszFileName)
+    {
+        *pszFileName = szFileName;
+    }
+
+    return res;
+}
+
+bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
+                                              char**      szUnrecognizedOptions,
+                                              bool*       pbCreateLibrary,
+                                              bool*       pbEnableLinkOptions,
+                                              bool*       pbDenormsAreZero,
+                                              bool*       pbNoSignedZeroes,
+                                              bool*       pbUnsafeMath,
+                                              bool*       pbFiniteMath,
+                                              bool*       pbFastRelaxedMath)
+{
+    // Reset options
+	  bool bCreateLibrary = false;
+    bool bEnableLinkOptions = false;
+    bool bDenormsAreZero = false;
+    bool bNoSignedZeroes = false;
+    bool bUnsafeMath = false;
+    bool bFiniteMath = false;
+    bool bFastRelaxedMath = false;
+	
+    if (!szOptions)
+        szOptions = "";
+
+    bool res = true;
+
+    std::list<std::string> UnrecognizedArgs;
+    size_t UnrecognizedArgsLength = 0;
+
+    // Parse the build options - handle the ones we understand and ignore the rest.
+    //
+    vector<string> opts = quoted_tokenize(szOptions, " \t", '"', '\x00');
+    vector<string>::const_iterator opt_i = opts.begin();
+
+    while (opt_i != opts.end()) {
+        if (*opt_i == "-s") 
+        {
+            // Expect the file name as the next token and discard it
+            //
+            string flag = *opt_i;
+            if (++opt_i == opts.end()) 
+            {
+              UnrecognizedArgs.push_back(flag);
+              UnrecognizedArgsLength += flag.length() + 1;
+              res = false;
+              continue;
+            }
+        }
+        else if (*opt_i == "-cl-denorms-are-zero") 
+        {
+            bDenormsAreZero = true;
+        }
+        else if (*opt_i == "-cl-no-signed-zeroes") 
+        {
+            bNoSignedZeroes = true;
+        }
+        else if (*opt_i == "-cl-unsafe-math-optimizations") 
+        {
+            bUnsafeMath = true;
+        }
+        else if (*opt_i == "-cl-finite-math-only") 
+        {
+            bFiniteMath = true;
+        }
+        else if (*opt_i == "-cl-fast-relaxed-math") 
+        {
+            bFastRelaxedMath = true;
+        }
+        else if (*opt_i == "-create-library") 
+        {
+            bCreateLibrary = true;
+        }
+        else if (*opt_i == "-enable-link-options") 
+        {
+            bEnableLinkOptions = true;
+        }
+        else
+        {
+            UnrecognizedArgs.push_back(*opt_i);
+            UnrecognizedArgsLength += opt_i->length() + 1;
+            res = false;
+        }
+
+        ++opt_i;
+    }
+
+    if (szUnrecognizedOptions)
+    {
+        if ( !UnrecognizedArgs.empty() )
+        {
+            *szUnrecognizedOptions = new char[UnrecognizedArgsLength];
+            *szUnrecognizedOptions[0] = '\0';
+
+            if ( *szUnrecognizedOptions != NULL )
+            {
+                STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, UnrecognizedArgs.front().c_str());
+                UnrecognizedArgs.pop_front();
+
+                while(!UnrecognizedArgs.empty())
+                {
+                    STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, " ");
+                    STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, UnrecognizedArgs.front().c_str());
+                    UnrecognizedArgs.pop_front();
+                }
+            }
+        }
+    }
+
+    if (pbCreateLibrary)
+    {
+        *pbCreateLibrary = bCreateLibrary;
+    }
+
+    if (pbEnableLinkOptions)
+    {
+        *pbEnableLinkOptions = bEnableLinkOptions;
+    }
+
+    if (pbDenormsAreZero)
+    {
+        *pbDenormsAreZero = bDenormsAreZero;
+    }
+
+    if (pbNoSignedZeroes)
+    {
+        *pbNoSignedZeroes = bNoSignedZeroes;
+    }
+
+    if (pbUnsafeMath)
+    {
+        *pbUnsafeMath = bUnsafeMath;
+    }
+
+    if (pbFiniteMath)
+    {
+        *pbFiniteMath = bFiniteMath;
+    }
+
+    if (pbFastRelaxedMath)
+    {
+        *pbFastRelaxedMath = bFastRelaxedMath;
+    }
+
+    return res;
 }

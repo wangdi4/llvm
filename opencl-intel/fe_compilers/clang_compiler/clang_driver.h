@@ -42,13 +42,15 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         cl_kernel_arg_type_qualifier typeQualifier;
     };
 
+    typedef std::list<std::string> ArgListType;		
+
     class ClangFETask
     {
     protected:
 		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
     };
 
-	class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
+    class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
 	{
 	public:
 		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
@@ -64,10 +66,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
 	protected:
         ~ClangFECompilerCompileTask();
-        
-        typedef std::list<std::string> ArgListType;		
 
-        void PrepareArgumentList(ArgListType &list, ArgListType &ignored, const char *buildOpts);
+        void PrepareArgumentList(ArgListType &list, const char *buildOpts);
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
         Intel::OpenCL::ClangFE::CLANG_DEV_INFO	m_sDeviceInfo;
@@ -152,5 +152,40 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         unsigned int    m_numArgs;
         ARG_INFO*       m_argsInfo;
     };
+
+    // ClangFECompilerCheckCompileOptions
+    // Input: szOptions - a string representing the compile options
+    // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+    // Returns: 'true' if the compile options are legal and 'false' otherwise
+    bool ClangFECompilerCheckCompileOptions(const char*  szOptions,
+                                            char**       szUnrecognizedOptions);
+
+    // ClangFECompilerCheckLinkOptions
+    // Input: szOptions - a string representing the link options
+    // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+    // Returns: 'true' if the link options are legal and 'false' otherwise
+    bool ClangFECompilerCheckLinkOptions(const char*  szOptions,
+                                         char**       szUnrecognizedOptions);
+
+    bool ParseCompileOptions(const char*  szOptions,
+                             char**       szUnrecognizedOptions,
+                             ArgListType* pList               = NULL,
+                             bool*        pbCLStdSet          = NULL,
+                             bool*        pbOptDebugInfo      = NULL,
+                             bool*        pbOptProfiling      = NULL,
+                             bool*        pbOptDisable        = NULL,
+                             bool*        pbDenormsAreZeros   = NULL,
+                             bool*        pbFastRelaxedMath   = NULL,
+                             std::string* pszFileName         = NULL);
+
+    bool ParseLinkOptions(const char* szOptions,
+                          char**      szUnrecognizedOptions,
+                          bool*       pbCreateLibrary     = NULL,
+                          bool*       pbEnableLinkOptions = NULL,
+                          bool*       pbDenormsAreZero    = NULL,
+                          bool*       pbNoSignedZeroes    = NULL,
+                          bool*       pbUnsafeMath        = NULL,
+                          bool*       pbFiniteMath        = NULL,
+                          bool*       pbFastRelaxedMath   = NULL);
 
 }}}

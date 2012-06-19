@@ -266,6 +266,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 	size_t uiParamSize = 0;
 	void * pValue = NULL;
 	cl_build_status clBuildStatus;
+  cl_program_binary_type clBinaryType;
 	char emptyString = '\0';
 
 	switch (clParamName)
@@ -275,6 +276,38 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		clBuildStatus = GetBuildStatus();
 		pValue = &clBuildStatus;
 		break;
+
+  case CL_PROGRAM_BINARY_TYPE:
+    uiParamSize = sizeof(cl_program_binary_type);
+
+    if (m_pBinaryBits) {
+      // check binary container for type
+      const cl_prog_container_header* pProgCont = (cl_prog_container_header*)m_pBinaryBits;
+
+      switch ( pProgCont->description.bin_type )
+      {
+      case CL_PROG_BIN_COMPILED_LLVM:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
+        break;
+      case CL_PROG_BIN_LINKED_LLVM:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_LIBRARY;
+        break;
+      case CL_PROG_BIN_EXECUTABLE_LLVM:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
+        break;
+      default:
+        // Not a valid binary type
+        assert (false);
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
+        break;
+      }
+    } 
+    else {
+      clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
+    }
+
+    pValue = &clBinaryType;
+    break;
 
 	case CL_PROGRAM_BUILD_OPTIONS:
 		if (NULL != m_szBuildOptions)

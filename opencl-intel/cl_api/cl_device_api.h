@@ -54,15 +54,15 @@ extern "C" {
  */
 enum cl_prog_binary_type
 {
-	CL_PROG_BIN_DASHER,				//!< Containers holds Intel DASHER intermediate
-	CL_PROG_BIN_COMPILED_LLVM,		//!< Container holds compiled Apple OCL LLVM intermediate
+    CL_PROG_BIN_DASHER,				//!< Containers holds Intel DASHER intermediate
+    CL_PROG_BIN_COMPILED_LLVM,		//!< Container holds compiled Apple OCL LLVM intermediate
     CL_PROG_BIN_LINKED_LLVM,        //!< Container holds linked Apple OCL LLVM intermediate
     CL_PROG_BIN_EXECUTABLE_LLVM,    //!< Container holds executable Apple OCL LLVM intermediate
-	CL_PROG_DLL_X86,				//!< Container is a dynamically loaded library name
-	CL_PROG_OBJ_X86,				//!< Container holds x86 object code (.obj)
-	CL_PROG_BIN_X86,				//!< Container holds x86 binary code
-	CL_PROG_BIN_PTX,				//!< Container holds NVidia PTX intermediate
-	CL_PROG_BIN_CUBIN				//!< Container holds NVidia CUBbinary
+    CL_PROG_DLL_X86,				//!< Container is a dynamically loaded library name
+    CL_PROG_OBJ_X86,				//!< Container holds x86 object code (.obj)
+    CL_PROG_BIN_X86,				//!< Container holds x86 binary code
+    CL_PROG_BIN_PTX,				//!< Container holds NVidia PTX intermediate
+    CL_PROG_BIN_CUBIN				//!< Container holds NVidia CUBbinary
 };
 
 /*! \enum cl_prog_container_type

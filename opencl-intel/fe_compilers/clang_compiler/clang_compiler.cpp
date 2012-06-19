@@ -242,6 +242,16 @@ int ClangFECompiler::GetKernelArgInfo(const void*       pBin,
 	return ret;
 }
 
+bool ClangFECompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions)
+{
+    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions);
+}
+
+bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)
+{
+    return ClangFECompilerCheckLinkOptions(szOptions, szUnrecognizedOptions);
+}
+
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
 {
 	assert(NULL != pFECompiler);

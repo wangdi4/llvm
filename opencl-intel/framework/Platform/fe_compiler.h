@@ -43,51 +43,51 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_kernel_arg_type_qualifier    typeQualifier;
     };
 
-	/**********************************************************************************************
-	* Class name:	FECompiler
-	*
-	* Description:	front-end compiler class
-	* Author:		Uri Levy
-	* Date:			March 2008
-	**********************************************************************************************/
-	class FrontEndCompiler : public OCLObject<_cl_object>
-	{
-	
-	public:
+    /**********************************************************************************************
+    * Class name:	FECompiler
+    *
+    * Description:	front-end compiler class
+    * Author:		Uri Levy
+    * Date:			March 2008
+    **********************************************************************************************/
+    class FrontEndCompiler : public OCLObject<_cl_object>
+    {
 
-		/******************************************************************************************
-		* Function: 	FECompiler
-		* Description:	The Frontend compiler class constructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/
-		FrontEndCompiler();
-
-		/******************************************************************************************
-		* Function: 	Initialize    
-		* Description:	Initialize the front-end compiler
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The initialization operation succeeded
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/		
-		cl_err_code		Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize);
-
-		/******************************************************************************************
-		* Function: 	FreeResources    
-		* Description:	Frees the front-end compiler resources
-		* Arguments:		
-		* Return value:	CL_SUCCESS - The operation succeeded
-		* Author:		Doron Singer
-		* Date:			March 2008
-		******************************************************************************************/
-		void		FreeResources();
+    public:
 
         /******************************************************************************************
-		* Function: 	CompileProgram    
-		* Description:	Compile source code and headers and return binary data
-		* Arguments:	szProgramSource - the main program source string
+        * Function: 	FECompiler
+        * Description:	The Frontend compiler class constructor
+        * Arguments:		
+        * Author:		Uri Levy
+        * Date:			March 2008
+        ******************************************************************************************/
+        FrontEndCompiler();
+
+        /******************************************************************************************
+        * Function: 	Initialize    
+        * Description:	Initialize the front-end compiler
+        * Arguments:		
+        * Return value:	CL_SUCCESS - The initialization operation succeeded
+        * Author:		Uri Levy
+        * Date:			March 2008
+        ******************************************************************************************/		
+        cl_err_code		Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize);
+
+        /******************************************************************************************
+        * Function: 	FreeResources    
+        * Description:	Frees the front-end compiler resources
+        * Arguments:		
+        * Return value:	CL_SUCCESS - The operation succeeded
+        * Author:		Doron Singer
+        * Date:			March 2008
+        ******************************************************************************************/
+        void		FreeResources();
+
+        /******************************************************************************************
+        * Function: 	CompileProgram    
+        * Description:	Compile source code and headers and return binary data
+        * Arguments:	szProgramSource - the main program source string
         *               uiNumInputHeaders - the number of input headers in pszInputHeaders
         *               pszInputHeaders - an array of input headers strings
         *               pszInputHeadersNames - array of headers names corresponding to pszInputHeaders
@@ -95,92 +95,118 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Output:       ppBinary - the compiled binary container
         *               puiBinarySize - pBinary size in bytes
         *               pszCompileLog - compile log string
-		* Return value:	CL_SUCCESS - The operation succeeded
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code	CompileProgram(	const char*		    szProgramSource,
-                                    unsigned int        uiNumInputHeaders,
-                                    const char**        pszInputHeaders,
-                                    const char**        pszInputHeadersNames, 
-									const char *		szOptions,
-									OUT char**          ppBinary,
-                                    OUT size_t*         puiBinarySize,
-                                    OUT char**          pszCompileLog) const;
+        * Return value:	CL_SUCCESS - The operation succeeded
+        * Author:		Sagi Shahar
+        * Date:			January 2012
+        ******************************************************************************************/
+        cl_err_code	CompileProgram( const char*   szProgramSource,
+                                    unsigned int  uiNumInputHeaders,
+                                    const char**  pszInputHeaders,
+                                    const char**  pszInputHeadersNames, 
+                                    const char *  szOptions,
+                                    OUT char**    ppBinary,
+                                    OUT size_t*   puiBinarySize,
+                                    OUT char**    pszCompileLog) const;
 
         /******************************************************************************************
-		* Function: 	LinkProgram    
-		* Description:	Compile source code and return binary data
-		* Arguments:	ppBinaries - array of binary containers to be link together
+        * Function: 	LinkProgram    
+        * Description:	Compile source code and return binary data
+        * Arguments:	ppBinaries - array of binary containers to be link together
         *               uiNumInputBinaries - num containers in ppBinaries
         *               puiBinariesSizes - sizes of the containers in ppBinaries
         *               szOptions - link options string
         * Output:       pBinary - the linked binary container
         *               uiBinarySize - pBinary size in bytes
         *               szCompileLog - link log string
-		* Return value:	CL_SUCCESS - The operation succeeded
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/
-		cl_err_code	LinkProgram(	const void**		ppBinaries,
-                                    unsigned int        uiNumInputBinaries,
-                                    const size_t*       puiBinariesSizes,
-									const char *		szOptions,
-									OUT char**          ppBinary,
-                                    OUT size_t*         puiBinarySize,
-                                    OUT char**          pszLinkLog,
-                                    OUT bool*           pbIsLibrary) const;
+        * Return value:	CL_SUCCESS - The operation succeeded
+        * Author:		Sagi Shahar
+        * Date:			January 2012
+        ******************************************************************************************/
+        cl_err_code	LinkProgram(  const void**    ppBinaries,
+                                  unsigned int    uiNumInputBinaries,
+                                  const size_t*   puiBinariesSizes,
+                                  const char *    szOptions,
+                                  OUT char**      ppBinary,
+                                  OUT size_t*     puiBinarySize,
+                                  OUT char**      pszLinkLog,
+                                  OUT bool*       pbIsLibrary) const;
 
         /******************************************************************************************
-		* Function: 	GetKernelArgInfo    
-		* Description:	Get the kernel arguments info
-		* Arguments:	pBin - the program's binary including the header
+        * Function: 	GetKernelArgInfo    
+        * Description:	Get the kernel arguments info
+        * Arguments:	pBin - the program's binary including the header
         *               szKernelName - the name of the kernel for which we query the arg info
         * Output:       ppArgInfo - a struct containing all the arguments info
         *               puiNumArgs - the number of arguments
-		* Return value:	CL_SUCCESS - The operation succeeded
+        * Return value:	CL_SUCCESS - The operation succeeded
         *               CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
         *               CL_OUT_OF_HOST_MEMORY for out of host memory
-		* Author:		Sagi Shahar
-		* Date:			March 2012
-		******************************************************************************************/
-        cl_err_code GetKernelArgInfo(   const void*             pBin,
-                                        const char*             szKernelName,
-                                        OUT KernelArgInfo*      *ppArgInfo,
-                                        OUT unsigned int*       puiNumArgs) const;
+        * Author:		Sagi Shahar
+        * Date:			March 2012
+        ******************************************************************************************/
+        cl_err_code GetKernelArgInfo( const void*         pBin,
+                                      const char*         szKernelName,
+                                      OUT KernelArgInfo*  *ppArgInfo,
+                                      OUT unsigned int*   puiNumArgs) const;
 
-		/******************************************************************************************
-		* Function: 	GetModuleName    
-		* Description:	returns the module name of the front-end compiler
-		* Arguments:	N/A
-		* Return value:	[char *] - pointer to the module name's string
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/
-		const char * GetModuleName() const { return m_pszModuleName; }
+        /******************************************************************************************
+        * Function:     CheckCompileOptions    
+        * Description:  Check if the compile options are legal
+        * Arguments:    szOptions - a string representing the compile options
+        * Output:       szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+        * Return value:	true - the compile options are legal
+        *               false otherwise
+        * Author:       Sagi Shahar
+        * Date:         May 2012
+        ******************************************************************************************/
+        bool CheckCompileOptions(const char*  szOptions,
+                                 char**       szUnrecognizedOptions) const;
 
-		//OclObject implementation
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const {return CL_INVALID_OPERATION; }
+        /******************************************************************************************
+        * Function:     CheckLinkOptions    
+        * Description:  Check if the link options are legal
+        * Arguments:    szOptions - a string representing the link options
+        * Output:       szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+        * Return value:	true - the link options are legal
+        *               false otherwise
+        * Author:       Sagi Shahar
+        * Date:         May 2012
+        ******************************************************************************************/
+        bool CheckLinkOptions(const char*  szOptions,
+                              char**       szUnrecognizedOptions) const;
 
-	protected:
-		/******************************************************************************************
-		* Function: 	~FECompiler
-		* Description:	The Frontend compiler class destructor
-		* Arguments:		
-		* Author:		Uri Levy
-		* Date:			March 2008
-		******************************************************************************************/
-		virtual ~FrontEndCompiler();
-	
-		Utils::OclDynamicLib		m_dlModule;
-		Intel::OpenCL::FECompilerAPI::fnCreateFECompilerInstance*	m_pfnCreateInstance;
+        /******************************************************************************************
+        * Function: 	GetModuleName    
+        * Description:	returns the module name of the front-end compiler
+        * Arguments:	N/A
+        * Return value:	[char *] - pointer to the module name's string
+        * Author:		Uri Levy
+        * Date:			March 2008
+        ******************************************************************************************/
+        const char * GetModuleName() const { return m_pszModuleName; }
 
-		// module name
-		const char *				m_pszModuleName;
+        //OclObject implementation
+        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const {return CL_INVALID_OPERATION; }
 
-		Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pFECompiler;
+    protected:
+        /******************************************************************************************
+        * Function: 	~FECompiler
+        * Description:	The Frontend compiler class destructor
+        * Arguments:		
+        * Author:		Uri Levy
+        * Date:			March 2008
+        ******************************************************************************************/
+        virtual ~FrontEndCompiler();
 
-		DECLARE_LOGGER_CLIENT;
-	};
+        Utils::OclDynamicLib		m_dlModule;
+        Intel::OpenCL::FECompilerAPI::fnCreateFECompilerInstance*	m_pfnCreateInstance;
+
+        // module name
+        const char *				m_pszModuleName;
+
+        Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pFECompiler;
+
+        DECLARE_LOGGER_CLIENT;
+    };
 
 }}}

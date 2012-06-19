@@ -136,7 +136,7 @@ bool CompileTask::Execute()
     delete[] pBinary;
     SetComplete(CL_BUILD_SUCCESS);
 
-	return true;
+	  return true;
 }
 
 LinkTask::LinkTask(_cl_context_int*               context, 
@@ -261,14 +261,15 @@ bool LinkTask::Execute()
     }
 
     //Else link succeeded
-    m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
 
     // If we are creating library, no need for BE build
     if (bIsLibrary)
     {
-        delete[] pBinary;
+        
+        m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
         m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
         SetComplete(CL_BUILD_SUCCESS);
+        delete[] pBinary;
         return true;
     }
 
@@ -277,6 +278,8 @@ bool LinkTask::Execute()
 
     cl_prog_container_header*	pHeader = (cl_prog_container_header*)pBinary;
     pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+
+    m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
 
     cl_dev_err_code err = m_pDeviceAgent->clDevCheckProgramBinary(uiBinarySize, pBinary);
     if (CL_DEV_SUCCESS != err)
@@ -475,9 +478,9 @@ cl_err_code ProgramService::CompileProgram(Program *program,
     }
 
     if (program->GetNumKernels() > 0)
-	{
-		return CL_INVALID_OPERATION;
-	}
+	  {
+		    return CL_INVALID_OPERATION;
+	  }
 
     if ((0 == num_devices) && (NULL != device_list))
     {
@@ -493,9 +496,9 @@ cl_err_code ProgramService::CompileProgram(Program *program,
     cl_uint uiNumDevices = program->GetNumDevices();
 
     if (0 == uiNumDevices)
-	{
-		return CL_INVALID_DEVICE;
-	}
+	  {
+		    return CL_INVALID_DEVICE;
+	  }
 
     char* szBuildOptions = NULL;
 
@@ -610,23 +613,23 @@ cl_err_code ProgramService::CompileProgram(Program *program,
     }
 
 
-	if (num_devices > 0)
-	{
-		//Phase one: Acquire the program for all requested devices 
+    if (num_devices > 0)
+	  {
+		    //Phase one: Acquire the program for all requested devices 
         uiNumDevices = num_devices;
 
-		for (cl_uint i = 0; i < uiNumDevices; ++i)
-		{
+		    for (cl_uint i = 0; i < uiNumDevices; ++i)
+		    {
             cl_device_id deviceID = device_list[i];
             if (!program->Acquire(deviceID))
             {
                 if (0 < i)
                 {
                     //Release all accesses already acquired
-				    for (cl_uint j = i - 1; j >= 0; --j)
-				    {
+				            for (cl_uint j = i - 1; j >= 0; --j)
+				            {
                         program->Unacquire(device_list[j]);
-				    }
+				            }
                 }
 
                 delete[] szBuildOptions;
@@ -642,19 +645,19 @@ cl_err_code ProgramService::CompileProgram(Program *program,
                 delete[] pszHeaders;
                 delete[] pszHeadersNames;
 
-				return CL_INVALID_OPERATION;
+				        return CL_INVALID_OPERATION;
             }
 
             pDevices[i] = deviceID;
         }
     }
-	else //build for all devices
-	{
-		//Phase one: Acquire the program for all associated devices
+    else //build for all devices
+    {
+		    //Phase one: Acquire the program for all associated devices
         program->GetDevices(pDevices);
 
-		for (cl_uint i = 0; i < uiNumDevices; ++i)
-		{
+		    for (cl_uint i = 0; i < uiNumDevices; ++i)
+		    {
             cl_device_id deviceID = pDevices[i];
             if (!program->Acquire(deviceID))
             {
@@ -662,9 +665,9 @@ cl_err_code ProgramService::CompileProgram(Program *program,
                 {
                     //Release all accesses already acquired
                     for (cl_uint j = i - 1; j >= 0; --j)
-				    {
-                        program->Unacquire(device_list[j]);
-				    }
+				            {
+                        program->Unacquire(pDevices[j]);
+				            }
                 }
 
                 delete[] szBuildOptions;
@@ -680,29 +683,63 @@ cl_err_code ProgramService::CompileProgram(Program *program,
                 delete[] pszHeaders;
                 delete[] pszHeadersNames;
 
-				return CL_INVALID_OPERATION;
+				        return CL_INVALID_OPERATION;
             }
         }
-	}
+    }
 
-    bool bNeedToBuild = false;  
-
+    // Check if the compile options are legal for all the devices
+    const FrontEndCompiler** pfeCompilers = new const FrontEndCompiler*[uiNumDevices];
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         cl_device_id deviceID = pDevices[i];
         FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
-        const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
-        if (NULL == feCompiler)
+        pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
+        if (NULL == pfeCompilers[i])
         {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
-            feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
+          // No FE compiler assigned, need to allocate one
+          FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
+          pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
         }
 
+        char* szUnrecognizedOptions = NULL;
+        if (!pfeCompilers[i]->CheckCompileOptions(szBuildOptions, &szUnrecognizedOptions))
+        {
+            for (cl_uint j = 0; j < uiNumDevices; ++j)
+            {
+                program->Unacquire(pDevices[j]);
+            }
+
+            delete[] szBuildOptions;
+            delete[] pDevices;
+            delete[] ppCompileTasks;
+
+            for (cl_uint j = 0; j < num_input_headers; ++j)
+            {
+              delete[] pszHeadersNames[j];
+              input_headers[j]->RemovePendency(program);
+            }
+
+            delete[] pszHeaders;
+            delete[] pszHeadersNames;
+
+            delete[] szUnrecognizedOptions;
+            return CL_INVALID_COMPILER_OPTIONS;
+        }
+    }
+
+
+    bool bNeedToBuild = false;  
+
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+        cl_device_id deviceID = pDevices[i];
+        const FrontEndCompiler* feCompiler = pfeCompilers[i];
+
         switch (program->GetStateInternal(deviceID))
-	    {
+	      {
         case DEVICE_PROGRAM_COMPILED:
             {
                 const char* szLastBuildOptions = program->GetBuildOptionsInternal(deviceID);
@@ -718,12 +755,12 @@ cl_err_code ProgramService::CompileProgram(Program *program,
 		        //Intentional fall through.
             }
         case DEVICE_PROGRAM_BUILD_DONE:
-	    case DEVICE_PROGRAM_BUILD_FAILED:
+	      case DEVICE_PROGRAM_BUILD_FAILED:
             {
 		        // The spec doesn't forbid compilation of built program
                 // Intentional fall through.
             }
-	    case DEVICE_PROGRAM_SOURCE:	
+	      case DEVICE_PROGRAM_SOURCE:	
             {
 		        // Building from source
                 bNeedToBuild = true;
@@ -744,13 +781,13 @@ cl_err_code ProgramService::CompileProgram(Program *program,
         case DEVICE_PROGRAM_LOADED_IR:
             // Linked and loaded IR programs shouldn't have source so this should not happen
             assert(false);
-	    default:
-	    case DEVICE_PROGRAM_FE_COMPILING:
-	    case DEVICE_PROGRAM_FE_LINKING:
+	      default:
+	      case DEVICE_PROGRAM_FE_COMPILING:
+	      case DEVICE_PROGRAM_FE_LINKING:
         case DEVICE_PROGRAM_BE_BUILDING:
 		    // If we succeeded in acquiring the program, this should not happen 
-		    assert(false);
-	    }
+		        assert(false);
+	      }
     }
 
     PostBuildTask* pPostBuildTask = new PostBuildTask(context, uiNumDevices, pDevices, num_input_headers, 
@@ -983,7 +1020,7 @@ cl_err_code ProgramService::LinkProgram(Program *program,
                 }
 
                 delete[] szBuildOptions;
-				delete[] pDevices;
+				        delete[] pDevices;
                 delete[] ppLinkTasks;
                 delete[] pbBuildForDevice;
 
@@ -997,6 +1034,45 @@ cl_err_code ProgramService::LinkProgram(Program *program,
         }
     }
 
+    // // Check if the link options are legal for all the devices
+    const FrontEndCompiler** pfeCompilers = new const FrontEndCompiler*[uiNumDevices];
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+      cl_device_id deviceID = pDevices[i];
+      FissionableDevice* pDevice = 0;
+      m_pContext->GetDevice(deviceID, &pDevice);
+
+      pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
+      if (NULL == pfeCompilers[i])
+      {
+        // No FE compiler assigned, need to allocate one
+        FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
+        pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
+      }
+
+      char* szUnrecognizedOptions = NULL;
+      if (!pfeCompilers[i]->CheckLinkOptions(szBuildOptions, &szUnrecognizedOptions))
+      {
+        for (cl_uint j = 0; j < uiNumDevices; ++j)
+        {
+          program->Unacquire(pDevices[j]);
+        }
+
+        delete[] szBuildOptions;
+        delete[] pDevices;
+        delete[] ppLinkTasks;
+        delete[] pbBuildForDevice;
+
+        for (unsigned int libID = 0; libID < num_input_programs; ++libID)
+        {
+          input_programs[libID]->RemovePendency(program);
+        }
+
+        delete[] szUnrecognizedOptions;
+        return CL_INVALID_LINKER_OPTIONS;
+      }
+    }
+
     bool bNeedToBuild = false;
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
@@ -1005,14 +1081,7 @@ cl_err_code ProgramService::LinkProgram(Program *program,
         FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
-        const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
-        if (NULL == feCompiler)
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
-            feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
-        }
-
+        const FrontEndCompiler* feCompiler = pfeCompilers[i];
         IOCLDeviceAgent* pDeviceAgent = pDevice->GetDeviceAgent();
 
         switch (program->GetStateInternal(deviceID))
@@ -1221,34 +1290,68 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
             pDevices[i] = deviceID;
         }
     }
-	else //build for all devices
-	{
-		//Phase one: Acquire the program for all associated devices
-        program->GetDevices(pDevices);
+	  else //build for all devices
+	  {
+		  //Phase one: Acquire the program for all associated devices
+          program->GetDevices(pDevices);
 
-		for (cl_uint i = 0; i < uiNumDevices; ++i)
-		{
-            cl_device_id deviceID = pDevices[i];
-            if (!program->Acquire(deviceID))
-            {
-                if (0 < i)
-                {
-                    //Release all accesses already acquired
-                    for (cl_uint j = i - 1; j >= 0; --j)
-				    {
-                        program->Unacquire(device_list[j]);
-				    }
-                }
+		  for (cl_uint i = 0; i < uiNumDevices; ++i)
+		  {
+              cl_device_id deviceID = pDevices[i];
+              if (!program->Acquire(deviceID))
+              {
+                  if (0 < i)
+                  {
+                      //Release all accesses already acquired
+                      for (cl_uint j = i - 1; j >= 0; --j)
+				      {
+                          program->Unacquire(device_list[j]);
+				      }
+                  }
 
-                delete[] szBuildOptions;
-				delete[] pDevices;
-                delete[] ppCompileTasks;
-                delete[] ppLinkTasks;
-				return CL_INVALID_OPERATION;
-            }
-        }
-	}
-    
+                  delete[] szBuildOptions;
+				  delete[] pDevices;
+                  delete[] ppCompileTasks;
+                  delete[] ppLinkTasks;
+				  return CL_INVALID_OPERATION;
+              }
+          }
+	  }
+      
+    // Check if the build options are legal for all the devices
+    const FrontEndCompiler** pfeCompilers = new const FrontEndCompiler*[uiNumDevices];
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+      cl_device_id deviceID = pDevices[i];
+      FissionableDevice* pDevice = 0;
+      m_pContext->GetDevice(deviceID, &pDevice);
+
+      pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
+      if (NULL == pfeCompilers[i])
+      {
+        // No FE compiler assigned, need to allocate one
+        FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
+        pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
+      }
+
+      char* szUnrecognizedOptions = NULL;
+      if (!pfeCompilers[i]->CheckCompileOptions(szBuildOptions, &szUnrecognizedOptions))
+      {
+          for (cl_uint j = 0; j < uiNumDevices; ++j)
+          {
+              program->Unacquire(pDevices[j]);
+          }
+
+          delete[] szBuildOptions;
+          delete[] pDevices;
+          delete[] ppCompileTasks;
+          delete[] ppLinkTasks;
+          delete[] szUnrecognizedOptions;
+
+          return CL_INVALID_BUILD_OPTIONS;
+      }
+    }
+
     bool bNeedToBuild = false;
 
     const char* szProgramSource = program->GetSourceInternal();   
@@ -1259,14 +1362,7 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
         FissionableDevice* pDevice = 0;
         m_pContext->GetDevice(deviceID, &pDevice);
 
-        const FrontEndCompiler* feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
-        if (NULL == feCompiler)
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice->GetRootDevice());
-            feCompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
-        }
-
+        const FrontEndCompiler* feCompiler = pfeCompilers[i];
         IOCLDeviceAgent* pDeviceAgent = pDevice->GetDeviceAgent();
 
         switch (program->GetStateInternal(deviceID))

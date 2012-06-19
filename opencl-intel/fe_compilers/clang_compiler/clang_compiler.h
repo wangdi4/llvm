@@ -23,7 +23,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	public:
 		ClangFECompiler(const void* pszDeviceInfo);
 
-		// IOCLFECompiler
+		  // IOCLFECompiler
         int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
                            Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
 
@@ -33,6 +33,12 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         int GetKernelArgInfo(const void*        pBin,
                              const char*        szKernelName,
                              Intel::OpenCL::FECompilerAPI::FEKernelArgInfo*   *pArgInfo);
+
+        bool CheckCompileOptions(const char*  szOptions,
+                                 char**       szUnrecognizedOptions);
+
+        bool CheckLinkOptions(const char*  szOptions,
+                              char**       szUnrecognizedOptions);
 
 		void Release()
 		{

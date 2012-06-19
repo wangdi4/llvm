@@ -38,46 +38,46 @@ public:
     virtual cl_kernel_arg_type_qualifier getArgTypeQualifier(unsigned int index) const = 0;
 
     // release result
-	virtual long Release() = 0;
+    virtual long Release() = 0;
 };
 
 // Compile task descriptor, contains FE compilation info
 struct	FECompileProgramDescriptor
 {
-  // A pointer to main program's source (assumed one nullterminated string)
-  const char*		pProgramSource;		
-  // the number of input headers in pInputHeaders
-  unsigned int    uiNumInputHeaders; 
-  // array of additional input headers to be passed in memory
-  const char**    pInputHeaders;
-  // array of input headers names corresponding to pInputHeaders
-  const char**    pszInputHeadersNames;  
-  // A string for compile options
-	const char *	pszOptions;	
+    // A pointer to main program's source (assumed one nullterminated string)
+    const char*     pProgramSource;
+    // the number of input headers in pInputHeaders
+    unsigned int    uiNumInputHeaders; 
+    // array of additional input headers to be passed in memory
+    const char**    pInputHeaders;
+    // array of input headers names corresponding to pInputHeaders
+    const char**    pszInputHeadersNames;  
+    // A string for compile options
+    const char*     pszOptions;
 };
 
 // Link task descriptor, contains FE Linking info
 struct	FELinkProgramsDescriptor
 {
     // array of binary containers
-	const void**    pBinaryContainers;	
+    const void**    pBinaryContainers;	
     // the number of input binaries in pBinaryContainers
     unsigned int    uiNumBinaries;
     // the size in bytes of each container in pBinaryContainers
     const size_t*   puiBinariesSizes;
     // A string for link options
-	const char *	pszOptions;
+    const char*     pszOptions;
 };
 
 // This interface represents the FE compiler build result
 class IOCLFEBinaryResult
 {
 public:
-	virtual size_t	GetIRSize() = 0;
-	virtual const void*	GetIR() = 0;
-	virtual const char* GetErrorLog() = 0;
-	// release result
-	virtual long Release() = 0;
+    virtual size_t      GetIRSize() = 0;
+    virtual const void* GetIR() = 0;
+    virtual const char* GetErrorLog() = 0;
+    // release result
+    virtual long        Release() = 0;
 
     // Will be true if link is called with "-create-library"
     virtual bool IsLibrary() { return false; }
@@ -88,22 +88,22 @@ class IOCLFECompiler
 {
 public:
     // Synchronous function
-	// Input: pProgDesc - descriptor of the program to compile
-	// Output: The inerface to build result
-	// Returns: Compile status
+    // Input: pProgDesc - descriptor of the program to compile
+    // Output: The interface to build result
+    // Returns: Compile status
     virtual int CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
-	// Input: pProgDesc - descriptor of the programs to link
-	// Output: The inerface to link result
-	// Returns: Link status
+    // Input: pProgDesc - descriptor of the programs to link
+    // Output: The interface to link result
+    // Returns: Link status
     virtual int LinkPrograms(FELinkProgramsDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
-	// Input: pBin - the program's binary including the header
+    // Input: pBin - the program's binary including the header
     //        szKernelName - the name of the kernel for which we query the arg info
-	// Output: The interface to kernelArgInfo result
-	// Returns: CL_SUCCESS in case of success
+    // Output: The interface to kernelArgInfo result
+    // Returns: CL_SUCCESS in case of success
     //          CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
     //          CL_OUT_OF_HOST_MEMORY for out of host memory
     //          CL_FE_INTERNAL_ERROR_OHNO for internal errors (should never happen)
@@ -111,8 +111,22 @@ public:
                                  const char*        szKernelName,
                                  FEKernelArgInfo*   *pArgInfo) = 0;
 
-	// release compiler instance
-	virtual void Release() = 0;
+    // Synchronous function
+    // Input: szOptions - a string representing the compile options
+    // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+    // Returns: 'true' if the compile options are legal and 'false' otherwise
+    virtual bool CheckCompileOptions(const char*  szOptions,
+                                     char**       szUnrecognizedOptions) = 0;
+
+    // Synchronous function
+    // Input: szOptions - a string representing the link options
+    // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
+    // Returns: 'true' if the link options are legal and 'false' otherwise
+    virtual bool CheckLinkOptions(const char*  szOptions,
+                                  char**       szUnrecognizedOptions) = 0;
+
+    // release compiler instance
+    virtual void Release() = 0;
 };
 
 // Create an instance of the FE compiler tagged to specific device
