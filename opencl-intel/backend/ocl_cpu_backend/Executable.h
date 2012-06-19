@@ -87,11 +87,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         return false;
     }
 
+    ICLDevBackendBufferPrinter* GetDevicePrinter();
+
   protected:
     // TODO : add getter instead
     friend class ImplicitArgsUtils;
 
     const Binary*   m_pBinary;
+    ICLDevBackendBufferPrinter* m_pPrinter;
     char*           m_pParameters;
     std::vector<ImplicitArgument> m_implicitArgs;
     size_t          m_stParamSize;

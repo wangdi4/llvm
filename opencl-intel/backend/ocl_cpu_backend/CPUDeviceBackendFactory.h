@@ -16,7 +16,7 @@ File Name:  CPUDeviceBackendFactory.h
 
 \*****************************************************************************/
 #pragma once
-
+#include "cl_dev_backend_api.h"
 #include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -48,6 +48,7 @@ public:
     virtual KernelJITProperties* CreateKernelJITProperties();
 
     virtual Binary* CreateBinary(
+        ICLDevBackendBufferPrinter* pPrinter,
         const KernelProperties* pKernelProperties,
         const std::vector<cl_kernel_argument>& args,
         const cl_work_description_type* pWorkInfo,

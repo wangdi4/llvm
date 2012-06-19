@@ -145,6 +145,10 @@ extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
   return 0;
 }
 
+// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
+extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, Executable* pExec);
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, Executable* pExec);
+
 // New functions for 1.1
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, Executable* pExec) ;
 
@@ -159,4 +163,6 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
     functionsTable["get_time_counter"] = (unsigned long long int)(intptr_t)mic_get_time_counter;
     functionsTable["lasync_wg_copy_strided_l2g"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_l2g;
     functionsTable["lasync_wg_copy_strided_g2l"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_g2l;
+    functionsTable["opencl_printf"] = (unsigned long long int)(intptr_t)opencl_mic_printf;
+    functionsTable["opencl_snprintf"] = (unsigned long long int)(intptr_t)opencl_snprintf;
 }

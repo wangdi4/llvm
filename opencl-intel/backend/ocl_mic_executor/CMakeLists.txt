@@ -241,6 +241,8 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/Executable.cpp
     ../ocl_cpu_backend/MICExecutable.cpp
     ../ocl_cpu_backend/utils/FunctionArgument.cpp
+    ../ocl_cpu_backend/opencl_printf_ext.cpp
+    ../ocl_cpu_backend/opencl_mic_printf_ext.cpp
     main.cpp)
 
 if(MIC_TARGET) 

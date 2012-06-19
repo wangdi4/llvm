@@ -28,8 +28,17 @@ File Name:  ExecutionService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-ExecutionService::ExecutionService()
-{}
+ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
+    : m_pPrinter(NULL)
+{
+    void *pPrinter = NULL;
+    size_t size;
+    if(NULL != pOptions && 
+       pOptions->GetValue(CL_DEV_BACKEND_OPTION_BUFFER_PRINTER, &pPrinter, &size))
+    {
+        m_pPrinter = (ICLDevBackendBufferPrinter*)pPrinter;
+    }
+}
 
 cl_dev_err_code ExecutionService::CreateBinary(
         const ICLDevBackendKernel_* pKernel, 
@@ -47,6 +56,7 @@ cl_dev_err_code ExecutionService::CreateBinary(
         pKernelImpl->CreateWorkDescription( pWorkDescription, workSizes);
         
         *ppBinary = m_pBackendFactory->CreateBinary(
+                                        m_pPrinter,
                                         pKernelProps,
                                         *pKernelImpl->GetKernelParamsVector(),
                                         &workSizes,

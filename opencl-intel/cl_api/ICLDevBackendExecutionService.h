@@ -9,6 +9,21 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 /**
+ * This interface class is responsible for moving the stdout buffer to the device 
+ * manager
+ */
+class ICLDevBackendBufferPrinter
+{
+public:
+    virtual ~ICLDevBackendBufferPrinter() {}
+
+    /**
+     * @effects sends a final buffer to be printed
+     */
+    virtual int Print(void* id, const char* buffer) = 0;
+};
+
+/**
  * This interface class is responsible for the execution service for a given kernel 
  * it also contains machine detection unit to better know the target specifications
  */

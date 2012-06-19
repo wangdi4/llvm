@@ -168,7 +168,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
             Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
             Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
             assert(cpuId.IsMIC() && "MIC mode chosen but CPU ID is not right");
-            *ppBackendExecutionService = new MICExecutionService(cpuId);
+            *ppBackendExecutionService = new MICExecutionService(pBackendOptions, cpuId);
             return CL_DEV_SUCCESS;
         #else 
             *ppBackendExecutionService = NULL;
@@ -177,7 +177,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         #endif
         }
         //if(CPU_MODE == mode)
-        *ppBackendExecutionService = new CPUExecutionService();
+        *ppBackendExecutionService = new CPUExecutionService(pBackendOptions);
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

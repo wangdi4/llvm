@@ -24,7 +24,8 @@ File Name:  CPUExecutionService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-CPUExecutionService::CPUExecutionService()
+CPUExecutionService::CPUExecutionService(const ICLDevBackendOptions* pOptions)
+    : ExecutionService(pOptions)
 {
     m_pBackendFactory = CPUDeviceBackendFactory::GetInstance(); 
 }

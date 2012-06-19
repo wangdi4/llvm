@@ -28,7 +28,8 @@ File Name:  MICExecutionService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-MICExecutionService::MICExecutionService(const Intel::CPUId &cpuId)
+MICExecutionService::MICExecutionService(const ICLDevBackendOptions* pOptions, 
+    const Intel::CPUId& cpuId) : ExecutionService(pOptions)
 {
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
     m_TargetDescription.SetCPUId(cpuId);

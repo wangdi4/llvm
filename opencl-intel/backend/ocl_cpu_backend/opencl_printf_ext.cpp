@@ -24,13 +24,11 @@
 // or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors 
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#include "Binary.h"
 #include "Executable.h"
 #include "exceptions.h"
-#include "llvm/Support/MutexGuard.h"
-#include "llvm/Support/Mutex.h"
-#include "llvm/Instructions.h"
 #include <stdio.h>
+#include "opencl_printf_ext.h"
+
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -43,6 +41,7 @@
 #if defined(_WIN32)
     #include <windows.h>
     #include <process.h>
+    #include <stdint.h>
 #endif
 
 
@@ -70,127 +69,82 @@ const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 #define NEXT_ARG(args, type) (*(type*)((args += INTSIZEOF(type)) - INTSIZEOF(type)))
 
 
-class OutputAccumulator
-{
-public:
-    // Append character c to output
-    //
-    virtual void append(char c) = 0;
-
-    // Append a whole NUL-terminated C-string to output.
-    //
-    virtual void append(char* cstr)
-    {
-        while (*cstr) {
-            append(*cstr++);
-        }
-    }
-
-    // Finalize output
-    //
-    virtual void finalize() = 0;
-    
-    // The amount of characters requested to output so far.
-    //
-    virtual int output_count() = 0;
-};
-
-
 // An accumulator that writes into a FILE* stream.
 //
-class StreamOutputAccumulator : public OutputAccumulator
+StreamOutputAccumulator::StreamOutputAccumulator(FILE* stream)
+    : stream(stream), count(0)
 {
-public:
-    StreamOutputAccumulator(FILE* stream)
-        : stream(stream), count(0)
-    {
-        #if (defined(_WIN32) || defined(_WIN64)) 
-            hStdout=NULL;
-        #endif
-    }
+    #if (defined(_WIN32) || defined(_WIN64)) 
+        hStdout=NULL;
+    #endif
+}
 
-    virtual void append(char c)
-    {
+void StreamOutputAccumulator::append(char c)
+{
 #if (defined(_WIN32) || defined(_WIN64)) 
-        //Windows 64 crash fix, ticket no. CSSD100006413 
-        if (!hStdout){
-            hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-            if (INVALID_HANDLE_VALUE == hStdout){
-                hStdout = NULL;
-                return;
-            }
+    //Windows 64 crash fix, ticket no. CSSD100006413 
+    if (!hStdout){
+        hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (INVALID_HANDLE_VALUE == hStdout){
+            hStdout = NULL;
+            return;
         }
-        DWORD d;
-        WriteFile(hStdout, &c, 1, &d, NULL);
+    }
+    DWORD d;
+    WriteFile(hStdout, &c, 1, &d, NULL);
 #else 
-        fputc(c, stream);
+    fputc(c, stream);
 #endif
-        count++;
-    }
+    count++;
+}
 
-    virtual void finalize() 
-    {
-    }
+void StreamOutputAccumulator::finalize() 
+{
+}
 
-    virtual int output_count()
-    {
-        return count;
-    }
-private:
-    FILE* stream;
-    int count;
-#if (defined(_WIN32) || defined(_WIN64)) 
-    HANDLE hStdout;
-#endif
-};
+int StreamOutputAccumulator::output_count()
+{
+    return count;
+}
+
 
 
 // An accumulator that writes into a size-limited buffer. No more than size
 // chars will ever be written into the buffer. finalize() inserts the final
 // '\0'.
 //
-class StringOutputAccumulator : public OutputAccumulator
+StringOutputAccumulator::StringOutputAccumulator(char* outstr_, size_t outstr_size_)
+    : outstr(outstr_), outstr_size(outstr_size_), outstr_ptr(0), count(0)
+{}
+
+void StringOutputAccumulator::append(char c)
 {
-public:
-    StringOutputAccumulator(char* outstr_, size_t outstr_size_)
-        : outstr(outstr_), outstr_size(outstr_size_), outstr_ptr(0), count(0)
-    {}
+    // Stop writing before the last cell in the buffer
+    //
+    if (outstr_ptr < outstr_size - 1)
+        outstr[outstr_ptr++] = c;
+    count++;
+}
 
-    virtual void append(char c)
-    {
-        // Stop writing before the last cell in the buffer
-        //
-        if (outstr_ptr < outstr_size - 1)
-            outstr[outstr_ptr++] = c;
-        count++;
-    }
+void StringOutputAccumulator::finalize()
+{
+    assert(outstr_ptr < outstr_size);
+    outstr[outstr_ptr] = '\0';
+}
 
-    virtual void finalize()
-    {
-        assert(outstr_ptr < outstr_size);
-        outstr[outstr_ptr] = '\0';
-    }
-
-    virtual int output_count()
-    {
-        // C99 says in "7.19.6.5 The snprintf function":
-        // 
-        //  The snprintf function returns the number of characters that 
-        //  would have been written had n been sufficiently large, not counting 
-        //  the terminating null character, or a negative value if an encoding 
-        //  error occurred. Thus, the null-terminated output has been  
-        //  completely written if and only if the returned value is nonnegative 
-        //  and less than n.
-        //
-        return count;
-    }
-private:
-    char* outstr;
-    size_t outstr_size;
-    size_t outstr_ptr;
-    int count;
-};
-
+int StringOutputAccumulator::output_count()
+{
+    // C99 says in "7.19.6.5 The snprintf function":
+    // 
+    //  The snprintf function returns the number of characters that 
+    //  would have been written had n been sufficiently large, not counting 
+    //  the terminating null character, or a negative value if an encoding 
+    //  error occurred. Thus, the null-terminated output has been  
+    //  completely written if and only if the returned value is nonnegative 
+    //  and less than n.
+    //
+    return count;
+}
 
 // Conversion flags. 
 //
@@ -759,22 +713,10 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
     return 0;
 }
 
-// Used to ensure that only one thread executes opencl_printf simultaneously,
-// to avoid intermingling of output from different threads.
-//
-static llvm::sys::Mutex m_lock;
-
-static int printFormatCommon(OutputAccumulator& output, const char* format, const char* args){
+int printFormatCommon(OutputAccumulator& output, const char* format, const char* args){
     int rc = formatted_output(output, format, args);
     output.finalize();
     return rc < 0 ? rc : output.output_count();
-}
-
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, DeviceBackend::Executable* pExec)
-{
-    llvm::MutexGuard locked(m_lock);
-    StreamOutputAccumulator output(stdout);
-    return printFormatCommon(output, format, args);
 }
 
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, DeviceBackend::Executable* pExec)

@@ -27,7 +27,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class MICExecutionService: public ExecutionService
 {
 public:
-    MICExecutionService(const Intel::CPUId&);
+    MICExecutionService(const ICLDevBackendOptions* pOptions, const Intel::CPUId&
+        cpuId);
 	
     virtual size_t GetTargetMachineDescriptionSize() const;
     

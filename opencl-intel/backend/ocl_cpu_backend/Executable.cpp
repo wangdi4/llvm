@@ -154,3 +154,9 @@ cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
   
   return CL_DEV_SUCCESS;
 }
+
+ICLDevBackendBufferPrinter* Executable::GetDevicePrinter() 
+{ 
+    return m_pBinary->GetDevicePrinter(); 
+}
+

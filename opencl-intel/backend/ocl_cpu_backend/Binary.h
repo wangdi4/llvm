@@ -53,6 +53,7 @@ class Binary: public ICLDevBackendBinary_
 {
 public:
     Binary( IAbstractBackendFactory* pBackendFactory, 
+            ICLDevBackendBufferPrinter* pPrinter,
             const KernelProperties* pKernelProperties,
             const std::vector<cl_kernel_argument>& args,
             const cl_work_description_type* pWorkInfo,
@@ -100,6 +101,8 @@ public:
     const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
     size_t GetImplicitLocalMemoryBufferSize() const {return m_totalImplSize;}
+
+    ICLDevBackendBufferPrinter* GetDevicePrinter() const { return m_pPrinter;}
     
 protected:
     // pointer to the Backend Factory, not owned by this class
@@ -113,6 +116,9 @@ private:
     // TODO : add getter instead?
     friend class Executable;
     friend class ImplicitArgsUtils;
+
+    // for printer service - not owned by this class
+    ICLDevBackendBufferPrinter* m_pPrinter;
 
     size_t                  m_stFormalParamSize;
     size_t                  m_stKernelParamSize;

@@ -78,6 +78,7 @@ KernelJITProperties* CPUDeviceBackendFactory::CreateKernelJITProperties()
 }
 
 Binary* CPUDeviceBackendFactory::CreateBinary( 
+    ICLDevBackendBufferPrinter* pPrinter,
     const KernelProperties* pKernelProperties,
     const std::vector<cl_kernel_argument>& args,
     const cl_work_description_type* pWorkInfo,
@@ -87,6 +88,7 @@ Binary* CPUDeviceBackendFactory::CreateBinary(
     size_t IN ArgBuffSize)
 {
     return new Binary(this,
+                    pPrinter,
                     pKernelProperties,
                     args,
                     pWorkInfo,

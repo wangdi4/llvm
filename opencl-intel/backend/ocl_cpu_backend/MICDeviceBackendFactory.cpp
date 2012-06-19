@@ -78,6 +78,7 @@ KernelJITProperties* MICDeviceBackendFactory::CreateKernelJITProperties()
 }
 
 Binary* MICDeviceBackendFactory::CreateBinary( 
+    ICLDevBackendBufferPrinter* pPrinter,
     const KernelProperties* pKernelProperties,
     const std::vector<cl_kernel_argument>& args,
     const cl_work_description_type* pWorkInfo,
@@ -87,6 +88,7 @@ Binary* MICDeviceBackendFactory::CreateBinary(
     size_t IN ArgBuffSize)
 {
     return new Binary(this,
+                    pPrinter,
                     pKernelProperties,
                     args,
                     pWorkInfo,
@@ -100,6 +102,7 @@ Executable* MICDeviceBackendFactory::CreateExecutable(const Binary* pBinary)
 {
     return new MICExecutable(pBinary);
 }
+
 
 
 }}} // namespace

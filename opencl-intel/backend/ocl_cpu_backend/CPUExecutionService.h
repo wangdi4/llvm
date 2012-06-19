@@ -26,7 +26,7 @@ class Binary;
 class CPUExecutionService: public ExecutionService
 {
 public:
-    CPUExecutionService();
+    CPUExecutionService(const ICLDevBackendOptions* pOptions);
 };
 
 }}}

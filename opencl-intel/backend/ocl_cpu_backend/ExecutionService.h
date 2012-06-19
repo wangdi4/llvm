@@ -30,7 +30,7 @@ class Binary;
 class ExecutionService: public ICLDevBackendExecutionService
 {
 public:
-        ExecutionService();
+        ExecutionService(const ICLDevBackendOptions* pOptions);
     /**
      * Creates binary object from the given kernel code and the context, the generated binary
      * will be binded for the given work description.
@@ -111,6 +111,10 @@ public:
 protected:
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_pBackendFactory; 
+
+    // pointer to the device printer service
+    ICLDevBackendBufferPrinter* m_pPrinter;
+
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManager;
     #endif

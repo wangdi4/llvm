@@ -251,6 +251,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackManager.h
     ImageCallbackServices.h
     debuggingservicewrapper.h
+    opencl_printf_ext.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
   )
 
@@ -263,6 +264,8 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     TargetDescription.cpp
     dllmain.cpp
     opencl_printf_ext.cpp
+    opencl_cpu_printf_ext.cpp
+    opencl_mic_printf_ext.cpp
     Logger.cpp
     ServiceFactory.cpp
     CompileService.cpp

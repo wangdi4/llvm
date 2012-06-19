@@ -49,6 +49,7 @@ public:
     virtual KernelJITProperties* CreateKernelJITProperties() = 0;
 
     virtual Binary* CreateBinary(
+        ICLDevBackendBufferPrinter* pPrinter,
         const KernelProperties* pKernelProperties,
         const std::vector<cl_kernel_argument>& args,
         const cl_work_description_type* pWorkInfo,

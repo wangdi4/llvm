@@ -52,6 +52,7 @@ size_t align_to<size_t>(size_t addr, size_t alignment)
 
 
 Binary::Binary(IAbstractBackendFactory* pBackendFactory, 
+               ICLDevBackendBufferPrinter* pPrinter,
                const KernelProperties* pKernelProperties,
                const std::vector<cl_kernel_argument>& args,
                const cl_work_description_type* pWorkInfo,
@@ -60,6 +61,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
                char* IN pArgsBuffer, 
                size_t IN ArgBuffSize):
      m_pBackendFactory(pBackendFactory),
+     m_pPrinter(pPrinter),
      m_stFormalParamSize(0),
      m_stKernelParamSize(0),
      m_stAlignedKernelParamSize(0),
