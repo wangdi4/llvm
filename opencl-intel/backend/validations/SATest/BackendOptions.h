@@ -158,7 +158,6 @@ public:
             *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionBefore;
             return true;
         default:
-            assert(false && "Unknown option");
             return false;
         }
     }
