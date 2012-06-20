@@ -43,17 +43,15 @@ entry:
 ; KNF:  movl      $61680, [[R1:%[a-z]+]]
 ; KNF:  vkmov     [[R1]], [[K1:%k[1-7]+]]
 ; KNF:  movl      $43690, [[R2:%[a-z]+]]
-; KNF:  vkmov     [[R2]], [[K2:%k[1-7]+]]
 ; KNF:  vshuf128x32 $80, $250, [[V0:%v[0-9]+]], [[V1:%v[0-9]+]]
 ; KNF:  vshuf128x32 $80, $80, [[V0]], [[V2:%v[0-9]+]]
 ; KNF:  vshuf128x32 $250, $250, [[V0]], [[V1]]{[[K1]]}
 ; KNF:  vshuf128x32 $250, $80, [[V0]], [[V2]]{[[K1]]}
-; KNF:  vxorpi    [[V1]], [[V1]], [[V1]]{[[K2]]}
-; KNF:  vxorpi    [[V2]], [[V2]], [[V2]]{[[K2]]}
+; KNF:  vxorpi    [[V1]], [[V1]], [[V1]]{%k{{[1-7]+}}}
+; KNF:  vxorpi    [[V2]], [[V2]], [[V2]]{%k{{[1-7]+}}}
 ;
 ; KNC:  movl      $43690, %eax
-; KNC:  vpxord    [[V3:%zmm[0-9]+]]
-; KNC:  kmov      %rax, %k1
+; KNC:  kmov      %rax, [[K1:%k[1-7]+]]
 ; KNC:  vmovaps   _const_2(%rip), [[V0:%zmm[0-9]+]]
 ; KNC:  vmovaps   _const_3(%rip), [[V1:%zmm[0-9]+]]
 ; KNC:  vpermd    [[V2:%zmm[0-9]+]], [[V0]], [[V4:%zmm[0-9]+]]

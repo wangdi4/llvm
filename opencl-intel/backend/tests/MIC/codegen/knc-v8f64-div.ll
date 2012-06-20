@@ -18,35 +18,19 @@ define <8 x double> @div1(<8 x double> %a, <8 x double> %b) nounwind readnone ss
 entry:
 
 
+; KNF: div1:
 ; KNF: vloadd    
 ; KNF: vkxnor    
 ; KNF: vandpq    
-; KNF: vaddpi    
-; KNF: vorpq     
-; KNF: vandpq    
 ; KNF: vandpq    
 ; KNF: vsubrpi   
-; KNF: vcmppd    
-; KNF: vcvtpd2ps 
-; KNF: vcmppd    
-; KNF: vsrlpi    
-; KNF: vandpq    
-; KNF: vandpq    
 ; KNF: vrcpresps 
-; KNF: vsubpi    
 ; KNF: vrcprefineps
-; KNF: vxorpq    
-; KNF: vorpq     
-; KNF: vcmppd    
 ; KNF: vcvtps2pd 
-; KNF: vmulpd    
 ; KNF: vmsubr23c1pd
 ; KNF: vkor      
 ; KNF: vmulpd    
 ; KNF: vkandn    
-; KNF: vmadd231pd 
-; KNF: vmadd231pd 
-; KNF: vmulpd    
 ; KNF: vmsubr231pd 
 ; KNF: vmadd231pd 
 ; KNF: vorpi    
@@ -94,34 +78,17 @@ entry:
 define <8 x double> @div2(<8 x double>* nocapture %a, <8 x double> %b) nounwind readonly ssp {
 entry:
     
-; KNF:        vkxnor    
+; KNF: div2:
 ; KNF:        vandpq    
-; KNF:        vaddpi    
 ; KNF:        vorpq     
-; KNF:        vandpq    
-; KNF:        vandpq    
-; KNF:        vsubrpi   
-; KNF:        vcmppd    
-; KNF:        vcvtpd2ps 
-; KNF:        vcmppd    
-; KNF:        vsrlpi    
-; KNF:        vandpq    
 ; KNF:        vandpq    
 ; KNF:        vrcpresps 
-; KNF:        vsubpi       
 ; KNF:        vrcprefineps 
-; KNF:        vxorpq    
-; KNF:        vorpq     
-; KNF:        vcmppd    
 ; KNF:        vcvtps2pd       
-; KNF:        vmulpd    
 ; KNF:        vmsubr23c1pd
 ; KNF:        vkor      
 ; KNF:        vmulpd    
 ; KNF:        vkandn    
-; KNF:        vmadd231pd
-; KNF:        vmadd231pd     
-; KNF:        vmulpd    
 ; KNF:        vmsubr213pd
 ; KNF:        vmadd231pd 
 ; KNF:        vorpi     
@@ -166,31 +133,17 @@ entry:
 }
 
 define <8 x double> @div3(<8 x double> %a, <8 x double>* nocapture %b) nounwind readonly ssp {
-; KNF:        vandpq    
-; KNF:        vaddpi    
-; KNF:        vorpq           
+; KNF: div3:
 ; KNF:        vandpq    
 ; KNF:        vandpq    
-; KNF:        vsubrpi   
-; KNF:        vcmppd    
 ; KNF:        vcvtpd2ps 
-; KNF:        vcmppd    
-; KNF:        vsrlpi    
-; KNF:        vandpq    
-; KNF:        vandpq    
 ; KNF:        vrcpresps 
-; KNF:        vsubpi    
 ; KNF:        vrcprefineps
-; KNF:        vxorpq    
-; KNF:        vorpq     
-; KNF:        vcmppd    
 ; KNF:        vcvtps2pd 
-; KNF:        vmulpd    
 ; KNF:        vmsubr23c1pd
 ; KNF:        vkor      
 ; KNF:        vmulpd    
 ; KNF:        vkandn    
-; KNF:        vmadd231pd
 ; KNF:        vmadd231pd
 
 ; KNFmpa:        vandpq    
@@ -228,34 +181,17 @@ define <8 x double> @div3(<8 x double> %a, <8 x double>* nocapture %b) nounwind 
 
 define <8 x double> @div4(<8 x double> %a) nounwind readonly ssp {
 entry:
-; KNF:         vkxnor    
+; KNF: div4:
 ; KNF:         vandpq    
-; KNF:         vaddpi    
 ; KNF:         vorpq    
-; KNF:         vandpq    
 ; KNF:         vandpq 
-; KNF:         vsubrpi   
-; KNF:         vcmppd    
 ; KNF:         vcvtpd2ps 
-; KNF:         vcmppd    
-; KNF:         vsrlpi    
-; KNF:         vandpq    
-; KNF:         vandpq    
 ; KNF:         vrcpresps 
-; KNF:         vsubpi    
 ; KNF:         vrcprefineps
-; KNF:         vxorpq    
-; KNF:         vorpq     
-; KNF:         vcmppd    
-; KNF:         vmulpd    
 ; KNF:         vmsubr23c1pd
 ; KNF:         vkor      
 ; KNF:         vmulpd    
 ; KNF:         vkandn    
-; KNF:         vmadd231pd 
-; KNF:         vmadd231pd 
-; KNF:         vmulpd    
-; KNF:         vmsubr231pd
 ; KNF:         vmadd231pd 
 
 ; KNFmpa:         vkxnor    
@@ -297,31 +233,16 @@ entry:
 
 define <8 x double> @div5(<8 x double> %a) nounwind readonly ssp {
 entry:
+; KNF: div5:
 ; KNF:        vandpq    
-; KNF:        vaddpi    
-; KNF:        vorpq     
-; KNF:        vandpq    
-; KNF:        vandpq    
-; KNF:        vsubrpi   
-; KNF:        vcmppd    
-; KNF:        vcvtpd2ps 
-; KNF:        vcmppd
-; KNF:        vsrlpi    
 ; KNF:        vandpq    
 ; KNF:        vrcpresps 
-; KNF:        vsubpi    
 ; KNF:        vrcprefineps
-; KNF:        vxorpq    
-; KNF:        vorpq     
 ; KNF:        vcvtps2pd 
-; KNF:        vmulpd    
 ; KNF:        vmsubr23c1pd 
 ; KNF:        vkor      
 ; KNF:        vmulpd    
 ; KNF:        vkandn    
-; KNF:        vmadd231pd 
-; KNF:        vmadd231pd 
-; KNF:        vmulpd    
 ; KNF:        vmsubr231pd
 
 ; KNFmpa:        vandpq    

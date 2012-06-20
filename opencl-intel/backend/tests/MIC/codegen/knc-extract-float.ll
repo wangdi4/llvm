@@ -1,8 +1,8 @@
 ; XFAIL: win32
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:        -march=y86-64 -mcpu=knc 
-
+; RUN:        -march=y86-64 -mcpu=knc \
+; RUN:     | FileCheck %s -check-prefix=KNC
 ;
 ;
 
@@ -11,6 +11,7 @@ target datalayout = "e-p:64:64"
 define float @ld_extract_16f32(<16 x float> *%a) nounwind {
 entry:
 ;KNF: vloadd 12(%{{[a-z]+}}){1to16}, [[R0:%v[0-9]+]]
+; KNC: vbroadcastss 12(%rdi), %zmm0
   %vec = load <16 x float> *%a  ;
   %elmnt = extractelement <16 x float> %vec, i32 3   ; 
   ret float %elmnt
@@ -19,6 +20,7 @@ entry:
 define double @ld_extract_8f64(<8 x double> *%a) nounwind {
 entry:
 ;KNF: vloadq 24(%{{[a-z]+}}){1to8}, [[R0:%v[0-9]+]]
+; KNC: vbroadcastsd 24(%rdi), %zmm0
   %vec = load <8 x double> *%a  ;
   %elmnt = extractelement <8 x double> %vec, i32 3   ; 
   ret double %elmnt
@@ -29,6 +31,7 @@ entry:
 define float @extract_16f32_15(<16 x float> %a) nounwind {
 entry:
 ;KNF: vshuf128x32 $255, $255, %v0, %v0
+; KNC: valignd   $15, %zmm0, %zmm1, %zmm0
   %elmnt = extractelement <16 x float> %a, i32 15
   ret float %elmnt
 }
@@ -36,6 +39,7 @@ entry:
 define float @extract_16f32_1(<16 x float> %a) nounwind {
 entry:
 ;KNF: vshuf128x32 $85, $0, %v0, %v0
+; KNC: vpshufd   $1, %zmm0, %zmm0
   %elmnt = extractelement <16 x float> %a, i32 1
   ret float %elmnt
 }
@@ -50,12 +54,16 @@ entry:
   %e2 = extractelement <16 x double> %a, i32 7
 ;KNF: vaddpd [[R0]], [[R1]]
   %add = fadd double %e1, %e2
+; KNC:  valignd   $14, %zmm0, %zmm{{[0-9]+}}, [[R0:%zmm[0-9]+]]
+; KNC:  valignd   $14, %zmm1, %zmm{{[0-9]+}}, [[R1:%zmm[0-9]+]]
+; KNC:  vaddpd    [[R0]], [[R1]], %zmm0{%k1}
   ret double %add
 }
 
 define double @extract_8f64_4(<8 x double> %a) nounwind {
 entry:
 ;KNF: vshuf128x32 $68, $170, %v0, %v0
+; KNC: vpermf32x4 $2, %zmm0, %zmm0
   %e1 = extractelement <8 x double> %a, i32 4
   ret double %e1
 }
@@ -67,6 +75,8 @@ entry:
   %e1 = extractelement <16 x float> %a, i32 3   ; 
 ; KNF: vstored [[R0]]{a}, (%{{[a-z]+}})
   store float %e1, float* %b
+; KNC:  vpshufd   $3, %zmm0, %zmm1
+; KNC:  vpackstorelps %zmm1, (%rdi){%k1}
   ret void
 }
 
@@ -77,6 +87,8 @@ entry:
   %e1 = extractelement <16 x float> %vec, i32 3
 ; KNF: movl [[R0]], (%rsi)
   store float %e1, float* %b
+; KNC:  movl      12(%rdi), %eax
+; KNC:  movl      %eax, (%rsi)
   ret void
 }
 
@@ -118,6 +130,8 @@ entry:
 ;KNF:    vstored [[R0]]{a}, -64(%rsp)
 ;KNF:    vstored [[R1]]{a}, -60(%rsp)
 ;KNF:    vloadq  -64(%rsp), %v0
+; KNC: vmovaps   _const_{{[0-9]+}}(%rip), [[R1:%zmm[0-9]+]]
+; KNC: vpermd    (%rdi), [[R1]], %zmm0
   %0 = load <16 x float> *%pin, align 64
   %1 = extractelement <16 x float> %0, i32 0
   %2 = extractelement <16 x float> %0, i32 1
@@ -149,8 +163,12 @@ entry:
 ;KNF:   vshuf128x32     $85, $0, (%rdi), [[R1:%v[0-9]+]]
 ;KNF:   vstored [[R0]]{a}, -64(%rsp)
 ;KNF:   vstored [[R2]]{a}, -56(%rsp)
-;KNF:   vstored [[R1]]{a}, -60(%rsp)
+;KNF:   vstored [[R1]]{a}, -36(%rsp)
 ;KNF:   vloadq  -64(%rsp), %v0
+;
+; KNC: vmovaps   _const_{{[0-9]+}}(%rip), [[R1:%zmm[0-9]+]]
+; KNC: vpermd    (%rdi), [[R1]], %zmm0
+;
   %0 = load <16 x float> *%pin, align 64
   %1 = extractelement <16 x float> %0, i32 0
   %2 = extractelement <16 x float> %0, i32 1

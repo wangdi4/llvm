@@ -11,7 +11,6 @@ declare <8 x i64> @llvm.x86.mic.mull.pq(<8 x i64>, <8 x i64>)
 
 define <8 x i64> @f_mull_pq(<8 x i64> %arg0, <8 x i64> %arg1) {
 ; KNF: f_mull_pq:
-; KNF: vmullpi %v{{[0-9]*}}, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNF: vmadd231pi %v{{[0-9]*}}{cdab}, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNF: vmadd231pi %v{{[0-9]*}}{cdab}, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNF: vshuf128x32 $160, $228, %v{{[0-9]*}}, %v{{[0-9]*}}{%k{{[0-9]*}}}
