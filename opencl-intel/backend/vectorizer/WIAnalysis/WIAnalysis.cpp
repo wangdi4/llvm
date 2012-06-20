@@ -514,9 +514,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   case Instruction::FPToUI:
   case Instruction::FPToSI:
   case Instruction::SIToFP:
-  case Instruction::ZExt:
-    return dep0;
+      return dep0;
   case Instruction::BitCast:
+  case Instruction::ZExt:
     return WIAnalysis::RANDOM;
   // FIXME:: assumes that the value does not cross the +/- border - risky !!!!
   case Instruction::Trunc: {
