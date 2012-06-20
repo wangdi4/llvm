@@ -19,6 +19,7 @@ File Name:  KernelProperties.cpp
 #include "KernelProperties.h"
 #include "exceptions.h"
 #include <string.h>
+#include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -79,12 +80,14 @@ bool KernelProperties::HasKernelCallOperation() const
 
 void KernelProperties::SetReqdWGSize(const size_t* psize )   
 { 
-    memcpy(m_reqdWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
+    std::copy(psize, psize + MAX_WORK_DIM, m_reqdWGSize);
+    //memcpy(m_reqdWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
 }
 
 void KernelProperties::SetHintWGSize(const size_t* psize )   
 { 
-    memcpy(m_hintWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
+    std::copy(psize, psize + MAX_WORK_DIM, m_hintWGSize);
+    //memcpy(m_hintWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
 }
 
 }}}

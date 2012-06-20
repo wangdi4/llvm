@@ -4,6 +4,8 @@
 #include <cassert>
 #include <string>
 #include <utility>
+#include <exception>
+
 namespace Intel {
 // CPU enumeration
 enum ECPU {
@@ -68,7 +70,7 @@ public:
     static const char* GetCPUName(ECPU CPU) {
         switch (CPU) {
         default:
-            return 0;
+            return NULL;
         case CPU_PENTIUM:
             return "pentium";
         case CPU_NOCONA:

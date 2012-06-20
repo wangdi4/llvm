@@ -233,6 +233,12 @@ protected:
     bool                     m_needLoadBuiltins;
 
     static bool s_globalStateInitialized;
+
+private:
+    // Disable copy ctor and assignment operator
+    Compiler( const Compiler& );
+    bool operator = (const Compiler& );
+
 };
 
 void SetTargetTripple(llvm::Module *pModule);

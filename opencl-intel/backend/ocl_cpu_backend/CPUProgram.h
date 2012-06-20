@@ -49,6 +49,12 @@ public:
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     void *                  m_pBIModule;
+
+private:
+    // Disable copy ctor and assignment operator
+    CPUProgram( const CPUProgram& );
+    bool operator = (const CPUProgram& );
+
 };
 
 }}} // namespace

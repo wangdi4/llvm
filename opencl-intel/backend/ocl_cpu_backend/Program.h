@@ -156,6 +156,11 @@ protected:
     std::string       m_buildLog;
     std::auto_ptr<KernelSet> m_kernels;
 
+private:
+    // Disable copy ctor and assignment operator
+    Program( const Program& );
+    bool operator = (const Program& );
+
 };
 
 }}}

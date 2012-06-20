@@ -153,6 +153,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     NamedMDNode *KernelsMD = pModule->getNamedMetadata("opencl.kernels");
 
+    if( NULL == KernelsMD )
+        throw  Exceptions::CompilerException("Internal error", CL_DEV_BUILD_ERROR);
+
     MDNode *FuncInfo = NULL; 
     for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) 
     {
@@ -161,6 +164,11 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
       if(func == dyn_cast<Function>(field0))
         break;
+    }
+
+    if( NULL == FuncInfo )
+    {
+        throw Exceptions::CompilerException("Internal Error");
     }
 
     MDNode *MDWGSH = NULL;

@@ -83,6 +83,10 @@ protected:
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
 private:
+    // Disable the copy ctor and assignment operator
+    CPUCompiler( const CPUCompiler& );
+    bool operator = ( const CPUCompiler& );
+
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
 
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;

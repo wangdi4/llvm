@@ -383,6 +383,11 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     std::string cpuFeatures( Utils::JoinStrings(m_forcedCpuFeatures, ","));
     std::string cpuName( m_CpuId.GetCPUName());
     TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures);
+
+    if( NULL == pTargetMachine )
+    {
+        throw Exceptions::CompilerException("Failed to create TargetMachine object");
+    }
     
     // Build up all of the passes that we want to do to the module.
     PassManager pm;

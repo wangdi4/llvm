@@ -47,7 +47,8 @@ ProgramContainerMemoryBuffer* ProgramContainerMemoryBuffer::Create( const cl_pro
 
     // The buffer begins after the headers and must be aligned (the IR buffer, not the headers).
     char *pBuf = pMem + alignedSize - headersSize;
-    memcpy(pBuf, pHeader, headersSize + bufferSize);
+    std::copy((char*)pHeader, (char*)pHeader + headersSize + bufferSize, pBuf);
+    //memcpy(pBuf, pHeader, headersSize + bufferSize);
 
     return new(pMem) ProgramContainerMemoryBuffer((const cl_prog_container_header*)pBuf);
 }

@@ -73,7 +73,8 @@ cl_dev_err_code Executable::Init( void* *pLocalMemoryBuffers, void* pWGStackFram
   m_pParameters = TypeAlignment::align(TypeAlignment::MAX_ALIGNMENT, (char*)pWGStackFrame);
 
   // Copy parameters to context
-  memcpy( m_pParameters, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
+  std::copy((char*)m_pBinary->GetFormalParameters(), (char*)m_pBinary->GetFormalParameters() + m_pBinary->GetFormalParametersSize(), m_pParameters);
+  //memcpy( m_pParameters, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 
   // Update pointers of the local buffers
   for ( unsigned int i=0; i<m_pBinary->m_kernelLocalMem.size(); ++i ) {

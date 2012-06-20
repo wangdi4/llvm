@@ -145,6 +145,11 @@ protected:
     std::vector<cl_kernel_argument> m_args;
     KernelProperties* m_pProps;
     std::vector<IKernelJITContainer*> m_JITs;
+
+private:
+    // Disable copy ctor and assignment operator
+    Kernel( const Kernel& );
+    bool operator = (const Kernel& );
 };
 
 /**

@@ -29,7 +29,7 @@ set( CMAKE_ASM_INCLUDE_DIR_FLAG    /I )
 
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS")
-set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /Gm /RTC1 /MDd")  #MTd
+set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MDd")  #/MTd /Gm
 set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MD")# /Ob0") #/GL") #MT
 
 # Compiler switches that CAN be modified during makefile generation and configuration-independent

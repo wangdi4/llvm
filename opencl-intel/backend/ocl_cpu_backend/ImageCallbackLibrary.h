@@ -229,6 +229,12 @@ private:
     llvm::Module* m_pModule;
     // Pointer to Execution Engine
     void *        m_pExecutionEngine;
+
+private:
+    // Disable copy ctor and assignment operator
+    ImageCallbackLibrary( const ImageCallbackLibrary& );
+    bool operator = (const ImageCallbackLibrary& );
+
 };
 
 }}} // namespace
