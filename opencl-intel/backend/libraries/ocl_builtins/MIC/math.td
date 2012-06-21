@@ -227,3 +227,42 @@ OclBuiltinImpl mask_native_logb_f64_v8 = OclBuiltinImpl<mask_native_logb, [v8f64
   }]>;
 OclBuiltinImpl native_logb_f64_promote = OclBuiltinImpl<native_logb, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote1>;
 OclBuiltinImpl native_logb_f64_expand = OclBuiltinImpl<native_logb, [v16f64], 0, Expand1>;
+
+// ilogb
+OclBuiltinImpl ilogb_svml_f32_v8 = OclBuiltinImpl<ilogb, [v8f32], 0, [{
+    float16 in;
+    in.lo = $Arg0VarName;
+    int16 out = __ocl_svml_$Target_ilogbf16(in);
+    return as_$ReturnType(out.lo);
+  }]>;
+
+// ldexp
+OclBuiltinImpl ldexp_svml_v8 = OclBuiltinImpl<ldexp, [v8f32], 0, [{
+    float16 f;
+    f.lo = $Arg0VarName;
+    int16 i;
+    i.lo = $Arg1VarName;
+    float16 out = __ocl_svml_$Target_ldexpf16(f, i);
+    return as_$ReturnType(out.lo);
+  }]>;
+
+// pown
+OclBuiltinImpl pown_svml_v8 = OclBuiltinImpl<pown, [v8f32], 0, [{
+    float16 f;
+    f.lo = $Arg0VarName;
+    int16 i;
+    i.lo = $Arg1VarName;
+    float16 out = __ocl_svml_$Target_pownf16(f, i);
+    return as_$ReturnType(out.lo);
+  }]>;
+
+// rootn
+OclBuiltinImpl rootn_svml_v8 = OclBuiltinImpl<rootn, [v8f32], 0, [{
+    float16 f;
+    f.lo = $Arg0VarName;
+    int16 i;
+    i.lo = $Arg1VarName;
+    float16 out = __ocl_svml_$Target_rootnf16(f, i);
+    return as_$ReturnType(out.lo);
+  }]>;
+
