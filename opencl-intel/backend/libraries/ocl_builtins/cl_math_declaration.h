@@ -1637,17 +1637,10 @@ extern "C" {
 	}																			
 
 #define OCL_SVML_P2_F2_F2_F2(func,svmlfunc)										\
-	__attribute__((svmlcc)) __attribute__((const)) float4 OCL_SVML_FUNCTION(_##svmlfunc##f2)(float4, float4);					\
+	__attribute__((svmlcc)) __attribute__((const)) float2 OCL_SVML_FUNCTION(_##svmlfunc##f2)(float2, float2);					\
 	__attribute__((overloadable)) float2 func(float2 x,float2 y)				\
 	{																			\
-		float4 valx;															\
-		valx = _mm_castsi128_ps(_mm_loadl_epi64((__m128i*)&x));					\
-		float4 valy;															\
-		valy = _mm_castsi128_ps(_mm_loadl_epi64((__m128i*)&y));					\
-		float4 val = OCL_SVML_FUNCTION(_##svmlfunc##f2)(valx,valy);				\
-		float2 res;																\
-		_mm_storel_epi64((__m128i*)&res, (__m128i)val);							\
-		return res;																\
+		return OCL_SVML_FUNCTION(_##svmlfunc##f2)(x,y);				\
 	}																			
 
 #define OCL_SVML_P2_F3_F3_F3(func,svmlfunc)										\
@@ -2011,6 +2004,15 @@ extern "C" {
   }																			
 
 /*
+#define OCL_SVML_P2_F2_F2_I2(func, sign)											\
+	__attribute__((svmlcc)) __attribute__((const)) float2 OCL_SVML_FUNCTION(_##func##f2)(float2,_2##sign##32);						\
+	__attribute__((overloadable)) float2 func(float2 x, _2##sign##32 y)	\
+  {							                                  										\
+	_2i32 valy = y;														\
+	return OCL_SVML_FUNCTION(_##func##f2)(x,valy);						\
+  }																			
+*/
+/*
 	double2 OCL_SVML_FUNCTION(_pown2)(double2 ,_4i32);	
 	double2 __pownd2(double2 x, _2i32 y)	
 	{	
@@ -2206,13 +2208,10 @@ extern "C" {
 	}																			
 
 #define OCL_SVML_P1_I2_F2(func)												\
-	__attribute__((svmlcc)) _4i32 OCL_SVML_FUNCTION(_##func##f4)(float4);							\
+	__attribute__((svmlcc)) _2i32 OCL_SVML_FUNCTION(_##func##f2)(float2);							\
 	 __attribute__((overloadable)) _2i32 func(float2 x)						\
 	{																		\
-		float4 valx;														           \
-		valx.s01 = valx.s23 = x;                           \
-		_4i32 res = OCL_SVML_FUNCTION(_##func##f4)(valx);	 \
-		return res.s01;															\
+		return OCL_SVML_FUNCTION(_##func##f2)(x);	 \
 	}																			
 
 #define OCL_SVML_P1_I3_F3(func)												\
@@ -2406,16 +2405,15 @@ extern "C" {
 	}																				
 
 // float2
+
 #define	OCL_SVML_P2_F2_F2_PI2(func,svmlfunc)								\
-    __attribute__((svmlcc)) float4 OCL_SVML_FUNCTION(_##svmlfunc##f4)(float4, _4i32*);				\
+    __attribute__((svmlcc)) float2 OCL_SVML_FUNCTION(_##svmlfunc##f2)(float2, _2i32*);				\
     __attribute__((overloadable)) float2 func(float2 x, _2i32* z)			\
     {																		\
-        float4 valx;														\
-        valx.s23 = valx.s01 = x;                                      \
-        _4i32 valz;															                      \
-        float4 res = OCL_SVML_FUNCTION(_##svmlfunc##f4)(valx, &valz);				\
-        *z = valz.s01;                   						\
-        return res.s01;															\
+		_2i32 valz;													\
+		float2 res = OCL_SVML_FUNCTION(_##svmlfunc##f2)(x, &valz);				\
+		*z = valz;													\
+        return res;													\
     }
 
 #define	OCL_SVML_P2_F2_F2_PI2_LOCAL(func,svmlfunc)							\
@@ -2688,18 +2686,14 @@ extern "C" {
 	}																			
 
 // float2
+
 #define OCL_SVML_P2_F2_F2_pF2(func)												\
-	__attribute__((svmlcc)) float4 OCL_SVML_FUNCTION(_##func##f2)(float4, float4*);						\
+	__attribute__((svmlcc)) float2 OCL_SVML_FUNCTION(_##func##f2)(float2, float2*);						\
 	__attribute__((overloadable)) float2 func(float2 x, float2* y)				\
 	{																			\
-		float4 xVec, yVec;														\
-		xVec = _mm_castsi128_ps(_mm_loadl_epi64((__m128i*)&x));					\
-		float2 res;																\
-		xVec = OCL_SVML_FUNCTION(_##func##f2)(xVec, &yVec);						\
-		_mm_storel_epi64((__m128i*)y, (__m128i)yVec);							\
-		_mm_storel_epi64((__m128i*)&res, (__m128i)xVec);						\
-		return res;																\
+		return OCL_SVML_FUNCTION(_##func##f2)(x, y);						\
 	}																			
+
 
 #define OCL_SVML_P2_F2_F2_pF2_LOCAL(func)										\
 	__attribute__((overloadable)) float2 func(float2 x,__local float2* y)		\
@@ -3142,13 +3136,10 @@ extern "C" {
 	}																	
 
 #define OCL_SVML_P3_F2_F2_F2_F2(func)											\
-	__attribute__((svmlcc)) __attribute__((const)) float4 OCL_SVML_FUNCTION(_##func##f2)(float4,float4,float4);				\
+	__attribute__((svmlcc)) __attribute__((const)) float2 OCL_SVML_FUNCTION(_##func##f2)(float2,float2,float2);				\
 	__attribute__((overloadable)) float2 func(float2 x,float2 y,float2 z)		\
 	{																			\
-		float4 valx,valy,valz;													\
-		valx.s01 = x; valy.s01 = y; valz.s01 = z;								\
-		float4 res = func(valx,valy,valz);										\
-		return res.s01;															\
+		return OCL_SVML_FUNCTION(_##func##f2)(x,y,z);															\
 	}
 /*
 #define OCL_SVML_P3_F2_F2_F2_F2(func)											\
@@ -3357,16 +3348,13 @@ extern "C" {
 	}																	
 
 #define OCL_SVML_P3_F2_F2_F2_PI2(func)											\
-	__attribute__((svmlcc)) float4 OCL_SVML_FUNCTION(_##func##f4)(float4,float4,_4i32*);				\
+	__attribute__((svmlcc)) float2 OCL_SVML_FUNCTION(_##func##f2)(float2,float2,_2i32*);				\
 	__attribute__((overloadable)) float2 func(float2 x, float2 y, _2i32* z)		\
 	{																			\
-		float4 valx,valy;														\
-		valx.s01 = valx.s23 = x;					\
-		valy.s01 = valy.s23 = y;					\
-		_4i32 valz;																\
-		float4 res = OCL_SVML_FUNCTION(_##func##f4)(valx,valy,&valz);			\
-    *z = valz.s01;                                 \
-		return res.s01;																\
+		_2i32 valz;																\
+		float2 res = OCL_SVML_FUNCTION(_##func##f2)(x,y,&valz);			\
+		*z = valz;                                 \
+		return res;								\
 	}																					
 
 #define OCL_SVML_P3_F2_F2_F2_PI2_LOCAL(func)										\
