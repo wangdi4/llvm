@@ -40,7 +40,6 @@ class OpenCLDescriptor{
 public:
 	cl_platform_id platforms[2];
 	cl_device_id devices[2];
-	cl_device_id sub_devices[2];
 
 	cl_context context;
 	cl_context cpu_context;
@@ -50,7 +49,6 @@ public:
 	cl_mem out_common_buffer;
 	cl_mem buffers[2];
 	cl_mem in_common_sub_buffer;
-
 
 	cl_program program;
 	cl_kernel kernels[2];
@@ -73,11 +71,10 @@ public:
 			queues[i] = 0;
 			kernels[i] = 0;
 			buffers[i] = 0;
-			sub_devices[i] = 0;
 		}
 	}
 	
-	void freeAllResources()
+	~OpenCLDescriptor()
 	{
 		// release in_common_sub_buffer
 		if(0!=in_common_sub_buffer){
@@ -118,7 +115,7 @@ public:
 		// release queues
 		for(int i=0; i<2; ++i){
 			if (0 != queues[i])
-			{	
+			{
 				EXPECT_EQ(CL_SUCCESS, clReleaseCommandQueue(queues[i])) << "clReleaseCommandQueue failed";
 				queues[i] = 0;
 			}
@@ -139,22 +136,14 @@ public:
 			EXPECT_EQ(CL_SUCCESS, clReleaseContext(gpu_context)) << "clReleaseContext failed";
 			gpu_context = 0;
 		}
-		// release sub_devices
-		for(int i=0; i<2; ++i){
-			if (0 != sub_devices[i])
-			{	
-				EXPECT_EQ(CL_SUCCESS, clReleaseDevice(sub_devices[i])) << "clReleaseDevice failed";
-				sub_devices[i] = 0;
-			}
-		}
 	}
-
-	~OpenCLDescriptor()
-	{
-		freeAllResources();
-	}
-
 };
+
+// setSecondDeviceType - sets second device in the common runtime to be device_type
+void setSecondDeviceType(cl_device_type device_type);
+
+// getSecondDeviceType - returns type of the second device in the common runtime
+int getSecondDeviceType();
 
 /**
  * Encapsulates main OpenCL function calls and their validation
@@ -388,9 +377,9 @@ void enqueueTask(cl_command_queue command_queue, cl_kernel kernel,
 	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *end_event);
 
 // enqueueNativeKernel - calls and validates clEnqueueNativeKernel
-void enqueueNativeKernel(cl_command_queue command_queue, void (*user_func)(void *), void *args, size_t cb_args,
+/*void enqueueNativeKernel(cl_command_queue command_queue, void (*user_func)(void *) void *args, size_t cb_args,
 	cl_uint num_mem_objects, const cl_mem *mem_list, const void **args_mem_loc,
-	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *end_event);
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *end_event);*/
 
 // enqueueMarker - calls and validates clEnqueueMarker
 void enqueueMarker(cl_command_queue command_queue, cl_event *end_event);
@@ -401,9 +390,6 @@ void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* cont
 
 //	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName);
-
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
-void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName,cl_device_type device_type);
 
 //	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource);
@@ -621,21 +607,4 @@ void enqueueNativeKernel(cl_command_queue command_queue, void (CL_CALLBACK *user
 // finish - calls and validates clFinish
 void finish(cl_command_queue command_queue);
 
-// checkSupportedFormats - validate supported formats of memory objects that ware created with different flags. 
-void checkSupportedFormats(cl_mem_object_type mem_type, OpenCLDescriptor ocl_descriptor);
-
-// checkSupportedFormats - validate supported formats of memory objects that ware created with different flags. 
-void checkSupportedFormats(cl_mem_object_type mem_type, OpenCLDescriptor ocl_descriptor);
-
-// linkProgram - calls and validates clLinkProgram
-void linkProgram(cl_context context, cl_uint num_devices, const cl_device_id * device_list, const char *options, cl_uint num_input_programs, const cl_program *input_programs,cl_program *output_program);
-
-//enqueueMarkerWithWaitList - calls and validates clEnqueueMarkerWithWaitList
-void enqueueMarkerWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
-
-//enqueueBarrierWithWaitList - calls and validates clEnqueueBarrierWithWaitList
-void enqueueBarrierWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
-
-//EnqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
-void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *migrate_event);
 #endif /* OCL_WRAPPER_GTEST_ */

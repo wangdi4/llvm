@@ -26,6 +26,20 @@
 #include <iostream>
 #include <fstream>
 
+int SECOND_DEVICE_TYPE;
+
+// setSecondDeviceType - sets second device in the common runtime to be device_type
+void setSecondDeviceType(cl_device_type device_type)
+{
+	SECOND_DEVICE_TYPE=device_type;
+}
+
+// getSecondDeviceType - returns type of the second device in the common runtime
+int getSecondDeviceType()
+{
+	return SECOND_DEVICE_TYPE;
+}
+
 // getPlatformIDs - calls and validates clGetPlatformIDs
 void getPlatformIDs(cl_uint num_entries, cl_platform_id* platforms, cl_uint* num_platforms)
 {
@@ -89,7 +103,7 @@ void getGPUDevice(cl_platform_id* platform, cl_device_id* device){
 	{
 		ASSERT_TRUE(false) << "Null argument provided";
 	}
-	ASSERT_NO_FATAL_FAILURE(getSpecificDevice(platform, device, CL_DEVICE_TYPE_GPU));
+	ASSERT_NO_FATAL_FAILURE(getSpecificDevice(platform, device, getSecondDeviceType()));
 }
 
 //	getCPUGPUDevices - returns CPU and GPU platfrom and devices (index 0 for CPU device and index 1 for GPU device)
@@ -120,7 +134,7 @@ void getCPUGPUDevices(cl_platform_id* platform, cl_device_id* devices)
 		for(int d=0;d<2;++d){
 			devices[d]=0;
 		}
-		ASSERT_TRUE(num_entries>=2) << "Platform returned " << num_entries << "deviuces";
+		ASSERT_TRUE(num_entries>=2) << "Platform returned " << num_entries << "devices";
 		// expect return of at most 2 devices
 		cl_device_id* tmpDevices = NULL;
 		tmpDevices = new cl_device_id[num_entries];
@@ -134,7 +148,7 @@ void getCPUGPUDevices(cl_platform_id* platform, cl_device_id* devices)
 				// found requested device				
 				devices[0] = tmpDevices[j];
 			}
-			if(CL_DEVICE_TYPE_GPU == param_value){
+			if(getSecondDeviceType() == param_value){
 				// found requested device				
 				devices[1] = tmpDevices[j];
 			}
@@ -448,8 +462,6 @@ void createUserEvent(cl_event* user_event, cl_context context)
 	*user_event = clCreateUserEvent(context, &errcode_ret);
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateUserEvent failed";
 	ASSERT_NE((cl_event)0, *user_event) << "clCreateUserEvent returned 0 as event value";
-
-	
 }
 
 // createSampler - calls and validates clCreateSampler
@@ -646,24 +658,6 @@ void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* ker
 	}
 }
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
-void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName,cl_device_type device_type)
-{
-	// creates context programs and queues
-	setUpContextProgramQueues(ocl_descriptor,kernelFileName);
-
-	//free the created program
-	clReleaseProgram(ocl_descriptor.program);
-
-	//	create and build program for specific device.
-	if(CL_DEVICE_TYPE_CPU==device_type){ //if we get false it means that we want to create a program for GPU or MIC
-		ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource(kernelFileName, &ocl_descriptor.program, ocl_descriptor.context, 1, &ocl_descriptor.devices[0], NULL, NULL, NULL));
-	}
-	else{ 
-		ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource(kernelFileName, &ocl_descriptor.program, ocl_descriptor.context, 1, &ocl_descriptor.devices[1], NULL, NULL, NULL));
-	}
-
-}
 //	setUpSingleContextProgramQueue - creates and validate a context, program and queue device of type device_type
 void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* context, cl_program* program, 
 									 cl_command_queue* queues, cl_device_type device_type)
@@ -990,88 +984,60 @@ void getCPUGPUDevicesIfNotCreated(OpenCLDescriptor& ocl_descriptor)
 	}
 }
 
-static bool isAvailabaleFormat(cl_channel_order order, cl_channel_type data_type, cl_uint list_size, cl_image_format *list){
-	for(int i=0; i < list_size; i++){
-		if(list[i].image_channel_data_type==data_type && list[i].image_channel_order==order){
-			return true;
-		}
-	}
-	return false;
+// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
+void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
+	size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueFillBuffer(command_queue, buffer, pattern, pattern_size, 
+		offset, size, num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillBuffer failed";
 }
 
+// clEnqueueFillImage - calls and validates clEnqueueFillImage
+void enqueueFillImage(cl_command_queue command_queue, cl_mem image, const void *fill_color, const size_t *origin, const size_t *region,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event) 
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueFillImage(command_queue, image, fill_color, origin, region, 
+		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillImage failed";
+}
+ 
+// getImageInfo - calls and validates clGetImageInfo
+void getImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+{
+	ASSERT_EQ(CL_SUCCESS, clGetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret)) << "clGetImageInfo failed";
+}
+
+// enqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
+void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueMigrateMemObjects(command_queue, num_mem_objects, mem_objects, flags, 
+		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueMigrateMemObjects failed";
+}
+
+// createProgramWithBuiltInKernels - calls and validates clCreateProgramWithBuiltInKernels
+void createProgramWithBuiltInKernels(cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list,
+	const char *kernel_names)
+{
+	if(NULL==program)
+	{
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	*program = clCreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, &errcode_ret);
+	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithBuiltInKernels failed";
+}
 
 // enqueueNativeKernel - calls and validates clEnqueueNativeKernel
 void enqueueNativeKernel(cl_command_queue command_queue, void (CL_CALLBACK *user_func)(void *), void *args, size_t cb_args,
 	cl_uint num_mem_objects, const cl_mem *mem_list, const void **args_mem_loc, 
 	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *userevent)
-
 {
 	ASSERT_EQ(CL_SUCCESS, clEnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, 
 		num_events_in_wait_list, event_wait_list, userevent)) << "clEnqueueNativeKernel falied";
 }
 
-// checkSupportedFormats - validate supported formats of memory objects that ware created with different flags. 
-void checkSupportedFormats(cl_mem_object_type mem_type, OpenCLDescriptor ocl_descriptor){
-	cl_image_format image_formats_array[100];
-	bool available_formats[100];
-	cl_uint number_of_suported_formats;
-	// set up platform and CPU and GPU  devices 
-	//	CPU is at index 0, GPU is at index 1
-	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, ocl_descriptor.devices));	
-
-	// set up context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
-
-	//query for supported formats
-	clGetSupportedImageFormats(ocl_descriptor.context,mem_type|CL_MEM_USE_HOST_PTR,CL_MEM_OBJECT_IMAGE1D,100,image_formats_array,&number_of_suported_formats);
-
-	//check that all the formats are supported. 
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNORM_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_SIGNED_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_SIGNED_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNSIGNED_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNSIGNED_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNSIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_HALF_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_R, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_R, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_INTENSITY, CL_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isAvailabaleFormat(CL_LUMINANCE, CL_FLOAT, number_of_suported_formats, image_formats_array));
-}
-// linkProgram - calls and validates clLinkProgram
-void linkProgram(cl_context context, cl_uint num_devices, const cl_device_id * device_list, const char *options, cl_uint num_input_programs, const cl_program *input_programs,cl_program *output_program)
-				 {
-	cl_int ret;
-	*output_program = clLinkProgram(context, num_devices, device_list, options, num_input_programs, input_programs, NULL, NULL, &ret);
-	ASSERT_EQ(CL_SUCCESS, ret) << "linkProgram failed";
-	ASSERT_NE(NULL,ret) << "linkProgram returned a NULL program";
-}
-//enqueueMarkerWithWaitList - calls and validates clEnqueueMarkerWithWaitList{
-void enqueueMarkerWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *marker){
-	cl_int ret=clEnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, marker);
-	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueMarkerWithWaitList failed";
-}
-
-void enqueueBarrierWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *buffer_event){
-	cl_int ret=clEnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, buffer_event);
-	ASSERT_EQ(CL_SUCCESS, ret) << "clEnqueueBarrierWithWaitList failed";
-}
-
-//EnqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
-void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *migrate_event){
-	cl_int ret=clEnqueueMigrateMemObjects(command_queue, num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, migrate_event);
-	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueMigrateMemObjects failed";
-}
-
-
-// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
-void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
-					   size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event){
-	cl_int ret=clEnqueueFillBuffer(command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, user_event);
-	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueFillBuffer failed";
+// finish - calls and validates clFinish
+void finish(cl_command_queue command_queue)
+{
+	ASSERT_EQ(CL_SUCCESS, clFinish(command_queue)) << "clFinish failed";
 }
