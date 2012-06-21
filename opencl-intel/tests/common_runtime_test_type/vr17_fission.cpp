@@ -45,7 +45,6 @@ TEST_F(VR17_Fission, SharedTask)
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
 	// set up OpenCL context, program and queues
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "shared_kernel.cl"));
-
 	// create 2 shared kernels
 	ASSERT_NO_FATAL_FAILURE(createKernel(&ocl_descriptor.kernels[0] , ocl_descriptor.program, "shared_kernel"));
 
@@ -85,4 +84,9 @@ TEST_F(VR17_Fission, SharedTask)
 
 	// wait for completion of kernels execution
 	ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
+
+	//release events
+	clReleaseEvent(user_event);
+	clReleaseEvent(device_done_event[0]);
+	clReleaseEvent(device_done_event[1]);
 }
