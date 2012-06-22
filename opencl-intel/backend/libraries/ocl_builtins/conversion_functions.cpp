@@ -442,14 +442,8 @@ extern "C" {
 	}\
 	_8##TO##8 __attribute__((overloadable)) convert_##TONAME##char8##RMODE(float8 x)\
 	{\
-	_16##TO##8 res;\
     _8##TO##32 y = convert_##TONAME##int8##RMODE(x);\
-	_16##TO##8 t1 =  __builtin_astype(y.lo, _16##TO##8);\
-	_16##TO##8 t2 =  __builtin_astype(y.hi, _16##TO##8);\
-	t1 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t1,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
-	t2 = __builtin_astype(_mm_shuffle_epi8(__builtin_astype(t2,__m128i), *((__m128i *)_4x32to4x8)), _16##TO##8);\
-	res = __builtin_astype(_mm_unpacklo_epi32(__builtin_astype(t1,__m128i), __builtin_astype(t2,__m128i)), _16##TO##8);\
-	return res.lo;\
+	return __builtin_astype( trunc_v8i32_v8i8(__builtin_astype(y, _8i32)), _8##TO##8); \
 	}\
 	_16##TO##8 __attribute__((overloadable)) convert_##TONAME##char16##RMODE(float16 x)\
 	{\
@@ -458,7 +452,6 @@ extern "C" {
 	res.hi = convert_##TONAME##char8##RMODE(x.hi);\
 	return res;\
 	}
-
 #define DEF_INT_PROTO8_D(TO, TONAME, RMODE, RMODEVAL)\
 	_1##TO##8  __attribute__((overloadable)) convert_##TONAME##char##RMODE(double x)\
 	{\
