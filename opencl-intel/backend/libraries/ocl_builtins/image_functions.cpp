@@ -284,7 +284,7 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d
 {
     uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
     void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y 
-               + (uint)coord.z*((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->dim[1]*((image_aux_data*)image)->offset[0];
+               + (uint)coord.z*((image_aux_data*)image)->pitch[1];
     return pixel;
 }
 
@@ -300,8 +300,7 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d
     uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
     // Offset for image array correspongs to offset inside image
     // that's why  to compute pixel pointer dimension is used here
-    void* pixel = (void*)((image_aux_data*)image)->pData+ offset.x * ((uint)coord.x + 
-        (uint)((image_aux_data*)image)->dim[0]*(uint)coord.y);
+    void* pixel = (void*)((image_aux_data*)image)->pData + coord.x * offset.x + coord.y * (uint)((image_aux_data*)image)->pitch[0];
     return pixel;
 }
 
@@ -322,7 +321,7 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_
     {
         idx = ((image_aux_data*)image)->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->dim[1]*((image_aux_data*)image)->offset[0]*idx;
+    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[1]*idx;
     return ptr;
 }
 
@@ -343,7 +342,7 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_
     {
         idx = ((image_aux_data*)image)->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->offset[0]*idx;
+    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[0]*idx;
     return ptr;
 }
 
@@ -357,7 +356,7 @@ void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_a
     {
         idx = ((image_aux_data*)image)->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->dim[1]*((image_aux_data*)image)->offset[0]*idx;
+    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[1]*idx;
     return ptr;
 }
 
@@ -370,7 +369,7 @@ void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image1d_a
     {
         idx = ((image_aux_data*)image)->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->dim[0]*((image_aux_data*)image)->offset[0]*idx;
+    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[0]*idx;
     return ptr;
 }
 

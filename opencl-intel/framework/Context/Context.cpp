@@ -898,8 +898,13 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
     // handle the mess in the spec, where for 1D image array the slice pitch defines the size in bytes of each 1D image
     const size_t szPitchDim1 =
         CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
-        (0 == pClImageDesc->image_slice_pitch ? pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_slice_pitch) :
-        (0 == pClImageDesc->image_row_pitch ? pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_row_pitch);
+        /// array is 1D image array
+            (0 == pClImageDesc->image_slice_pitch ?
+            (0 == pClImageDesc->image_row_pitch ?
+             pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_row_pitch) : pClImageDesc->image_slice_pitch)
+        /// array is not 1D image array
+            : (0 == pClImageDesc->image_row_pitch ? pClImageDesc->image_width * pixelBytesCnt : pClImageDesc->image_row_pitch);
+
     const size_t szPitchDim2 =
         CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type ?
         0 :
