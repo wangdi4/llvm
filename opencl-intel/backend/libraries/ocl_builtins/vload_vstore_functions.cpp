@@ -95,6 +95,31 @@ ALIGN16 int Fvec4Float16ExpMin[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
 ALIGN16 int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23)};
 ALIGN16 int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
 
+float HalfToFloat( half param );
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be applied to image_callback_functions.cpp
+float4 Half4ToFloat4(_8i16 xmm0);
+float8 Half8ToFloat8(_8i16 xmm0);
+
+#if defined(__AVX2__)
+float HalfToFloat( half param )
+{
+	half8 x;
+	x.s0 = param;
+	return Half4ToFloat4(as_short8(x)).s0;
+}
+/// !!! This function is copy-pasted to images module.
+/// In case of any changes they should also be applied to image_callback_functions.cpp
+float4 Half4ToFloat4(_8i16 xmm0)
+{
+	return _mm_cvtph_ps(*(__m128i*)&xmm0);
+}
+float8 Half8ToFloat8(_8i16 xmm0)
+{
+	return _mm256_cvtph_ps(*(__m128i*)&xmm0);
+}
+
+#else // defined(__AVX2__)
 float HalfToFloat( half param )
 {
 	unsigned short expHalf16 = as_short(param) & 0x7C00;
@@ -187,6 +212,18 @@ float4 Half4ToFloat4(_8i16 xmm0)
 	return xmm5;
 }
 
+float8 Half8ToFloat8(_8i16 xmm0)
+{
+	float8 res;
+	_8i16 inp1;
+	inp1.s0123 = xmm0.s4567;
+	res.lo = Half4ToFloat4(xmm0);
+	res.hi = Half4ToFloat4(inp1);
+	return res;
+}
+
+#endif // __AVX2__
+
 ALIGN16 int x7bff[] = {0x7bff, 0x7bff, 0x7bff, 0x7bff};
 ALIGN16 int x8000[] = {0x8000, 0x8000, 0x8000, 0x8000};
 ALIGN16 int x7fff[] = {0x7fff, 0x7fff, 0x7fff, 0x7fff};
@@ -244,7 +281,39 @@ float4 _ocl_float2half_rte(float4 param);
 float4 _ocl_float2half_rtz(float4 param);
 float4 _ocl_float2half_rtn(float4 param);
 float4 _ocl_float2half_rtp(float4 param);
+float4 _ocl_float2half(float4 param);
 
+float4 _ocl_float2half8_rte(float8 param);
+float4 _ocl_float2half8_rtz(float8 param);
+float4 _ocl_float2half8_rtn(float8 param);
+float4 _ocl_float2half8_rtp(float8 param);
+float4 _ocl_float2half8(float8 param);
+
+#if defined(__AVX2__)
+
+#define PROTO_OCL_FLOAT2HALF(RMODE, CPUFLAG)					\
+	float4 _ocl_float2half##RMODE(float4 param)					\
+	{\
+		return _mm_castsi128_ps(_mm_cvtps_ph(param, CPUFLAG));\
+	}
+
+PROTO_OCL_FLOAT2HALF(_rte, _MM_FROUND_TO_NEAREST_INT)
+PROTO_OCL_FLOAT2HALF(_rtz, _MM_FROUND_TO_ZERO)
+PROTO_OCL_FLOAT2HALF(_rtn, _MM_FROUND_TO_NEG_INF)
+PROTO_OCL_FLOAT2HALF(_rtp, _MM_FROUND_TO_POS_INF)
+
+#define PROTO_OCL_FLOAT2HALF8(RMODE, CPUFLAG)					\
+	float4 _ocl_float2half8##RMODE(float8 param)				\
+	{\
+		return _mm_castsi128_ps(_mm256_cvtps_ph(param, CPUFLAG));\
+	}
+
+PROTO_OCL_FLOAT2HALF8(_rte, _MM_FROUND_TO_NEAREST_INT)
+PROTO_OCL_FLOAT2HALF8(_rtz, _MM_FROUND_TO_ZERO)
+PROTO_OCL_FLOAT2HALF8(_rtn, _MM_FROUND_TO_NEG_INF)
+PROTO_OCL_FLOAT2HALF8(_rtp, _MM_FROUND_TO_POS_INF)
+
+#else // defined(__AVX2__)
 /// !!! This function is copy-pasted to images module.
 /// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 _ocl_float2half_rte(float4 param)
@@ -652,6 +721,23 @@ float4 _ocl_float2half_rtn(float4 param)
 }
 
 
+// define function calling half4 twice with RMODE
+#define PROTO_OCL_FLOAT2HALF8_ASHALF4(RMODE)			\
+		float4 _ocl_float2half8##RMODE(float8 param)		\
+		{\
+		float4 res;\
+		res.lo = _ocl_float2half##RMODE(param.lo).lo;\
+		res.hi = _ocl_float2half##RMODE(param.hi).lo;\
+		return res;\
+		}
+
+PROTO_OCL_FLOAT2HALF8_ASHALF4(_rte)
+PROTO_OCL_FLOAT2HALF8_ASHALF4(_rtz)
+PROTO_OCL_FLOAT2HALF8_ASHALF4(_rtn)
+PROTO_OCL_FLOAT2HALF8_ASHALF4(_rtp)
+
+#endif // defined(__AVX2__)
+
 /// !!! This function is copy-pasted to images module.
 /// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 _ocl_float2half(float4 param)
@@ -659,10 +745,57 @@ float4 _ocl_float2half(float4 param)
     return _ocl_float2half_rte(param);
 }
 
+float4 _ocl_float2half8(float8 param)
+{
+	return _ocl_float2half8_rte(param);
+}
+
 float4 _ocl_double2ToHalf2_rte(double2 param);
 float4 _ocl_double2ToHalf2_rtz(double2 param);
 float4 _ocl_double2ToHalf2_rtn(double2 param);
 float4 _ocl_double2ToHalf2_rtp(double2 param);
+
+float4 _ocl_double4ToHalf4_rte(double4 param);
+float4 _ocl_double4ToHalf4_rtz(double4 param);
+float4 _ocl_double4ToHalf4_rtn(double4 param);
+float4 _ocl_double4ToHalf4_rtp(double4 param);
+float4 _ocl_double4ToHalf4(double4 param);
+
+
+// float4 _ocl_double2ToHalf2_rte(double2 param). 
+// Rounding toward nearest cannot be implemented using convert_float and vstore_half
+// because of incorrect rounding from double->float in rte when double can be converted to float
+// which is not nearest to original double
+
+float4 _ocl_double2ToHalf2_rtp(double2 param)
+{
+	float2 f2 = convert_float2_rtp(param);
+	float4 res;
+	half2 t;
+	vstore_half2_rtp(f2, 0, (half*)&t);
+	res.s0 = as_float(t);
+	return res;
+}
+
+float4 _ocl_double2ToHalf2_rtn(double2 param)
+{
+	float2 f2 = convert_float2_rtn(param);
+	float4 res;
+	half2 t;
+	vstore_half2_rtn(f2, 0, (half*)&t);
+	res.s0 = as_float(t);
+	return res;
+}
+
+float4 _ocl_double2ToHalf2_rtz(double2 param)
+{
+	float2 f2 = convert_float2_rtz(param);
+	float4 res;
+	half2 t;
+	vstore_half2_rtz(f2, 0, (half*)&t);
+	res.s0 = as_float(t);
+	return res;
+}
 
 float4 _ocl_double2ToHalf2_rte(double2 param)
 {
@@ -756,341 +889,54 @@ float4 _ocl_double2ToHalf2_rte(double2 param)
     return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i*)g_vls_2x64to2x16));
 }
 
-float4 _ocl_double2ToHalf2_rtz(double2 param)
+// call double2 version
+float4 _ocl_double4ToHalf4_rte(double4 param)		
 {
-    //cl_ulong sign = (u.u >> 48) & 0x8000;
-    //double x = fabs(f);
-    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
-    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
-    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
-
-    //Nan
-    //if( x != x ) 
-    //	u.u >>= (53-11);
-    //	u.u &= 0x7fff;
-    //	u.u |= 0x0200;   -- silence the NaN
-    //	return u.u | sign;
-    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
-    double2 eq = _mm_and_pd(absParam, eq0);
-    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
-    eq = _mm_and_pd(eq, *(double2*)x7fff);
-    eq = _mm_or_pd(eq, *(double2*)x0200);
-    eq = _mm_or_pd(eq, signs);
-    eq = _mm_and_pd(eq, eq0);
-    double2 dflt = eq0;
-
-    //if( x == INFINITY )
-    //return 0x7c00 | sign;
-    eq0 = _mm_cmpeq_pd(absParam, *(double2*)x7ff0000000000000);
-    double2 eq1 = _mm_and_pd(eq0, *(double2*)x7c00);
-    eq1 = _mm_or_pd(eq1, signs);
-    eq1 = _mm_and_pd(eq0, eq1);
-    eq1 = _mm_andnot_pd(dflt, eq1);
-    eq = _mm_or_pd(eq, eq1);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    // overflow
-    //if( x >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
-    //    return 0x7bff | sign;
-    eq0 = _mm_cmpge_pd(absParam, *(double2*)x40f0000000000000);
-    eq1 = _mm_and_pd(eq0, *(double2*)x7bff);
-    eq1 = _mm_or_pd(eq1, signs);
-    eq1 = _mm_and_pd(eq0, eq1);
-    eq1 = _mm_andnot_pd(dflt, eq1);
-    eq = _mm_or_pd(eq, eq1);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    // underflow
-    //if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-    //    return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
-    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3e70000000000000);
-    eq0 = _mm_and_pd(eq1, signs);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq = _mm_or_pd(eq, eq0);
-    dflt = _mm_or_pd(eq1, dflt);
-
-    // half denormal
-    //if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-    //    x *= MAKE_HEX_FLOAT(0x1.0p24f, 0x1L, 24);
-    //    return (cl_ushort)((int) x | sign);
-    eq0 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
-    eq1 = _mm_and_pd(eq0, absParam);
-    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);
-    eq1 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1));
-    eq1 = _mm_castsi128_pd(_mm_unpacklo_epi32(_mm_castpd_si128(eq1), _mm_setzero_si128()));
-    eq1 = _mm_or_pd(eq1, signs);
-    eq1 = _mm_and_pd(eq1, eq0);
-    eq1 = _mm_andnot_pd(dflt, eq1);
-    eq  = _mm_or_pd(eq, eq1); 
-    dflt = _mm_or_pd(eq0, dflt);
-
-    //u.u &= 0xFFFFFC0000000000UL;
-    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
-    //u.u -= 0x3F00000000000000UL;
-    eq0 = _mm_castsi128_pd(
-        _mm_sub_epi64(_mm_castpd_si128(eq0), *(__m128i*)x3F00000000000000));
-    //return (u.u >> (53-11)) | sign;
-    eq0 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq0), 42));
-    eq0 = _mm_or_pd(eq0, signs);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq  = _mm_or_pd(eq, eq0);
-
-    return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i *)g_vls_2x64to2x16));
+		float4 res;
+		res.s0 = _ocl_double2ToHalf2_rte(param.lo).s0;
+		res.s1 = _ocl_double2ToHalf2_rte(param.hi).s0;
+		return res;
 }
 
-float4 _ocl_double2ToHalf2_rtp(double2 param)
+float4 _ocl_double4ToHalf4_rtp(double4 param)		
 {
-    double2 zeros = _mm_setzero_pd();
-
-    //cl_ulong sign = (u.u >> 48) & 0x8000;
-    //double x = fabs(f);
-    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
-    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
-    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
-
-    //Nan
-    //if( x != x ) 
-    //	u.u >>= (53-11);
-    //	u.u &= 0x7fff;
-    //	u.u |= 0x0200;   -- silence the NaN
-    //	return u.u | sign;
-
-    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
-    double2 eq = _mm_and_pd(absParam, eq0);
-    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
-    eq = _mm_and_pd(eq, *(double2*)x7fff);
-    eq = _mm_or_pd(eq, *(double2*)x0200);
-    eq = _mm_or_pd(eq, signs);
-    eq = _mm_and_pd(eq, eq0);
-    double2 dflt = eq0;
-
-    // overflow
-    //if( f > MAKE_HEX_DOUBLE(0x1.ffcp15, 0x1ffcL, 3) )
-    //		  0x40effc0000000000
-    //	return 0x7c00;
-    double2 eq1 = _mm_cmpgt_pd(param, *(double2*)x40effc0000000000);
-    eq0 = _mm_and_pd(eq1, *(double2*)x7c00);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq = _mm_or_pd(eq, eq0);
-    dflt = _mm_or_pd(eq1, dflt);
-
-    //if( f <= MAKE_HEX_DOUBLE(-0x1.0p16, -0x1L, 16) )
-    //		   0xc0f0000000000000
-    eq1 = _mm_cmple_pd(param, *(double2*)xc0f0000000000000);
-
-    //if( f == -INFINITY )
-    //return 0xfc00;
-    eq0 = _mm_cmpeq_pd(param, *(double2*)xfff0000000000000);
-    eq0 = _mm_and_pd(eq0, eq1);
-    double2 eq2 = _mm_and_pd(eq0, *(double2*)xfc00);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    //else return 0xfbff;
-    eq0 = _mm_xor_pd(eq1, eq0);
-    eq2 = _mm_and_pd(eq0, *(double2*)xfbff);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-
-    // underflow
-    //	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-    //			0x3e70000000000000
-    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3e70000000000000);
-
-    // if (f > 0) return 1;
-    eq0 = _mm_cmpgt_pd(param, zeros);
-    eq0 = _mm_and_pd(eq0, eq1);
-    eq2 = _mm_and_pd(eq0, *(double2*)dones);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-    // else return sign
-    eq0 = _mm_xor_pd(eq1, eq0);
-    eq2 = _mm_and_pd(eq0, signs);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    // half denormal         
-    //  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-    //			0x3f10000000000000
-    //		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
-    //			 0x4170000000000000
-    //		int r = (int)x;
-    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
-    eq2 = eq1;
-    eq1 = _mm_and_pd(eq1, absParam);
-    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);  //x
-    eq0 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1)); //r
-
-    // if( sign )
-    //     r += (double) r != x;
-    double2 eq3 = _mm_cvtepi32_pd(_mm_castpd_si128(eq0)); //(double)r
-    eq1 = _mm_cmpneq_pd(eq1, eq3); // (double)r != x
-    eq3 = _mm_cmpgt_pd(param, zeros); //f > 0.0f
-    eq1 = _mm_and_pd(eq1, eq3); //(double)r != x && f < 0.0f
-    double2 eq4 = _mm_and_pd(eq1, *(double2*)dones);
-    eq0 = _mm_castsi128_pd(
-        _mm_unpacklo_epi32(_mm_castpd_si128(eq0), _mm_setzero_si128()));
-    eq0 = _mm_castsi128_pd(_mm_add_epi64(_mm_castpd_si128(eq0), _mm_castpd_si128(eq4)));
-
-    // return (short)(r | sign)
-    eq0 = _mm_or_pd(eq0, signs); 
-    eq0 = _mm_and_pd(eq2, eq0);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq  = _mm_or_pd(eq, eq0); 
-    dflt = _mm_or_pd(eq2, dflt);
-
-    //u.u &= 0xFFFFFC0000000000UL;
-    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
-    //if (u.f < f)
-    //u.u += 0x0000040000000000UL;
-    eq1 = _mm_cmpgt_pd(param, eq0);
-    eq2 = _mm_castsi128_pd(
-        _mm_add_epi64(_mm_castpd_si128(eq0), 
-        _mm_castpd_si128(_mm_and_pd(eq1, *(double2*)x0000040000000000))));
-    //u.u -= 0x3F00000000000000UL;
-    //return ((u.u >> 42) | sign);
-    eq2 = _mm_castsi128_pd(_mm_sub_epi64(_mm_castpd_si128(eq2), *(__m128i*)x3F00000000000000));
-    eq2 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq2), 42));
-    eq2 = _mm_or_pd(eq2, signs);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq  = _mm_or_pd(eq, eq2); 
-
-    return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castpd_si128(eq), *(__m128i *)g_vls_2x64to2x16));
+	float4 f4 = convert_float4_rtp(param);
+	float4 res;
+	half4 t;
+	vstore_half4_rtp(f4, 0, (half*)&t);
+	res.s01 = as_float2(t);
+	return res;
 }
 
-float4 _ocl_double2ToHalf2_rtn(double2 param)
+float4 _ocl_double4ToHalf4_rtn(double4 param)		
 {
-    double2 zeros = _mm_setzero_pd();
+	float4 f4 = convert_float4_rtn(param);
+	float4 res;
+	half4 t;
+	vstore_half4_rtn(f4, 0, (half*)&t);
+	res.s01 = as_float2(t);
+	return res;
+}
 
-    //cl_ulong sign = (u.u >> 48) & 0x8000;
-    //double x = fabs(f);
-    double2 temp = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(param), 48));
-    double2 signs = _mm_and_pd(temp, *(double2*)x8000);
-    double2 absParam = _mm_and_pd(param, *(double2*)x7fffffffffffffff);
-
-    //Nan
-    //if( x != x ) 
-    //	u.u >>= (53-11);
-    //	u.u &= 0x7fff;
-    //	u.u |= 0x0200;   -- silence the NaN
-    //	return u.u | sign;
-
-    double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
-    double2 eq = _mm_and_pd(absParam, eq0);
-    eq = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq), 42));
-    eq = _mm_and_pd(eq, *(double2*)x7fff);
-    eq = _mm_or_pd(eq, *(double2*)x0200);
-    eq = _mm_or_pd(eq, signs);
-    eq = _mm_and_pd(eq, eq0);
-    double2 dflt = eq0;
-
-
-    // overflow
-    //if( f >= MAKE_HEX_DOUBLE(0x1.0p16, 0x1L, 16) )
-    //         0x40f0000000000000
-    double2 eq1 = _mm_cmpge_pd(param, *(double2*)x40f0000000000000);
-
-    //if( f == INFINITY )
-    //return 0x7c00;
-    eq0 = _mm_cmpeq_pd(param, *(double2*)x7ff0000000000000);
-    eq0 = _mm_and_pd(eq0, eq1);
-    double2 eq2 = _mm_and_pd(eq0, *(double2*)x7c00);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    //else return 0x7bff;
-    eq0 = _mm_xor_pd(eq1, eq0);
-    eq2 = _mm_and_pd(eq0, *(double2*)x7bff);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    //if( f < MAKE_HEX_DOUBLE(-0x1.ffcp15, -0x1ffcL, 3) )
-    //        0xc0effc0000000000
-    //return 0xfc00;
-    eq1 = _mm_cmplt_pd(param, *(double2*)xc0effc0000000000);
-    eq0 = _mm_and_pd(eq1, *(double2*)xfc00);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq = _mm_or_pd(eq, eq0);
-    dflt = _mm_or_pd(eq1, dflt);
-
-    // underflow
-    //	if( x < MAKE_HEX_DOUBLE(0x1.0p-24, 0x1L, -24) )
-    //			0x3e70000000000000
-    eq1 = _mm_cmple_pd(absParam, *(double2*)x3e70000000000000);
-
-    // if (f < 0) return 0x8001;
-    eq0 = _mm_cmplt_pd(param, zeros);
-    eq0 = _mm_and_pd(eq0, eq1);
-    eq2 = _mm_and_pd(eq0, *(double2*)x8001);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-    // else return sign
-    eq0 = _mm_xor_pd(eq1, eq0);
-    eq2 = _mm_and_pd(eq0, signs);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq = _mm_or_pd(eq, eq2);
-    dflt = _mm_or_pd(eq0, dflt);
-
-    // half denormal         
-    //  if( x < MAKE_HEX_DOUBLE(0x1.0p-14, 0x1L, -14) )
-    //			0x3f10000000000000
-    //		x *= MAKE_HEX_DOUBLE(0x1.0p24, 0x1L, 24);
-    //			 0x4170000000000000
-    //		int r = (int)x;
-    eq1 = _mm_cmplt_pd(absParam, *(double2*)x3f10000000000000);
-    eq2 = eq1;
-    eq1 = _mm_and_pd(eq1, absParam);
-    eq1 = _mm_mul_pd(eq1, *(double2*)x4170000000000000);  //x
-    eq0 = _mm_castsi128_pd(_mm_cvttpd_epi32(eq1)); //r
-
-    // if( sign )
-    //     r += (double) r != x;
-    double2 eq3 = _mm_cvtepi32_pd(_mm_castpd_si128(eq0)); //(double)r
-    eq1 = _mm_cmpneq_pd( eq1, eq3); // (double)r != x
-    eq3 = _mm_cmplt_pd(param, zeros); //f < 0.0f
-    eq1 = _mm_and_pd(eq1, eq3); //(double)r != x && f < 0.0f
-    double2 eq4 = _mm_and_pd(eq1, *(double2*)dones);
-    eq0 = _mm_castsi128_pd(_mm_unpacklo_epi32(_mm_castpd_si128(eq0), _mm_setzero_si128()));
-    eq0 = _mm_castsi128_pd(_mm_add_epi64(_mm_castpd_si128(eq0), _mm_castpd_si128(eq4)));
-
-    // return (short)(r | sign)
-    eq0 = _mm_or_pd(eq0, signs); 
-    eq0 = _mm_and_pd(eq2, eq0);
-    eq0 = _mm_andnot_pd(dflt, eq0);
-    eq  = _mm_or_pd(eq, eq0); 
-    dflt = _mm_or_pd(eq2, dflt);
-
-    //u.u &= 0xFFFFFC0000000000UL;
-    eq0 = _mm_and_pd(param, *(double2*)xFFFFFC0000000000);
-    //if (u.f > f)
-    //u.u += 0x0000040000000000UL;
-    eq1 = _mm_cmpgt_pd(eq0, param);
-    eq2 = _mm_castsi128_pd(
-        _mm_add_epi64(_mm_castpd_si128(eq0), 
-        _mm_castpd_si128(_mm_and_pd(eq1, *(double2*)x0000040000000000))));
-    //u.u -= 0x3F00000000000000UL;
-    //return ((u.u >> 42) | sign);
-    eq2 = _mm_castsi128_pd(_mm_sub_epi64(_mm_castpd_si128(eq2), *(__m128i *)x3F00000000000000));
-    eq2 = _mm_castsi128_pd(_mm_srli_epi64(_mm_castpd_si128(eq2), 42));
-    eq2 = _mm_or_pd(eq2, signs);
-    eq2 = _mm_andnot_pd(dflt, eq2);
-    eq  = _mm_or_pd(eq, eq2); 
-
-    return _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)g_vls_2x64to2x16)));
+float4 _ocl_double4ToHalf4_rtz(double4 param)		
+{
+	float4 f4 = convert_float4_rtz(param);
+	float4 res;
+	half4 t;
+	vstore_half4_rtz(f4, 0, (half*)&t);
+	res.s01 = as_float2(t);
+	return res;
 }
 
 
 float4 _ocl_double2ToHalf2(double2 param)
 {
 	return _ocl_double2ToHalf2_rte(param);
+}
+
+float4 _ocl_double4ToHalf4(double4 param)
+{
+	return _ocl_double4ToHalf4_rte(param);
 }
 
 #define DEF_VLOADVSTORE_PROTOV_X_X_Y(FUNC, TI, TYP, ADR, SIGN, SIZ, NUM, VEC)\
@@ -1169,23 +1015,15 @@ float4 _ocl_double2ToHalf2(double2 param)
 	float8 __attribute__((overloadable))  vload##A##_half8(size_t offset,const ADR half *ptr)\
 	{\
 		float8 res;\
-		const ADR half *p = ptr + (offset * 8);\
-		res.lo = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
-		p = p + 4;\
-		res.hi = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
-		return res;\
+		const _8i16 inp = vload8(offset, (short*)ptr);\
+		return Half8ToFloat8(inp);\
 	}\
 	float16 __attribute__((overloadable))  vload##A##_half16(size_t offset,const ADR half *ptr)\
 	{\
 		float16 res;\
-		const ADR half *p = ptr + (offset * 16);\
-		res.lo.lo = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
-		p = p + 4;\
-		res.lo.hi = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
-		p = p + 4;\
-		res.hi.lo = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
-		p = p + 4;\
-		res.hi.hi = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)p));\
+		const _16i16 inp = vload16(offset, (short*)ptr);\
+		res.lo = Half8ToFloat8(inp.lo);\
+        res.hi = Half8ToFloat8(inp.hi);\
 		return res;	\
 	}
 
@@ -1272,33 +1110,15 @@ float4 _ocl_double2ToHalf2(double2 param)
 	}\
 	void __attribute__((overloadable))  vstore##A##_half8##RMODE(float8 data, size_t offset, ADR half *ptr)\
 	{\
-		ptr = ptr + (offset*8);\
-		data.lo = _ocl_float2half##RMODE(data.lo);\
-		data.hi = _ocl_float2half##RMODE(data.hi);\
-		data.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo, (__m128i)data.hi);\
-		if(Alligned)\
-			_mm_store_ps((float*)ptr, data.lo);\
-		else\
-			_mm_storeu_ps((float*)ptr, data.lo);\
+		float4 res = _ocl_float2half8##RMODE(data);\
+		vstore8(*(short8*)&res, offset, (short*)ptr);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half16##RMODE(float16 data, size_t offset, ADR half *ptr)\
 	{\
-		ptr = ptr + (offset*16);\
-		data.lo.lo = _ocl_float2half##RMODE(data.lo.lo);\
-		data.lo.hi = _ocl_float2half##RMODE(data.lo.hi);\
-		data.lo.lo = (float4)_mm_unpacklo_epi64((__m128i)data.lo.lo, (__m128i)data.lo.hi);\
-		if(Alligned)\
-		_mm_store_ps((float*)ptr, data.lo.lo);\
-		else\
-		_mm_storeu_ps((float*)ptr, data.lo.lo);\
-		ptr = ptr + 8;\
-		data.hi.lo = _ocl_float2half##RMODE(data.hi.lo);\
-		data.hi.hi = _ocl_float2half##RMODE(data.hi.hi);\
-		data.hi.lo = (float4)_mm_unpacklo_epi64((__m128i)data.hi.lo, (__m128i)data.hi.hi);\
-		if(Alligned)\
-		_mm_store_ps((float*)ptr, data.hi.lo);\
-		else\
-		_mm_storeu_ps((float*)ptr, data.hi.lo);\
+		float8 res;\
+		res.lo = _ocl_float2half8##RMODE(data.lo);\
+		res.hi = _ocl_float2half8##RMODE(data.hi);\
+		vstore16(*(short16*)&res, offset, (short*)ptr);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half##RMODE(double data, size_t offset, ADR half *ptr)\
 	{\
@@ -1336,25 +1156,18 @@ float4 _ocl_double2ToHalf2(double2 param)
 	{\
 		ptr = ptr + (offset*4);\
 		float4 t1, t2, f4;\
-		t1 = _ocl_double2ToHalf2##RMODE(data.xy);\
-		t2 = _ocl_double2ToHalf2##RMODE(data.zw);\
-		f4.x = t1.x;\
-		f4.y = t2.x;\
-		_mm_storel_epi64((__m128i*)ptr, (__m128i)f4);\
+		t1 = _ocl_double4ToHalf4##RMODE(data);\
+		_mm_storel_epi64((__m128i*)ptr, (__m128i)t1);\
 	}\
 	void __attribute__((overloadable))  vstore##A##_half8##RMODE(double8 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*8);\
 		float8 f8;\
-		float4 t1, t2, t3, t4;\
-		t1 = _ocl_double2ToHalf2##RMODE(data.s01);\
-		t2 = _ocl_double2ToHalf2##RMODE(data.s23);\
-		t3 = _ocl_double2ToHalf2##RMODE(data.s45);\
-		t4 = _ocl_double2ToHalf2##RMODE(data.s67);\
-		f8.x = t1.x;\
-		f8.y = t2.x;\
-		f8.z = t3.x;\
-		f8.w = t4.x;\
+		float4 t1, t2;\
+		t1 = _ocl_double4ToHalf4##RMODE(data.s0123);\
+		t2 = _ocl_double4ToHalf4##RMODE(data.s4567);\
+		f8.xy = t1.lo;\
+		f8.zw = t2.lo;\
 		if(Alligned)\
 			_mm_store_ps((float*)ptr, f8.lo);\
 		else\
