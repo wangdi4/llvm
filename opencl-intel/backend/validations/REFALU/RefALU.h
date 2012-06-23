@@ -37,6 +37,8 @@ namespace Validation
     #define M_PI_4 (M_PI/4)
 #endif
 
+    void SetPrecisionBits(void);
+
     class RefALU
     {
     protected:
@@ -44,12 +46,12 @@ namespace Validation
 
     public:
 
-        static void SetFTZmode(bool mode) {
-            FTZmode = mode;
-        }
-
         static bool GetFTZmode(void) {
             return FTZmode;
+        }
+
+        static void SetFTZmode(bool mode) {
+            FTZmode = mode;
         }
 
         static long double precision_cast(double a)
@@ -283,23 +285,14 @@ namespace Validation
         template<typename T> static T fabs(const T& a);
 
         /// flushes denorms to 0
-        template<typename T>
-        static T flush(const T& a)
-        {
-            T returnVal = a;
-            if ( FTZmode && a != 0 && ::fabs( a ) < std::numeric_limits<T>::min() )
-            {
-                returnVal = a > 0.0 ? T(+0.0) : T(-0.0);
-            }
-            return returnVal;
-        }
+        template<typename T> static T flush(const T& a);
 
         template<typename T>  static T fmod(const T& a, const T& b);
 
         template<typename T>
         static T round_ni(const T& a)
         {
-            return ::floorf( flush(precision_cast(a)));
+            return ::floor( flush(precision_cast(a)));
         }
 
         template<typename T> static T ceil(const T& a);
@@ -358,7 +351,7 @@ namespace Validation
         /// Compute x to the power 1/y
         template<typename T>  static T rootn(const T& x, const int& y);
         
-        /// Returns a quiet NaN. The nancode may be placed in the significand of the resulting NaN        
+        /// Returns a quiet NaN. The nancode may be placed in the significand of the resulting NaN
         static float nan(const uint16_t& x) {
             uint16_t u = x & 0x01ff;
             u |= 0x7e00; // make quiet NaN
@@ -370,7 +363,7 @@ namespace Validation
 
         }
         static long double nan(const uint64_t& x) {
-            return Conformance::reference_nanl(x);
+            return Utils::GetNaN<long double>();
         }
 
         template<typename T>

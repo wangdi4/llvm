@@ -59,6 +59,17 @@ if (INCLUDE_MIC_DEVICE)
     endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
 
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (ICC_PLATFORM ia32)
+else ()
+  set (ICC_PLATFORM intel64)
+endif ()
+
+get_target_property( lib_dir NEAT_wrapper lib_dir )
+set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
+set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
+link_directories( ${lib_dir} ${intel_lib_dir} )
+
 include_directories(
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/DataManager
@@ -207,24 +218,44 @@ set (LLVM_LIBS
 set (SATest_DEPS
     DataManager
     Comparator
-    LLVMInterpreter
+    OCLInterpreter
     LLVMInterpreterPluggable
     ${LLVM_LIBS}
-    NEAT
-    PlugInNEAT
     dynamic_load
     )
 
+if (WIN32)
 target_link_libraries(SATest
     ${SATest_DEPS}
-    dynamic_load
+    NEAT
+    PlugInNEAT
+    ImathLibd
     )
 
 add_dependencies(SATest
     ${SATest_DEPS}
     OclCpuBackEnd
-    dynamic_load
+    NEAT_wrapper
+    PlugInNEAT
+    ImathLibd_wrapper
     )
+else ()
+
+target_link_libraries(SATest
+    ${SATest_DEPS}
+    NEAT
+    PlugInNEAT
+    ${LLVM_BINARY_DIR}/lib/libImathLibd.so
+    )
+
+add_dependencies(SATest
+    ${SATest_DEPS}
+    OclCpuBackEnd
+    NEAT
+    PlugInNEAT
+    ImathLibd_wrapper
+    )
+endif ()
 
 if (INCLUDE_MIC_DEVICE)
 add_subdirectory(MICNative)

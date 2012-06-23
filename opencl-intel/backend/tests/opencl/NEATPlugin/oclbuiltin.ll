@@ -4,15 +4,16 @@
 ; TODO: add NEATCHECKER instrumentation
 
 ; ModuleID = 'oclbuiltin.cl'
-target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
 
 define void @oclbuiltin(float addrspace(1)* %input, float addrspace(1)* %output, i32 addrspace(1)* %inputInt, i32 addrspace(1)* %outputInt, i32 %buffer_size) nounwind {
-  %1 = alloca float addrspace(1)*, align 4
-  %2 = alloca float addrspace(1)*, align 4
-  %3 = alloca i32 addrspace(1)*, align 4
-  %4 = alloca i32 addrspace(1)*, align 4
-  %5 = alloca i32, align 4
+entry:
+  %input.addr = alloca float addrspace(1)*, align 4
+  %output.addr = alloca float addrspace(1)*, align 4
+  %inputInt.addr = alloca i32 addrspace(1)*, align 4
+  %outputInt.addr = alloca i32 addrspace(1)*, align 4
+  %buffer_size.addr = alloca i32, align 4
   %tid = alloca i32, align 4
   %a_in = alloca float, align 4
   %a2_in = alloca <2 x float>, align 8
@@ -104,2795 +105,2822 @@ define void @oclbuiltin(float addrspace(1)* %input, float addrspace(1)* %output,
   %ul4_in = alloca <4 x i64>, align 32
   %ul8_in = alloca <8 x i64>, align 64
   %ul16_in = alloca <16 x i64>, align 128
-  store float addrspace(1)* %input, float addrspace(1)** %1, align 4
-  store float addrspace(1)* %output, float addrspace(1)** %2, align 4
-  store i32 addrspace(1)* %inputInt, i32 addrspace(1)** %3, align 4
-  store i32 addrspace(1)* %outputInt, i32 addrspace(1)** %4, align 4
-  store i32 %buffer_size, i32* %5, align 4
+  store float addrspace(1)* %input, float addrspace(1)** %input.addr, align 4
+  store float addrspace(1)* %output, float addrspace(1)** %output.addr, align 4
+  store i32 addrspace(1)* %inputInt, i32 addrspace(1)** %inputInt.addr, align 4
+  store i32 addrspace(1)* %outputInt, i32 addrspace(1)** %outputInt.addr, align 4
+  store i32 %buffer_size, i32* %buffer_size.addr, align 4
   store i32 0, i32* %tid, align 4
-  %6 = load i32* %tid, align 4
-  %7 = load float addrspace(1)** %1, align 4
-  %8 = getelementptr inbounds float addrspace(1)* %7, i32 %6
-  %9 = load float addrspace(1)* %8
-  store float %9, float* %a_in, align 4
-  %10 = load i32* %tid, align 4
-  %11 = load float addrspace(1)** %1, align 4
-  %12 = getelementptr inbounds float addrspace(1)* %11, i32 %10
-  %13 = load float addrspace(1)* %12
-  %14 = insertelement <2 x float> undef, float %13, i32 0
-  %15 = shufflevector <2 x float> %14, <2 x float> %14, <2 x i32> zeroinitializer
-  store <2 x float> %15, <2 x float>* %a2_in, align 8
-  %16 = load i32* %tid, align 4
-  %17 = load float addrspace(1)** %1, align 4
-  %18 = getelementptr inbounds float addrspace(1)* %17, i32 %16
-  %19 = load float addrspace(1)* %18
-  %20 = insertelement <3 x float> undef, float %19, i32 0
-  %21 = shufflevector <3 x float> %20, <3 x float> %20, <3 x i32> zeroinitializer
-  store <3 x float> %21, <3 x float>* %a3_in, align 16
-  %22 = load i32* %tid, align 4
-  %23 = load float addrspace(1)** %1, align 4
-  %24 = getelementptr inbounds float addrspace(1)* %23, i32 %22
-  %25 = load float addrspace(1)* %24
-  %26 = insertelement <4 x float> undef, float %25, i32 0
-  %27 = shufflevector <4 x float> %26, <4 x float> %26, <4 x i32> zeroinitializer
-  store <4 x float> %27, <4 x float>* %a4_in, align 16
-  %28 = load i32* %tid, align 4
-  %29 = load float addrspace(1)** %1, align 4
-  %30 = getelementptr inbounds float addrspace(1)* %29, i32 %28
-  %31 = load float addrspace(1)* %30
-  %32 = insertelement <8 x float> undef, float %31, i32 0
-  %33 = shufflevector <8 x float> %32, <8 x float> %32, <8 x i32> zeroinitializer
-  store <8 x float> %33, <8 x float>* %a8_in, align 32
+  %0 = load i32* %tid, align 4
+  %1 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx = getelementptr inbounds float addrspace(1)* %1, i32 %0
+  %2 = load float addrspace(1)* %arrayidx
+  store float %2, float* %a_in, align 4
+  %3 = load i32* %tid, align 4
+  %4 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx1 = getelementptr inbounds float addrspace(1)* %4, i32 %3
+  %5 = load float addrspace(1)* %arrayidx1
+  %6 = insertelement <2 x float> undef, float %5, i32 0
+  %splat = shufflevector <2 x float> %6, <2 x float> %6, <2 x i32> zeroinitializer
+  store <2 x float> %splat, <2 x float>* %a2_in, align 8
+  %7 = load i32* %tid, align 4
+  %8 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx2 = getelementptr inbounds float addrspace(1)* %8, i32 %7
+  %9 = load float addrspace(1)* %arrayidx2
+  %10 = insertelement <3 x float> undef, float %9, i32 0
+  %splat3 = shufflevector <3 x float> %10, <3 x float> %10, <3 x i32> zeroinitializer
+  store <3 x float> %splat3, <3 x float>* %a3_in, align 16
+  %11 = load i32* %tid, align 4
+  %12 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx4 = getelementptr inbounds float addrspace(1)* %12, i32 %11
+  %13 = load float addrspace(1)* %arrayidx4
+  %14 = insertelement <4 x float> undef, float %13, i32 0
+  %splat5 = shufflevector <4 x float> %14, <4 x float> %14, <4 x i32> zeroinitializer
+  store <4 x float> %splat5, <4 x float>* %a4_in, align 16
+  %15 = load i32* %tid, align 4
+  %16 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx6 = getelementptr inbounds float addrspace(1)* %16, i32 %15
+  %17 = load float addrspace(1)* %arrayidx6
+  %18 = insertelement <8 x float> undef, float %17, i32 0
+  %splat7 = shufflevector <8 x float> %18, <8 x float> %18, <8 x i32> zeroinitializer
+  store <8 x float> %splat7, <8 x float>* %a8_in, align 32
+  %19 = load i32* %tid, align 4
+  %20 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx8 = getelementptr inbounds float addrspace(1)* %20, i32 %19
+  %21 = load float addrspace(1)* %arrayidx8
+  %22 = insertelement <16 x float> undef, float %21, i32 0
+  %splat9 = shufflevector <16 x float> %22, <16 x float> %22, <16 x i32> zeroinitializer
+  store <16 x float> %splat9, <16 x float>* %a16_in, align 64
+  %23 = load i32* %tid, align 4
+  %add = add i32 %23, 1
+  %24 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx10 = getelementptr inbounds float addrspace(1)* %24, i32 %add
+  %25 = load float addrspace(1)* %arrayidx10
+  store float %25, float* %b_in, align 4
+  %26 = load i32* %tid, align 4
+  %27 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx11 = getelementptr inbounds float addrspace(1)* %27, i32 %26
+  %28 = load float addrspace(1)* %arrayidx11
+  %29 = insertelement <2 x float> undef, float %28, i32 0
+  %splat12 = shufflevector <2 x float> %29, <2 x float> %29, <2 x i32> zeroinitializer
+  store <2 x float> %splat12, <2 x float>* %b2_in, align 8
+  %30 = load i32* %tid, align 4
+  %31 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx13 = getelementptr inbounds float addrspace(1)* %31, i32 %30
+  %32 = load float addrspace(1)* %arrayidx13
+  %33 = insertelement <3 x float> undef, float %32, i32 0
+  %splat14 = shufflevector <3 x float> %33, <3 x float> %33, <3 x i32> zeroinitializer
+  store <3 x float> %splat14, <3 x float>* %b3_in, align 16
   %34 = load i32* %tid, align 4
-  %35 = load float addrspace(1)** %1, align 4
-  %36 = getelementptr inbounds float addrspace(1)* %35, i32 %34
-  %37 = load float addrspace(1)* %36
-  %38 = insertelement <16 x float> undef, float %37, i32 0
-  %39 = shufflevector <16 x float> %38, <16 x float> %38, <16 x i32> zeroinitializer
-  store <16 x float> %39, <16 x float>* %a16_in, align 64
-  %40 = load i32* %tid, align 4
-  %41 = add i32 %40, 1
-  %42 = load float addrspace(1)** %1, align 4
-  %43 = getelementptr inbounds float addrspace(1)* %42, i32 %41
-  %44 = load float addrspace(1)* %43
-  store float %44, float* %b_in, align 4
-  %45 = load i32* %tid, align 4
-  %46 = load float addrspace(1)** %1, align 4
-  %47 = getelementptr inbounds float addrspace(1)* %46, i32 %45
-  %48 = load float addrspace(1)* %47
-  %49 = insertelement <2 x float> undef, float %48, i32 0
-  %50 = shufflevector <2 x float> %49, <2 x float> %49, <2 x i32> zeroinitializer
-  store <2 x float> %50, <2 x float>* %b2_in, align 8
-  %51 = load i32* %tid, align 4
-  %52 = load float addrspace(1)** %1, align 4
-  %53 = getelementptr inbounds float addrspace(1)* %52, i32 %51
-  %54 = load float addrspace(1)* %53
-  %55 = insertelement <3 x float> undef, float %54, i32 0
-  %56 = shufflevector <3 x float> %55, <3 x float> %55, <3 x i32> zeroinitializer
-  store <3 x float> %56, <3 x float>* %b3_in, align 16
+  %35 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx15 = getelementptr inbounds float addrspace(1)* %35, i32 %34
+  %36 = load float addrspace(1)* %arrayidx15
+  %37 = insertelement <4 x float> undef, float %36, i32 0
+  %splat16 = shufflevector <4 x float> %37, <4 x float> %37, <4 x i32> zeroinitializer
+  store <4 x float> %splat16, <4 x float>* %b4_in, align 16
+  %38 = load i32* %tid, align 4
+  %39 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx17 = getelementptr inbounds float addrspace(1)* %39, i32 %38
+  %40 = load float addrspace(1)* %arrayidx17
+  %41 = insertelement <8 x float> undef, float %40, i32 0
+  %splat18 = shufflevector <8 x float> %41, <8 x float> %41, <8 x i32> zeroinitializer
+  store <8 x float> %splat18, <8 x float>* %b8_in, align 32
+  %42 = load i32* %tid, align 4
+  %43 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx19 = getelementptr inbounds float addrspace(1)* %43, i32 %42
+  %44 = load float addrspace(1)* %arrayidx19
+  %45 = insertelement <16 x float> undef, float %44, i32 0
+  %splat20 = shufflevector <16 x float> %45, <16 x float> %45, <16 x i32> zeroinitializer
+  store <16 x float> %splat20, <16 x float>* %b16_in, align 64
+  %46 = load i32* %tid, align 4
+  %add21 = add i32 %46, 1
+  %47 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx22 = getelementptr inbounds float addrspace(1)* %47, i32 %add21
+  %48 = load float addrspace(1)* %arrayidx22
+  store float %48, float* %c_in, align 4
+  %49 = load i32* %tid, align 4
+  %50 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx23 = getelementptr inbounds float addrspace(1)* %50, i32 %49
+  %51 = load float addrspace(1)* %arrayidx23
+  %52 = insertelement <2 x float> undef, float %51, i32 0
+  %splat24 = shufflevector <2 x float> %52, <2 x float> %52, <2 x i32> zeroinitializer
+  store <2 x float> %splat24, <2 x float>* %c2_in, align 8
+  %53 = load i32* %tid, align 4
+  %54 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx25 = getelementptr inbounds float addrspace(1)* %54, i32 %53
+  %55 = load float addrspace(1)* %arrayidx25
+  %56 = insertelement <3 x float> undef, float %55, i32 0
+  %splat26 = shufflevector <3 x float> %56, <3 x float> %56, <3 x i32> zeroinitializer
+  store <3 x float> %splat26, <3 x float>* %c3_in, align 16
   %57 = load i32* %tid, align 4
-  %58 = load float addrspace(1)** %1, align 4
-  %59 = getelementptr inbounds float addrspace(1)* %58, i32 %57
-  %60 = load float addrspace(1)* %59
-  %61 = insertelement <4 x float> undef, float %60, i32 0
-  %62 = shufflevector <4 x float> %61, <4 x float> %61, <4 x i32> zeroinitializer
-  store <4 x float> %62, <4 x float>* %b4_in, align 16
-  %63 = load i32* %tid, align 4
-  %64 = load float addrspace(1)** %1, align 4
-  %65 = getelementptr inbounds float addrspace(1)* %64, i32 %63
-  %66 = load float addrspace(1)* %65
-  %67 = insertelement <8 x float> undef, float %66, i32 0
-  %68 = shufflevector <8 x float> %67, <8 x float> %67, <8 x i32> zeroinitializer
-  store <8 x float> %68, <8 x float>* %b8_in, align 32
+  %58 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx27 = getelementptr inbounds float addrspace(1)* %58, i32 %57
+  %59 = load float addrspace(1)* %arrayidx27
+  %60 = insertelement <4 x float> undef, float %59, i32 0
+  %splat28 = shufflevector <4 x float> %60, <4 x float> %60, <4 x i32> zeroinitializer
+  store <4 x float> %splat28, <4 x float>* %c4_in, align 16
+  %61 = load i32* %tid, align 4
+  %62 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx29 = getelementptr inbounds float addrspace(1)* %62, i32 %61
+  %63 = load float addrspace(1)* %arrayidx29
+  %64 = insertelement <8 x float> undef, float %63, i32 0
+  %splat30 = shufflevector <8 x float> %64, <8 x float> %64, <8 x i32> zeroinitializer
+  store <8 x float> %splat30, <8 x float>* %c8_in, align 32
+  %65 = load i32* %tid, align 4
+  %66 = load float addrspace(1)** %input.addr, align 4
+  %arrayidx31 = getelementptr inbounds float addrspace(1)* %66, i32 %65
+  %67 = load float addrspace(1)* %arrayidx31
+  %68 = insertelement <16 x float> undef, float %67, i32 0
+  %splat32 = shufflevector <16 x float> %68, <16 x float> %68, <16 x i32> zeroinitializer
+  store <16 x float> %splat32, <16 x float>* %c16_in, align 64
   %69 = load i32* %tid, align 4
-  %70 = load float addrspace(1)** %1, align 4
-  %71 = getelementptr inbounds float addrspace(1)* %70, i32 %69
-  %72 = load float addrspace(1)* %71
-  %73 = insertelement <16 x float> undef, float %72, i32 0
-  %74 = shufflevector <16 x float> %73, <16 x float> %73, <16 x i32> zeroinitializer
-  store <16 x float> %74, <16 x float>* %b16_in, align 64
-  %75 = load i32* %tid, align 4
-  %76 = add i32 %75, 1
-  %77 = load float addrspace(1)** %1, align 4
-  %78 = getelementptr inbounds float addrspace(1)* %77, i32 %76
-  %79 = load float addrspace(1)* %78
-  store float %79, float* %c_in, align 4
+  %70 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx33 = getelementptr inbounds float addrspace(1)* %70, i32 %69
+  %71 = load float addrspace(1)* %arrayidx33
+  store float %71, float* %a_out, align 4
+  %72 = load i32* %tid, align 4
+  %73 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx34 = getelementptr inbounds float addrspace(1)* %73, i32 %72
+  %74 = load float addrspace(1)* %arrayidx34
+  %75 = insertelement <2 x float> undef, float %74, i32 0
+  %splat35 = shufflevector <2 x float> %75, <2 x float> %75, <2 x i32> zeroinitializer
+  store <2 x float> %splat35, <2 x float>* %a2_out, align 8
+  %76 = load i32* %tid, align 4
+  %77 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx36 = getelementptr inbounds float addrspace(1)* %77, i32 %76
+  %78 = load float addrspace(1)* %arrayidx36
+  %79 = insertelement <3 x float> undef, float %78, i32 0
+  %splat37 = shufflevector <3 x float> %79, <3 x float> %79, <3 x i32> zeroinitializer
+  store <3 x float> %splat37, <3 x float>* %a3_out, align 16
   %80 = load i32* %tid, align 4
-  %81 = load float addrspace(1)** %1, align 4
-  %82 = getelementptr inbounds float addrspace(1)* %81, i32 %80
-  %83 = load float addrspace(1)* %82
-  %84 = insertelement <2 x float> undef, float %83, i32 0
-  %85 = shufflevector <2 x float> %84, <2 x float> %84, <2 x i32> zeroinitializer
-  store <2 x float> %85, <2 x float>* %c2_in, align 8
-  %86 = load i32* %tid, align 4
-  %87 = load float addrspace(1)** %1, align 4
-  %88 = getelementptr inbounds float addrspace(1)* %87, i32 %86
-  %89 = load float addrspace(1)* %88
-  %90 = insertelement <3 x float> undef, float %89, i32 0
-  %91 = shufflevector <3 x float> %90, <3 x float> %90, <3 x i32> zeroinitializer
-  store <3 x float> %91, <3 x float>* %c3_in, align 16
+  %81 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx38 = getelementptr inbounds float addrspace(1)* %81, i32 %80
+  %82 = load float addrspace(1)* %arrayidx38
+  %83 = insertelement <4 x float> undef, float %82, i32 0
+  %splat39 = shufflevector <4 x float> %83, <4 x float> %83, <4 x i32> zeroinitializer
+  store <4 x float> %splat39, <4 x float>* %a4_out, align 16
+  %84 = load i32* %tid, align 4
+  %85 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx40 = getelementptr inbounds float addrspace(1)* %85, i32 %84
+  %86 = load float addrspace(1)* %arrayidx40
+  %87 = insertelement <8 x float> undef, float %86, i32 0
+  %splat41 = shufflevector <8 x float> %87, <8 x float> %87, <8 x i32> zeroinitializer
+  store <8 x float> %splat41, <8 x float>* %a8_out, align 32
+  %88 = load i32* %tid, align 4
+  %89 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx42 = getelementptr inbounds float addrspace(1)* %89, i32 %88
+  %90 = load float addrspace(1)* %arrayidx42
+  %91 = insertelement <16 x float> undef, float %90, i32 0
+  %splat43 = shufflevector <16 x float> %91, <16 x float> %91, <16 x i32> zeroinitializer
+  store <16 x float> %splat43, <16 x float>* %a16_out, align 64
   %92 = load i32* %tid, align 4
-  %93 = load float addrspace(1)** %1, align 4
-  %94 = getelementptr inbounds float addrspace(1)* %93, i32 %92
-  %95 = load float addrspace(1)* %94
-  %96 = insertelement <4 x float> undef, float %95, i32 0
-  %97 = shufflevector <4 x float> %96, <4 x float> %96, <4 x i32> zeroinitializer
-  store <4 x float> %97, <4 x float>* %c4_in, align 16
-  %98 = load i32* %tid, align 4
-  %99 = load float addrspace(1)** %1, align 4
-  %100 = getelementptr inbounds float addrspace(1)* %99, i32 %98
-  %101 = load float addrspace(1)* %100
-  %102 = insertelement <8 x float> undef, float %101, i32 0
-  %103 = shufflevector <8 x float> %102, <8 x float> %102, <8 x i32> zeroinitializer
-  store <8 x float> %103, <8 x float>* %c8_in, align 32
-  %104 = load i32* %tid, align 4
-  %105 = load float addrspace(1)** %1, align 4
-  %106 = getelementptr inbounds float addrspace(1)* %105, i32 %104
-  %107 = load float addrspace(1)* %106
-  %108 = insertelement <16 x float> undef, float %107, i32 0
-  %109 = shufflevector <16 x float> %108, <16 x float> %108, <16 x i32> zeroinitializer
-  store <16 x float> %109, <16 x float>* %c16_in, align 64
-  %110 = load i32* %tid, align 4
-  %111 = load float addrspace(1)** %2, align 4
-  %112 = getelementptr inbounds float addrspace(1)* %111, i32 %110
-  %113 = load float addrspace(1)* %112
-  store float %113, float* %a_out, align 4
-  %114 = load i32* %tid, align 4
-  %115 = load float addrspace(1)** %2, align 4
-  %116 = getelementptr inbounds float addrspace(1)* %115, i32 %114
-  %117 = load float addrspace(1)* %116
-  %118 = insertelement <2 x float> undef, float %117, i32 0
-  %119 = shufflevector <2 x float> %118, <2 x float> %118, <2 x i32> zeroinitializer
-  store <2 x float> %119, <2 x float>* %a2_out, align 8
-  %120 = load i32* %tid, align 4
-  %121 = load float addrspace(1)** %2, align 4
-  %122 = getelementptr inbounds float addrspace(1)* %121, i32 %120
-  %123 = load float addrspace(1)* %122
-  %124 = insertelement <3 x float> undef, float %123, i32 0
-  %125 = shufflevector <3 x float> %124, <3 x float> %124, <3 x i32> zeroinitializer
-  store <3 x float> %125, <3 x float>* %a3_out, align 16
+  %93 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx44 = getelementptr inbounds float addrspace(1)* %93, i32 %92
+  %94 = load float addrspace(1)* %arrayidx44
+  store float %94, float* %b_out, align 4
+  %95 = load i32* %tid, align 4
+  %96 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx45 = getelementptr inbounds float addrspace(1)* %96, i32 %95
+  %97 = load float addrspace(1)* %arrayidx45
+  %98 = insertelement <2 x float> undef, float %97, i32 0
+  %splat46 = shufflevector <2 x float> %98, <2 x float> %98, <2 x i32> zeroinitializer
+  store <2 x float> %splat46, <2 x float>* %b2_out, align 8
+  %99 = load i32* %tid, align 4
+  %100 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx47 = getelementptr inbounds float addrspace(1)* %100, i32 %99
+  %101 = load float addrspace(1)* %arrayidx47
+  %102 = insertelement <3 x float> undef, float %101, i32 0
+  %splat48 = shufflevector <3 x float> %102, <3 x float> %102, <3 x i32> zeroinitializer
+  store <3 x float> %splat48, <3 x float>* %b3_out, align 16
+  %103 = load i32* %tid, align 4
+  %104 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx49 = getelementptr inbounds float addrspace(1)* %104, i32 %103
+  %105 = load float addrspace(1)* %arrayidx49
+  %106 = insertelement <4 x float> undef, float %105, i32 0
+  %splat50 = shufflevector <4 x float> %106, <4 x float> %106, <4 x i32> zeroinitializer
+  store <4 x float> %splat50, <4 x float>* %b4_out, align 16
+  %107 = load i32* %tid, align 4
+  %108 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx51 = getelementptr inbounds float addrspace(1)* %108, i32 %107
+  %109 = load float addrspace(1)* %arrayidx51
+  %110 = insertelement <8 x float> undef, float %109, i32 0
+  %splat52 = shufflevector <8 x float> %110, <8 x float> %110, <8 x i32> zeroinitializer
+  store <8 x float> %splat52, <8 x float>* %b8_out, align 32
+  %111 = load i32* %tid, align 4
+  %112 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx53 = getelementptr inbounds float addrspace(1)* %112, i32 %111
+  %113 = load float addrspace(1)* %arrayidx53
+  %114 = insertelement <16 x float> undef, float %113, i32 0
+  %splat54 = shufflevector <16 x float> %114, <16 x float> %114, <16 x i32> zeroinitializer
+  store <16 x float> %splat54, <16 x float>* %b16_out, align 64
+  %115 = load i32* %tid, align 4
+  %116 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx55 = getelementptr inbounds float addrspace(1)* %116, i32 %115
+  %117 = load float addrspace(1)* %arrayidx55
+  store float %117, float* %c_out, align 4
+  %118 = load i32* %tid, align 4
+  %119 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx56 = getelementptr inbounds float addrspace(1)* %119, i32 %118
+  %120 = load float addrspace(1)* %arrayidx56
+  %121 = insertelement <2 x float> undef, float %120, i32 0
+  %splat57 = shufflevector <2 x float> %121, <2 x float> %121, <2 x i32> zeroinitializer
+  store <2 x float> %splat57, <2 x float>* %c2_out, align 8
+  %122 = load i32* %tid, align 4
+  %123 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx58 = getelementptr inbounds float addrspace(1)* %123, i32 %122
+  %124 = load float addrspace(1)* %arrayidx58
+  %125 = insertelement <3 x float> undef, float %124, i32 0
+  %splat59 = shufflevector <3 x float> %125, <3 x float> %125, <3 x i32> zeroinitializer
+  store <3 x float> %splat59, <3 x float>* %c3_out, align 16
   %126 = load i32* %tid, align 4
-  %127 = load float addrspace(1)** %2, align 4
-  %128 = getelementptr inbounds float addrspace(1)* %127, i32 %126
-  %129 = load float addrspace(1)* %128
-  %130 = insertelement <4 x float> undef, float %129, i32 0
-  %131 = shufflevector <4 x float> %130, <4 x float> %130, <4 x i32> zeroinitializer
-  store <4 x float> %131, <4 x float>* %a4_out, align 16
-  %132 = load i32* %tid, align 4
-  %133 = load float addrspace(1)** %2, align 4
-  %134 = getelementptr inbounds float addrspace(1)* %133, i32 %132
-  %135 = load float addrspace(1)* %134
-  %136 = insertelement <8 x float> undef, float %135, i32 0
-  %137 = shufflevector <8 x float> %136, <8 x float> %136, <8 x i32> zeroinitializer
-  store <8 x float> %137, <8 x float>* %a8_out, align 32
+  %127 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx60 = getelementptr inbounds float addrspace(1)* %127, i32 %126
+  %128 = load float addrspace(1)* %arrayidx60
+  %129 = insertelement <4 x float> undef, float %128, i32 0
+  %splat61 = shufflevector <4 x float> %129, <4 x float> %129, <4 x i32> zeroinitializer
+  store <4 x float> %splat61, <4 x float>* %c4_out, align 16
+  %130 = load i32* %tid, align 4
+  %131 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx62 = getelementptr inbounds float addrspace(1)* %131, i32 %130
+  %132 = load float addrspace(1)* %arrayidx62
+  %133 = insertelement <8 x float> undef, float %132, i32 0
+  %splat63 = shufflevector <8 x float> %133, <8 x float> %133, <8 x i32> zeroinitializer
+  store <8 x float> %splat63, <8 x float>* %c8_out, align 32
+  %134 = load i32* %tid, align 4
+  %135 = load float addrspace(1)** %output.addr, align 4
+  %arrayidx64 = getelementptr inbounds float addrspace(1)* %135, i32 %134
+  %136 = load float addrspace(1)* %arrayidx64
+  %137 = insertelement <16 x float> undef, float %136, i32 0
+  %splat65 = shufflevector <16 x float> %137, <16 x float> %137, <16 x i32> zeroinitializer
+  store <16 x float> %splat65, <16 x float>* %c16_out, align 64
   %138 = load i32* %tid, align 4
-  %139 = load float addrspace(1)** %2, align 4
-  %140 = getelementptr inbounds float addrspace(1)* %139, i32 %138
-  %141 = load float addrspace(1)* %140
-  %142 = insertelement <16 x float> undef, float %141, i32 0
-  %143 = shufflevector <16 x float> %142, <16 x float> %142, <16 x i32> zeroinitializer
-  store <16 x float> %143, <16 x float>* %a16_out, align 64
-  %144 = load i32* %tid, align 4
-  %145 = load float addrspace(1)** %2, align 4
-  %146 = getelementptr inbounds float addrspace(1)* %145, i32 %144
-  %147 = load float addrspace(1)* %146
-  store float %147, float* %b_out, align 4
-  %148 = load i32* %tid, align 4
-  %149 = load float addrspace(1)** %2, align 4
-  %150 = getelementptr inbounds float addrspace(1)* %149, i32 %148
-  %151 = load float addrspace(1)* %150
-  %152 = insertelement <2 x float> undef, float %151, i32 0
-  %153 = shufflevector <2 x float> %152, <2 x float> %152, <2 x i32> zeroinitializer
-  store <2 x float> %153, <2 x float>* %b2_out, align 8
-  %154 = load i32* %tid, align 4
-  %155 = load float addrspace(1)** %2, align 4
-  %156 = getelementptr inbounds float addrspace(1)* %155, i32 %154
-  %157 = load float addrspace(1)* %156
-  %158 = insertelement <3 x float> undef, float %157, i32 0
-  %159 = shufflevector <3 x float> %158, <3 x float> %158, <3 x i32> zeroinitializer
-  store <3 x float> %159, <3 x float>* %b3_out, align 16
-  %160 = load i32* %tid, align 4
-  %161 = load float addrspace(1)** %2, align 4
-  %162 = getelementptr inbounds float addrspace(1)* %161, i32 %160
-  %163 = load float addrspace(1)* %162
-  %164 = insertelement <4 x float> undef, float %163, i32 0
-  %165 = shufflevector <4 x float> %164, <4 x float> %164, <4 x i32> zeroinitializer
-  store <4 x float> %165, <4 x float>* %b4_out, align 16
-  %166 = load i32* %tid, align 4
-  %167 = load float addrspace(1)** %2, align 4
-  %168 = getelementptr inbounds float addrspace(1)* %167, i32 %166
-  %169 = load float addrspace(1)* %168
-  %170 = insertelement <8 x float> undef, float %169, i32 0
-  %171 = shufflevector <8 x float> %170, <8 x float> %170, <8 x i32> zeroinitializer
-  store <8 x float> %171, <8 x float>* %b8_out, align 32
+  %139 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx66 = getelementptr inbounds i32 addrspace(1)* %139, i32 %138
+  %140 = load i32 addrspace(1)* %arrayidx66
+  store i32 %140, i32* %i_in, align 4
+  %141 = load i32* %tid, align 4
+  %142 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx67 = getelementptr inbounds i32 addrspace(1)* %142, i32 %141
+  %143 = load i32 addrspace(1)* %arrayidx67
+  %144 = insertelement <2 x i32> undef, i32 %143, i32 0
+  %splat68 = shufflevector <2 x i32> %144, <2 x i32> %144, <2 x i32> zeroinitializer
+  store <2 x i32> %splat68, <2 x i32>* %i2_in, align 8
+  %145 = load i32* %tid, align 4
+  %146 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx69 = getelementptr inbounds i32 addrspace(1)* %146, i32 %145
+  %147 = load i32 addrspace(1)* %arrayidx69
+  %148 = insertelement <3 x i32> undef, i32 %147, i32 0
+  %splat70 = shufflevector <3 x i32> %148, <3 x i32> %148, <3 x i32> zeroinitializer
+  store <3 x i32> %splat70, <3 x i32>* %i3_in, align 16
+  %149 = load i32* %tid, align 4
+  %150 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx71 = getelementptr inbounds i32 addrspace(1)* %150, i32 %149
+  %151 = load i32 addrspace(1)* %arrayidx71
+  %152 = insertelement <4 x i32> undef, i32 %151, i32 0
+  %splat72 = shufflevector <4 x i32> %152, <4 x i32> %152, <4 x i32> zeroinitializer
+  store <4 x i32> %splat72, <4 x i32>* %i4_in, align 16
+  %153 = load i32* %tid, align 4
+  %154 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx73 = getelementptr inbounds i32 addrspace(1)* %154, i32 %153
+  %155 = load i32 addrspace(1)* %arrayidx73
+  %156 = insertelement <8 x i32> undef, i32 %155, i32 0
+  %splat74 = shufflevector <8 x i32> %156, <8 x i32> %156, <8 x i32> zeroinitializer
+  store <8 x i32> %splat74, <8 x i32>* %i8_in, align 32
+  %157 = load i32* %tid, align 4
+  %158 = load i32 addrspace(1)** %inputInt.addr, align 4
+  %arrayidx75 = getelementptr inbounds i32 addrspace(1)* %158, i32 %157
+  %159 = load i32 addrspace(1)* %arrayidx75
+  %160 = insertelement <16 x i32> undef, i32 %159, i32 0
+  %splat76 = shufflevector <16 x i32> %160, <16 x i32> %160, <16 x i32> zeroinitializer
+  store <16 x i32> %splat76, <16 x i32>* %i16_in, align 64
+  %161 = load i32* %tid, align 4
+  %162 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx77 = getelementptr inbounds i32 addrspace(1)* %162, i32 %161
+  %163 = load i32 addrspace(1)* %arrayidx77
+  store i32 %163, i32* %i_out, align 4
+  %164 = load i32* %tid, align 4
+  %165 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx78 = getelementptr inbounds i32 addrspace(1)* %165, i32 %164
+  %166 = load i32 addrspace(1)* %arrayidx78
+  %167 = insertelement <2 x i32> undef, i32 %166, i32 0
+  %splat79 = shufflevector <2 x i32> %167, <2 x i32> %167, <2 x i32> zeroinitializer
+  store <2 x i32> %splat79, <2 x i32>* %i2_out, align 8
+  %168 = load i32* %tid, align 4
+  %169 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx80 = getelementptr inbounds i32 addrspace(1)* %169, i32 %168
+  %170 = load i32 addrspace(1)* %arrayidx80
+  %171 = insertelement <3 x i32> undef, i32 %170, i32 0
+  %splat81 = shufflevector <3 x i32> %171, <3 x i32> %171, <3 x i32> zeroinitializer
+  store <3 x i32> %splat81, <3 x i32>* %i3_out, align 16
   %172 = load i32* %tid, align 4
-  %173 = load float addrspace(1)** %2, align 4
-  %174 = getelementptr inbounds float addrspace(1)* %173, i32 %172
-  %175 = load float addrspace(1)* %174
-  %176 = insertelement <16 x float> undef, float %175, i32 0
-  %177 = shufflevector <16 x float> %176, <16 x float> %176, <16 x i32> zeroinitializer
-  store <16 x float> %177, <16 x float>* %b16_out, align 64
-  %178 = load i32* %tid, align 4
-  %179 = load float addrspace(1)** %2, align 4
-  %180 = getelementptr inbounds float addrspace(1)* %179, i32 %178
-  %181 = load float addrspace(1)* %180
-  store float %181, float* %c_out, align 4
-  %182 = load i32* %tid, align 4
-  %183 = load float addrspace(1)** %2, align 4
-  %184 = getelementptr inbounds float addrspace(1)* %183, i32 %182
-  %185 = load float addrspace(1)* %184
-  %186 = insertelement <2 x float> undef, float %185, i32 0
-  %187 = shufflevector <2 x float> %186, <2 x float> %186, <2 x i32> zeroinitializer
-  store <2 x float> %187, <2 x float>* %c2_out, align 8
-  %188 = load i32* %tid, align 4
-  %189 = load float addrspace(1)** %2, align 4
-  %190 = getelementptr inbounds float addrspace(1)* %189, i32 %188
-  %191 = load float addrspace(1)* %190
-  %192 = insertelement <3 x float> undef, float %191, i32 0
-  %193 = shufflevector <3 x float> %192, <3 x float> %192, <3 x i32> zeroinitializer
-  store <3 x float> %193, <3 x float>* %c3_out, align 16
-  %194 = load i32* %tid, align 4
-  %195 = load float addrspace(1)** %2, align 4
-  %196 = getelementptr inbounds float addrspace(1)* %195, i32 %194
-  %197 = load float addrspace(1)* %196
-  %198 = insertelement <4 x float> undef, float %197, i32 0
-  %199 = shufflevector <4 x float> %198, <4 x float> %198, <4 x i32> zeroinitializer
-  store <4 x float> %199, <4 x float>* %c4_out, align 16
-  %200 = load i32* %tid, align 4
-  %201 = load float addrspace(1)** %2, align 4
-  %202 = getelementptr inbounds float addrspace(1)* %201, i32 %200
-  %203 = load float addrspace(1)* %202
-  %204 = insertelement <8 x float> undef, float %203, i32 0
-  %205 = shufflevector <8 x float> %204, <8 x float> %204, <8 x i32> zeroinitializer
-  store <8 x float> %205, <8 x float>* %c8_out, align 32
-  %206 = load i32* %tid, align 4
-  %207 = load float addrspace(1)** %2, align 4
-  %208 = getelementptr inbounds float addrspace(1)* %207, i32 %206
-  %209 = load float addrspace(1)* %208
-  %210 = insertelement <16 x float> undef, float %209, i32 0
-  %211 = shufflevector <16 x float> %210, <16 x float> %210, <16 x i32> zeroinitializer
-  store <16 x float> %211, <16 x float>* %c16_out, align 64
-  %212 = load i32* %tid, align 4
-  %213 = load i32 addrspace(1)** %3, align 4
-  %214 = getelementptr inbounds i32 addrspace(1)* %213, i32 %212
-  %215 = load i32 addrspace(1)* %214
-  store i32 %215, i32* %i_in, align 4
-  %216 = load i32* %tid, align 4
-  %217 = load i32 addrspace(1)** %3, align 4
-  %218 = getelementptr inbounds i32 addrspace(1)* %217, i32 %216
-  %219 = load i32 addrspace(1)* %218
-  %220 = insertelement <2 x i32> undef, i32 %219, i32 0
-  %221 = shufflevector <2 x i32> %220, <2 x i32> %220, <2 x i32> zeroinitializer
-  store <2 x i32> %221, <2 x i32>* %i2_in, align 8
-  %222 = load i32* %tid, align 4
-  %223 = load i32 addrspace(1)** %3, align 4
-  %224 = getelementptr inbounds i32 addrspace(1)* %223, i32 %222
-  %225 = load i32 addrspace(1)* %224
-  %226 = insertelement <3 x i32> undef, i32 %225, i32 0
-  %227 = shufflevector <3 x i32> %226, <3 x i32> %226, <3 x i32> zeroinitializer
-  store <3 x i32> %227, <3 x i32>* %i3_in, align 16
-  %228 = load i32* %tid, align 4
-  %229 = load i32 addrspace(1)** %3, align 4
-  %230 = getelementptr inbounds i32 addrspace(1)* %229, i32 %228
-  %231 = load i32 addrspace(1)* %230
-  %232 = insertelement <4 x i32> undef, i32 %231, i32 0
-  %233 = shufflevector <4 x i32> %232, <4 x i32> %232, <4 x i32> zeroinitializer
-  store <4 x i32> %233, <4 x i32>* %i4_in, align 16
-  %234 = load i32* %tid, align 4
-  %235 = load i32 addrspace(1)** %3, align 4
-  %236 = getelementptr inbounds i32 addrspace(1)* %235, i32 %234
-  %237 = load i32 addrspace(1)* %236
-  %238 = insertelement <8 x i32> undef, i32 %237, i32 0
-  %239 = shufflevector <8 x i32> %238, <8 x i32> %238, <8 x i32> zeroinitializer
-  store <8 x i32> %239, <8 x i32>* %i8_in, align 32
-  %240 = load i32* %tid, align 4
-  %241 = load i32 addrspace(1)** %3, align 4
-  %242 = getelementptr inbounds i32 addrspace(1)* %241, i32 %240
-  %243 = load i32 addrspace(1)* %242
-  %244 = insertelement <16 x i32> undef, i32 %243, i32 0
-  %245 = shufflevector <16 x i32> %244, <16 x i32> %244, <16 x i32> zeroinitializer
-  store <16 x i32> %245, <16 x i32>* %i16_in, align 64
-  %246 = load i32* %tid, align 4
-  %247 = load i32 addrspace(1)** %4, align 4
-  %248 = getelementptr inbounds i32 addrspace(1)* %247, i32 %246
-  %249 = load i32 addrspace(1)* %248
-  store i32 %249, i32* %i_out, align 4
-  %250 = load i32* %tid, align 4
-  %251 = load i32 addrspace(1)** %4, align 4
-  %252 = getelementptr inbounds i32 addrspace(1)* %251, i32 %250
-  %253 = load i32 addrspace(1)* %252
-  %254 = insertelement <2 x i32> undef, i32 %253, i32 0
-  %255 = shufflevector <2 x i32> %254, <2 x i32> %254, <2 x i32> zeroinitializer
-  store <2 x i32> %255, <2 x i32>* %i2_out, align 8
-  %256 = load i32* %tid, align 4
-  %257 = load i32 addrspace(1)** %4, align 4
-  %258 = getelementptr inbounds i32 addrspace(1)* %257, i32 %256
-  %259 = load i32 addrspace(1)* %258
-  %260 = insertelement <3 x i32> undef, i32 %259, i32 0
-  %261 = shufflevector <3 x i32> %260, <3 x i32> %260, <3 x i32> zeroinitializer
-  store <3 x i32> %261, <3 x i32>* %i3_out, align 16
-  %262 = load i32* %tid, align 4
-  %263 = load i32 addrspace(1)** %4, align 4
-  %264 = getelementptr inbounds i32 addrspace(1)* %263, i32 %262
-  %265 = load i32 addrspace(1)* %264
-  %266 = insertelement <4 x i32> undef, i32 %265, i32 0
-  %267 = shufflevector <4 x i32> %266, <4 x i32> %266, <4 x i32> zeroinitializer
-  store <4 x i32> %267, <4 x i32>* %i4_out, align 16
-  %268 = load i32* %tid, align 4
-  %269 = load i32 addrspace(1)** %4, align 4
-  %270 = getelementptr inbounds i32 addrspace(1)* %269, i32 %268
-  %271 = load i32 addrspace(1)* %270
-  %272 = insertelement <8 x i32> undef, i32 %271, i32 0
-  %273 = shufflevector <8 x i32> %272, <8 x i32> %272, <8 x i32> zeroinitializer
-  store <8 x i32> %273, <8 x i32>* %i8_out, align 32
-  %274 = load i32* %tid, align 4
-  %275 = load i32 addrspace(1)** %4, align 4
-  %276 = getelementptr inbounds i32 addrspace(1)* %275, i32 %274
-  %277 = load i32 addrspace(1)* %276
-  %278 = insertelement <16 x i32> undef, i32 %277, i32 0
-  %279 = shufflevector <16 x i32> %278, <16 x i32> %278, <16 x i32> zeroinitializer
-  store <16 x i32> %279, <16 x i32>* %i16_out, align 64
-  %280 = load float* %a_in, align 4
-  %281 = call float @_Z4acosf(float %280) readnone
-  store float %281, float* %a_out, align 4
-  %282 = load <4 x float>* %a4_in, align 16
-  %283 = call <4 x float> @_Z4acosDv4_f(<4 x float> %282) readnone
-  store <4 x float> %283, <4 x float>* %a4_out, align 16
-  %284 = load <8 x float>* %a8_in, align 32
-  %285 = call <8 x float> @_Z4acosDv8_f(<8 x float> %284) readnone
-  store <8 x float> %285, <8 x float>* %a8_out, align 32
-  %286 = load <16 x float>* %a16_in, align 64
-  %287 = call <16 x float> @_Z4acosDv16_f(<16 x float> %286) readnone
-  store <16 x float> %287, <16 x float>* %a16_out, align 64
-  %288 = load float* %a_in, align 4
-  %289 = call float @_Z6acospif(float %288) readnone
-  store float %289, float* %a_out, align 4
-  %290 = load <4 x float>* %a4_in, align 16
-  %291 = call <4 x float> @_Z6acospiDv4_f(<4 x float> %290) readnone
-  store <4 x float> %291, <4 x float>* %a4_out, align 16
-  %292 = load <8 x float>* %a8_in, align 32
-  %293 = call <8 x float> @_Z6acospiDv8_f(<8 x float> %292) readnone
-  store <8 x float> %293, <8 x float>* %a8_out, align 32
-  %294 = load <16 x float>* %a16_in, align 64
-  %295 = call <16 x float> @_Z6acospiDv16_f(<16 x float> %294) readnone
-  store <16 x float> %295, <16 x float>* %a16_out, align 64
+  %173 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx82 = getelementptr inbounds i32 addrspace(1)* %173, i32 %172
+  %174 = load i32 addrspace(1)* %arrayidx82
+  %175 = insertelement <4 x i32> undef, i32 %174, i32 0
+  %splat83 = shufflevector <4 x i32> %175, <4 x i32> %175, <4 x i32> zeroinitializer
+  store <4 x i32> %splat83, <4 x i32>* %i4_out, align 16
+  %176 = load i32* %tid, align 4
+  %177 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx84 = getelementptr inbounds i32 addrspace(1)* %177, i32 %176
+  %178 = load i32 addrspace(1)* %arrayidx84
+  %179 = insertelement <8 x i32> undef, i32 %178, i32 0
+  %splat85 = shufflevector <8 x i32> %179, <8 x i32> %179, <8 x i32> zeroinitializer
+  store <8 x i32> %splat85, <8 x i32>* %i8_out, align 32
+  %180 = load i32* %tid, align 4
+  %181 = load i32 addrspace(1)** %outputInt.addr, align 4
+  %arrayidx86 = getelementptr inbounds i32 addrspace(1)* %181, i32 %180
+  %182 = load i32 addrspace(1)* %arrayidx86
+  %183 = insertelement <16 x i32> undef, i32 %182, i32 0
+  %splat87 = shufflevector <16 x i32> %183, <16 x i32> %183, <16 x i32> zeroinitializer
+  store <16 x i32> %splat87, <16 x i32>* %i16_out, align 64
+  %184 = load float* %a_in, align 4
+  %call = call float @_Z4acosf(float %184) nounwind readnone
+  store float %call, float* %a_out, align 4
+  %185 = load <4 x float>* %a4_in, align 16
+  %call88 = call <4 x float> @_Z4acosDv4_f(<4 x float> %185) nounwind readnone
+  store <4 x float> %call88, <4 x float>* %a4_out, align 16
+  %186 = load <8 x float>* %a8_in, align 32
+  %call89 = call <8 x float> @_Z4acosDv8_f(<8 x float> %186) nounwind readnone
+  store <8 x float> %call89, <8 x float>* %a8_out, align 32
+  %187 = load <16 x float>* %a16_in, align 64
+  %call90 = call <16 x float> @_Z4acosDv16_f(<16 x float> %187) nounwind readnone
+  store <16 x float> %call90, <16 x float>* %a16_out, align 64
+  %188 = load float* %a_in, align 4
+  %call91 = call float @_Z6acospif(float %188) nounwind readnone
+  store float %call91, float* %a_out, align 4
+  %189 = load <4 x float>* %a4_in, align 16
+  %call92 = call <4 x float> @_Z6acospiDv4_f(<4 x float> %189) nounwind readnone
+  store <4 x float> %call92, <4 x float>* %a4_out, align 16
+  %190 = load <8 x float>* %a8_in, align 32
+  %call93 = call <8 x float> @_Z6acospiDv8_f(<8 x float> %190) nounwind readnone
+  store <8 x float> %call93, <8 x float>* %a8_out, align 32
+  %191 = load <16 x float>* %a16_in, align 64
+  %call94 = call <16 x float> @_Z6acospiDv16_f(<16 x float> %191) nounwind readnone
+  store <16 x float> %call94, <16 x float>* %a16_out, align 64
+  %192 = load float* %a_in, align 4
+  %call95 = call float @_Z4asinf(float %192) nounwind readnone
+  store float %call95, float* %a_out, align 4
+  %193 = load <4 x float>* %a4_in, align 16
+  %call96 = call <4 x float> @_Z4asinDv4_f(<4 x float> %193) nounwind readnone
+  store <4 x float> %call96, <4 x float>* %a4_out, align 16
+  %194 = load <8 x float>* %a8_in, align 32
+  %call97 = call <8 x float> @_Z4asinDv8_f(<8 x float> %194) nounwind readnone
+  store <8 x float> %call97, <8 x float>* %a8_out, align 32
+  %195 = load <16 x float>* %a16_in, align 64
+  %call98 = call <16 x float> @_Z4asinDv16_f(<16 x float> %195) nounwind readnone
+  store <16 x float> %call98, <16 x float>* %a16_out, align 64
+  %196 = load float* %a_in, align 4
+  %call99 = call float @_Z6asinpif(float %196) nounwind readnone
+  store float %call99, float* %a_out, align 4
+  %197 = load <4 x float>* %a4_in, align 16
+  %call100 = call <4 x float> @_Z6asinpiDv4_f(<4 x float> %197) nounwind readnone
+  store <4 x float> %call100, <4 x float>* %a4_out, align 16
+  %198 = load <8 x float>* %a8_in, align 32
+  %call101 = call <8 x float> @_Z6asinpiDv8_f(<8 x float> %198) nounwind readnone
+  store <8 x float> %call101, <8 x float>* %a8_out, align 32
+  %199 = load <16 x float>* %a16_in, align 64
+  %call102 = call <16 x float> @_Z6asinpiDv16_f(<16 x float> %199) nounwind readnone
+  store <16 x float> %call102, <16 x float>* %a16_out, align 64
+  %200 = load float* %a_in, align 4
+  %call103 = call float @_Z4atanf(float %200) nounwind readnone
+  store float %call103, float* %a_out, align 4
+  %201 = load <4 x float>* %a4_in, align 16
+  %call104 = call <4 x float> @_Z4atanDv4_f(<4 x float> %201) nounwind readnone
+  store <4 x float> %call104, <4 x float>* %a4_out, align 16
+  %202 = load <8 x float>* %a8_in, align 32
+  %call105 = call <8 x float> @_Z4atanDv8_f(<8 x float> %202) nounwind readnone
+  store <8 x float> %call105, <8 x float>* %a8_out, align 32
+  %203 = load <16 x float>* %a16_in, align 64
+  %call106 = call <16 x float> @_Z4atanDv16_f(<16 x float> %203) nounwind readnone
+  store <16 x float> %call106, <16 x float>* %a16_out, align 64
+  %204 = load float* %a_in, align 4
+  %205 = load float* %b_in, align 4
+  %call107 = call float @_Z5atan2ff(float %204, float %205) nounwind readnone
+  store float %call107, float* %a_out, align 4
+  %206 = load <4 x float>* %a4_in, align 16
+  %207 = load <4 x float>* %b4_in, align 16
+  %call108 = call <4 x float> @_Z5atan2Dv4_fS_(<4 x float> %206, <4 x float> %207) nounwind readnone
+  store <4 x float> %call108, <4 x float>* %a4_out, align 16
+  %208 = load <8 x float>* %a8_in, align 32
+  %209 = load <8 x float>* %b8_in, align 32
+  %call109 = call <8 x float> @_Z5atan2Dv8_fS_(<8 x float> %208, <8 x float> %209) nounwind readnone
+  store <8 x float> %call109, <8 x float>* %a8_out, align 32
+  %210 = load <16 x float>* %a16_in, align 64
+  %211 = load <16 x float>* %b16_in, align 64
+  %call110 = call <16 x float> @_Z5atan2Dv16_fS_(<16 x float> %210, <16 x float> %211) nounwind readnone
+  store <16 x float> %call110, <16 x float>* %a16_out, align 64
+  %212 = load float* %a_in, align 4
+  %213 = load float* %b_in, align 4
+  %call111 = call float @_Z7atan2piff(float %212, float %213) nounwind readnone
+  store float %call111, float* %a_out, align 4
+  %214 = load <4 x float>* %a4_in, align 16
+  %215 = load <4 x float>* %b4_in, align 16
+  %call112 = call <4 x float> @_Z7atan2piDv4_fS_(<4 x float> %214, <4 x float> %215) nounwind readnone
+  store <4 x float> %call112, <4 x float>* %a4_out, align 16
+  %216 = load <8 x float>* %a8_in, align 32
+  %217 = load <8 x float>* %b8_in, align 32
+  %call113 = call <8 x float> @_Z7atan2piDv8_fS_(<8 x float> %216, <8 x float> %217) nounwind readnone
+  store <8 x float> %call113, <8 x float>* %a8_out, align 32
+  %218 = load <16 x float>* %a16_in, align 64
+  %219 = load <16 x float>* %b16_in, align 64
+  %call114 = call <16 x float> @_Z7atan2piDv16_fS_(<16 x float> %218, <16 x float> %219) nounwind readnone
+  store <16 x float> %call114, <16 x float>* %a16_out, align 64
+  %220 = load float* %a_in, align 4
+  %call115 = call float @_Z6atanpif(float %220) nounwind readnone
+  store float %call115, float* %a_out, align 4
+  %221 = load <4 x float>* %a4_in, align 16
+  %call116 = call <4 x float> @_Z6atanpiDv4_f(<4 x float> %221) nounwind readnone
+  store <4 x float> %call116, <4 x float>* %a4_out, align 16
+  %222 = load <8 x float>* %a8_in, align 32
+  %call117 = call <8 x float> @_Z6atanpiDv8_f(<8 x float> %222) nounwind readnone
+  store <8 x float> %call117, <8 x float>* %a8_out, align 32
+  %223 = load <16 x float>* %a16_in, align 64
+  %call118 = call <16 x float> @_Z6atanpiDv16_f(<16 x float> %223) nounwind readnone
+  store <16 x float> %call118, <16 x float>* %a16_out, align 64
+  %224 = load float* %a_in, align 4
+  %call119 = call float @_Z3cosf(float %224) nounwind readnone
+  store float %call119, float* %a_out, align 4
+  %225 = load <4 x float>* %a4_in, align 16
+  %call120 = call <4 x float> @_Z3cosDv4_f(<4 x float> %225) nounwind readnone
+  store <4 x float> %call120, <4 x float>* %a4_out, align 16
+  %226 = load <8 x float>* %a8_in, align 32
+  %call121 = call <8 x float> @_Z3cosDv8_f(<8 x float> %226) nounwind readnone
+  store <8 x float> %call121, <8 x float>* %a8_out, align 32
+  %227 = load <16 x float>* %a16_in, align 64
+  %call122 = call <16 x float> @_Z3cosDv16_f(<16 x float> %227) nounwind readnone
+  store <16 x float> %call122, <16 x float>* %a16_out, align 64
+  %228 = load float* %a_in, align 4
+  %call123 = call float @_Z4coshf(float %228) nounwind readnone
+  store float %call123, float* %a_out, align 4
+  %229 = load <4 x float>* %a4_in, align 16
+  %call124 = call <4 x float> @_Z4coshDv4_f(<4 x float> %229) nounwind readnone
+  store <4 x float> %call124, <4 x float>* %a4_out, align 16
+  %230 = load <8 x float>* %a8_in, align 32
+  %call125 = call <8 x float> @_Z4coshDv8_f(<8 x float> %230) nounwind readnone
+  store <8 x float> %call125, <8 x float>* %a8_out, align 32
+  %231 = load <16 x float>* %a16_in, align 64
+  %call126 = call <16 x float> @_Z4coshDv16_f(<16 x float> %231) nounwind readnone
+  store <16 x float> %call126, <16 x float>* %a16_out, align 64
+  %232 = load float* %a_in, align 4
+  %call127 = call float @_Z5cospif(float %232) nounwind readnone
+  store float %call127, float* %a_out, align 4
+  %233 = load <4 x float>* %a4_in, align 16
+  %call128 = call <4 x float> @_Z5cospiDv4_f(<4 x float> %233) nounwind readnone
+  store <4 x float> %call128, <4 x float>* %a4_out, align 16
+  %234 = load <8 x float>* %a8_in, align 32
+  %call129 = call <8 x float> @_Z5cospiDv8_f(<8 x float> %234) nounwind readnone
+  store <8 x float> %call129, <8 x float>* %a8_out, align 32
+  %235 = load <16 x float>* %a16_in, align 64
+  %call130 = call <16 x float> @_Z5cospiDv16_f(<16 x float> %235) nounwind readnone
+  store <16 x float> %call130, <16 x float>* %a16_out, align 64
+  %236 = load float* %a_in, align 4
+  %call131 = call float @_Z3expf(float %236) nounwind readnone
+  store float %call131, float* %a_out, align 4
+  %237 = load <4 x float>* %a4_in, align 16
+  %call132 = call <4 x float> @_Z3expDv4_f(<4 x float> %237) nounwind readnone
+  store <4 x float> %call132, <4 x float>* %a4_out, align 16
+  %238 = load <8 x float>* %a8_in, align 32
+  %call133 = call <8 x float> @_Z3expDv8_f(<8 x float> %238) nounwind readnone
+  store <8 x float> %call133, <8 x float>* %a8_out, align 32
+  %239 = load <16 x float>* %a16_in, align 64
+  %call134 = call <16 x float> @_Z3expDv16_f(<16 x float> %239) nounwind readnone
+  store <16 x float> %call134, <16 x float>* %a16_out, align 64
+  %240 = load float* %a_in, align 4
+  %call135 = call float @_Z4exp2f(float %240) nounwind readnone
+  store float %call135, float* %a_out, align 4
+  %241 = load <4 x float>* %a4_in, align 16
+  %call136 = call <4 x float> @_Z4exp2Dv4_f(<4 x float> %241) nounwind readnone
+  store <4 x float> %call136, <4 x float>* %a4_out, align 16
+  %242 = load <8 x float>* %a8_in, align 32
+  %call137 = call <8 x float> @_Z4exp2Dv8_f(<8 x float> %242) nounwind readnone
+  store <8 x float> %call137, <8 x float>* %a8_out, align 32
+  %243 = load <16 x float>* %a16_in, align 64
+  %call138 = call <16 x float> @_Z4exp2Dv16_f(<16 x float> %243) nounwind readnone
+  store <16 x float> %call138, <16 x float>* %a16_out, align 64
+  %244 = load float* %a_in, align 4
+  %call139 = call float @_Z5exp10f(float %244) nounwind readnone
+  store float %call139, float* %a_out, align 4
+  %245 = load <4 x float>* %a4_in, align 16
+  %call140 = call <4 x float> @_Z5exp10Dv4_f(<4 x float> %245) nounwind readnone
+  store <4 x float> %call140, <4 x float>* %a4_out, align 16
+  %246 = load <8 x float>* %a8_in, align 32
+  %call141 = call <8 x float> @_Z5exp10Dv8_f(<8 x float> %246) nounwind readnone
+  store <8 x float> %call141, <8 x float>* %a8_out, align 32
+  %247 = load <16 x float>* %a16_in, align 64
+  %call142 = call <16 x float> @_Z5exp10Dv16_f(<16 x float> %247) nounwind readnone
+  store <16 x float> %call142, <16 x float>* %a16_out, align 64
+  %248 = load float* %a_in, align 4
+  %call143 = call float @_Z5expm1f(float %248) nounwind readnone
+  store float %call143, float* %a_out, align 4
+  %249 = load <4 x float>* %a4_in, align 16
+  %call144 = call <4 x float> @_Z5expm1Dv4_f(<4 x float> %249) nounwind readnone
+  store <4 x float> %call144, <4 x float>* %a4_out, align 16
+  %250 = load <8 x float>* %a8_in, align 32
+  %call145 = call <8 x float> @_Z5expm1Dv8_f(<8 x float> %250) nounwind readnone
+  store <8 x float> %call145, <8 x float>* %a8_out, align 32
+  %251 = load <16 x float>* %a16_in, align 64
+  %call146 = call <16 x float> @_Z5expm1Dv16_f(<16 x float> %251) nounwind readnone
+  store <16 x float> %call146, <16 x float>* %a16_out, align 64
+  %252 = load float* %a_in, align 4
+  %call147 = call float @_Z3logf(float %252) nounwind readnone
+  store float %call147, float* %a_out, align 4
+  %253 = load <4 x float>* %a4_in, align 16
+  %call148 = call <4 x float> @_Z3logDv4_f(<4 x float> %253) nounwind readnone
+  store <4 x float> %call148, <4 x float>* %a4_out, align 16
+  %254 = load <8 x float>* %a8_in, align 32
+  %call149 = call <8 x float> @_Z3logDv8_f(<8 x float> %254) nounwind readnone
+  store <8 x float> %call149, <8 x float>* %a8_out, align 32
+  %255 = load <16 x float>* %a16_in, align 64
+  %call150 = call <16 x float> @_Z3logDv16_f(<16 x float> %255) nounwind readnone
+  store <16 x float> %call150, <16 x float>* %a16_out, align 64
+  %256 = load float* %a_in, align 4
+  %call151 = call float @_Z4log2f(float %256) nounwind readnone
+  store float %call151, float* %a_out, align 4
+  %257 = load <4 x float>* %a4_in, align 16
+  %call152 = call <4 x float> @_Z4log2Dv4_f(<4 x float> %257) nounwind readnone
+  store <4 x float> %call152, <4 x float>* %a4_out, align 16
+  %258 = load <8 x float>* %a8_in, align 32
+  %call153 = call <8 x float> @_Z4log2Dv8_f(<8 x float> %258) nounwind readnone
+  store <8 x float> %call153, <8 x float>* %a8_out, align 32
+  %259 = load <16 x float>* %a16_in, align 64
+  %call154 = call <16 x float> @_Z4log2Dv16_f(<16 x float> %259) nounwind readnone
+  store <16 x float> %call154, <16 x float>* %a16_out, align 64
+  %260 = load float* %a_in, align 4
+  %call155 = call float @_Z5log10f(float %260) nounwind readnone
+  store float %call155, float* %a_out, align 4
+  %261 = load <4 x float>* %a4_in, align 16
+  %call156 = call <4 x float> @_Z5log10Dv4_f(<4 x float> %261) nounwind readnone
+  store <4 x float> %call156, <4 x float>* %a4_out, align 16
+  %262 = load <8 x float>* %a8_in, align 32
+  %call157 = call <8 x float> @_Z5log10Dv8_f(<8 x float> %262) nounwind readnone
+  store <8 x float> %call157, <8 x float>* %a8_out, align 32
+  %263 = load <16 x float>* %a16_in, align 64
+  %call158 = call <16 x float> @_Z5log10Dv16_f(<16 x float> %263) nounwind readnone
+  store <16 x float> %call158, <16 x float>* %a16_out, align 64
+  %264 = load float* %a_in, align 4
+  %call159 = call float @_Z5log1pf(float %264) nounwind readnone
+  store float %call159, float* %a_out, align 4
+  %265 = load <4 x float>* %a4_in, align 16
+  %call160 = call <4 x float> @_Z5log1pDv4_f(<4 x float> %265) nounwind readnone
+  store <4 x float> %call160, <4 x float>* %a4_out, align 16
+  %266 = load <8 x float>* %a8_in, align 32
+  %call161 = call <8 x float> @_Z5log1pDv8_f(<8 x float> %266) nounwind readnone
+  store <8 x float> %call161, <8 x float>* %a8_out, align 32
+  %267 = load <16 x float>* %a16_in, align 64
+  %call162 = call <16 x float> @_Z5log1pDv16_f(<16 x float> %267) nounwind readnone
+  store <16 x float> %call162, <16 x float>* %a16_out, align 64
+  %268 = load float* %a_in, align 4
+  %call163 = call float @_Z4logbf(float %268) nounwind readnone
+  store float %call163, float* %a_out, align 4
+  %269 = load <4 x float>* %a4_in, align 16
+  %call164 = call <4 x float> @_Z4logbDv4_f(<4 x float> %269) nounwind readnone
+  store <4 x float> %call164, <4 x float>* %a4_out, align 16
+  %270 = load <8 x float>* %a8_in, align 32
+  %call165 = call <8 x float> @_Z4logbDv8_f(<8 x float> %270) nounwind readnone
+  store <8 x float> %call165, <8 x float>* %a8_out, align 32
+  %271 = load <16 x float>* %a16_in, align 64
+  %call166 = call <16 x float> @_Z4logbDv16_f(<16 x float> %271) nounwind readnone
+  store <16 x float> %call166, <16 x float>* %a16_out, align 64
+  %272 = load float* %a_in, align 4
+  %call167 = call float @_Z4ceilf(float %272) nounwind readnone
+  store float %call167, float* %a_out, align 4
+  %273 = load <4 x float>* %a4_in, align 16
+  %call168 = call <4 x float> @_Z4ceilDv4_f(<4 x float> %273) nounwind readnone
+  store <4 x float> %call168, <4 x float>* %a4_out, align 16
+  %274 = load <8 x float>* %a8_in, align 32
+  %call169 = call <8 x float> @_Z4ceilDv8_f(<8 x float> %274) nounwind readnone
+  store <8 x float> %call169, <8 x float>* %a8_out, align 32
+  %275 = load <16 x float>* %a16_in, align 64
+  %call170 = call <16 x float> @_Z4ceilDv16_f(<16 x float> %275) nounwind readnone
+  store <16 x float> %call170, <16 x float>* %a16_out, align 64
+  %276 = load float* %a_in, align 4
+  %277 = load float* %b_in, align 4
+  %call171 = call float @_Z3powff(float %276, float %277) nounwind readnone
+  store float %call171, float* %a_out, align 4
+  %278 = load <4 x float>* %a4_in, align 16
+  %279 = load <4 x float>* %b4_in, align 16
+  %call172 = call <4 x float> @_Z3powDv4_fS_(<4 x float> %278, <4 x float> %279) nounwind readnone
+  store <4 x float> %call172, <4 x float>* %a4_out, align 16
+  %280 = load <8 x float>* %a8_in, align 32
+  %281 = load <8 x float>* %b8_in, align 32
+  %call173 = call <8 x float> @_Z3powDv8_fS_(<8 x float> %280, <8 x float> %281) nounwind readnone
+  store <8 x float> %call173, <8 x float>* %a8_out, align 32
+  %282 = load <16 x float>* %a16_in, align 64
+  %283 = load <16 x float>* %b16_in, align 64
+  %call174 = call <16 x float> @_Z3powDv16_fS_(<16 x float> %282, <16 x float> %283) nounwind readnone
+  store <16 x float> %call174, <16 x float>* %a16_out, align 64
+  %284 = load float* %a_in, align 4
+  %285 = load float* %b_in, align 4
+  %286 = load float* %c_in, align 4
+  %call175 = call float @_Z5clampfff(float %284, float %285, float %286) nounwind readnone
+  store float %call175, float* %a_out, align 4
+  %287 = load <4 x float>* %a4_in, align 16
+  %288 = load <4 x float>* %b4_in, align 16
+  %289 = load <4 x float>* %c4_in, align 16
+  %call176 = call <4 x float> @_Z5clampDv4_fS_S_(<4 x float> %287, <4 x float> %288, <4 x float> %289) nounwind readnone
+  store <4 x float> %call176, <4 x float>* %a4_out, align 16
+  %290 = load <8 x float>* %a8_in, align 32
+  %291 = load <8 x float>* %b8_in, align 32
+  %292 = load <8 x float>* %c8_in, align 32
+  %call177 = call <8 x float> @_Z5clampDv8_fS_S_(<8 x float> %290, <8 x float> %291, <8 x float> %292) nounwind readnone
+  store <8 x float> %call177, <8 x float>* %a8_out, align 32
+  %293 = load <16 x float>* %a16_in, align 64
+  %294 = load <16 x float>* %b16_in, align 64
+  %295 = load <16 x float>* %c16_in, align 64
+  %call178 = call <16 x float> @_Z5clampDv16_fS_S_(<16 x float> %293, <16 x float> %294, <16 x float> %295) nounwind readnone
+  store <16 x float> %call178, <16 x float>* %a16_out, align 64
   %296 = load float* %a_in, align 4
-  %297 = call float @_Z4asinf(float %296) readnone
-  store float %297, float* %a_out, align 4
-  %298 = load <4 x float>* %a4_in, align 16
-  %299 = call <4 x float> @_Z4asinDv4_f(<4 x float> %298) readnone
-  store <4 x float> %299, <4 x float>* %a4_out, align 16
-  %300 = load <8 x float>* %a8_in, align 32
-  %301 = call <8 x float> @_Z4asinDv8_f(<8 x float> %300) readnone
-  store <8 x float> %301, <8 x float>* %a8_out, align 32
-  %302 = load <16 x float>* %a16_in, align 64
-  %303 = call <16 x float> @_Z4asinDv16_f(<16 x float> %302) readnone
-  store <16 x float> %303, <16 x float>* %a16_out, align 64
-  %304 = load float* %a_in, align 4
-  %305 = call float @_Z6asinpif(float %304) readnone
-  store float %305, float* %a_out, align 4
-  %306 = load <4 x float>* %a4_in, align 16
-  %307 = call <4 x float> @_Z6asinpiDv4_f(<4 x float> %306) readnone
-  store <4 x float> %307, <4 x float>* %a4_out, align 16
-  %308 = load <8 x float>* %a8_in, align 32
-  %309 = call <8 x float> @_Z6asinpiDv8_f(<8 x float> %308) readnone
-  store <8 x float> %309, <8 x float>* %a8_out, align 32
-  %310 = load <16 x float>* %a16_in, align 64
-  %311 = call <16 x float> @_Z6asinpiDv16_f(<16 x float> %310) readnone
-  store <16 x float> %311, <16 x float>* %a16_out, align 64
+  %297 = load float* %b_in, align 4
+  %298 = load float* %c_in, align 4
+  %call179 = call float @_Z5clampfff(float %296, float %297, float %298) nounwind readnone
+  store float %call179, float* %a_out, align 4
+  %299 = load <4 x float>* %a4_in, align 16
+  %300 = load float* %b_in, align 4
+  %301 = load float* %c_in, align 4
+  %call180 = call <4 x float> @_Z5clampDv4_fff(<4 x float> %299, float %300, float %301) nounwind readnone
+  store <4 x float> %call180, <4 x float>* %a4_out, align 16
+  %302 = load <8 x float>* %a8_in, align 32
+  %303 = load float* %b_in, align 4
+  %304 = load float* %c_in, align 4
+  %call181 = call <8 x float> @_Z5clampDv8_fff(<8 x float> %302, float %303, float %304) nounwind readnone
+  store <8 x float> %call181, <8 x float>* %a8_out, align 32
+  %305 = load <16 x float>* %a16_in, align 64
+  %306 = load float* %b_in, align 4
+  %307 = load float* %c_in, align 4
+  %call182 = call <16 x float> @_Z5clampDv16_fff(<16 x float> %305, float %306, float %307) nounwind readnone
+  store <16 x float> %call182, <16 x float>* %a16_out, align 64
+  %308 = load float* %a_in, align 4
+  %call183 = call float @_Z4sinhf(float %308) nounwind readnone
+  store float %call183, float* %a_out, align 4
+  %309 = load <4 x float>* %a4_in, align 16
+  %call184 = call <4 x float> @_Z4sinhDv4_f(<4 x float> %309) nounwind readnone
+  store <4 x float> %call184, <4 x float>* %a4_out, align 16
+  %310 = load <8 x float>* %a8_in, align 32
+  %call185 = call <8 x float> @_Z4sinhDv8_f(<8 x float> %310) nounwind readnone
+  store <8 x float> %call185, <8 x float>* %a8_out, align 32
+  %311 = load <16 x float>* %a16_in, align 64
+  %call186 = call <16 x float> @_Z4sinhDv16_f(<16 x float> %311) nounwind readnone
+  store <16 x float> %call186, <16 x float>* %a16_out, align 64
   %312 = load float* %a_in, align 4
-  %313 = call float @_Z4atanf(float %312) readnone
-  store float %313, float* %a_out, align 4
-  %314 = load <4 x float>* %a4_in, align 16
-  %315 = call <4 x float> @_Z4atanDv4_f(<4 x float> %314) readnone
-  store <4 x float> %315, <4 x float>* %a4_out, align 16
-  %316 = load <8 x float>* %a8_in, align 32
-  %317 = call <8 x float> @_Z4atanDv8_f(<8 x float> %316) readnone
-  store <8 x float> %317, <8 x float>* %a8_out, align 32
-  %318 = load <16 x float>* %a16_in, align 64
-  %319 = call <16 x float> @_Z4atanDv16_f(<16 x float> %318) readnone
-  store <16 x float> %319, <16 x float>* %a16_out, align 64
+  %call187 = call float @_Z3sinf(float %312) nounwind readnone
+  store float %call187, float* %a_out, align 4
+  %313 = load <4 x float>* %a4_in, align 16
+  %call188 = call <4 x float> @_Z3sinDv4_f(<4 x float> %313) nounwind readnone
+  store <4 x float> %call188, <4 x float>* %a4_out, align 16
+  %314 = load <8 x float>* %a8_in, align 32
+  %call189 = call <8 x float> @_Z3sinDv8_f(<8 x float> %314) nounwind readnone
+  store <8 x float> %call189, <8 x float>* %a8_out, align 32
+  %315 = load <16 x float>* %a16_in, align 64
+  %call190 = call <16 x float> @_Z3sinDv16_f(<16 x float> %315) nounwind readnone
+  store <16 x float> %call190, <16 x float>* %a16_out, align 64
+  %316 = load float* %a_in, align 4
+  %call191 = call float @_Z5sinpif(float %316) nounwind readnone
+  store float %call191, float* %a_out, align 4
+  %317 = load <4 x float>* %a4_in, align 16
+  %call192 = call <4 x float> @_Z5sinpiDv4_f(<4 x float> %317) nounwind readnone
+  store <4 x float> %call192, <4 x float>* %a4_out, align 16
+  %318 = load <8 x float>* %a8_in, align 32
+  %call193 = call <8 x float> @_Z5sinpiDv8_f(<8 x float> %318) nounwind readnone
+  store <8 x float> %call193, <8 x float>* %a8_out, align 32
+  %319 = load <16 x float>* %a16_in, align 64
+  %call194 = call <16 x float> @_Z5sinpiDv16_f(<16 x float> %319) nounwind readnone
+  store <16 x float> %call194, <16 x float>* %a16_out, align 64
   %320 = load float* %a_in, align 4
-  %321 = load float* %b_in, align 4
-  %322 = call float @_Z5atan2ff(float %320, float %321) readnone
-  store float %322, float* %a_out, align 4
-  %323 = load <4 x float>* %a4_in, align 16
-  %324 = load <4 x float>* %b4_in, align 16
-  %325 = call <4 x float> @_Z5atan2Dv4_fS_(<4 x float> %323, <4 x float> %324) readnone
-  store <4 x float> %325, <4 x float>* %a4_out, align 16
+  %call195 = call float @_Z4sqrtf(float %320) nounwind readnone
+  store float %call195, float* %a_out, align 4
+  %321 = load <4 x float>* %a4_in, align 16
+  %call196 = call <4 x float> @_Z4sqrtDv4_f(<4 x float> %321) nounwind readnone
+  store <4 x float> %call196, <4 x float>* %a4_out, align 16
+  %322 = load <8 x float>* %a8_in, align 32
+  %call197 = call <8 x float> @_Z4sqrtDv8_f(<8 x float> %322) nounwind readnone
+  store <8 x float> %call197, <8 x float>* %a8_out, align 32
+  %323 = load <16 x float>* %a16_in, align 64
+  %call198 = call <16 x float> @_Z4sqrtDv16_f(<16 x float> %323) nounwind readnone
+  store <16 x float> %call198, <16 x float>* %a16_out, align 64
+  %324 = load float* %a_in, align 4
+  %call199 = call float @_Z5rsqrtf(float %324) nounwind readnone
+  store float %call199, float* %a_out, align 4
+  %325 = load <4 x float>* %a4_in, align 16
+  %call200 = call <4 x float> @_Z5rsqrtDv4_f(<4 x float> %325) nounwind readnone
+  store <4 x float> %call200, <4 x float>* %a4_out, align 16
   %326 = load <8 x float>* %a8_in, align 32
-  %327 = load <8 x float>* %b8_in, align 32
-  %328 = call <8 x float> @_Z5atan2Dv8_fS_(<8 x float> %326, <8 x float> %327) readnone
-  store <8 x float> %328, <8 x float>* %a8_out, align 32
-  %329 = load <16 x float>* %a16_in, align 64
-  %330 = load <16 x float>* %b16_in, align 64
-  %331 = call <16 x float> @_Z5atan2Dv16_fS_(<16 x float> %329, <16 x float> %330) readnone
-  store <16 x float> %331, <16 x float>* %a16_out, align 64
+  %call201 = call <8 x float> @_Z5rsqrtDv8_f(<8 x float> %326) nounwind readnone
+  store <8 x float> %call201, <8 x float>* %a8_out, align 32
+  %327 = load <16 x float>* %a16_in, align 64
+  %call202 = call <16 x float> @_Z5rsqrtDv16_f(<16 x float> %327) nounwind readnone
+  store <16 x float> %call202, <16 x float>* %a16_out, align 64
+  %328 = load float* %a_in, align 4
+  %call203 = call float @_Z3tanf(float %328) nounwind readnone
+  store float %call203, float* %a_out, align 4
+  %329 = load <4 x float>* %a4_in, align 16
+  %call204 = call <4 x float> @_Z3tanDv4_f(<4 x float> %329) nounwind readnone
+  store <4 x float> %call204, <4 x float>* %a4_out, align 16
+  %330 = load <8 x float>* %a8_in, align 32
+  %call205 = call <8 x float> @_Z3tanDv8_f(<8 x float> %330) nounwind readnone
+  store <8 x float> %call205, <8 x float>* %a8_out, align 32
+  %331 = load <16 x float>* %a16_in, align 64
+  %call206 = call <16 x float> @_Z3tanDv16_f(<16 x float> %331) nounwind readnone
+  store <16 x float> %call206, <16 x float>* %a16_out, align 64
   %332 = load float* %a_in, align 4
-  %333 = load float* %b_in, align 4
-  %334 = call float @_Z7atan2piff(float %332, float %333) readnone
-  store float %334, float* %a_out, align 4
-  %335 = load <4 x float>* %a4_in, align 16
-  %336 = load <4 x float>* %b4_in, align 16
-  %337 = call <4 x float> @_Z7atan2piDv4_fS_(<4 x float> %335, <4 x float> %336) readnone
-  store <4 x float> %337, <4 x float>* %a4_out, align 16
+  %call207 = call float @_Z4tanhf(float %332) nounwind readnone
+  store float %call207, float* %a_out, align 4
+  %333 = load <4 x float>* %a4_in, align 16
+  %call208 = call <4 x float> @_Z4tanhDv4_f(<4 x float> %333) nounwind readnone
+  store <4 x float> %call208, <4 x float>* %a4_out, align 16
+  %334 = load <8 x float>* %a8_in, align 32
+  %call209 = call <8 x float> @_Z4tanhDv8_f(<8 x float> %334) nounwind readnone
+  store <8 x float> %call209, <8 x float>* %a8_out, align 32
+  %335 = load <16 x float>* %a16_in, align 64
+  %call210 = call <16 x float> @_Z4tanhDv16_f(<16 x float> %335) nounwind readnone
+  store <16 x float> %call210, <16 x float>* %a16_out, align 64
+  %336 = load float* %a_in, align 4
+  %call211 = call float @_Z5tanpif(float %336) nounwind readnone
+  store float %call211, float* %a_out, align 4
+  %337 = load <4 x float>* %a4_in, align 16
+  %call212 = call <4 x float> @_Z5tanpiDv4_f(<4 x float> %337) nounwind readnone
+  store <4 x float> %call212, <4 x float>* %a4_out, align 16
   %338 = load <8 x float>* %a8_in, align 32
-  %339 = load <8 x float>* %b8_in, align 32
-  %340 = call <8 x float> @_Z7atan2piDv8_fS_(<8 x float> %338, <8 x float> %339) readnone
-  store <8 x float> %340, <8 x float>* %a8_out, align 32
-  %341 = load <16 x float>* %a16_in, align 64
-  %342 = load <16 x float>* %b16_in, align 64
-  %343 = call <16 x float> @_Z7atan2piDv16_fS_(<16 x float> %341, <16 x float> %342) readnone
-  store <16 x float> %343, <16 x float>* %a16_out, align 64
+  %call213 = call <8 x float> @_Z5tanpiDv8_f(<8 x float> %338) nounwind readnone
+  store <8 x float> %call213, <8 x float>* %a8_out, align 32
+  %339 = load <16 x float>* %a16_in, align 64
+  %call214 = call <16 x float> @_Z5tanpiDv16_f(<16 x float> %339) nounwind readnone
+  store <16 x float> %call214, <16 x float>* %a16_out, align 64
+  %340 = load float* %a_in, align 4
+  %call215 = call float @_Z4fabsf(float %340) nounwind readnone
+  store float %call215, float* %a_out, align 4
+  %341 = load <4 x float>* %a4_in, align 16
+  %call216 = call <4 x float> @_Z4fabsDv4_f(<4 x float> %341) nounwind readnone
+  store <4 x float> %call216, <4 x float>* %a4_out, align 16
+  %342 = load <8 x float>* %a8_in, align 32
+  %call217 = call <8 x float> @_Z4fabsDv8_f(<8 x float> %342) nounwind readnone
+  store <8 x float> %call217, <8 x float>* %a8_out, align 32
+  %343 = load <16 x float>* %a16_in, align 64
+  %call218 = call <16 x float> @_Z4fabsDv16_f(<16 x float> %343) nounwind readnone
+  store <16 x float> %call218, <16 x float>* %a16_out, align 64
   %344 = load float* %a_in, align 4
-  %345 = call float @_Z6atanpif(float %344) readnone
-  store float %345, float* %a_out, align 4
-  %346 = load <4 x float>* %a4_in, align 16
-  %347 = call <4 x float> @_Z6atanpiDv4_f(<4 x float> %346) readnone
-  store <4 x float> %347, <4 x float>* %a4_out, align 16
-  %348 = load <8 x float>* %a8_in, align 32
-  %349 = call <8 x float> @_Z6atanpiDv8_f(<8 x float> %348) readnone
-  store <8 x float> %349, <8 x float>* %a8_out, align 32
-  %350 = load <16 x float>* %a16_in, align 64
-  %351 = call <16 x float> @_Z6atanpiDv16_f(<16 x float> %350) readnone
-  store <16 x float> %351, <16 x float>* %a16_out, align 64
+  %call219 = call float @_Z10native_sinf(float %344) nounwind readnone
+  store float %call219, float* %a_out, align 4
+  %345 = load <4 x float>* %a4_in, align 16
+  %call220 = call <4 x float> @_Z10native_sinDv4_f(<4 x float> %345) nounwind readnone
+  store <4 x float> %call220, <4 x float>* %a4_out, align 16
+  %346 = load <8 x float>* %a8_in, align 32
+  %call221 = call <8 x float> @_Z10native_sinDv8_f(<8 x float> %346) nounwind readnone
+  store <8 x float> %call221, <8 x float>* %a8_out, align 32
+  %347 = load <16 x float>* %a16_in, align 64
+  %call222 = call <16 x float> @_Z10native_sinDv16_f(<16 x float> %347) nounwind readnone
+  store <16 x float> %call222, <16 x float>* %a16_out, align 64
+  %348 = load float* %a_in, align 4
+  %call223 = call float @_Z10native_cosf(float %348) nounwind readnone
+  store float %call223, float* %a_out, align 4
+  %349 = load <4 x float>* %a4_in, align 16
+  %call224 = call <4 x float> @_Z10native_cosDv4_f(<4 x float> %349) nounwind readnone
+  store <4 x float> %call224, <4 x float>* %a4_out, align 16
+  %350 = load <8 x float>* %a8_in, align 32
+  %call225 = call <8 x float> @_Z10native_cosDv8_f(<8 x float> %350) nounwind readnone
+  store <8 x float> %call225, <8 x float>* %a8_out, align 32
+  %351 = load <16 x float>* %a16_in, align 64
+  %call226 = call <16 x float> @_Z10native_cosDv16_f(<16 x float> %351) nounwind readnone
+  store <16 x float> %call226, <16 x float>* %a16_out, align 64
   %352 = load float* %a_in, align 4
-  %353 = call float @_Z3cosf(float %352) readnone
-  store float %353, float* %a_out, align 4
-  %354 = load <4 x float>* %a4_in, align 16
-  %355 = call <4 x float> @_Z3cosDv4_f(<4 x float> %354) readnone
-  store <4 x float> %355, <4 x float>* %a4_out, align 16
-  %356 = load <8 x float>* %a8_in, align 32
-  %357 = call <8 x float> @_Z3cosDv8_f(<8 x float> %356) readnone
-  store <8 x float> %357, <8 x float>* %a8_out, align 32
-  %358 = load <16 x float>* %a16_in, align 64
-  %359 = call <16 x float> @_Z3cosDv16_f(<16 x float> %358) readnone
-  store <16 x float> %359, <16 x float>* %a16_out, align 64
+  %call227 = call float @_Z12native_rsqrtf(float %352) nounwind readnone
+  store float %call227, float* %a_out, align 4
+  %353 = load <4 x float>* %a4_in, align 16
+  %call228 = call <4 x float> @_Z12native_rsqrtDv4_f(<4 x float> %353) nounwind readnone
+  store <4 x float> %call228, <4 x float>* %a4_out, align 16
+  %354 = load <8 x float>* %a8_in, align 32
+  %call229 = call <8 x float> @_Z12native_rsqrtDv8_f(<8 x float> %354) nounwind readnone
+  store <8 x float> %call229, <8 x float>* %a8_out, align 32
+  %355 = load <16 x float>* %a16_in, align 64
+  %call230 = call <16 x float> @_Z12native_rsqrtDv16_f(<16 x float> %355) nounwind readnone
+  store <16 x float> %call230, <16 x float>* %a16_out, align 64
+  %356 = load float* %a_in, align 4
+  %call231 = call float @_Z10native_logf(float %356) nounwind readnone
+  store float %call231, float* %a_out, align 4
+  %357 = load <4 x float>* %a4_in, align 16
+  %call232 = call <4 x float> @_Z10native_logDv4_f(<4 x float> %357) nounwind readnone
+  store <4 x float> %call232, <4 x float>* %a4_out, align 16
+  %358 = load <8 x float>* %a8_in, align 32
+  %call233 = call <8 x float> @_Z10native_logDv8_f(<8 x float> %358) nounwind readnone
+  store <8 x float> %call233, <8 x float>* %a8_out, align 32
+  %359 = load <16 x float>* %a16_in, align 64
+  %call234 = call <16 x float> @_Z10native_logDv16_f(<16 x float> %359) nounwind readnone
+  store <16 x float> %call234, <16 x float>* %a16_out, align 64
   %360 = load float* %a_in, align 4
-  %361 = call float @_Z4coshf(float %360) readnone
-  store float %361, float* %a_out, align 4
-  %362 = load <4 x float>* %a4_in, align 16
-  %363 = call <4 x float> @_Z4coshDv4_f(<4 x float> %362) readnone
-  store <4 x float> %363, <4 x float>* %a4_out, align 16
-  %364 = load <8 x float>* %a8_in, align 32
-  %365 = call <8 x float> @_Z4coshDv8_f(<8 x float> %364) readnone
-  store <8 x float> %365, <8 x float>* %a8_out, align 32
-  %366 = load <16 x float>* %a16_in, align 64
-  %367 = call <16 x float> @_Z4coshDv16_f(<16 x float> %366) readnone
-  store <16 x float> %367, <16 x float>* %a16_out, align 64
+  %call235 = call float @_Z11native_log2f(float %360) nounwind readnone
+  store float %call235, float* %a_out, align 4
+  %361 = load <4 x float>* %a4_in, align 16
+  %call236 = call <4 x float> @_Z11native_log2Dv4_f(<4 x float> %361) nounwind readnone
+  store <4 x float> %call236, <4 x float>* %a4_out, align 16
+  %362 = load <8 x float>* %a8_in, align 32
+  %call237 = call <8 x float> @_Z11native_log2Dv8_f(<8 x float> %362) nounwind readnone
+  store <8 x float> %call237, <8 x float>* %a8_out, align 32
+  %363 = load <16 x float>* %a16_in, align 64
+  %call238 = call <16 x float> @_Z11native_log2Dv16_f(<16 x float> %363) nounwind readnone
+  store <16 x float> %call238, <16 x float>* %a16_out, align 64
+  %364 = load float* %a_in, align 4
+  %call239 = call float @_Z12native_log10f(float %364) nounwind readnone
+  store float %call239, float* %a_out, align 4
+  %365 = load <4 x float>* %a4_in, align 16
+  %call240 = call <4 x float> @_Z12native_log10Dv4_f(<4 x float> %365) nounwind readnone
+  store <4 x float> %call240, <4 x float>* %a4_out, align 16
+  %366 = load <8 x float>* %a8_in, align 32
+  %call241 = call <8 x float> @_Z12native_log10Dv8_f(<8 x float> %366) nounwind readnone
+  store <8 x float> %call241, <8 x float>* %a8_out, align 32
+  %367 = load <16 x float>* %a16_in, align 64
+  %call242 = call <16 x float> @_Z12native_log10Dv16_f(<16 x float> %367) nounwind readnone
+  store <16 x float> %call242, <16 x float>* %a16_out, align 64
   %368 = load float* %a_in, align 4
-  %369 = call float @_Z5cospif(float %368) readnone
-  store float %369, float* %a_out, align 4
-  %370 = load <4 x float>* %a4_in, align 16
-  %371 = call <4 x float> @_Z5cospiDv4_f(<4 x float> %370) readnone
-  store <4 x float> %371, <4 x float>* %a4_out, align 16
-  %372 = load <8 x float>* %a8_in, align 32
-  %373 = call <8 x float> @_Z5cospiDv8_f(<8 x float> %372) readnone
-  store <8 x float> %373, <8 x float>* %a8_out, align 32
-  %374 = load <16 x float>* %a16_in, align 64
-  %375 = call <16 x float> @_Z5cospiDv16_f(<16 x float> %374) readnone
-  store <16 x float> %375, <16 x float>* %a16_out, align 64
+  %call243 = call float @_Z10native_expf(float %368) nounwind readnone
+  store float %call243, float* %a_out, align 4
+  %369 = load <4 x float>* %a4_in, align 16
+  %call244 = call <4 x float> @_Z10native_expDv4_f(<4 x float> %369) nounwind readnone
+  store <4 x float> %call244, <4 x float>* %a4_out, align 16
+  %370 = load <8 x float>* %a8_in, align 32
+  %call245 = call <8 x float> @_Z10native_expDv8_f(<8 x float> %370) nounwind readnone
+  store <8 x float> %call245, <8 x float>* %a8_out, align 32
+  %371 = load <16 x float>* %a16_in, align 64
+  %call246 = call <16 x float> @_Z10native_expDv16_f(<16 x float> %371) nounwind readnone
+  store <16 x float> %call246, <16 x float>* %a16_out, align 64
+  %372 = load float* %a_in, align 4
+  %call247 = call float @_Z11native_exp2f(float %372) nounwind readnone
+  store float %call247, float* %a_out, align 4
+  %373 = load <4 x float>* %a4_in, align 16
+  %call248 = call <4 x float> @_Z11native_exp2Dv4_f(<4 x float> %373) nounwind readnone
+  store <4 x float> %call248, <4 x float>* %a4_out, align 16
+  %374 = load <8 x float>* %a8_in, align 32
+  %call249 = call <8 x float> @_Z11native_exp2Dv8_f(<8 x float> %374) nounwind readnone
+  store <8 x float> %call249, <8 x float>* %a8_out, align 32
+  %375 = load <16 x float>* %a16_in, align 64
+  %call250 = call <16 x float> @_Z11native_exp2Dv16_f(<16 x float> %375) nounwind readnone
+  store <16 x float> %call250, <16 x float>* %a16_out, align 64
   %376 = load float* %a_in, align 4
-  %377 = call float @_Z3expf(float %376) readnone
-  store float %377, float* %a_out, align 4
-  %378 = load <4 x float>* %a4_in, align 16
-  %379 = call <4 x float> @_Z3expDv4_f(<4 x float> %378) readnone
-  store <4 x float> %379, <4 x float>* %a4_out, align 16
-  %380 = load <8 x float>* %a8_in, align 32
-  %381 = call <8 x float> @_Z3expDv8_f(<8 x float> %380) readnone
-  store <8 x float> %381, <8 x float>* %a8_out, align 32
-  %382 = load <16 x float>* %a16_in, align 64
-  %383 = call <16 x float> @_Z3expDv16_f(<16 x float> %382) readnone
-  store <16 x float> %383, <16 x float>* %a16_out, align 64
-  %384 = load float* %a_in, align 4
-  %385 = call float @_Z4exp2f(float %384) readnone
-  store float %385, float* %a_out, align 4
-  %386 = load <4 x float>* %a4_in, align 16
-  %387 = call <4 x float> @_Z4exp2Dv4_f(<4 x float> %386) readnone
-  store <4 x float> %387, <4 x float>* %a4_out, align 16
-  %388 = load <8 x float>* %a8_in, align 32
-  %389 = call <8 x float> @_Z4exp2Dv8_f(<8 x float> %388) readnone
-  store <8 x float> %389, <8 x float>* %a8_out, align 32
-  %390 = load <16 x float>* %a16_in, align 64
-  %391 = call <16 x float> @_Z4exp2Dv16_f(<16 x float> %390) readnone
-  store <16 x float> %391, <16 x float>* %a16_out, align 64
-  %392 = load float* %a_in, align 4
-  %393 = call float @_Z5exp10f(float %392) readnone
-  store float %393, float* %a_out, align 4
-  %394 = load <4 x float>* %a4_in, align 16
-  %395 = call <4 x float> @_Z5exp10Dv4_f(<4 x float> %394) readnone
-  store <4 x float> %395, <4 x float>* %a4_out, align 16
-  %396 = load <8 x float>* %a8_in, align 32
-  %397 = call <8 x float> @_Z5exp10Dv8_f(<8 x float> %396) readnone
-  store <8 x float> %397, <8 x float>* %a8_out, align 32
-  %398 = load <16 x float>* %a16_in, align 64
-  %399 = call <16 x float> @_Z5exp10Dv16_f(<16 x float> %398) readnone
-  store <16 x float> %399, <16 x float>* %a16_out, align 64
+  %call251 = call float @_Z12native_exp10f(float %376) nounwind readnone
+  store float %call251, float* %a_out, align 4
+  %377 = load <4 x float>* %a4_in, align 16
+  %call252 = call <4 x float> @_Z12native_exp10Dv4_f(<4 x float> %377) nounwind readnone
+  store <4 x float> %call252, <4 x float>* %a4_out, align 16
+  %378 = load <8 x float>* %a8_in, align 32
+  %call253 = call <8 x float> @_Z12native_exp10Dv8_f(<8 x float> %378) nounwind readnone
+  store <8 x float> %call253, <8 x float>* %a8_out, align 32
+  %379 = load <16 x float>* %a16_in, align 64
+  %call254 = call <16 x float> @_Z12native_exp10Dv16_f(<16 x float> %379) nounwind readnone
+  store <16 x float> %call254, <16 x float>* %a16_out, align 64
+  %380 = load float* %a_in, align 4
+  %381 = load float* %b_in, align 4
+  %call255 = call float @_Z13native_divideff(float %380, float %381) nounwind readnone
+  store float %call255, float* %a_out, align 4
+  %382 = load <4 x float>* %a4_in, align 16
+  %383 = load <4 x float>* %b4_in, align 16
+  %call256 = call <4 x float> @_Z13native_divideDv4_fS_(<4 x float> %382, <4 x float> %383) nounwind readnone
+  store <4 x float> %call256, <4 x float>* %a4_out, align 16
+  %384 = load <8 x float>* %a8_in, align 32
+  %385 = load <8 x float>* %b8_in, align 32
+  %call257 = call <8 x float> @_Z13native_divideDv8_fS_(<8 x float> %384, <8 x float> %385) nounwind readnone
+  store <8 x float> %call257, <8 x float>* %a8_out, align 32
+  %386 = load <16 x float>* %a16_in, align 64
+  %387 = load <16 x float>* %b16_in, align 64
+  %call258 = call <16 x float> @_Z13native_divideDv16_fS_(<16 x float> %386, <16 x float> %387) nounwind readnone
+  store <16 x float> %call258, <16 x float>* %a16_out, align 64
+  %388 = load float* %a_in, align 4
+  %389 = load float* %b_in, align 4
+  %call259 = call float @_Z11native_powrff(float %388, float %389) nounwind readnone
+  store float %call259, float* %a_out, align 4
+  %390 = load <4 x float>* %a4_in, align 16
+  %391 = load <4 x float>* %b4_in, align 16
+  %call260 = call <4 x float> @_Z11native_powrDv4_fS_(<4 x float> %390, <4 x float> %391) nounwind readnone
+  store <4 x float> %call260, <4 x float>* %a4_out, align 16
+  %392 = load <8 x float>* %a8_in, align 32
+  %393 = load <8 x float>* %b8_in, align 32
+  %call261 = call <8 x float> @_Z11native_powrDv8_fS_(<8 x float> %392, <8 x float> %393) nounwind readnone
+  store <8 x float> %call261, <8 x float>* %a8_out, align 32
+  %394 = load <16 x float>* %a16_in, align 64
+  %395 = load <16 x float>* %b16_in, align 64
+  %call262 = call <16 x float> @_Z11native_powrDv16_fS_(<16 x float> %394, <16 x float> %395) nounwind readnone
+  store <16 x float> %call262, <16 x float>* %a16_out, align 64
+  %396 = load float* %a_in, align 4
+  %call263 = call float @_Z12native_recipf(float %396) nounwind readnone
+  store float %call263, float* %a_out, align 4
+  %397 = load <4 x float>* %a4_in, align 16
+  %call264 = call <4 x float> @_Z12native_recipDv4_f(<4 x float> %397) nounwind readnone
+  store <4 x float> %call264, <4 x float>* %a4_out, align 16
+  %398 = load <8 x float>* %a8_in, align 32
+  %call265 = call <8 x float> @_Z12native_recipDv8_f(<8 x float> %398) nounwind readnone
+  store <8 x float> %call265, <8 x float>* %a8_out, align 32
+  %399 = load <16 x float>* %a16_in, align 64
+  %call266 = call <16 x float> @_Z12native_recipDv16_f(<16 x float> %399) nounwind readnone
+  store <16 x float> %call266, <16 x float>* %a16_out, align 64
   %400 = load float* %a_in, align 4
-  %401 = call float @_Z5expm1f(float %400) readnone
-  store float %401, float* %a_out, align 4
-  %402 = load <4 x float>* %a4_in, align 16
-  %403 = call <4 x float> @_Z5expm1Dv4_f(<4 x float> %402) readnone
-  store <4 x float> %403, <4 x float>* %a4_out, align 16
-  %404 = load <8 x float>* %a8_in, align 32
-  %405 = call <8 x float> @_Z5expm1Dv8_f(<8 x float> %404) readnone
-  store <8 x float> %405, <8 x float>* %a8_out, align 32
-  %406 = load <16 x float>* %a16_in, align 64
-  %407 = call <16 x float> @_Z5expm1Dv16_f(<16 x float> %406) readnone
-  store <16 x float> %407, <16 x float>* %a16_out, align 64
+  %call267 = call float @_Z11native_sqrtf(float %400) nounwind readnone
+  store float %call267, float* %a_out, align 4
+  %401 = load <4 x float>* %a4_in, align 16
+  %call268 = call <4 x float> @_Z11native_sqrtDv4_f(<4 x float> %401) nounwind readnone
+  store <4 x float> %call268, <4 x float>* %a4_out, align 16
+  %402 = load <8 x float>* %a8_in, align 32
+  %call269 = call <8 x float> @_Z11native_sqrtDv8_f(<8 x float> %402) nounwind readnone
+  store <8 x float> %call269, <8 x float>* %a8_out, align 32
+  %403 = load <16 x float>* %a16_in, align 64
+  %call270 = call <16 x float> @_Z11native_sqrtDv16_f(<16 x float> %403) nounwind readnone
+  store <16 x float> %call270, <16 x float>* %a16_out, align 64
+  %404 = load float* %a_in, align 4
+  %call271 = call float @_Z10native_tanf(float %404) nounwind readnone
+  store float %call271, float* %a_out, align 4
+  %405 = load <4 x float>* %a4_in, align 16
+  %call272 = call <4 x float> @_Z10native_tanDv4_f(<4 x float> %405) nounwind readnone
+  store <4 x float> %call272, <4 x float>* %a4_out, align 16
+  %406 = load <8 x float>* %a8_in, align 32
+  %call273 = call <8 x float> @_Z10native_tanDv8_f(<8 x float> %406) nounwind readnone
+  store <8 x float> %call273, <8 x float>* %a8_out, align 32
+  %407 = load <16 x float>* %a16_in, align 64
+  %call274 = call <16 x float> @_Z10native_tanDv16_f(<16 x float> %407) nounwind readnone
+  store <16 x float> %call274, <16 x float>* %a16_out, align 64
   %408 = load float* %a_in, align 4
-  %409 = call float @_Z3logf(float %408) readnone
-  store float %409, float* %a_out, align 4
-  %410 = load <4 x float>* %a4_in, align 16
-  %411 = call <4 x float> @_Z3logDv4_f(<4 x float> %410) readnone
-  store <4 x float> %411, <4 x float>* %a4_out, align 16
-  %412 = load <8 x float>* %a8_in, align 32
-  %413 = call <8 x float> @_Z3logDv8_f(<8 x float> %412) readnone
-  store <8 x float> %413, <8 x float>* %a8_out, align 32
-  %414 = load <16 x float>* %a16_in, align 64
-  %415 = call <16 x float> @_Z3logDv16_f(<16 x float> %414) readnone
-  store <16 x float> %415, <16 x float>* %a16_out, align 64
+  %call275 = call float @_Z8half_logf(float %408) nounwind readnone
+  store float %call275, float* %a_out, align 4
+  %409 = load <4 x float>* %a4_in, align 16
+  %call276 = call <4 x float> @_Z8half_logDv4_f(<4 x float> %409) nounwind readnone
+  store <4 x float> %call276, <4 x float>* %a4_out, align 16
+  %410 = load <8 x float>* %a8_in, align 32
+  %call277 = call <8 x float> @_Z8half_logDv8_f(<8 x float> %410) nounwind readnone
+  store <8 x float> %call277, <8 x float>* %a8_out, align 32
+  %411 = load <16 x float>* %a16_in, align 64
+  %call278 = call <16 x float> @_Z8half_logDv16_f(<16 x float> %411) nounwind readnone
+  store <16 x float> %call278, <16 x float>* %a16_out, align 64
+  %412 = load float* %a_in, align 4
+  %call279 = call float @_Z9half_log2f(float %412) nounwind readnone
+  store float %call279, float* %a_out, align 4
+  %413 = load <4 x float>* %a4_in, align 16
+  %call280 = call <4 x float> @_Z9half_log2Dv4_f(<4 x float> %413) nounwind readnone
+  store <4 x float> %call280, <4 x float>* %a4_out, align 16
+  %414 = load <8 x float>* %a8_in, align 32
+  %call281 = call <8 x float> @_Z9half_log2Dv8_f(<8 x float> %414) nounwind readnone
+  store <8 x float> %call281, <8 x float>* %a8_out, align 32
+  %415 = load <16 x float>* %a16_in, align 64
+  %call282 = call <16 x float> @_Z9half_log2Dv16_f(<16 x float> %415) nounwind readnone
+  store <16 x float> %call282, <16 x float>* %a16_out, align 64
   %416 = load float* %a_in, align 4
-  %417 = call float @_Z4log2f(float %416) readnone
-  store float %417, float* %a_out, align 4
-  %418 = load <4 x float>* %a4_in, align 16
-  %419 = call <4 x float> @_Z4log2Dv4_f(<4 x float> %418) readnone
-  store <4 x float> %419, <4 x float>* %a4_out, align 16
-  %420 = load <8 x float>* %a8_in, align 32
-  %421 = call <8 x float> @_Z4log2Dv8_f(<8 x float> %420) readnone
-  store <8 x float> %421, <8 x float>* %a8_out, align 32
-  %422 = load <16 x float>* %a16_in, align 64
-  %423 = call <16 x float> @_Z4log2Dv16_f(<16 x float> %422) readnone
-  store <16 x float> %423, <16 x float>* %a16_out, align 64
+  %call283 = call float @_Z10half_log10f(float %416) nounwind readnone
+  store float %call283, float* %a_out, align 4
+  %417 = load <4 x float>* %a4_in, align 16
+  %call284 = call <4 x float> @_Z10half_log10Dv4_f(<4 x float> %417) nounwind readnone
+  store <4 x float> %call284, <4 x float>* %a4_out, align 16
+  %418 = load <8 x float>* %a8_in, align 32
+  %call285 = call <8 x float> @_Z10half_log10Dv8_f(<8 x float> %418) nounwind readnone
+  store <8 x float> %call285, <8 x float>* %a8_out, align 32
+  %419 = load <16 x float>* %a16_in, align 64
+  %call286 = call <16 x float> @_Z10half_log10Dv16_f(<16 x float> %419) nounwind readnone
+  store <16 x float> %call286, <16 x float>* %a16_out, align 64
+  %420 = load float* %a_in, align 4
+  %call287 = call float @_Z8half_expf(float %420) nounwind readnone
+  store float %call287, float* %a_out, align 4
+  %421 = load <4 x float>* %a4_in, align 16
+  %call288 = call <4 x float> @_Z8half_expDv4_f(<4 x float> %421) nounwind readnone
+  store <4 x float> %call288, <4 x float>* %a4_out, align 16
+  %422 = load <8 x float>* %a8_in, align 32
+  %call289 = call <8 x float> @_Z8half_expDv8_f(<8 x float> %422) nounwind readnone
+  store <8 x float> %call289, <8 x float>* %a8_out, align 32
+  %423 = load <16 x float>* %a16_in, align 64
+  %call290 = call <16 x float> @_Z8half_expDv16_f(<16 x float> %423) nounwind readnone
+  store <16 x float> %call290, <16 x float>* %a16_out, align 64
   %424 = load float* %a_in, align 4
-  %425 = call float @_Z5log10f(float %424) readnone
-  store float %425, float* %a_out, align 4
-  %426 = load <4 x float>* %a4_in, align 16
-  %427 = call <4 x float> @_Z5log10Dv4_f(<4 x float> %426) readnone
-  store <4 x float> %427, <4 x float>* %a4_out, align 16
-  %428 = load <8 x float>* %a8_in, align 32
-  %429 = call <8 x float> @_Z5log10Dv8_f(<8 x float> %428) readnone
-  store <8 x float> %429, <8 x float>* %a8_out, align 32
-  %430 = load <16 x float>* %a16_in, align 64
-  %431 = call <16 x float> @_Z5log10Dv16_f(<16 x float> %430) readnone
-  store <16 x float> %431, <16 x float>* %a16_out, align 64
+  %call291 = call float @_Z9half_exp2f(float %424) nounwind readnone
+  store float %call291, float* %a_out, align 4
+  %425 = load <4 x float>* %a4_in, align 16
+  %call292 = call <4 x float> @_Z9half_exp2Dv4_f(<4 x float> %425) nounwind readnone
+  store <4 x float> %call292, <4 x float>* %a4_out, align 16
+  %426 = load <8 x float>* %a8_in, align 32
+  %call293 = call <8 x float> @_Z9half_exp2Dv8_f(<8 x float> %426) nounwind readnone
+  store <8 x float> %call293, <8 x float>* %a8_out, align 32
+  %427 = load <16 x float>* %a16_in, align 64
+  %call294 = call <16 x float> @_Z9half_exp2Dv16_f(<16 x float> %427) nounwind readnone
+  store <16 x float> %call294, <16 x float>* %a16_out, align 64
+  %428 = load float* %a_in, align 4
+  %call295 = call float @_Z10half_exp10f(float %428) nounwind readnone
+  store float %call295, float* %a_out, align 4
+  %429 = load <4 x float>* %a4_in, align 16
+  %call296 = call <4 x float> @_Z10half_exp10Dv4_f(<4 x float> %429) nounwind readnone
+  store <4 x float> %call296, <4 x float>* %a4_out, align 16
+  %430 = load <8 x float>* %a8_in, align 32
+  %call297 = call <8 x float> @_Z10half_exp10Dv8_f(<8 x float> %430) nounwind readnone
+  store <8 x float> %call297, <8 x float>* %a8_out, align 32
+  %431 = load <16 x float>* %a16_in, align 64
+  %call298 = call <16 x float> @_Z10half_exp10Dv16_f(<16 x float> %431) nounwind readnone
+  store <16 x float> %call298, <16 x float>* %a16_out, align 64
   %432 = load float* %a_in, align 4
-  %433 = call float @_Z5log1pf(float %432) readnone
-  store float %433, float* %a_out, align 4
-  %434 = load <4 x float>* %a4_in, align 16
-  %435 = call <4 x float> @_Z5log1pDv4_f(<4 x float> %434) readnone
-  store <4 x float> %435, <4 x float>* %a4_out, align 16
-  %436 = load <8 x float>* %a8_in, align 32
-  %437 = call <8 x float> @_Z5log1pDv8_f(<8 x float> %436) readnone
-  store <8 x float> %437, <8 x float>* %a8_out, align 32
-  %438 = load <16 x float>* %a16_in, align 64
-  %439 = call <16 x float> @_Z5log1pDv16_f(<16 x float> %438) readnone
-  store <16 x float> %439, <16 x float>* %a16_out, align 64
-  %440 = load float* %a_in, align 4
-  %441 = call float @_Z4logbf(float %440) readnone
-  store float %441, float* %a_out, align 4
-  %442 = load <4 x float>* %a4_in, align 16
-  %443 = call <4 x float> @_Z4logbDv4_f(<4 x float> %442) readnone
-  store <4 x float> %443, <4 x float>* %a4_out, align 16
-  %444 = load <8 x float>* %a8_in, align 32
-  %445 = call <8 x float> @_Z4logbDv8_f(<8 x float> %444) readnone
-  store <8 x float> %445, <8 x float>* %a8_out, align 32
-  %446 = load <16 x float>* %a16_in, align 64
-  %447 = call <16 x float> @_Z4logbDv16_f(<16 x float> %446) readnone
-  store <16 x float> %447, <16 x float>* %a16_out, align 64
-  %448 = load float* %a_in, align 4
-  %449 = call float @_Z4ceilf(float %448) readnone
-  store float %449, float* %a_out, align 4
-  %450 = load <4 x float>* %a4_in, align 16
-  %451 = call <4 x float> @_Z4ceilDv4_f(<4 x float> %450) readnone
-  store <4 x float> %451, <4 x float>* %a4_out, align 16
-  %452 = load <8 x float>* %a8_in, align 32
-  %453 = call <8 x float> @_Z4ceilDv8_f(<8 x float> %452) readnone
-  store <8 x float> %453, <8 x float>* %a8_out, align 32
-  %454 = load <16 x float>* %a16_in, align 64
-  %455 = call <16 x float> @_Z4ceilDv16_f(<16 x float> %454) readnone
-  store <16 x float> %455, <16 x float>* %a16_out, align 64
+  %call299 = call float @_Z8half_cosf(float %432) nounwind readnone
+  store float %call299, float* %a_out, align 4
+  %433 = load <4 x float>* %a4_in, align 16
+  %call300 = call <4 x float> @_Z8half_cosDv4_f(<4 x float> %433) nounwind readnone
+  store <4 x float> %call300, <4 x float>* %a4_out, align 16
+  %434 = load <8 x float>* %a8_in, align 32
+  %call301 = call <8 x float> @_Z8half_cosDv8_f(<8 x float> %434) nounwind readnone
+  store <8 x float> %call301, <8 x float>* %a8_out, align 32
+  %435 = load <16 x float>* %a16_in, align 64
+  %call302 = call <16 x float> @_Z8half_cosDv16_f(<16 x float> %435) nounwind readnone
+  store <16 x float> %call302, <16 x float>* %a16_out, align 64
+  %436 = load float* %a_in, align 4
+  %437 = load float* %b_in, align 4
+  %call303 = call float @_Z11half_divideff(float %436, float %437) nounwind readnone
+  store float %call303, float* %a_out, align 4
+  %438 = load <4 x float>* %a4_in, align 16
+  %439 = load <4 x float>* %b4_in, align 16
+  %call304 = call <4 x float> @_Z11half_divideDv4_fS_(<4 x float> %438, <4 x float> %439) nounwind readnone
+  store <4 x float> %call304, <4 x float>* %a4_out, align 16
+  %440 = load <8 x float>* %a8_in, align 32
+  %441 = load <8 x float>* %b8_in, align 32
+  %call305 = call <8 x float> @_Z11half_divideDv8_fS_(<8 x float> %440, <8 x float> %441) nounwind readnone
+  store <8 x float> %call305, <8 x float>* %a8_out, align 32
+  %442 = load <16 x float>* %a16_in, align 64
+  %443 = load <16 x float>* %b16_in, align 64
+  %call306 = call <16 x float> @_Z11half_divideDv16_fS_(<16 x float> %442, <16 x float> %443) nounwind readnone
+  store <16 x float> %call306, <16 x float>* %a16_out, align 64
+  %444 = load float* %a_in, align 4
+  %445 = load float* %b_in, align 4
+  %call307 = call float @_Z9half_powrff(float %444, float %445) nounwind readnone
+  store float %call307, float* %a_out, align 4
+  %446 = load <4 x float>* %a4_in, align 16
+  %447 = load <4 x float>* %b4_in, align 16
+  %call308 = call <4 x float> @_Z9half_powrDv4_fS_(<4 x float> %446, <4 x float> %447) nounwind readnone
+  store <4 x float> %call308, <4 x float>* %a4_out, align 16
+  %448 = load <8 x float>* %a8_in, align 32
+  %449 = load <8 x float>* %b8_in, align 32
+  %call309 = call <8 x float> @_Z9half_powrDv8_fS_(<8 x float> %448, <8 x float> %449) nounwind readnone
+  store <8 x float> %call309, <8 x float>* %a8_out, align 32
+  %450 = load <16 x float>* %a16_in, align 64
+  %451 = load <16 x float>* %b16_in, align 64
+  %call310 = call <16 x float> @_Z9half_powrDv16_fS_(<16 x float> %450, <16 x float> %451) nounwind readnone
+  store <16 x float> %call310, <16 x float>* %a16_out, align 64
+  %452 = load float* %a_in, align 4
+  %call311 = call float @_Z10half_recipf(float %452) nounwind readnone
+  store float %call311, float* %a_out, align 4
+  %453 = load <4 x float>* %a4_in, align 16
+  %call312 = call <4 x float> @_Z10half_recipDv4_f(<4 x float> %453) nounwind readnone
+  store <4 x float> %call312, <4 x float>* %a4_out, align 16
+  %454 = load <8 x float>* %a8_in, align 32
+  %call313 = call <8 x float> @_Z10half_recipDv8_f(<8 x float> %454) nounwind readnone
+  store <8 x float> %call313, <8 x float>* %a8_out, align 32
+  %455 = load <16 x float>* %a16_in, align 64
+  %call314 = call <16 x float> @_Z10half_recipDv16_f(<16 x float> %455) nounwind readnone
+  store <16 x float> %call314, <16 x float>* %a16_out, align 64
   %456 = load float* %a_in, align 4
-  %457 = load float* %b_in, align 4
-  %458 = call float @_Z3powff(float %456, float %457) readnone
-  store float %458, float* %a_out, align 4
-  %459 = load <4 x float>* %a4_in, align 16
-  %460 = load <4 x float>* %b4_in, align 16
-  %461 = call <4 x float> @_Z3powDv4_fS_(<4 x float> %459, <4 x float> %460) readnone
-  store <4 x float> %461, <4 x float>* %a4_out, align 16
+  %call315 = call float @_Z10half_rsqrtf(float %456) nounwind readnone
+  store float %call315, float* %a_out, align 4
+  %457 = load <4 x float>* %a4_in, align 16
+  %call316 = call <4 x float> @_Z10half_rsqrtDv4_f(<4 x float> %457) nounwind readnone
+  store <4 x float> %call316, <4 x float>* %a4_out, align 16
+  %458 = load <8 x float>* %a8_in, align 32
+  %call317 = call <8 x float> @_Z10half_rsqrtDv8_f(<8 x float> %458) nounwind readnone
+  store <8 x float> %call317, <8 x float>* %a8_out, align 32
+  %459 = load <16 x float>* %a16_in, align 64
+  %call318 = call <16 x float> @_Z10half_rsqrtDv16_f(<16 x float> %459) nounwind readnone
+  store <16 x float> %call318, <16 x float>* %a16_out, align 64
+  %460 = load float* %a_in, align 4
+  %call319 = call float @_Z8half_sinf(float %460) nounwind readnone
+  store float %call319, float* %a_out, align 4
+  %461 = load <4 x float>* %a4_in, align 16
+  %call320 = call <4 x float> @_Z8half_sinDv4_f(<4 x float> %461) nounwind readnone
+  store <4 x float> %call320, <4 x float>* %a4_out, align 16
   %462 = load <8 x float>* %a8_in, align 32
-  %463 = load <8 x float>* %b8_in, align 32
-  %464 = call <8 x float> @_Z3powDv8_fS_(<8 x float> %462, <8 x float> %463) readnone
-  store <8 x float> %464, <8 x float>* %a8_out, align 32
-  %465 = load <16 x float>* %a16_in, align 64
-  %466 = load <16 x float>* %b16_in, align 64
-  %467 = call <16 x float> @_Z3powDv16_fS_(<16 x float> %465, <16 x float> %466) readnone
-  store <16 x float> %467, <16 x float>* %a16_out, align 64
+  %call321 = call <8 x float> @_Z8half_sinDv8_f(<8 x float> %462) nounwind readnone
+  store <8 x float> %call321, <8 x float>* %a8_out, align 32
+  %463 = load <16 x float>* %a16_in, align 64
+  %call322 = call <16 x float> @_Z8half_sinDv16_f(<16 x float> %463) nounwind readnone
+  store <16 x float> %call322, <16 x float>* %a16_out, align 64
+  %464 = load float* %a_in, align 4
+  %call323 = call float @_Z9half_sqrtf(float %464) nounwind readnone
+  store float %call323, float* %a_out, align 4
+  %465 = load <4 x float>* %a4_in, align 16
+  %call324 = call <4 x float> @_Z9half_sqrtDv4_f(<4 x float> %465) nounwind readnone
+  store <4 x float> %call324, <4 x float>* %a4_out, align 16
+  %466 = load <8 x float>* %a8_in, align 32
+  %call325 = call <8 x float> @_Z9half_sqrtDv8_f(<8 x float> %466) nounwind readnone
+  store <8 x float> %call325, <8 x float>* %a8_out, align 32
+  %467 = load <16 x float>* %a16_in, align 64
+  %call326 = call <16 x float> @_Z9half_sqrtDv16_f(<16 x float> %467) nounwind readnone
+  store <16 x float> %call326, <16 x float>* %a16_out, align 64
   %468 = load float* %a_in, align 4
-  %469 = load float* %b_in, align 4
-  %470 = load float* %c_in, align 4
-  %471 = call float @_Z5clampfff(float %468, float %469, float %470) readnone
-  store float %471, float* %a_out, align 4
-  %472 = load <4 x float>* %a4_in, align 16
-  %473 = load <4 x float>* %b4_in, align 16
-  %474 = load <4 x float>* %c4_in, align 16
-  %475 = call <4 x float> @_Z5clampDv4_fS_S_(<4 x float> %472, <4 x float> %473, <4 x float> %474) readnone
-  store <4 x float> %475, <4 x float>* %a4_out, align 16
-  %476 = load <8 x float>* %a8_in, align 32
-  %477 = load <8 x float>* %b8_in, align 32
-  %478 = load <8 x float>* %c8_in, align 32
-  %479 = call <8 x float> @_Z5clampDv8_fS_S_(<8 x float> %476, <8 x float> %477, <8 x float> %478) readnone
-  store <8 x float> %479, <8 x float>* %a8_out, align 32
-  %480 = load <16 x float>* %a16_in, align 64
-  %481 = load <16 x float>* %b16_in, align 64
-  %482 = load <16 x float>* %c16_in, align 64
-  %483 = call <16 x float> @_Z5clampDv16_fS_S_(<16 x float> %480, <16 x float> %481, <16 x float> %482) readnone
-  store <16 x float> %483, <16 x float>* %a16_out, align 64
-  %484 = load float* %a_in, align 4
-  %485 = load float* %b_in, align 4
-  %486 = load float* %c_in, align 4
-  %487 = call float @_Z5clampfff(float %484, float %485, float %486) readnone
-  store float %487, float* %a_out, align 4
-  %488 = load <4 x float>* %a4_in, align 16
-  %489 = load float* %b_in, align 4
-  %490 = load float* %c_in, align 4
-  %491 = call <4 x float> @_Z5clampDv4_fff(<4 x float> %488, float %489, float %490) readnone
-  store <4 x float> %491, <4 x float>* %a4_out, align 16
-  %492 = load <8 x float>* %a8_in, align 32
-  %493 = load float* %b_in, align 4
-  %494 = load float* %c_in, align 4
-  %495 = call <8 x float> @_Z5clampDv8_fff(<8 x float> %492, float %493, float %494) readnone
-  store <8 x float> %495, <8 x float>* %a8_out, align 32
+  %call327 = call float @_Z8half_tanf(float %468) nounwind readnone
+  store float %call327, float* %a_out, align 4
+  %469 = load <4 x float>* %a4_in, align 16
+  %call328 = call <4 x float> @_Z8half_tanDv4_f(<4 x float> %469) nounwind readnone
+  store <4 x float> %call328, <4 x float>* %a4_out, align 16
+  %470 = load <8 x float>* %a8_in, align 32
+  %call329 = call <8 x float> @_Z8half_tanDv8_f(<8 x float> %470) nounwind readnone
+  store <8 x float> %call329, <8 x float>* %a8_out, align 32
+  %471 = load <16 x float>* %a16_in, align 64
+  %call330 = call <16 x float> @_Z8half_tanDv16_f(<16 x float> %471) nounwind readnone
+  store <16 x float> %call330, <16 x float>* %a16_out, align 64
+  %472 = load float* %a_in, align 4
+  %call331 = call float @_Z5asinhf(float %472) nounwind readnone
+  store float %call331, float* %a_out, align 4
+  %473 = load <4 x float>* %a4_in, align 16
+  %call332 = call <4 x float> @_Z5asinhDv4_f(<4 x float> %473) nounwind readnone
+  store <4 x float> %call332, <4 x float>* %a4_out, align 16
+  %474 = load <8 x float>* %a8_in, align 32
+  %call333 = call <8 x float> @_Z5asinhDv8_f(<8 x float> %474) nounwind readnone
+  store <8 x float> %call333, <8 x float>* %a8_out, align 32
+  %475 = load <16 x float>* %a16_in, align 64
+  %call334 = call <16 x float> @_Z5asinhDv16_f(<16 x float> %475) nounwind readnone
+  store <16 x float> %call334, <16 x float>* %a16_out, align 64
+  %476 = load float* %a_in, align 4
+  %call335 = call float @_Z5acoshf(float %476) nounwind readnone
+  store float %call335, float* %a_out, align 4
+  %477 = load <4 x float>* %a4_in, align 16
+  %call336 = call <4 x float> @_Z5acoshDv4_f(<4 x float> %477) nounwind readnone
+  store <4 x float> %call336, <4 x float>* %a4_out, align 16
+  %478 = load <8 x float>* %a8_in, align 32
+  %call337 = call <8 x float> @_Z5acoshDv8_f(<8 x float> %478) nounwind readnone
+  store <8 x float> %call337, <8 x float>* %a8_out, align 32
+  %479 = load <16 x float>* %a16_in, align 64
+  %call338 = call <16 x float> @_Z5acoshDv16_f(<16 x float> %479) nounwind readnone
+  store <16 x float> %call338, <16 x float>* %a16_out, align 64
+  %480 = load float* %a_in, align 4
+  %call339 = call float @_Z5atanhf(float %480) nounwind readnone
+  store float %call339, float* %a_out, align 4
+  %481 = load <4 x float>* %a4_in, align 16
+  %call340 = call <4 x float> @_Z5atanhDv4_f(<4 x float> %481) nounwind readnone
+  store <4 x float> %call340, <4 x float>* %a4_out, align 16
+  %482 = load <8 x float>* %a8_in, align 32
+  %call341 = call <8 x float> @_Z5atanhDv8_f(<8 x float> %482) nounwind readnone
+  store <8 x float> %call341, <8 x float>* %a8_out, align 32
+  %483 = load <16 x float>* %a16_in, align 64
+  %call342 = call <16 x float> @_Z5atanhDv16_f(<16 x float> %483) nounwind readnone
+  store <16 x float> %call342, <16 x float>* %a16_out, align 64
+  %call343 = call <4 x float> @_Z6vload4jPKf(i32 0, float* %b_in)
+  store <4 x float> %call343, <4 x float>* %a4_out, align 16
+  %call344 = call <8 x float> @_Z6vload8jPKf(i32 0, float* %b_in)
+  store <8 x float> %call344, <8 x float>* %a8_out, align 32
+  %call345 = call <16 x float> @_Z7vload16jPKf(i32 0, float* %b_in)
+  store <16 x float> %call345, <16 x float>* %a16_out, align 64
+  %484 = load <4 x float>* %a4_in, align 16
+  %485 = bitcast <4 x float>* %a4_out to float*
+  call void @_Z7vstore4Dv4_fjPf(<4 x float> %484, i32 0, float* %485)
+  %486 = load <8 x float>* %a8_in, align 32
+  %487 = bitcast <8 x float>* %a8_out to float*
+  call void @_Z7vstore8Dv8_fjPf(<8 x float> %486, i32 0, float* %487)
+  %488 = load <16 x float>* %a16_in, align 64
+  %489 = bitcast <16 x float>* %a16_out to float*
+  call void @_Z8vstore16Dv16_fjPf(<16 x float> %488, i32 0, float* %489)
+  %490 = load float* %a_in, align 4
+  %491 = load float* %b_in, align 4
+  %call346 = call float @_Z3minff(float %490, float %491) nounwind readnone
+  store float %call346, float* %a_out, align 4
+  %492 = load <4 x float>* %a4_in, align 16
+  %493 = load <4 x float>* %b4_in, align 16
+  %call347 = call <4 x float> @_Z3minDv4_fS_(<4 x float> %492, <4 x float> %493) nounwind readnone
+  store <4 x float> %call347, <4 x float>* %a4_out, align 16
+  %494 = load <8 x float>* %a8_in, align 32
+  %495 = load <8 x float>* %b8_in, align 32
+  %call348 = call <8 x float> @_Z3minDv8_fS_(<8 x float> %494, <8 x float> %495) nounwind readnone
+  store <8 x float> %call348, <8 x float>* %a8_out, align 32
   %496 = load <16 x float>* %a16_in, align 64
-  %497 = load float* %b_in, align 4
-  %498 = load float* %c_in, align 4
-  %499 = call <16 x float> @_Z5clampDv16_fff(<16 x float> %496, float %497, float %498) readnone
-  store <16 x float> %499, <16 x float>* %a16_out, align 64
-  %500 = load float* %a_in, align 4
-  %501 = call float @_Z4sinhf(float %500) readnone
-  store float %501, float* %a_out, align 4
-  %502 = load <4 x float>* %a4_in, align 16
-  %503 = call <4 x float> @_Z4sinhDv4_f(<4 x float> %502) readnone
-  store <4 x float> %503, <4 x float>* %a4_out, align 16
-  %504 = load <8 x float>* %a8_in, align 32
-  %505 = call <8 x float> @_Z4sinhDv8_f(<8 x float> %504) readnone
-  store <8 x float> %505, <8 x float>* %a8_out, align 32
-  %506 = load <16 x float>* %a16_in, align 64
-  %507 = call <16 x float> @_Z4sinhDv16_f(<16 x float> %506) readnone
-  store <16 x float> %507, <16 x float>* %a16_out, align 64
-  %508 = load float* %a_in, align 4
-  %509 = call float @_Z3sinf(float %508) readnone
-  store float %509, float* %a_out, align 4
-  %510 = load <4 x float>* %a4_in, align 16
-  %511 = call <4 x float> @_Z3sinDv4_f(<4 x float> %510) readnone
-  store <4 x float> %511, <4 x float>* %a4_out, align 16
-  %512 = load <8 x float>* %a8_in, align 32
-  %513 = call <8 x float> @_Z3sinDv8_f(<8 x float> %512) readnone
-  store <8 x float> %513, <8 x float>* %a8_out, align 32
-  %514 = load <16 x float>* %a16_in, align 64
-  %515 = call <16 x float> @_Z3sinDv16_f(<16 x float> %514) readnone
-  store <16 x float> %515, <16 x float>* %a16_out, align 64
-  %516 = load float* %a_in, align 4
-  %517 = call float @_Z5sinpif(float %516) readnone
-  store float %517, float* %a_out, align 4
-  %518 = load <4 x float>* %a4_in, align 16
-  %519 = call <4 x float> @_Z5sinpiDv4_f(<4 x float> %518) readnone
-  store <4 x float> %519, <4 x float>* %a4_out, align 16
-  %520 = load <8 x float>* %a8_in, align 32
-  %521 = call <8 x float> @_Z5sinpiDv8_f(<8 x float> %520) readnone
-  store <8 x float> %521, <8 x float>* %a8_out, align 32
-  %522 = load <16 x float>* %a16_in, align 64
-  %523 = call <16 x float> @_Z5sinpiDv16_f(<16 x float> %522) readnone
-  store <16 x float> %523, <16 x float>* %a16_out, align 64
-  %524 = load float* %a_in, align 4
-  %525 = call float @_Z4sqrtf(float %524) readnone
-  store float %525, float* %a_out, align 4
-  %526 = load <4 x float>* %a4_in, align 16
-  %527 = call <4 x float> @_Z4sqrtDv4_f(<4 x float> %526) readnone
-  store <4 x float> %527, <4 x float>* %a4_out, align 16
-  %528 = load <8 x float>* %a8_in, align 32
-  %529 = call <8 x float> @_Z4sqrtDv8_f(<8 x float> %528) readnone
-  store <8 x float> %529, <8 x float>* %a8_out, align 32
-  %530 = load <16 x float>* %a16_in, align 64
-  %531 = call <16 x float> @_Z4sqrtDv16_f(<16 x float> %530) readnone
-  store <16 x float> %531, <16 x float>* %a16_out, align 64
-  %532 = load float* %a_in, align 4
-  %533 = call float @_Z5rsqrtf(float %532) readnone
-  store float %533, float* %a_out, align 4
-  %534 = load <4 x float>* %a4_in, align 16
-  %535 = call <4 x float> @_Z5rsqrtDv4_f(<4 x float> %534) readnone
-  store <4 x float> %535, <4 x float>* %a4_out, align 16
-  %536 = load <8 x float>* %a8_in, align 32
-  %537 = call <8 x float> @_Z5rsqrtDv8_f(<8 x float> %536) readnone
-  store <8 x float> %537, <8 x float>* %a8_out, align 32
-  %538 = load <16 x float>* %a16_in, align 64
-  %539 = call <16 x float> @_Z5rsqrtDv16_f(<16 x float> %538) readnone
-  store <16 x float> %539, <16 x float>* %a16_out, align 64
+  %497 = load <16 x float>* %b16_in, align 64
+  %call349 = call <16 x float> @_Z3minDv16_fS_(<16 x float> %496, <16 x float> %497) nounwind readnone
+  store <16 x float> %call349, <16 x float>* %a16_out, align 64
+  %498 = load <4 x float>* %a4_in, align 16
+  %499 = load float* %b_in, align 4
+  %call350 = call <4 x float> @_Z3minDv4_ff(<4 x float> %498, float %499) nounwind readnone
+  store <4 x float> %call350, <4 x float>* %a4_out, align 16
+  %500 = load <8 x float>* %a8_in, align 32
+  %501 = load float* %b_in, align 4
+  %call351 = call <8 x float> @_Z3minDv8_ff(<8 x float> %500, float %501) nounwind readnone
+  store <8 x float> %call351, <8 x float>* %a8_out, align 32
+  %502 = load <16 x float>* %a16_in, align 64
+  %503 = load float* %b_in, align 4
+  %call352 = call <16 x float> @_Z3minDv16_ff(<16 x float> %502, float %503) nounwind readnone
+  store <16 x float> %call352, <16 x float>* %a16_out, align 64
+  %504 = load float* %a_in, align 4
+  %505 = load float* %b_in, align 4
+  %call353 = call float @_Z3maxff(float %504, float %505) nounwind readnone
+  store float %call353, float* %a_out, align 4
+  %506 = load <4 x float>* %a4_in, align 16
+  %507 = load <4 x float>* %b4_in, align 16
+  %call354 = call <4 x float> @_Z3maxDv4_fS_(<4 x float> %506, <4 x float> %507) nounwind readnone
+  store <4 x float> %call354, <4 x float>* %a4_out, align 16
+  %508 = load <8 x float>* %a8_in, align 32
+  %509 = load <8 x float>* %b8_in, align 32
+  %call355 = call <8 x float> @_Z3maxDv8_fS_(<8 x float> %508, <8 x float> %509) nounwind readnone
+  store <8 x float> %call355, <8 x float>* %a8_out, align 32
+  %510 = load <16 x float>* %a16_in, align 64
+  %511 = load <16 x float>* %b16_in, align 64
+  %call356 = call <16 x float> @_Z3maxDv16_fS_(<16 x float> %510, <16 x float> %511) nounwind readnone
+  store <16 x float> %call356, <16 x float>* %a16_out, align 64
+  %512 = load <4 x float>* %a4_in, align 16
+  %513 = load float* %b_in, align 4
+  %call357 = call <4 x float> @_Z3maxDv4_ff(<4 x float> %512, float %513) nounwind readnone
+  store <4 x float> %call357, <4 x float>* %a4_out, align 16
+  %514 = load <8 x float>* %a8_in, align 32
+  %515 = load float* %b_in, align 4
+  %call358 = call <8 x float> @_Z3maxDv8_ff(<8 x float> %514, float %515) nounwind readnone
+  store <8 x float> %call358, <8 x float>* %a8_out, align 32
+  %516 = load <16 x float>* %a16_in, align 64
+  %517 = load float* %b_in, align 4
+  %call359 = call <16 x float> @_Z3maxDv16_ff(<16 x float> %516, float %517) nounwind readnone
+  store <16 x float> %call359, <16 x float>* %a16_out, align 64
+  %518 = load float* %a_in, align 4
+  %519 = load float* %b_in, align 4
+  %call360 = call float @_Z5hypotff(float %518, float %519) nounwind readnone
+  store float %call360, float* %a_out, align 4
+  %520 = load <4 x float>* %a4_in, align 16
+  %521 = load <4 x float>* %b4_in, align 16
+  %call361 = call <4 x float> @_Z5hypotDv4_fS_(<4 x float> %520, <4 x float> %521) nounwind readnone
+  store <4 x float> %call361, <4 x float>* %a4_out, align 16
+  %522 = load <8 x float>* %a8_in, align 32
+  %523 = load <8 x float>* %b8_in, align 32
+  %call362 = call <8 x float> @_Z5hypotDv8_fS_(<8 x float> %522, <8 x float> %523) nounwind readnone
+  store <8 x float> %call362, <8 x float>* %a8_out, align 32
+  %524 = load <16 x float>* %a16_in, align 64
+  %525 = load <16 x float>* %b16_in, align 64
+  %call363 = call <16 x float> @_Z5hypotDv16_fS_(<16 x float> %524, <16 x float> %525) nounwind readnone
+  store <16 x float> %call363, <16 x float>* %a16_out, align 64
+  %526 = load float* %a_in, align 4
+  %527 = load float* %b_in, align 4
+  %call364 = call float @_Z4stepff(float %526, float %527) nounwind readnone
+  store float %call364, float* %a_out, align 4
+  %528 = load <4 x float>* %a4_in, align 16
+  %529 = load <4 x float>* %b4_in, align 16
+  %call365 = call <4 x float> @_Z4stepDv4_fS_(<4 x float> %528, <4 x float> %529) nounwind readnone
+  store <4 x float> %call365, <4 x float>* %a4_out, align 16
+  %530 = load <8 x float>* %a8_in, align 32
+  %531 = load <8 x float>* %b8_in, align 32
+  %call366 = call <8 x float> @_Z4stepDv8_fS_(<8 x float> %530, <8 x float> %531) nounwind readnone
+  store <8 x float> %call366, <8 x float>* %a8_out, align 32
+  %532 = load <16 x float>* %a16_in, align 64
+  %533 = load <16 x float>* %b16_in, align 64
+  %call367 = call <16 x float> @_Z4stepDv16_fS_(<16 x float> %532, <16 x float> %533) nounwind readnone
+  store <16 x float> %call367, <16 x float>* %a16_out, align 64
+  %534 = load float* %a_in, align 4
+  %535 = load float* %b_in, align 4
+  %call368 = call float @_Z4stepff(float %534, float %535) nounwind readnone
+  store float %call368, float* %a_out, align 4
+  %536 = load float* %a_in, align 4
+  %537 = load <4 x float>* %b4_in, align 16
+  %call369 = call <4 x float> @_Z4stepfDv4_f(float %536, <4 x float> %537) nounwind readnone
+  store <4 x float> %call369, <4 x float>* %a4_out, align 16
+  %538 = load float* %a_in, align 4
+  %539 = load <8 x float>* %b8_in, align 32
+  %call370 = call <8 x float> @_Z4stepfDv8_f(float %538, <8 x float> %539) nounwind readnone
+  store <8 x float> %call370, <8 x float>* %a8_out, align 32
   %540 = load float* %a_in, align 4
-  %541 = call float @_Z3tanf(float %540) readnone
-  store float %541, float* %a_out, align 4
-  %542 = load <4 x float>* %a4_in, align 16
-  %543 = call <4 x float> @_Z3tanDv4_f(<4 x float> %542) readnone
-  store <4 x float> %543, <4 x float>* %a4_out, align 16
-  %544 = load <8 x float>* %a8_in, align 32
-  %545 = call <8 x float> @_Z3tanDv8_f(<8 x float> %544) readnone
-  store <8 x float> %545, <8 x float>* %a8_out, align 32
-  %546 = load <16 x float>* %a16_in, align 64
-  %547 = call <16 x float> @_Z3tanDv16_f(<16 x float> %546) readnone
-  store <16 x float> %547, <16 x float>* %a16_out, align 64
-  %548 = load float* %a_in, align 4
-  %549 = call float @_Z4tanhf(float %548) readnone
-  store float %549, float* %a_out, align 4
-  %550 = load <4 x float>* %a4_in, align 16
-  %551 = call <4 x float> @_Z4tanhDv4_f(<4 x float> %550) readnone
-  store <4 x float> %551, <4 x float>* %a4_out, align 16
-  %552 = load <8 x float>* %a8_in, align 32
-  %553 = call <8 x float> @_Z4tanhDv8_f(<8 x float> %552) readnone
-  store <8 x float> %553, <8 x float>* %a8_out, align 32
-  %554 = load <16 x float>* %a16_in, align 64
-  %555 = call <16 x float> @_Z4tanhDv16_f(<16 x float> %554) readnone
-  store <16 x float> %555, <16 x float>* %a16_out, align 64
-  %556 = load float* %a_in, align 4
-  %557 = call float @_Z5tanpif(float %556) readnone
-  store float %557, float* %a_out, align 4
-  %558 = load <4 x float>* %a4_in, align 16
-  %559 = call <4 x float> @_Z5tanpiDv4_f(<4 x float> %558) readnone
-  store <4 x float> %559, <4 x float>* %a4_out, align 16
-  %560 = load <8 x float>* %a8_in, align 32
-  %561 = call <8 x float> @_Z5tanpiDv8_f(<8 x float> %560) readnone
-  store <8 x float> %561, <8 x float>* %a8_out, align 32
-  %562 = load <16 x float>* %a16_in, align 64
-  %563 = call <16 x float> @_Z5tanpiDv16_f(<16 x float> %562) readnone
-  store <16 x float> %563, <16 x float>* %a16_out, align 64
-  %564 = load float* %a_in, align 4
-  %565 = call float @_Z4fabsf(float %564) readnone
-  store float %565, float* %a_out, align 4
-  %566 = load <4 x float>* %a4_in, align 16
-  %567 = call <4 x float> @_Z4fabsDv4_f(<4 x float> %566) readnone
-  store <4 x float> %567, <4 x float>* %a4_out, align 16
+  %541 = load <16 x float>* %b16_in, align 64
+  %call371 = call <16 x float> @_Z4stepfDv16_f(float %540, <16 x float> %541) nounwind readnone
+  store <16 x float> %call371, <16 x float>* %a16_out, align 64
+  %542 = load float* %a_in, align 4
+  %543 = load float* %b_in, align 4
+  %544 = load float* %c_in, align 4
+  %call372 = call float @_Z10smoothstepfff(float %542, float %543, float %544) nounwind readnone
+  store float %call372, float* %a_out, align 4
+  %545 = load <4 x float>* %a4_in, align 16
+  %546 = load <4 x float>* %b4_in, align 16
+  %547 = load <4 x float>* %c4_in, align 16
+  %call373 = call <4 x float> @_Z10smoothstepDv4_fS_S_(<4 x float> %545, <4 x float> %546, <4 x float> %547) nounwind readnone
+  store <4 x float> %call373, <4 x float>* %a4_out, align 16
+  %548 = load <8 x float>* %a8_in, align 32
+  %549 = load <8 x float>* %b8_in, align 32
+  %550 = load <8 x float>* %c8_in, align 32
+  %call374 = call <8 x float> @_Z10smoothstepDv8_fS_S_(<8 x float> %548, <8 x float> %549, <8 x float> %550) nounwind readnone
+  store <8 x float> %call374, <8 x float>* %a8_out, align 32
+  %551 = load <16 x float>* %a16_in, align 64
+  %552 = load <16 x float>* %b16_in, align 64
+  %553 = load <16 x float>* %c16_in, align 64
+  %call375 = call <16 x float> @_Z10smoothstepDv16_fS_S_(<16 x float> %551, <16 x float> %552, <16 x float> %553) nounwind readnone
+  store <16 x float> %call375, <16 x float>* %a16_out, align 64
+  %554 = load float* %a_in, align 4
+  %555 = load float* %b_in, align 4
+  %556 = load float* %c_in, align 4
+  %call376 = call float @_Z10smoothstepfff(float %554, float %555, float %556) nounwind readnone
+  store float %call376, float* %a_out, align 4
+  %557 = load float* %a_in, align 4
+  %558 = load float* %b_in, align 4
+  %559 = load <4 x float>* %c4_in, align 16
+  %call377 = call <4 x float> @_Z10smoothstepffDv4_f(float %557, float %558, <4 x float> %559) nounwind readnone
+  store <4 x float> %call377, <4 x float>* %a4_out, align 16
+  %560 = load float* %a_in, align 4
+  %561 = load float* %b_in, align 4
+  %562 = load <8 x float>* %c8_in, align 32
+  %call378 = call <8 x float> @_Z10smoothstepffDv8_f(float %560, float %561, <8 x float> %562) nounwind readnone
+  store <8 x float> %call378, <8 x float>* %a8_out, align 32
+  %563 = load float* %a_in, align 4
+  %564 = load float* %b_in, align 4
+  %565 = load <16 x float>* %c16_in, align 64
+  %call379 = call <16 x float> @_Z10smoothstepffDv16_f(float %563, float %564, <16 x float> %565) nounwind readnone
+  store <16 x float> %call379, <16 x float>* %a16_out, align 64
+  %566 = load float* %a_in, align 4
+  %call380 = call float @_Z7radiansf(float %566) nounwind readnone
+  store float %call380, float* %a_out, align 4
+  %567 = load <4 x float>* %a4_in, align 16
+  %call381 = call <4 x float> @_Z7radiansDv4_f(<4 x float> %567) nounwind readnone
+  store <4 x float> %call381, <4 x float>* %a4_out, align 16
   %568 = load <8 x float>* %a8_in, align 32
-  %569 = call <8 x float> @_Z4fabsDv8_f(<8 x float> %568) readnone
-  store <8 x float> %569, <8 x float>* %a8_out, align 32
-  %570 = load <16 x float>* %a16_in, align 64
-  %571 = call <16 x float> @_Z4fabsDv16_f(<16 x float> %570) readnone
-  store <16 x float> %571, <16 x float>* %a16_out, align 64
-  %572 = load float* %a_in, align 4
-  %573 = call float @_Z10native_sinf(float %572) readnone
-  store float %573, float* %a_out, align 4
-  %574 = load <4 x float>* %a4_in, align 16
-  %575 = call <4 x float> @_Z10native_sinDv4_f(<4 x float> %574) readnone
-  store <4 x float> %575, <4 x float>* %a4_out, align 16
+  %call382 = call <8 x float> @_Z7radiansDv8_f(<8 x float> %568) nounwind readnone
+  store <8 x float> %call382, <8 x float>* %a8_out, align 32
+  %569 = load <16 x float>* %a16_in, align 64
+  %call383 = call <16 x float> @_Z7radiansDv16_f(<16 x float> %569) nounwind readnone
+  store <16 x float> %call383, <16 x float>* %a16_out, align 64
+  %570 = load float* %a_in, align 4
+  %call384 = call float @_Z7degreesf(float %570) nounwind readnone
+  store float %call384, float* %a_out, align 4
+  %571 = load <4 x float>* %a4_in, align 16
+  %call385 = call <4 x float> @_Z7degreesDv4_f(<4 x float> %571) nounwind readnone
+  store <4 x float> %call385, <4 x float>* %a4_out, align 16
+  %572 = load <8 x float>* %a8_in, align 32
+  %call386 = call <8 x float> @_Z7degreesDv8_f(<8 x float> %572) nounwind readnone
+  store <8 x float> %call386, <8 x float>* %a8_out, align 32
+  %573 = load <16 x float>* %a16_in, align 64
+  %call387 = call <16 x float> @_Z7degreesDv16_f(<16 x float> %573) nounwind readnone
+  store <16 x float> %call387, <16 x float>* %a16_out, align 64
+  %574 = load float* %a_in, align 4
+  %call388 = call float @_Z4signf(float %574) nounwind readnone
+  store float %call388, float* %a_out, align 4
+  %575 = load <4 x float>* %a4_in, align 16
+  %call389 = call <4 x float> @_Z4signDv4_f(<4 x float> %575) nounwind readnone
+  store <4 x float> %call389, <4 x float>* %a4_out, align 16
   %576 = load <8 x float>* %a8_in, align 32
-  %577 = call <8 x float> @_Z10native_sinDv8_f(<8 x float> %576) readnone
-  store <8 x float> %577, <8 x float>* %a8_out, align 32
-  %578 = load <16 x float>* %a16_in, align 64
-  %579 = call <16 x float> @_Z10native_sinDv16_f(<16 x float> %578) readnone
-  store <16 x float> %579, <16 x float>* %a16_out, align 64
-  %580 = load float* %a_in, align 4
-  %581 = call float @_Z10native_cosf(float %580) readnone
-  store float %581, float* %a_out, align 4
-  %582 = load <4 x float>* %a4_in, align 16
-  %583 = call <4 x float> @_Z10native_cosDv4_f(<4 x float> %582) readnone
-  store <4 x float> %583, <4 x float>* %a4_out, align 16
-  %584 = load <8 x float>* %a8_in, align 32
-  %585 = call <8 x float> @_Z10native_cosDv8_f(<8 x float> %584) readnone
-  store <8 x float> %585, <8 x float>* %a8_out, align 32
-  %586 = load <16 x float>* %a16_in, align 64
-  %587 = call <16 x float> @_Z10native_cosDv16_f(<16 x float> %586) readnone
-  store <16 x float> %587, <16 x float>* %a16_out, align 64
-  %588 = load float* %a_in, align 4
-  %589 = call float @_Z12native_rsqrtf(float %588) readnone
-  store float %589, float* %a_out, align 4
-  %590 = load <4 x float>* %a4_in, align 16
-  %591 = call <4 x float> @_Z12native_rsqrtDv4_f(<4 x float> %590) readnone
-  store <4 x float> %591, <4 x float>* %a4_out, align 16
-  %592 = load <8 x float>* %a8_in, align 32
-  %593 = call <8 x float> @_Z12native_rsqrtDv8_f(<8 x float> %592) readnone
-  store <8 x float> %593, <8 x float>* %a8_out, align 32
-  %594 = load <16 x float>* %a16_in, align 64
-  %595 = call <16 x float> @_Z12native_rsqrtDv16_f(<16 x float> %594) readnone
-  store <16 x float> %595, <16 x float>* %a16_out, align 64
-  %596 = load float* %a_in, align 4
-  %597 = call float @_Z10native_logf(float %596) readnone
-  store float %597, float* %a_out, align 4
-  %598 = load <4 x float>* %a4_in, align 16
-  %599 = call <4 x float> @_Z10native_logDv4_f(<4 x float> %598) readnone
-  store <4 x float> %599, <4 x float>* %a4_out, align 16
-  %600 = load <8 x float>* %a8_in, align 32
-  %601 = call <8 x float> @_Z10native_logDv8_f(<8 x float> %600) readnone
-  store <8 x float> %601, <8 x float>* %a8_out, align 32
-  %602 = load <16 x float>* %a16_in, align 64
-  %603 = call <16 x float> @_Z10native_logDv16_f(<16 x float> %602) readnone
-  store <16 x float> %603, <16 x float>* %a16_out, align 64
-  %604 = load float* %a_in, align 4
-  %605 = call float @_Z11native_log2f(float %604) readnone
-  store float %605, float* %a_out, align 4
-  %606 = load <4 x float>* %a4_in, align 16
-  %607 = call <4 x float> @_Z11native_log2Dv4_f(<4 x float> %606) readnone
-  store <4 x float> %607, <4 x float>* %a4_out, align 16
-  %608 = load <8 x float>* %a8_in, align 32
-  %609 = call <8 x float> @_Z11native_log2Dv8_f(<8 x float> %608) readnone
-  store <8 x float> %609, <8 x float>* %a8_out, align 32
-  %610 = load <16 x float>* %a16_in, align 64
-  %611 = call <16 x float> @_Z11native_log2Dv16_f(<16 x float> %610) readnone
-  store <16 x float> %611, <16 x float>* %a16_out, align 64
-  %612 = load float* %a_in, align 4
-  %613 = call float @_Z12native_log10f(float %612) readnone
-  store float %613, float* %a_out, align 4
-  %614 = load <4 x float>* %a4_in, align 16
-  %615 = call <4 x float> @_Z12native_log10Dv4_f(<4 x float> %614) readnone
-  store <4 x float> %615, <4 x float>* %a4_out, align 16
-  %616 = load <8 x float>* %a8_in, align 32
-  %617 = call <8 x float> @_Z12native_log10Dv8_f(<8 x float> %616) readnone
-  store <8 x float> %617, <8 x float>* %a8_out, align 32
-  %618 = load <16 x float>* %a16_in, align 64
-  %619 = call <16 x float> @_Z12native_log10Dv16_f(<16 x float> %618) readnone
-  store <16 x float> %619, <16 x float>* %a16_out, align 64
-  %620 = load float* %a_in, align 4
-  %621 = call float @_Z10native_expf(float %620) readnone
-  store float %621, float* %a_out, align 4
-  %622 = load <4 x float>* %a4_in, align 16
-  %623 = call <4 x float> @_Z10native_expDv4_f(<4 x float> %622) readnone
-  store <4 x float> %623, <4 x float>* %a4_out, align 16
-  %624 = load <8 x float>* %a8_in, align 32
-  %625 = call <8 x float> @_Z10native_expDv8_f(<8 x float> %624) readnone
-  store <8 x float> %625, <8 x float>* %a8_out, align 32
-  %626 = load <16 x float>* %a16_in, align 64
-  %627 = call <16 x float> @_Z10native_expDv16_f(<16 x float> %626) readnone
-  store <16 x float> %627, <16 x float>* %a16_out, align 64
-  %628 = load float* %a_in, align 4
-  %629 = call float @_Z11native_exp2f(float %628) readnone
-  store float %629, float* %a_out, align 4
-  %630 = load <4 x float>* %a4_in, align 16
-  %631 = call <4 x float> @_Z11native_exp2Dv4_f(<4 x float> %630) readnone
-  store <4 x float> %631, <4 x float>* %a4_out, align 16
-  %632 = load <8 x float>* %a8_in, align 32
-  %633 = call <8 x float> @_Z11native_exp2Dv8_f(<8 x float> %632) readnone
-  store <8 x float> %633, <8 x float>* %a8_out, align 32
-  %634 = load <16 x float>* %a16_in, align 64
-  %635 = call <16 x float> @_Z11native_exp2Dv16_f(<16 x float> %634) readnone
-  store <16 x float> %635, <16 x float>* %a16_out, align 64
-  %636 = load float* %a_in, align 4
-  %637 = call float @_Z12native_exp10f(float %636) readnone
-  store float %637, float* %a_out, align 4
-  %638 = load <4 x float>* %a4_in, align 16
-  %639 = call <4 x float> @_Z12native_exp10Dv4_f(<4 x float> %638) readnone
-  store <4 x float> %639, <4 x float>* %a4_out, align 16
-  %640 = load <8 x float>* %a8_in, align 32
-  %641 = call <8 x float> @_Z12native_exp10Dv8_f(<8 x float> %640) readnone
-  store <8 x float> %641, <8 x float>* %a8_out, align 32
-  %642 = load <16 x float>* %a16_in, align 64
-  %643 = call <16 x float> @_Z12native_exp10Dv16_f(<16 x float> %642) readnone
-  store <16 x float> %643, <16 x float>* %a16_out, align 64
-  %644 = load float* %a_in, align 4
-  %645 = load float* %b_in, align 4
-  %646 = call float @_Z13native_divideff(float %644, float %645) readnone
-  store float %646, float* %a_out, align 4
+  %call390 = call <8 x float> @_Z4signDv8_f(<8 x float> %576) nounwind readnone
+  store <8 x float> %call390, <8 x float>* %a8_out, align 32
+  %577 = load <16 x float>* %a16_in, align 64
+  %call391 = call <16 x float> @_Z4signDv16_f(<16 x float> %577) nounwind readnone
+  store <16 x float> %call391, <16 x float>* %a16_out, align 64
+  %578 = load float* %a_in, align 4
+  %call392 = call float @_Z5floorf(float %578) nounwind readnone
+  store float %call392, float* %a_out, align 4
+  %579 = load <4 x float>* %a4_in, align 16
+  %call393 = call <4 x float> @_Z5floorDv4_f(<4 x float> %579) nounwind readnone
+  store <4 x float> %call393, <4 x float>* %a4_out, align 16
+  %580 = load <8 x float>* %a8_in, align 32
+  %call394 = call <8 x float> @_Z5floorDv8_f(<8 x float> %580) nounwind readnone
+  store <8 x float> %call394, <8 x float>* %a8_out, align 32
+  %581 = load <16 x float>* %a16_in, align 64
+  %call395 = call <16 x float> @_Z5floorDv16_f(<16 x float> %581) nounwind readnone
+  store <16 x float> %call395, <16 x float>* %a16_out, align 64
+  %582 = load float* %a_in, align 4
+  %583 = load float* %b_in, align 4
+  %call396 = call float @_Z3dotff(float %582, float %583) nounwind readnone
+  store float %call396, float* %a_out, align 4
+  %584 = load <4 x float>* %a4_in, align 16
+  %585 = load <4 x float>* %b4_in, align 16
+  %call397 = call float @_Z3dotDv4_fS_(<4 x float> %584, <4 x float> %585) nounwind readnone
+  store float %call397, float* %a_out, align 4
+  %586 = load float* %a_in, align 4
+  %587 = load float* %b_in, align 4
+  %588 = load float* %c_in, align 4
+  %call398 = call float @_Z3mixfff(float %586, float %587, float %588) nounwind readnone
+  store float %call398, float* %a_out, align 4
+  %589 = load <4 x float>* %a4_in, align 16
+  %590 = load <4 x float>* %b4_in, align 16
+  %591 = load <4 x float>* %c4_in, align 16
+  %call399 = call <4 x float> @_Z3mixDv4_fS_S_(<4 x float> %589, <4 x float> %590, <4 x float> %591) nounwind readnone
+  store <4 x float> %call399, <4 x float>* %a4_out, align 16
+  %592 = load <4 x float>* %a4_in, align 16
+  %593 = load <4 x float>* %b4_in, align 16
+  %594 = load float* %c_in, align 4
+  %call400 = call <4 x float> @_Z3mixDv4_fS_f(<4 x float> %592, <4 x float> %593, float %594) nounwind readnone
+  store <4 x float> %call400, <4 x float>* %a4_out, align 16
+  %595 = load <8 x float>* %a8_in, align 32
+  %596 = load <8 x float>* %b8_in, align 32
+  %597 = load float* %c_in, align 4
+  %call401 = call <8 x float> @_Z3mixDv8_fS_f(<8 x float> %595, <8 x float> %596, float %597) nounwind readnone
+  store <8 x float> %call401, <8 x float>* %a8_out, align 32
+  %598 = load <16 x float>* %a16_in, align 64
+  %599 = load <16 x float>* %b16_in, align 64
+  %600 = load float* %c_in, align 4
+  %call402 = call <16 x float> @_Z3mixDv16_fS_f(<16 x float> %598, <16 x float> %599, float %600) nounwind readnone
+  store <16 x float> %call402, <16 x float>* %a16_out, align 64
+  %601 = load <8 x float>* %a8_in, align 32
+  %602 = load <8 x float>* %b8_in, align 32
+  %603 = load <8 x float>* %c8_in, align 32
+  %call403 = call <8 x float> @_Z3mixDv8_fS_S_(<8 x float> %601, <8 x float> %602, <8 x float> %603) nounwind readnone
+  store <8 x float> %call403, <8 x float>* %a8_out, align 32
+  %604 = load <16 x float>* %a16_in, align 64
+  %605 = load <16 x float>* %b16_in, align 64
+  %606 = load <16 x float>* %c16_in, align 64
+  %call404 = call <16 x float> @_Z3mixDv16_fS_S_(<16 x float> %604, <16 x float> %605, <16 x float> %606) nounwind readnone
+  store <16 x float> %call404, <16 x float>* %a16_out, align 64
+  %607 = load float* %a_in, align 4
+  %call405 = call float @_Z9normalizef(float %607) nounwind readnone
+  store float %call405, float* %a_out, align 4
+  %608 = load <4 x float>* %a4_in, align 16
+  %call406 = call <4 x float> @_Z9normalizeDv4_f(<4 x float> %608) nounwind readnone
+  store <4 x float> %call406, <4 x float>* %a4_out, align 16
+  %609 = load float* %a_in, align 4
+  %call407 = call float @_Z14fast_normalizef(float %609) nounwind readnone
+  store float %call407, float* %a_out, align 4
+  %610 = load <4 x float>* %a4_in, align 16
+  %call408 = call <4 x float> @_Z14fast_normalizeDv4_f(<4 x float> %610) nounwind readnone
+  store <4 x float> %call408, <4 x float>* %a4_out, align 16
+  %611 = load <4 x float>* %a4_in, align 16
+  %612 = load <4 x float>* %b4_in, align 16
+  %call409 = call <4 x float> @_Z5crossDv4_fS_(<4 x float> %611, <4 x float> %612) nounwind readnone
+  store <4 x float> %call409, <4 x float>* %a4_out, align 16
+  %613 = load float* %a_in, align 4
+  %call410 = call float @_Z6lengthf(float %613) nounwind readnone
+  store float %call410, float* %a_out, align 4
+  %614 = load <2 x float>* %a2_in, align 8
+  %call411 = call float @_Z6lengthDv2_f(<2 x float> %614) nounwind readnone
+  store float %call411, float* %a_out, align 4
+  %615 = load <4 x float>* %a4_in, align 16
+  %call412 = call float @_Z6lengthDv4_f(<4 x float> %615) nounwind readnone
+  store float %call412, float* %a_out, align 4
+  %616 = load float* %a_in, align 4
+  %call413 = call float @_Z11fast_lengthf(float %616) nounwind readnone
+  store float %call413, float* %a_out, align 4
+  %617 = load <2 x float>* %a2_in, align 8
+  %call414 = call float @_Z11fast_lengthDv2_f(<2 x float> %617) nounwind readnone
+  store float %call414, float* %a_out, align 4
+  %618 = load <4 x float>* %a4_in, align 16
+  %call415 = call float @_Z11fast_lengthDv4_f(<4 x float> %618) nounwind readnone
+  store float %call415, float* %a_out, align 4
+  %619 = load float* %a_in, align 4
+  %620 = load float* %b_in, align 4
+  %call416 = call float @_Z8distanceff(float %619, float %620) nounwind readnone
+  store float %call416, float* %a_out, align 4
+  %621 = load <2 x float>* %a2_in, align 8
+  %622 = load <2 x float>* %b2_in, align 8
+  %call417 = call float @_Z8distanceDv2_fS_(<2 x float> %621, <2 x float> %622) nounwind readnone
+  store float %call417, float* %a_out, align 4
+  %623 = load <4 x float>* %a4_in, align 16
+  %624 = load <4 x float>* %b4_in, align 16
+  %call418 = call float @_Z8distanceDv4_fS_(<4 x float> %623, <4 x float> %624) nounwind readnone
+  store float %call418, float* %a_out, align 4
+  %625 = load float* %a_in, align 4
+  %626 = load float* %b_in, align 4
+  %call419 = call float @_Z13fast_distanceff(float %625, float %626) nounwind readnone
+  store float %call419, float* %a_out, align 4
+  %627 = load <2 x float>* %a2_in, align 8
+  %628 = load <2 x float>* %b2_in, align 8
+  %call420 = call float @_Z13fast_distanceDv2_fS_(<2 x float> %627, <2 x float> %628) nounwind readnone
+  store float %call420, float* %a_out, align 4
+  %629 = load <4 x float>* %a4_in, align 16
+  %630 = load <4 x float>* %b4_in, align 16
+  %call421 = call float @_Z13fast_distanceDv4_fS_(<4 x float> %629, <4 x float> %630) nounwind readnone
+  store float %call421, float* %a_out, align 4
+  %631 = load i32* %tid, align 4
+  %call422 = call float @_Z13convert_floati(i32 %631) nounwind readnone
+  store float %call422, float* %a_out, align 4
+  %632 = load i32* %tid, align 4
+  %633 = insertelement <4 x i32> undef, i32 %632, i32 0
+  %splat423 = shufflevector <4 x i32> %633, <4 x i32> %633, <4 x i32> zeroinitializer
+  %call424 = call <4 x float> @_Z14convert_float4Dv4_i(<4 x i32> %splat423) nounwind readnone
+  store <4 x float> %call424, <4 x float>* %a4_out, align 16
+  %634 = load i32* %tid, align 4
+  %635 = insertelement <8 x i32> undef, i32 %634, i32 0
+  %splat425 = shufflevector <8 x i32> %635, <8 x i32> %635, <8 x i32> zeroinitializer
+  %call426 = call <8 x float> @_Z14convert_float8Dv8_i(<8 x i32> %splat425) nounwind readnone
+  store <8 x float> %call426, <8 x float>* %a8_out, align 32
+  %636 = load i32* %tid, align 4
+  %637 = insertelement <16 x i32> undef, i32 %636, i32 0
+  %splat427 = shufflevector <16 x i32> %637, <16 x i32> %637, <16 x i32> zeroinitializer
+  %call428 = call <16 x float> @_Z15convert_float16Dv16_i(<16 x i32> %splat427) nounwind readnone
+  store <16 x float> %call428, <16 x float>* %a16_out, align 64
+  %638 = load i32* %tid, align 4
+  %call429 = call float @_Z13convert_floatj(i32 %638) nounwind readnone
+  store float %call429, float* %a_out, align 4
+  %639 = load i32* %tid, align 4
+  %640 = insertelement <4 x i32> undef, i32 %639, i32 0
+  %splat430 = shufflevector <4 x i32> %640, <4 x i32> %640, <4 x i32> zeroinitializer
+  %call431 = call <4 x float> @_Z14convert_float4Dv4_j(<4 x i32> %splat430) nounwind readnone
+  store <4 x float> %call431, <4 x float>* %a4_out, align 16
+  %641 = load i32* %tid, align 4
+  %642 = insertelement <8 x i32> undef, i32 %641, i32 0
+  %splat432 = shufflevector <8 x i32> %642, <8 x i32> %642, <8 x i32> zeroinitializer
+  %call433 = call <8 x float> @_Z14convert_float8Dv8_j(<8 x i32> %splat432) nounwind readnone
+  store <8 x float> %call433, <8 x float>* %a8_out, align 32
+  %643 = load i32* %tid, align 4
+  %644 = insertelement <16 x i32> undef, i32 %643, i32 0
+  %splat434 = shufflevector <16 x i32> %644, <16 x i32> %644, <16 x i32> zeroinitializer
+  %call435 = call <16 x float> @_Z15convert_float16Dv16_j(<16 x i32> %splat434) nounwind readnone
+  store <16 x float> %call435, <16 x float>* %a16_out, align 64
+  %645 = load float* %a_in, align 4
+  %646 = load i32* %i_in, align 4
+  %call436 = call float @_Z5rootnfi(float %645, i32 %646) nounwind readnone
+  store float %call436, float* %a_out, align 4
   %647 = load <4 x float>* %a4_in, align 16
-  %648 = load <4 x float>* %b4_in, align 16
-  %649 = call <4 x float> @_Z13native_divideDv4_fS_(<4 x float> %647, <4 x float> %648) readnone
-  store <4 x float> %649, <4 x float>* %a4_out, align 16
-  %650 = load <8 x float>* %a8_in, align 32
-  %651 = load <8 x float>* %b8_in, align 32
-  %652 = call <8 x float> @_Z13native_divideDv8_fS_(<8 x float> %650, <8 x float> %651) readnone
-  store <8 x float> %652, <8 x float>* %a8_out, align 32
-  %653 = load <16 x float>* %a16_in, align 64
-  %654 = load <16 x float>* %b16_in, align 64
-  %655 = call <16 x float> @_Z13native_divideDv16_fS_(<16 x float> %653, <16 x float> %654) readnone
-  store <16 x float> %655, <16 x float>* %a16_out, align 64
-  %656 = load float* %a_in, align 4
-  %657 = load float* %b_in, align 4
-  %658 = call float @_Z11native_powrff(float %656, float %657) readnone
-  store float %658, float* %a_out, align 4
-  %659 = load <4 x float>* %a4_in, align 16
-  %660 = load <4 x float>* %b4_in, align 16
-  %661 = call <4 x float> @_Z11native_powrDv4_fS_(<4 x float> %659, <4 x float> %660) readnone
-  store <4 x float> %661, <4 x float>* %a4_out, align 16
-  %662 = load <8 x float>* %a8_in, align 32
-  %663 = load <8 x float>* %b8_in, align 32
-  %664 = call <8 x float> @_Z11native_powrDv8_fS_(<8 x float> %662, <8 x float> %663) readnone
-  store <8 x float> %664, <8 x float>* %a8_out, align 32
+  %648 = load <4 x i32>* %i4_in, align 16
+  %call437 = call <4 x float> @_Z5rootnDv4_fDv4_i(<4 x float> %647, <4 x i32> %648) nounwind readnone
+  store <4 x float> %call437, <4 x float>* %a4_out, align 16
+  %649 = load <8 x float>* %a8_in, align 32
+  %650 = load <8 x i32>* %i8_in, align 32
+  %call438 = call <8 x float> @_Z5rootnDv8_fDv8_i(<8 x float> %649, <8 x i32> %650) nounwind readnone
+  store <8 x float> %call438, <8 x float>* %a8_out, align 32
+  %651 = load <16 x float>* %a16_in, align 64
+  %652 = load <16 x i32>* %i16_in, align 64
+  %call439 = call <16 x float> @_Z5rootnDv16_fDv16_i(<16 x float> %651, <16 x i32> %652) nounwind readnone
+  store <16 x float> %call439, <16 x float>* %a16_out, align 64
+  %653 = load float* %a_in, align 4
+  %654 = load i32* %i_in, align 4
+  %call440 = call float @_Z5ldexpfi(float %653, i32 %654) nounwind readnone
+  store float %call440, float* %a_out, align 4
+  %655 = load <4 x float>* %a4_in, align 16
+  %656 = load <4 x i32>* %i4_in, align 16
+  %call441 = call <4 x float> @_Z5ldexpDv4_fDv4_i(<4 x float> %655, <4 x i32> %656) nounwind readnone
+  store <4 x float> %call441, <4 x float>* %a4_out, align 16
+  %657 = load <8 x float>* %a8_in, align 32
+  %658 = load <8 x i32>* %i8_in, align 32
+  %call442 = call <8 x float> @_Z5ldexpDv8_fDv8_i(<8 x float> %657, <8 x i32> %658) nounwind readnone
+  store <8 x float> %call442, <8 x float>* %a8_out, align 32
+  %659 = load <16 x float>* %a16_in, align 64
+  %660 = load <16 x i32>* %i16_in, align 64
+  %call443 = call <16 x float> @_Z5ldexpDv16_fDv16_i(<16 x float> %659, <16 x i32> %660) nounwind readnone
+  store <16 x float> %call443, <16 x float>* %a16_out, align 64
+  %661 = load <4 x float>* %a4_in, align 16
+  %662 = load i32* %i_in, align 4
+  %call444 = call <4 x float> @_Z5ldexpDv4_fi(<4 x float> %661, i32 %662) nounwind readnone
+  store <4 x float> %call444, <4 x float>* %a4_out, align 16
+  %663 = load <8 x float>* %a8_in, align 32
+  %664 = load i32* %i_in, align 4
+  %call445 = call <8 x float> @_Z5ldexpDv8_fi(<8 x float> %663, i32 %664) nounwind readnone
+  store <8 x float> %call445, <8 x float>* %a8_out, align 32
   %665 = load <16 x float>* %a16_in, align 64
-  %666 = load <16 x float>* %b16_in, align 64
-  %667 = call <16 x float> @_Z11native_powrDv16_fS_(<16 x float> %665, <16 x float> %666) readnone
-  store <16 x float> %667, <16 x float>* %a16_out, align 64
-  %668 = load float* %a_in, align 4
-  %669 = call float @_Z12native_recipf(float %668) readnone
-  store float %669, float* %a_out, align 4
-  %670 = load <4 x float>* %a4_in, align 16
-  %671 = call <4 x float> @_Z12native_recipDv4_f(<4 x float> %670) readnone
-  store <4 x float> %671, <4 x float>* %a4_out, align 16
-  %672 = load <8 x float>* %a8_in, align 32
-  %673 = call <8 x float> @_Z12native_recipDv8_f(<8 x float> %672) readnone
-  store <8 x float> %673, <8 x float>* %a8_out, align 32
+  %666 = load i32* %i_in, align 4
+  %call446 = call <16 x float> @_Z5ldexpDv16_fi(<16 x float> %665, i32 %666) nounwind readnone
+  store <16 x float> %call446, <16 x float>* %a16_out, align 64
+  %667 = load float* %a_in, align 4
+  %call447 = call float @_Z4modffPf(float %667, float* %b_out)
+  store float %call447, float* %a_out, align 4
+  %668 = load <4 x float>* %a4_in, align 16
+  %call448 = call <4 x float> @_Z4modfDv4_fPS_(<4 x float> %668, <4 x float>* %b4_out)
+  store <4 x float> %call448, <4 x float>* %a4_out, align 16
+  %669 = load <8 x float>* %a8_in, align 32
+  %call449 = call <8 x float> @_Z4modfDv8_fPS_(<8 x float> %669, <8 x float>* %b8_out)
+  store <8 x float> %call449, <8 x float>* %a8_out, align 32
+  %670 = load <16 x float>* %a16_in, align 64
+  %call450 = call <16 x float> @_Z4modfDv16_fPS_(<16 x float> %670, <16 x float>* %b16_out)
+  store <16 x float> %call450, <16 x float>* %a16_out, align 64
+  %671 = load float* %a_in, align 4
+  %call451 = call float @_Z5frexpfPi(float %671, i32* %i_out)
+  store float %call451, float* %a_out, align 4
+  %672 = load <4 x float>* %a4_in, align 16
+  %call452 = call <4 x float> @_Z5frexpDv4_fPDv4_i(<4 x float> %672, <4 x i32>* %i4_out)
+  store <4 x float> %call452, <4 x float>* %a4_out, align 16
+  %673 = load <8 x float>* %a8_in, align 32
+  %call453 = call <8 x float> @_Z5frexpDv8_fPDv8_i(<8 x float> %673, <8 x i32>* %i8_out)
+  store <8 x float> %call453, <8 x float>* %a8_out, align 32
   %674 = load <16 x float>* %a16_in, align 64
-  %675 = call <16 x float> @_Z12native_recipDv16_f(<16 x float> %674) readnone
-  store <16 x float> %675, <16 x float>* %a16_out, align 64
-  %676 = load float* %a_in, align 4
-  %677 = call float @_Z11native_sqrtf(float %676) readnone
-  store float %677, float* %a_out, align 4
-  %678 = load <4 x float>* %a4_in, align 16
-  %679 = call <4 x float> @_Z11native_sqrtDv4_f(<4 x float> %678) readnone
-  store <4 x float> %679, <4 x float>* %a4_out, align 16
-  %680 = load <8 x float>* %a8_in, align 32
-  %681 = call <8 x float> @_Z11native_sqrtDv8_f(<8 x float> %680) readnone
-  store <8 x float> %681, <8 x float>* %a8_out, align 32
-  %682 = load <16 x float>* %a16_in, align 64
-  %683 = call <16 x float> @_Z11native_sqrtDv16_f(<16 x float> %682) readnone
-  store <16 x float> %683, <16 x float>* %a16_out, align 64
-  %684 = load float* %a_in, align 4
-  %685 = call float @_Z10native_tanf(float %684) readnone
-  store float %685, float* %a_out, align 4
-  %686 = load <4 x float>* %a4_in, align 16
-  %687 = call <4 x float> @_Z10native_tanDv4_f(<4 x float> %686) readnone
-  store <4 x float> %687, <4 x float>* %a4_out, align 16
-  %688 = load <8 x float>* %a8_in, align 32
-  %689 = call <8 x float> @_Z10native_tanDv8_f(<8 x float> %688) readnone
-  store <8 x float> %689, <8 x float>* %a8_out, align 32
-  %690 = load <16 x float>* %a16_in, align 64
-  %691 = call <16 x float> @_Z10native_tanDv16_f(<16 x float> %690) readnone
-  store <16 x float> %691, <16 x float>* %a16_out, align 64
-  %692 = load float* %a_in, align 4
-  %693 = call float @_Z8half_logf(float %692) readnone
-  store float %693, float* %a_out, align 4
-  %694 = load <4 x float>* %a4_in, align 16
-  %695 = call <4 x float> @_Z8half_logDv4_f(<4 x float> %694) readnone
-  store <4 x float> %695, <4 x float>* %a4_out, align 16
-  %696 = load <8 x float>* %a8_in, align 32
-  %697 = call <8 x float> @_Z8half_logDv8_f(<8 x float> %696) readnone
-  store <8 x float> %697, <8 x float>* %a8_out, align 32
-  %698 = load <16 x float>* %a16_in, align 64
-  %699 = call <16 x float> @_Z8half_logDv16_f(<16 x float> %698) readnone
-  store <16 x float> %699, <16 x float>* %a16_out, align 64
-  %700 = load float* %a_in, align 4
-  %701 = call float @_Z9half_log2f(float %700) readnone
-  store float %701, float* %a_out, align 4
-  %702 = load <4 x float>* %a4_in, align 16
-  %703 = call <4 x float> @_Z9half_log2Dv4_f(<4 x float> %702) readnone
-  store <4 x float> %703, <4 x float>* %a4_out, align 16
-  %704 = load <8 x float>* %a8_in, align 32
-  %705 = call <8 x float> @_Z9half_log2Dv8_f(<8 x float> %704) readnone
-  store <8 x float> %705, <8 x float>* %a8_out, align 32
-  %706 = load <16 x float>* %a16_in, align 64
-  %707 = call <16 x float> @_Z9half_log2Dv16_f(<16 x float> %706) readnone
-  store <16 x float> %707, <16 x float>* %a16_out, align 64
-  %708 = load float* %a_in, align 4
-  %709 = call float @_Z10half_log10f(float %708) readnone
-  store float %709, float* %a_out, align 4
-  %710 = load <4 x float>* %a4_in, align 16
-  %711 = call <4 x float> @_Z10half_log10Dv4_f(<4 x float> %710) readnone
-  store <4 x float> %711, <4 x float>* %a4_out, align 16
-  %712 = load <8 x float>* %a8_in, align 32
-  %713 = call <8 x float> @_Z10half_log10Dv8_f(<8 x float> %712) readnone
-  store <8 x float> %713, <8 x float>* %a8_out, align 32
-  %714 = load <16 x float>* %a16_in, align 64
-  %715 = call <16 x float> @_Z10half_log10Dv16_f(<16 x float> %714) readnone
-  store <16 x float> %715, <16 x float>* %a16_out, align 64
-  %716 = load float* %a_in, align 4
-  %717 = call float @_Z8half_expf(float %716) readnone
-  store float %717, float* %a_out, align 4
+  %call454 = call <16 x float> @_Z5frexpDv16_fPDv16_i(<16 x float> %674, <16 x i32>* %i16_out)
+  store <16 x float> %call454, <16 x float>* %a16_out, align 64
+  %675 = load float* %a_in, align 4
+  %676 = load float* %b_in, align 4
+  %call455 = call float @_Z6maxmagff(float %675, float %676) nounwind readnone
+  store float %call455, float* %a_out, align 4
+  %677 = load <4 x float>* %a4_in, align 16
+  %678 = load <4 x float>* %b4_in, align 16
+  %call456 = call <4 x float> @_Z6maxmagDv4_fS_(<4 x float> %677, <4 x float> %678) nounwind readnone
+  store <4 x float> %call456, <4 x float>* %a4_out, align 16
+  %679 = load <8 x float>* %a8_in, align 32
+  %680 = load <8 x float>* %b8_in, align 32
+  %call457 = call <8 x float> @_Z6maxmagDv8_fS_(<8 x float> %679, <8 x float> %680) nounwind readnone
+  store <8 x float> %call457, <8 x float>* %a8_out, align 32
+  %681 = load <16 x float>* %a16_in, align 64
+  %682 = load <16 x float>* %b16_in, align 64
+  %call458 = call <16 x float> @_Z6maxmagDv16_fS_(<16 x float> %681, <16 x float> %682) nounwind readnone
+  store <16 x float> %call458, <16 x float>* %a16_out, align 64
+  %683 = load float* %a_in, align 4
+  %684 = load float* %b_in, align 4
+  %call459 = call float @_Z6minmagff(float %683, float %684) nounwind readnone
+  store float %call459, float* %a_out, align 4
+  %685 = load <4 x float>* %a4_in, align 16
+  %686 = load <4 x float>* %b4_in, align 16
+  %call460 = call <4 x float> @_Z6minmagDv4_fS_(<4 x float> %685, <4 x float> %686) nounwind readnone
+  store <4 x float> %call460, <4 x float>* %a4_out, align 16
+  %687 = load <8 x float>* %a8_in, align 32
+  %688 = load <8 x float>* %b8_in, align 32
+  %call461 = call <8 x float> @_Z6minmagDv8_fS_(<8 x float> %687, <8 x float> %688) nounwind readnone
+  store <8 x float> %call461, <8 x float>* %a8_out, align 32
+  %689 = load <16 x float>* %a16_in, align 64
+  %690 = load <16 x float>* %b16_in, align 64
+  %call462 = call <16 x float> @_Z6minmagDv16_fS_(<16 x float> %689, <16 x float> %690) nounwind readnone
+  store <16 x float> %call462, <16 x float>* %a16_out, align 64
+  %691 = load float* %a_in, align 4
+  %692 = load float* %b_in, align 4
+  %call463 = call float @_Z8copysignff(float %691, float %692) nounwind readnone
+  store float %call463, float* %a_out, align 4
+  %693 = load <4 x float>* %a4_in, align 16
+  %694 = load <4 x float>* %b4_in, align 16
+  %call464 = call <4 x float> @_Z8copysignDv4_fS_(<4 x float> %693, <4 x float> %694) nounwind readnone
+  store <4 x float> %call464, <4 x float>* %a4_out, align 16
+  %695 = load <8 x float>* %a8_in, align 32
+  %696 = load <8 x float>* %b8_in, align 32
+  %call465 = call <8 x float> @_Z8copysignDv8_fS_(<8 x float> %695, <8 x float> %696) nounwind readnone
+  store <8 x float> %call465, <8 x float>* %a8_out, align 32
+  %697 = load <16 x float>* %a16_in, align 64
+  %698 = load <16 x float>* %b16_in, align 64
+  %call466 = call <16 x float> @_Z8copysignDv16_fS_(<16 x float> %697, <16 x float> %698) nounwind readnone
+  store <16 x float> %call466, <16 x float>* %a16_out, align 64
+  %699 = load float* %a_in, align 4
+  %700 = load float* %b_in, align 4
+  %call467 = call float @_Z9nextafterff(float %699, float %700) nounwind readnone
+  store float %call467, float* %a_out, align 4
+  %701 = load <4 x float>* %a4_in, align 16
+  %702 = load <4 x float>* %b4_in, align 16
+  %call468 = call <4 x float> @_Z9nextafterDv4_fS_(<4 x float> %701, <4 x float> %702) nounwind readnone
+  store <4 x float> %call468, <4 x float>* %a4_out, align 16
+  %703 = load <8 x float>* %a8_in, align 32
+  %704 = load <8 x float>* %b8_in, align 32
+  %call469 = call <8 x float> @_Z9nextafterDv8_fS_(<8 x float> %703, <8 x float> %704) nounwind readnone
+  store <8 x float> %call469, <8 x float>* %a8_out, align 32
+  %705 = load <16 x float>* %a16_in, align 64
+  %706 = load <16 x float>* %b16_in, align 64
+  %call470 = call <16 x float> @_Z9nextafterDv16_fS_(<16 x float> %705, <16 x float> %706) nounwind readnone
+  store <16 x float> %call470, <16 x float>* %a16_out, align 64
+  %707 = load float* %a_in, align 4
+  %708 = load float* %b_in, align 4
+  %call471 = call float @_Z4fdimff(float %707, float %708) nounwind readnone
+  store float %call471, float* %a_out, align 4
+  %709 = load <4 x float>* %a4_in, align 16
+  %710 = load <4 x float>* %b4_in, align 16
+  %call472 = call <4 x float> @_Z4fdimDv4_fS_(<4 x float> %709, <4 x float> %710) nounwind readnone
+  store <4 x float> %call472, <4 x float>* %a4_out, align 16
+  %711 = load <8 x float>* %a8_in, align 32
+  %712 = load <8 x float>* %b8_in, align 32
+  %call473 = call <8 x float> @_Z4fdimDv8_fS_(<8 x float> %711, <8 x float> %712) nounwind readnone
+  store <8 x float> %call473, <8 x float>* %a8_out, align 32
+  %713 = load <16 x float>* %a16_in, align 64
+  %714 = load <16 x float>* %b16_in, align 64
+  %call474 = call <16 x float> @_Z4fdimDv16_fS_(<16 x float> %713, <16 x float> %714) nounwind readnone
+  store <16 x float> %call474, <16 x float>* %a16_out, align 64
+  %715 = load float* %a_in, align 4
+  %716 = load float* %b_in, align 4
+  %717 = load float* %c_in, align 4
+  %call475 = call float @_Z3fmafff(float %715, float %716, float %717) nounwind readnone
+  store float %call475, float* %a_out, align 4
   %718 = load <4 x float>* %a4_in, align 16
-  %719 = call <4 x float> @_Z8half_expDv4_f(<4 x float> %718) readnone
-  store <4 x float> %719, <4 x float>* %a4_out, align 16
-  %720 = load <8 x float>* %a8_in, align 32
-  %721 = call <8 x float> @_Z8half_expDv8_f(<8 x float> %720) readnone
-  store <8 x float> %721, <8 x float>* %a8_out, align 32
-  %722 = load <16 x float>* %a16_in, align 64
-  %723 = call <16 x float> @_Z8half_expDv16_f(<16 x float> %722) readnone
-  store <16 x float> %723, <16 x float>* %a16_out, align 64
-  %724 = load float* %a_in, align 4
-  %725 = call float @_Z9half_exp2f(float %724) readnone
-  store float %725, float* %a_out, align 4
-  %726 = load <4 x float>* %a4_in, align 16
-  %727 = call <4 x float> @_Z9half_exp2Dv4_f(<4 x float> %726) readnone
-  store <4 x float> %727, <4 x float>* %a4_out, align 16
-  %728 = load <8 x float>* %a8_in, align 32
-  %729 = call <8 x float> @_Z9half_exp2Dv8_f(<8 x float> %728) readnone
-  store <8 x float> %729, <8 x float>* %a8_out, align 32
-  %730 = load <16 x float>* %a16_in, align 64
-  %731 = call <16 x float> @_Z9half_exp2Dv16_f(<16 x float> %730) readnone
-  store <16 x float> %731, <16 x float>* %a16_out, align 64
-  %732 = load float* %a_in, align 4
-  %733 = call float @_Z10half_exp10f(float %732) readnone
-  store float %733, float* %a_out, align 4
-  %734 = load <4 x float>* %a4_in, align 16
-  %735 = call <4 x float> @_Z10half_exp10Dv4_f(<4 x float> %734) readnone
-  store <4 x float> %735, <4 x float>* %a4_out, align 16
-  %736 = load <8 x float>* %a8_in, align 32
-  %737 = call <8 x float> @_Z10half_exp10Dv8_f(<8 x float> %736) readnone
-  store <8 x float> %737, <8 x float>* %a8_out, align 32
-  %738 = load <16 x float>* %a16_in, align 64
-  %739 = call <16 x float> @_Z10half_exp10Dv16_f(<16 x float> %738) readnone
-  store <16 x float> %739, <16 x float>* %a16_out, align 64
-  %740 = load float* %a_in, align 4
-  %741 = call float @_Z8half_cosf(float %740) readnone
-  store float %741, float* %a_out, align 4
-  %742 = load <4 x float>* %a4_in, align 16
-  %743 = call <4 x float> @_Z8half_cosDv4_f(<4 x float> %742) readnone
-  store <4 x float> %743, <4 x float>* %a4_out, align 16
-  %744 = load <8 x float>* %a8_in, align 32
-  %745 = call <8 x float> @_Z8half_cosDv8_f(<8 x float> %744) readnone
-  store <8 x float> %745, <8 x float>* %a8_out, align 32
+  %719 = load <4 x float>* %b4_in, align 16
+  %720 = load <4 x float>* %c4_in, align 16
+  %call476 = call <4 x float> @_Z3fmaDv4_fS_S_(<4 x float> %718, <4 x float> %719, <4 x float> %720) nounwind readnone
+  store <4 x float> %call476, <4 x float>* %a4_out, align 16
+  %721 = load <8 x float>* %a8_in, align 32
+  %722 = load <8 x float>* %b8_in, align 32
+  %723 = load <8 x float>* %c8_in, align 32
+  %call477 = call <8 x float> @_Z3fmaDv8_fS_S_(<8 x float> %721, <8 x float> %722, <8 x float> %723) nounwind readnone
+  store <8 x float> %call477, <8 x float>* %a8_out, align 32
+  %724 = load <16 x float>* %a16_in, align 64
+  %725 = load <16 x float>* %b16_in, align 64
+  %726 = load <16 x float>* %c16_in, align 64
+  %call478 = call <16 x float> @_Z3fmaDv16_fS_S_(<16 x float> %724, <16 x float> %725, <16 x float> %726) nounwind readnone
+  store <16 x float> %call478, <16 x float>* %a16_out, align 64
+  %727 = load float* %a_in, align 4
+  %728 = load float* %b_in, align 4
+  %729 = load float* %c_in, align 4
+  %call479 = call float @_Z3madfff(float %727, float %728, float %729) nounwind readnone
+  store float %call479, float* %a_out, align 4
+  %730 = load <4 x float>* %a4_in, align 16
+  %731 = load <4 x float>* %b4_in, align 16
+  %732 = load <4 x float>* %c4_in, align 16
+  %call480 = call <4 x float> @_Z3madDv4_fS_S_(<4 x float> %730, <4 x float> %731, <4 x float> %732) nounwind readnone
+  store <4 x float> %call480, <4 x float>* %a4_out, align 16
+  %733 = load <8 x float>* %a8_in, align 32
+  %734 = load <8 x float>* %b8_in, align 32
+  %735 = load <8 x float>* %c8_in, align 32
+  %call481 = call <8 x float> @_Z3madDv8_fS_S_(<8 x float> %733, <8 x float> %734, <8 x float> %735) nounwind readnone
+  store <8 x float> %call481, <8 x float>* %a8_out, align 32
+  %736 = load <16 x float>* %a16_in, align 64
+  %737 = load <16 x float>* %b16_in, align 64
+  %738 = load <16 x float>* %c16_in, align 64
+  %call482 = call <16 x float> @_Z3madDv16_fS_S_(<16 x float> %736, <16 x float> %737, <16 x float> %738) nounwind readnone
+  store <16 x float> %call482, <16 x float>* %a16_out, align 64
+  %739 = load float* %a_in, align 4
+  %call483 = call float @_Z4rintf(float %739) nounwind readnone
+  store float %call483, float* %a_out, align 4
+  %740 = load <4 x float>* %a4_in, align 16
+  %call484 = call <4 x float> @_Z4rintDv4_f(<4 x float> %740) nounwind readnone
+  store <4 x float> %call484, <4 x float>* %a4_out, align 16
+  %741 = load <8 x float>* %a8_in, align 32
+  %call485 = call <8 x float> @_Z4rintDv8_f(<8 x float> %741) nounwind readnone
+  store <8 x float> %call485, <8 x float>* %a8_out, align 32
+  %742 = load <16 x float>* %a16_in, align 64
+  %call486 = call <16 x float> @_Z4rintDv16_f(<16 x float> %742) nounwind readnone
+  store <16 x float> %call486, <16 x float>* %a16_out, align 64
+  %743 = load float* %a_in, align 4
+  %call487 = call float @_Z5roundf(float %743) nounwind readnone
+  store float %call487, float* %a_out, align 4
+  %744 = load <4 x float>* %a4_in, align 16
+  %call488 = call <4 x float> @_Z5roundDv4_f(<4 x float> %744) nounwind readnone
+  store <4 x float> %call488, <4 x float>* %a4_out, align 16
+  %745 = load <8 x float>* %a8_in, align 32
+  %call489 = call <8 x float> @_Z5roundDv8_f(<8 x float> %745) nounwind readnone
+  store <8 x float> %call489, <8 x float>* %a8_out, align 32
   %746 = load <16 x float>* %a16_in, align 64
-  %747 = call <16 x float> @_Z8half_cosDv16_f(<16 x float> %746) readnone
-  store <16 x float> %747, <16 x float>* %a16_out, align 64
-  %748 = load float* %a_in, align 4
-  %749 = load float* %b_in, align 4
-  %750 = call float @_Z11half_divideff(float %748, float %749) readnone
-  store float %750, float* %a_out, align 4
-  %751 = load <4 x float>* %a4_in, align 16
-  %752 = load <4 x float>* %b4_in, align 16
-  %753 = call <4 x float> @_Z11half_divideDv4_fS_(<4 x float> %751, <4 x float> %752) readnone
-  store <4 x float> %753, <4 x float>* %a4_out, align 16
-  %754 = load <8 x float>* %a8_in, align 32
-  %755 = load <8 x float>* %b8_in, align 32
-  %756 = call <8 x float> @_Z11half_divideDv8_fS_(<8 x float> %754, <8 x float> %755) readnone
-  store <8 x float> %756, <8 x float>* %a8_out, align 32
-  %757 = load <16 x float>* %a16_in, align 64
-  %758 = load <16 x float>* %b16_in, align 64
-  %759 = call <16 x float> @_Z11half_divideDv16_fS_(<16 x float> %757, <16 x float> %758) readnone
-  store <16 x float> %759, <16 x float>* %a16_out, align 64
-  %760 = load float* %a_in, align 4
-  %761 = load float* %b_in, align 4
-  %762 = call float @_Z9half_powrff(float %760, float %761) readnone
-  store float %762, float* %a_out, align 4
-  %763 = load <4 x float>* %a4_in, align 16
-  %764 = load <4 x float>* %b4_in, align 16
-  %765 = call <4 x float> @_Z9half_powrDv4_fS_(<4 x float> %763, <4 x float> %764) readnone
-  store <4 x float> %765, <4 x float>* %a4_out, align 16
-  %766 = load <8 x float>* %a8_in, align 32
-  %767 = load <8 x float>* %b8_in, align 32
-  %768 = call <8 x float> @_Z9half_powrDv8_fS_(<8 x float> %766, <8 x float> %767) readnone
-  store <8 x float> %768, <8 x float>* %a8_out, align 32
+  %call490 = call <16 x float> @_Z5roundDv16_f(<16 x float> %746) nounwind readnone
+  store <16 x float> %call490, <16 x float>* %a16_out, align 64
+  %747 = load float* %a_in, align 4
+  %call491 = call float @_Z5truncf(float %747) nounwind readnone
+  store float %call491, float* %a_out, align 4
+  %748 = load <4 x float>* %a4_in, align 16
+  %call492 = call <4 x float> @_Z5truncDv4_f(<4 x float> %748) nounwind readnone
+  store <4 x float> %call492, <4 x float>* %a4_out, align 16
+  %749 = load <8 x float>* %a8_in, align 32
+  %call493 = call <8 x float> @_Z5truncDv8_f(<8 x float> %749) nounwind readnone
+  store <8 x float> %call493, <8 x float>* %a8_out, align 32
+  %750 = load <16 x float>* %a16_in, align 64
+  %call494 = call <16 x float> @_Z5truncDv16_f(<16 x float> %750) nounwind readnone
+  store <16 x float> %call494, <16 x float>* %a16_out, align 64
+  %751 = load float* %a_in, align 4
+  %call495 = call float @_Z4cbrtf(float %751) nounwind readnone
+  store float %call495, float* %a_out, align 4
+  %752 = load <4 x float>* %a4_in, align 16
+  %call496 = call <4 x float> @_Z4cbrtDv4_f(<4 x float> %752) nounwind readnone
+  store <4 x float> %call496, <4 x float>* %a4_out, align 16
+  %753 = load <8 x float>* %a8_in, align 32
+  %call497 = call <8 x float> @_Z4cbrtDv8_f(<8 x float> %753) nounwind readnone
+  store <8 x float> %call497, <8 x float>* %a8_out, align 32
+  %754 = load <16 x float>* %a16_in, align 64
+  %call498 = call <16 x float> @_Z4cbrtDv16_f(<16 x float> %754) nounwind readnone
+  store <16 x float> %call498, <16 x float>* %a16_out, align 64
+  %755 = load float* %a_in, align 4
+  %756 = load float* %b_in, align 4
+  %call499 = call float @_Z4powrff(float %755, float %756) nounwind readnone
+  store float %call499, float* %a_out, align 4
+  %757 = load <4 x float>* %a4_in, align 16
+  %758 = load <4 x float>* %b4_in, align 16
+  %call500 = call <4 x float> @_Z4powrDv4_fS_(<4 x float> %757, <4 x float> %758) nounwind readnone
+  store <4 x float> %call500, <4 x float>* %a4_out, align 16
+  %759 = load <8 x float>* %a8_in, align 32
+  %760 = load <8 x float>* %b8_in, align 32
+  %call501 = call <8 x float> @_Z4powrDv8_fS_(<8 x float> %759, <8 x float> %760) nounwind readnone
+  store <8 x float> %call501, <8 x float>* %a8_out, align 32
+  %761 = load <16 x float>* %a16_in, align 64
+  %762 = load <16 x float>* %b16_in, align 64
+  %call502 = call <16 x float> @_Z4powrDv16_fS_(<16 x float> %761, <16 x float> %762) nounwind readnone
+  store <16 x float> %call502, <16 x float>* %a16_out, align 64
+  %763 = load float* %a_in, align 4
+  %764 = load float* %b_in, align 4
+  %call503 = call float @_Z4fmodff(float %763, float %764) nounwind readnone
+  store float %call503, float* %a_out, align 4
+  %765 = load <4 x float>* %a4_in, align 16
+  %766 = load <4 x float>* %b4_in, align 16
+  %call504 = call <4 x float> @_Z4fmodDv4_fS_(<4 x float> %765, <4 x float> %766) nounwind readnone
+  store <4 x float> %call504, <4 x float>* %a4_out, align 16
+  %767 = load <8 x float>* %a8_in, align 32
+  %768 = load <8 x float>* %b8_in, align 32
+  %call505 = call <8 x float> @_Z4fmodDv8_fS_(<8 x float> %767, <8 x float> %768) nounwind readnone
+  store <8 x float> %call505, <8 x float>* %a8_out, align 32
   %769 = load <16 x float>* %a16_in, align 64
   %770 = load <16 x float>* %b16_in, align 64
-  %771 = call <16 x float> @_Z9half_powrDv16_fS_(<16 x float> %769, <16 x float> %770) readnone
-  store <16 x float> %771, <16 x float>* %a16_out, align 64
-  %772 = load float* %a_in, align 4
-  %773 = call float @_Z10half_recipf(float %772) readnone
-  store float %773, float* %a_out, align 4
-  %774 = load <4 x float>* %a4_in, align 16
-  %775 = call <4 x float> @_Z10half_recipDv4_f(<4 x float> %774) readnone
-  store <4 x float> %775, <4 x float>* %a4_out, align 16
-  %776 = load <8 x float>* %a8_in, align 32
-  %777 = call <8 x float> @_Z10half_recipDv8_f(<8 x float> %776) readnone
-  store <8 x float> %777, <8 x float>* %a8_out, align 32
-  %778 = load <16 x float>* %a16_in, align 64
-  %779 = call <16 x float> @_Z10half_recipDv16_f(<16 x float> %778) readnone
-  store <16 x float> %779, <16 x float>* %a16_out, align 64
-  %780 = load float* %a_in, align 4
-  %781 = call float @_Z10half_rsqrtf(float %780) readnone
-  store float %781, float* %a_out, align 4
-  %782 = load <4 x float>* %a4_in, align 16
-  %783 = call <4 x float> @_Z10half_rsqrtDv4_f(<4 x float> %782) readnone
-  store <4 x float> %783, <4 x float>* %a4_out, align 16
-  %784 = load <8 x float>* %a8_in, align 32
-  %785 = call <8 x float> @_Z10half_rsqrtDv8_f(<8 x float> %784) readnone
-  store <8 x float> %785, <8 x float>* %a8_out, align 32
-  %786 = load <16 x float>* %a16_in, align 64
-  %787 = call <16 x float> @_Z10half_rsqrtDv16_f(<16 x float> %786) readnone
-  store <16 x float> %787, <16 x float>* %a16_out, align 64
-  %788 = load float* %a_in, align 4
-  %789 = call float @_Z8half_sinf(float %788) readnone
-  store float %789, float* %a_out, align 4
-  %790 = load <4 x float>* %a4_in, align 16
-  %791 = call <4 x float> @_Z8half_sinDv4_f(<4 x float> %790) readnone
-  store <4 x float> %791, <4 x float>* %a4_out, align 16
-  %792 = load <8 x float>* %a8_in, align 32
-  %793 = call <8 x float> @_Z8half_sinDv8_f(<8 x float> %792) readnone
-  store <8 x float> %793, <8 x float>* %a8_out, align 32
-  %794 = load <16 x float>* %a16_in, align 64
-  %795 = call <16 x float> @_Z8half_sinDv16_f(<16 x float> %794) readnone
-  store <16 x float> %795, <16 x float>* %a16_out, align 64
-  %796 = load float* %a_in, align 4
-  %797 = call float @_Z9half_sqrtf(float %796) readnone
-  store float %797, float* %a_out, align 4
-  %798 = load <4 x float>* %a4_in, align 16
-  %799 = call <4 x float> @_Z9half_sqrtDv4_f(<4 x float> %798) readnone
-  store <4 x float> %799, <4 x float>* %a4_out, align 16
-  %800 = load <8 x float>* %a8_in, align 32
-  %801 = call <8 x float> @_Z9half_sqrtDv8_f(<8 x float> %800) readnone
-  store <8 x float> %801, <8 x float>* %a8_out, align 32
-  %802 = load <16 x float>* %a16_in, align 64
-  %803 = call <16 x float> @_Z9half_sqrtDv16_f(<16 x float> %802) readnone
-  store <16 x float> %803, <16 x float>* %a16_out, align 64
-  %804 = load float* %a_in, align 4
-  %805 = call float @_Z8half_tanf(float %804) readnone
-  store float %805, float* %a_out, align 4
-  %806 = load <4 x float>* %a4_in, align 16
-  %807 = call <4 x float> @_Z8half_tanDv4_f(<4 x float> %806) readnone
-  store <4 x float> %807, <4 x float>* %a4_out, align 16
-  %808 = load <8 x float>* %a8_in, align 32
-  %809 = call <8 x float> @_Z8half_tanDv8_f(<8 x float> %808) readnone
-  store <8 x float> %809, <8 x float>* %a8_out, align 32
-  %810 = load <16 x float>* %a16_in, align 64
-  %811 = call <16 x float> @_Z8half_tanDv16_f(<16 x float> %810) readnone
-  store <16 x float> %811, <16 x float>* %a16_out, align 64
-  %812 = load float* %a_in, align 4
-  %813 = call float @_Z5asinhf(float %812) readnone
-  store float %813, float* %a_out, align 4
-  %814 = load <4 x float>* %a4_in, align 16
-  %815 = call <4 x float> @_Z5asinhDv4_f(<4 x float> %814) readnone
-  store <4 x float> %815, <4 x float>* %a4_out, align 16
-  %816 = load <8 x float>* %a8_in, align 32
-  %817 = call <8 x float> @_Z5asinhDv8_f(<8 x float> %816) readnone
-  store <8 x float> %817, <8 x float>* %a8_out, align 32
-  %818 = load <16 x float>* %a16_in, align 64
-  %819 = call <16 x float> @_Z5asinhDv16_f(<16 x float> %818) readnone
-  store <16 x float> %819, <16 x float>* %a16_out, align 64
+  %call506 = call <16 x float> @_Z4fmodDv16_fS_(<16 x float> %769, <16 x float> %770) nounwind readnone
+  store <16 x float> %call506, <16 x float>* %a16_out, align 64
+  %771 = load float* %a_in, align 4
+  %772 = load float* %b_in, align 4
+  %call507 = call float @_Z4fminff(float %771, float %772) nounwind readnone
+  store float %call507, float* %a_out, align 4
+  %773 = load <4 x float>* %a4_in, align 16
+  %774 = load <4 x float>* %b4_in, align 16
+  %call508 = call <4 x float> @_Z4fminDv4_fS_(<4 x float> %773, <4 x float> %774) nounwind readnone
+  store <4 x float> %call508, <4 x float>* %a4_out, align 16
+  %775 = load <8 x float>* %a8_in, align 32
+  %776 = load <8 x float>* %b8_in, align 32
+  %call509 = call <8 x float> @_Z4fminDv8_fS_(<8 x float> %775, <8 x float> %776) nounwind readnone
+  store <8 x float> %call509, <8 x float>* %a8_out, align 32
+  %777 = load <16 x float>* %a16_in, align 64
+  %778 = load <16 x float>* %b16_in, align 64
+  %call510 = call <16 x float> @_Z4fminDv16_fS_(<16 x float> %777, <16 x float> %778) nounwind readnone
+  store <16 x float> %call510, <16 x float>* %a16_out, align 64
+  %779 = load float* %a_in, align 4
+  %780 = load float* %b_in, align 4
+  %call511 = call float @_Z4fmaxff(float %779, float %780) nounwind readnone
+  store float %call511, float* %a_out, align 4
+  %781 = load <4 x float>* %a4_in, align 16
+  %782 = load <4 x float>* %b4_in, align 16
+  %call512 = call <4 x float> @_Z4fmaxDv4_fS_(<4 x float> %781, <4 x float> %782) nounwind readnone
+  store <4 x float> %call512, <4 x float>* %a4_out, align 16
+  %783 = load <8 x float>* %a8_in, align 32
+  %784 = load <8 x float>* %b8_in, align 32
+  %call513 = call <8 x float> @_Z4fmaxDv8_fS_(<8 x float> %783, <8 x float> %784) nounwind readnone
+  store <8 x float> %call513, <8 x float>* %a8_out, align 32
+  %785 = load <16 x float>* %a16_in, align 64
+  %786 = load <16 x float>* %b16_in, align 64
+  %call514 = call <16 x float> @_Z4fmaxDv16_fS_(<16 x float> %785, <16 x float> %786) nounwind readnone
+  store <16 x float> %call514, <16 x float>* %a16_out, align 64
+  %787 = load <4 x float>* %a4_in, align 16
+  %788 = load float* %b_in, align 4
+  %call515 = call <4 x float> @_Z4fminDv4_ff(<4 x float> %787, float %788) nounwind readnone
+  store <4 x float> %call515, <4 x float>* %a4_out, align 16
+  %789 = load <8 x float>* %a8_in, align 32
+  %790 = load float* %b_in, align 4
+  %call516 = call <8 x float> @_Z4fminDv8_ff(<8 x float> %789, float %790) nounwind readnone
+  store <8 x float> %call516, <8 x float>* %a8_out, align 32
+  %791 = load <16 x float>* %a16_in, align 64
+  %792 = load float* %b_in, align 4
+  %call517 = call <16 x float> @_Z4fminDv16_ff(<16 x float> %791, float %792) nounwind readnone
+  store <16 x float> %call517, <16 x float>* %a16_out, align 64
+  %793 = load <4 x float>* %a4_in, align 16
+  %794 = load float* %b_in, align 4
+  %call518 = call <4 x float> @_Z4fmaxDv4_ff(<4 x float> %793, float %794) nounwind readnone
+  store <4 x float> %call518, <4 x float>* %a4_out, align 16
+  %795 = load <8 x float>* %a8_in, align 32
+  %796 = load float* %b_in, align 4
+  %call519 = call <8 x float> @_Z4fmaxDv8_ff(<8 x float> %795, float %796) nounwind readnone
+  store <8 x float> %call519, <8 x float>* %a8_out, align 32
+  %797 = load <16 x float>* %a16_in, align 64
+  %798 = load float* %b_in, align 4
+  %call520 = call <16 x float> @_Z4fmaxDv16_ff(<16 x float> %797, float %798) nounwind readnone
+  store <16 x float> %call520, <16 x float>* %a16_out, align 64
+  %799 = load <4 x float>* %a4_in, align 16
+  %800 = load i32* %i_in, align 4
+  %801 = insertelement <4 x i32> undef, i32 %800, i32 0
+  %splat521 = shufflevector <4 x i32> %801, <4 x i32> %801, <4 x i32> zeroinitializer
+  %call522 = call <4 x float> @_Z4pownDv4_fDv4_i(<4 x float> %799, <4 x i32> %splat521) nounwind readnone
+  store <4 x float> %call522, <4 x float>* %a4_out, align 16
+  %802 = load <8 x float>* %a8_in, align 32
+  %803 = load i32* %i_in, align 4
+  %804 = insertelement <8 x i32> undef, i32 %803, i32 0
+  %splat523 = shufflevector <8 x i32> %804, <8 x i32> %804, <8 x i32> zeroinitializer
+  %call524 = call <8 x float> @_Z4pownDv8_fDv8_i(<8 x float> %802, <8 x i32> %splat523) nounwind readnone
+  store <8 x float> %call524, <8 x float>* %a8_out, align 32
+  %805 = load <16 x float>* %a16_in, align 64
+  %806 = load i32* %i_in, align 4
+  %807 = insertelement <16 x i32> undef, i32 %806, i32 0
+  %splat525 = shufflevector <16 x i32> %807, <16 x i32> %807, <16 x i32> zeroinitializer
+  %call526 = call <16 x float> @_Z4pownDv16_fDv16_i(<16 x float> %805, <16 x i32> %splat525) nounwind readnone
+  store <16 x float> %call526, <16 x float>* %a16_out, align 64
+  %808 = load float* %a_in, align 4
+  %call527 = call i32 @_Z5ilogbf(float %808) nounwind readnone
+  store i32 %call527, i32* %i_out, align 4
+  %809 = load <4 x float>* %a4_in, align 16
+  %call528 = call <4 x i32> @_Z5ilogbDv4_f(<4 x float> %809) nounwind readnone
+  store <4 x i32> %call528, <4 x i32>* %i4_out, align 16
+  %810 = load <8 x float>* %a8_in, align 32
+  %call529 = call <8 x i32> @_Z5ilogbDv8_f(<8 x float> %810) nounwind readnone
+  store <8 x i32> %call529, <8 x i32>* %i8_out, align 32
+  %811 = load <16 x float>* %a16_in, align 64
+  %call530 = call <16 x i32> @_Z5ilogbDv16_f(<16 x float> %811) nounwind readnone
+  store <16 x i32> %call530, <16 x i32>* %i16_out, align 64
+  %812 = load i32* %ui_in, align 4
+  %call531 = call float @_Z3nanj(i32 %812) nounwind readnone
+  store float %call531, float* %a_out, align 4
+  %813 = load <4 x i32>* %ui4_in, align 16
+  %call532 = call <4 x float> @_Z3nanDv4_j(<4 x i32> %813) nounwind readnone
+  store <4 x float> %call532, <4 x float>* %a4_out, align 16
+  %814 = load <8 x i32>* %ui8_in, align 32
+  %call533 = call <8 x float> @_Z3nanDv8_j(<8 x i32> %814) nounwind readnone
+  store <8 x float> %call533, <8 x float>* %a8_out, align 32
+  %815 = load <16 x i32>* %ui16_in, align 64
+  %call534 = call <16 x float> @_Z3nanDv16_j(<16 x i32> %815) nounwind readnone
+  store <16 x float> %call534, <16 x float>* %a16_out, align 64
+  %816 = load float* %a_in, align 4
+  %call535 = call float @_Z5fractfPf(float %816, float* %b_out)
+  store float %call535, float* %a_out, align 4
+  %817 = load <4 x float>* %a4_in, align 16
+  %call536 = call <4 x float> @_Z5fractDv4_fPS_(<4 x float> %817, <4 x float>* %b4_out)
+  store <4 x float> %call536, <4 x float>* %a4_out, align 16
+  %818 = load <8 x float>* %a8_in, align 32
+  %call537 = call <8 x float> @_Z5fractDv8_fPS_(<8 x float> %818, <8 x float>* %b8_out)
+  store <8 x float> %call537, <8 x float>* %a8_out, align 32
+  %819 = load <16 x float>* %a16_in, align 64
+  %call538 = call <16 x float> @_Z5fractDv16_fPS_(<16 x float> %819, <16 x float>* %b16_out)
+  store <16 x float> %call538, <16 x float>* %a16_out, align 64
   %820 = load float* %a_in, align 4
-  %821 = call float @_Z5acoshf(float %820) readnone
-  store float %821, float* %a_out, align 4
-  %822 = load <4 x float>* %a4_in, align 16
-  %823 = call <4 x float> @_Z5acoshDv4_f(<4 x float> %822) readnone
-  store <4 x float> %823, <4 x float>* %a4_out, align 16
-  %824 = load <8 x float>* %a8_in, align 32
-  %825 = call <8 x float> @_Z5acoshDv8_f(<8 x float> %824) readnone
-  store <8 x float> %825, <8 x float>* %a8_out, align 32
-  %826 = load <16 x float>* %a16_in, align 64
-  %827 = call <16 x float> @_Z5acoshDv16_f(<16 x float> %826) readnone
-  store <16 x float> %827, <16 x float>* %a16_out, align 64
+  %call539 = call float @_Z6lgammaf(float %820) nounwind readnone
+  store float %call539, float* %a_out, align 4
+  %821 = load <4 x float>* %a4_in, align 16
+  %call540 = call <4 x float> @_Z6lgammaDv4_f(<4 x float> %821) nounwind readnone
+  store <4 x float> %call540, <4 x float>* %a4_out, align 16
+  %822 = load <8 x float>* %a8_in, align 32
+  %call541 = call <8 x float> @_Z6lgammaDv8_f(<8 x float> %822) nounwind readnone
+  store <8 x float> %call541, <8 x float>* %a8_out, align 32
+  %823 = load <16 x float>* %a16_in, align 64
+  %call542 = call <16 x float> @_Z6lgammaDv16_f(<16 x float> %823) nounwind readnone
+  store <16 x float> %call542, <16 x float>* %a16_out, align 64
+  %824 = load float* %a_in, align 4
+  %call543 = call float @_Z8lgamma_rfPi(float %824, i32* %i_out)
+  store float %call543, float* %a_out, align 4
+  %825 = load <4 x float>* %a4_in, align 16
+  %call544 = call <4 x float> @_Z8lgamma_rDv4_fPDv4_i(<4 x float> %825, <4 x i32>* %i4_out)
+  store <4 x float> %call544, <4 x float>* %a4_out, align 16
+  %826 = load <8 x float>* %a8_in, align 32
+  %call545 = call <8 x float> @_Z8lgamma_rDv8_fPDv8_i(<8 x float> %826, <8 x i32>* %i8_out)
+  store <8 x float> %call545, <8 x float>* %a8_out, align 32
+  %827 = load <16 x float>* %a16_in, align 64
+  %call546 = call <16 x float> @_Z8lgamma_rDv16_fPDv16_i(<16 x float> %827, <16 x i32>* %i16_out)
+  store <16 x float> %call546, <16 x float>* %a16_out, align 64
   %828 = load float* %a_in, align 4
-  %829 = call float @_Z5atanhf(float %828) readnone
-  store float %829, float* %a_out, align 4
-  %830 = load <4 x float>* %a4_in, align 16
-  %831 = call <4 x float> @_Z5atanhDv4_f(<4 x float> %830) readnone
-  store <4 x float> %831, <4 x float>* %a4_out, align 16
-  %832 = load <8 x float>* %a8_in, align 32
-  %833 = call <8 x float> @_Z5atanhDv8_f(<8 x float> %832) readnone
-  store <8 x float> %833, <8 x float>* %a8_out, align 32
-  %834 = load <16 x float>* %a16_in, align 64
-  %835 = call <16 x float> @_Z5atanhDv16_f(<16 x float> %834) readnone
-  store <16 x float> %835, <16 x float>* %a16_out, align 64
-  %836 = load float* %a_in, align 4
-  %837 = load float* %b_in, align 4
-  %838 = call float @_Z3minff(float %836, float %837) readnone
-  store float %838, float* %a_out, align 4
-  %839 = load <4 x float>* %a4_in, align 16
-  %840 = load <4 x float>* %b4_in, align 16
-  %841 = call <4 x float> @_Z3minDv4_fS_(<4 x float> %839, <4 x float> %840) readnone
-  store <4 x float> %841, <4 x float>* %a4_out, align 16
-  %842 = load <8 x float>* %a8_in, align 32
-  %843 = load <8 x float>* %b8_in, align 32
-  %844 = call <8 x float> @_Z3minDv8_fS_(<8 x float> %842, <8 x float> %843) readnone
-  store <8 x float> %844, <8 x float>* %a8_out, align 32
-  %845 = load <16 x float>* %a16_in, align 64
-  %846 = load <16 x float>* %b16_in, align 64
-  %847 = call <16 x float> @_Z3minDv16_fS_(<16 x float> %845, <16 x float> %846) readnone
-  store <16 x float> %847, <16 x float>* %a16_out, align 64
-  %848 = load <4 x float>* %a4_in, align 16
-  %849 = load float* %b_in, align 4
-  %850 = call <4 x float> @_Z3minDv4_ff(<4 x float> %848, float %849) readnone
-  store <4 x float> %850, <4 x float>* %a4_out, align 16
-  %851 = load <8 x float>* %a8_in, align 32
-  %852 = load float* %b_in, align 4
-  %853 = call <8 x float> @_Z3minDv8_ff(<8 x float> %851, float %852) readnone
-  store <8 x float> %853, <8 x float>* %a8_out, align 32
-  %854 = load <16 x float>* %a16_in, align 64
-  %855 = load float* %b_in, align 4
-  %856 = call <16 x float> @_Z3minDv16_ff(<16 x float> %854, float %855) readnone
-  store <16 x float> %856, <16 x float>* %a16_out, align 64
-  %857 = load float* %a_in, align 4
-  %858 = load float* %b_in, align 4
-  %859 = call float @_Z3maxff(float %857, float %858) readnone
-  store float %859, float* %a_out, align 4
-  %860 = load <4 x float>* %a4_in, align 16
-  %861 = load <4 x float>* %b4_in, align 16
-  %862 = call <4 x float> @_Z3maxDv4_fS_(<4 x float> %860, <4 x float> %861) readnone
-  store <4 x float> %862, <4 x float>* %a4_out, align 16
-  %863 = load <8 x float>* %a8_in, align 32
-  %864 = load <8 x float>* %b8_in, align 32
-  %865 = call <8 x float> @_Z3maxDv8_fS_(<8 x float> %863, <8 x float> %864) readnone
-  store <8 x float> %865, <8 x float>* %a8_out, align 32
-  %866 = load <16 x float>* %a16_in, align 64
-  %867 = load <16 x float>* %b16_in, align 64
-  %868 = call <16 x float> @_Z3maxDv16_fS_(<16 x float> %866, <16 x float> %867) readnone
-  store <16 x float> %868, <16 x float>* %a16_out, align 64
-  %869 = load <4 x float>* %a4_in, align 16
-  %870 = load float* %b_in, align 4
-  %871 = call <4 x float> @_Z3maxDv4_ff(<4 x float> %869, float %870) readnone
-  store <4 x float> %871, <4 x float>* %a4_out, align 16
-  %872 = load <8 x float>* %a8_in, align 32
-  %873 = load float* %b_in, align 4
-  %874 = call <8 x float> @_Z3maxDv8_ff(<8 x float> %872, float %873) readnone
-  store <8 x float> %874, <8 x float>* %a8_out, align 32
-  %875 = load <16 x float>* %a16_in, align 64
-  %876 = load float* %b_in, align 4
-  %877 = call <16 x float> @_Z3maxDv16_ff(<16 x float> %875, float %876) readnone
-  store <16 x float> %877, <16 x float>* %a16_out, align 64
-  %878 = load float* %a_in, align 4
-  %879 = load float* %b_in, align 4
-  %880 = call float @_Z5hypotff(float %878, float %879) readnone
-  store float %880, float* %a_out, align 4
-  %881 = load <4 x float>* %a4_in, align 16
-  %882 = load <4 x float>* %b4_in, align 16
-  %883 = call <4 x float> @_Z5hypotDv4_fS_(<4 x float> %881, <4 x float> %882) readnone
-  store <4 x float> %883, <4 x float>* %a4_out, align 16
-  %884 = load <8 x float>* %a8_in, align 32
-  %885 = load <8 x float>* %b8_in, align 32
-  %886 = call <8 x float> @_Z5hypotDv8_fS_(<8 x float> %884, <8 x float> %885) readnone
-  store <8 x float> %886, <8 x float>* %a8_out, align 32
-  %887 = load <16 x float>* %a16_in, align 64
-  %888 = load <16 x float>* %b16_in, align 64
-  %889 = call <16 x float> @_Z5hypotDv16_fS_(<16 x float> %887, <16 x float> %888) readnone
-  store <16 x float> %889, <16 x float>* %a16_out, align 64
-  %890 = load float* %a_in, align 4
-  %891 = load float* %b_in, align 4
-  %892 = call float @_Z4stepff(float %890, float %891) readnone
-  store float %892, float* %a_out, align 4
-  %893 = load <4 x float>* %a4_in, align 16
-  %894 = load <4 x float>* %b4_in, align 16
-  %895 = call <4 x float> @_Z4stepDv4_fS_(<4 x float> %893, <4 x float> %894) readnone
-  store <4 x float> %895, <4 x float>* %a4_out, align 16
-  %896 = load <8 x float>* %a8_in, align 32
-  %897 = load <8 x float>* %b8_in, align 32
-  %898 = call <8 x float> @_Z4stepDv8_fS_(<8 x float> %896, <8 x float> %897) readnone
-  store <8 x float> %898, <8 x float>* %a8_out, align 32
-  %899 = load <16 x float>* %a16_in, align 64
-  %900 = load <16 x float>* %b16_in, align 64
-  %901 = call <16 x float> @_Z4stepDv16_fS_(<16 x float> %899, <16 x float> %900) readnone
-  store <16 x float> %901, <16 x float>* %a16_out, align 64
-  %902 = load float* %a_in, align 4
-  %903 = load float* %b_in, align 4
-  %904 = call float @_Z4stepff(float %902, float %903) readnone
-  store float %904, float* %a_out, align 4
-  %905 = load float* %a_in, align 4
-  %906 = load <4 x float>* %b4_in, align 16
-  %907 = call <4 x float> @_Z4stepfDv4_f(float %905, <4 x float> %906) readnone
-  store <4 x float> %907, <4 x float>* %a4_out, align 16
-  %908 = load float* %a_in, align 4
-  %909 = load <8 x float>* %b8_in, align 32
-  %910 = call <8 x float> @_Z4stepfDv8_f(float %908, <8 x float> %909) readnone
-  store <8 x float> %910, <8 x float>* %a8_out, align 32
-  %911 = load float* %a_in, align 4
-  %912 = load <16 x float>* %b16_in, align 64
-  %913 = call <16 x float> @_Z4stepfDv16_f(float %911, <16 x float> %912) readnone
-  store <16 x float> %913, <16 x float>* %a16_out, align 64
-  %914 = load float* %a_in, align 4
-  %915 = load float* %b_in, align 4
-  %916 = load float* %c_in, align 4
-  %917 = call float @_Z10smoothstepfff(float %914, float %915, float %916) readnone
-  store float %917, float* %a_out, align 4
-  %918 = load <4 x float>* %a4_in, align 16
-  %919 = load <4 x float>* %b4_in, align 16
-  %920 = load <4 x float>* %c4_in, align 16
-  %921 = call <4 x float> @_Z10smoothstepDv4_fS_S_(<4 x float> %918, <4 x float> %919, <4 x float> %920) readnone
-  store <4 x float> %921, <4 x float>* %a4_out, align 16
-  %922 = load <8 x float>* %a8_in, align 32
-  %923 = load <8 x float>* %b8_in, align 32
-  %924 = load <8 x float>* %c8_in, align 32
-  %925 = call <8 x float> @_Z10smoothstepDv8_fS_S_(<8 x float> %922, <8 x float> %923, <8 x float> %924) readnone
-  store <8 x float> %925, <8 x float>* %a8_out, align 32
-  %926 = load <16 x float>* %a16_in, align 64
-  %927 = load <16 x float>* %b16_in, align 64
-  %928 = load <16 x float>* %c16_in, align 64
-  %929 = call <16 x float> @_Z10smoothstepDv16_fS_S_(<16 x float> %926, <16 x float> %927, <16 x float> %928) readnone
-  store <16 x float> %929, <16 x float>* %a16_out, align 64
-  %930 = load float* %a_in, align 4
-  %931 = load float* %b_in, align 4
-  %932 = load float* %c_in, align 4
-  %933 = call float @_Z10smoothstepfff(float %930, float %931, float %932) readnone
-  store float %933, float* %a_out, align 4
-  %934 = load float* %a_in, align 4
-  %935 = load float* %b_in, align 4
-  %936 = load <4 x float>* %c4_in, align 16
-  %937 = call <4 x float> @_Z10smoothstepffDv4_f(float %934, float %935, <4 x float> %936) readnone
-  store <4 x float> %937, <4 x float>* %a4_out, align 16
-  %938 = load float* %a_in, align 4
-  %939 = load float* %b_in, align 4
-  %940 = load <8 x float>* %c8_in, align 32
-  %941 = call <8 x float> @_Z10smoothstepffDv8_f(float %938, float %939, <8 x float> %940) readnone
-  store <8 x float> %941, <8 x float>* %a8_out, align 32
-  %942 = load float* %a_in, align 4
-  %943 = load float* %b_in, align 4
-  %944 = load <16 x float>* %c16_in, align 64
-  %945 = call <16 x float> @_Z10smoothstepffDv16_f(float %942, float %943, <16 x float> %944) readnone
-  store <16 x float> %945, <16 x float>* %a16_out, align 64
-  %946 = load float* %a_in, align 4
-  %947 = call float @_Z7radiansf(float %946) readnone
-  store float %947, float* %a_out, align 4
-  %948 = load <4 x float>* %a4_in, align 16
-  %949 = call <4 x float> @_Z7radiansDv4_f(<4 x float> %948) readnone
-  store <4 x float> %949, <4 x float>* %a4_out, align 16
-  %950 = load <8 x float>* %a8_in, align 32
-  %951 = call <8 x float> @_Z7radiansDv8_f(<8 x float> %950) readnone
-  store <8 x float> %951, <8 x float>* %a8_out, align 32
-  %952 = load <16 x float>* %a16_in, align 64
-  %953 = call <16 x float> @_Z7radiansDv16_f(<16 x float> %952) readnone
-  store <16 x float> %953, <16 x float>* %a16_out, align 64
-  %954 = load float* %a_in, align 4
-  %955 = call float @_Z7degreesf(float %954) readnone
-  store float %955, float* %a_out, align 4
-  %956 = load <4 x float>* %a4_in, align 16
-  %957 = call <4 x float> @_Z7degreesDv4_f(<4 x float> %956) readnone
-  store <4 x float> %957, <4 x float>* %a4_out, align 16
-  %958 = load <8 x float>* %a8_in, align 32
-  %959 = call <8 x float> @_Z7degreesDv8_f(<8 x float> %958) readnone
-  store <8 x float> %959, <8 x float>* %a8_out, align 32
-  %960 = load <16 x float>* %a16_in, align 64
-  %961 = call <16 x float> @_Z7degreesDv16_f(<16 x float> %960) readnone
-  store <16 x float> %961, <16 x float>* %a16_out, align 64
-  %962 = load float* %a_in, align 4
-  %963 = call float @_Z4signf(float %962) readnone
-  store float %963, float* %a_out, align 4
-  %964 = load <4 x float>* %a4_in, align 16
-  %965 = call <4 x float> @_Z4signDv4_f(<4 x float> %964) readnone
-  store <4 x float> %965, <4 x float>* %a4_out, align 16
-  %966 = load <8 x float>* %a8_in, align 32
-  %967 = call <8 x float> @_Z4signDv8_f(<8 x float> %966) readnone
-  store <8 x float> %967, <8 x float>* %a8_out, align 32
-  %968 = load <16 x float>* %a16_in, align 64
-  %969 = call <16 x float> @_Z4signDv16_f(<16 x float> %968) readnone
-  store <16 x float> %969, <16 x float>* %a16_out, align 64
-  %970 = load float* %a_in, align 4
-  %971 = call float @_Z5floorf(float %970) readnone
-  store float %971, float* %a_out, align 4
-  %972 = load <4 x float>* %a4_in, align 16
-  %973 = call <4 x float> @_Z5floorDv4_f(<4 x float> %972) readnone
-  store <4 x float> %973, <4 x float>* %a4_out, align 16
-  %974 = load <8 x float>* %a8_in, align 32
-  %975 = call <8 x float> @_Z5floorDv8_f(<8 x float> %974) readnone
-  store <8 x float> %975, <8 x float>* %a8_out, align 32
-  %976 = load <16 x float>* %a16_in, align 64
-  %977 = call <16 x float> @_Z5floorDv16_f(<16 x float> %976) readnone
-  store <16 x float> %977, <16 x float>* %a16_out, align 64
-  %978 = load float* %a_in, align 4
-  %979 = load float* %b_in, align 4
-  %980 = call float @_Z3dotff(float %978, float %979) readnone
-  store float %980, float* %a_out, align 4
-  %981 = load <4 x float>* %a4_in, align 16
-  %982 = load <4 x float>* %b4_in, align 16
-  %983 = call float @_Z3dotDv4_fS_(<4 x float> %981, <4 x float> %982) readnone
-  store float %983, float* %a_out, align 4
-  %984 = load float* %a_in, align 4
-  %985 = load float* %b_in, align 4
-  %986 = load float* %c_in, align 4
-  %987 = call float @_Z3mixfff(float %984, float %985, float %986) readnone
-  store float %987, float* %a_out, align 4
-  %988 = load <4 x float>* %a4_in, align 16
-  %989 = load <4 x float>* %b4_in, align 16
-  %990 = load <4 x float>* %c4_in, align 16
-  %991 = call <4 x float> @_Z3mixDv4_fS_S_(<4 x float> %988, <4 x float> %989, <4 x float> %990) readnone
-  store <4 x float> %991, <4 x float>* %a4_out, align 16
-  %992 = load <4 x float>* %a4_in, align 16
-  %993 = load <4 x float>* %b4_in, align 16
-  %994 = load float* %c_in, align 4
-  %995 = call <4 x float> @_Z3mixDv4_fS_f(<4 x float> %992, <4 x float> %993, float %994) readnone
-  store <4 x float> %995, <4 x float>* %a4_out, align 16
-  %996 = load <8 x float>* %a8_in, align 32
-  %997 = load <8 x float>* %b8_in, align 32
-  %998 = load float* %c_in, align 4
-  %999 = call <8 x float> @_Z3mixDv8_fS_f(<8 x float> %996, <8 x float> %997, float %998) readnone
-  store <8 x float> %999, <8 x float>* %a8_out, align 32
-  %1000 = load <16 x float>* %a16_in, align 64
-  %1001 = load <16 x float>* %b16_in, align 64
-  %1002 = load float* %c_in, align 4
-  %1003 = call <16 x float> @_Z3mixDv16_fS_f(<16 x float> %1000, <16 x float> %1001, float %1002) readnone
-  store <16 x float> %1003, <16 x float>* %a16_out, align 64
-  %1004 = load <8 x float>* %a8_in, align 32
-  %1005 = load <8 x float>* %b8_in, align 32
-  %1006 = load <8 x float>* %c8_in, align 32
-  %1007 = call <8 x float> @_Z3mixDv8_fS_S_(<8 x float> %1004, <8 x float> %1005, <8 x float> %1006) readnone
-  store <8 x float> %1007, <8 x float>* %a8_out, align 32
-  %1008 = load <16 x float>* %a16_in, align 64
-  %1009 = load <16 x float>* %b16_in, align 64
-  %1010 = load <16 x float>* %c16_in, align 64
-  %1011 = call <16 x float> @_Z3mixDv16_fS_S_(<16 x float> %1008, <16 x float> %1009, <16 x float> %1010) readnone
-  store <16 x float> %1011, <16 x float>* %a16_out, align 64
-  %1012 = load float* %a_in, align 4
-  %1013 = call float @_Z9normalizef(float %1012) readnone
-  store float %1013, float* %a_out, align 4
-  %1014 = load <4 x float>* %a4_in, align 16
-  %1015 = call <4 x float> @_Z9normalizeDv4_f(<4 x float> %1014) readnone
-  store <4 x float> %1015, <4 x float>* %a4_out, align 16
-  %1016 = load float* %a_in, align 4
-  %1017 = call float @_Z14fast_normalizef(float %1016) readnone
-  store float %1017, float* %a_out, align 4
-  %1018 = load <4 x float>* %a4_in, align 16
-  %1019 = call <4 x float> @_Z14fast_normalizeDv4_f(<4 x float> %1018) readnone
-  store <4 x float> %1019, <4 x float>* %a4_out, align 16
-  %1020 = load <4 x float>* %a4_in, align 16
-  %1021 = load <4 x float>* %b4_in, align 16
-  %1022 = call <4 x float> @_Z5crossDv4_fS_(<4 x float> %1020, <4 x float> %1021) readnone
-  store <4 x float> %1022, <4 x float>* %a4_out, align 16
-  %1023 = load float* %a_in, align 4
-  %1024 = call float @_Z6lengthf(float %1023) readnone
-  store float %1024, float* %a_out, align 4
-  %1025 = load <2 x float>* %a2_in, align 8
-  %1026 = call float @_Z6lengthDv2_f(<2 x float> %1025) readnone
-  store float %1026, float* %a_out, align 4
-  %1027 = load <4 x float>* %a4_in, align 16
-  %1028 = call float @_Z6lengthDv4_f(<4 x float> %1027) readnone
-  store float %1028, float* %a_out, align 4
-  %1029 = load float* %a_in, align 4
-  %1030 = call float @_Z11fast_lengthf(float %1029) readnone
-  store float %1030, float* %a_out, align 4
-  %1031 = load <2 x float>* %a2_in, align 8
-  %1032 = call float @_Z11fast_lengthDv2_f(<2 x float> %1031) readnone
-  store float %1032, float* %a_out, align 4
-  %1033 = load <4 x float>* %a4_in, align 16
-  %1034 = call float @_Z11fast_lengthDv4_f(<4 x float> %1033) readnone
-  store float %1034, float* %a_out, align 4
-  %1035 = load float* %a_in, align 4
-  %1036 = load float* %b_in, align 4
-  %1037 = call float @_Z8distanceff(float %1035, float %1036) readnone
-  store float %1037, float* %a_out, align 4
-  %1038 = load <2 x float>* %a2_in, align 8
-  %1039 = load <2 x float>* %b2_in, align 8
-  %1040 = call float @_Z8distanceDv2_fS_(<2 x float> %1038, <2 x float> %1039) readnone
-  store float %1040, float* %a_out, align 4
-  %1041 = load <4 x float>* %a4_in, align 16
-  %1042 = load <4 x float>* %b4_in, align 16
-  %1043 = call float @_Z8distanceDv4_fS_(<4 x float> %1041, <4 x float> %1042) readnone
-  store float %1043, float* %a_out, align 4
-  %1044 = load float* %a_in, align 4
-  %1045 = load float* %b_in, align 4
-  %1046 = call float @_Z13fast_distanceff(float %1044, float %1045) readnone
-  store float %1046, float* %a_out, align 4
-  %1047 = load <2 x float>* %a2_in, align 8
-  %1048 = load <2 x float>* %b2_in, align 8
-  %1049 = call float @_Z13fast_distanceDv2_fS_(<2 x float> %1047, <2 x float> %1048) readnone
-  store float %1049, float* %a_out, align 4
-  %1050 = load <4 x float>* %a4_in, align 16
-  %1051 = load <4 x float>* %b4_in, align 16
-  %1052 = call float @_Z13fast_distanceDv4_fS_(<4 x float> %1050, <4 x float> %1051) readnone
-  store float %1052, float* %a_out, align 4
-  %1053 = load i32* %tid, align 4
-  %1054 = call float @_Z13convert_floati(i32 %1053) readnone
-  store float %1054, float* %a_out, align 4
-  %1055 = load i32* %tid, align 4
-  %1056 = insertelement <4 x i32> undef, i32 %1055, i32 0
-  %1057 = shufflevector <4 x i32> %1056, <4 x i32> %1056, <4 x i32> zeroinitializer
-  %1058 = call <4 x float> @_Z14convert_float4Dv4_i(<4 x i32> %1057) readnone
-  store <4 x float> %1058, <4 x float>* %a4_out, align 16
-  %1059 = load i32* %tid, align 4
-  %1060 = insertelement <8 x i32> undef, i32 %1059, i32 0
-  %1061 = shufflevector <8 x i32> %1060, <8 x i32> %1060, <8 x i32> zeroinitializer
-  %1062 = call <8 x float> @_Z14convert_float8Dv8_i(<8 x i32> %1061) readnone
-  store <8 x float> %1062, <8 x float>* %a8_out, align 32
-  %1063 = load i32* %tid, align 4
-  %1064 = insertelement <16 x i32> undef, i32 %1063, i32 0
-  %1065 = shufflevector <16 x i32> %1064, <16 x i32> %1064, <16 x i32> zeroinitializer
-  %1066 = call <16 x float> @_Z15convert_float16Dv16_i(<16 x i32> %1065) readnone
-  store <16 x float> %1066, <16 x float>* %a16_out, align 64
-  %1067 = load i32* %tid, align 4
-  %1068 = call float @_Z13convert_floatj(i32 %1067) readnone
-  store float %1068, float* %a_out, align 4
-  %1069 = load i32* %tid, align 4
-  %1070 = insertelement <4 x i32> undef, i32 %1069, i32 0
-  %1071 = shufflevector <4 x i32> %1070, <4 x i32> %1070, <4 x i32> zeroinitializer
-  %1072 = call <4 x float> @_Z14convert_float4Dv4_j(<4 x i32> %1071) readnone
-  store <4 x float> %1072, <4 x float>* %a4_out, align 16
-  %1073 = load i32* %tid, align 4
-  %1074 = insertelement <8 x i32> undef, i32 %1073, i32 0
-  %1075 = shufflevector <8 x i32> %1074, <8 x i32> %1074, <8 x i32> zeroinitializer
-  %1076 = call <8 x float> @_Z14convert_float8Dv8_j(<8 x i32> %1075) readnone
-  store <8 x float> %1076, <8 x float>* %a8_out, align 32
-  %1077 = load i32* %tid, align 4
-  %1078 = insertelement <16 x i32> undef, i32 %1077, i32 0
-  %1079 = shufflevector <16 x i32> %1078, <16 x i32> %1078, <16 x i32> zeroinitializer
-  %1080 = call <16 x float> @_Z15convert_float16Dv16_j(<16 x i32> %1079) readnone
-  store <16 x float> %1080, <16 x float>* %a16_out, align 64
-  %1081 = load float* %a_in, align 4
-  %1082 = load i32* %i_in, align 4
-  %1083 = call float @_Z5rootnfi(float %1081, i32 %1082) readnone
-  store float %1083, float* %a_out, align 4
-  %1084 = load <4 x float>* %a4_in, align 16
-  %1085 = load <4 x i32>* %i4_in, align 16
-  %1086 = call <4 x float> @_Z5rootnDv4_fDv4_i(<4 x float> %1084, <4 x i32> %1085) readnone
-  store <4 x float> %1086, <4 x float>* %a4_out, align 16
-  %1087 = load <8 x float>* %a8_in, align 32
-  %1088 = load <8 x i32>* %i8_in, align 32
-  %1089 = call <8 x float> @_Z5rootnDv8_fDv8_i(<8 x float> %1087, <8 x i32> %1088) readnone
-  store <8 x float> %1089, <8 x float>* %a8_out, align 32
-  %1090 = load <16 x float>* %a16_in, align 64
-  %1091 = load <16 x i32>* %i16_in, align 64
-  %1092 = call <16 x float> @_Z5rootnDv16_fDv16_i(<16 x float> %1090, <16 x i32> %1091) readnone
-  store <16 x float> %1092, <16 x float>* %a16_out, align 64
-  %1093 = load float* %a_in, align 4
-  %1094 = load i32* %i_in, align 4
-  %1095 = call float @_Z5ldexpfi(float %1093, i32 %1094) readnone
-  store float %1095, float* %a_out, align 4
-  %1096 = load <4 x float>* %a4_in, align 16
-  %1097 = load <4 x i32>* %i4_in, align 16
-  %1098 = call <4 x float> @_Z5ldexpDv4_fDv4_i(<4 x float> %1096, <4 x i32> %1097) readnone
-  store <4 x float> %1098, <4 x float>* %a4_out, align 16
-  %1099 = load <8 x float>* %a8_in, align 32
-  %1100 = load <8 x i32>* %i8_in, align 32
-  %1101 = call <8 x float> @_Z5ldexpDv8_fDv8_i(<8 x float> %1099, <8 x i32> %1100) readnone
-  store <8 x float> %1101, <8 x float>* %a8_out, align 32
-  %1102 = load <16 x float>* %a16_in, align 64
-  %1103 = load <16 x i32>* %i16_in, align 64
-  %1104 = call <16 x float> @_Z5ldexpDv16_fDv16_i(<16 x float> %1102, <16 x i32> %1103) readnone
-  store <16 x float> %1104, <16 x float>* %a16_out, align 64
-  %1105 = load <4 x float>* %a4_in, align 16
-  %1106 = load i32* %i_in, align 4
-  %1107 = call <4 x float> @_Z5ldexpDv4_fi(<4 x float> %1105, i32 %1106) readnone
-  store <4 x float> %1107, <4 x float>* %a4_out, align 16
-  %1108 = load <8 x float>* %a8_in, align 32
-  %1109 = load i32* %i_in, align 4
-  %1110 = call <8 x float> @_Z5ldexpDv8_fi(<8 x float> %1108, i32 %1109) readnone
-  store <8 x float> %1110, <8 x float>* %a8_out, align 32
-  %1111 = load <16 x float>* %a16_in, align 64
-  %1112 = load i32* %i_in, align 4
-  %1113 = call <16 x float> @_Z5ldexpDv16_fi(<16 x float> %1111, i32 %1112) readnone
-  store <16 x float> %1113, <16 x float>* %a16_out, align 64
-  %1114 = load float* %a_in, align 4
-  %1115 = call float @_Z4modffPf(float %1114, float* %b_out)
-  store float %1115, float* %a_out, align 4
-  %1116 = load <4 x float>* %a4_in, align 16
-  %1117 = call <4 x float> @_Z4modfDv4_fPS_(<4 x float> %1116, <4 x float>* %b4_out)
-  store <4 x float> %1117, <4 x float>* %a4_out, align 16
-  %1118 = load <8 x float>* %a8_in, align 32
-  %1119 = call <8 x float> @_Z4modfDv8_fPS_(<8 x float> %1118, <8 x float>* %b8_out)
-  store <8 x float> %1119, <8 x float>* %a8_out, align 32
-  %1120 = load <16 x float>* %a16_in, align 64
-  %1121 = call <16 x float> @_Z4modfDv16_fPS_(<16 x float> %1120, <16 x float>* %b16_out)
-  store <16 x float> %1121, <16 x float>* %a16_out, align 64
-  %1122 = load float* %a_in, align 4
-  %1123 = call float @_Z5frexpfPi(float %1122, i32* %i_out)
-  store float %1123, float* %a_out, align 4
-  %1124 = load <4 x float>* %a4_in, align 16
-  %1125 = call <4 x float> @_Z5frexpDv4_fPDv4_i(<4 x float> %1124, <4 x i32>* %i4_out)
-  store <4 x float> %1125, <4 x float>* %a4_out, align 16
-  %1126 = load <8 x float>* %a8_in, align 32
-  %1127 = call <8 x float> @_Z5frexpDv8_fPDv8_i(<8 x float> %1126, <8 x i32>* %i8_out)
-  store <8 x float> %1127, <8 x float>* %a8_out, align 32
-  %1128 = load <16 x float>* %a16_in, align 64
-  %1129 = call <16 x float> @_Z5frexpDv16_fPDv16_i(<16 x float> %1128, <16 x i32>* %i16_out)
-  store <16 x float> %1129, <16 x float>* %a16_out, align 64
-  %1130 = load float* %a_in, align 4
-  %1131 = load float* %b_in, align 4
-  %1132 = call float @_Z6maxmagff(float %1130, float %1131) readnone
-  store float %1132, float* %a_out, align 4
-  %1133 = load <4 x float>* %a4_in, align 16
-  %1134 = load <4 x float>* %b4_in, align 16
-  %1135 = call <4 x float> @_Z6maxmagDv4_fS_(<4 x float> %1133, <4 x float> %1134) readnone
-  store <4 x float> %1135, <4 x float>* %a4_out, align 16
-  %1136 = load <8 x float>* %a8_in, align 32
-  %1137 = load <8 x float>* %b8_in, align 32
-  %1138 = call <8 x float> @_Z6maxmagDv8_fS_(<8 x float> %1136, <8 x float> %1137) readnone
-  store <8 x float> %1138, <8 x float>* %a8_out, align 32
-  %1139 = load <16 x float>* %a16_in, align 64
-  %1140 = load <16 x float>* %b16_in, align 64
-  %1141 = call <16 x float> @_Z6maxmagDv16_fS_(<16 x float> %1139, <16 x float> %1140) readnone
-  store <16 x float> %1141, <16 x float>* %a16_out, align 64
-  %1142 = load float* %a_in, align 4
-  %1143 = load float* %b_in, align 4
-  %1144 = call float @_Z6minmagff(float %1142, float %1143) readnone
-  store float %1144, float* %a_out, align 4
-  %1145 = load <4 x float>* %a4_in, align 16
-  %1146 = load <4 x float>* %b4_in, align 16
-  %1147 = call <4 x float> @_Z6minmagDv4_fS_(<4 x float> %1145, <4 x float> %1146) readnone
-  store <4 x float> %1147, <4 x float>* %a4_out, align 16
-  %1148 = load <8 x float>* %a8_in, align 32
-  %1149 = load <8 x float>* %b8_in, align 32
-  %1150 = call <8 x float> @_Z6minmagDv8_fS_(<8 x float> %1148, <8 x float> %1149) readnone
-  store <8 x float> %1150, <8 x float>* %a8_out, align 32
-  %1151 = load <16 x float>* %a16_in, align 64
-  %1152 = load <16 x float>* %b16_in, align 64
-  %1153 = call <16 x float> @_Z6minmagDv16_fS_(<16 x float> %1151, <16 x float> %1152) readnone
-  store <16 x float> %1153, <16 x float>* %a16_out, align 64
-  %1154 = load float* %a_in, align 4
-  %1155 = load float* %b_in, align 4
-  %1156 = call float @_Z8copysignff(float %1154, float %1155) readnone
-  store float %1156, float* %a_out, align 4
-  %1157 = load <4 x float>* %a4_in, align 16
-  %1158 = load <4 x float>* %b4_in, align 16
-  %1159 = call <4 x float> @_Z8copysignDv4_fS_(<4 x float> %1157, <4 x float> %1158) readnone
-  store <4 x float> %1159, <4 x float>* %a4_out, align 16
-  %1160 = load <8 x float>* %a8_in, align 32
-  %1161 = load <8 x float>* %b8_in, align 32
-  %1162 = call <8 x float> @_Z8copysignDv8_fS_(<8 x float> %1160, <8 x float> %1161) readnone
-  store <8 x float> %1162, <8 x float>* %a8_out, align 32
-  %1163 = load <16 x float>* %a16_in, align 64
-  %1164 = load <16 x float>* %b16_in, align 64
-  %1165 = call <16 x float> @_Z8copysignDv16_fS_(<16 x float> %1163, <16 x float> %1164) readnone
-  store <16 x float> %1165, <16 x float>* %a16_out, align 64
-  %1166 = load float* %a_in, align 4
-  %1167 = load float* %b_in, align 4
-  %1168 = call float @_Z9nextafterff(float %1166, float %1167) readnone
-  store float %1168, float* %a_out, align 4
-  %1169 = load <4 x float>* %a4_in, align 16
-  %1170 = load <4 x float>* %b4_in, align 16
-  %1171 = call <4 x float> @_Z9nextafterDv4_fS_(<4 x float> %1169, <4 x float> %1170) readnone
-  store <4 x float> %1171, <4 x float>* %a4_out, align 16
-  %1172 = load <8 x float>* %a8_in, align 32
-  %1173 = load <8 x float>* %b8_in, align 32
-  %1174 = call <8 x float> @_Z9nextafterDv8_fS_(<8 x float> %1172, <8 x float> %1173) readnone
-  store <8 x float> %1174, <8 x float>* %a8_out, align 32
-  %1175 = load <16 x float>* %a16_in, align 64
-  %1176 = load <16 x float>* %b16_in, align 64
-  %1177 = call <16 x float> @_Z9nextafterDv16_fS_(<16 x float> %1175, <16 x float> %1176) readnone
-  store <16 x float> %1177, <16 x float>* %a16_out, align 64
-  %1178 = load float* %a_in, align 4
-  %1179 = load float* %b_in, align 4
-  %1180 = call float @_Z4fdimff(float %1178, float %1179) readnone
-  store float %1180, float* %a_out, align 4
-  %1181 = load <4 x float>* %a4_in, align 16
-  %1182 = load <4 x float>* %b4_in, align 16
-  %1183 = call <4 x float> @_Z4fdimDv4_fS_(<4 x float> %1181, <4 x float> %1182) readnone
-  store <4 x float> %1183, <4 x float>* %a4_out, align 16
-  %1184 = load <8 x float>* %a8_in, align 32
-  %1185 = load <8 x float>* %b8_in, align 32
-  %1186 = call <8 x float> @_Z4fdimDv8_fS_(<8 x float> %1184, <8 x float> %1185) readnone
-  store <8 x float> %1186, <8 x float>* %a8_out, align 32
-  %1187 = load <16 x float>* %a16_in, align 64
-  %1188 = load <16 x float>* %b16_in, align 64
-  %1189 = call <16 x float> @_Z4fdimDv16_fS_(<16 x float> %1187, <16 x float> %1188) readnone
-  store <16 x float> %1189, <16 x float>* %a16_out, align 64
-  %1190 = load float* %a_in, align 4
-  %1191 = load float* %b_in, align 4
-  %1192 = load float* %c_in, align 4
-  %1193 = call float @_Z3fmafff(float %1190, float %1191, float %1192) readnone
-  store float %1193, float* %a_out, align 4
-  %1194 = load <4 x float>* %a4_in, align 16
-  %1195 = load <4 x float>* %b4_in, align 16
-  %1196 = load <4 x float>* %c4_in, align 16
-  %1197 = call <4 x float> @_Z3fmaDv4_fS_S_(<4 x float> %1194, <4 x float> %1195, <4 x float> %1196) readnone
-  store <4 x float> %1197, <4 x float>* %a4_out, align 16
-  %1198 = load <8 x float>* %a8_in, align 32
-  %1199 = load <8 x float>* %b8_in, align 32
-  %1200 = load <8 x float>* %c8_in, align 32
-  %1201 = call <8 x float> @_Z3fmaDv8_fS_S_(<8 x float> %1198, <8 x float> %1199, <8 x float> %1200) readnone
-  store <8 x float> %1201, <8 x float>* %a8_out, align 32
-  %1202 = load <16 x float>* %a16_in, align 64
-  %1203 = load <16 x float>* %b16_in, align 64
-  %1204 = load <16 x float>* %c16_in, align 64
-  %1205 = call <16 x float> @_Z3fmaDv16_fS_S_(<16 x float> %1202, <16 x float> %1203, <16 x float> %1204) readnone
-  store <16 x float> %1205, <16 x float>* %a16_out, align 64
-  %1206 = load float* %a_in, align 4
-  %1207 = load float* %b_in, align 4
-  %1208 = load float* %c_in, align 4
-  %1209 = call float @_Z3madfff(float %1206, float %1207, float %1208) readnone
-  store float %1209, float* %a_out, align 4
-  %1210 = load <4 x float>* %a4_in, align 16
-  %1211 = load <4 x float>* %b4_in, align 16
-  %1212 = load <4 x float>* %c4_in, align 16
-  %1213 = call <4 x float> @_Z3madDv4_fS_S_(<4 x float> %1210, <4 x float> %1211, <4 x float> %1212) readnone
-  store <4 x float> %1213, <4 x float>* %a4_out, align 16
-  %1214 = load <8 x float>* %a8_in, align 32
-  %1215 = load <8 x float>* %b8_in, align 32
-  %1216 = load <8 x float>* %c8_in, align 32
-  %1217 = call <8 x float> @_Z3madDv8_fS_S_(<8 x float> %1214, <8 x float> %1215, <8 x float> %1216) readnone
-  store <8 x float> %1217, <8 x float>* %a8_out, align 32
-  %1218 = load <16 x float>* %a16_in, align 64
-  %1219 = load <16 x float>* %b16_in, align 64
-  %1220 = load <16 x float>* %c16_in, align 64
-  %1221 = call <16 x float> @_Z3madDv16_fS_S_(<16 x float> %1218, <16 x float> %1219, <16 x float> %1220) readnone
-  store <16 x float> %1221, <16 x float>* %a16_out, align 64
-  %1222 = load float* %a_in, align 4
-  %1223 = call float @_Z4rintf(float %1222) readnone
-  store float %1223, float* %a_out, align 4
-  %1224 = load <4 x float>* %a4_in, align 16
-  %1225 = call <4 x float> @_Z4rintDv4_f(<4 x float> %1224) readnone
-  store <4 x float> %1225, <4 x float>* %a4_out, align 16
-  %1226 = load <8 x float>* %a8_in, align 32
-  %1227 = call <8 x float> @_Z4rintDv8_f(<8 x float> %1226) readnone
-  store <8 x float> %1227, <8 x float>* %a8_out, align 32
-  %1228 = load <16 x float>* %a16_in, align 64
-  %1229 = call <16 x float> @_Z4rintDv16_f(<16 x float> %1228) readnone
-  store <16 x float> %1229, <16 x float>* %a16_out, align 64
-  %1230 = load float* %a_in, align 4
-  %1231 = call float @_Z5roundf(float %1230) readnone
-  store float %1231, float* %a_out, align 4
-  %1232 = load <4 x float>* %a4_in, align 16
-  %1233 = call <4 x float> @_Z5roundDv4_f(<4 x float> %1232) readnone
-  store <4 x float> %1233, <4 x float>* %a4_out, align 16
-  %1234 = load <8 x float>* %a8_in, align 32
-  %1235 = call <8 x float> @_Z5roundDv8_f(<8 x float> %1234) readnone
-  store <8 x float> %1235, <8 x float>* %a8_out, align 32
-  %1236 = load <16 x float>* %a16_in, align 64
-  %1237 = call <16 x float> @_Z5roundDv16_f(<16 x float> %1236) readnone
-  store <16 x float> %1237, <16 x float>* %a16_out, align 64
-  %1238 = load float* %a_in, align 4
-  %1239 = call float @_Z5truncf(float %1238) readnone
-  store float %1239, float* %a_out, align 4
-  %1240 = load <4 x float>* %a4_in, align 16
-  %1241 = call <4 x float> @_Z5truncDv4_f(<4 x float> %1240) readnone
-  store <4 x float> %1241, <4 x float>* %a4_out, align 16
-  %1242 = load <8 x float>* %a8_in, align 32
-  %1243 = call <8 x float> @_Z5truncDv8_f(<8 x float> %1242) readnone
-  store <8 x float> %1243, <8 x float>* %a8_out, align 32
-  %1244 = load <16 x float>* %a16_in, align 64
-  %1245 = call <16 x float> @_Z5truncDv16_f(<16 x float> %1244) readnone
-  store <16 x float> %1245, <16 x float>* %a16_out, align 64
-  %1246 = load float* %a_in, align 4
-  %1247 = call float @_Z4cbrtf(float %1246) readnone
-  store float %1247, float* %a_out, align 4
-  %1248 = load <4 x float>* %a4_in, align 16
-  %1249 = call <4 x float> @_Z4cbrtDv4_f(<4 x float> %1248) readnone
-  store <4 x float> %1249, <4 x float>* %a4_out, align 16
-  %1250 = load <8 x float>* %a8_in, align 32
-  %1251 = call <8 x float> @_Z4cbrtDv8_f(<8 x float> %1250) readnone
-  store <8 x float> %1251, <8 x float>* %a8_out, align 32
-  %1252 = load <16 x float>* %a16_in, align 64
-  %1253 = call <16 x float> @_Z4cbrtDv16_f(<16 x float> %1252) readnone
-  store <16 x float> %1253, <16 x float>* %a16_out, align 64
-  %1254 = load float* %a_in, align 4
-  %1255 = load float* %b_in, align 4
-  %1256 = call float @_Z4powrff(float %1254, float %1255) readnone
-  store float %1256, float* %a_out, align 4
-  %1257 = load <4 x float>* %a4_in, align 16
-  %1258 = load <4 x float>* %b4_in, align 16
-  %1259 = call <4 x float> @_Z4powrDv4_fS_(<4 x float> %1257, <4 x float> %1258) readnone
-  store <4 x float> %1259, <4 x float>* %a4_out, align 16
-  %1260 = load <8 x float>* %a8_in, align 32
-  %1261 = load <8 x float>* %b8_in, align 32
-  %1262 = call <8 x float> @_Z4powrDv8_fS_(<8 x float> %1260, <8 x float> %1261) readnone
-  store <8 x float> %1262, <8 x float>* %a8_out, align 32
-  %1263 = load <16 x float>* %a16_in, align 64
-  %1264 = load <16 x float>* %b16_in, align 64
-  %1265 = call <16 x float> @_Z4powrDv16_fS_(<16 x float> %1263, <16 x float> %1264) readnone
-  store <16 x float> %1265, <16 x float>* %a16_out, align 64
-  %1266 = load float* %a_in, align 4
-  %1267 = load float* %b_in, align 4
-  %1268 = call float @_Z4fmodff(float %1266, float %1267) readnone
-  store float %1268, float* %a_out, align 4
-  %1269 = load <4 x float>* %a4_in, align 16
-  %1270 = load <4 x float>* %b4_in, align 16
-  %1271 = call <4 x float> @_Z4fmodDv4_fS_(<4 x float> %1269, <4 x float> %1270) readnone
-  store <4 x float> %1271, <4 x float>* %a4_out, align 16
-  %1272 = load <8 x float>* %a8_in, align 32
-  %1273 = load <8 x float>* %b8_in, align 32
-  %1274 = call <8 x float> @_Z4fmodDv8_fS_(<8 x float> %1272, <8 x float> %1273) readnone
-  store <8 x float> %1274, <8 x float>* %a8_out, align 32
-  %1275 = load <16 x float>* %a16_in, align 64
-  %1276 = load <16 x float>* %b16_in, align 64
-  %1277 = call <16 x float> @_Z4fmodDv16_fS_(<16 x float> %1275, <16 x float> %1276) readnone
-  store <16 x float> %1277, <16 x float>* %a16_out, align 64
-  %1278 = load float* %a_in, align 4
-  %1279 = load float* %b_in, align 4
-  %1280 = call float @_Z4fminff(float %1278, float %1279) readnone
-  store float %1280, float* %a_out, align 4
-  %1281 = load <4 x float>* %a4_in, align 16
-  %1282 = load <4 x float>* %b4_in, align 16
-  %1283 = call <4 x float> @_Z4fminDv4_fS_(<4 x float> %1281, <4 x float> %1282) readnone
-  store <4 x float> %1283, <4 x float>* %a4_out, align 16
-  %1284 = load <8 x float>* %a8_in, align 32
-  %1285 = load <8 x float>* %b8_in, align 32
-  %1286 = call <8 x float> @_Z4fminDv8_fS_(<8 x float> %1284, <8 x float> %1285) readnone
-  store <8 x float> %1286, <8 x float>* %a8_out, align 32
-  %1287 = load <16 x float>* %a16_in, align 64
-  %1288 = load <16 x float>* %b16_in, align 64
-  %1289 = call <16 x float> @_Z4fminDv16_fS_(<16 x float> %1287, <16 x float> %1288) readnone
-  store <16 x float> %1289, <16 x float>* %a16_out, align 64
-  %1290 = load float* %a_in, align 4
-  %1291 = load float* %b_in, align 4
-  %1292 = call float @_Z4fmaxff(float %1290, float %1291) readnone
-  store float %1292, float* %a_out, align 4
-  %1293 = load <4 x float>* %a4_in, align 16
-  %1294 = load <4 x float>* %b4_in, align 16
-  %1295 = call <4 x float> @_Z4fmaxDv4_fS_(<4 x float> %1293, <4 x float> %1294) readnone
-  store <4 x float> %1295, <4 x float>* %a4_out, align 16
-  %1296 = load <8 x float>* %a8_in, align 32
-  %1297 = load <8 x float>* %b8_in, align 32
-  %1298 = call <8 x float> @_Z4fmaxDv8_fS_(<8 x float> %1296, <8 x float> %1297) readnone
-  store <8 x float> %1298, <8 x float>* %a8_out, align 32
-  %1299 = load <16 x float>* %a16_in, align 64
-  %1300 = load <16 x float>* %b16_in, align 64
-  %1301 = call <16 x float> @_Z4fmaxDv16_fS_(<16 x float> %1299, <16 x float> %1300) readnone
-  store <16 x float> %1301, <16 x float>* %a16_out, align 64
-  %1302 = load <4 x float>* %a4_in, align 16
-  %1303 = load float* %b_in, align 4
-  %1304 = call <4 x float> @_Z4fminDv4_ff(<4 x float> %1302, float %1303) readnone
-  store <4 x float> %1304, <4 x float>* %a4_out, align 16
-  %1305 = load <8 x float>* %a8_in, align 32
-  %1306 = load float* %b_in, align 4
-  %1307 = call <8 x float> @_Z4fminDv8_ff(<8 x float> %1305, float %1306) readnone
-  store <8 x float> %1307, <8 x float>* %a8_out, align 32
-  %1308 = load <16 x float>* %a16_in, align 64
-  %1309 = load float* %b_in, align 4
-  %1310 = call <16 x float> @_Z4fminDv16_ff(<16 x float> %1308, float %1309) readnone
-  store <16 x float> %1310, <16 x float>* %a16_out, align 64
-  %1311 = load <4 x float>* %a4_in, align 16
-  %1312 = load float* %b_in, align 4
-  %1313 = call <4 x float> @_Z4fmaxDv4_ff(<4 x float> %1311, float %1312) readnone
-  store <4 x float> %1313, <4 x float>* %a4_out, align 16
-  %1314 = load <8 x float>* %a8_in, align 32
-  %1315 = load float* %b_in, align 4
-  %1316 = call <8 x float> @_Z4fmaxDv8_ff(<8 x float> %1314, float %1315) readnone
-  store <8 x float> %1316, <8 x float>* %a8_out, align 32
-  %1317 = load <16 x float>* %a16_in, align 64
-  %1318 = load float* %b_in, align 4
-  %1319 = call <16 x float> @_Z4fmaxDv16_ff(<16 x float> %1317, float %1318) readnone
-  store <16 x float> %1319, <16 x float>* %a16_out, align 64
-  %1320 = load <4 x float>* %a4_in, align 16
-  %1321 = load i32* %i_in, align 4
-  %1322 = insertelement <4 x i32> undef, i32 %1321, i32 0
-  %1323 = shufflevector <4 x i32> %1322, <4 x i32> %1322, <4 x i32> zeroinitializer
-  %1324 = call <4 x float> @_Z4pownDv4_fDv4_i(<4 x float> %1320, <4 x i32> %1323) readnone
-  store <4 x float> %1324, <4 x float>* %a4_out, align 16
-  %1325 = load <8 x float>* %a8_in, align 32
-  %1326 = load i32* %i_in, align 4
-  %1327 = insertelement <8 x i32> undef, i32 %1326, i32 0
-  %1328 = shufflevector <8 x i32> %1327, <8 x i32> %1327, <8 x i32> zeroinitializer
-  %1329 = call <8 x float> @_Z4pownDv8_fDv8_i(<8 x float> %1325, <8 x i32> %1328) readnone
-  store <8 x float> %1329, <8 x float>* %a8_out, align 32
-  %1330 = load <16 x float>* %a16_in, align 64
-  %1331 = load i32* %i_in, align 4
-  %1332 = insertelement <16 x i32> undef, i32 %1331, i32 0
-  %1333 = shufflevector <16 x i32> %1332, <16 x i32> %1332, <16 x i32> zeroinitializer
-  %1334 = call <16 x float> @_Z4pownDv16_fDv16_i(<16 x float> %1330, <16 x i32> %1333) readnone
-  store <16 x float> %1334, <16 x float>* %a16_out, align 64
-  %1335 = load float* %a_in, align 4
-  %1336 = call i32 @_Z5ilogbf(float %1335) readnone
-  store i32 %1336, i32* %i_out, align 4
-  %1337 = load <4 x float>* %a4_in, align 16
-  %1338 = call <4 x i32> @_Z5ilogbDv4_f(<4 x float> %1337) readnone
-  store <4 x i32> %1338, <4 x i32>* %i4_out, align 16
-  %1339 = load <8 x float>* %a8_in, align 32
-  %1340 = call <8 x i32> @_Z5ilogbDv8_f(<8 x float> %1339) readnone
-  store <8 x i32> %1340, <8 x i32>* %i8_out, align 32
-  %1341 = load <16 x float>* %a16_in, align 64
-  %1342 = call <16 x i32> @_Z5ilogbDv16_f(<16 x float> %1341) readnone
-  store <16 x i32> %1342, <16 x i32>* %i16_out, align 64
-  %1343 = load i32* %ui_in, align 4
-  %1344 = call float @_Z3nanj(i32 %1343) readnone
-  store float %1344, float* %a_out, align 4
-  %1345 = load <4 x i32>* %ui4_in, align 16
-  %1346 = call <4 x float> @_Z3nanDv4_j(<4 x i32> %1345) readnone
-  store <4 x float> %1346, <4 x float>* %a4_out, align 16
-  %1347 = load <8 x i32>* %ui8_in, align 32
-  %1348 = call <8 x float> @_Z3nanDv8_j(<8 x i32> %1347) readnone
-  store <8 x float> %1348, <8 x float>* %a8_out, align 32
-  %1349 = load <16 x i32>* %ui16_in, align 64
-  %1350 = call <16 x float> @_Z3nanDv16_j(<16 x i32> %1349) readnone
-  store <16 x float> %1350, <16 x float>* %a16_out, align 64
-  %1351 = load float* %a_in, align 4
-  %1352 = call float @_Z5fractfPf(float %1351, float* %b_out)
-  store float %1352, float* %a_out, align 4
-  %1353 = load <4 x float>* %a4_in, align 16
-  %1354 = call <4 x float> @_Z5fractDv4_fPS_(<4 x float> %1353, <4 x float>* %b4_out)
-  store <4 x float> %1354, <4 x float>* %a4_out, align 16
-  %1355 = load <8 x float>* %a8_in, align 32
-  %1356 = call <8 x float> @_Z5fractDv8_fPS_(<8 x float> %1355, <8 x float>* %b8_out)
-  store <8 x float> %1356, <8 x float>* %a8_out, align 32
-  %1357 = load <16 x float>* %a16_in, align 64
-  %1358 = call <16 x float> @_Z5fractDv16_fPS_(<16 x float> %1357, <16 x float>* %b16_out)
-  store <16 x float> %1358, <16 x float>* %a16_out, align 64
-  %1359 = load float* %a_in, align 4
-  %1360 = call float @_Z6lgammaf(float %1359) readnone
-  store float %1360, float* %a_out, align 4
-  %1361 = load <4 x float>* %a4_in, align 16
-  %1362 = call <4 x float> @_Z6lgammaDv4_f(<4 x float> %1361) readnone
-  store <4 x float> %1362, <4 x float>* %a4_out, align 16
-  %1363 = load <8 x float>* %a8_in, align 32
-  %1364 = call <8 x float> @_Z6lgammaDv8_f(<8 x float> %1363) readnone
-  store <8 x float> %1364, <8 x float>* %a8_out, align 32
-  %1365 = load <16 x float>* %a16_in, align 64
-  %1366 = call <16 x float> @_Z6lgammaDv16_f(<16 x float> %1365) readnone
-  store <16 x float> %1366, <16 x float>* %a16_out, align 64
-  %1367 = load float* %a_in, align 4
-  %1368 = call float @_Z8lgamma_rfPi(float %1367, i32* %i_out)
-  store float %1368, float* %a_out, align 4
-  %1369 = load <4 x float>* %a4_in, align 16
-  %1370 = call <4 x float> @_Z8lgamma_rDv4_fPDv4_i(<4 x float> %1369, <4 x i32>* %i4_out)
-  store <4 x float> %1370, <4 x float>* %a4_out, align 16
-  %1371 = load <8 x float>* %a8_in, align 32
-  %1372 = call <8 x float> @_Z8lgamma_rDv8_fPDv8_i(<8 x float> %1371, <8 x i32>* %i8_out)
-  store <8 x float> %1372, <8 x float>* %a8_out, align 32
-  %1373 = load <16 x float>* %a16_in, align 64
-  %1374 = call <16 x float> @_Z8lgamma_rDv16_fPDv16_i(<16 x float> %1373, <16 x i32>* %i16_out)
-  store <16 x float> %1374, <16 x float>* %a16_out, align 64
-  %1375 = load float* %a_in, align 4
-  %1376 = load float* %b_in, align 4
-  %1377 = load float* %c_in, align 4
-  %1378 = call float @_Z9bitselectfff(float %1375, float %1376, float %1377) readnone
-  store float %1378, float* %a_out, align 4
-  %1379 = load <4 x float>* %a4_in, align 16
-  %1380 = load <4 x float>* %b4_in, align 16
-  %1381 = load <4 x float>* %c4_in, align 16
-  %1382 = call <4 x float> @_Z9bitselectDv4_fS_S_(<4 x float> %1379, <4 x float> %1380, <4 x float> %1381) readnone
-  store <4 x float> %1382, <4 x float>* %a4_out, align 16
-  %1383 = load <8 x float>* %a8_in, align 32
-  %1384 = load <8 x float>* %b8_in, align 32
-  %1385 = load <8 x float>* %c8_in, align 32
-  %1386 = call <8 x float> @_Z9bitselectDv8_fS_S_(<8 x float> %1383, <8 x float> %1384, <8 x float> %1385) readnone
-  store <8 x float> %1386, <8 x float>* %a8_out, align 32
-  %1387 = load <16 x float>* %a16_in, align 64
-  %1388 = load <16 x float>* %b16_in, align 64
-  %1389 = load <16 x float>* %c16_in, align 64
-  %1390 = call <16 x float> @_Z9bitselectDv16_fS_S_(<16 x float> %1387, <16 x float> %1388, <16 x float> %1389) readnone
-  store <16 x float> %1390, <16 x float>* %a16_out, align 64
-  %1391 = load float* %a_in, align 4
-  %1392 = load float* %b_in, align 4
-  %1393 = load i8* %ch_in, align 1
-  %1394 = call float @_Z6selectffc(float %1391, float %1392, i8 signext %1393) readnone
-  store float %1394, float* %a_out, align 4
-  %1395 = load <4 x float>* %a4_in, align 16
-  %1396 = load <4 x float>* %b4_in, align 16
-  %1397 = load <4 x i8>* %ch4_in, align 4
-  %1398 = call <4 x float> @_Z6selectDv4_fS_Dv4_c(<4 x float> %1395, <4 x float> %1396, <4 x i8> %1397) readnone
-  store <4 x float> %1398, <4 x float>* %a4_out, align 16
-  %1399 = load <8 x float>* %a8_in, align 32
-  %1400 = load <8 x float>* %b8_in, align 32
-  %1401 = load <8 x i8>* %ch8_in, align 8
-  %1402 = call <8 x float> @_Z6selectDv8_fS_Dv8_c(<8 x float> %1399, <8 x float> %1400, <8 x i8> %1401) readnone
-  store <8 x float> %1402, <8 x float>* %a8_out, align 32
-  %1403 = load <16 x float>* %a16_in, align 64
-  %1404 = load <16 x float>* %b16_in, align 64
-  %1405 = load <16 x i8>* %ch16_in, align 16
-  %1406 = call <16 x float> @_Z6selectDv16_fS_Dv16_c(<16 x float> %1403, <16 x float> %1404, <16 x i8> %1405) readnone
-  store <16 x float> %1406, <16 x float>* %a16_out, align 64
-  %1407 = load float* %a_in, align 4
-  %1408 = load float* %b_in, align 4
-  %1409 = load i8* %uch_in, align 1
-  %1410 = call float @_Z6selectffh(float %1407, float %1408, i8 zeroext %1409) readnone
-  store float %1410, float* %a_out, align 4
-  %1411 = load <4 x float>* %a4_in, align 16
-  %1412 = load <4 x float>* %b4_in, align 16
-  %1413 = load <4 x i8>* %uch4_in, align 4
-  %1414 = call <4 x float> @_Z6selectDv4_fS_Dv4_h(<4 x float> %1411, <4 x float> %1412, <4 x i8> %1413) readnone
-  store <4 x float> %1414, <4 x float>* %a4_out, align 16
-  %1415 = load <8 x float>* %a8_in, align 32
-  %1416 = load <8 x float>* %b8_in, align 32
-  %1417 = load <8 x i8>* %uch8_in, align 8
-  %1418 = call <8 x float> @_Z6selectDv8_fS_Dv8_h(<8 x float> %1415, <8 x float> %1416, <8 x i8> %1417) readnone
-  store <8 x float> %1418, <8 x float>* %a8_out, align 32
-  %1419 = load <16 x float>* %a16_in, align 64
-  %1420 = load <16 x float>* %b16_in, align 64
-  %1421 = load <16 x i8>* %uch16_in, align 16
-  %1422 = call <16 x float> @_Z6selectDv16_fS_Dv16_h(<16 x float> %1419, <16 x float> %1420, <16 x i8> %1421) readnone
-  store <16 x float> %1422, <16 x float>* %a16_out, align 64
-  %1423 = load float* %a_in, align 4
-  %1424 = load float* %b_in, align 4
-  %1425 = load i16* %s_in, align 2
-  %1426 = call float @_Z6selectffs(float %1423, float %1424, i16 signext %1425) readnone
-  store float %1426, float* %a_out, align 4
-  %1427 = load <4 x float>* %a4_in, align 16
-  %1428 = load <4 x float>* %b4_in, align 16
-  %1429 = load <4 x i16>* %s4_in, align 8
-  %1430 = call <4 x float> @_Z6selectDv4_fS_Dv4_s(<4 x float> %1427, <4 x float> %1428, <4 x i16> %1429) readnone
-  store <4 x float> %1430, <4 x float>* %a4_out, align 16
-  %1431 = load <8 x float>* %a8_in, align 32
-  %1432 = load <8 x float>* %b8_in, align 32
-  %1433 = load <8 x i16>* %s8_in, align 16
-  %1434 = call <8 x float> @_Z6selectDv8_fS_Dv8_s(<8 x float> %1431, <8 x float> %1432, <8 x i16> %1433) readnone
-  store <8 x float> %1434, <8 x float>* %a8_out, align 32
-  %1435 = load <16 x float>* %a16_in, align 64
-  %1436 = load <16 x float>* %b16_in, align 64
-  %1437 = load <16 x i16>* %s16_in, align 32
-  %1438 = call <16 x float> @_Z6selectDv16_fS_Dv16_s(<16 x float> %1435, <16 x float> %1436, <16 x i16> %1437) readnone
-  store <16 x float> %1438, <16 x float>* %a16_out, align 64
-  %1439 = load float* %a_in, align 4
-  %1440 = load float* %b_in, align 4
-  %1441 = load i16* %us_in, align 2
-  %1442 = call float @_Z6selectfft(float %1439, float %1440, i16 zeroext %1441) readnone
-  store float %1442, float* %a_out, align 4
-  %1443 = load <4 x float>* %a4_in, align 16
-  %1444 = load <4 x float>* %b4_in, align 16
-  %1445 = load <4 x i16>* %us4_in, align 8
-  %1446 = call <4 x float> @_Z6selectDv4_fS_Dv4_t(<4 x float> %1443, <4 x float> %1444, <4 x i16> %1445) readnone
-  store <4 x float> %1446, <4 x float>* %a4_out, align 16
-  %1447 = load <8 x float>* %a8_in, align 32
-  %1448 = load <8 x float>* %b8_in, align 32
-  %1449 = load <8 x i16>* %us8_in, align 16
-  %1450 = call <8 x float> @_Z6selectDv8_fS_Dv8_t(<8 x float> %1447, <8 x float> %1448, <8 x i16> %1449) readnone
-  store <8 x float> %1450, <8 x float>* %a8_out, align 32
-  %1451 = load <16 x float>* %a16_in, align 64
-  %1452 = load <16 x float>* %b16_in, align 64
-  %1453 = load <16 x i16>* %us16_in, align 32
-  %1454 = call <16 x float> @_Z6selectDv16_fS_Dv16_t(<16 x float> %1451, <16 x float> %1452, <16 x i16> %1453) readnone
-  store <16 x float> %1454, <16 x float>* %a16_out, align 64
-  %1455 = load float* %a_in, align 4
-  %1456 = load float* %b_in, align 4
-  %1457 = load i32* %i_in, align 4
-  %1458 = call float @_Z6selectffi(float %1455, float %1456, i32 %1457) readnone
-  store float %1458, float* %a_out, align 4
-  %1459 = load <4 x float>* %a4_in, align 16
-  %1460 = load <4 x float>* %b4_in, align 16
-  %1461 = load <4 x i32>* %i4_in, align 16
-  %1462 = call <4 x float> @_Z6selectDv4_fS_Dv4_i(<4 x float> %1459, <4 x float> %1460, <4 x i32> %1461) readnone
-  store <4 x float> %1462, <4 x float>* %a4_out, align 16
-  %1463 = load <8 x float>* %a8_in, align 32
-  %1464 = load <8 x float>* %b8_in, align 32
-  %1465 = load <8 x i32>* %i8_in, align 32
-  %1466 = call <8 x float> @_Z6selectDv8_fS_Dv8_i(<8 x float> %1463, <8 x float> %1464, <8 x i32> %1465) readnone
-  store <8 x float> %1466, <8 x float>* %a8_out, align 32
-  %1467 = load <16 x float>* %a16_in, align 64
-  %1468 = load <16 x float>* %b16_in, align 64
-  %1469 = load <16 x i32>* %i16_in, align 64
-  %1470 = call <16 x float> @_Z6selectDv16_fS_Dv16_i(<16 x float> %1467, <16 x float> %1468, <16 x i32> %1469) readnone
-  store <16 x float> %1470, <16 x float>* %a16_out, align 64
-  %1471 = load float* %a_in, align 4
-  %1472 = load float* %b_in, align 4
-  %1473 = load i32* %ui_in, align 4
-  %1474 = call float @_Z6selectffj(float %1471, float %1472, i32 %1473) readnone
-  store float %1474, float* %a_out, align 4
-  %1475 = load <4 x float>* %a4_in, align 16
-  %1476 = load <4 x float>* %b4_in, align 16
-  %1477 = load <4 x i32>* %ui4_in, align 16
-  %1478 = call <4 x float> @_Z6selectDv4_fS_Dv4_j(<4 x float> %1475, <4 x float> %1476, <4 x i32> %1477) readnone
-  store <4 x float> %1478, <4 x float>* %a4_out, align 16
-  %1479 = load <8 x float>* %a8_in, align 32
-  %1480 = load <8 x float>* %b8_in, align 32
-  %1481 = load <8 x i32>* %ui8_in, align 32
-  %1482 = call <8 x float> @_Z6selectDv8_fS_Dv8_j(<8 x float> %1479, <8 x float> %1480, <8 x i32> %1481) readnone
-  store <8 x float> %1482, <8 x float>* %a8_out, align 32
-  %1483 = load <16 x float>* %a16_in, align 64
-  %1484 = load <16 x float>* %b16_in, align 64
-  %1485 = load <16 x i32>* %ui16_in, align 64
-  %1486 = call <16 x float> @_Z6selectDv16_fS_Dv16_j(<16 x float> %1483, <16 x float> %1484, <16 x i32> %1485) readnone
-  store <16 x float> %1486, <16 x float>* %a16_out, align 64
-  %1487 = load float* %a_in, align 4
-  %1488 = load float* %b_in, align 4
-  %1489 = load i64* %l_in, align 8
-  %1490 = call float @_Z6selectffl(float %1487, float %1488, i64 %1489) readnone
-  store float %1490, float* %a_out, align 4
-  %1491 = load <4 x float>* %a4_in, align 16
-  %1492 = load <4 x float>* %b4_in, align 16
-  %1493 = load <4 x i64>* %l4_in, align 32
-  %1494 = call <4 x float> @_Z6selectDv4_fS_Dv4_l(<4 x float> %1491, <4 x float> %1492, <4 x i64> %1493) readnone
-  store <4 x float> %1494, <4 x float>* %a4_out, align 16
-  %1495 = load <8 x float>* %a8_in, align 32
-  %1496 = load <8 x float>* %b8_in, align 32
-  %1497 = load <8 x i64>* %l8_in, align 64
-  %1498 = call <8 x float> @_Z6selectDv8_fS_Dv8_l(<8 x float> %1495, <8 x float> %1496, <8 x i64> %1497) readnone
-  store <8 x float> %1498, <8 x float>* %a8_out, align 32
-  %1499 = load <16 x float>* %a16_in, align 64
-  %1500 = load <16 x float>* %b16_in, align 64
-  %1501 = load <16 x i64>* %l16_in, align 128
-  %1502 = call <16 x float> @_Z6selectDv16_fS_Dv16_l(<16 x float> %1499, <16 x float> %1500, <16 x i64> %1501) readnone
-  store <16 x float> %1502, <16 x float>* %a16_out, align 64
-  %1503 = load float* %a_in, align 4
-  %1504 = load float* %b_in, align 4
-  %1505 = load i64* %ul_in, align 8
-  %1506 = call float @_Z6selectffm(float %1503, float %1504, i64 %1505) readnone
-  store float %1506, float* %a_out, align 4
-  %1507 = load <4 x float>* %a4_in, align 16
-  %1508 = load <4 x float>* %b4_in, align 16
-  %1509 = load <4 x i64>* %ul4_in, align 32
-  %1510 = call <4 x float> @_Z6selectDv4_fS_Dv4_m(<4 x float> %1507, <4 x float> %1508, <4 x i64> %1509) readnone
-  store <4 x float> %1510, <4 x float>* %a4_out, align 16
-  %1511 = load <8 x float>* %a8_in, align 32
-  %1512 = load <8 x float>* %b8_in, align 32
-  %1513 = load <8 x i64>* %ul8_in, align 64
-  %1514 = call <8 x float> @_Z6selectDv8_fS_Dv8_m(<8 x float> %1511, <8 x float> %1512, <8 x i64> %1513) readnone
-  store <8 x float> %1514, <8 x float>* %a8_out, align 32
-  %1515 = load <16 x float>* %a16_in, align 64
-  %1516 = load <16 x float>* %b16_in, align 64
-  %1517 = load <16 x i64>* %ul16_in, align 128
-  %1518 = call <16 x float> @_Z6selectDv16_fS_Dv16_m(<16 x float> %1515, <16 x float> %1516, <16 x i64> %1517) readnone
-  store <16 x float> %1518, <16 x float>* %a16_out, align 64
-  %1519 = load float* %a_in, align 4
-  %1520 = load float* %b_in, align 4
-  %1521 = call float @_Z9remainderff(float %1519, float %1520) readnone
-  store float %1521, float* %a_out, align 4
-  %1522 = load <4 x float>* %a4_in, align 16
-  %1523 = load <4 x float>* %b4_in, align 16
-  %1524 = call <4 x float> @_Z9remainderDv4_fS_(<4 x float> %1522, <4 x float> %1523) readnone
-  store <4 x float> %1524, <4 x float>* %a4_out, align 16
-  %1525 = load <8 x float>* %a8_in, align 32
-  %1526 = load <8 x float>* %b8_in, align 32
-  %1527 = call <8 x float> @_Z9remainderDv8_fS_(<8 x float> %1525, <8 x float> %1526) readnone
-  store <8 x float> %1527, <8 x float>* %a8_out, align 32
-  %1528 = load <16 x float>* %a16_in, align 64
-  %1529 = load <16 x float>* %b16_in, align 64
-  %1530 = call <16 x float> @_Z9remainderDv16_fS_(<16 x float> %1528, <16 x float> %1529) readnone
-  store <16 x float> %1530, <16 x float>* %a16_out, align 64
-  %1531 = load float* %a_in, align 4
-  %1532 = load float* %b_in, align 4
-  %1533 = call float @_Z6remquoffPi(float %1531, float %1532, i32* %i_out)
-  store float %1533, float* %a_out, align 4
-  %1534 = load <2 x float>* %a2_in, align 8
-  %1535 = load <2 x float>* %b2_in, align 8
-  %1536 = call <2 x float> @_Z6remquoDv2_fS_PDv2_i(<2 x float> %1534, <2 x float> %1535, <2 x i32>* %i2_out)
-  store <2 x float> %1536, <2 x float>* %a2_out, align 8
-  %1537 = load <3 x float>* %a3_in, align 16
-  %1538 = load <3 x float>* %b3_in, align 16
-  %1539 = call <3 x float> @_Z6remquoDv3_fS_PDv3_i(<3 x float> %1537, <3 x float> %1538, <3 x i32>* %i3_out)
-  store <3 x float> %1539, <3 x float>* %a3_out, align 16
-  %1540 = load <4 x float>* %a4_in, align 16
-  %1541 = load <4 x float>* %b4_in, align 16
-  %1542 = call <4 x float> @_Z6remquoDv4_fS_PDv4_i(<4 x float> %1540, <4 x float> %1541, <4 x i32>* %i4_out)
-  store <4 x float> %1542, <4 x float>* %a4_out, align 16
-  %1543 = load <8 x float>* %a8_in, align 32
-  %1544 = load <8 x float>* %b8_in, align 32
-  %1545 = call <8 x float> @_Z6remquoDv8_fS_PDv8_i(<8 x float> %1543, <8 x float> %1544, <8 x i32>* %i8_out)
-  store <8 x float> %1545, <8 x float>* %a8_out, align 32
-  %1546 = load <16 x float>* %a16_in, align 64
-  %1547 = load <16 x float>* %b16_in, align 64
-  %1548 = call <16 x float> @_Z6remquoDv16_fS_PDv16_i(<16 x float> %1546, <16 x float> %1547, <16 x i32>* %i16_out)
-  store <16 x float> %1548, <16 x float>* %a16_out, align 64
+  %829 = load float* %b_in, align 4
+  %830 = load float* %c_in, align 4
+  %call547 = call float @_Z9bitselectfff(float %828, float %829, float %830) nounwind readnone
+  store float %call547, float* %a_out, align 4
+  %831 = load <4 x float>* %a4_in, align 16
+  %832 = load <4 x float>* %b4_in, align 16
+  %833 = load <4 x float>* %c4_in, align 16
+  %call548 = call <4 x float> @_Z9bitselectDv4_fS_S_(<4 x float> %831, <4 x float> %832, <4 x float> %833) nounwind readnone
+  store <4 x float> %call548, <4 x float>* %a4_out, align 16
+  %834 = load <8 x float>* %a8_in, align 32
+  %835 = load <8 x float>* %b8_in, align 32
+  %836 = load <8 x float>* %c8_in, align 32
+  %call549 = call <8 x float> @_Z9bitselectDv8_fS_S_(<8 x float> %834, <8 x float> %835, <8 x float> %836) nounwind readnone
+  store <8 x float> %call549, <8 x float>* %a8_out, align 32
+  %837 = load <16 x float>* %a16_in, align 64
+  %838 = load <16 x float>* %b16_in, align 64
+  %839 = load <16 x float>* %c16_in, align 64
+  %call550 = call <16 x float> @_Z9bitselectDv16_fS_S_(<16 x float> %837, <16 x float> %838, <16 x float> %839) nounwind readnone
+  store <16 x float> %call550, <16 x float>* %a16_out, align 64
+  %840 = load float* %a_in, align 4
+  %841 = load float* %b_in, align 4
+  %842 = load i8* %ch_in, align 1
+  %call551 = call float @_Z6selectffc(float %840, float %841, i8 signext %842) nounwind readnone
+  store float %call551, float* %a_out, align 4
+  %843 = load <4 x float>* %a4_in, align 16
+  %844 = load <4 x float>* %b4_in, align 16
+  %845 = load <4 x i8>* %ch4_in, align 4
+  %call552 = call <4 x float> @_Z6selectDv4_fS_Dv4_c(<4 x float> %843, <4 x float> %844, <4 x i8> %845) nounwind readnone
+  store <4 x float> %call552, <4 x float>* %a4_out, align 16
+  %846 = load <8 x float>* %a8_in, align 32
+  %847 = load <8 x float>* %b8_in, align 32
+  %848 = load <8 x i8>* %ch8_in, align 8
+  %call553 = call <8 x float> @_Z6selectDv8_fS_Dv8_c(<8 x float> %846, <8 x float> %847, <8 x i8> %848) nounwind readnone
+  store <8 x float> %call553, <8 x float>* %a8_out, align 32
+  %849 = load <16 x float>* %a16_in, align 64
+  %850 = load <16 x float>* %b16_in, align 64
+  %851 = load <16 x i8>* %ch16_in, align 16
+  %call554 = call <16 x float> @_Z6selectDv16_fS_Dv16_c(<16 x float> %849, <16 x float> %850, <16 x i8> %851) nounwind readnone
+  store <16 x float> %call554, <16 x float>* %a16_out, align 64
+  %852 = load float* %a_in, align 4
+  %853 = load float* %b_in, align 4
+  %854 = load i8* %uch_in, align 1
+  %call555 = call float @_Z6selectffh(float %852, float %853, i8 zeroext %854) nounwind readnone
+  store float %call555, float* %a_out, align 4
+  %855 = load <4 x float>* %a4_in, align 16
+  %856 = load <4 x float>* %b4_in, align 16
+  %857 = load <4 x i8>* %uch4_in, align 4
+  %call556 = call <4 x float> @_Z6selectDv4_fS_Dv4_h(<4 x float> %855, <4 x float> %856, <4 x i8> %857) nounwind readnone
+  store <4 x float> %call556, <4 x float>* %a4_out, align 16
+  %858 = load <8 x float>* %a8_in, align 32
+  %859 = load <8 x float>* %b8_in, align 32
+  %860 = load <8 x i8>* %uch8_in, align 8
+  %call557 = call <8 x float> @_Z6selectDv8_fS_Dv8_h(<8 x float> %858, <8 x float> %859, <8 x i8> %860) nounwind readnone
+  store <8 x float> %call557, <8 x float>* %a8_out, align 32
+  %861 = load <16 x float>* %a16_in, align 64
+  %862 = load <16 x float>* %b16_in, align 64
+  %863 = load <16 x i8>* %uch16_in, align 16
+  %call558 = call <16 x float> @_Z6selectDv16_fS_Dv16_h(<16 x float> %861, <16 x float> %862, <16 x i8> %863) nounwind readnone
+  store <16 x float> %call558, <16 x float>* %a16_out, align 64
+  %864 = load float* %a_in, align 4
+  %865 = load float* %b_in, align 4
+  %866 = load i16* %s_in, align 2
+  %call559 = call float @_Z6selectffs(float %864, float %865, i16 signext %866) nounwind readnone
+  store float %call559, float* %a_out, align 4
+  %867 = load <4 x float>* %a4_in, align 16
+  %868 = load <4 x float>* %b4_in, align 16
+  %869 = load <4 x i16>* %s4_in, align 8
+  %call560 = call <4 x float> @_Z6selectDv4_fS_Dv4_s(<4 x float> %867, <4 x float> %868, <4 x i16> %869) nounwind readnone
+  store <4 x float> %call560, <4 x float>* %a4_out, align 16
+  %870 = load <8 x float>* %a8_in, align 32
+  %871 = load <8 x float>* %b8_in, align 32
+  %872 = load <8 x i16>* %s8_in, align 16
+  %call561 = call <8 x float> @_Z6selectDv8_fS_Dv8_s(<8 x float> %870, <8 x float> %871, <8 x i16> %872) nounwind readnone
+  store <8 x float> %call561, <8 x float>* %a8_out, align 32
+  %873 = load <16 x float>* %a16_in, align 64
+  %874 = load <16 x float>* %b16_in, align 64
+  %875 = load <16 x i16>* %s16_in, align 32
+  %call562 = call <16 x float> @_Z6selectDv16_fS_Dv16_s(<16 x float> %873, <16 x float> %874, <16 x i16> %875) nounwind readnone
+  store <16 x float> %call562, <16 x float>* %a16_out, align 64
+  %876 = load float* %a_in, align 4
+  %877 = load float* %b_in, align 4
+  %878 = load i16* %us_in, align 2
+  %call563 = call float @_Z6selectfft(float %876, float %877, i16 zeroext %878) nounwind readnone
+  store float %call563, float* %a_out, align 4
+  %879 = load <4 x float>* %a4_in, align 16
+  %880 = load <4 x float>* %b4_in, align 16
+  %881 = load <4 x i16>* %us4_in, align 8
+  %call564 = call <4 x float> @_Z6selectDv4_fS_Dv4_t(<4 x float> %879, <4 x float> %880, <4 x i16> %881) nounwind readnone
+  store <4 x float> %call564, <4 x float>* %a4_out, align 16
+  %882 = load <8 x float>* %a8_in, align 32
+  %883 = load <8 x float>* %b8_in, align 32
+  %884 = load <8 x i16>* %us8_in, align 16
+  %call565 = call <8 x float> @_Z6selectDv8_fS_Dv8_t(<8 x float> %882, <8 x float> %883, <8 x i16> %884) nounwind readnone
+  store <8 x float> %call565, <8 x float>* %a8_out, align 32
+  %885 = load <16 x float>* %a16_in, align 64
+  %886 = load <16 x float>* %b16_in, align 64
+  %887 = load <16 x i16>* %us16_in, align 32
+  %call566 = call <16 x float> @_Z6selectDv16_fS_Dv16_t(<16 x float> %885, <16 x float> %886, <16 x i16> %887) nounwind readnone
+  store <16 x float> %call566, <16 x float>* %a16_out, align 64
+  %888 = load float* %a_in, align 4
+  %889 = load float* %b_in, align 4
+  %890 = load i32* %i_in, align 4
+  %call567 = call float @_Z6selectffi(float %888, float %889, i32 %890) nounwind readnone
+  store float %call567, float* %a_out, align 4
+  %891 = load <4 x float>* %a4_in, align 16
+  %892 = load <4 x float>* %b4_in, align 16
+  %893 = load <4 x i32>* %i4_in, align 16
+  %call568 = call <4 x float> @_Z6selectDv4_fS_Dv4_i(<4 x float> %891, <4 x float> %892, <4 x i32> %893) nounwind readnone
+  store <4 x float> %call568, <4 x float>* %a4_out, align 16
+  %894 = load <8 x float>* %a8_in, align 32
+  %895 = load <8 x float>* %b8_in, align 32
+  %896 = load <8 x i32>* %i8_in, align 32
+  %call569 = call <8 x float> @_Z6selectDv8_fS_Dv8_i(<8 x float> %894, <8 x float> %895, <8 x i32> %896) nounwind readnone
+  store <8 x float> %call569, <8 x float>* %a8_out, align 32
+  %897 = load <16 x float>* %a16_in, align 64
+  %898 = load <16 x float>* %b16_in, align 64
+  %899 = load <16 x i32>* %i16_in, align 64
+  %call570 = call <16 x float> @_Z6selectDv16_fS_Dv16_i(<16 x float> %897, <16 x float> %898, <16 x i32> %899) nounwind readnone
+  store <16 x float> %call570, <16 x float>* %a16_out, align 64
+  %900 = load float* %a_in, align 4
+  %901 = load float* %b_in, align 4
+  %902 = load i32* %ui_in, align 4
+  %call571 = call float @_Z6selectffj(float %900, float %901, i32 %902) nounwind readnone
+  store float %call571, float* %a_out, align 4
+  %903 = load <4 x float>* %a4_in, align 16
+  %904 = load <4 x float>* %b4_in, align 16
+  %905 = load <4 x i32>* %ui4_in, align 16
+  %call572 = call <4 x float> @_Z6selectDv4_fS_Dv4_j(<4 x float> %903, <4 x float> %904, <4 x i32> %905) nounwind readnone
+  store <4 x float> %call572, <4 x float>* %a4_out, align 16
+  %906 = load <8 x float>* %a8_in, align 32
+  %907 = load <8 x float>* %b8_in, align 32
+  %908 = load <8 x i32>* %ui8_in, align 32
+  %call573 = call <8 x float> @_Z6selectDv8_fS_Dv8_j(<8 x float> %906, <8 x float> %907, <8 x i32> %908) nounwind readnone
+  store <8 x float> %call573, <8 x float>* %a8_out, align 32
+  %909 = load <16 x float>* %a16_in, align 64
+  %910 = load <16 x float>* %b16_in, align 64
+  %911 = load <16 x i32>* %ui16_in, align 64
+  %call574 = call <16 x float> @_Z6selectDv16_fS_Dv16_j(<16 x float> %909, <16 x float> %910, <16 x i32> %911) nounwind readnone
+  store <16 x float> %call574, <16 x float>* %a16_out, align 64
+  %912 = load float* %a_in, align 4
+  %913 = load float* %b_in, align 4
+  %914 = load i64* %l_in, align 8
+  %call575 = call float @_Z6selectffl(float %912, float %913, i64 %914) nounwind readnone
+  store float %call575, float* %a_out, align 4
+  %915 = load <4 x float>* %a4_in, align 16
+  %916 = load <4 x float>* %b4_in, align 16
+  %917 = load <4 x i64>* %l4_in, align 32
+  %call576 = call <4 x float> @_Z6selectDv4_fS_Dv4_l(<4 x float> %915, <4 x float> %916, <4 x i64> %917) nounwind readnone
+  store <4 x float> %call576, <4 x float>* %a4_out, align 16
+  %918 = load <8 x float>* %a8_in, align 32
+  %919 = load <8 x float>* %b8_in, align 32
+  %920 = load <8 x i64>* %l8_in, align 64
+  %call577 = call <8 x float> @_Z6selectDv8_fS_Dv8_l(<8 x float> %918, <8 x float> %919, <8 x i64> %920) nounwind readnone
+  store <8 x float> %call577, <8 x float>* %a8_out, align 32
+  %921 = load <16 x float>* %a16_in, align 64
+  %922 = load <16 x float>* %b16_in, align 64
+  %923 = load <16 x i64>* %l16_in, align 128
+  %call578 = call <16 x float> @_Z6selectDv16_fS_Dv16_l(<16 x float> %921, <16 x float> %922, <16 x i64> %923) nounwind readnone
+  store <16 x float> %call578, <16 x float>* %a16_out, align 64
+  %924 = load float* %a_in, align 4
+  %925 = load float* %b_in, align 4
+  %926 = load i64* %ul_in, align 8
+  %call579 = call float @_Z6selectffm(float %924, float %925, i64 %926) nounwind readnone
+  store float %call579, float* %a_out, align 4
+  %927 = load <4 x float>* %a4_in, align 16
+  %928 = load <4 x float>* %b4_in, align 16
+  %929 = load <4 x i64>* %ul4_in, align 32
+  %call580 = call <4 x float> @_Z6selectDv4_fS_Dv4_m(<4 x float> %927, <4 x float> %928, <4 x i64> %929) nounwind readnone
+  store <4 x float> %call580, <4 x float>* %a4_out, align 16
+  %930 = load <8 x float>* %a8_in, align 32
+  %931 = load <8 x float>* %b8_in, align 32
+  %932 = load <8 x i64>* %ul8_in, align 64
+  %call581 = call <8 x float> @_Z6selectDv8_fS_Dv8_m(<8 x float> %930, <8 x float> %931, <8 x i64> %932) nounwind readnone
+  store <8 x float> %call581, <8 x float>* %a8_out, align 32
+  %933 = load <16 x float>* %a16_in, align 64
+  %934 = load <16 x float>* %b16_in, align 64
+  %935 = load <16 x i64>* %ul16_in, align 128
+  %call582 = call <16 x float> @_Z6selectDv16_fS_Dv16_m(<16 x float> %933, <16 x float> %934, <16 x i64> %935) nounwind readnone
+  store <16 x float> %call582, <16 x float>* %a16_out, align 64
+  %936 = load float* %a_in, align 4
+  %937 = load float* %b_in, align 4
+  %call583 = call float @_Z9remainderff(float %936, float %937) nounwind readnone
+  store float %call583, float* %a_out, align 4
+  %938 = load <4 x float>* %a4_in, align 16
+  %939 = load <4 x float>* %b4_in, align 16
+  %call584 = call <4 x float> @_Z9remainderDv4_fS_(<4 x float> %938, <4 x float> %939) nounwind readnone
+  store <4 x float> %call584, <4 x float>* %a4_out, align 16
+  %940 = load <8 x float>* %a8_in, align 32
+  %941 = load <8 x float>* %b8_in, align 32
+  %call585 = call <8 x float> @_Z9remainderDv8_fS_(<8 x float> %940, <8 x float> %941) nounwind readnone
+  store <8 x float> %call585, <8 x float>* %a8_out, align 32
+  %942 = load <16 x float>* %a16_in, align 64
+  %943 = load <16 x float>* %b16_in, align 64
+  %call586 = call <16 x float> @_Z9remainderDv16_fS_(<16 x float> %942, <16 x float> %943) nounwind readnone
+  store <16 x float> %call586, <16 x float>* %a16_out, align 64
+  %944 = load float* %a_in, align 4
+  %945 = load float* %b_in, align 4
+  %call587 = call float @_Z6remquoffPi(float %944, float %945, i32* %i_out)
+  store float %call587, float* %a_out, align 4
+  %946 = load <2 x float>* %a2_in, align 8
+  %947 = load <2 x float>* %b2_in, align 8
+  %call588 = call <2 x float> @_Z6remquoDv2_fS_PDv2_i(<2 x float> %946, <2 x float> %947, <2 x i32>* %i2_out)
+  store <2 x float> %call588, <2 x float>* %a2_out, align 8
+  %948 = load <3 x float>* %a3_in, align 16
+  %949 = load <3 x float>* %b3_in, align 16
+  %call589 = call <3 x float> @_Z6remquoDv3_fS_PDv3_i(<3 x float> %948, <3 x float> %949, <3 x i32>* %i3_out)
+  store <3 x float> %call589, <3 x float>* %a3_out, align 16
+  %950 = load <4 x float>* %a4_in, align 16
+  %951 = load <4 x float>* %b4_in, align 16
+  %call590 = call <4 x float> @_Z6remquoDv4_fS_PDv4_i(<4 x float> %950, <4 x float> %951, <4 x i32>* %i4_out)
+  store <4 x float> %call590, <4 x float>* %a4_out, align 16
+  %952 = load <8 x float>* %a8_in, align 32
+  %953 = load <8 x float>* %b8_in, align 32
+  %call591 = call <8 x float> @_Z6remquoDv8_fS_PDv8_i(<8 x float> %952, <8 x float> %953, <8 x i32>* %i8_out)
+  store <8 x float> %call591, <8 x float>* %a8_out, align 32
+  %954 = load <16 x float>* %a16_in, align 64
+  %955 = load <16 x float>* %b16_in, align 64
+  %call592 = call <16 x float> @_Z6remquoDv16_fS_PDv16_i(<16 x float> %954, <16 x float> %955, <16 x i32>* %i16_out)
+  store <16 x float> %call592, <16 x float>* %a16_out, align 64
   ret void
 }
 
-declare float @_Z4acosf(float) readnone
+declare float @_Z4acosf(float) nounwind readnone
 
-declare <4 x float> @_Z4acosDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4acosDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4acosDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4acosDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4acosDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4acosDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z6acospif(float) readnone
+declare float @_Z6acospif(float) nounwind readnone
 
-declare <4 x float> @_Z6acospiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z6acospiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6acospiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z6acospiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6acospiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z6acospiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4asinf(float) readnone
+declare float @_Z4asinf(float) nounwind readnone
 
-declare <4 x float> @_Z4asinDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4asinDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4asinDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4asinDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4asinDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4asinDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z6asinpif(float) readnone
+declare float @_Z6asinpif(float) nounwind readnone
 
-declare <4 x float> @_Z6asinpiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z6asinpiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6asinpiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z6asinpiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6asinpiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z6asinpiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4atanf(float) readnone
+declare float @_Z4atanf(float) nounwind readnone
 
-declare <4 x float> @_Z4atanDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4atanDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4atanDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4atanDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4atanDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4atanDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5atan2ff(float, float) readnone
+declare float @_Z5atan2ff(float, float) nounwind readnone
 
-declare <4 x float> @_Z5atan2Dv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z5atan2Dv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5atan2Dv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z5atan2Dv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5atan2Dv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z5atan2Dv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z7atan2piff(float, float) readnone
+declare float @_Z7atan2piff(float, float) nounwind readnone
 
-declare <4 x float> @_Z7atan2piDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z7atan2piDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z7atan2piDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z7atan2piDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z7atan2piDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z7atan2piDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z6atanpif(float) readnone
+declare float @_Z6atanpif(float) nounwind readnone
 
-declare <4 x float> @_Z6atanpiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z6atanpiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6atanpiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z6atanpiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6atanpiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z6atanpiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3cosf(float) readnone
+declare float @_Z3cosf(float) nounwind readnone
 
-declare <4 x float> @_Z3cosDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3cosDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3cosDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z3cosDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3cosDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z3cosDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4coshf(float) readnone
+declare float @_Z4coshf(float) nounwind readnone
 
-declare <4 x float> @_Z4coshDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4coshDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4coshDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4coshDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4coshDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4coshDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5cospif(float) readnone
+declare float @_Z5cospif(float) nounwind readnone
 
-declare <4 x float> @_Z5cospiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5cospiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5cospiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5cospiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5cospiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5cospiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3expf(float) readnone
+declare float @_Z3expf(float) nounwind readnone
 
-declare <4 x float> @_Z3expDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3expDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3expDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z3expDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3expDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z3expDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4exp2f(float) readnone
+declare float @_Z4exp2f(float) nounwind readnone
 
-declare <4 x float> @_Z4exp2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4exp2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4exp2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4exp2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4exp2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4exp2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5exp10f(float) readnone
+declare float @_Z5exp10f(float) nounwind readnone
 
-declare <4 x float> @_Z5exp10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5exp10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5exp10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5exp10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5exp10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5exp10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5expm1f(float) readnone
+declare float @_Z5expm1f(float) nounwind readnone
 
-declare <4 x float> @_Z5expm1Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5expm1Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5expm1Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5expm1Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5expm1Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5expm1Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3logf(float) readnone
+declare float @_Z3logf(float) nounwind readnone
 
-declare <4 x float> @_Z3logDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3logDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3logDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z3logDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3logDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z3logDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4log2f(float) readnone
+declare float @_Z4log2f(float) nounwind readnone
 
-declare <4 x float> @_Z4log2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4log2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4log2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4log2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4log2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4log2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5log10f(float) readnone
+declare float @_Z5log10f(float) nounwind readnone
 
-declare <4 x float> @_Z5log10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5log10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5log10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5log10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5log10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5log10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5log1pf(float) readnone
+declare float @_Z5log1pf(float) nounwind readnone
 
-declare <4 x float> @_Z5log1pDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5log1pDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5log1pDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5log1pDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5log1pDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5log1pDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4logbf(float) readnone
+declare float @_Z4logbf(float) nounwind readnone
 
-declare <4 x float> @_Z4logbDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4logbDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4logbDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4logbDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4logbDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4logbDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4ceilf(float) readnone
+declare float @_Z4ceilf(float) nounwind readnone
 
-declare <4 x float> @_Z4ceilDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4ceilDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4ceilDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4ceilDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4ceilDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4ceilDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3powff(float, float) readnone
+declare float @_Z3powff(float, float) nounwind readnone
 
-declare <4 x float> @_Z3powDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z3powDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3powDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z3powDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3powDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z3powDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z5clampfff(float, float, float) readnone
+declare float @_Z5clampfff(float, float, float) nounwind readnone
 
-declare <4 x float> @_Z5clampDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z5clampDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5clampDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z5clampDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5clampDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z5clampDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare <4 x float> @_Z5clampDv4_fff(<4 x float>, float, float) readnone
+declare <4 x float> @_Z5clampDv4_fff(<4 x float>, float, float) nounwind readnone
 
-declare <8 x float> @_Z5clampDv8_fff(<8 x float>, float, float) readnone
+declare <8 x float> @_Z5clampDv8_fff(<8 x float>, float, float) nounwind readnone
 
-declare <16 x float> @_Z5clampDv16_fff(<16 x float>, float, float) readnone
+declare <16 x float> @_Z5clampDv16_fff(<16 x float>, float, float) nounwind readnone
 
-declare float @_Z4sinhf(float) readnone
+declare float @_Z4sinhf(float) nounwind readnone
 
-declare <4 x float> @_Z4sinhDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4sinhDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4sinhDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4sinhDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4sinhDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4sinhDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3sinf(float) readnone
+declare float @_Z3sinf(float) nounwind readnone
 
-declare <4 x float> @_Z3sinDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3sinDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3sinDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z3sinDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3sinDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z3sinDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5sinpif(float) readnone
+declare float @_Z5sinpif(float) nounwind readnone
 
-declare <4 x float> @_Z5sinpiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5sinpiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5sinpiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5sinpiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5sinpiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5sinpiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4sqrtf(float) readnone
+declare float @_Z4sqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z4sqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4sqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4sqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4sqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4sqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4sqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5rsqrtf(float) readnone
+declare float @_Z5rsqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z5rsqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5rsqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5rsqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5rsqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5rsqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5rsqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3tanf(float) readnone
+declare float @_Z3tanf(float) nounwind readnone
 
-declare <4 x float> @_Z3tanDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3tanDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3tanDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z3tanDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3tanDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z3tanDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4tanhf(float) readnone
+declare float @_Z4tanhf(float) nounwind readnone
 
-declare <4 x float> @_Z4tanhDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4tanhDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4tanhDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4tanhDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4tanhDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4tanhDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5tanpif(float) readnone
+declare float @_Z5tanpif(float) nounwind readnone
 
-declare <4 x float> @_Z5tanpiDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5tanpiDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5tanpiDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5tanpiDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5tanpiDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5tanpiDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4fabsf(float) readnone
+declare float @_Z4fabsf(float) nounwind readnone
 
-declare <4 x float> @_Z4fabsDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4fabsDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4fabsDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4fabsDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4fabsDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4fabsDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10native_sinf(float) readnone
+declare float @_Z10native_sinf(float) nounwind readnone
 
-declare <4 x float> @_Z10native_sinDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10native_sinDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10native_sinDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10native_sinDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10native_sinDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10native_sinDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10native_cosf(float) readnone
+declare float @_Z10native_cosf(float) nounwind readnone
 
-declare <4 x float> @_Z10native_cosDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10native_cosDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10native_cosDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10native_cosDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10native_cosDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10native_cosDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z12native_rsqrtf(float) readnone
+declare float @_Z12native_rsqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z12native_rsqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z12native_rsqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z12native_rsqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z12native_rsqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z12native_rsqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z12native_rsqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10native_logf(float) readnone
+declare float @_Z10native_logf(float) nounwind readnone
 
-declare <4 x float> @_Z10native_logDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10native_logDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10native_logDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10native_logDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10native_logDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10native_logDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z11native_log2f(float) readnone
+declare float @_Z11native_log2f(float) nounwind readnone
 
-declare <4 x float> @_Z11native_log2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z11native_log2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z11native_log2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z11native_log2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z11native_log2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z11native_log2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z12native_log10f(float) readnone
+declare float @_Z12native_log10f(float) nounwind readnone
 
-declare <4 x float> @_Z12native_log10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z12native_log10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z12native_log10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z12native_log10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z12native_log10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z12native_log10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10native_expf(float) readnone
+declare float @_Z10native_expf(float) nounwind readnone
 
-declare <4 x float> @_Z10native_expDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10native_expDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10native_expDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10native_expDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10native_expDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10native_expDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z11native_exp2f(float) readnone
+declare float @_Z11native_exp2f(float) nounwind readnone
 
-declare <4 x float> @_Z11native_exp2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z11native_exp2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z11native_exp2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z11native_exp2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z11native_exp2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z11native_exp2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z12native_exp10f(float) readnone
+declare float @_Z12native_exp10f(float) nounwind readnone
 
-declare <4 x float> @_Z12native_exp10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z12native_exp10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z12native_exp10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z12native_exp10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z12native_exp10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z12native_exp10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z13native_divideff(float, float) readnone
+declare float @_Z13native_divideff(float, float) nounwind readnone
 
-declare <4 x float> @_Z13native_divideDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z13native_divideDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z13native_divideDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z13native_divideDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z13native_divideDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z13native_divideDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z11native_powrff(float, float) readnone
+declare float @_Z11native_powrff(float, float) nounwind readnone
 
-declare <4 x float> @_Z11native_powrDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z11native_powrDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z11native_powrDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z11native_powrDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z11native_powrDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z11native_powrDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z12native_recipf(float) readnone
+declare float @_Z12native_recipf(float) nounwind readnone
 
-declare <4 x float> @_Z12native_recipDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z12native_recipDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z12native_recipDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z12native_recipDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z12native_recipDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z12native_recipDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z11native_sqrtf(float) readnone
+declare float @_Z11native_sqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z11native_sqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z11native_sqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z11native_sqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z11native_sqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z11native_sqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z11native_sqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10native_tanf(float) readnone
+declare float @_Z10native_tanf(float) nounwind readnone
 
-declare <4 x float> @_Z10native_tanDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10native_tanDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10native_tanDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10native_tanDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10native_tanDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10native_tanDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z8half_logf(float) readnone
+declare float @_Z8half_logf(float) nounwind readnone
 
-declare <4 x float> @_Z8half_logDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z8half_logDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8half_logDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z8half_logDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8half_logDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z8half_logDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z9half_log2f(float) readnone
+declare float @_Z9half_log2f(float) nounwind readnone
 
-declare <4 x float> @_Z9half_log2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z9half_log2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9half_log2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z9half_log2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9half_log2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z9half_log2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10half_log10f(float) readnone
+declare float @_Z10half_log10f(float) nounwind readnone
 
-declare <4 x float> @_Z10half_log10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10half_log10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10half_log10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10half_log10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10half_log10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10half_log10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z8half_expf(float) readnone
+declare float @_Z8half_expf(float) nounwind readnone
 
-declare <4 x float> @_Z8half_expDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z8half_expDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8half_expDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z8half_expDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8half_expDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z8half_expDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z9half_exp2f(float) readnone
+declare float @_Z9half_exp2f(float) nounwind readnone
 
-declare <4 x float> @_Z9half_exp2Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z9half_exp2Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9half_exp2Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z9half_exp2Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9half_exp2Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z9half_exp2Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10half_exp10f(float) readnone
+declare float @_Z10half_exp10f(float) nounwind readnone
 
-declare <4 x float> @_Z10half_exp10Dv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10half_exp10Dv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10half_exp10Dv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10half_exp10Dv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10half_exp10Dv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10half_exp10Dv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z8half_cosf(float) readnone
+declare float @_Z8half_cosf(float) nounwind readnone
 
-declare <4 x float> @_Z8half_cosDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z8half_cosDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8half_cosDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z8half_cosDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8half_cosDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z8half_cosDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z11half_divideff(float, float) readnone
+declare float @_Z11half_divideff(float, float) nounwind readnone
 
-declare <4 x float> @_Z11half_divideDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z11half_divideDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z11half_divideDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z11half_divideDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z11half_divideDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z11half_divideDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z9half_powrff(float, float) readnone
+declare float @_Z9half_powrff(float, float) nounwind readnone
 
-declare <4 x float> @_Z9half_powrDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z9half_powrDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9half_powrDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z9half_powrDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9half_powrDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z9half_powrDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z10half_recipf(float) readnone
+declare float @_Z10half_recipf(float) nounwind readnone
 
-declare <4 x float> @_Z10half_recipDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10half_recipDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10half_recipDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10half_recipDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10half_recipDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10half_recipDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z10half_rsqrtf(float) readnone
+declare float @_Z10half_rsqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z10half_rsqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z10half_rsqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z10half_rsqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z10half_rsqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z10half_rsqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z10half_rsqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z8half_sinf(float) readnone
+declare float @_Z8half_sinf(float) nounwind readnone
 
-declare <4 x float> @_Z8half_sinDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z8half_sinDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8half_sinDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z8half_sinDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8half_sinDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z8half_sinDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z9half_sqrtf(float) readnone
+declare float @_Z9half_sqrtf(float) nounwind readnone
 
-declare <4 x float> @_Z9half_sqrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z9half_sqrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9half_sqrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z9half_sqrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9half_sqrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z9half_sqrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z8half_tanf(float) readnone
+declare float @_Z8half_tanf(float) nounwind readnone
 
-declare <4 x float> @_Z8half_tanDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z8half_tanDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8half_tanDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z8half_tanDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8half_tanDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z8half_tanDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5asinhf(float) readnone
+declare float @_Z5asinhf(float) nounwind readnone
 
-declare <4 x float> @_Z5asinhDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5asinhDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5asinhDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5asinhDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5asinhDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5asinhDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5acoshf(float) readnone
+declare float @_Z5acoshf(float) nounwind readnone
 
-declare <4 x float> @_Z5acoshDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5acoshDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5acoshDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5acoshDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5acoshDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5acoshDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5atanhf(float) readnone
+declare float @_Z5atanhf(float) nounwind readnone
 
-declare <4 x float> @_Z5atanhDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5atanhDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5atanhDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5atanhDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5atanhDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5atanhDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3minff(float, float) readnone
+declare <4 x float> @_Z6vload4jPKf(i32, float*)
 
-declare <4 x float> @_Z3minDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <8 x float> @_Z6vload8jPKf(i32, float*)
 
-declare <8 x float> @_Z3minDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <16 x float> @_Z7vload16jPKf(i32, float*)
 
-declare <16 x float> @_Z3minDv16_fS_(<16 x float>, <16 x float>) readnone
+declare void @_Z7vstore4Dv4_fjPf(<4 x float>, i32, float*)
 
-declare <4 x float> @_Z3minDv4_ff(<4 x float>, float) readnone
+declare void @_Z7vstore8Dv8_fjPf(<8 x float>, i32, float*)
 
-declare <8 x float> @_Z3minDv8_ff(<8 x float>, float) readnone
+declare void @_Z8vstore16Dv16_fjPf(<16 x float>, i32, float*)
 
-declare <16 x float> @_Z3minDv16_ff(<16 x float>, float) readnone
+declare float @_Z3minff(float, float) nounwind readnone
 
-declare float @_Z3maxff(float, float) readnone
+declare <4 x float> @_Z3minDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z3maxDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <8 x float> @_Z3minDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z3maxDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <16 x float> @_Z3minDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z3maxDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <4 x float> @_Z3minDv4_ff(<4 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z3maxDv4_ff(<4 x float>, float) readnone
+declare <8 x float> @_Z3minDv8_ff(<8 x float>, float) nounwind readnone
 
-declare <8 x float> @_Z3maxDv8_ff(<8 x float>, float) readnone
+declare <16 x float> @_Z3minDv16_ff(<16 x float>, float) nounwind readnone
 
-declare <16 x float> @_Z3maxDv16_ff(<16 x float>, float) readnone
+declare float @_Z3maxff(float, float) nounwind readnone
 
-declare float @_Z5hypotff(float, float) readnone
+declare <4 x float> @_Z3maxDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z5hypotDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <8 x float> @_Z3maxDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z5hypotDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <16 x float> @_Z3maxDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z5hypotDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <4 x float> @_Z3maxDv4_ff(<4 x float>, float) nounwind readnone
 
-declare float @_Z4stepff(float, float) readnone
+declare <8 x float> @_Z3maxDv8_ff(<8 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z4stepDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <16 x float> @_Z3maxDv16_ff(<16 x float>, float) nounwind readnone
 
-declare <8 x float> @_Z4stepDv8_fS_(<8 x float>, <8 x float>) readnone
+declare float @_Z5hypotff(float, float) nounwind readnone
 
-declare <16 x float> @_Z4stepDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <4 x float> @_Z5hypotDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z4stepfDv4_f(float, <4 x float>) readnone
+declare <8 x float> @_Z5hypotDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z4stepfDv8_f(float, <8 x float>) readnone
+declare <16 x float> @_Z5hypotDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z4stepfDv16_f(float, <16 x float>) readnone
+declare float @_Z4stepff(float, float) nounwind readnone
 
-declare float @_Z10smoothstepfff(float, float, float) readnone
+declare <4 x float> @_Z4stepDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z10smoothstepDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <8 x float> @_Z4stepDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z10smoothstepDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare <16 x float> @_Z4stepDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z10smoothstepDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare <4 x float> @_Z4stepfDv4_f(float, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z10smoothstepffDv4_f(float, float, <4 x float>) readnone
+declare <8 x float> @_Z4stepfDv8_f(float, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z10smoothstepffDv8_f(float, float, <8 x float>) readnone
+declare <16 x float> @_Z4stepfDv16_f(float, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z10smoothstepffDv16_f(float, float, <16 x float>) readnone
+declare float @_Z10smoothstepfff(float, float, float) nounwind readnone
 
-declare float @_Z7radiansf(float) readnone
+declare <4 x float> @_Z10smoothstepDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z7radiansDv4_f(<4 x float>) readnone
+declare <8 x float> @_Z10smoothstepDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare <8 x float> @_Z7radiansDv8_f(<8 x float>) readnone
+declare <16 x float> @_Z10smoothstepDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare <16 x float> @_Z7radiansDv16_f(<16 x float>) readnone
+declare <4 x float> @_Z10smoothstepffDv4_f(float, float, <4 x float>) nounwind readnone
 
-declare float @_Z7degreesf(float) readnone
+declare <8 x float> @_Z10smoothstepffDv8_f(float, float, <8 x float>) nounwind readnone
 
-declare <4 x float> @_Z7degreesDv4_f(<4 x float>) readnone
+declare <16 x float> @_Z10smoothstepffDv16_f(float, float, <16 x float>) nounwind readnone
 
-declare <8 x float> @_Z7degreesDv8_f(<8 x float>) readnone
+declare float @_Z7radiansf(float) nounwind readnone
 
-declare <16 x float> @_Z7degreesDv16_f(<16 x float>) readnone
+declare <4 x float> @_Z7radiansDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z4signf(float) readnone
+declare <8 x float> @_Z7radiansDv8_f(<8 x float>) nounwind readnone
 
-declare <4 x float> @_Z4signDv4_f(<4 x float>) readnone
+declare <16 x float> @_Z7radiansDv16_f(<16 x float>) nounwind readnone
 
-declare <8 x float> @_Z4signDv8_f(<8 x float>) readnone
+declare float @_Z7degreesf(float) nounwind readnone
 
-declare <16 x float> @_Z4signDv16_f(<16 x float>) readnone
+declare <4 x float> @_Z7degreesDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z5floorf(float) readnone
+declare <8 x float> @_Z7degreesDv8_f(<8 x float>) nounwind readnone
 
-declare <4 x float> @_Z5floorDv4_f(<4 x float>) readnone
+declare <16 x float> @_Z7degreesDv16_f(<16 x float>) nounwind readnone
 
-declare <8 x float> @_Z5floorDv8_f(<8 x float>) readnone
+declare float @_Z4signf(float) nounwind readnone
 
-declare <16 x float> @_Z5floorDv16_f(<16 x float>) readnone
+declare <4 x float> @_Z4signDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z3dotff(float, float) readnone
+declare <8 x float> @_Z4signDv8_f(<8 x float>) nounwind readnone
 
-declare float @_Z3dotDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <16 x float> @_Z4signDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3mixfff(float, float, float) readnone
+declare float @_Z5floorf(float) nounwind readnone
 
-declare <4 x float> @_Z3mixDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z5floorDv4_f(<4 x float>) nounwind readnone
 
-declare <4 x float> @_Z3mixDv4_fS_f(<4 x float>, <4 x float>, float) readnone
+declare <8 x float> @_Z5floorDv8_f(<8 x float>) nounwind readnone
 
-declare <8 x float> @_Z3mixDv8_fS_f(<8 x float>, <8 x float>, float) readnone
+declare <16 x float> @_Z5floorDv16_f(<16 x float>) nounwind readnone
 
-declare <16 x float> @_Z3mixDv16_fS_f(<16 x float>, <16 x float>, float) readnone
+declare float @_Z3dotff(float, float) nounwind readnone
 
-declare <8 x float> @_Z3mixDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare float @_Z3dotDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <16 x float> @_Z3mixDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare float @_Z3mixfff(float, float, float) nounwind readnone
 
-declare float @_Z9normalizef(float) readnone
+declare <4 x float> @_Z3mixDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <4 x float> @_Z9normalizeDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z3mixDv4_fS_f(<4 x float>, <4 x float>, float) nounwind readnone
 
-declare float @_Z14fast_normalizef(float) readnone
+declare <8 x float> @_Z3mixDv8_fS_f(<8 x float>, <8 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z14fast_normalizeDv4_f(<4 x float>) readnone
+declare <16 x float> @_Z3mixDv16_fS_f(<16 x float>, <16 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z5crossDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <8 x float> @_Z3mixDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare float @_Z6lengthf(float) readnone
+declare <16 x float> @_Z3mixDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z6lengthDv2_f(<2 x float>) readnone
+declare float @_Z9normalizef(float) nounwind readnone
 
-declare float @_Z6lengthDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z9normalizeDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z11fast_lengthf(float) readnone
+declare float @_Z14fast_normalizef(float) nounwind readnone
 
-declare float @_Z11fast_lengthDv2_f(<2 x float>) readnone
+declare <4 x float> @_Z14fast_normalizeDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z11fast_lengthDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5crossDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare float @_Z8distanceff(float, float) readnone
+declare float @_Z6lengthf(float) nounwind readnone
 
-declare float @_Z8distanceDv2_fS_(<2 x float>, <2 x float>) readnone
+declare float @_Z6lengthDv2_f(<2 x float>) nounwind readnone
 
-declare float @_Z8distanceDv4_fS_(<4 x float>, <4 x float>) readnone
+declare float @_Z6lengthDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z13fast_distanceff(float, float) readnone
+declare float @_Z11fast_lengthf(float) nounwind readnone
 
-declare float @_Z13fast_distanceDv2_fS_(<2 x float>, <2 x float>) readnone
+declare float @_Z11fast_lengthDv2_f(<2 x float>) nounwind readnone
 
-declare float @_Z13fast_distanceDv4_fS_(<4 x float>, <4 x float>) readnone
+declare float @_Z11fast_lengthDv4_f(<4 x float>) nounwind readnone
 
-declare float @_Z13convert_floati(i32) readnone
+declare float @_Z8distanceff(float, float) nounwind readnone
 
-declare <4 x float> @_Z14convert_float4Dv4_i(<4 x i32>) readnone
+declare float @_Z8distanceDv2_fS_(<2 x float>, <2 x float>) nounwind readnone
 
-declare <8 x float> @_Z14convert_float8Dv8_i(<8 x i32>) readnone
+declare float @_Z8distanceDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <16 x float> @_Z15convert_float16Dv16_i(<16 x i32>) readnone
+declare float @_Z13fast_distanceff(float, float) nounwind readnone
 
-declare float @_Z13convert_floatj(i32) readnone
+declare float @_Z13fast_distanceDv2_fS_(<2 x float>, <2 x float>) nounwind readnone
 
-declare <4 x float> @_Z14convert_float4Dv4_j(<4 x i32>) readnone
+declare float @_Z13fast_distanceDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z14convert_float8Dv8_j(<8 x i32>) readnone
+declare float @_Z13convert_floati(i32) nounwind readnone
 
-declare <16 x float> @_Z15convert_float16Dv16_j(<16 x i32>) readnone
+declare <4 x float> @_Z14convert_float4Dv4_i(<4 x i32>) nounwind readnone
 
-declare float @_Z5rootnfi(float, i32) readnone
+declare <8 x float> @_Z14convert_float8Dv8_i(<8 x i32>) nounwind readnone
 
-declare <4 x float> @_Z5rootnDv4_fDv4_i(<4 x float>, <4 x i32>) readnone
+declare <16 x float> @_Z15convert_float16Dv16_i(<16 x i32>) nounwind readnone
 
-declare <8 x float> @_Z5rootnDv8_fDv8_i(<8 x float>, <8 x i32>) readnone
+declare float @_Z13convert_floatj(i32) nounwind readnone
 
-declare <16 x float> @_Z5rootnDv16_fDv16_i(<16 x float>, <16 x i32>) readnone
+declare <4 x float> @_Z14convert_float4Dv4_j(<4 x i32>) nounwind readnone
 
-declare float @_Z5ldexpfi(float, i32) readnone
+declare <8 x float> @_Z14convert_float8Dv8_j(<8 x i32>) nounwind readnone
 
-declare <4 x float> @_Z5ldexpDv4_fDv4_i(<4 x float>, <4 x i32>) readnone
+declare <16 x float> @_Z15convert_float16Dv16_j(<16 x i32>) nounwind readnone
 
-declare <8 x float> @_Z5ldexpDv8_fDv8_i(<8 x float>, <8 x i32>) readnone
+declare float @_Z5rootnfi(float, i32) nounwind readnone
 
-declare <16 x float> @_Z5ldexpDv16_fDv16_i(<16 x float>, <16 x i32>) readnone
+declare <4 x float> @_Z5rootnDv4_fDv4_i(<4 x float>, <4 x i32>) nounwind readnone
 
-declare <4 x float> @_Z5ldexpDv4_fi(<4 x float>, i32) readnone
+declare <8 x float> @_Z5rootnDv8_fDv8_i(<8 x float>, <8 x i32>) nounwind readnone
 
-declare <8 x float> @_Z5ldexpDv8_fi(<8 x float>, i32) readnone
+declare <16 x float> @_Z5rootnDv16_fDv16_i(<16 x float>, <16 x i32>) nounwind readnone
 
-declare <16 x float> @_Z5ldexpDv16_fi(<16 x float>, i32) readnone
+declare float @_Z5ldexpfi(float, i32) nounwind readnone
+
+declare <4 x float> @_Z5ldexpDv4_fDv4_i(<4 x float>, <4 x i32>) nounwind readnone
+
+declare <8 x float> @_Z5ldexpDv8_fDv8_i(<8 x float>, <8 x i32>) nounwind readnone
+
+declare <16 x float> @_Z5ldexpDv16_fDv16_i(<16 x float>, <16 x i32>) nounwind readnone
+
+declare <4 x float> @_Z5ldexpDv4_fi(<4 x float>, i32) nounwind readnone
+
+declare <8 x float> @_Z5ldexpDv8_fi(<8 x float>, i32) nounwind readnone
+
+declare <16 x float> @_Z5ldexpDv16_fi(<16 x float>, i32) nounwind readnone
 
 declare float @_Z4modffPf(float, float*)
 
@@ -2910,159 +2938,159 @@ declare <8 x float> @_Z5frexpDv8_fPDv8_i(<8 x float>, <8 x i32>*)
 
 declare <16 x float> @_Z5frexpDv16_fPDv16_i(<16 x float>, <16 x i32>*)
 
-declare float @_Z6maxmagff(float, float) readnone
+declare float @_Z6maxmagff(float, float) nounwind readnone
 
-declare <4 x float> @_Z6maxmagDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z6maxmagDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6maxmagDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z6maxmagDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6maxmagDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z6maxmagDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z6minmagff(float, float) readnone
+declare float @_Z6minmagff(float, float) nounwind readnone
 
-declare <4 x float> @_Z6minmagDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z6minmagDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6minmagDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z6minmagDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6minmagDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z6minmagDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z8copysignff(float, float) readnone
+declare float @_Z8copysignff(float, float) nounwind readnone
 
-declare <4 x float> @_Z8copysignDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z8copysignDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z8copysignDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z8copysignDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z8copysignDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z8copysignDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z9nextafterff(float, float) readnone
+declare float @_Z9nextafterff(float, float) nounwind readnone
 
-declare <4 x float> @_Z9nextafterDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z9nextafterDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9nextafterDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z9nextafterDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9nextafterDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z9nextafterDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z4fdimff(float, float) readnone
+declare float @_Z4fdimff(float, float) nounwind readnone
 
-declare <4 x float> @_Z4fdimDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z4fdimDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4fdimDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z4fdimDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4fdimDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z4fdimDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z3fmafff(float, float, float) readnone
+declare float @_Z3fmafff(float, float, float) nounwind readnone
 
-declare <4 x float> @_Z3fmaDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z3fmaDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3fmaDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z3fmaDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3fmaDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z3fmaDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z3madfff(float, float, float) readnone
+declare float @_Z3madfff(float, float, float) nounwind readnone
 
-declare <4 x float> @_Z3madDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z3madDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z3madDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z3madDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z3madDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z3madDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z4rintf(float) readnone
+declare float @_Z4rintf(float) nounwind readnone
 
-declare <4 x float> @_Z4rintDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4rintDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4rintDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4rintDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4rintDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4rintDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5roundf(float) readnone
+declare float @_Z5roundf(float) nounwind readnone
 
-declare <4 x float> @_Z5roundDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5roundDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5roundDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5roundDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5roundDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5roundDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z5truncf(float) readnone
+declare float @_Z5truncf(float) nounwind readnone
 
-declare <4 x float> @_Z5truncDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z5truncDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z5truncDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z5truncDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z5truncDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z5truncDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4cbrtf(float) readnone
+declare float @_Z4cbrtf(float) nounwind readnone
 
-declare <4 x float> @_Z4cbrtDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z4cbrtDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4cbrtDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z4cbrtDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4cbrtDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z4cbrtDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z4powrff(float, float) readnone
+declare float @_Z4powrff(float, float) nounwind readnone
 
-declare <4 x float> @_Z4powrDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z4powrDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4powrDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z4powrDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4powrDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z4powrDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z4fmodff(float, float) readnone
+declare float @_Z4fmodff(float, float) nounwind readnone
 
-declare <4 x float> @_Z4fmodDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z4fmodDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4fmodDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z4fmodDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4fmodDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z4fmodDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z4fminff(float, float) readnone
+declare float @_Z4fminff(float, float) nounwind readnone
 
-declare <4 x float> @_Z4fminDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z4fminDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4fminDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z4fminDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4fminDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z4fminDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z4fmaxff(float, float) readnone
+declare float @_Z4fmaxff(float, float) nounwind readnone
 
-declare <4 x float> @_Z4fmaxDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z4fmaxDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z4fmaxDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z4fmaxDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z4fmaxDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z4fmaxDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
-declare <4 x float> @_Z4fminDv4_ff(<4 x float>, float) readnone
+declare <4 x float> @_Z4fminDv4_ff(<4 x float>, float) nounwind readnone
 
-declare <8 x float> @_Z4fminDv8_ff(<8 x float>, float) readnone
+declare <8 x float> @_Z4fminDv8_ff(<8 x float>, float) nounwind readnone
 
-declare <16 x float> @_Z4fminDv16_ff(<16 x float>, float) readnone
+declare <16 x float> @_Z4fminDv16_ff(<16 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z4fmaxDv4_ff(<4 x float>, float) readnone
+declare <4 x float> @_Z4fmaxDv4_ff(<4 x float>, float) nounwind readnone
 
-declare <8 x float> @_Z4fmaxDv8_ff(<8 x float>, float) readnone
+declare <8 x float> @_Z4fmaxDv8_ff(<8 x float>, float) nounwind readnone
 
-declare <16 x float> @_Z4fmaxDv16_ff(<16 x float>, float) readnone
+declare <16 x float> @_Z4fmaxDv16_ff(<16 x float>, float) nounwind readnone
 
-declare <4 x float> @_Z4pownDv4_fDv4_i(<4 x float>, <4 x i32>) readnone
+declare <4 x float> @_Z4pownDv4_fDv4_i(<4 x float>, <4 x i32>) nounwind readnone
 
-declare <8 x float> @_Z4pownDv8_fDv8_i(<8 x float>, <8 x i32>) readnone
+declare <8 x float> @_Z4pownDv8_fDv8_i(<8 x float>, <8 x i32>) nounwind readnone
 
-declare <16 x float> @_Z4pownDv16_fDv16_i(<16 x float>, <16 x i32>) readnone
+declare <16 x float> @_Z4pownDv16_fDv16_i(<16 x float>, <16 x i32>) nounwind readnone
 
-declare i32 @_Z5ilogbf(float) readnone
+declare i32 @_Z5ilogbf(float) nounwind readnone
 
-declare <4 x i32> @_Z5ilogbDv4_f(<4 x float>) readnone
+declare <4 x i32> @_Z5ilogbDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x i32> @_Z5ilogbDv8_f(<8 x float>) readnone
+declare <8 x i32> @_Z5ilogbDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x i32> @_Z5ilogbDv16_f(<16 x float>) readnone
+declare <16 x i32> @_Z5ilogbDv16_f(<16 x float>) nounwind readnone
 
-declare float @_Z3nanj(i32) readnone
+declare float @_Z3nanj(i32) nounwind readnone
 
-declare <4 x float> @_Z3nanDv4_j(<4 x i32>) readnone
+declare <4 x float> @_Z3nanDv4_j(<4 x i32>) nounwind readnone
 
-declare <8 x float> @_Z3nanDv8_j(<8 x i32>) readnone
+declare <8 x float> @_Z3nanDv8_j(<8 x i32>) nounwind readnone
 
-declare <16 x float> @_Z3nanDv16_j(<16 x i32>) readnone
+declare <16 x float> @_Z3nanDv16_j(<16 x i32>) nounwind readnone
 
 declare float @_Z5fractfPf(float, float*)
 
@@ -3072,13 +3100,13 @@ declare <8 x float> @_Z5fractDv8_fPS_(<8 x float>, <8 x float>*)
 
 declare <16 x float> @_Z5fractDv16_fPS_(<16 x float>, <16 x float>*)
 
-declare float @_Z6lgammaf(float) readnone
+declare float @_Z6lgammaf(float) nounwind readnone
 
-declare <4 x float> @_Z6lgammaDv4_f(<4 x float>) readnone
+declare <4 x float> @_Z6lgammaDv4_f(<4 x float>) nounwind readnone
 
-declare <8 x float> @_Z6lgammaDv8_f(<8 x float>) readnone
+declare <8 x float> @_Z6lgammaDv8_f(<8 x float>) nounwind readnone
 
-declare <16 x float> @_Z6lgammaDv16_f(<16 x float>) readnone
+declare <16 x float> @_Z6lgammaDv16_f(<16 x float>) nounwind readnone
 
 declare float @_Z8lgamma_rfPi(float, i32*)
 
@@ -3088,85 +3116,85 @@ declare <8 x float> @_Z8lgamma_rDv8_fPDv8_i(<8 x float>, <8 x i32>*)
 
 declare <16 x float> @_Z8lgamma_rDv16_fPDv16_i(<16 x float>, <16 x i32>*)
 
-declare float @_Z9bitselectfff(float, float, float) readnone
+declare float @_Z9bitselectfff(float, float, float) nounwind readnone
 
-declare <4 x float> @_Z9bitselectDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z9bitselectDv4_fS_S_(<4 x float>, <4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9bitselectDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z9bitselectDv8_fS_S_(<8 x float>, <8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9bitselectDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z9bitselectDv16_fS_S_(<16 x float>, <16 x float>, <16 x float>) nounwind readnone
 
-declare float @_Z6selectffc(float, float, i8 signext) readnone
+declare float @_Z6selectffc(float, float, i8 signext) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_c(<4 x float>, <4 x float>, <4 x i8>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_c(<4 x float>, <4 x float>, <4 x i8>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_c(<8 x float>, <8 x float>, <8 x i8>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_c(<8 x float>, <8 x float>, <8 x i8>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_c(<16 x float>, <16 x float>, <16 x i8>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_c(<16 x float>, <16 x float>, <16 x i8>) nounwind readnone
 
-declare float @_Z6selectffh(float, float, i8 zeroext) readnone
+declare float @_Z6selectffh(float, float, i8 zeroext) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_h(<4 x float>, <4 x float>, <4 x i8>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_h(<4 x float>, <4 x float>, <4 x i8>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_h(<8 x float>, <8 x float>, <8 x i8>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_h(<8 x float>, <8 x float>, <8 x i8>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_h(<16 x float>, <16 x float>, <16 x i8>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_h(<16 x float>, <16 x float>, <16 x i8>) nounwind readnone
 
-declare float @_Z6selectffs(float, float, i16 signext) readnone
+declare float @_Z6selectffs(float, float, i16 signext) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_s(<4 x float>, <4 x float>, <4 x i16>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_s(<4 x float>, <4 x float>, <4 x i16>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_s(<8 x float>, <8 x float>, <8 x i16>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_s(<8 x float>, <8 x float>, <8 x i16>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_s(<16 x float>, <16 x float>, <16 x i16>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_s(<16 x float>, <16 x float>, <16 x i16>) nounwind readnone
 
-declare float @_Z6selectfft(float, float, i16 zeroext) readnone
+declare float @_Z6selectfft(float, float, i16 zeroext) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_t(<4 x float>, <4 x float>, <4 x i16>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_t(<4 x float>, <4 x float>, <4 x i16>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_t(<8 x float>, <8 x float>, <8 x i16>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_t(<8 x float>, <8 x float>, <8 x i16>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_t(<16 x float>, <16 x float>, <16 x i16>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_t(<16 x float>, <16 x float>, <16 x i16>) nounwind readnone
 
-declare float @_Z6selectffi(float, float, i32) readnone
+declare float @_Z6selectffi(float, float, i32) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_i(<4 x float>, <4 x float>, <4 x i32>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_i(<4 x float>, <4 x float>, <4 x i32>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_i(<8 x float>, <8 x float>, <8 x i32>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_i(<8 x float>, <8 x float>, <8 x i32>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_i(<16 x float>, <16 x float>, <16 x i32>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_i(<16 x float>, <16 x float>, <16 x i32>) nounwind readnone
 
-declare float @_Z6selectffj(float, float, i32) readnone
+declare float @_Z6selectffj(float, float, i32) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_j(<4 x float>, <4 x float>, <4 x i32>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_j(<4 x float>, <4 x float>, <4 x i32>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_j(<8 x float>, <8 x float>, <8 x i32>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_j(<8 x float>, <8 x float>, <8 x i32>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_j(<16 x float>, <16 x float>, <16 x i32>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_j(<16 x float>, <16 x float>, <16 x i32>) nounwind readnone
 
-declare float @_Z6selectffl(float, float, i64) readnone
+declare float @_Z6selectffl(float, float, i64) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_l(<4 x float>, <4 x float>, <4 x i64>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_l(<4 x float>, <4 x float>, <4 x i64>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_l(<8 x float>, <8 x float>, <8 x i64>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_l(<8 x float>, <8 x float>, <8 x i64>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_l(<16 x float>, <16 x float>, <16 x i64>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_l(<16 x float>, <16 x float>, <16 x i64>) nounwind readnone
 
-declare float @_Z6selectffm(float, float, i64) readnone
+declare float @_Z6selectffm(float, float, i64) nounwind readnone
 
-declare <4 x float> @_Z6selectDv4_fS_Dv4_m(<4 x float>, <4 x float>, <4 x i64>) readnone
+declare <4 x float> @_Z6selectDv4_fS_Dv4_m(<4 x float>, <4 x float>, <4 x i64>) nounwind readnone
 
-declare <8 x float> @_Z6selectDv8_fS_Dv8_m(<8 x float>, <8 x float>, <8 x i64>) readnone
+declare <8 x float> @_Z6selectDv8_fS_Dv8_m(<8 x float>, <8 x float>, <8 x i64>) nounwind readnone
 
-declare <16 x float> @_Z6selectDv16_fS_Dv16_m(<16 x float>, <16 x float>, <16 x i64>) readnone
+declare <16 x float> @_Z6selectDv16_fS_Dv16_m(<16 x float>, <16 x float>, <16 x i64>) nounwind readnone
 
-declare float @_Z9remainderff(float, float) readnone
+declare float @_Z9remainderff(float, float) nounwind readnone
 
-declare <4 x float> @_Z9remainderDv4_fS_(<4 x float>, <4 x float>) readnone
+declare <4 x float> @_Z9remainderDv4_fS_(<4 x float>, <4 x float>) nounwind readnone
 
-declare <8 x float> @_Z9remainderDv8_fS_(<8 x float>, <8 x float>) readnone
+declare <8 x float> @_Z9remainderDv8_fS_(<8 x float>, <8 x float>) nounwind readnone
 
-declare <16 x float> @_Z9remainderDv16_fS_(<16 x float>, <16 x float>) readnone
+declare <16 x float> @_Z9remainderDv16_fS_(<16 x float>, <16 x float>) nounwind readnone
 
 declare float @_Z6remquoffPi(float, float, i32*)
 
@@ -3181,11 +3209,8 @@ declare <8 x float> @_Z6remquoDv8_fS_PDv8_i(<8 x float>, <8 x float>, <8 x i32>*
 declare <16 x float> @_Z6remquoDv16_fS_PDv16_i(<16 x float>, <16 x float>, <16 x i32>*)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{}
+!opencl.build.options = !{!2}
 
-!0 = metadata !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32)* @oclbuiltin, metadata !1, metadata !1, metadata !"", metadata !"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, uint const", metadata !"opencl_oclbuiltin_locals_anchor", metadata !2, metadata !3, metadata !4, metadata !5, metadata !""}
-!1 = metadata !{i32 0, i32 0, i32 0}
-!2 = metadata !{i32 1, i32 1, i32 1, i32 1, i32 0}
-!3 = metadata !{i32 3, i32 3, i32 3, i32 3, i32 3}
-!4 = metadata !{metadata !"float*", metadata !"float*", metadata !"int*", metadata !"int*", metadata !"uint const"}
-!5 = metadata !{metadata !"input", metadata !"output", metadata !"inputInt", metadata !"outputInt", metadata !"buffer_size"}
+!0 = metadata !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32)* @oclbuiltin, metadata !1}
+!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3, i32 3}
+!2 = metadata !{metadata !"-cl-std=CL1.2"}

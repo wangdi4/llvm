@@ -108,6 +108,14 @@ namespace Validation {
         min = RefALU::flush<dT>(min);
         max = RefALU::flush<dT>(max);
 
+        if(ulps == (T)0) {
+            dT refDT = RefALU::flush(NEATALU::castDown(RefALU::flush(ref)));
+            if ( min == refDT && max == refDT)
+                return true;
+            else
+                return false;
+        }
+
         if(Utils::IsNInf(ref)) {
             if(!test.IsAcc())
                 return false;
@@ -129,8 +137,8 @@ namespace Validation {
                 return false;
         }
         else {
-            dT refMin = NEATALU::castDown(ref-ulps*NEATALU::ComputeUlp(ref));
-            dT refMax = NEATALU::castDown(ref+ulps*NEATALU::ComputeUlp(ref));
+            dT refMin = NEATALU::castDown(ref-(T)ulps*NEATALU::ComputeUlp(ref));
+            dT refMax = NEATALU::castDown(ref+(T)ulps*NEATALU::ComputeUlp(ref));
 
             float diff1 = Utils::ulpsDiff(ref,min);
             float diff2 = Utils::ulpsDiff(ref,max);
@@ -236,6 +244,14 @@ namespace Validation {
         min = RefALU::flush<dT>(min);
         max = RefALU::flush<dT>(max);
 
+        if(ulps == (T)0) {
+            if ( min == RefALU::flush(NEATALU::castDown(RefALU::flush(refMin))) 
+                && max == RefALU::flush(NEATALU::castDown(RefALU::flush(refMax))))
+                return true;
+            else
+                return false;
+        }
+
         if(Utils::IsNInf(refMin)) {
             if(! Utils::IsNInf(min))
                 return false;
@@ -249,7 +265,7 @@ namespace Validation {
             if( min != 0)
                 return false;
         } else {
-            dT refMinUlps = NEATALU::castDown(refMin-ulps*NEATALU::ComputeUlp(refMin));
+            dT refMinUlps = NEATALU::castDown(refMin-T(ulps)*NEATALU::ComputeUlp(refMin));
 
             res = true;
             // if refMinUlps is INF, min should be INF
@@ -283,7 +299,7 @@ namespace Validation {
             if( max != 0)
                 return false;
         } else {
-            dT refMaxUlps = NEATALU::castDown(refMax+ulps*NEATALU::ComputeUlp(refMax));
+            dT refMaxUlps = NEATALU::castDown(refMax+T(ulps)*NEATALU::ComputeUlp(refMax));
 
             res = true;
             // if refMaxUlps is INF, max should be INF
