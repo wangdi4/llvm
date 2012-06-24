@@ -357,7 +357,7 @@ namespace Conformance
     }
 
 
-#define CLAMP_FLOAT( v ) (fmaxf(fminf( v, 1.f ), -1.f ) )
+#define CLAMP_FLOAT( v ) ( fmaxf( fminf( v, 1.f ), -1.f ) )
 
     void read_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
         int x, int y, int z, float *outData )

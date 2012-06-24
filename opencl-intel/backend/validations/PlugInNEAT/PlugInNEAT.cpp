@@ -34,7 +34,7 @@ File Name:  PlugInNEAT.cpp
 #include "InterpreterPluggable.h"
 
 #include "PlugInNEAT.h"
-#include "NEAT_WRAP.h"
+#include "NEATALU.h"
 #include "IMemoryObject.h"
 #include "Buffer.h"
 #include "Image.h"
@@ -1156,10 +1156,10 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
   switch (TY->getTypeID())                                            \
   {                                                                   \
   case Type::FloatTyID:                                               \
-    Result.NEATVec = OP##_f(Src1.NEATVec, Src2.NEATVec);  \
+    Result.NEATVec = NEATALU::OP<float>(Src1.NEATVec, Src2.NEATVec);  \
     break;                                                            \
   case Type::DoubleTyID:                                              \
-    Result.NEATVec = OP##_d(Src1.NEATVec, Src2.NEATVec); \
+    Result.NEATVec = NEATALU::OP<double>(Src1.NEATVec, Src2.NEATVec); \
     break;                                                            \
   default:                                                            \
     throw InvalidArgument("visitBinaryOperator: unsupported type");   \
@@ -1169,11 +1169,11 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
   if (Ty->isVectorTy())
   {
     switch(I.getOpcode()){
-    case Instruction::FAdd:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::add, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FSub:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::sub, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FMul:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FDiv:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::div, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FRem:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::fmod, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    case Instruction::FAdd:  FLOAT_VECTOR_FUNCTION(add, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    case Instruction::FSub:  FLOAT_VECTOR_FUNCTION(sub, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    case Instruction::FMul:  FLOAT_VECTOR_FUNCTION(mul, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    case Instruction::FDiv:  FLOAT_VECTOR_FUNCTION(div, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    case Instruction::FRem:  FLOAT_VECTOR_FUNCTION(fmod, dyn_cast<VectorType>(Ty)->getElementType()) break;
     default:
       throw InvalidArgument("visitBinaryOperator: unsupported vector operator");
     }
@@ -1184,20 +1184,20 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
   switch (TY->getTypeID())                                            \
     {                                                                   \
   case Type::FloatTyID:                                               \
-  Result.NEATVal = OP##_f(Src1.NEATVal, Src2.NEATVal);  \
+  Result.NEATVal = NEATALU::OP<float>(Src1.NEATVal, Src2.NEATVal);  \
   break;                                                      \
   case Type::DoubleTyID:                                              \
-  Result.NEATVal = OP##_d(Src1.NEATVal, Src2.NEATVal); \
+  Result.NEATVal = NEATALU::OP<double>(Src1.NEATVal, Src2.NEATVal); \
   break;\
     default:                                                          \
     throw InvalidArgument("visitBinaryOperator: unsupported type");     \
   }
     switch(I.getOpcode()){
-    case Instruction::FAdd:  FLOAT_OPERATOR(NEAT_WRAP::add, Ty) break;
-    case Instruction::FSub:  FLOAT_OPERATOR(NEAT_WRAP::sub, Ty) break;
-    case Instruction::FMul:  FLOAT_OPERATOR(NEAT_WRAP::mul, Ty) break;
-    case Instruction::FDiv:  FLOAT_OPERATOR(NEAT_WRAP::div, Ty) break;
-    case Instruction::FRem:  FLOAT_OPERATOR(NEAT_WRAP::fmod, Ty) break;
+    case Instruction::FAdd:  FLOAT_OPERATOR(add, Ty) break;
+    case Instruction::FSub:  FLOAT_OPERATOR(sub, Ty) break;
+    case Instruction::FMul:  FLOAT_OPERATOR(mul, Ty) break;
+    case Instruction::FDiv:  FLOAT_OPERATOR(div, Ty) break;
+    case Instruction::FRem:  FLOAT_OPERATOR(fmod, Ty) break;
     default:
       throw InvalidArgument("visitBinaryOperator: unsupported scalar operator");
     }
@@ -1226,7 +1226,7 @@ void NEATPlugIn::visitExtractElementInst( ExtractElementInst &I )
   const unsigned indx = unsigned(IdxGV.IntVal.getZExtValue());
 
   // TODO: template parameter is meaningless here. Remove it once it deleted from interface.
-  Result.NEATVal = NEAT_WRAP::extractelement_fd(Src1.NEATVec, indx);
+  Result.NEATVal = NEATALU::extractelement(Src1.NEATVec, indx);
   SetValue(&I, Result, SF);
 }
 
@@ -1248,7 +1248,7 @@ void NEATPlugIn::visitInsertElementInst( InsertElementInst &I )
   const unsigned indx = unsigned(IdxGV.IntVal.getZExtValue());
 
   // TODO: template parameter is meaningless here. Remove it once it deleted from interface.
-  Result.NEATVec = NEAT_WRAP::insertelement_fd(Src1.NEATVec, Src2.NEATVal, indx);
+  Result.NEATVec = NEATALU::insertelement(Src1.NEATVec, Src2.NEATVal, indx);
   SetValue(&I, Result, SF);
 }
 
@@ -1273,7 +1273,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
     mask_vec.push_back((unsigned)(MaskGV.AggregateVal[i].IntVal.getZExtValue()));
   }
 
-  Dest.NEATVec = NEAT_WRAP::shufflevector_fd(Src1.NEATVec, Src2.NEATVec, mask_vec);
+  Dest.NEATVec = NEATALU::shufflevector(Src1.NEATVec, Src2.NEATVec, mask_vec);
 
   // mask vector is an integer vector got from interpreter
   // The shuffle mask operand is required to be a constant vector 
@@ -1324,11 +1324,11 @@ void NEATPlugIn::visitFCmpInst( FCmpInst &I )
 #define COMPARE(TYPE, VALUE, Y)                                                         \
   if (TYPE->getTypeID() == Type::FloatTyID)                                             \
   {                                                                                     \
-  R.NEAT##VALUE = NEAT_WRAP::fcmp_f(Src1.NEAT##VALUE, Src2.NEAT##VALUE, CMP_##Y);       \
+  R.NEAT##VALUE = NEATALU::fcmp<float>(Src1.NEAT##VALUE, Src2.NEAT##VALUE, CMP_##Y);    \
   }                                                                                     \
   if (TYPE->getTypeID() == Type::DoubleTyID)                                            \
   {                                                                                     \
-  R.NEAT##VALUE = NEAT_WRAP::fcmp_d(Src1.NEAT##VALUE, Src2.NEAT##VALUE, CMP_##Y);       \
+  R.NEAT##VALUE = NEATALU::fcmp<double>(Src1.NEAT##VALUE, Src2.NEAT##VALUE, CMP_##Y);   \
   }
 
 #define CASE(X)                                                         \
@@ -1390,7 +1390,7 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
       bool m = MaskGV.AggregateVal[i].IntVal != 0;
       select_mask.push_back(m);
     }
-    R.NEATVec = NEAT_WRAP::select_fd(select_mask, Src2.NEATVec, Src3.NEATVec);
+    R.NEATVec = NEATALU::select(select_mask, Src2.NEATVec, Src3.NEATVec);
 
   }
   else
@@ -1401,7 +1401,7 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
       {
         return;
       }
-      R.NEATVec = NEAT_WRAP::select_fd(MaskGV.IntVal != 0, Src2.NEATVec, Src3.NEATVec);
+      R.NEATVec = NEATALU::select(MaskGV.IntVal != 0, Src2.NEATVec, Src3.NEATVec);
     }
     else
     {
@@ -1409,7 +1409,7 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
       {
         return;
       }
-      R.NEATVal = NEAT_WRAP::select_fd(MaskGV.IntVal != 0, Src2.NEATVal, Src3.NEATVal);
+      R.NEATVal = NEATALU::select(MaskGV.IntVal != 0, Src2.NEATVal, Src3.NEATVal);
     }
   }
 
@@ -1429,7 +1429,7 @@ void NEATPlugIn::visitFPTruncInst( FPTruncInst &I )
   }
   NEATGenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   NEATGenericValue R;
-  R.NEATVal = NEAT_WRAP::fptrunc_d2f(Src1.NEATVal);
+  R.NEATVal = NEATALU::fptrunc<double, float>(Src1.NEATVal);
   SetValue(&I, R, SF);
 }
 
@@ -1446,7 +1446,7 @@ void NEATPlugIn::visitFPExtInst( FPExtInst &I )
   }
   NEATGenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   NEATGenericValue R;
-  R.NEATVal = NEAT_WRAP::fpext_f2d(Src1.NEATVal);
+  R.NEATVal = NEATALU::fpext<float, double>(Src1.NEATVal);
   SetValue(&I, R, SF);
 }
 
@@ -1578,7 +1578,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             if (SrcTypeID == Type::FloatTyID) {
                 // <2n x float> to <n x double>
                 if (DstTypeID == Type::DoubleTyID) {
-                    R.NEATVec = NEAT_WRAP::bitcast_f2d_vec(Src1.NEATVec);
+                    R.NEATVec = NEATALU::bitcast<float, double>(Src1.NEATVec);
                 } else if (DstTypeID == Type::FloatTyID) {
                     // <n x float> to <n x float> is stupid, but maybe it is possible
                     R.NEATVec = Src1.NEATVec;
@@ -1594,7 +1594,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             } else if (SrcTypeID == Type::DoubleTyID) {
                 // <n x double> to <2n x float>
                 if (DstTypeID == Type::FloatTyID) {
-                    R.NEATVec = NEAT_WRAP::bitcast_d2f(Src1.NEATVec);
+                    R.NEATVec = NEATALU::bitcast<double, float>(Src1.NEATVec);
                 } else if (DstTypeID == Type::DoubleTyID) {
                     // <n x double> to <n x double>
                     R.NEATVec = Src1.NEATVec;
@@ -1698,7 +1698,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
     {
         if (dyn_cast<VectorType>(DstTy)->getElementType()->getTypeID() == Type::FloatTyID)
         {
-            R.NEATVec = NEAT_WRAP::bitcast_d2f(Src1.NEATVal);
+            R.NEATVec = NEATALU::bitcast<double, float>(Src1.NEATVal);
             SetValue(&I, R, SF);
         } else if (dyn_cast<VectorType>(DstTy)->getElementType()->getTypeID() == Type::IntegerTyID) {
             if (!Src1.NEATVal.IsAcc()) {
@@ -1715,7 +1715,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
         {
             // <2 x float> to double value
             if (DstTy->getTypeID() == Type::DoubleTyID) {
-                R.NEATVal = NEAT_WRAP::bitcast_f2d_val(Src1.NEATVec);
+                R.NEATVal = NEATALU::bitcast<float, double, NEATValue>(Src1.NEATVec);
             } else if (DstTy->getTypeID() == Type::IntegerTyID) { // <2 x float> to i64
                 for (size_t i = 0; i < Src1.NEATVec.GetSize(); ++i) {
                     if (!Src1.NEATVec[i].IsAcc()) {
@@ -2007,9 +2007,9 @@ void NEATPlugIn::execute_cross(Function *F,
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_cross]: wrong vector size.");
 
         if (TyElem->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::cross_f(ValArg0.NEATVec, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::cross<float>(ValArg0.NEATVec, ValArg1.NEATVec);
         } else if (TyElem->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::cross_d(ValArg0.NEATVec, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::cross<double>(ValArg0.NEATVec, ValArg1.NEATVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_cross]: Not valid vector data type for built-in");}
     } else{
@@ -2032,22 +2032,22 @@ void NEATPlugIn::execute_step(Function *F,
     const Type *Ty1 = arg1->getType();
     if (Ty0->isFloatTy()) {
         if (Ty1->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::step_f(ValArg0.NEATVal, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::step<float>(ValArg0.NEATVal, ValArg1.NEATVec);
         } else {
-            Result.NEATVal = NEAT_WRAP::step_f(ValArg0.NEATVal, ValArg1.NEATVal);
+            Result.NEATVal = NEATALU::step<float>(ValArg0.NEATVal, ValArg1.NEATVal);
         }
     } else if (Ty0->isDoubleTy()) {
         if (Ty1->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::step_d(ValArg0.NEATVal, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::step<double>(ValArg0.NEATVal, ValArg1.NEATVec);
         } else {
-            Result.NEATVal = NEAT_WRAP::step_d(ValArg0.NEATVal, ValArg1.NEATVal);
+            Result.NEATVal = NEATALU::step<double>(ValArg0.NEATVal, ValArg1.NEATVal);
         }
     } else if (Ty0->isVectorTy()) {
         const Type *TyElem = dyn_cast<VectorType>(Ty0)->getElementType();
         if (TyElem->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::step_f(ValArg0.NEATVec, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::step<float>(ValArg0.NEATVec, ValArg1.NEATVec);
         } else if (TyElem->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::step_d(ValArg0.NEATVec, ValArg1.NEATVec);
+            Result.NEATVec = NEATALU::step<double>(ValArg0.NEATVec, ValArg1.NEATVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::step]: Not valid vector data type for built-in");}
     } else{
@@ -2073,26 +2073,26 @@ void NEATPlugIn::execute_smoothstep(Function *F,
     const Type *Ty2 = arg2->getType();
     if (Ty0->isFloatTy()) {
         if (Ty1->isFloatTy() && Ty2->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::smoothstep_f(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::smoothstep<float>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVec);
         } else if (Ty1->isFloatTy() && Ty2->isFloatTy()) {
-            Result.NEATVal = NEAT_WRAP::smoothstep_f(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::smoothstep<float>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::smoothstep]: Not valid data type for built-in");
         }
     } else if (Ty0->isDoubleTy()) {
         if (Ty1->isDoubleTy() && Ty2->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::smoothstep_d(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::smoothstep<double>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVec);
         } else if (Ty1->isDoubleTy() && Ty2->isDoubleTy()) {
-            Result.NEATVal = NEAT_WRAP::smoothstep_d(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::smoothstep<double>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::smoothstep]: Not valid data type for built-in");
         }
     } else if (Ty0->isVectorTy()) {
         const Type *TyElem = dyn_cast<VectorType>(Ty0)->getElementType();
         if (TyElem->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::smoothstep_f(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::smoothstep<float>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else if (TyElem->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::smoothstep_d(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::smoothstep<double>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::smoothstep]: Not valid vector data type for built-in");}
     } else{
@@ -2118,22 +2118,22 @@ void NEATPlugIn::execute_clamp(Function *F,
 
     if (Ty1->isFloatTy()) {
         if (Ty0->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::clamp_f(ValArg0.NEATVec, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVec = NEATALU::clamp<float>(ValArg0.NEATVec, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
-            Result.NEATVal = NEAT_WRAP::clamp_f(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::clamp<float>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         }
     } else if (Ty1->isDoubleTy()) {
         if (Ty0->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::clamp_d(ValArg0.NEATVec, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVec = NEATALU::clamp<double>(ValArg0.NEATVec, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
-            Result.NEATVal = NEAT_WRAP::clamp_d(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::clamp<double>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         }
     } else if (Ty1->isVectorTy()) {
         const Type *TyElem = dyn_cast<VectorType>(Ty1)->getElementType();
         if (TyElem->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::clamp_f(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::clamp<float>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else if (TyElem->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::clamp_d(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::clamp<double>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else if (TyElem->isIntegerTy()) {
             return;
         }else {
@@ -2168,7 +2168,7 @@ void NEATPlugIn::execute_vload_half(Function *F,
     size_t offset = ValArg0.IntVal.getZExtValue();
     GenericValue ValArg1 = GetGenericArg(1);
     uint16_t* p = (uint16_t*) GVTOP(ValArg1);
-    Result.NEATVal = NEAT_WRAP::vload_half(offset, p);
+    Result.NEATVal = NEATALU::vload_half(offset, p);
     return;
 }
 
@@ -2182,7 +2182,7 @@ void NEATPlugIn::execute_vload_half(Function *F,
     size_t offset = ValArg0.IntVal.getZExtValue();          \
     GenericValue ValArg1 = GetGenericArg(1);                \
     uint16_t* p = (uint16_t*) GVTOP(ValArg1);               \
-    Result.NEATVec = NEAT_WRAP::vload_half_ ## n ## _false(offset, p);  \
+    Result.NEATVec = NEATALU::vload_half<n, false>(offset, p);  \
     return;                                                 \
 }
 
@@ -2202,7 +2202,7 @@ EXECUTE_VLOAD_HALF(16)
     size_t offset = ValArg0.IntVal.getZExtValue();          \
     GenericValue ValArg1 = GetGenericArg(1);                \
     uint16_t* p = (uint16_t*) GVTOP(ValArg1);               \
-    Result.NEATVec = NEAT_WRAP::vload_half_ ## n ## _true(offset, p);  \
+    Result.NEATVec = NEATALU::vload_half<n, true>(offset, p);  \
     return;                                                 \
 }
 
@@ -2239,9 +2239,9 @@ void NEATPlugIn::execute_vload ## n(Function *F,                                
     const PointerType *PTy = dyn_cast<PointerType>(Ty1);                                \
     const Type *ETy = PTy->getElementType();                                            \
     if (ETy->isFloatTy()) {                                                             \
-        Result.NEATVec = NEAT_WRAP::vload ## n ## _f(offset, p);                                   \
+        Result.NEATVec = NEATALU::vload ## n <float>(offset, p);                        \
     } else if (ETy->isDoubleTy()) {                                                     \
-        Result.NEATVec = NEAT_WRAP::vload ## n ## _d(offset, p);                                   \
+        Result.NEATVec = NEATALU::vload ## n <double>(offset, p);                       \
     } else if (ETy->isIntegerTy()) {                                                    \
         return;                                                                         \
     } else {                                                                            \
@@ -2255,8 +2255,8 @@ EXECUTE_VLOAD(4)
 EXECUTE_VLOAD(8)
 EXECUTE_VLOAD(16)
 
-#define EXECUTE_VSTORE_HALF_RT(mode, name)                                                  \
-void NEATPlugIn::execute_v##name##mode(Function *F,                                         \
+#define EXECUTE_VSTORE_HALF_RT(mode, name)                                               \
+void NEATPlugIn::execute_v##name##mode(Function *F,                       \
                                      const std::map<Value *, NEATGenericValue> &ArgVals,    \
                                      NEATGenericValue& Result,                              \
                                      const OCLBuiltinParser::ArgVector& ArgList)            \
@@ -2270,17 +2270,17 @@ void NEATPlugIn::execute_v##name##mode(Function *F,                             
     uint16_t* p = (uint16_t*) GVTOP(ValArg2);                                               \
     const Type *Ty0 = arg0->getType();                                                      \
     if (Ty0->isFloatTy()) {                                                                 \
-        NEAT_WRAP::v##name##mode##_f(ValArg0.NEATVal, offset, p);                                      \
+        NEATALU::v##name##mode <float>(ValArg0.NEATVal, offset, p);      \
     } else if (Ty0->isDoubleTy()) {                                                         \
-        NEAT_WRAP::v##name##mode##_d(ValArg0.NEATVal, offset, p);                                      \
+        NEATALU::v##name##mode <double>(ValArg0.NEATVal, offset, p);     \
     } else {                                                                                \
         throw Exception::IllegalFunctionCall("[NEATPlug-in::vstore_half]: Invalid data type"\
                                              " for vstore_half built-in");                  \
     }                                                                                       \
 }
 
-#define EXECUTE_VSTORE_HALF(mode)      \
-    EXECUTE_VSTORE_HALF_RT(mode,store) \
+#define EXECUTE_VSTORE_HALF(mode) \
+    EXECUTE_VSTORE_HALF_RT(mode,store)     \
     EXECUTE_VSTORE_HALF_RT(mode,storea)
 
 EXECUTE_VSTORE_HALF(_half)
@@ -2290,8 +2290,8 @@ EXECUTE_VSTORE_HALF(_half_rtp)
 EXECUTE_VSTORE_HALF(_half_rtn)
 
 // Macro to define the vload_half functions for different vector length sizes.
-#define EXECUTE_VSTORE_HALF_N_RT(n, name, plugin_mode, alu_mode)                        \
-    void NEATPlugIn::execute_v##name ## plugin_mode (Function *F,                       \
+#define EXECUTE_VSTORE_HALF_N_RT(n, name, plugin_mode, alu_mode)                                      \
+    void NEATPlugIn::execute_v##name ## plugin_mode (Function *F,      \
     const std::map<Value *, NEATGenericValue> &ArgVals,                                 \
     NEATGenericValue& Result,                                                           \
     const OCLBuiltinParser::ArgVector& ArgList) {                                       \
@@ -2307,21 +2307,21 @@ EXECUTE_VSTORE_HALF(_half_rtn)
     const VectorType *PTy = dyn_cast<VectorType>(Ty2);                                  \
     const Type *ETy = PTy->getElementType();                                            \
     if (ETy->isFloatTy()) {                                                             \
-        NEAT_WRAP::v##name ## alu_mode ## _ ## n ## _f(data, offset, p);                \
+        NEATALU::v##name ## alu_mode<float, n>(data, offset, p);            \
     } else if (ETy->isDoubleTy()) {                                                     \
-        NEAT_WRAP::v##name ## alu_mode ## _ ## n ## _d(data, offset, p);                \
+        NEATALU::v##name ## alu_mode<double, n>(data, offset, p);           \
     } else {                                                                            \
         throw Exception::IllegalFunctionCall("[NEATPlug-in::vstore_half]: Invalid data" \
                                              " type for vstore_half built-in");         \
     }                                                                                   \
 }
 
-#define EXECUTE_VSTORE_HALF_RT_ALL_N(n, name)                        \
-    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n, _half)               \
-    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rte, _half##_rte)   \
-    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtz, _half##_rtz)   \
-    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtp, _half##_rtp)   \
-    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtn, _half##_rtn)   \
+#define EXECUTE_VSTORE_HALF_RT_ALL_N(n, name)  \
+    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n, _half)       \
+    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rte, _half##_rte)       \
+    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtz, _half##_rtz)       \
+    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtp, _half##_rtp)       \
+    EXECUTE_VSTORE_HALF_N_RT(n, name, _half##n##_rtn, _half##_rtn)      \
 
 #define EXECUTE_VSTORE_HALF_ALL_N(n)\
     EXECUTE_VSTORE_HALF_RT_ALL_N(n, store)\
@@ -2356,9 +2356,9 @@ void NEATPlugIn::execute_vstore ## n(Function *F,                               
     const PointerType *PTy = dyn_cast<PointerType>(Ty2);                                \
     const Type *ETy = PTy->getElementType();                                            \
     if (ETy->isFloatTy()) {                                                             \
-        NEAT_WRAP::vstore ## n ## _f(data, offset, p);                                  \
+        NEATALU::vstore ## n <float>(data, offset, p);                                  \
     } else if (ETy->isDoubleTy()) {                                                     \
-        NEAT_WRAP::vstore ## n ## _d(data, offset, p);                                  \
+        NEATALU::vstore ## n <double>(data, offset, p);                                 \
     } else if (ETy->isIntegerTy()) {                                                    \
         return;                                                                         \
     } else {                                                                            \
@@ -2382,7 +2382,7 @@ NEATVector convert_f ## n(GenericValue arg)                                 \
     {                                                                       \
         src[i] = T(arg.AggregateVal[i].IntVal.getLimitedValue());           \
     }                                                                       \
-    return NEAT_WRAP::convert_float_ ## n(src);                             \
+    return NEATALU::convert_float<T, n>(src);                               \
 }                                                                           \
 void NEATPlugIn::execute_convert_float ## n(Function *F,                    \
             const std::map<Value *, NEATGenericValue> &ArgVals,             \
@@ -2402,7 +2402,7 @@ void NEATPlugIn::execute_convert_float ## n(Function *F,                    \
         {                                                                   \
             src[i] = argVal.NEATVec[i];                                     \
         }                                                                   \
-        Result.NEATVec = NEAT_WRAP::convert_float_d_ ## n(src);             \
+        Result.NEATVec = NEATALU::convert_float<double, n>(src);            \
     } else if (ElemTy->isIntegerTy()) {                                     \
         GenericValue argVal = GetGenericArg(0);                             \
         const IntegerType *ITy = cast<IntegerType>(VTy->getElementType());  \
@@ -2450,7 +2450,7 @@ template <typename T>
 NEATValue convert_f(GenericValue argVal)
 {
     T val = argVal.IntVal.getSExtValue();
-    return NEAT_WRAP::convert_float(&val);
+    return NEATALU::convert_float<T>(&val);
 }
 
 // Convert_float built-in executor.
@@ -2466,7 +2466,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
     if (Ty->isDoubleTy())
     {
         NEATGenericValue argVal = GetArg(arg, ArgVals);
-        Result.NEATVal = NEAT_WRAP::convert_float_d(&(argVal.NEATVal));
+        Result.NEATVal = NEATALU::convert_float<double>(&(argVal.NEATVal));
     } else if (Ty->isIntegerTy()) {
         const IntegerType *ITy = cast<IntegerType>(Ty);
         switch (ITy->getBitWidth())
@@ -2511,7 +2511,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
         {                                                                   \
             src[i] = T(arg.AggregateVal[i].IntVal.getLimitedValue());       \
         }                                                                   \
-        return NEAT_WRAP::convert_double_ ## n(src);                        \
+        return NEATALU::convert_double<T,n>(src);                           \
     }                                                                       \
                                                                             \
     void NEATPlugIn::execute_convert_double ## n(Function *F,               \
@@ -2532,7 +2532,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
             {                                                               \
                 src[i] = argVal.NEATVec[i];                                 \
             }                                                               \
-            Result.NEATVec = NEAT_WRAP::convert_double_f_ ## n(src);        \
+            Result.NEATVec = NEATALU::convert_double<float, n>(src);        \
         } else if (ElemTy->isIntegerTy()) {                                 \
             GenericValue argVal = GetGenericArg(0);                         \
             const IntegerType *ITy = cast<IntegerType>(VTy->getElementType());\
@@ -2577,7 +2577,7 @@ template <typename T>
 NEATValue convert_d(GenericValue argVal)
 {
     T val = argVal.IntVal.getSExtValue();
-    return NEAT_WRAP::convert_double((T*)&val);
+    return NEATALU::convert_double<T>(&val);
 }
 
 // Convert_double built-in executor.
@@ -2592,7 +2592,7 @@ void NEATPlugIn::execute_convert_double(Function *F,
     if (Ty->isFloatTy())
     {
         NEATGenericValue argVal = GetArg(arg, ArgVals);
-        Result.NEATVal = NEAT_WRAP::convert_double_f(&(argVal.NEATVal));
+        Result.NEATVal = NEATALU::convert_double<float>(&(argVal.NEATVal));
     } else if (Ty->isIntegerTy()) {
         const IntegerType *ITy = cast<IntegerType>(Ty);
         GenericValue argVal = GetGenericArg(0);
@@ -2721,11 +2721,11 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
     const NEATGenericValue y = GetArg(arg1, ArgVals);\
     const Type *Ty = arg0->getType();\
     if (Ty->isFloatTy()) {\
-        Result.NEATVal = NEAT_WRAP::FuncName##_f(x.NEATVal, y.NEATVal);\
+        Result.NEATVal = NEATALU::FuncName<float>(x.NEATVal, y.NEATVal);\
         if (Result.NEATVal.IsUnknown())\
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: the result of comparison is UNKNOWN.");\
     } else if (Ty->isDoubleTy()) {\
-        Result.NEATVal = NEAT_WRAP::FuncName##_d(x.NEATVal, y.NEATVal);\
+        Result.NEATVal = NEATALU::FuncName<double>(x.NEATVal, y.NEATVal);\
         if (Result.NEATVal.IsUnknown())\
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: the result of comparison is UNKNOWN.");\
     } else if (Ty->isVectorTy()) {\
@@ -2735,9 +2735,9 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
         if (x.NEATVec.GetSize() != cast<VectorType>(Ty)->getNumElements()) \
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: wrong vector size."); \
         if (ETy->isFloatTy()) {\
-            Result.NEATVec = NEAT_WRAP::FuncName##_f(x.NEATVec, y.NEATVec);\
+            Result.NEATVec = NEATALU::FuncName<float>(x.NEATVec, y.NEATVec);\
         } else if (ETy->isDoubleTy()) {\
-            Result.NEATVec =  NEAT_WRAP::FuncName##_d(x.NEATVec, y.NEATVec);\
+            Result.NEATVec = NEATALU::FuncName<double>(x.NEATVec, y.NEATVec);\
         }\
         for (size_t i = 0; i < Result.NEATVec.GetSize(); ++i)\
             if (Result.NEATVec[i].IsUnknown())\
@@ -2750,11 +2750,11 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
     const NEATGenericValue x = GetArg(arg0, ArgVals);\
     const Type *Ty = arg0->getType();\
     if (Ty->isFloatTy()) {\
-        Result.NEATVal = NEAT_WRAP::FuncName##_f(x.NEATVal);\
+        Result.NEATVal = NEATALU::FuncName<float>(x.NEATVal);\
         if (Result.NEATVal.IsUnknown())\
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: the result of comparison is UNKNOWN.");\
     } else if (Ty->isDoubleTy()) {\
-        Result.NEATVal = NEAT_WRAP::FuncName##_d(x.NEATVal);\
+        Result.NEATVal = NEATALU::FuncName<double>(x.NEATVal);\
         if (Result.NEATVal.IsUnknown())\
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: the result of comparison is UNKNOWN.");\
     } else if (Ty->isVectorTy()) {\
@@ -2762,9 +2762,9 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
         if (x.NEATVec.GetSize() != cast<VectorType>(Ty)->getNumElements()) \
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_##FuncName##]: wrong vector size."); \
         if (ETy->isFloatTy()) {\
-            Result.NEATVec = NEAT_WRAP::FuncName##_f(x.NEATVec);\
+            Result.NEATVec = NEATALU::FuncName<float>(x.NEATVec);\
         } else if (ETy->isDoubleTy()) {\
-            Result.NEATVec = NEAT_WRAP::FuncName##_d(x.NEATVec);\
+            Result.NEATVec = NEATALU::FuncName<double>(x.NEATVec);\
         }\
         for (size_t i = 0; i < Result.NEATVec.GetSize(); ++i)\
             if (Result.NEATVec[i].IsUnknown())\
@@ -2888,10 +2888,10 @@ void NEATPlugIn::execute_select(Function *F,
 
     if (Ty0->isFloatTy() && Ty1->isFloatTy()) {
         int64_t intVal = int64_t(c.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::select_f(a.NEATVal, b.NEATVal, intVal);
+        Result.NEATVal = NEATALU::select<float>(a.NEATVal, b.NEATVal, intVal);
     } else if (Ty0->isDoubleTy() && Ty1->isDoubleTy()) {
         int64_t intVal = int64_t(c.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::select_d(a.NEATVal, b.NEATVal, intVal);
+        Result.NEATVal = NEATALU::select<double>(a.NEATVal, b.NEATVal, intVal);
     } else if (Ty0->isVectorTy() && Ty1->isVectorTy()) {
         const Type *ETy0 = cast<VectorType>(Ty0)->getElementType();
         const Type *ETy1 = cast<VectorType>(Ty1)->getElementType();
@@ -2908,9 +2908,9 @@ void NEATPlugIn::execute_select(Function *F,
         }
 
         if (ETy0->isFloatTy() && ETy1->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::select_f(a.NEATVec, b.NEATVec, condVec);
+            Result.NEATVec = NEATALU::select<float>(a.NEATVec, b.NEATVec, condVec);
         } else if (ETy0->isDoubleTy() && ETy1->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::select_d(a.NEATVec, b.NEATVec, condVec);
+            Result.NEATVec = NEATALU::select<double>(a.NEATVec, b.NEATVec, condVec);
         } else 
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_select]: Not valid data type for built-in");
     } else
@@ -2928,11 +2928,11 @@ void NEATPlugIn::execute_ilogb(Function *F,
     const NEATGenericValue x = GetArg(arg0, ArgVals);
     const Type *Ty = arg0->getType();
     if (Ty->isFloatTy()) {
-        Result.NEATVal = NEAT_WRAP::ilogb_f(x.NEATVal);
+        Result.NEATVal = NEATALU::ilogb<float>(x.NEATVal);
         if (Result.NEATVal.IsUnknown())
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_ilogb]: the result of operation is UNKNOWN.");
     }  else if (Ty->isDoubleTy()) {
-        Result.NEATVal = NEAT_WRAP::ilogb_d(x.NEATVal);
+        Result.NEATVal = NEATALU::ilogb<double>(x.NEATVal);
         if (Result.NEATVal.IsUnknown())
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_ilogb]: the result of operation is UNKNOWN.");
     } else if (Ty->isVectorTy()) {
@@ -2942,9 +2942,9 @@ void NEATPlugIn::execute_ilogb(Function *F,
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_ilogb]: wrong vector size.");
 
         if (ETy->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::ilogb_f(x.NEATVec);
+            Result.NEATVec = NEATALU::ilogb<float>(x.NEATVec);
         } else if (ETy->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::ilogb_d(x.NEATVec);
+            Result.NEATVec = NEATALU::ilogb<double>(x.NEATVec);
         }
 
         for (size_t i = 0; i < Result.NEATVec.GetSize(); ++i)
@@ -2973,21 +2973,21 @@ void execute_lgamma_r(Function *F,
         std::vector<int> intVec;
 
         if (TyElem0->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::lgamma_r_f(ValArg0.NEATVec, intVec);
+            Result.NEATVec = NEATALU::lgamma_r<float>(ValArg0.NEATVec, intVec);
         } else if (TyElem0->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::lgamma_r_d(ValArg0.NEATVec, intVec);
+            Result.NEATVec = NEATALU::lgamma_r<double>(ValArg0.NEATVec, intVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::lgamma_r]: Not valid vector data type for built-in");}
     } else if (Ty0->isDoubleTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int32_t intRes;
-        Result.NEATVal = NEAT_WRAP::lgamma_r_d(ValArg0.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::lgamma_r<double>(ValArg0.NEATVal, &intRes);
     } else if (Ty0->isFloatTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int32_t intRes;
-        Result.NEATVal = NEAT_WRAP::lgamma_r_f(ValArg0.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::lgamma_r<float>(ValArg0.NEATVal, &intRes);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::lgamma_r]: Not valid data type for built-in");
     }
@@ -3021,21 +3021,21 @@ void execute_remquo(Function *F,
         std::vector<int> intVec;
 
         if (TyElem0->isFloatTy() && TyElem1->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::remquo_f(ValArg0.NEATVec, ValArg1.NEATVec, intVec);
+            Result.NEATVec = NEATALU::remquo<float>(ValArg0.NEATVec, ValArg1.NEATVec, intVec);
         } else if (TyElem0->isDoubleTy() && TyElem1->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::remquo_d(ValArg0.NEATVec, ValArg1.NEATVec, intVec);
+            Result.NEATVec = NEATALU::remquo<double>(ValArg0.NEATVec, ValArg1.NEATVec, intVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_remquo]: Not valid vector data type for built-in");}
     } else if (Ty0->isDoubleTy() && Ty1->isDoubleTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int32_t intRes;
-        Result.NEATVal = NEAT_WRAP::remquo_d(ValArg0.NEATVal, ValArg1.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::remquo<double>(ValArg0.NEATVal, ValArg1.NEATVal, &intRes);
     } else if (Ty0->isFloatTy() && Ty1->isFloatTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int32_t intRes;
-        Result.NEATVal = NEAT_WRAP::remquo_f(ValArg0.NEATVal, ValArg1.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::remquo<float>(ValArg0.NEATVal, ValArg1.NEATVal, &intRes);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_remquo]: Not valid data type for built-in");
     }
@@ -3055,9 +3055,9 @@ void NEATPlugIn::execute_nan(Function *F,
         int n = Ty->getPrimitiveSizeInBits();
         int val = ValArg.IntVal.getSExtValue();
         if( n == 32) {
-            Result.NEATVal = NEAT_WRAP::nan_f(uint32_t(val));
+            Result.NEATVal = NEATALU::nan<float,uint32_t>(val);
         }  else if (n  == 64 ) {
-            Result.NEATVal = NEAT_WRAP::nan_d(uint64_t(val));
+            Result.NEATVal = NEATALU::nan<double,uint64_t>(val);
         } else 
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_nan]: Not valid data type for built-in (scalar)");
     } else if (Ty->isVectorTy()) {
@@ -3067,12 +3067,12 @@ void NEATPlugIn::execute_nan(Function *F,
             std::vector<uint32_t> vec0;
             for (unsigned i = 0; i < ValArg.AggregateVal.size(); ++i)
                 vec0.push_back((uint32_t)(ValArg.AggregateVal[i].IntVal.getZExtValue()));
-            Result.NEATVec = NEAT_WRAP::nan_f(vec0);
+            Result.NEATVec = NEATALU::nan<float,uint32_t>(vec0);
         } else if (n == 64) {
             std::vector<uint64_t> vec0;
             for (unsigned i = 0; i < ValArg.AggregateVal.size(); ++i)
                 vec0.push_back((uint64_t)(ValArg.AggregateVal[i].IntVal.getZExtValue()));
-            Result.NEATVec = NEAT_WRAP::nan_d(vec0);
+            Result.NEATVec = NEATALU::nan<double,uint64_t>(vec0);
         } else 
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_nan]: Not valid data type for built-in (vector)");
 
@@ -3151,7 +3151,7 @@ void NEATPlugIn::execute_read_imagef(Function *F,
     if( IsSamplerLess)
         imageSampler.addressing_mode = CL_ADDRESS_NONE;
 
-    NEATVector neatPixelVec = NEAT_WRAP::read_imagef_src_noneat_f(
+    NEATVector neatPixelVec = NEATALU::read_imagef_src_noneat(
         memobj->pData, // void *imageData,
         &desc, // image_descriptor *imageInfo,
         u, v, w,
@@ -3180,26 +3180,26 @@ void execute_mix(Function *F,
 
     if (Ty2->isFloatTy()) {
         if (Ty0->isVectorTy() && Ty1->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::mix_f(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVal);
+            Result.NEATVec = NEATALU::mix<float>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVal);
         } else if (Ty0->isFloatTy() && Ty1->isFloatTy()) {
-            Result.NEATVal = NEAT_WRAP::mix_f(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::mix<float>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::mix]: Not valid data type for built-in");
         }
     } else if (Ty2->isDoubleTy()) {
         if (Ty0->isVectorTy() && Ty1->isVectorTy()) {
-            Result.NEATVec = NEAT_WRAP::mix_d(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVal);
+            Result.NEATVec = NEATALU::mix<double>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVal);
         } else if (Ty0->isDoubleTy() && Ty1->isDoubleTy()) {
-            Result.NEATVal = NEAT_WRAP::mix_d(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+            Result.NEATVal = NEATALU::mix<double>(ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::mix]: Not valid data type for built-in");
         }
     } else if (Ty2->isVectorTy() && Ty0->isVectorTy() && Ty1->isVectorTy()) {
         const Type *TyElem = dyn_cast<VectorType>(Ty2)->getElementType();
         if (TyElem->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::mix_f(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::mix<float>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else if (TyElem->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::mix_d(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+            Result.NEATVec = NEATALU::mix<double>(ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::mix]: Not valid vector data type for built-in");}
     } else{
@@ -3226,21 +3226,21 @@ void execute_frexp(Function *F,
         std::vector<int> intVec;
 
         if (TyElem0->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::frexp_f(ValArg0.NEATVec, intVec);
+            Result.NEATVec = NEATALU::frexp<float>(ValArg0.NEATVec, intVec);
         } else if (TyElem0->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::frexp_d(ValArg0.NEATVec, intVec);
+            Result.NEATVec = NEATALU::frexp<double>(ValArg0.NEATVec, intVec);
         } else {
             throw Exception::IllegalFunctionCall("[NEATPlug-in::frexp]: Not valid vector data type for built-in");}
     } else if (Ty0->isDoubleTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int intRes;
-        Result.NEATVal = NEAT_WRAP::frexp_d(ValArg0.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::frexp<double>(ValArg0.NEATVal, &intRes);
     } else if (Ty0->isFloatTy()) {
         // we do not support integer types in NEAT ALU so far, that's why we don't use
         // result written to variable intRes
         int intRes;
-        Result.NEATVal = NEAT_WRAP::frexp_f(ValArg0.NEATVal, &intRes);
+        Result.NEATVal = NEATALU::frexp<float>(ValArg0.NEATVal, &intRes);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::frexp]: Not valid data type for built-in");
     }
@@ -3281,18 +3281,18 @@ void NEATPlugIn::execute_ldexp(Function *F,
                 intVec.push_back(a);
             }
             if (TyElem0->isFloatTy()) {
-                Result.NEATVec = NEAT_WRAP::ldexp_f(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::ldexp<float>(ValArg0.NEATVec, intVec);
             } else if (TyElem0->isDoubleTy()) {
-                Result.NEATVec = NEAT_WRAP::ldexp_d(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::ldexp<double>(ValArg0.NEATVec, intVec);
             } else {
                 throw Exception::IllegalFunctionCall("[NEATPlug-in::ldexp]: Not valid vector data type for built-in");
             }
         } else if ( Ty1->isIntegerTy() ) {
             int val = int(ValArg1.IntVal.getSExtValue());
             if (TyElem0->isFloatTy()) {
-                Result.NEATVec = NEAT_WRAP::ldexp_f(ValArg0.NEATVec, val);
+                Result.NEATVec = NEATALU::ldexp<float>(ValArg0.NEATVec, val);
             } else if (TyElem0->isDoubleTy()) {
-                Result.NEATVec = NEAT_WRAP::ldexp_d(ValArg0.NEATVec, val);
+                Result.NEATVec = NEATALU::ldexp<double>(ValArg0.NEATVec, val);
             } else {
                 throw Exception::IllegalFunctionCall("[NEATPlug-in::ldexp]: Not valid vector data type for built-in");
             }
@@ -3300,10 +3300,10 @@ void NEATPlugIn::execute_ldexp(Function *F,
 
     } else if (Ty0->isDoubleTy()) {
         int val = int(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::ldexp_d(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::ldexp<double>(ValArg0.NEATVal, val);
     } else if (Ty0->isFloatTy()) {
         int val = int(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::ldexp_f(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::ldexp<float>(ValArg0.NEATVal, val);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::ldexp]: Not valid data type for built-in");
     }
@@ -3343,9 +3343,9 @@ void NEATPlugIn::execute_pown(Function *F,
                 intVec.push_back(a);
             }
             if (TyElem0->isFloatTy()) {
-                Result.NEATVec = NEAT_WRAP::pown_f(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::pown<float>(ValArg0.NEATVec, intVec);
             } else if (TyElem0->isDoubleTy()) {
-                Result.NEATVec = NEAT_WRAP::pown_d(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::pown<double>(ValArg0.NEATVec, intVec);
             } else {
                 throw Exception::IllegalFunctionCall("[NEATPlug-in::pown]: Not valid vector data type for built-in");
             }
@@ -3353,10 +3353,10 @@ void NEATPlugIn::execute_pown(Function *F,
 
     } else if (Ty0->isDoubleTy()) {
         int32_t val = int32_t(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::pown_d(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::pown<double>(ValArg0.NEATVal, val);
     } else if (Ty0->isFloatTy()) {
         int32_t val = int32_t(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::pown_f(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::pown<float>(ValArg0.NEATVal, val);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::pown]: Not valid data type for built-in");
     }
@@ -3395,9 +3395,9 @@ void NEATPlugIn::execute_rootn(Function *F,
                 intVec.push_back(a);
             }
             if (TyElem0->isFloatTy()) {
-                Result.NEATVec = NEAT_WRAP::rootn_f(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::rootn<float>(ValArg0.NEATVec, intVec);
             } else if (TyElem0->isDoubleTy()) {
-                Result.NEATVec = NEAT_WRAP::rootn_d(ValArg0.NEATVec, intVec);
+                Result.NEATVec = NEATALU::rootn<double>(ValArg0.NEATVec, intVec);
             } else {
                 throw Exception::IllegalFunctionCall("[NEATPlug-in::rootn]: Not valid vector data type for built-in");
             }
@@ -3405,10 +3405,10 @@ void NEATPlugIn::execute_rootn(Function *F,
 
     } else if (Ty0->isDoubleTy()) {
         int val = int(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::rootn_d(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::rootn<double>(ValArg0.NEATVal, val);
     } else if (Ty0->isFloatTy()) {
         int val = int(ValArg1.IntVal.getSExtValue());
-        Result.NEATVal = NEAT_WRAP::rootn_f(ValArg0.NEATVal, val);
+        Result.NEATVal = NEATALU::rootn<float>(ValArg0.NEATVal, val);
     } else{
         throw Exception::IllegalFunctionCall("[NEATPlug-in::rootn]: Not valid data type for built-in");
     }
@@ -3431,19 +3431,19 @@ void NEATPlugIn::execute_rootn(Function *F,
     const Type *Ty1 = arg1->getType();                                      \
     if (Ty0->isVectorTy() && Ty1->isFloatTy())                              \
     {                                                                       \
-     Result.NEATVec = NEAT_WRAP::fn##_f(ValArg0.NEATVec, ValArg1.NEATVal);  \
+     Result.NEATVec = NEATALU::fn<float>(ValArg0.NEATVec, ValArg1.NEATVal);\
     }                                                                       \
     else if(Ty0->isVectorTy() && Ty1->isDoubleTy())                         \
     {                                                                       \
-     Result.NEATVec = NEAT_WRAP::fn##_d(ValArg0.NEATVec, ValArg1.NEATVal);  \
+     Result.NEATVec = NEATALU::fn<double>(ValArg0.NEATVec, ValArg1.NEATVal);\
     }                                                                       \
     else if(Ty0->isFloatTy() && Ty1->isFloatTy())                           \
     {                                                                       \
-     Result.NEATVal = NEAT_WRAP::fn##_f(ValArg0.NEATVal, ValArg1.NEATVal);  \
+     Result.NEATVal = NEATALU::fn<float>(ValArg0.NEATVal, ValArg1.NEATVal);\
     }                                                                       \
     else if(Ty0->isDoubleTy() && Ty1->isDoubleTy())                         \
     {                                                                       \
-     Result.NEATVal = NEAT_WRAP::fn##_d(ValArg0.NEATVal, ValArg1.NEATVal);  \
+     Result.NEATVal = NEATALU::fn<double>(ValArg0.NEATVal, ValArg1.NEATVal);\
     }                                                                       \
     else if (Ty0->isIntegerTy() && Ty1->isIntegerTy())                      \
     {                                                                       \
@@ -3458,11 +3458,11 @@ void NEATPlugIn::execute_rootn(Function *F,
         const Type *TyElem = dyn_cast<VectorType>(Ty0)->getElementType();   \
         if (TyElem->isFloatTy())                                            \
         {                                                                   \
-         Result.NEATVec = NEAT_WRAP::fn##_f(ValArg0.NEATVec, ValArg1.NEATVec);\
+          Result.NEATVec = NEATALU::fn<float>(ValArg0.NEATVec, ValArg1.NEATVec);\
         }                                                                   \
         else if(TyElem->isDoubleTy())                                       \
         {                                                                   \
-         Result.NEATVec = NEAT_WRAP::fn##_d(ValArg0.NEATVec, ValArg1.NEATVec);\
+          Result.NEATVec = NEATALU::fn<double>(ValArg0.NEATVec, ValArg1.NEATVec);\
         }                                                                   \
         else if (TyElem->isIntegerTy())                                     \
         {                                                                   \
@@ -3498,16 +3498,16 @@ EXECUTE_MINMAX(max)
 #define UBER_BI_CALL(_aluname, args, argsvec)\
     const Type *Ty = Arg0->getType();\
 if(Ty->isFloatTy()){\
-    Result.NEATVal = NEAT_WRAP::_aluname##_f args ;}\
+    Result.NEATVal = NEATALU::_aluname <float> args ;}\
 else if(Ty->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVal = NEAT_WRAP::_aluname##_d args ;)}\
+    BI_DBL_CALL( Result.NEATVal = NEATALU::_aluname <double> args ;)}\
 else if(Ty->isVectorTy()){\
     const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();\
     if(TyElem->isFloatTy()){\
-    Result.NEATVec = NEAT_WRAP::_aluname##_f argsvec ;}\
+    Result.NEATVec = NEATALU::_aluname <float> argsvec ;}\
 else if(TyElem->isDoubleTy()){\
     BI_DBL_CALL( Result.NEATVec = \
-    NEAT_WRAP::_aluname##_d argsvec );}\
+    NEATALU::_aluname <double> argsvec );}\
 else{ \
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
 }\
@@ -3528,16 +3528,16 @@ else{\
 #define UBER_BI_CALL_SCALAR_OUT(_aluname, args, argsvec)\
     const Type *Ty = Arg0->getType();\
 if(Ty->isFloatTy()){\
-    Result.NEATVal = NEAT_WRAP::_aluname##_f args ;}\
+    Result.NEATVal = NEATALU::_aluname <float> args ;}\
 else if(Ty->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVal = NEAT_WRAP::_aluname##_d args ;)}\
+    BI_DBL_CALL( Result.NEATVal = NEATALU::_aluname <double> args ;)}\
 else if(Ty->isVectorTy()){\
     const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();\
     if(TyElem->isFloatTy()){\
-    Result.NEATVal = NEAT_WRAP::_aluname##_f argsvec ;}\
+    Result.NEATVal = NEATALU::_aluname <float> argsvec ;}\
 else if(TyElem->isDoubleTy()){\
     BI_DBL_CALL( Result.NEATVal = \
-    NEAT_WRAP::_aluname##_d argsvec );}\
+    NEATALU::_aluname <double> argsvec );}\
 else{ \
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
 }\
@@ -3886,22 +3886,22 @@ void NEATPlugIn::visitUIToFPInst( UIToFPInst &I )
     Type* DstVecType = RT->getScalarType();
     if (Type::FloatTyID == DstVecType->getTypeID())
     {
-      Result.NEATVec = NEAT_WRAP::ToFloat_f(vec);
+      Result.NEATVec = NEATALU::ToFloat<float, uint64_t>(vec);
     }
     if (Type::DoubleTyID == DstVecType->getTypeID())
     {
-      Result.NEATVec = NEAT_WRAP::ToFloat_d(vec);
+      Result.NEATVec = NEATALU::ToFloat<double, uint64_t>(vec);
     }
   }
   else
   {
     if (RT->getTypeID() == Type::FloatTyID)
     {
-      Result.NEATVal = NEAT_WRAP::ToFloat_f(Src1.IntVal.getZExtValue());
+      Result.NEATVal = NEATALU::ToFloat<float, uint64_t>(Src1.IntVal.getZExtValue());
     }
     else
     {
-      Result.NEATVal = NEAT_WRAP::ToFloat_d(Src1.IntVal.getZExtValue());
+      Result.NEATVal = NEATALU::ToFloat<double, uint64_t>(Src1.IntVal.getZExtValue());
     }
   }
   SetValue(&I, Result, SF);
@@ -3931,22 +3931,22 @@ void NEATPlugIn::visitSIToFPInst( SIToFPInst &I )
     Type* DstVecType = RT->getScalarType();
     if (Type::FloatTyID == DstVecType->getTypeID())
     {
-      Result.NEATVec = NEAT_WRAP::ToFloat_f(vec);
+      Result.NEATVec = NEATALU::ToFloat<float, int64_t>(vec);
     }
     if (Type::DoubleTyID == DstVecType->getTypeID())
     {
-      Result.NEATVec = NEAT_WRAP::ToFloat_d(vec);
+      Result.NEATVec = NEATALU::ToFloat<double, int64_t>(vec);
     }
   }
   else
   {
     if (RT->getTypeID() == Type::FloatTyID)
     {
-      Result.NEATVal = NEAT_WRAP::ToFloat_f(Src1.IntVal.getSExtValue());
+      Result.NEATVal = NEATALU::ToFloat<float, int64_t>(Src1.IntVal.getSExtValue());
     }
     else
     {
-      Result.NEATVal = NEAT_WRAP::ToFloat_d(Src1.IntVal.getSExtValue());
+      Result.NEATVal = NEATALU::ToFloat<double, int64_t>(Src1.IntVal.getSExtValue());
     }
   }
   SetValue(&I, Result, SF);

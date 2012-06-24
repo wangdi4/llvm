@@ -30,7 +30,7 @@ namespace Validation
     {
         IMemoryObjectDescPtr pDesc;
         uint64_t numMismatches;
-        double maxDiff;
+        long double maxDiff;
         float maxInterval;
 
         CompStatistics() : pDesc(NULL), numMismatches(0), maxDiff(0.0), maxInterval(0.0)

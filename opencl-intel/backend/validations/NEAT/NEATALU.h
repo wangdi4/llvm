@@ -18,16 +18,21 @@ File Name:  NEATALU.h
 \*****************************************************************************/
 #ifndef __NEATALU_H__
 #define __NEATALU_H__
-#include <imathLibd.h>
+
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "NEATValue.h"
 #include "RefALU.h"
+#include "NEATVector.h"
 #include "FloatOperations.h"
 #include "ImagesALU.h"
-#include "NEAT_WRAP.h"
 #include <math.h>
 #include <vector>
 
 namespace Validation
 {
+    enum CmpType {CMP_FALSE, CMP_OEQ, CMP_OGT, CMP_OGE, CMP_OLT, CMP_OLE, CMP_ONE, CMP_ORD,
+                              CMP_UEQ, CMP_UGT, CMP_UGE, CMP_ULT, CMP_ULE, CMP_UNE, CMP_UNO, CMP_TRUE};
 
     template<typename T>
     class superT;
@@ -93,23 +98,12 @@ namespace Validation
 
         /// @brief the maximal error (rel or abs) in various inaccurate operations
         static const int ADD_ERROR = 0;
-        static const int ACOS_ERROR = 4;
-        static const int ACOSPI_ERROR = 5;
-        static const int ASINPI_ERROR = 5;
-        static const int ASIN_ERROR = 4;
-        static const int ATAN_ERROR = 5;
-        static const int ATAN2_ERROR = 6;
-        static const int ATAN2PI_ERROR = 6;
-        static const int ATANPI_ERROR = 5;
         static const int SUB_ERROR = 0;
         static const int MUL_ERROR = 0;
         static const int FMOD_ERROR = 0;
         static const int SIN_ERROR = 4;
         static const int COS_ERROR = 4;
-        static const int COSH_ERROR = 4;
-        static const int COSPI_ERROR = 4;
         static const int TAN_ERROR = 5;
-        static const int TANH_ERROR = 5;
         static const int EXP_ERROR = 3;
         static const int EXP2_ERROR = 3;
         static const int EXP10_ERROR = 3;
@@ -127,9 +121,6 @@ namespace Validation
         static const int POWR_ERROR = 16;
         static const int POWN_ERROR = 16;
         static const int RSQRT_ERROR = 2;
-        static const int SINH_ERROR = 4;
-        static const int SINPI_ERROR = 4;
-        static const int DIV_ERROR_DOUBLE = 0;  // division is correctly rounded for doubles
         static const double DIV_ERROR; // = 2.5f
         static const double NORMALIZE_ERROR; // 2f + 0.5f  error in rsqrt + error in multiply
         static const int FAST_NORMALIZE_ERROR = 8192;
@@ -147,19 +138,17 @@ namespace Validation
         static const int FRACT_ERROR = 0;
         static const int FMAX_ERROR = 0;
         static const int SQRT_ERROR = 3;
-        static const int SQRT_ERROR_DOUBLE = 0; // sqrt is correctly rounded for doubles
         static const int CBRT_ERROR = 2;
         static const int COPYSIGN_ERROR = 0;
         static const int FDIM_ERROR = 0;
         static const int CROSS_ERROR = 3;
-        static const int TANPI_ERROR = 6;
 
         // These values are provided by SVML team and used by back-end compiler.
         static const int NATIVE_RECIP_ERROR = 4990;
         static const int NATIVE_DIVIDE_ERROR = 16800000;
         static const int NATIVE_SIN_ERROR = 2230;
         static const int NATIVE_COS_ERROR = 2230;
-        static const int NATIVE_TAN_ERROR = 5;
+        static const double NATIVE_TAN_ERROR; // = 2.16;
         static const int NATIVE_SQRT_ERROR = 3590;
         static const int NATIVE_RSQRT_ERROR = 3590;
         static const int NATIVE_EXP_ERROR = 1260;
@@ -189,7 +178,6 @@ namespace Validation
         static const long double two_pi;
         static const long double pi_2;
         static const long double div180by_pi;
-        static const long double divpiby_180;
 
         /// @brief default ctor
         NEATALU();
@@ -310,9 +298,9 @@ namespace Validation
 
             for (uint32_t i = 1; i < num; i++)
             {
-                if ( Utils::lt<T>(vals[i], min) )
+                if ( Utils::lt(vals[i], min) )
                     min = vals[i];
-                if ( Utils::lt<T>(max, vals[i]) )
+                if ( Utils::lt(max, vals[i]) )
                     max = vals[i];
             }
 
@@ -631,10 +619,6 @@ public:
         return (CFloat16)(a);
     }
 
-    template<typename T>
-    static double sqrtSetUlps(void);
-    template<typename T>
-    static double divSetUlps(void);
 
     /// @brief Converts integer value of type IntT to NEATValue that contains converted
     /// accurate value of type FloatT.
@@ -699,19 +683,16 @@ public:
         }
 
         long double oneUlp = 0.0L;
-        long double a = CimathLibd::imf_fabs(x);
 
-        if(Utils::lt<long double>(a, CimathLibd::imf_ldexp(1.0L,-1022))) // x < 2**(-1022)
+        if(Utils::lt<double>(::fabs(x), ::ldexp(1.0L,-1022))) // x < 2**(-1022)
         {
-            oneUlp = CimathLibd::imf_ldexp(1.0L,-1074); // oneUlp = 2**(-1022-52)
+            oneUlp = ::ldexp(1.0L,-1074); // oneUlp = 2**(-1022-52)
         } else {
             // oneUlp = 2**(floor(log2(abs(x)))-52)
-            long double b = CimathLibd::imf_log2(a);
-            long double c = CimathLibd::imf_floor(b) - 52.0L;
+            double c = ::floor(::log10(::fabs(x))/::log10(2.0L)) - 52.0L;
             //oneUlp = pow(2, c);
-            oneUlp = CimathLibd::imf_ldexp(1.0L,int(c));
+            oneUlp = ::ldexp(1.0L,int(c));
         }
-
         return oneUlp;
     }
 
@@ -730,61 +711,41 @@ public:
         T ulpMin = ComputeUlp(refMin); // calc ulp for ref value
        
         // high limit expand
-        T result = CimathLibd::imf_frexp (refMax , &n);
+        T result = ::frexp (refMax , &n);
 
         // check if refMax on the boundary of higher exponent
         // and if refMax is normal number
-        if((!Utils::IsDenorm<DownT>(refMax)) && CimathLibd::imf_fabs(result) == (T)0.5)
+        if((!Utils::IsDenorm<DownT>(refMax)) && ::fabs(result) == 0.5)
         {
-            ulpMax /= (T)2.;            
+            //ulpMax = ComputeUlp(refMax+ulps*ulpMax); // calc ulp for ref value
+            ulpMax /= 2.;
         }
-
-        T resMax = refMax+ulpMax*((T)ulps); // add ulps to ref
-
-        T refMax_sub = resMax-ulpMax*((T)ulps); // add ulps to ref
         
-        if( refMax_sub > refMax)
-        {
-            DownT maxD = (DownT)resMax; // downcast to lower precision
-            T maxS = T(maxD); // conversion to higher precision
-            if(maxS == resMax) {
-                resMax -= (T)ulpMax;
-            }
-        }
-
+        T resMax = refMax+ulpMax*((T)ulps); // add ulps to ref
+        
         DownT maxD = (DownT)resMax; // downcast to lower precision
         
         T maxS = T(maxD); // conversion to higher precision
-
-        if(maxS > resMax )
+        
+        if(maxS > resMax)
         {
             T lowUlp = ComputeUlp(maxS);
             maxS -= lowUlp;
         }
-
         *maxInOut = maxS;
        
         // low limit expand
-        result = CimathLibd::imf_frexp (refMin , &n);
+        result = ::frexp (refMin , &n);
 
         // check if refMin on the boundary of higher exponent
         // and if result is normal number
-        if((!Utils::IsDenorm<DownT>(refMin)) && CimathLibd::imf_fabs(result) == (T)0.5)
+        if((!Utils::IsDenorm<DownT>(refMin)) && ::fabs(result) == 0.5)
         {
-             ulpMin /= (T)2.;
+             //ulpMin = ComputeUlp(refMin-ulps*ulpMin); // calc ulp for ref value
+             ulpMin /= 2.;
         }
         
         T resMin = refMin-ulpMin*((T)(ulps)); // add ulps to ref
-        T refMin_add = resMin+ulpMin*((T)ulps); // add ulps to ref
-        if( refMin_add < refMin)
-        {
-            DownT minD = (DownT)resMin; // downcast to lower precision
-            T minS = T(minD); // conversion to higher precision
-            if(minS == resMin) {
-                resMin += (T)ulpMin;
-            }
-        }
-
         DownT minD = (DownT)resMin; // downcast to lower precision
         
         T minS = T(minD); // conversion to higher precision
@@ -818,13 +779,13 @@ public:
         T ulpMin = ComputeUlp(ref4Ulps); // calc ulp for ref value
 
         // high limit expand
-        T result = CimathLibd::imf_frexp (refMax , &n);
+        T result = ::frexp (refMax , &n);
 
         // check if refMax on the boundary of higher exponent
-        if(CimathLibd::imf_fabs(result) == (T)0.5L)
+        if(::fabs(result) == 0.5)
         {
             //ulpMax = ComputeUlp(refMax+ulps*ulpMax); // calc ulp for ref value
-            ulpMax /= (T)2.0L;
+            ulpMax /= 2.;
         }
         
         T resMax = refMax+ulpMax*((T)ulps); // add ulps to ref
@@ -842,13 +803,13 @@ public:
         *maxInOut = maxS;
        
         // low limit expand
-        result = CimathLibd::imf_frexp (refMin , &n);
+        result = ::frexp (refMin , &n);
 
         // check if refMin on the boundary of higher exponent
-        if(CimathLibd::imf_fabs(result) == (T)0.5L)
+        if(::fabs(result) == 0.5)
         {
              //ulpMin = ComputeUlp(refMin-ulps*ulpMin); // calc ulp for ref value
-             ulpMin /= (T)2.0L;
+             ulpMin /= 2.;
         }
         
         T resMin = refMin-ulpMin*((T)(ulps)); // add ulps to ref
@@ -974,8 +935,7 @@ public:
     template <typename T>
     static NEATValue div ( const NEATValue& a, const NEATValue& b )
     {
-        double ulps = divSetUlps<T>();
-        return InternalDiv<T>(a, b, ulps);
+        return InternalDiv<T>(a, b, NEATALU::DIV_ERROR);
     }
 
     /// @brief Divides two neat values
@@ -999,7 +959,7 @@ public:
     template <typename T>
     static NEATValue half_divide ( const NEATValue& a, const NEATValue& b )
     {
-        return InternalDiv<T>(a, b, T(NEATALU::HALF_DIVIDE_ERROR));
+        return InternalDiv<T>(a, b, double(NEATALU::HALF_DIVIDE_ERROR));
     }
 
     template<typename T>
@@ -1965,7 +1925,7 @@ public:
         resSuperT[1] = RefALU::asin(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::ASIN_ERROR);
+        return ComputeResult(resSuperT, 2, 4.f);
     }
 
     template<typename T>
@@ -2027,7 +1987,7 @@ public:
         resSuperT[1] = RefALU::acos(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::ACOS_ERROR);
+        return ComputeResult(resSuperT, 2, 4.f);
     }
 
     template<typename T>
@@ -2078,7 +2038,7 @@ public:
         resSuperT[1] = RefALU::atan(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::ATAN_ERROR);
+        return ComputeResult(resSuperT, 2, 5.f);
     }
 
     template<typename T>
@@ -2132,7 +2092,7 @@ public:
         resSuperT[1] = RefALU::sinh(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::SINH_ERROR);
+        return ComputeResult(resSuperT, 2, 4.f);
     }
 
     template<typename T>
@@ -2181,7 +2141,7 @@ public:
         resSuperT[1] = RefALU::cosh(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::COSH_ERROR);
+        return ComputeResult(resSuperT, 2, 4.f);
     }
 
     template<typename T>
@@ -2233,7 +2193,7 @@ public:
         resSuperT[1] = RefALU::tanh(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::TANH_ERROR);
+        return ComputeResult(resSuperT, 2, 5.f);
     }
 
     template<typename T>
@@ -2285,7 +2245,7 @@ public:
         resSuperT[1] = RefALU::asinpi(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, double(ASINPI_ERROR));
+        return ComputeResult(resSuperT, 2, 5.f);
     }
 
     template<typename T>
@@ -2334,7 +2294,7 @@ public:
         resSuperT[1] = RefALU::acospi(SuperT(*flushed.GetMax<T>()));
 
         // combine results, expand interval and cast down
-        return ComputeResult(resSuperT, 2, NEATALU::ACOSPI_ERROR);
+        return ComputeResult(resSuperT, 2, 5.f);
     }
 
     template<typename T>
@@ -2389,7 +2349,7 @@ public:
         }
 
         // combine results, expand interval and cast down
-        NEATValue res = ComputeResult(resSuperT, 2, double(ATANPI_ERROR));
+        NEATValue res = ComputeResult(resSuperT, 2, 5.f);
 
         bool hasMinLimit = (resSuperT[0]==(SuperT)(-0.5));
         bool hasMaxLimit = (resSuperT[1]==(SuperT)(0.5));
@@ -2481,7 +2441,7 @@ public:
         val[0] = RefALU::sinpi(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::sinpi(SuperT(*flushed.GetMax<T>()));
 
-        NEATValue res = ComputeResult(val, 2, double(SINPI_ERROR));
+        NEATValue res = ComputeResult(val, 2, 4.f);
 
         return NEATValue( hasMinPoint ? (T)-1.0 : *res.GetMin<T>(), hasMaxPoint ? (T)+1.0 : *res.GetMax<T>() );
 
@@ -2570,7 +2530,7 @@ public:
         val[0] = RefALU::cospi(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::cospi(SuperT(*flushed.GetMax<T>()));
 
-        NEATValue res = ComputeResult(val, 2, double(COSPI_ERROR));
+        NEATValue res = ComputeResult(val, 2, 4.f);
 
         return NEATValue( hasMinPoint ? (T)-1.0 : *res.GetMin<T>(), hasMaxPoint ? (T)+1.0 : *res.GetMax<T>() );
 
@@ -2601,17 +2561,16 @@ public:
         // for 0.0 we must return exactly 0
         if (flushed.IsAcc() && Utils::eq<T>(*flushed.GetAcc<T>(), -0.0))
         {
-             return NEATValue(T(-0.0));
+             return NEATValue(T(-0.0), T(-0.0));
         }
         if (flushed.IsAcc() && Utils::eq<T>(*flushed.GetAcc<T>(), +0.0))
         {
-             return NEATValue(T(+0.0));
+             return NEATValue(T(+.0), T(+0.0));
         }
 
         // TODO: implement this:
         // tanpi (n) is copysign(0.0, n) for even integers n.
         // tanpi (n) is copysign(0.0, -n) for odd integers n.
-        // CSSD100013299
 
         if (flushed.IsAcc()) {
             T data = ::fabs(*flushed.GetAcc<T>());
@@ -2624,10 +2583,10 @@ public:
                 if((intpart2 << 1) == intpartI)
                 {
                     // even
-                    //return NEATValue(RefALU::copysign(T(0.0), T(1)));
+                    //return copysign(0.0, n)
                 } else {
                     // odd
-                    //return NEATValue(RefALU::copysign(T(0.0), T(-1)));
+                    //return copysign(0.0, -n)
                 }
             }
         }
@@ -2658,7 +2617,7 @@ public:
         val[0] = RefALU::tanpi(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::tanpi(SuperT(*flushed.GetMax<T>()));
 
-        return ComputeResult(val, 2, TANPI_ERROR);
+        return ComputeResult(val, 2, 6.f);
     }
 
     template<typename T>
@@ -2700,7 +2659,7 @@ public:
         val[1] = RefALU::atan2(SuperT(maxY),
                                SuperT(maxX));
 
-        return ComputeResult(val, 2, double(ATAN2_ERROR));
+        return ComputeResult(val, 2, 6.f);
     }
 
     template<typename T>
@@ -2821,7 +2780,7 @@ public:
         val[0] = RefALU::atan2pi(minY,minX);
         val[1] = RefALU::atan2pi(maxY,maxX);
 
-        return ComputeResult(val, 2, double(ATAN2PI_ERROR));
+        return ComputeResult(val, 2, 6.f);
     }
 
     template<typename T>
@@ -2997,8 +2956,7 @@ public:
     template<typename T>
     static NEATValue sqrt(const NEATValue& a)
     {
-        double ulps = sqrtSetUlps<T>();
-        return InternalSqrt<T>(a, ulps);
+        return InternalSqrt<T>(a, double(NEATALU::SQRT_ERROR));
     }
 
     template<typename T>
@@ -4300,6 +4258,7 @@ public:
     template<typename T>
     static NEATValue fdim(const NEATValue& x, const NEATValue& y)
     {
+        typedef typename superT<T>::type SuperT;
         // Check for ANY, UNWRITTEN, UNKNOWN
         if(CheckAUU(x) || CheckAUU(y))
             return NEATValue(NEATValue::UNKNOWN);
@@ -4326,8 +4285,8 @@ public:
 
         // the low interval limit is +0.0, i.e. result is 0 if x is less than or equal to y
         // the upper interval limit is max(x)-min(y), because result is x-y if x>y
-        T maxRes = RefALU::sub(xMax, yMin);
-        return NEATValue(T(0.0),maxRes);
+        SuperT maxRes = RefALU::sub(SuperT(xMax), SuperT(yMin));
+        return NEATValue(T(0.0),castDown(maxRes));
     }
 
     template<typename T>
@@ -4625,9 +4584,6 @@ public:
         sT vS3 = RefALU::fmax( RefALU::fabs(sT(*in3.GetMax<T>())), RefALU::fabs(sT(*in3.GetMin<T>())));
 
         sT item4ulp = RefALU::fmax(vS0, RefALU::fmax(vS1, RefALU::fmax(vS2, vS3)));
-        // TODO: sT(ComputeUlp(1.0)) should be replaced by ComputeUlp(sT(1.0))
-        // but intel complier 11.1.65 fails on this code. To be resolved with 12 version of compiler
-        // CSSD100013301
         sT ulpsCross = sT(NEATALU::CROSS_ERROR) * sT(ComputeUlp(1.0));
         sT delta = item4ulp * item4ulp * ulpsCross;
 
@@ -4777,9 +4733,6 @@ public:
     static NEATValue length(const NEATValue& p)
     {
         typedef typename superT<T>::type SuperT;
-        
-        double sqrtErr = NEATALU::sqrtSetUlps<T>();
-        
         if (p.IsNaN<T>())
             return NEATValue(NEATValue::NaN<T>());
 
@@ -4791,8 +4744,8 @@ public:
         SuperT min = (SuperT)*flushed.GetMin<T>();
         SuperT max = (SuperT)*flushed.GetMax<T>();
 
-        double maxUlps = sqrtErr +  // error in sqrt
-                         0.25;  // error for multiplications
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
+                                         0.25;  // error for multiplications
 
         return localLength<SuperT>(min, max, maxUlps);
     }
@@ -4857,7 +4810,7 @@ public:
     template<typename T>
     static NEATValue length(const NEATVector& vec1)
     {
-        double maxUlps = NEATALU::sqrtSetUlps<T>() +  // error in sqrt
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
         0.5 *                                   // effect on e of taking sqrt( x + e )
         ( 0.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
           0.5 * (double) (vec1.GetSize()-1));   // cumulative error for additions
@@ -4878,12 +4831,10 @@ public:
     ///////////////////////////////////////////////////////////////////////////////
     // distance, fast_distance
     ///////////////////////////////////////////////////////////////////////////////
-
     template<typename T>
     static NEATValue distance(const NEATValue& p0, const NEATValue& p1)
     {
         typedef typename superT<T>::type SuperT;
-
         if (p0.IsNaN<T>() || p1.IsNaN<T>())
             return NEATValue(NEATValue::NaN<T>());
 
@@ -4896,8 +4847,8 @@ public:
         SuperT min = RefALU::sub((SuperT)*flushed0.GetMin<T>(),(SuperT)*flushed1.GetMin<T>());
         SuperT max = RefALU::sub((SuperT)*flushed0.GetMax<T>(),(SuperT)*flushed1.GetMax<T>());
 
-        double maxUlps = sqrtSetUlps<T>() + 1.5; // error in sqrt and
-                                                 // cumulative error for multiplication
+        double maxUlps = NEATALU::SQRT_ERROR + 1.5; // error in sqrt and
+                                                    // cumulative error for multiplication
 
         return localLength<SuperT>(min, max, maxUlps);
     }
@@ -4967,9 +4918,7 @@ public:
     template<typename T>
     static NEATValue distance(const NEATVector& vec0, const NEATVector& vec1)
     {
-        double sqrtErr = NEATALU::sqrtSetUlps<T>();
-
-        double maxUlps = sqrtErr +  // error in sqrt
+        double maxUlps = NEATALU::SQRT_ERROR +  // error in sqrt
         ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications  
                                                 // (a-b+0.5ulp)**2 = (a-b)**2 + a*0.5ulp + b*0.5 ulp + 0.5 ulp for multiplication
          0.5 * (double) (vec1.GetSize()-1));    // cumulative error for additions
@@ -5022,19 +4971,18 @@ public:
         if(p.IsAcc() && Utils::IsNInf<T>(*p.GetAcc<T>()))
             return NEATValue(T(-1.0));
 
-        float maxUlps = NEATALU::NORMALIZE_ERROR;
         SuperT val[1];
         if(p.IsAcc()) {
              val[0] = RefALU::copysign(SuperT(1.0),SuperT(*p.GetAcc<T>()));
-             return ComputeResult(val, 1, maxUlps);
+             return ComputeResult(val, 1, NEATALU::NORMALIZE_ERROR);
         } else {
             if(*p.GetMin<T>() > 0) {
                 val[0] = SuperT(1.0);
-                return ComputeResult(val, 1, maxUlps);
+                return ComputeResult(val, 1, NEATALU::NORMALIZE_ERROR);
             }
             else if(*p.GetMax<T>() < 0) {
                 val[0] = SuperT(-1.0);
-                return ComputeResult(val, 1, maxUlps);
+                return ComputeResult(val, 1, NEATALU::NORMALIZE_ERROR);
             }
             else
                 return NEATValue(NEATValue::UNKNOWN);
@@ -5213,19 +5161,17 @@ public:
         if(totalMin > std::numeric_limits<T>::max() || totalMax > std::numeric_limits<T>::max())
             return NEATValue(NEATValue::ANY);
 
-        float maxUlps = NEATALU::FAST_NORMALIZE_ERROR;// error in rsqrt + error in multiply
-
         if(flushed.IsAcc()) {
              val[0] = RefALU::copysign(SuperT(1.0),SuperT(*flushed.GetAcc<T>()));
-             return ComputeResult(val, 1, maxUlps);
+             return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
         } else {
             if(*flushed.GetMin<T>() > 0) {
                 val[0] = SuperT(1.0);
-                return ComputeResult(val, 1, maxUlps);
+                return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
             }
             else if(*flushed.GetMax<T>() < 0) {
                 val[0] = SuperT(-1.0);
-                return ComputeResult(val, 1, maxUlps);
+                return ComputeResult(val, 1, NEATALU::FAST_NORMALIZE_ERROR);
             }
             else
                 return NEATValue(NEATValue::UNKNOWN);
@@ -5433,8 +5379,9 @@ public:
         NEATValue flushed = flush<T>(a);
 
         SuperT val[2];
-        val[0] = RefALU::mul(SuperT(*flushed.GetMin<T>()), SuperT(divpiby_180));
-        val[1] = RefALU::mul(SuperT(*flushed.GetMax<T>()), SuperT(divpiby_180));
+        const SuperT pi180 = pi/SuperT(180.0);
+        val[0] = RefALU::mul(SuperT(*flushed.GetMin<T>()), pi180);
+        val[1] = RefALU::mul(SuperT(*flushed.GetMax<T>()), pi180);
 
         return ComputeResult(val, 2, float(RADIANS_ERROR) );
     }
@@ -5956,9 +5903,7 @@ public:
         /// the single interval
         if(val[0] != val[1])
         {
-#ifdef DEBUG
-            std::cout << "[NEATALU::floor] There should be more than one integer value, but NEAT doesn't support such type of intervals.";
-#endif
+            DEBUG(llvm::dbgs() << "[NEATALU::floor] There should be more than one integer value, but NEAT doesn't support such type of intervals.");
             return NEATValue(NEATValue::UNKNOWN);
         }
         else
@@ -6379,9 +6324,7 @@ public:
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
-#ifdef DEBUG
-            std::cout << "[NEATALU::rint] There should be more than one integer value, but NEAT doesn't support such type of intervals.";
-#endif
+            DEBUG(llvm::dbgs() << "[NEATALU::rint] There should be more than one integer value, but NEAT doesn't support such type of intervals.");
             return NEATValue(NEATValue::UNKNOWN);
         }
         else
@@ -6425,9 +6368,7 @@ public:
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
-#ifdef DEBUG
-            std::cout << "[NEATALU::round] There should be more than one integer value, but NEAT doesn't support such type of intervals.";
-#endif
+            DEBUG(llvm::dbgs() << "[NEATALU::round] There should be more than one integer value, but NEAT doesn't support such type of intervals.");
             return NEATValue(NEATValue::UNKNOWN);
         }
         else
@@ -6465,9 +6406,7 @@ public:
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
-#ifdef DEBUG
-            std::cout << "[NEATALU::trunc] There should be more than one integer value, but NEAT doesn't support such type of intervals.";
-#endif
+            DEBUG(llvm::dbgs() << "[NEATALU::trunc] There should be more than one integer value, but NEAT doesn't support such type of intervals.");
             return NEATValue(NEATValue::UNKNOWN);
         }
         else
@@ -6660,9 +6599,47 @@ public:
         /// @brief Divides two neat values
         /// @param [in] dividend
         /// @param [in] divisor
-
         template <typename T>
-        static NEATValue InternalDiv ( const NEATValue& a, const NEATValue& b, double ulps);
+        static NEATValue InternalDiv ( const NEATValue& a, const NEATValue& b, const double& ulps)
+        {
+            typedef typename superT<T>::type SuperT;
+            // Check if both arguments may have any value
+            if(a.IsAny() && b.IsAny())
+                // Then result is unknown
+                return NEATValue(NEATValue::UNKNOWN);
+
+            if (a.IsNaN<T>() || b.IsNaN<T>())
+                return NEATValue::NaN<T>();
+
+            // Case when both could be any was tested. Other special statuses lead to unknown result
+            if(CheckAUU(a) || (CheckAUU(b)))
+            {
+                return NEATValue(NEATValue::UNKNOWN);
+            }
+
+            // if a and b are not finite (i.e. NaN or Inf), the result is NaN
+            if (!b.IsAcc() && (b.Includes((T)0.0) || b.Includes((T)(-0.0))) )
+            {
+                // if b (in a/b) has more than one allowed value
+                //  and one of the values allowed is +0.0 or -0.0,
+                //  then we cannot predict the result (it may be finite and may be inf)
+                return NEATValue(NEATValue::UNKNOWN);
+            }
+
+            const int RES_COUNT = 8;
+            SuperT val[RES_COUNT];
+
+            val[0] = RefALU::div((SuperT)*a.GetMin<T>(),(SuperT)*b.GetMin<T>());
+            val[1] = RefALU::div((SuperT)*a.GetMin<T>(),(SuperT)*b.GetMax<T>());
+            val[2] = RefALU::div((SuperT)*a.GetMax<T>(),(SuperT)*b.GetMin<T>());
+            val[3] = RefALU::div((SuperT)*a.GetMax<T>(),(SuperT)*b.GetMax<T>());
+            val[4] = RefALU::mul((SuperT)*a.GetMin<T>(), RefALU::div((SuperT)1.0,(SuperT)*b.GetMin<T>()) );
+            val[5] = RefALU::mul((SuperT)*a.GetMin<T>(), RefALU::div((SuperT)1.0,(SuperT)*b.GetMax<T>()) );
+            val[6] = RefALU::mul((SuperT)*a.GetMax<T>(), RefALU::div((SuperT)1.0,(SuperT)*b.GetMin<T>()) );
+            val[7] = RefALU::mul((SuperT)*a.GetMax<T>(), RefALU::div((SuperT)1.0,(SuperT)*b.GetMax<T>()) );
+
+            return ComputeResult(val, RES_COUNT, ulps);
+        }
 
         template<typename T>
         static NEATValue InternalSin(const NEATValue& a, double ulps)
@@ -7395,4 +7372,3 @@ public:
 
 }
 #endif // __NEATALU_H__
-

@@ -87,10 +87,9 @@ private:
 //
 //Sanity test for the plugin mechanism
 //
-TEST( DISABLED_FEPluginTest, sanity){
-// failes, turned off until CSSD100013413 will be fixed
+TEST(FEPluginTest, sanity){
 #if defined(_WIN32)
-  SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "FePluginMock.dll");
+  SetEnvironmentVariable("OCLBACKEND_PLUGINS", "FePluginMock.dll");
 #else
   setenv("OCLBACKEND_PLUGINS", "libFePluginMock.so", 1);
 #endif
@@ -109,8 +108,7 @@ TEST( DISABLED_FEPluginTest, sanity){
 //A basic test for the OclourceRecorder (1.1 capabilities only), which tests
 //that a compiled module is 'connected' to itself.
 //
-TEST(DISABLED_OCLSourceRecorder1_1, sorce_recorder_basic){
-// disabled until CSSD100013816 will be fixed
+TEST(OCLSourceRecorder1_1, sorce_recorder_basic){
   const char* kernelName = "k.cl";;
   const char* kernelContents = "__kernel void a(__global char* a, __global char* b){"
     " int gid = get_global_id(0); b[gid] = a[gid];}";
@@ -133,8 +131,7 @@ TEST(DISABLED_OCLSourceRecorder1_1, sorce_recorder_basic){
 //
 //File iterator test
 //
-TEST(DISABLED_OCLSourceRecorder1_1, iterator_test){
-// disabled until CSSD100013816 will be fixed
+TEST(OCLSourceRecorder1_1, iterator_test){
   const char* kernelName = "k.cl";;
   const char* kernelContents = "__kernel void a(__global char* a, __global char* b){"
     " int gid = get_global_id(0); b[gid] = a[gid];}";
@@ -226,8 +223,7 @@ static void* addCompile(void* args){
   return NULL;
 }
 
-TEST(DISABLED_OCLSourceRecorder1_1, source_recoder_thread_safety){
-// disabled until CSSD100013816 will be fixed
+TEST(OCLSourceRecorder1_1, source_recoder_thread_safety){
   const int THREAD_NUM=2;
   CompileData* compileData[THREAD_NUM];
   unsigned char b1[16] =
@@ -293,8 +289,7 @@ TEST(DISABLED_OCLSourceRecorder1_1, source_recoder_thread_safety){
 //
 //Checks the dependency between a source file and its headers
 //
-TEST(DISABLED_OCLSourceRecorder1_1, header_source_connection){
-// disabled until CSSD100013816 will be fixed
+TEST(OCLSourceRecorder1_1, header_source_connection){
   const char* contents = "veni vidi vichi";
   const char* h1 = "h1";
   const char* h2 = "h2";
@@ -355,10 +350,9 @@ TEST(DISABLED_OCLSourceRecorder1_1, header_source_connection){
   CompileDataFactory::free(pFactory);
 }
 
-TEST(DISABLED_OCLSourceRecorder1_1, referenceContension){
-// disabled until CSSD100013816 will be fixed
+TEST(OCLSourceRecorder1_1, referenceContension){
   #if defined(_WIN32)
-  SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "OclRecorder.dll");
+  SetEnvironmentVariable("OCLBACKEND_PLUGINS", "OclRecorder.dll");
 #else
   setenv("OCLBACKEND_PLUGINS", "libOclRecorder.so", 1);
 #endif

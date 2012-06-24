@@ -17,7 +17,6 @@ File Name:  FloatOperations.cpp
 \*****************************************************************************/
 #include "FloatOperations.h"
 #include "Conformance/reference_math.h"
-#include "imathLibd.h"
 
 namespace Validation
 {
@@ -79,72 +78,31 @@ namespace Validation
         template<>
         bool lt(long double a, long double b)
         {
-            if (IsNaN(a) || IsNaN(b))
-                return false;
-
-            uint80_t ap = AsUInt(a);
-            uint80_t bp = AsUInt(b);
-
-            // true is positive
-            bool aSign = !(bool((ap.high_val & DOUBLE_80BIT_SIGN_MASK)));
-            bool bSign = !(bool((bp.high_val & DOUBLE_80BIT_SIGN_MASK)));
-
-            uint32_t aExp = uint32_t(ap.high_val & DOUBLE_80BIT_EXP_MASK);
-            uint32_t bExp = uint32_t(bp.high_val & DOUBLE_80BIT_EXP_MASK);
-
-            // low 64 bit is a mantissa
-            uint64_t aMant = ap.low_val; // & (DOUBLE_80BIT_F_MASK | DOUBLE_80BIT_I_MASK);
-            uint64_t bMant = bp.low_val; // & (DOUBLE_80BIT_F_MASK | DOUBLE_80BIT_I_MASK);
-
-            if (aSign != bSign)
-            {
-                // if the values are not of the same sign
-                //  we should return true if a is negative and false if it is positive
-                return !aSign;
-            }
-            // aSign == bSign
-
-            if (aExp != bExp)
-            {
-                return aSign ? (aExp < bExp) : (aExp > bExp);
-            }
-            // aExp == bExp
-
-            if (aMant != bMant)
-            {
-                return aSign ? (aMant < bMant) : (aMant > bMant);
-            }
-
-            // values are bitwise equal
-            return false;
+            throw Exception::NotImplemented("lt function was called for long doubles. Long doubles comparison is not supported yet");
         }
 
         template<>
         bool le(long double a, long double b)
         {
-            return ge(b,a);
+            throw Exception::NotImplemented("le function was called for long doubles. Long doubles comparison is not supported yet");
         }
 
         template<>
         bool gt(long double a, long double b)
         {
-            return lt(b,a);
+            throw Exception::NotImplemented("gt function was called for long doubles. Long doubles comparison is not supported yet");
         }
 
         template<>
         bool ge(long double a, long double b)
         {
-            if (IsNaN(a) || IsNaN(b))
-                return false;
-            return !lt(a,b);
+            throw Exception::NotImplemented("ge function was called for long doubles. Long doubles comparison is not supported yet");
         }
 
         template<>
         bool eq(long double a, long double b)
         {
-            if (IsNaN(a) || IsNaN(b))
-                return false;
-            return !lt(a,b) && !lt(b,a);
+            throw Exception::NotImplemented("eq function was called for long doubles. Long doubles comparison is not supported yet");
         }
 
         template<>
@@ -217,51 +175,34 @@ namespace Validation
             return ((l & DOUBLE_EXP_MASK) == 0) && ((l & DOUBLE_MANT_MASK) != 0);
         }
 
-
-        // The 80-bit extended format is divided into four fields
-        // mantissa is 64 bit, i.e. fileds i and f togother
-        //  1      15      1             63
-        // [s][    e     ][i][           f            ]
-        //
-        // 0<=e<=32766 i==1   f==any   normalized
-        //    e==0     i==0   f!=0     denormalized
-        //    e==0     i==0   f=0      zero
-        // e=32767     i==any f=0      infinity
-        // e=32767     i==any f!=0     NaN
-
         template<>
         bool IsNaN( long double a )
         {
-            uint80_t l = AsUInt(a);
-            return ( ( ( l.high_val & DOUBLE_80BIT_EXP_MASK ) == DOUBLE_80BIT_EXP_MASK ) && ( l.low_val & DOUBLE_80BIT_F_MASK ) );
+            throw Exception::NotImplemented("IsNaN for long double");
         }
 
         template<>
         bool IsInf( long double a )
         {
-            uint80_t l = AsUInt(a);
-            return ( ( ( l.high_val & DOUBLE_80BIT_EXP_MASK ) == DOUBLE_80BIT_EXP_MASK ) && ( (l.low_val & DOUBLE_80BIT_F_MASK) == 0) );
+               throw Exception::NotImplemented("IsInf for long double");
         }
 
         template<>
         bool IsPInf( long double a )
         {
-            uint80_t l = AsUInt(a);
-            return (l.high_val == DOUBLE_80BIT_EXP_MASK && ((l.low_val & DOUBLE_80BIT_F_MASK) == 0));
+           throw Exception::NotImplemented("IsPInf for long double");
         }
 
         template<>
         bool IsNInf( long double a )
         {
-            uint80_t l = AsUInt(a);
-            return (l.high_val == (DOUBLE_80BIT_SIGN_MASK | DOUBLE_80BIT_EXP_MASK) && ((l.low_val & DOUBLE_80BIT_F_MASK) == 0));
+           throw Exception::NotImplemented("IsNInf for long double");
         }
 
         template<>
         bool IsDenorm( long double a )
         {
-            uint80_t l = AsUInt(a);
-            return ( ((l.high_val & DOUBLE_80BIT_EXP_MASK) == 0) && ((l.low_val & DOUBLE_80BIT_F_MASK) != 0) && ((l.low_val & DOUBLE_80BIT_I_MASK) == 0) );
+            throw Exception::NotImplemented("IsDenorm for long double");
         }
 
         template<>
@@ -352,7 +293,7 @@ namespace Validation
                 int ulp_exp = FLT_MANT_DIG - 1 - std::max( Conformance::ilogb( reference), FLT_MIN_EXP-1 );
 
                 // Scale the exponent of the error
-                return (double) ldexp( testVal - reference, ulp_exp );
+                return ldexp( testVal - reference, ulp_exp );
             }
 
             // reference is a normal power of two or a zero
@@ -388,34 +329,32 @@ namespace Validation
             // results.
 
             int x;
-            if( 0.5L != CimathLibd::imf_fabs(CimathLibd::imf_frexp( reference, &x) ) )
+            if( 0.5L != frexpl( reference, &x) )
             { // Non-power of two and NaN
-                if( Utils::IsInf( reference ) )
+                if( IsInf( reference ) )
                 {
                     if( testVal == reference )
                         return 0.0;
 
-                    return (double) ( testVal - reference );
+                    return testVal - reference;
                 }
 
-                if( Utils::IsNaN( reference ) && Utils::IsNaN( testVal ) )
+                if( IsNaN( reference ) && IsNaN( testVal ) )
                     return 0.0;    // if we are expecting a NaN, any NaN is fine
 
                 // The unbiased exponent of the ulp unit place
-                int ulp_exp = DBL_MANT_DIG - 1 - std::max( CimathLibd::imf_ilogb( reference), DBL_MIN_EXP-1 );
+                int ulp_exp = DBL_MANT_DIG - 1 - std::max( Conformance::ilogbl( reference), DBL_MIN_EXP-1 );
 
-                long double res = CimathLibd::imf_ldexp( testVal - reference, ulp_exp );
                 // Scale the exponent of the error
-                return (double) res;
+                return ldexpl( testVal - reference, ulp_exp );
             }
 
             // reference is a normal power of two or a zero
             // The unbiased exponent of the ulp unit place
-            int ulp_exp =  DBL_MANT_DIG - 1 - std::max( CimathLibd::imf_ilogb( reference) - 1, DBL_MIN_EXP-1 );
+            int ulp_exp =  DBL_MANT_DIG - 1 - std::max( Conformance::ilogbl( reference) - 1, DBL_MIN_EXP-1 );
 
             // Scale the exponent of the error
-            long double res = CimathLibd::imf_ldexp( testVal - reference, ulp_exp );
-            return (double) res;
+            return ldexpl( testVal - reference, ulp_exp );
         }
 
         float ulpsDiff(double ref, float test)

@@ -377,10 +377,13 @@ void oclbuiltin(__global float * input,
     CALL_BI_ONEARG(asinh);
     CALL_BI_ONEARG(acosh);
     CALL_BI_ONEARG(atanh);
-
+/*
+disabled until bug 
+CSSD100006645 (to enable vstoren and vloadn built-ins on 64-bit platforms)
+will be resolved
     CALL_VLOAD(vload);
     CALL_VSTORE(vstore);
-
+*/
     CALL_BI_TWOARG(min);
     CALL_MINMAX(min);
     CALL_BI_TWOARG(max);

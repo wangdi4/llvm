@@ -50,24 +50,13 @@ include_directories (
   ${VALIDATIONS_ROOT}/REFALU
   )
 
-if (WIN32)  
-get_target_property( lib_dir REFALU_wrapper lib_dir )
-link_directories( ${lib_dir} )
-endif (WIN32)
-
 target_link_libraries(OCLBuiltins
   LLVMSupport
   REFALU
   )
 
-if (WIN32) 
-add_dependencies(OCLBuiltins
-  LLVMSupport
-  REFALU_wrapper
-  )
-else (WIN32)
 add_dependencies(OCLBuiltins
   LLVMSupport
   REFALU
   )
-endif (WIN32)
+

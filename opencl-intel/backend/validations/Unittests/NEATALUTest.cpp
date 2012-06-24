@@ -36,7 +36,8 @@ using namespace Validation;
 /// Use google type tests feature
 template <typename T>
 class NEATAluTyped : public ::testing::Test {};
-typedef ::testing::Types<float, double> FloatTypes;
+// TODO: add double tests support
+typedef ::testing::Types<float> FloatTypes;
 TYPED_TEST_CASE(NEATAluTyped, FloatTypes);
 
 typedef NEATVector (*NEATVectorBinaryOp)(const NEATVector&, const NEATVector&);
@@ -254,8 +255,7 @@ TYPED_TEST(NEATAluTyped, AddSubMul)
     bool typeSupported = true;
     if(sizeof(TypeParam) == sizeof(double)) {
         typeSupported = sizeof(double) < sizeof(long double);
-        if(!typeSupported)
-            printf("WARNING: test size of long double is equal to size of double\n");
+        printf("WARNING: test size of long double is equal to size of double\n");
     }
 
     if(typeSupported)
@@ -1596,7 +1596,7 @@ public:
     }
 };
 
-typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesMathFTZ;
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > FloatTypesMathFTZ;
 TYPED_TEST_CASE(NEATAluTypedMath, FloatTypesMathFTZ);
 
 template <typename T>
@@ -1713,14 +1713,18 @@ public:
                 NEATValue bAcc = NEATValue(Arg2Min[idx]);
                 // NEAT division for two accurate values
                 NEATValue accRes = NEATFunc(aAcc,bAcc);
-                sT refRes = RefFunc(sT(Arg1Min[idx]), sT(Arg2Min[idx])); 
+                sT refRes = RefFunc(sT(Arg1Min[idx]), sT(Arg2Min[idx]));
                 EXPECT_TRUE(TestAccExpanded<sT>(refRes, accRes, ulps));
 
                 // Now test intervals as input
                 // Calc expected result
-                const uint32_t RES_COUNT = 4;
+                const uint32_t RES_COUNT = 8;
                 sT allResults[RES_COUNT] = { RefFunc(sT(Arg1Min[idx]), sT(Arg2Min[idx])), RefFunc(sT(Arg1Max[idx]), sT(Arg2Min[idx])),
-                RefFunc(sT(Arg1Min[idx]), sT(Arg2Max[idx])), RefFunc(sT(Arg1Max[idx]), sT(Arg2Max[idx]))};
+                RefFunc(sT(Arg1Min[idx]), sT(Arg2Max[idx])), RefFunc(sT(Arg1Max[idx]), sT(Arg2Max[idx])),
+                RefALU::mul(sT(Arg1Min[idx]), RefFunc((sT)1.0,(sT(Arg2Min[idx])) )), //Arg1Min * (1/Arg2Min)
+                RefALU::mul(sT(Arg1Max[idx]), RefFunc((sT)1.0,(sT(Arg2Min[idx])) )), //Arg1Max * (1/Arg2Min)
+                RefALU::mul(sT(Arg1Min[idx]), RefFunc((sT)1.0,(sT(Arg2Max[idx])) )), //Arg1Min * (1/Arg2Max)
+                RefALU::mul(sT(Arg1Max[idx]), RefFunc((sT)1.0,(sT(Arg2Max[idx])) )) };//Arg1Max * (1/Arg2Max)
                 minRef[i] = FindMin(allResults, RES_COUNT);
                 maxRef[i] = FindMax(allResults, RES_COUNT);
     
@@ -1786,15 +1790,13 @@ TYPED_TEST(NEATDivTestRun, div)
         return;
     }
 
-    float divError = NEATALU::divSetUlps<TypeP>();
-
     NEATFuncP NEATFunc = &NEATALU::div<TypeP>;
     NEATFuncVecP NEATFuncVec = &NEATALU::div<TypeP>;
     RefFuncP RefFunc = &RefALU::div<sT>;
 
     NEATDivTest<TypeP> divTest;
 
-    divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, divError);
+    divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::DIV_ERROR));
 }
 
 TYPED_TEST(NEATDivTestRun, half_divide)
@@ -1839,11 +1841,11 @@ static bool TestExpandInterval(T firstIn, T secondIn, float ulps) {
                if(Utils::IsDenorm<T>(min))
                    diffH_1 = Utils::ulpsDiffDenormal(firstRef,min);
                else
-                   diffH_1 = float(Utils::ulpsDiffSamePrecision(firstRef,SuperT(min)));
+                   diffH_1 = Utils::ulpsDiffSamePrecision(firstRef,min);
                if(Utils::IsDenorm<T>(max))
                    diffH_2 = Utils::ulpsDiffDenormal(secondRef,max);
                else
-                   diffH_2 = float(Utils::ulpsDiffSamePrecision(secondRef,SuperT(max)));
+                   diffH_2 = Utils::ulpsDiffSamePrecision(secondRef,max);
 
                float diffL_1,diffL_2;
                if(Utils::IsDenorm<T>(min))
@@ -4201,7 +4203,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
 
         refAccValFloat = RefALU::tanpi(SuperT(*accVal.GetAcc<TypeP>()));
 
-        bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::TANPI_ERROR);
+        bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,6.f);
         EXPECT_TRUE(passed);
 
 
@@ -4214,14 +4216,14 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
         refIntValMax = RefALU::tanpi(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::tanpi(SuperT(*intVal.GetMin<TypeP>()));
 
-        passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::TANPI_ERROR);
+        passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,6.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
         NEATVector testAccVec = NEATALU::tanpi<TypeP>(accurate);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
             refAccValFloat = RefALU::tanpi(SuperT(*accurate[i].GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::TANPI_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4231,7 +4233,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
             refIntValMin = RefALU::tanpi(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::tanpi(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4240,7 +4242,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
         testAccVec = NEATALU::tanpi<TypeP>(accurateRanged);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
             refAccValFloat = RefALU::tanpi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-            passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::TANPI_ERROR);
+            passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4250,7 +4252,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
             refIntValMin = RefALU::tanpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::tanpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -4357,7 +4359,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(-0.0))); // asin(-0) == -0
         } else {
             refAccValFloat = RefALU::asin(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ASIN_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4377,7 +4379,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
             refIntValMax = RefALU::asin(SuperT(*intVal.GetMax<TypeP>()));
             refIntValMin = RefALU::asin(SuperT(*intVal.GetMin<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ASIN_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,4.f);
             EXPECT_TRUE(passed);
          }
 
@@ -4398,7 +4400,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
                 EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i],TypeP(-0.0))); // asin(-0) == -0
             } else {
                 refAccValFloat = RefALU::asin(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ASIN_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4419,7 +4421,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
                 refIntValMin = RefALU::asin(SuperT(*interval[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::asin(SuperT(*interval[i].GetMax<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ASIN_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4438,7 +4440,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
                 // asin(-0) == -0
             } else {
                 refAccValFloat = RefALU::asin(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ASIN_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4449,7 +4451,7 @@ TYPED_TEST(NEATAluTypedMath, asin)
             refIntValMin = RefALU::asin(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::asin(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ASIN_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -4551,7 +4553,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(0.0)));
         } else {
             refAccValFloat = RefALU::acos(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ACOS_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4573,7 +4575,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
             refIntValMax = RefALU::acos(SuperT(*intVal.GetMax<TypeP>()));
             refIntValMin = RefALU::acos(SuperT(*intVal.GetMin<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ACOS_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4593,7 +4595,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
                 EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i],TypeP(+0.0)));
             } else {
                 refAccValFloat = RefALU::acos(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ACOS_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4614,7 +4616,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
                 refIntValMin = RefALU::acos(SuperT(*interval[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::acos(SuperT(*interval[i].GetMax<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ACOS_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4625,7 +4627,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
         testAccVec = NEATALU::acos<TypeP>(accurateRanged);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
             refAccValFloat = RefALU::acos(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ACOS_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4635,7 +4637,7 @@ TYPED_TEST(NEATAluTypedMath, acos)
             refIntValMin = RefALU::acos(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::acos(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ACOS_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -4745,7 +4747,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(-0.0)));
             // atan(-0) == -0
         } else {
-            EXPECT_TRUE(TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ATAN_ERROR));
+            EXPECT_TRUE(TestAccExpanded<SuperT>(refAccValFloat,testAccVal,5.f));
         }
 
         /* test for single interval NEAT value */
@@ -4757,7 +4759,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
         refIntValMax = RefALU::atan(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::atan(SuperT(*intVal.GetMin<TypeP>()));
 
-        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ATAN_ERROR);
+        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,5.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -4773,7 +4775,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
                 // atan(-0) == -0
             } else {
                 refAccValFloat = RefALU::atan(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4784,7 +4786,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
             refIntValMin = RefALU::atan(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::atan(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4802,7 +4804,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
                 // atan(-0) == -0
             } else {
                 refAccValFloat = RefALU::atan(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4813,7 +4815,7 @@ TYPED_TEST(NEATAluTypedMath, atan)
             refIntValMin = RefALU::atan(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::atan(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -4904,7 +4906,7 @@ TYPED_TEST(NEATAluTypedMath, sinh)
             // sinh(-0) == -0
         } else {
             refAccValFloat = RefALU::sinh(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::SINH_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -4917,7 +4919,7 @@ TYPED_TEST(NEATAluTypedMath, sinh)
         refIntValMax = RefALU::sinh(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::sinh(SuperT(*intVal.GetMin<TypeP>()));
 
-        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::SINH_ERROR);
+        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,4.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -4933,7 +4935,7 @@ TYPED_TEST(NEATAluTypedMath, sinh)
                 // sinh(-0) == -0
             } else {
                 refAccValFloat = RefALU::sinh(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::SINH_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -4944,7 +4946,7 @@ TYPED_TEST(NEATAluTypedMath, sinh)
             refIntValMin = RefALU::sinh(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::sinh(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::SINH_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -5034,7 +5036,7 @@ TYPED_TEST(NEATAluTypedMath, cosh)
             // cosh(+-0) == 1
         } else {
             refAccValFloat = RefALU::cosh(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::COSH_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -5047,7 +5049,7 @@ TYPED_TEST(NEATAluTypedMath, cosh)
         refIntValMax = RefALU::cosh(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::cosh(SuperT(*intVal.GetMin<TypeP>()));
 
-        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::COSH_ERROR);
+        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,4.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -5060,7 +5062,7 @@ TYPED_TEST(NEATAluTypedMath, cosh)
                 // cosh(+-0) == 1
             } else {
                 refAccValFloat = RefALU::cosh(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::COSH_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -5071,7 +5073,7 @@ TYPED_TEST(NEATAluTypedMath, cosh)
             refIntValMin = RefALU::cosh(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::cosh(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::COSH_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -5165,7 +5167,7 @@ TYPED_TEST(NEATAluTypedMath, tanh)
             // tanh(-0) == -0
         } else {
             refAccValFloat = RefALU::tanh(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::TANH_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -5178,7 +5180,7 @@ TYPED_TEST(NEATAluTypedMath, tanh)
         refIntValMax = RefALU::tanh(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::tanh(SuperT(*intVal.GetMin<TypeP>()));
 
-        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::TANH_ERROR);
+        bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,5.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -5194,7 +5196,7 @@ TYPED_TEST(NEATAluTypedMath, tanh)
                 // tanh(-0) == -0
             } else {
                 refAccValFloat = RefALU::tanh(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::TANH_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -5205,7 +5207,7 @@ TYPED_TEST(NEATAluTypedMath, tanh)
             refIntValMin = RefALU::tanh(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::tanh(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANH_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -5268,10 +5270,10 @@ TYPED_TEST(NEATAluTypedMath, sincos)
         refAccValFloatSin = RefALU::sin(SuperT(*accVal.GetAcc<TypeP>()));
 
         refAccValFloatCos = RefALU::cos(SuperT(*accVal.GetAcc<TypeP>()));
-        bool passed = TestAccExpanded<SuperT>(refAccValFloatSin,testAccValSin,NEATALU::SIN_ERROR);
+        bool passed = TestAccExpanded<SuperT>(refAccValFloatSin,testAccValSin,4.f);
         EXPECT_TRUE(passed);
 
-        passed = TestAccExpanded<SuperT>(refAccValFloatCos,testAccValCos,NEATALU::COS_ERROR);
+        passed = TestAccExpanded<SuperT>(refAccValFloatCos,testAccValCos,4.f);
         EXPECT_TRUE(passed);
 
         /* test for single interval NEAT value */
@@ -5289,10 +5291,10 @@ TYPED_TEST(NEATAluTypedMath, sincos)
 
         testIntValSin = NEATALU::sincos<TypeP>(intVal,&testIntValCos);
 
-        passed = TestIntExpanded<SuperT>(refIntValSinMin,refIntValSinMax,testIntValSin,NEATALU::SIN_ERROR);
+        passed = TestIntExpanded<SuperT>(refIntValSinMin,refIntValSinMax,testIntValSin,4.f);
         EXPECT_TRUE(passed);
 
-        passed = TestIntExpanded<SuperT>(refIntValCosMin,refIntValCosMax,testIntValCos,NEATALU::COS_ERROR);
+        passed = TestIntExpanded<SuperT>(refIntValCosMin,refIntValCosMax,testIntValCos,4.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -5302,10 +5304,10 @@ TYPED_TEST(NEATAluTypedMath, sincos)
             refAccValFloatSin = RefALU::sin(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
             refAccValFloatCos = RefALU::cos(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
 
-            bool passed = TestAccExpanded<SuperT>(refAccValFloatSin,testAccVecSin[i],NEATALU::SIN_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloatSin,testAccVecSin[i],4.f);
             EXPECT_TRUE(passed);
 
-            passed = TestAccExpanded<SuperT>(refAccValFloatCos,testAccVecCos[i],NEATALU::COS_ERROR);
+            passed = TestAccExpanded<SuperT>(refAccValFloatCos,testAccVecCos[i],4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -5320,10 +5322,10 @@ TYPED_TEST(NEATAluTypedMath, sincos)
             refIntValCosMin = RefALU::cos(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValCosMax = RefALU::cos(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValSinMin,refIntValSinMax,testIntVecSin[i],NEATALU::SIN_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValSinMin,refIntValSinMax,testIntVecSin[i],4.f);
             EXPECT_TRUE(passed);
 
-            passed = TestIntExpanded<SuperT>(refIntValCosMin,refIntValCosMax,testIntVecCos[i],NEATALU::COS_ERROR);
+            passed = TestIntExpanded<SuperT>(refIntValCosMin,refIntValCosMax,testIntVecCos[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -5467,7 +5469,7 @@ TYPED_TEST(NEATAluTypedMath, sinpi)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(+0.0)));
         } else {
             refAccValFloat = RefALU::sinpi(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::SINPI_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
             EXPECT_TRUE(passed);
         }
 
@@ -5517,14 +5519,14 @@ TYPED_TEST(NEATAluTypedMath, sinpi)
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVal.GetMin<TypeP>())) > NEATALU::SINPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVal.GetMin<TypeP>())) > 4.f)
                     passed = false;
 
             if(hasMaxPoint) {
                 if( *testIntVal.GetMax<TypeP>() != TypeP(1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVal.GetMax<TypeP>())) > NEATALU::SINPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVal.GetMax<TypeP>())) > 4.f)
                     passed = false;
         }
 
@@ -5573,14 +5575,14 @@ TYPED_TEST(NEATAluTypedMath, sinpi)
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVec1[i].GetMin<TypeP>())) > NEATALU::SINPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVec1[i].GetMin<TypeP>())) > 4.f)
                     passed = false;
 
             if(hasMaxPoint) {
                 if( *testIntVec1[i].GetMax<TypeP>() != TypeP(1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVec1[i].GetMax<TypeP>())) > NEATALU::SINPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVec1[i].GetMax<TypeP>())) > 4.f)
                     passed = false;
 
         }
@@ -5612,7 +5614,7 @@ TYPED_TEST(NEATAluTypedMath, sinpi)
                 EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i],TypeP(+0.0)));
             } else {
                 refAccValFloat = RefALU::sinpi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::SINPI_ERROR);
+                passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                 EXPECT_TRUE(passed);
             }
 
@@ -5625,7 +5627,7 @@ TYPED_TEST(NEATAluTypedMath, sinpi)
             refIntValMin = RefALU::sinpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::sinpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::SINPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -5754,12 +5756,12 @@ TYPED_TEST(NEATAluTypedMath, cospi)
                 if( (SuperT)data >= limit)
                 {
                     //TODO: check result for EQ 1.0
-                    //bool passed = TestAccExpanded<SuperT>(SuperT(1.0),testAccVal,NEATALU::COSPI_ERROR);
+                    //bool passed = TestAccExpanded<SuperT>(SuperT(1.0),testAccVal,4.f);
                     //EXPECT_TRUE(passed);
                 }
                 else {
                     refAccValFloat = RefALU::cospi(SuperT(*accVal.GetAcc<TypeP>()));
-                    bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::COSPI_ERROR);
+                    bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,4.f);
                     EXPECT_TRUE(passed);
                 }
             }
@@ -5811,14 +5813,14 @@ TYPED_TEST(NEATAluTypedMath, cospi)
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVal.GetMin<TypeP>())) > NEATALU::COSPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVal.GetMin<TypeP>())) > 4.f)
                     passed = false;
 
             if(hasMaxPoint) {
                 if( *testIntVal.GetMax<TypeP>() != TypeP(1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVal.GetMax<TypeP>())) > NEATALU::COSPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVal.GetMax<TypeP>())) > 4.f)
                     passed = false;
         }
 
@@ -5867,14 +5869,14 @@ TYPED_TEST(NEATAluTypedMath, cospi)
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVec1[i].GetMin<TypeP>())) > NEATALU::COSPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMin,*testIntVec1[i].GetMin<TypeP>())) > 4.f)
                     passed = false;
 
             if(hasMaxPoint) {
                 if( *testIntVec1[i].GetMax<TypeP>() != TypeP(1.0))
                     passed = false;
             } else
-                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVec1[i].GetMax<TypeP>())) > NEATALU::COSPI_ERROR)
+                if(fabs( Utils::ulpsDiff(refIntValMax,*testIntVec1[i].GetMax<TypeP>())) > 4.f)
                     passed = false;
         }
 
@@ -5895,7 +5897,7 @@ TYPED_TEST(NEATAluTypedMath, cospi)
                      EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i],TypeP(0.0)));
                 else {
                      refAccValFloat = RefALU::cospi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                     bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::COSPI_ERROR);
+                     bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],4.f);
                      EXPECT_TRUE(passed);
                 }
             }
@@ -5907,7 +5909,7 @@ TYPED_TEST(NEATAluTypedMath, cospi)
             refIntValMin = RefALU::cospi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::cospi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::COSPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],4.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -6013,7 +6015,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(-0.0)));
         } else {
             refAccValFloat = RefALU::asinpi(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ASINPI_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6030,7 +6032,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             refIntValMax = RefALU::asinpi(SuperT(*intVal.GetMax<TypeP>()));
             refIntValMin = RefALU::asinpi(SuperT(*intVal.GetMin<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ASINPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6053,7 +6055,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             {
                 refAccValFloat = RefALU::asinpi(SuperT(*accurate[i].GetAcc<TypeP>()));
                 NEATValue testAccVal = NEATALU::asinpi<TypeP>(accurate[i]);
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ASINPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6072,7 +6074,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
                 refIntValMin = RefALU::asinpi(SuperT(*interval[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::asinpi(SuperT(*interval[i].GetMax<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ASINPI_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6090,7 +6092,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             } else
             {
                 refAccValFloat = RefALU::asinpi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ASINPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6101,7 +6103,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             refIntValMin = RefALU::asinpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::asinpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ASINPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -6203,7 +6205,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(0.0)));
         } else {
             refAccValFloat = RefALU::acospi(SuperT(*accVal.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ACOSPI_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6220,7 +6222,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
             refIntValMax = RefALU::acospi(SuperT(*intVal.GetMax<TypeP>()));
             refIntValMin = RefALU::acospi(SuperT(*intVal.GetMin<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ACOSPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6239,7 +6241,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
                 EXPECT_TRUE(testAccVec[i].IsNaN<TypeP>());
             } else {
                 refAccValFloat = RefALU::acospi(SuperT(*accurate[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ACOSPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6258,7 +6260,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
                 refIntValMin = RefALU::acospi(SuperT(*interval[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::acospi(SuperT(*interval[i].GetMax<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ACOSPI_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6277,7 +6279,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
                 EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i], TypeP(0.0)));
             } else {
                 refAccValFloat = RefALU::acospi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ACOSPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6288,7 +6290,7 @@ TYPED_TEST(NEATAluTypedMath, acospi)
             refIntValMin = RefALU::acospi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::acospi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ACOSPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -6407,7 +6409,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
                 EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(-0.5)));
             } else
             {
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ATANPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6432,7 +6434,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
         if((fabs(refIntValMin) != (SuperT)0.5) &&
            (fabs(refIntValMax) != (SuperT)0.5))
         {
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ATANPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,5.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6453,7 +6455,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
                 else if (refAccValFloat == (SuperT)(-0.5))
                     EXPECT_TRUE(TestAccValue<TypeP>(testAccVec[i],TypeP(-0.5)));
                 else {
-                    bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATANPI_ERROR);
+                    bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                     EXPECT_TRUE(passed);
                 }
             }
@@ -6476,7 +6478,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
             if((fabs(refIntValMin) != (SuperT)0.5) &&
                (fabs(refIntValMax) != (SuperT)0.5))
             {
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATANPI_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6493,7 +6495,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
             } else
             {
                 refAccValFloat = RefALU::atanpi(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATANPI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],5.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6505,7 +6507,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
             refIntValMin = RefALU::atanpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::atanpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATANPI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],5.f);
             EXPECT_TRUE(passed);
         }
     }
@@ -6654,7 +6656,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
         } else {
             refAccValFloat = RefALU::atan2(SuperT(*accValY.GetAcc<TypeP>()),
                                            SuperT(*accValX.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ATAN2_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6675,7 +6677,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
                                          SuperT(*intValX.GetMin<TypeP>()));
             refIntValMax = RefALU::atan2(SuperT(*intValY.GetMax<TypeP>()),
                                          SuperT(*intValX.GetMax<TypeP>()));
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ATAN2_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -6688,7 +6690,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
             } else {
                 refAccValFloat = RefALU::atan2(SuperT(*accurateY[i].GetAcc<TypeP>()),
                                                SuperT(*accurateX[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN2_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6705,7 +6707,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
                                              SuperT(*intervalX[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::atan2(SuperT(*intervalY[i].GetMax<TypeP>()),
                                              SuperT(*intervalX[i].GetMax<TypeP>()));
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN2_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
                 EXPECT_TRUE(passed);
              }
         }
@@ -6719,7 +6721,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
             } else {
                 refAccValFloat = RefALU::atan2(SuperT(*accurateRangedY[i].GetAcc<TypeP>()),
                                                SuperT(*accurateRangedX[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN2_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -6736,7 +6738,7 @@ TYPED_TEST(NEATAluTypedMath, atan2)
                                              SuperT(*intervalRangedX[i].GetMin<TypeP>()));
                 refIntValMax = RefALU::atan2(SuperT(*intervalRangedY[i].GetMax<TypeP>()),
                                              SuperT(*intervalRangedX[i].GetMax<TypeP>()));
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN2_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -7026,7 +7028,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
         } else {
             refAccValFloat = RefALU::atan2pi(SuperT(*accValY.GetAcc<TypeP>()),
                                              SuperT(*accValX.GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::ATAN2PI_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -7047,7 +7049,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
                                            SuperT(*intValX.GetMax<TypeP>()));
             refIntValMin = RefALU::atan2pi(SuperT(*intValY.GetMin<TypeP>()),
                                            SuperT(*intValX.GetMin<TypeP>()));
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::ATAN2PI_ERROR);
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,6.f);
             EXPECT_TRUE(passed);
         }
 
@@ -7061,7 +7063,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
             } else {
                 refAccValFloat = RefALU::atan2pi(SuperT(*accurateY[i].GetAcc<TypeP>()),
                                                  SuperT(*accurateX[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN2PI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -7079,7 +7081,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
                 refIntValMin = RefALU::atan2pi(SuperT(*intervalY[i].GetMin<TypeP>()),
                                                SuperT(*intervalX[i].GetMin<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN2PI_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -7094,7 +7096,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
             } else {
                 refAccValFloat = RefALU::atan2pi(SuperT(*accurateRangedY[i].GetAcc<TypeP>()),
                                                  SuperT(*accurateRangedX[i].GetAcc<TypeP>()));
-                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ATAN2PI_ERROR);
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -7112,7 +7114,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi)
                 refIntValMin = RefALU::atan2pi(SuperT(*intervalRangedY[i].GetMin<TypeP>()),
                                                SuperT(*intervalRangedX[i].GetMin<TypeP>()));
 
-                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::ATAN2PI_ERROR);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],6.f);
                 EXPECT_TRUE(passed);
             }
         }
@@ -7125,7 +7127,7 @@ TYPED_TEST(NEATAluTypedMath, sqrt)
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type SuperT;
 
-    double ulpErr = NEATALU::sqrtSetUlps<TypeP>();
+    float ulpErr = float(NEATALU::SQRT_ERROR);
 
     // Check if we are able to test double built-in function.
     if (SkipDoubleTest<TypeP>()){
@@ -8046,6 +8048,7 @@ public:
             testVal = NEATFunc(inVal);
             refValMin = RefALU::mul<sT>(refValMin,refValMin);
             refValMax = RefALU::mul<sT>(refValMax,refValMax);
+            if(refValMin > refValMax) std::swap(refValMin, refValMax);
             refValMin = RefALU::sqrt<sT>(refValMin);
             refValMax = RefALU::sqrt<sT>(refValMax);
             EXPECT_TRUE(TestIntExpanded<sT>(refValMin,refValMax,testVal,ulpErr));
@@ -8120,12 +8123,7 @@ TYPED_TEST(NEATLengthRun, length)
     NEATFuncVecP NEATFuncVec = &NEATALU::length<T>;
 
     NEATLengthTest<T> lengthTest;
-
-    double baseUlpErr = NEATALU::sqrtSetUlps<T>();
-    // sqrt is correctly rounded for doubles, so SQRT_ERROR_DOUBLE is zero itself
-    // but conformance tests use 3.0+0.5*(0.5*size+0.5*(size-1)) ulps error 
-    // for length function for doubles as well, 
-    // so we do the same and use the same ulps for both floats and doubles
+    float baseUlpErr = NEATALU::SQRT_ERROR;
 
     lengthTest.TestSpecVals(NEATFunc, NEATFuncVec);
     lengthTest.TestLength(NEATFunc, NEATFuncVec, baseUlpErr);
@@ -8281,6 +8279,8 @@ public:
             refValMin = RefALU::sqrt(RefALU::mul(refValMin, refValMin));
             refValMax = RefALU::sqrt(RefALU::mul(refValMax, refValMax));
 
+            if(refValMin > refValMax) std::swap(refValMin, refValMax);
+
             testVal = NEATFunc(inVal1, inVal2);
             EXPECT_TRUE(TestIntExpanded<sT>(refValMin,refValMax,testVal,ulpErr));
 
@@ -8365,7 +8365,7 @@ TYPED_TEST(NEATDistanceRun, distance)
     NEATFuncVecP NEATFuncVec = &NEATALU::distance<T>;
 
     NEATDistanceTest<T> distanceTest;
-    double baseUlpErr = NEATALU::sqrtSetUlps<T>();
+    float baseUlpErr = NEATALU::SQRT_ERROR;
 
     distanceTest.TestSpecVals(NEATFunc, NEATFuncVec);
     distanceTest.TestDistance(NEATFunc, NEATFuncVec, baseUlpErr);
@@ -8709,9 +8709,7 @@ template <typename T>
 class NEATCrossRun : public ALUTest {
 };
 
-//TODO: add doubles here when intel compiler version 12 will be used. See CSSD100013301
-typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > FloatTypesMathCross;
-TYPED_TEST_CASE(NEATCrossRun, FloatTypesMathCross);
+TYPED_TEST_CASE(NEATCrossRun, FloatTypesMathFTZ);
 TYPED_TEST(NEATCrossRun, cross)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -8742,7 +8740,6 @@ TYPED_TEST(NEATCrossRun, cross)
 
 }
 
-
 TYPED_TEST(NEATAluTypedMath, mix)
 {
     typedef typename  TypeParam::Type TypeP;
@@ -8767,17 +8764,17 @@ TYPED_TEST(NEATAluTypedMath, mix)
     uint32_t indexArr[4];
 
     VectorWidth curWidth = V4;
+    // geometric functions' arguments are float, float2, float3, or float4
 
     GenerateRandomVectorsAutoSeed(this->dataTypeVal, &firstFloat0[0], curWidth, NUM_TESTS);
     GenerateRandomVectorsAutoSeed(this->dataTypeVal, &secondFloat0[0], curWidth, NUM_TESTS);
     GenerateRandomVectorsAutoSeed(this->dataTypeVal, &firstFloat1[0], curWidth, NUM_TESTS);
     GenerateRandomVectorsAutoSeed(this->dataTypeVal, &secondFloat1[0], curWidth, NUM_TESTS);
 
-
-    GenerateRangedVectorsAutoSeed<TypeP>(this->dataTypeVal, &aArrFirst[0], curWidth,
-                              NUM_TESTS,TypeP(0.0),TypeP(1.0));
-    GenerateRangedVectorsAutoSeed<TypeP>(this->dataTypeVal, &aArrSecond[0], curWidth,
-                              NUM_TESTS,TypeP(0.0),TypeP(1.0));
+    GenerateRangedVectorsAutoSeed<float>(F32, &aArrFirst[0], curWidth,
+                              NUM_TESTS,0.f,1.f);
+    GenerateRangedVectorsAutoSeed<float>(F32, &aArrSecond[0], curWidth,
+                              NUM_TESTS,0.f,1.f);
 
     GenerateRangedVectorsAutoSeed<uint32_t>(U32, &indexArr[0], curWidth, 1, 0, 4);
 
@@ -9031,6 +9028,7 @@ TYPED_TEST(NEATAluTypedMath, mix)
 }
 
 
+
 template <typename T>
 class NEATNormalizeTest : public NEATGeometricTestOneArg<T> {
 public:
@@ -9247,13 +9245,14 @@ public:
     
             float ulpsErrVal = baseUlpErr + 0.5f;
             /* test for NEAT value accurate */
-            NEATValue testAccVal = NEATFunc(accurate[0]);            
+            NEATValue testAccVal = NEATFunc(accurate[0]);
             sT refMul = RefALU::mul(sT(*accurate[0].GetAcc<T>()),sT(*accurate[0].GetAcc<T>()));
-            refAccValFloat = RefALU::copysign(sT(1.0),sT(*accurate[0].GetAcc<T>()));
+            refTotalAcc = RefALU::rsqrt(refMul);
+            refAccValFloat = RefALU::mul(sT(*accurate[0].GetAcc<T>()),refTotalAcc);
             if(testAccVal.IsAny()) {
-                sT aVal = sT(std::numeric_limits<T>::max());
+                sT aVal = std::numeric_limits<T>::max();
                 EXPECT_TRUE(refMul > aVal);
-            } else {     
+            } else {            
                 EXPECT_TRUE(TestAccExpanded<sT>(refAccValFloat,testAccVal,ulpsErrVal));
             }
     
@@ -9914,6 +9913,7 @@ TYPED_TEST(NEATAluTypedMath, copysign)
     }
 }
 
+
 template <typename T, typename I>
 class SelectTypeContainer {
     public:
@@ -9970,11 +9970,7 @@ public:
 typedef ::testing::Types<SelectTypeContainer<float,int8_t>,SelectTypeContainer<float,uint8_t>,
                          SelectTypeContainer<float,int16_t>,SelectTypeContainer<float,uint16_t>,
                          SelectTypeContainer<float,int32_t>,SelectTypeContainer<float,uint32_t>,
-                         SelectTypeContainer<float,int64_t>,SelectTypeContainer<float,uint64_t>,
-                         SelectTypeContainer<double,int8_t>,SelectTypeContainer<double,uint8_t>,
-                         SelectTypeContainer<double,int16_t>,SelectTypeContainer<double,uint16_t>,
-                         SelectTypeContainer<double,int32_t>,SelectTypeContainer<double,uint32_t>,
-                         SelectTypeContainer<double,int64_t>,SelectTypeContainer<double,uint64_t> > SelectTypes;
+                         SelectTypeContainer<float,int64_t>,SelectTypeContainer<float,uint64_t> > SelectTypes;
 
 TYPED_TEST_CASE(NEATRelationalTestSelect, SelectTypes);
 

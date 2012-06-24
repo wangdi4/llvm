@@ -159,9 +159,9 @@ public:
     }
 };
 
-
+// TODO: add double tests
 // To enable double testing, add double to Types template arguments parameter
-typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon;
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > FloatTypesCommon;
 TYPED_TEST_CASE(NEATMathTestOneArg, FloatTypesCommon);
 TYPED_TEST_CASE(NEATMathTestTwoArgs, FloatTypesCommon);
 TYPED_TEST_CASE(NEATMathTestThreeArgs, FloatTypesCommon);
@@ -741,9 +741,9 @@ TYPED_TEST(NEATMathTestThreeArgs, clamp)
                   maxUpp[8], xUpp[9], xUpp[10], maxUpp[11],   xUpp[12], maxUpp[13], maxUpp[14]};
     for(uint32_t i = 0; i<CASES_COUNT; i++)
     {
-        NEATValue min = NEATValue((TypeP)minLow[i], (TypeP)minUpp[i]);
-        NEATValue max = NEATValue((TypeP)maxLow[i], (TypeP)maxUpp[i]);
-        NEATValue x = NEATValue((TypeP)xLow[i], (TypeP)xUpp[i]);
+        NEATValue min = NEATValue(minLow[i], minUpp[i]);
+        NEATValue max = NEATValue(maxLow[i], maxUpp[i]);
+        NEATValue x = NEATValue(xLow[i], xUpp[i]);
         NEATValue res = NEATALU::clamp<TypeP>(x, min, max);
         EXPECT_TRUE(res.IsInterval());
         EXPECT_EQ(*res.GetMin<TypeP>(), clampLow[i]);
@@ -1854,26 +1854,22 @@ TYPED_TEST(NEATMathTestOneArg, cbrt)
 template<typename T>
 void TestPowInterval(const NEATValue& x, const NEATValue& y, const NEATValue& in_testVal)
 {
-    typedef typename superT<T>::type sT;
-
     if((!in_testVal.IsNaN<T>()) && (!in_testVal.IsUnknown()))
     {
         static const uint32_t TESTS_COUNT = 2;
-        T xMin = *x.GetMin<T>();
-        T xMax = *x.GetMax<T>();
-        T yMin = *y.GetMin<T>();
-        T yMax = *y.GetMax<T>();
-        T xStep = (xMax - xMin) / (T)TESTS_COUNT;
-        T yStep = (yMax - yMin) / (T)TESTS_COUNT;
-
+        T xStep = (*x.GetMax<T>() - *x.GetMin<T>()) / (T)TESTS_COUNT;
+        T yStep = (*y.GetMax<T>() - *y.GetMin<T>()) / (T)TESTS_COUNT;
+        typedef typename superT<T>::type sT;
         sT refAccVal;
-        T xVal, yVal;
-        for(xVal = xMin; xVal < xMax; xVal += xStep)
+        for(T xVal = *x.GetMin<T>(); xVal < *x.GetMax<T>(); xVal += xStep)
         {
-            for(yVal = yMin; yVal < yMax; yVal += yStep)
+            for(T yVal = *y.GetMin<T>(); yVal < *y.GetMax<T>(); yVal += yStep)
             {
                 refAccVal = RefALU::flush((T)RefALU::pow(sT(xVal), sT(yVal)));
-                EXPECT_TRUE(in_testVal.Includes<T>((T)refAccVal));
+                EXPECT_TRUE(in_testVal.Includes<T>((T)refAccVal))<<"  xVal = "<<xVal<< " ; yVal =  " << yVal<<";  refAcc =  "
+                        <<refAccVal<<"; min = "<<*in_testVal.GetMin<T>()<<"; max = "<<*in_testVal.GetMax<T>();
+                    if(!in_testVal.Includes<T>((T)refAccVal))
+                        std::cout<<";";
                 if(yStep == 0.0)
                     break;
             }
@@ -2058,7 +2054,10 @@ void TestPowrInterval(const NEATValue& x, const NEATValue& y, const NEATValue& i
             for(T yVal = *y.GetMin<T>(); yVal < *y.GetMax<T>(); yVal += yStep)
             {
                 refAccVal = RefALU::flush((T)RefALU::powr(sT(xVal), sT(yVal)));
-                EXPECT_TRUE(in_testVal.Includes<T>((T)refAccVal));
+                EXPECT_TRUE(in_testVal.Includes<T>((T)refAccVal))<<"  xVal = "<<xVal<< " ; yVal =  " << yVal<<";  refAcc =  "
+                        <<refAccVal<<"; min = "<<*in_testVal.GetMin<T>()<<"; max = "<<*in_testVal.GetMax<T>();
+                    if(!in_testVal.Includes<T>((T)refAccVal))
+                        std::cout<<";";
                 if(yStep == 0.0)
                     break;
             }
@@ -2285,27 +2284,6 @@ TYPED_TEST(NEATMathTestTwoArgs, half_powr)
     }
 }
 
-
-template<typename T>
-void fabsReference(const NEATValue& inVal, T * refMinOut, T * refMaxOut) {
-    typedef typename downT<T>::type dT;
-
-        T refMax = RefALU::fabs(T(*inVal.GetMax<dT>()));
-        T refMin = RefALU::fabs(T(*inVal.GetMin<dT>()));
-
-        if (refMax < refMin) {
-            T a = refMax;
-            refMax = refMin;
-            refMin = a;
-        }
-        if(*inVal.GetMax<dT>() > dT(0) && *inVal.GetMin<dT>() < dT(0)) {
-            refMin = T(0);
-        }
-
-        *refMinOut = refMin;
-        *refMaxOut = refMax;
-}
-
 TYPED_TEST(NEATMathTestOneArg, fabs)
 {
     typedef typename TypeParam::Type TypeP;
@@ -2401,10 +2379,11 @@ TYPED_TEST(NEATMathTestOneArg, fabs)
         intVal = interval[0];
         testIntVal = NEATALU::fabs<TypeP>(intVal);
 
-        fabsReference(testIntVal, &refIntValMin, &refIntValMax);
+        refIntValMax = RefALU::fabs(sT(*intVal.GetMax<TypeP>()));
+        refIntValMin = RefALU::fabs(sT(*intVal.GetMin<TypeP>()));
 
         // check fabs expands 0 ulps
-        passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVal,NEATALU::FABS_ERROR);
+        passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVal,0.f);
         EXPECT_TRUE(passed);
 
         /* test for vector of NEAT accurate */
@@ -2419,9 +2398,10 @@ TYPED_TEST(NEATMathTestOneArg, fabs)
         /* test for vector of NEAT intervals */
         NEATVector testIntVec = NEATALU::fabs<TypeP>(interval);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
-            fabsReference(interval[i], &refIntValMin, &refIntValMax);
+            refIntValMin = RefALU::fabs(sT(*interval[i].GetMin<TypeP>()));
+            refIntValMax = RefALU::fabs(sT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::FABS_ERROR);
+            bool passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVec[i],0.f);
             EXPECT_TRUE(passed);
         }
 
@@ -2438,9 +2418,10 @@ TYPED_TEST(NEATMathTestOneArg, fabs)
         /* test for vector of NEAT intervals in range */
         testIntVec = NEATALU::fabs<TypeP>(intervalRanged);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
-            fabsReference(intervalRanged[i], &refIntValMin, &refIntValMax);
+            refIntValMin = RefALU::fabs(sT(*intervalRanged[i].GetMin<TypeP>()));
+            refIntValMax = RefALU::fabs(sT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::FABS_ERROR);
+            bool passed = TestIntExpanded<sT>(refIntValMin,refIntValMax,testIntVec[i],0.f);
             EXPECT_TRUE(passed);
         }
 
@@ -3533,18 +3514,8 @@ template <typename T>
 static void PownIntervalTest( T refMinIn, T refMaxIn, NEATValue xVal, NEATValue testVal, int y) {
     typedef typename downT<T>::type dT;
 
-    T refMin, refMax;
-
-    if( refMinIn > refMaxIn)
-    {
-        refMin = refMaxIn;
-        refMax = refMinIn;
-    } else
-    {
-        refMin = refMinIn;
-        refMax = refMaxIn;
-    }
-
+    T refMin = refMinIn;
+    T refMax = refMaxIn;
     T vals[2];
 
     vals[0] = vals[1] = refMin; // initialize values to expand interval
@@ -3704,6 +3675,8 @@ TYPED_TEST(NEATMathTestOneArg, pown)
         /// Arg1Min == Arg1Max has already been tested
         refMax = RefALU::pown(sT(*xVal.GetMax<TypeP>()),y);
         refMin = RefALU::pown(sT(*xVal.GetMin<TypeP>()),y);
+        if(refMax < refMin)
+            std::swap(refMin, refMax);
         PownIntervalTest<sT>(refMin, refMax, xVal, testVal, y);
 
         // 3.b test vector of interval values, vector of power values
@@ -3712,6 +3685,8 @@ TYPED_TEST(NEATMathTestOneArg, pown)
         {
             refMax = RefALU::pown(sT(*x[i].GetMax<TypeP>()),yVec[i]);
             refMin = RefALU::pown(sT(*x[i].GetMin<TypeP>()),yVec[i]);
+            if(refMax < refMin)
+                std::swap(refMin, refMax);
             PownIntervalTest<sT>(refMin, refMax, x[i], testVec[i], yVec[i]);
         }
     }
@@ -3755,15 +3730,13 @@ static bool TestNEATVal_fdim(NEATValue x, NEATValue y, NEATValue test)
         refMin = 0;
     
     refMax = RefALU::sub<sT>(sT(xMax), sT(yMin));
-    double diffMin = ::fabs(Utils::ulpsDiff(refMin, testMin));
-    double diffMax = ::fabs(Utils::ulpsDiff(refMax, testMax));
-    // fdim should be correctly rounded
-    passed &= (diffMin <= 0.5 && diffMax <= 0.5);
+    passed &= Utils::eq(testMin, T(refMin));
+    passed &= Utils::eq(testMax, T(refMax));      
+
     return passed;
 }
 
-// disabled until bug CSSD100013820 will be fixed
-TYPED_TEST(NEATMathTestTwoArgs, DISABLED_fdim)
+TYPED_TEST(NEATMathTestTwoArgs, fdim)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;

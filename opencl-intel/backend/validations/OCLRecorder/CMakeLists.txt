@@ -27,18 +27,18 @@ set (OCL_DATAMANAGER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/DataManag
 set (OCL_NEAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/NEAT)
 
 set (OCL_RECORDER_INCLUDE_FILES
-  ocl_recorder.h
+	ocl_recorder.h
   ocl_source_recorder.h
-  stdafx.h
-  targetver.h
+	stdafx.h
+	targetver.h
   md5.h
   )
   
 set (OCL_RECORDER_SOURCE_FILES
-  dllmain.cpp
-  ocl_recorder.cpp
+	dllmain.cpp
+	ocl_recorder.cpp
   ocl_source_recorder.cpp
-  stdafx.cpp
+	stdafx.cpp
   md5.cpp
   )
 
@@ -65,7 +65,7 @@ set (LLVM_LIBS
 	LLVMTarget
 	LLVMExecutionEngine
 	LLVMJIT
-	OCLInterpreter
+	LLVMInterpreter
 	LLVMCodeGen
 	LLVMBitReader
 	LLVMBitWriter
@@ -82,23 +82,21 @@ set (LLVM_LIBS
 	)
 	
 set (OCL_RECORDER_DEPS
-  tinyxml_STL
-  DataManager
+	tinyxml_STL
+	DataManager
   OclPluginManager 
-  ${LLVM_LIBS}
-) 	
+	${LLVM_LIBS}
+	) 	
 
 # Add include directories
 include_directories(${OCL_RECORDER_IMPORT_DIR} ${OCL_RECORDER_EXPORT_DIR} )
 include_directories(${OCL_BACKEND_IMPORTS_DIR} ${OCL_BACKEND_EXPORTS_DIR} )
 include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEAT_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/backend/plugin_manager)
-if(WIN32)
-get_target_property( lib_dir NEAT_wrapper lib_dir )
 
 # Add additional lib direcories
-link_directories (${OCL_RECORDER_LIB_DIR} ${lib_dir}) 
-endif()
+link_directories (${OCL_RECORDER_LIB_DIR}) 
+
 # Create DLL
 add_library (${TARGET_NAME} SHARED 
 	${OCL_RECORDER_INCLUDE_FILES}
@@ -113,13 +111,10 @@ add_library (OCLRecorderStat STATIC
 )
 
 # Link with appropriate libs
-target_link_libraries (${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT) 
-if(WIN32)
+target_link_libraries (${TARGET_NAME} ${OCL_RECORDER_DEPS}) 
+
 # Define the dependancy projects
-add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT_wrapper)
-else(WIN32)
-add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT)
-endif(WIN32)
+add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS})
 
 install(TARGETS ${TARGET_NAME} 
     RUNTIME DESTINATION bin
