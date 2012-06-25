@@ -151,6 +151,10 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         unsigned int    m_numArgs;
         ARG_INFO*       m_argsInfo;
+    private:
+      // private copy constructor to prevent wrong assignment
+      ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&)
+      : m_numArgs(0), m_argsInfo(NULL) {}
     };
 
     // ClangFECompilerCheckCompileOptions

@@ -554,7 +554,7 @@ int ClangFECompilerCompileTask::Compile()
 	{
 		m_stOutIRSize = stTotSize;
 		cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
-		memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
+		MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
 		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
 		pHeader->container_type = CL_PROG_CNT_PRIVATE;
 		pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;

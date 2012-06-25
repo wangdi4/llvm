@@ -53,6 +53,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class FrontEndCompiler : public OCLObject<_cl_object>
     {
 
+  private:
+
+		/******************************************************************************************
+		* Function: 	FrontEndCompiler
+		* Description:	Private copy constructor to avoid wrong assignment (Klocwork)
+		* Arguments:		
+		* Author:		Guy Benyei
+		* Date:			June 2012
+		******************************************************************************************/
+        FrontEndCompiler(const FrontEndCompiler&): OCLObject<_cl_object>(NULL, "") {};	
+
     public:
 
         /******************************************************************************************
