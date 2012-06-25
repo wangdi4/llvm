@@ -796,7 +796,60 @@ float4 _ocl_double2ToHalf2_rtz(double2 param)
 	res.s0 = as_float(t);
 	return res;
 }
+#if defined(__AVX2__)
+/*
+	AVX2 does not have direct conversion from double to half.
+	Below is hack implementation suggested by Bob Hanek
 
+The sequence double -> float, float->half float suffers from double rounding
+when the rounding mode is round to nearest. 
+If you want to have a correctly rounded result at the end 
+you need to “pre-condition” the double values via some bit twiddling.
+
+The specific issue is that some of ‘sticky bits’ 
+that are required for the final rounding are lost during the first rounding. 
+
+A way to fix the problem in to manually include the lost sticky bits 
+into the original double value via sequence of logical ands and ors
+
+*/
+float4 _ocl_double2ToHalf2_rte(double2 param)
+{
+	typedef union { double2 d; long2 ix; } double2_t;
+	double2_t x,j;
+	float2 f;
+	float4 res;
+	half2 h;
+	x.d = param;
+	// The key point  is to set the 29 bit to 1 if any of bits 28:0 are 1
+	j.ix = x.ix + 0x1fffffff;
+	j.ix &= 0x20000000;
+	x.ix |= j.ix;
+	x.ix &= ~0x1fffffff;
+	f = convert_float2_rte(x.d);
+	vstore_half2_rte(f, 0, (half*)&h);
+	res.s0 = as_float(h);
+	return res;	
+}
+float4 _ocl_double4ToHalf4_rte(double4 param)		
+{
+	typedef union { double4 d; long4 ix; } double4_t;
+	double4_t x,j;
+	float4 f,res;
+	half4 h;
+	x.d = param;
+	// The key point  is to set the 29 bit to 1 if any of bits 28:0 are 1
+	j.ix = x.ix + 0x1fffffff;
+	j.ix &= 0x20000000;
+	x.ix |= j.ix;
+	x.ix &= ~0x1fffffff;
+	f = convert_float4_rte(x.d);
+	vstore_half4_rte(f, 0, (half*)&h);
+	res.s01 = as_float2(h);
+	return res;	
+}
+
+#else // defined(__AVX2__)
 float4 _ocl_double2ToHalf2_rte(double2 param)
 {
     //cl_ulong sign = (u.u >> 48) & 0x8000;
@@ -897,6 +950,8 @@ float4 _ocl_double4ToHalf4_rte(double4 param)
 		res.s1 = _ocl_double2ToHalf2_rte(param.hi).s0;
 		return res;
 }
+
+#endif // defined(__AVX2__) 
 
 float4 _ocl_double4ToHalf4_rtp(double4 param)		
 {
