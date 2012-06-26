@@ -1407,21 +1407,13 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8##TI##8 x)\
 	{\
-	float8 res;\
 	_8i32 t = convert_int8##RMODE(x);\
-	res.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo,__m128i)));\
-	res.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi,__m128i)));\
-	return res;\
+	return convert_float8(t);\
 	}\
 	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16##TI##8 x)\
 	{\
-	float16 res;\
 	_16i32 t = convert_int16##RMODE(x);\
-	res.lo.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.lo,__m128i)));\
-	res.lo.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.hi,__m128i)));\
-	res.hi.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.lo,__m128i)));\
-	res.hi.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.hi,__m128i)));\
-	return res;\
+	return convert_float16(t);\
 	}\
 
 #define DEF_INT_PROTOF_16(TI, TINAME, RMODE)\
@@ -1452,21 +1444,13 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	float8 __attribute__ ((overloadable)) convert_float8##RMODE(_8##TI##16 x)\
 	{\
-	float8 res;\
 	_8i32 t = convert_int8##RMODE(x);\
-	res.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo,__m128i)));\
-	res.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi,__m128i)));\
-	return res;\
+	return convert_float8(t);\
 	}\
 	float16 __attribute__ ((overloadable)) convert_float16##RMODE(_16##TI##16 x)\
 	{\
-	float16 res;\
 	_16i32 t = convert_int16##RMODE(x);\
-	res.lo.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.lo,__m128i)));\
-	res.lo.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.lo.hi,__m128i)));\
-	res.hi.lo = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.lo,__m128i)));\
-	res.hi.hi = as_float4(_mm_cvtepi32_ps(__builtin_astype(t.hi.hi,__m128i)));\
-	return res;\
+	return convert_float16(t);\
 	}\
 
 #define DEF_INT_PROTOF_I32_F816_AS_F4(RMODE, FLAGSAT)\
