@@ -17,6 +17,7 @@ add_llvm_library( LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
+  Utils/SimplifyGEP.cpp
   Driver/OpenCL/OpenclRuntime.cpp
   Driver/OpenCL/OCLData.cpp
   Driver/DX/DXRuntime.cpp
