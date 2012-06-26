@@ -70,7 +70,7 @@ cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
 {
     if( !m_kernels.get() || m_kernels->Empty())
     {
-        return CL_DEV_INVALID_OPERATION;
+        return CL_DEV_INVALID_KERNEL_NAME;
     }
     
     try

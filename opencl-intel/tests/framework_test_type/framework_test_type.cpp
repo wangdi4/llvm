@@ -65,7 +65,6 @@ TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
     EXPECT_TRUE(clBuildProgramWithBinaryTest(iter->second));
 }
 
-
 TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
 {
     EXPECT_TRUE(clBuildProgramWithSourceTest());
@@ -74,6 +73,11 @@ TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
 TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
 {
     EXPECT_TRUE(clBuildProgramTwiceTest());
+}
+
+TEST(FrameworkTestType, Test_clBuildEmptyProgramTest)
+{
+    EXPECT_TRUE(clBuildEmptyProgramTest());
 }
 
 TEST(FrameworkTestType, Test_clLinkProgramTest)

@@ -1,4 +1,4 @@
-int test1()
+int test2(); int test3(); int test1()
 {
     int i1 = 1;
     return test2();

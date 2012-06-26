@@ -633,15 +633,16 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	{
 		return clErrRet;
 	}
-	if (0 == szNumKernels)
-	{
-		return CL_INVALID_PROGRAM_EXECUTABLE;
-	}
 	if (NULL != puiNumKernelsRet)
 	{
 		assert(szNumKernels <= CL_MAX_UINT32);
 		*puiNumKernelsRet = (cl_uint)szNumKernels;
 	}
+    if (0 == szNumKernels)
+    {
+        // If we don't have any kernels return
+        return CL_SUCCESS;
+    }
 	//No point in creating user-invisible kernels
 	if (NULL == pclKernels)
 	{

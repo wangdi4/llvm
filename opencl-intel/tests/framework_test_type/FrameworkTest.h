@@ -49,6 +49,7 @@ bool clGetDeviceIDsTest();
 bool clBuildProgramWithSourceTest();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildProgramTwiceTest();
+bool clBuildEmptyProgramTest();
 bool clLinkProgramTest();
 bool clCreateKernelTest(openBcFunc pFunc);
 bool clExecutionTest();
