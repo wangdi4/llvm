@@ -581,8 +581,6 @@ namespace intel {
 
     pFuncToFix->getParent()->getFunctionList().push_back(pNewFunc);
 
-    //Find "CurrSBIndex" Alloca instruction
-    m_pCurrSBValue = 0;
     //TODO: can we just check at the first basic block?
     bool bCurrSBIndex = false;
     bool bCurrWI = false;
@@ -609,9 +607,9 @@ namespace intel {
         break;
       }
     }
-    assert( m_pCurrSBValue && "Did not find the \"CurrSBIndex.\" Alloca instruction" );
-    assert( m_pCurrWIValue && "Did not find the \"CurrWI.\" Alloca instruction" );
-    assert( m_pWIIterationCountValue && "Did not find the \"IterCount.\" Call instruction" );
+    assert( bCurrSBIndex && "Did not find the \"CurrSBIndex.\" Alloca instruction" );
+    assert( bCurrWI && "Did not find the \"CurrWI.\" Alloca instruction" );
+    assert( bIterCount && "Did not find the \"IterCount.\" Call instruction" );
     //Add get_special_buffer()
     m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pNewFunc->begin()->begin());
 
