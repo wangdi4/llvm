@@ -9,13 +9,12 @@ set( TARGET_NAME task_executor )
 
 include( ../../cmake_utils/itt.cmake )
 
-if (WIN32)
-    # the /Ob0 flag is set instead of /Ob2 flag in order to prevent inline function  
-    # expansion optimization in Visual Studio due to a bug in device fission.
-    # once the bug is fixed the flag must be removed. 
-    string( REPLACE /Ob2  "/Ob0" CMAKE_C_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
-    string( REPLACE /Ob2  "/Ob0" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
-endif (WIN32)
+if (WIN32 AND NOT BUILD_X64)
+    # the /Ob1 flag is set instead of /Ob2 flag in order to prevent aggressive inlining
+    # optimizations in Visual Studio due to a bug discovered in device fission: CSSD100013570
+    string( REPLACE /Ob2  "/Ob1" CMAKE_C_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
+    string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
+endif (WIN32 AND NOT BUILD_X64)
 
 include_directories( BEFORE . )
 

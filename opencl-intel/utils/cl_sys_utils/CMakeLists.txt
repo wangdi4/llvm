@@ -7,14 +7,6 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME cl_sys_utils )
 
-if (WIN32)
-    # the /Ob0 flag is set instead of /Ob2 flag in order to prevent inline function  
-    # expansion optimization in Visual Studio due to a bug in device fission.
-    # once the bug is fixed the flag must be removed.    
-    string( REPLACE /Ob2  "/Ob0" CMAKE_C_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
-    string( REPLACE /Ob2  "/Ob0" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
-endif (WIN32)
-
 include_directories( AFTER
             ../cl_hw_utils/export
             )
