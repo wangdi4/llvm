@@ -1450,6 +1450,10 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
         {
             bEnableLinkOptions = true;
         }
+        else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
         else
         {
             UnrecognizedArgs.push_back(*opt_i);
