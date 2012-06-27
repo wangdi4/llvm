@@ -51,6 +51,11 @@ cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, G
 	return CL_SUCCESS;
 }
 
+cl_err_code GLMemoryObject::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize)
+{
+	return CL_INVALID_GL_OBJECT;
+}
+
 cl_err_code GLMemoryObject::ReadData(void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
 					 size_t          szRowPitch, size_t          szSlicePitch)
 {

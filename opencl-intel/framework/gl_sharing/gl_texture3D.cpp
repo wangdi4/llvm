@@ -151,8 +151,7 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 		GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
 		glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
 
-		m_pGLContext->glTexImage3D( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glInternalFormat,
-			(GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], (GLsizei)m_stDimensions[2], m_glBorder, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
+		FillTextureWithData();
 
 		glBindTexture(glBaseTarget, currTexture);
 	}
@@ -174,4 +173,10 @@ cl_err_code GLTexture3D::CheckBounds(const size_t* pszOrigin, const size_t* pszR
         return CL_INVALID_VALUE;
     }
     return CL_SUCCESS;
+}
+
+void GLTexture3D::FillTextureWithData()
+{
+	m_pGLContext->glTexImage3D( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glInternalFormat,
+		(GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], (GLsizei)m_stDimensions[2], m_glBorder, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
 }

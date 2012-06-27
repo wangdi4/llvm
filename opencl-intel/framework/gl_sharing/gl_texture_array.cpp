@@ -98,3 +98,17 @@ cl_err_code GLTextureArray::GetDimensionSizes(size_t* pszRegion) const
     pszRegion[2] = m_stDimensions[2];
     return CL_SUCCESS;
 }
+
+void GLTextureArray::FillTextureWithData()
+{
+	if ( 2 == m_uiNumDim )
+	{
+		glTexImage2D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glInternalFormat,
+			(GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glBorder, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
+	}
+	else
+	{
+		m_pGLContext->glTexImage3D( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glInternalFormat,
+			(GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], (GLsizei)m_stDimensions[2], m_glBorder, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
+	}
+}

@@ -2108,10 +2108,10 @@ cl_int ContextModule::GetGLTextureInfo(cl_mem clMemObj,
 		return CL_INVALID_MEM_OBJECT;
 	}
 
-	GLTexture* pGLObject= NULL;
+	GLMemoryObject* pGLObject= NULL;
 	// Check for GL object
 	// Check if it's a GL object
-	if ( NULL != (pGLObject = dynamic_cast<GLTexture*>(pMemObj)) )
+	if ( NULL != (pGLObject = dynamic_cast<GLMemoryObject*>(pMemObj)) )
 	{
 		return pGLObject->GetGLTextureInfo(clglPramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 	}

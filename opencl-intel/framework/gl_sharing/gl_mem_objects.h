@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_gl_object_type GetObjectType() const { return m_clglObjectType;}
 
 		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
-
+		virtual cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 		// Memory Object interface
 		cl_err_code			RelinquishDeviceHandle(FissionableDevice* pDevice, cl_dev_memobj_handle handle);
 

@@ -77,8 +77,7 @@ cl_err_code SyncGLObjects::Execute()
 		wglMakeCurrent(hCntxDC, hBackupGL);
     }
 
-    // We are in the same thread as the context, so execute directly
-    ExecGLSync(this);
+    ExecGLSync(NULL == hBackupGL);
 
 	if ( NULL != hBackupGL )
 	{
@@ -89,24 +88,29 @@ cl_err_code SyncGLObjects::Execute()
     return CL_SUCCESS;
 }
 
-void SyncGLObjects::ExecGLSync(SyncGraphicsApiObjects* _this)
+void SyncGLObjects::ExecGLSync(bool bMainGLThread)
 {
 	// Do the actual work here
-	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == _this->GetCommandType() )
+	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType() )
 	{
-		for (unsigned int i=0; i<_this->GetNumMemObjs(); ++i)
+		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
 		{
-			dynamic_cast<GLMemoryObject&>(_this->GetMemoryObject(i)).AcquireGLObject();
+			dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).AcquireGLObject();
 		}
 	}
 	else
 	{
-		for (unsigned int i=0; i<_this->GetNumMemObjs(); ++i)
+		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
 		{
-			dynamic_cast<GLMemoryObject&>(_this->GetMemoryObject(i)).ReleaseGLObject();
+			dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).ReleaseGLObject();
 		}
-//		glFinish();
+		if ( !bMainGLThread )
+		{
+			// If syncronization is done in different thread we must make sure
+			// that all GL commands were issued
+			glFlush();
+		}
 	}
 
-	_this->RuntimeCommand::Execute();
+	RuntimeCommand::Execute();
 }

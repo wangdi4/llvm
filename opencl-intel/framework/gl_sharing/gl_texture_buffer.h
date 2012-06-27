@@ -40,10 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
-/*
-		GLint CalculateTextureDimensions();
-        cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-*/
+		cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 
 	protected:
 		// do not implement
@@ -52,9 +49,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_image_format_ext m_clFormat;
 		GLint	m_glInternalFormat;
-
-//		void CreateFramebufferTexture();
-//		void TexSubImage();
+		GLint	m_glMipLevel;
 	};
 
 }}}

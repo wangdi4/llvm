@@ -77,6 +77,7 @@ cl_err_code GLTextureBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_
 	}
 
 	m_clImageFormat = m_clFormat.clType;
+	m_glMipLevel = pTxtDescriptor->glMipLevel;
 	return CL_SUCCESS;
 }
 
@@ -115,4 +116,41 @@ cl_err_code	GLTextureBuffer::GetImageInfo(cl_image_info clParamName, size_t szPa
 	
 	return CL_SUCCESS;
 
+}
+
+cl_err_code GLTextureBuffer::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize)
+{
+	void* pIntVal;
+	size_t intSize;
+
+	switch (glTextInfo)
+	{
+	case CL_GL_TEXTURE_TARGET:
+		pIntVal = &m_glBufferTarget;
+		intSize = sizeof(m_glBufferTarget);
+		break;
+	case CL_GL_MIPMAP_LEVEL:
+		pIntVal = &m_glMipLevel;
+		intSize = sizeof(m_glMipLevel);
+		break;
+	default:
+		return CL_INVALID_VALUE;
+	}
+
+	if ( NULL != pRetSize )
+	{
+		*pRetSize = valSize;
+		return CL_SUCCESS;
+	}
+
+	if ( valSize < intSize )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	if ( NULL != pVal)
+	{
+		memcpy(pVal, pIntVal, valSize);
+	}
+	return CL_SUCCESS;
 }

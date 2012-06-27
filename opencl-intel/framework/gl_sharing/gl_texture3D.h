@@ -53,6 +53,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// do not implement
         GLTexture3D(const GLTexture3D&);
         GLTexture3D& operator=(const GLTexture3D&);
+
+		virtual	void FillTextureWithData();
+
 	};
 
 }}}

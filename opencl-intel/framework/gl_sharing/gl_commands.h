@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		GLContext*		m_pContext;		
 		void*			m_hCallingThread;
 
-		static void __stdcall ExecGLSync(SyncGraphicsApiObjects* _this);
+		void ExecGLSync(bool bMainGLThread);
 	};
 
 }}}

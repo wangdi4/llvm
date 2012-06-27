@@ -44,5 +44,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// do not implement
         GLTextureArray(const GLTextureArray&);
         GLTextureArray& operator=(const GLTextureArray&);
+
+		void FillTextureWithData();
 	};
 }}}
