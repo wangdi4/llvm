@@ -148,17 +148,6 @@ void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 ********************************************************************************************************************/
 
 /****************************************************************************************************************
- BEGIN MICNativeBackendPrintfFiller
-********************************************************************************************************************/
-void MICNativeBackendPrintfFiller::print( const char* buf )
-{
-}
-
-/****************************************************************************************************************
- END MICNativeBackendPrintfFiller
-********************************************************************************************************************/
-
-/****************************************************************************************************************
  BEGIN MICNativeBackendOptions
 ********************************************************************************************************************/
 
@@ -205,11 +194,11 @@ bool MICNativeBackendOptions::GetValue( int optionId, void* Value, size_t* pSize
     {
         case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
             *(void**)Value = (void*)(&m_allocator);
-            return false;
+            return true;
 
-        case CL_DEV_BACKEND_OPTION_PRINTF:
-            *(void**)Value = NULL;
-            return false;
+        case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
+            *(void**)Value = (void*)(&m_printf);
+            return true;
 
         default:
             return false;

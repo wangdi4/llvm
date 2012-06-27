@@ -36,7 +36,6 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
     class ProgramMemoryManager;
-    class PrintBuffer;
 }}}
 
 using namespace Intel::OpenCL::MICDeviceNative;
@@ -70,13 +69,9 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
             ProgramMemoryManager* get_program_memory_manager( void ) const
                 { return m_pTls_struct ? m_pTls_struct->prog_manager : NULL; };
 
-            PrintBuffer*          get_print_buffer( void ) const
-                { return m_pTls_struct ? m_pTls_struct->print_buffer : NULL; };
-
         protected:
             struct TlsStruct {
                 ProgramMemoryManager* prog_manager;
-                PrintBuffer*          print_buffer;
             };
 
             TlsStruct*          m_pTls_struct;
@@ -107,9 +102,6 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
 
             void set_program_memory_manager( ProgramMemoryManager* p )
                 { m_Tls_struct.prog_manager = p; };
-
-            void set_print_buffer( PrintBuffer* b )
-                { m_Tls_struct.print_buffer = b; };
 
         private:
             TlsStruct       m_Tls_struct;

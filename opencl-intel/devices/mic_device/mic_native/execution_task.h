@@ -32,6 +32,7 @@
 #include "native_synch_objects.h"
 #include "mic_tracer.h"
 #include "hw_exceptions_handler.h"
+#include "native_printf.h"
 
 #include "cl_dev_backend_api.h"
 
@@ -270,6 +271,9 @@ protected:
 
 	// The kernel arguments blob
 	char* m_lockedParams;
+
+	// Print handle for this command.
+	PrintfHandle m_printHandle;
 
 	// CommandTracer object
 	CommandTracer* m_pCommandTracer;

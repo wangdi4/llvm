@@ -845,7 +845,7 @@ cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 			m_contextExecutableArr[uiWorkerId-1] = NULL;
 		}
 		// Set a new Context.
-		cl_dev_err_code ret = pCtx->CreateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
+		cl_dev_err_code ret = pCtx->CreateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
 		if (CL_DEV_FAILED(ret))
 		{
 			pCtx->InvalidateContext();

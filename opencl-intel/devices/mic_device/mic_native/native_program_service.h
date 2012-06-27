@@ -37,6 +37,7 @@
 #include "program_memory_manager.h"
 #include "mic_device_interface.h"
 #include "cl_dev_backend_api.h"
+#include "native_printf.h"
 #include "ICLDevBackendSerializationService.h"
 
 using namespace Intel::OpenCL::UtilsNative;
@@ -51,13 +52,6 @@ class MICNativeBackendExecMemoryAllocator : public ICLDevBackendJITAllocator
 public:
     void* AllocateExecutable(size_t size, size_t alignment);
     void FreeExecutable(void* ptr);
-};
-
-// kernel printf filler required by Device Backend
-class MICNativeBackendPrintfFiller //: public ICLDevBackendPrintf
-{
-public:
-    void  print( const char* buf );
 };
 
 // class required by Device Backend to specify options

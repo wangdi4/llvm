@@ -61,11 +61,13 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_execute_command_time_start();
 
+		size_t tCoiBuffsArrSize = coiBuffsArr.size();
+
 		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
 		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
 		COIRESULT result = COIPipelineRunFunction(pipe,
 												  func,
-												  coiBuffsArr.size(), &(coiBuffsArr[0]), &(accessFlagsArr[0]),
+												  tCoiBuffsArrSize, (tCoiBuffsArrSize > 0 ? &(coiBuffsArr[0]) : NULL), (tCoiBuffsArrSize > 0 ? &(accessFlagsArr[0]) : NULL),
 												  numDependecies, barrier,
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
@@ -125,7 +127,6 @@ cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallback
 
 void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo)
 {
-	assert(pArgs);
 	size_t stOffset = 0;
 	// Lock required memory objects
 	for(unsigned int i = 0; i < numArgs; ++i)
