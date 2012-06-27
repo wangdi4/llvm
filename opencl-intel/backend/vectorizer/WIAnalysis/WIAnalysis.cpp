@@ -291,8 +291,20 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   // FIXME:: assumes that the X value does not cross the +/- border - risky !!!
   // The pattern (ashr (shl X, C)C) is used for truncating of numbers in 64bit
   // The constant C must leave at least 32bits of the original number
-  if (BinaryOperator* SHL = dyn_cast<BinaryOperator>(inst->getOperand(0))) {
-    if (inst->getOpcode() == Instruction::AShr && SHL->getOpcode() == Instruction::Shl) {
+  if (inst->getOpcode() == Instruction::AShr) { 
+    BinaryOperator* SHL = dyn_cast<BinaryOperator>(inst->getOperand(0));
+    // We also allow add of uniform value between the ashr and shl instructions
+    // since instcombine creates this pattern when adding a constant.
+    // The shl forces all low bits to be zero, so there can be no carry to the
+    // high bits due to the addition. Addition with uniform preservs WI-dep.
+    if (SHL && SHL->getOpcode() == Instruction::Add) {
+      Value *addedVal = SHL->getOperand(1);
+      if (getDependency(addedVal) == WIAnalysis::UNIFORM) {
+        SHL = dyn_cast<BinaryOperator>(SHL->getOperand(0));
+      }
+    }
+
+    if (SHL && SHL->getOpcode() == Instruction::Shl) {
       ConstantInt * c_ashr = dyn_cast<ConstantInt>(inst->getOperand(1));
       ConstantInt * c_shl  = dyn_cast<ConstantInt>(SHL->getOperand(1));
       const IntegerType *AshrTy = cast<IntegerType>(inst->getType());
