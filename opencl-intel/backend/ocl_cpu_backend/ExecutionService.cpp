@@ -32,7 +32,7 @@ ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
     : m_pPrinter(NULL)
 {
     void *pPrinter = NULL;
-    size_t size;
+    size_t size = sizeof(pPrinter);
     if(NULL != pOptions && 
        pOptions->GetValue(CL_DEV_BACKEND_OPTION_BUFFER_PRINTER, &pPrinter, &size))
     {
