@@ -62,7 +62,7 @@ bool CmdMapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -83,14 +83,14 @@ bool CmdMapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -102,7 +102,7 @@ bool CmdMapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 	return true;
@@ -124,7 +124,7 @@ bool CmdUnmapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -145,7 +145,7 @@ bool CmdUnmapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return NULL;
 	}	
 	
@@ -153,7 +153,7 @@ bool CmdUnmapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -166,7 +166,7 @@ bool CmdUnmapMemObj(cl_dev_cmd_param_map *pMapParams)
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("second clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return NULL;
 	}	
 	return true;
@@ -192,7 +192,7 @@ bool clMapBuffer_Test()
 	
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -219,7 +219,7 @@ bool clMapBuffer_Test()
 	iRes = memObj->clDevMemObjCreateMappedRegion( &mapParams);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCreateMappedRegion failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCreateMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	pMapPtr = (char*)mapParams.ptr;
@@ -262,14 +262,14 @@ bool clMapBuffer_Test()
 	iRes = memObj->clDevMemObjReleaseMappedRegion(&mapParams );
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevReleaseMappedRegion failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevReleaseMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
 	iRes = memObj->clDevMemObjRelease();
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	return true;
@@ -301,7 +301,7 @@ bool clMapImage_Test()
 	
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -339,7 +339,7 @@ bool clMapImage_Test()
 	if (CL_DEV_FAILED(iRes))
 	{
 		free(image);
-		printf("clDevCreateMappedRegion failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCreateMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	pMapPtr = (char*)mapParams.ptr;
@@ -374,7 +374,7 @@ bool clMapImage_Test()
 	if (CL_DEV_FAILED(iRes))
 	{
 		free(image);
-		printf("clDevReleaseMappedRegion failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevReleaseMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -382,7 +382,7 @@ bool clMapImage_Test()
 	if (CL_DEV_FAILED(iRes))
 	{
 		free(image);
-		printf("clDevDeleteMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 

@@ -74,7 +74,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 	if (CL_DEV_FAILED(iRes))
 	{
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -84,7 +84,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 	{
 		memObjA->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -95,7 +95,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -155,7 +155,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %ws\n", clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -219,7 +219,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 	if (CL_DEV_FAILED(iRes))
 	{
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -229,7 +229,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 	{
 		memObjA->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -273,7 +273,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %ws\n", clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -353,7 +353,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	if (CL_DEV_FAILED(iRes))
 	{
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -363,7 +363,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	{
 		memObjA->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
@@ -401,7 +401,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	// Enqueu kernel
@@ -415,13 +415,13 @@ bool KernelExecute_Math_Test(const char* prog_file)
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %ws\n", clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	iRes = dev_entry->clDevFlushCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevFlushCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 

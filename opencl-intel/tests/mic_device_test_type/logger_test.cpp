@@ -99,7 +99,7 @@ cl_int MICTestLogger::clLogAddLine(cl_int client_id, cl_int log_level,
 		va_list va;
 		va_start(va, message);
 
-		printf("Source file name is %s function_name %ws line num %d %s\n", source_file, function_name, line_num, message, va);
+		printf("Source file name is %s function_name %s line num %d %s\n", source_file, function_name, line_num, message, va);
 
 		va_end(va);
 	}

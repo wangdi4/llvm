@@ -97,14 +97,14 @@ bool clGetDeviceInfo_TypeTest()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), NULL, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
 	iRes = clDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -140,7 +140,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(maxWorkItemDimension), &maxWorkItemDimension, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -156,7 +156,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, sizeof(preferredVecortWidthShort), &preferredVecortWidthShort, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -173,7 +173,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(maxClockFreq), &maxClockFreq, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -190,7 +190,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(image2DMaxWidth), &image2DMaxWidth, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -206,7 +206,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(image3DMaxDepth), &image3DMaxDepth, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -222,7 +222,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof(globalMemCacheSize), &globalMemCacheSize, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -238,7 +238,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(globalMemCacheLineSize), &globalMemCacheLineSize, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -255,7 +255,7 @@ bool clGetDeviceInfo_Test()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(profilingTimerResolution), &profilingTimerResolution, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		ret =  false;
 	}
 	else
@@ -282,7 +282,7 @@ bool clGetDeviceInfo_VendorIdTest()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_VENDOR_ID, input_size, &uVendorId, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -309,7 +309,7 @@ bool clGetDeviceInfo_MaxComputeUnitTest()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS, input_size, &uCoreNum, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -335,7 +335,7 @@ bool clGetDeviceInfo_DeviceAvilable()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_AVAILABLE, input_size, &bDevice, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -365,7 +365,7 @@ bool clGetDeviceInfo_DeviceExecutionProperties()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_EXECUTION_CAPABILITIES, input_size, &capabilities, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -402,7 +402,7 @@ bool clGetDeviceInfo_QueueProperties()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_QUEUE_PROPERTIES, input_size, &queueProperties, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	else
@@ -437,7 +437,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_NAME, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	if ( '\0' != name[str_size-1] )
@@ -450,7 +450,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_VENDOR, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	if ( '\0' != name[str_size-1] )
@@ -464,7 +464,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_PROFILE, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	if ( '\0' != name[str_size-1] )
@@ -478,7 +478,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	iRes = clDevGetDeviceInfo(CL_DEVICE_VERSION, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevGetDeviceInfo failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 	if ( '\0' != name[str_size-1] )
@@ -502,14 +502,14 @@ bool CommandList_Test()
 	cl_int iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("pclDevCreateCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 							
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevReleaseCommandList failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
@@ -551,7 +551,7 @@ bool ExecuteNativeKernel_Test(bool profiling)
 	iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, count);
 	if (CL_DEV_FAILED(iRes))
 	{
-		printf("clDevCommandListExecute failed: %ws\n",clDevErr2Txt((cl_dev_err_code)iRes));
+		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}	
 
