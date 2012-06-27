@@ -229,6 +229,13 @@ OclBuiltinImpl native_logb_f64_promote = OclBuiltinImpl<native_logb, [v1f64, v2f
 OclBuiltinImpl native_logb_f64_expand = OclBuiltinImpl<native_logb, [v16f64], 0, Expand1>;
 
 // ilogb
+OclBuiltinImpl ilogb_svml_f32_v3 = OclBuiltinImpl<ilogb, [v3f32], 0, [{
+    float16 in;
+    in.s012 = $Arg0VarName;
+    int16 out = __ocl_svml_$Target_ilogbf16(in);
+    return as_$ReturnType(out.s012);
+  }]>;
+
 OclBuiltinImpl ilogb_svml_f32_v8 = OclBuiltinImpl<ilogb, [v8f32], 0, [{
     float16 in;
     in.lo = $Arg0VarName;
