@@ -147,8 +147,8 @@ public:
 
 	virtual void SetUp() 
 	{
-		image_format.image_channel_order = CL_RGBA;
-		image_format.image_channel_data_type = CL_FLOAT;
+		this->image_format.image_channel_order = CL_RGBA;
+		this->image_format.image_channel_data_type = CL_FLOAT;
 	}
 };
 

@@ -51,7 +51,7 @@ static std::vector<std::string> initExpectedSharedExtenstions()
     // vec.push_back("cl_intel_printf");
 	// vec.push_back("cl_intel_dx9_sharing");
 	return vec;
-};
+}
 //|	initExpectedCPUExtenstions - helper function - add extensions to be supported by CPU here
 //|
 static std::vector<std::string> initExpectedCPUExtenstions()
@@ -76,7 +76,7 @@ static std::vector<std::string> initExpectedCPUExtenstions()
     //vec.push_back("cl_ext_immediate_execution");
 
 	return vec;
-};
+}
 //|	initExpectedGPUExtenstions - helper function - add extensions to be supported by GPU here
 //|
 static std::vector<std::string> initExpectedGPUExtenstions()
@@ -102,7 +102,7 @@ static std::vector<std::string> initExpectedGPUExtenstions()
 	//vec.push_back("cl_intel_printf");
     //vec.push_back("cl_intel_packed_yuv");
 	return vec;
-};
+}
 
 //|	TEST: VR4.SharedExtensions (TC-7)
 //|

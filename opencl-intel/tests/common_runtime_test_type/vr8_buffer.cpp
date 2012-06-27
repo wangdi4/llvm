@@ -51,7 +51,7 @@
 //|
 TYPED_TEST(VR8Buffer, BufferTypedUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedUseHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testBufferTypedUseHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer.BufferTypedAllocHostPtr (TC-43, TC-44, TC-45)
@@ -77,7 +77,7 @@ TYPED_TEST(VR8Buffer, BufferTypedUseHostPtr)
 //|
 TYPED_TEST(VR8Buffer, BufferTypedAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedAllocHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testBufferTypedAllocHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer.BufferTypedCopyHostPtr (TC-43, TC-44, TC-45)
@@ -103,7 +103,7 @@ TYPED_TEST(VR8Buffer, BufferTypedAllocHostPtr)
 //|
 TYPED_TEST(VR8Buffer, BufferTypedCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedCopyHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testBufferTypedCopyHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer.SubBufferUseHostPtr (TC-46, TC-47, TC-48)
@@ -130,7 +130,7 @@ TYPED_TEST(VR8Buffer, BufferTypedCopyHostPtr)
 //|
 TYPED_TEST(VR8Buffer, SubBufferUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testSubBufferUseHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testSubBufferUseHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer.SubBufferAllocHostPtr (TC-43, TC-44, TC-45)
@@ -157,7 +157,7 @@ TYPED_TEST(VR8Buffer, SubBufferUseHostPtr)
 //|
 TYPED_TEST(VR8Buffer, SubBufferAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testSubBufferAllocHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testSubBufferAllocHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer.SubBufferCopyHostPtr (TC-43, TC-44, TC-45)
@@ -184,7 +184,7 @@ TYPED_TEST(VR8Buffer, SubBufferAllocHostPtr)
 //|
 TYPED_TEST(VR8Buffer, SubBufferCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(testSubBufferCopyHostPtr(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(testSubBufferCopyHostPtr(this->ocl_descriptor));
 }
 
 

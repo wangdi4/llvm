@@ -26,11 +26,11 @@ public:
 
 	virtual void SetUp() 
 	{
-		image_format.image_channel_order = CL_BGRA;
-		image_format.image_channel_data_type = CL_UNORM_INT8;
+		this->image_format.image_channel_order = CL_BGRA;
+		this->image_format.image_channel_data_type = CL_UNORM_INT8;
 	}
 };
-;
+
 // Do not add other types here
 typedef ::testing::Types<cl_uchar4> VR20_BGRA_CL_UNORM_INT8Types;
 TYPED_TEST_CASE(VR20_BGRA_CL_UNORM_INT8, VR20_BGRA_CL_UNORM_INT8Types);
@@ -40,20 +40,20 @@ static const char* d3KernelName = "read_write_image3D_float4";
 
 TYPED_TEST(VR20_BGRA_CL_UNORM_INT8, Image2DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(VR20_BGRA_CL_UNORM_INT8, Image3DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 TYPED_TEST(VR20_BGRA_CL_UNORM_INT8, Image2DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(VR20_BGRA_CL_UNORM_INT8, Image3DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }

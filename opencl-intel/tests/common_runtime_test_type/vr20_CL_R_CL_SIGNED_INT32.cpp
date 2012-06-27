@@ -26,8 +26,8 @@ public:
 
 	virtual void SetUp() 
 	{
-		image_format.image_channel_order = CL_R;
-		image_format.image_channel_data_type = CL_SIGNED_INT32;
+		this->image_format.image_channel_order = CL_R;
+		this->image_format.image_channel_data_type = CL_SIGNED_INT32;
 	}
 };
 // Do not add other types here
@@ -39,20 +39,20 @@ static const char* d3KernelName = "read_write_image3D_int4_first";
 
 TYPED_TEST(VR20_CL_R_CL_SIGNED_INT32, Image2DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(VR20_CL_R_CL_SIGNED_INT32, Image3DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 TYPED_TEST(VR20_CL_R_CL_SIGNED_INT32, Image2DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(VR20_CL_R_CL_SIGNED_INT32, Image3DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }

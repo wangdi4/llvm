@@ -33,9 +33,10 @@
 #include "general_purpose_struct.h"
 #include "vector_comparator.h"
 #include "ieeehalfprecision.h"
+#include <limits.h>
 
 template <typename T>
-T getNextValue(T element)
+inline T getNextValue(T element)
 {
 	++element;
 	if(element<(T)0){
@@ -57,18 +58,18 @@ private:
 	bool canBeFreed;
 	
 	// allocateAlignedArray - returns aligned array
-	void* allocateAlignedArray(size_t size);
+	inline void* allocateAlignedArray(size_t size);
 
 	//	freeAlignedArray - frees aligned inputArray
-	void freeAlignedArray(void* inputArray);
+	inline void freeAlignedArray(void* inputArray);
 
-	void initializeArrayHalf(T* input_array, int arraySize)
+	inline void initializeArrayHalf(T* input_array, int arraySize)
 	{
 		// will not get here
 	}
 
 	//	initializeArray - initializes inputArray's elements with values [0,...,arraySize-1]
-	void initializeArray(T* input_array, int arraySize, bool isHalf)
+	inline void initializeArray(T* input_array, int arraySize, bool isHalf)
 	{
 		if(isHalf)
 		{
@@ -80,7 +81,7 @@ private:
 		initializeDynamicArray(input_array, arraySize);
 	}
 
-	void initializeDynamicArray(T* input_array, int arraySize)
+	inline void initializeDynamicArray(T* input_array, int arraySize)
 	{
 		T initValue = (T)0;
 		for(int i=0; i<arraySize; ++i)
@@ -90,7 +91,7 @@ private:
 	}
 
 	//	initializeArray - initializes inputArray'selements with value
-	void initializeDynamicArray(T* inputArray, int arraySize, T value);
+	inline void initializeDynamicArray(T* inputArray, int arraySize, T value);
 
 public: 
 	T* dynamic_array;
@@ -130,7 +131,7 @@ public:
 	}
 
 	// disableDestructor - will disable destructor
-	void disableDestructor(){
+	inline void disableDestructor(){
 		canBeFreed = false;
 	}
 
@@ -144,7 +145,7 @@ public:
 		freeMemoryManually();
 	}
 
-	void freeMemoryManually()
+	inline void freeMemoryManually()
 	{
 		if(NULL!=dynamic_array)
 		{
@@ -154,7 +155,7 @@ public:
 	}
 
 	//	printArrayContent - prints inputArray's content
-	void printArrayContent()
+	inline void printArrayContent()
 	{
 		for(int i=0; i<dynamic_array_size; ++i){
 			std::cout << "[" << i << "]=" << dynamic_array[i] << std::endl;
@@ -163,7 +164,7 @@ public:
 
 	//	compareArray - compares this array to rhsArray (element-wise)
 	//	rhsArray must contain at least dynamic_array_size elements
-	void compareArray(DynamicArray<T>& rhsArray)
+	inline void compareArray(DynamicArray<T>& rhsArray)
 	{
 		if(NULL==rhsArray.dynamic_array)
 		{
@@ -183,7 +184,7 @@ public:
 	
 	//	compareArray - compares this array to rhsArray (element-wise)
 	//	rhsArray must contain at least dynamic_array_size elements
-	void compareArray(T* rhsArray, size_t arraySize)
+	inline void compareArray(T* rhsArray, size_t arraySize)
 	{
 		if(NULL==rhsArray)
 		{
@@ -209,7 +210,7 @@ public:
 	}
 
 	//	compareArray - compares all dynamic_array's elements to expectedValue
-	void compareArray(T expectedValue)
+	inline void compareArray(T expectedValue)
 	{
 		for(int i=0; i<dynamic_array_size; ++i){
 			if(expectedValue != dynamic_array[i]){
@@ -220,13 +221,13 @@ public:
 		}
 	}
 
-	void  compareArraySumHalf(float expectedSum)
+	inline void  compareArraySumHalf(float expectedSum)
 	{
 		// will not get here
 	}
 
 	//	compareArray - compares array's elements' sum to expectedSum
-	void compareArraySum(float expectedSum)
+	inline void compareArraySum(float expectedSum)
 	{
 		if(isHalfArray)
 		{
@@ -240,7 +241,7 @@ public:
 	}
 
 	//	sumElements - returns sum of all elements in dynamic_array
-	float sumElements()
+	inline float sumElements()
 	{
 		float sum = 0.0f;
 		for(int i=0; i<dynamic_array_size; ++i){
@@ -250,7 +251,7 @@ public:
 	}
 
 	//	sumElements - returns sum of all elements in dynamic_array
-	float seriesSum()
+	inline float seriesSum()
 	{
 		float sum = 0.0f;
 		for(int i=0; i<dynamic_array_size; ++i){
@@ -261,7 +262,7 @@ public:
 
 	// multBy - multiplies each element of dynamic_array by value.
 	// If saturate is true will saturate
-	void multBy(int value, bool saturate=false)
+	inline void multBy(int value, bool saturate=false)
 	{
 		for(int i=0; i<dynamic_array_size; ++i){
 			dynamic_array[i]*=value;
@@ -272,18 +273,18 @@ public:
 
 // allocateAlignedArray - returns aligned array
 template<typename T>
-void* DynamicArray<T>::allocateAlignedArray(size_t size)
+inline void* DynamicArray<T>::allocateAlignedArray(size_t size)
 {
 #ifdef _WIN32
 	return _aligned_malloc(size, 128);
 #else
-	return memalign(128, arraySize * sizeof(int));
+	return memalign(128, size * sizeof(int));
 #endif
 }
 
 //	freeAlignedArray - frees aligned inputArray
 template<typename T>
-void DynamicArray<T>::freeAlignedArray(void* inputArray)
+inline void DynamicArray<T>::freeAlignedArray(void* inputArray)
 {
 	if(NULL==inputArray){
 		return;
@@ -300,7 +301,7 @@ void DynamicArray<T>::freeAlignedArray(void* inputArray)
 //	initialization
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
-void DynamicArray<cl_half>::initializeArrayHalf(cl_half* input_array, int arraySize)
+inline void DynamicArray<cl_half>::initializeArrayHalf(cl_half* input_array, int arraySize)
 {
 	cl_float* float_array = new cl_float[arraySize];
 	for(int i=0; i<arraySize; ++i){
@@ -311,7 +312,7 @@ void DynamicArray<cl_half>::initializeArrayHalf(cl_half* input_array, int arrayS
 }
 
 template<>
-void DynamicArray<HalfWrapper>::initializeArray(HalfWrapper* input_array, int arraySize, bool isHalf)
+inline void DynamicArray<HalfWrapper>::initializeArray(HalfWrapper* input_array, int arraySize, bool isHalf)
 {
 	isHalfArray = true;
 	cl_float* float_array = new cl_float[arraySize];
@@ -323,7 +324,7 @@ void DynamicArray<HalfWrapper>::initializeArray(HalfWrapper* input_array, int ar
 }
 
 template<>
-void DynamicArray<UserDefinedStructure>::initializeDynamicArray(UserDefinedStructure* input_array, int arraySize)
+inline void DynamicArray<UserDefinedStructure>::initializeDynamicArray(UserDefinedStructure* input_array, int arraySize)
 {
 	for(int i=0; i<arraySize; ++i)
 	{
@@ -334,7 +335,7 @@ void DynamicArray<UserDefinedStructure>::initializeDynamicArray(UserDefinedStruc
 }
 
 template<>
-void DynamicArray<cl_char2>::initializeDynamicArray(cl_char2* input_array, int arraySize)
+inline void DynamicArray<cl_char2>::initializeDynamicArray(cl_char2* input_array, int arraySize)
 {
 	cl_char initValue = (cl_char)0;
 	for(int i=0; i<arraySize; ++i)
@@ -347,7 +348,7 @@ void DynamicArray<cl_char2>::initializeDynamicArray(cl_char2* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_char4>::initializeDynamicArray(cl_char4* input_array, int arraySize)
+inline void DynamicArray<cl_char4>::initializeDynamicArray(cl_char4* input_array, int arraySize)
 {
 	cl_char initValue = (cl_char)0;
 	for(int i=0; i<arraySize; ++i)
@@ -360,7 +361,7 @@ void DynamicArray<cl_char4>::initializeDynamicArray(cl_char4* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_char8>::initializeDynamicArray(cl_char8* input_array, int arraySize)
+inline void DynamicArray<cl_char8>::initializeDynamicArray(cl_char8* input_array, int arraySize)
 {
 	cl_char initValue = (cl_char)0;
 	for(int i=0; i<arraySize; ++i)
@@ -373,7 +374,7 @@ void DynamicArray<cl_char8>::initializeDynamicArray(cl_char8* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_char16>::initializeDynamicArray(cl_char16* input_array, int arraySize)
+inline void DynamicArray<cl_char16>::initializeDynamicArray(cl_char16* input_array, int arraySize)
 {
 	cl_char initValue = (cl_char)0;
 	for(int i=0; i<arraySize; ++i)
@@ -386,7 +387,7 @@ void DynamicArray<cl_char16>::initializeDynamicArray(cl_char16* input_array, int
 }
 
 template<>
-void DynamicArray<cl_uchar2>::initializeDynamicArray(cl_uchar2* input_array, int arraySize)
+inline void DynamicArray<cl_uchar2>::initializeDynamicArray(cl_uchar2* input_array, int arraySize)
 {
 	cl_uchar initValue = (cl_uchar)0;
 	for(int i=0; i<arraySize; ++i)
@@ -399,7 +400,7 @@ void DynamicArray<cl_uchar2>::initializeDynamicArray(cl_uchar2* input_array, int
 }
 
 template<>
-void DynamicArray<cl_uchar4>::initializeDynamicArray(cl_uchar4* input_array, int arraySize)
+inline void DynamicArray<cl_uchar4>::initializeDynamicArray(cl_uchar4* input_array, int arraySize)
 {
 	cl_uchar initValue = (cl_uchar)0;
 	for(int i=0; i<arraySize; ++i)
@@ -412,7 +413,7 @@ void DynamicArray<cl_uchar4>::initializeDynamicArray(cl_uchar4* input_array, int
 }
 
 template<>
-void DynamicArray<cl_uchar8>::initializeDynamicArray(cl_uchar8* input_array, int arraySize)
+inline void DynamicArray<cl_uchar8>::initializeDynamicArray(cl_uchar8* input_array, int arraySize)
 {
 	cl_uchar initValue = (cl_uchar)0;
 	for(int i=0; i<arraySize; ++i)
@@ -425,7 +426,7 @@ void DynamicArray<cl_uchar8>::initializeDynamicArray(cl_uchar8* input_array, int
 }
 
 template<>
-void DynamicArray<cl_uchar16>::initializeDynamicArray(cl_uchar16* input_array, int arraySize)
+inline void DynamicArray<cl_uchar16>::initializeDynamicArray(cl_uchar16* input_array, int arraySize)
 {
 	cl_uchar initValue = (cl_uchar)0;
 	for(int i=0; i<arraySize; ++i)
@@ -438,7 +439,7 @@ void DynamicArray<cl_uchar16>::initializeDynamicArray(cl_uchar16* input_array, i
 }
 
 template<>
-void DynamicArray<cl_short2>::initializeDynamicArray(cl_short2* input_array, int arraySize)
+inline void DynamicArray<cl_short2>::initializeDynamicArray(cl_short2* input_array, int arraySize)
 {
 	cl_short initValue = (cl_short)0;
 	for(int i=0; i<arraySize; ++i)
@@ -451,7 +452,7 @@ void DynamicArray<cl_short2>::initializeDynamicArray(cl_short2* input_array, int
 }
 
 template<>
-void DynamicArray<cl_short4>::initializeDynamicArray(cl_short4* input_array, int arraySize)
+inline void DynamicArray<cl_short4>::initializeDynamicArray(cl_short4* input_array, int arraySize)
 {
 	cl_short initValue = (cl_short)0;
 	for(int i=0; i<arraySize; ++i)
@@ -464,7 +465,7 @@ void DynamicArray<cl_short4>::initializeDynamicArray(cl_short4* input_array, int
 }
 
 template<>
-void DynamicArray<cl_short8>::initializeDynamicArray(cl_short8* input_array, int arraySize)
+inline void DynamicArray<cl_short8>::initializeDynamicArray(cl_short8* input_array, int arraySize)
 {
 	cl_short initValue = (cl_short)0;
 	for(int i=0; i<arraySize; ++i)
@@ -477,7 +478,7 @@ void DynamicArray<cl_short8>::initializeDynamicArray(cl_short8* input_array, int
 }
 
 template<>
-void DynamicArray<cl_short16>::initializeDynamicArray(cl_short16* input_array, int arraySize)
+inline void DynamicArray<cl_short16>::initializeDynamicArray(cl_short16* input_array, int arraySize)
 {
 	cl_short initValue = (cl_short)0;
 	for(int i=0; i<arraySize; ++i)
@@ -490,7 +491,7 @@ void DynamicArray<cl_short16>::initializeDynamicArray(cl_short16* input_array, i
 }
 
 template<>
-void DynamicArray<cl_ushort2>::initializeDynamicArray(cl_ushort2* input_array, int arraySize)
+inline void DynamicArray<cl_ushort2>::initializeDynamicArray(cl_ushort2* input_array, int arraySize)
 {
 	cl_ushort initValue = (cl_ushort)0;
 	for(int i=0; i<arraySize; ++i)
@@ -503,7 +504,7 @@ void DynamicArray<cl_ushort2>::initializeDynamicArray(cl_ushort2* input_array, i
 }
 
 template<>
-void DynamicArray<cl_ushort4>::initializeDynamicArray(cl_ushort4* input_array, int arraySize)
+inline void DynamicArray<cl_ushort4>::initializeDynamicArray(cl_ushort4* input_array, int arraySize)
 {
 	cl_ushort initValue = (cl_ushort)0;
 	for(int i=0; i<arraySize; ++i)
@@ -516,7 +517,7 @@ void DynamicArray<cl_ushort4>::initializeDynamicArray(cl_ushort4* input_array, i
 }
 
 template<>
-void DynamicArray<cl_ushort8>::initializeDynamicArray(cl_ushort8* input_array, int arraySize)
+inline void DynamicArray<cl_ushort8>::initializeDynamicArray(cl_ushort8* input_array, int arraySize)
 {
 	cl_ushort initValue = (cl_ushort)0;
 	for(int i=0; i<arraySize; ++i)
@@ -529,7 +530,7 @@ void DynamicArray<cl_ushort8>::initializeDynamicArray(cl_ushort8* input_array, i
 }
 
 template<>
-void DynamicArray<cl_ushort16>::initializeDynamicArray(cl_ushort16* input_array, int arraySize)
+inline void DynamicArray<cl_ushort16>::initializeDynamicArray(cl_ushort16* input_array, int arraySize)
 {
 	cl_ushort initValue = (cl_ushort)0;
 	for(int i=0; i<arraySize; ++i)
@@ -542,7 +543,7 @@ void DynamicArray<cl_ushort16>::initializeDynamicArray(cl_ushort16* input_array,
 }
 
 template<>
-void DynamicArray<cl_int2>::initializeDynamicArray(cl_int2* input_array, int arraySize)
+inline void DynamicArray<cl_int2>::initializeDynamicArray(cl_int2* input_array, int arraySize)
 {
 	cl_int initValue = (cl_int)0;
 	for(int i=0; i<arraySize; ++i)
@@ -555,7 +556,7 @@ void DynamicArray<cl_int2>::initializeDynamicArray(cl_int2* input_array, int arr
 }
 
 template<>
-void DynamicArray<cl_int4>::initializeDynamicArray(cl_int4* input_array, int arraySize)
+inline void DynamicArray<cl_int4>::initializeDynamicArray(cl_int4* input_array, int arraySize)
 {
 	cl_int initValue = (cl_int)0;
 	for(int i=0; i<arraySize; ++i)
@@ -568,7 +569,7 @@ void DynamicArray<cl_int4>::initializeDynamicArray(cl_int4* input_array, int arr
 }
 
 template<>
-void DynamicArray<cl_int8>::initializeDynamicArray(cl_int8* input_array, int arraySize)
+inline void DynamicArray<cl_int8>::initializeDynamicArray(cl_int8* input_array, int arraySize)
 {
 	cl_int initValue = (cl_int)0;
 	for(int i=0; i<arraySize; ++i)
@@ -581,7 +582,7 @@ void DynamicArray<cl_int8>::initializeDynamicArray(cl_int8* input_array, int arr
 }
 
 template<>
-void DynamicArray<cl_int16>::initializeDynamicArray(cl_int16* input_array, int arraySize)
+inline void DynamicArray<cl_int16>::initializeDynamicArray(cl_int16* input_array, int arraySize)
 {
 	cl_int initValue = (cl_int)0;
 	for(int i=0; i<arraySize; ++i)
@@ -594,7 +595,7 @@ void DynamicArray<cl_int16>::initializeDynamicArray(cl_int16* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_uint2>::initializeDynamicArray(cl_uint2* input_array, int arraySize)
+inline void DynamicArray<cl_uint2>::initializeDynamicArray(cl_uint2* input_array, int arraySize)
 {
 	cl_uint initValue = (cl_uint)0;
 	for(int i=0; i<arraySize; ++i)
@@ -607,7 +608,7 @@ void DynamicArray<cl_uint2>::initializeDynamicArray(cl_uint2* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_uint4>::initializeDynamicArray(cl_uint4* input_array, int arraySize)
+inline void DynamicArray<cl_uint4>::initializeDynamicArray(cl_uint4* input_array, int arraySize)
 {
 	cl_uint initValue = (cl_uint)0;
 	for(int i=0; i<arraySize; ++i)
@@ -620,7 +621,7 @@ void DynamicArray<cl_uint4>::initializeDynamicArray(cl_uint4* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_uint8>::initializeDynamicArray(cl_uint8* input_array, int arraySize)
+inline void DynamicArray<cl_uint8>::initializeDynamicArray(cl_uint8* input_array, int arraySize)
 {
 	cl_uint initValue = (cl_uint)0;
 	for(int i=0; i<arraySize; ++i)
@@ -633,7 +634,7 @@ void DynamicArray<cl_uint8>::initializeDynamicArray(cl_uint8* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_uint16>::initializeDynamicArray(cl_uint16* input_array, int arraySize)
+inline void DynamicArray<cl_uint16>::initializeDynamicArray(cl_uint16* input_array, int arraySize)
 {
 	cl_uint initValue = (cl_uint)0;
 	for(int i=0; i<arraySize; ++i)
@@ -646,7 +647,7 @@ void DynamicArray<cl_uint16>::initializeDynamicArray(cl_uint16* input_array, int
 }
 
 template<>
-void DynamicArray<cl_long2>::initializeDynamicArray(cl_long2* input_array, int arraySize)
+inline void DynamicArray<cl_long2>::initializeDynamicArray(cl_long2* input_array, int arraySize)
 {
 	cl_long initValue = (cl_long)0;
 	for(int i=0; i<arraySize; ++i)
@@ -659,7 +660,7 @@ void DynamicArray<cl_long2>::initializeDynamicArray(cl_long2* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_long4>::initializeDynamicArray(cl_long4* input_array, int arraySize)
+inline void DynamicArray<cl_long4>::initializeDynamicArray(cl_long4* input_array, int arraySize)
 {
 	cl_long initValue = (cl_long)0;
 	for(int i=0; i<arraySize; ++i)
@@ -672,7 +673,7 @@ void DynamicArray<cl_long4>::initializeDynamicArray(cl_long4* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_long8>::initializeDynamicArray(cl_long8* input_array, int arraySize)
+inline void DynamicArray<cl_long8>::initializeDynamicArray(cl_long8* input_array, int arraySize)
 {
 	cl_long initValue = (cl_long)0;
 	for(int i=0; i<arraySize; ++i)
@@ -685,7 +686,7 @@ void DynamicArray<cl_long8>::initializeDynamicArray(cl_long8* input_array, int a
 }
 
 template<>
-void DynamicArray<cl_long16>::initializeDynamicArray(cl_long16* input_array, int arraySize)
+inline void DynamicArray<cl_long16>::initializeDynamicArray(cl_long16* input_array, int arraySize)
 {
 	cl_long initValue = (cl_long)0;
 	for(int i=0; i<arraySize; ++i)
@@ -698,7 +699,7 @@ void DynamicArray<cl_long16>::initializeDynamicArray(cl_long16* input_array, int
 }
 
 template<>
-void DynamicArray<cl_ulong2>::initializeDynamicArray(cl_ulong2* input_array, int arraySize)
+inline void DynamicArray<cl_ulong2>::initializeDynamicArray(cl_ulong2* input_array, int arraySize)
 {
 	cl_ulong initValue = (cl_ulong)0;
 	for(int i=0; i<arraySize; ++i)
@@ -711,7 +712,7 @@ void DynamicArray<cl_ulong2>::initializeDynamicArray(cl_ulong2* input_array, int
 }
 
 template<>
-void DynamicArray<cl_ulong4>::initializeDynamicArray(cl_ulong4* input_array, int arraySize)
+inline void DynamicArray<cl_ulong4>::initializeDynamicArray(cl_ulong4* input_array, int arraySize)
 {
 	cl_ulong initValue = (cl_ulong)0;
 	for(int i=0; i<arraySize; ++i)
@@ -724,7 +725,7 @@ void DynamicArray<cl_ulong4>::initializeDynamicArray(cl_ulong4* input_array, int
 }
 
 template<>
-void DynamicArray<cl_ulong8>::initializeDynamicArray(cl_ulong8* input_array, int arraySize)
+inline void DynamicArray<cl_ulong8>::initializeDynamicArray(cl_ulong8* input_array, int arraySize)
 {
 	cl_ulong initValue = (cl_ulong)0;
 	for(int i=0; i<arraySize; ++i)
@@ -737,7 +738,7 @@ void DynamicArray<cl_ulong8>::initializeDynamicArray(cl_ulong8* input_array, int
 }
 
 template<>
-void DynamicArray<cl_ulong16>::initializeDynamicArray(cl_ulong16* input_array, int arraySize)
+inline void DynamicArray<cl_ulong16>::initializeDynamicArray(cl_ulong16* input_array, int arraySize)
 {
 	cl_ulong initValue = (cl_ulong)0;
 	for(int i=0; i<arraySize; ++i)
@@ -750,7 +751,7 @@ void DynamicArray<cl_ulong16>::initializeDynamicArray(cl_ulong16* input_array, i
 }
 
 template<>
-void DynamicArray<cl_float2>::initializeDynamicArray(cl_float2* input_array, int arraySize)
+inline void DynamicArray<cl_float2>::initializeDynamicArray(cl_float2* input_array, int arraySize)
 {
 	cl_float initValue = (cl_float)0;
 	for(int i=0; i<arraySize; ++i)
@@ -763,7 +764,7 @@ void DynamicArray<cl_float2>::initializeDynamicArray(cl_float2* input_array, int
 }
 
 template<>
-void DynamicArray<cl_float4>::initializeDynamicArray(cl_float4* input_array, int arraySize)
+inline void DynamicArray<cl_float4>::initializeDynamicArray(cl_float4* input_array, int arraySize)
 {
 	cl_float initValue = (cl_float)0;
 	for(int i=0; i<arraySize; ++i)
@@ -776,7 +777,7 @@ void DynamicArray<cl_float4>::initializeDynamicArray(cl_float4* input_array, int
 }
 
 template<>
-void DynamicArray<cl_float8>::initializeDynamicArray(cl_float8* input_array, int arraySize)
+inline void DynamicArray<cl_float8>::initializeDynamicArray(cl_float8* input_array, int arraySize)
 {
 	cl_float initValue = (cl_float)0;
 	for(int i=0; i<arraySize; ++i)
@@ -789,7 +790,7 @@ void DynamicArray<cl_float8>::initializeDynamicArray(cl_float8* input_array, int
 }
 
 template<>
-void DynamicArray<cl_float16>::initializeDynamicArray(cl_float16* input_array, int arraySize)
+inline void DynamicArray<cl_float16>::initializeDynamicArray(cl_float16* input_array, int arraySize)
 {
 	cl_float initValue = (cl_float)0;
 	for(int i=0; i<arraySize; ++i)
@@ -803,7 +804,7 @@ void DynamicArray<cl_float16>::initializeDynamicArray(cl_float16* input_array, i
 
 //	initializeArray - initializes inputArray's elements with value
 template<typename T>
-void DynamicArray<T>::initializeDynamicArray(T* inputArray, int arraySize, T value)
+inline void DynamicArray<T>::initializeDynamicArray(T* inputArray, int arraySize, T value)
 {
 	for(int i=0; i<arraySize; ++i)
 	{
@@ -817,7 +818,7 @@ void DynamicArray<T>::initializeDynamicArray(T* inputArray, int arraySize, T val
 
 //	printArrayContent - prints inputArray's content
 template<>
-void DynamicArray<cl_float2>::printArrayContent()
+inline void DynamicArray<cl_float2>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<2; ++k){
@@ -827,7 +828,7 @@ void DynamicArray<cl_float2>::printArrayContent()
 }
 
 template<>
-void DynamicArray<cl_float4>::printArrayContent()
+inline void DynamicArray<cl_float4>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		std::cout << i << std::endl;
@@ -838,7 +839,7 @@ void DynamicArray<cl_float4>::printArrayContent()
 }
 
 template<>
-void DynamicArray<cl_uchar4>::printArrayContent()
+inline void DynamicArray<cl_uchar4>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		std::cout << i << std::endl;
@@ -849,7 +850,7 @@ void DynamicArray<cl_uchar4>::printArrayContent()
 }
 
 template<>
-void DynamicArray<cl_char4>::printArrayContent()
+inline void DynamicArray<cl_char4>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		std::cout << i << std::endl;
@@ -860,7 +861,7 @@ void DynamicArray<cl_char4>::printArrayContent()
 }
 
 template<>
-void DynamicArray<cl_int4>::printArrayContent()
+inline void DynamicArray<cl_int4>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		std::cout << i << std::endl;
@@ -871,7 +872,7 @@ void DynamicArray<cl_int4>::printArrayContent()
 }
 
 template<>
-void DynamicArray<UserDefinedStructure>::printArrayContent()
+inline void DynamicArray<UserDefinedStructure>::printArrayContent()
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		std::cout << i << std::endl;
@@ -885,7 +886,7 @@ void DynamicArray<UserDefinedStructure>::printArrayContent()
 //	sumElements
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
-float DynamicArray<cl_float4>::sumElements()
+inline float DynamicArray<cl_float4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -899,7 +900,7 @@ float DynamicArray<cl_float4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_char4>::sumElements()
+inline float  DynamicArray<cl_char4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -913,7 +914,7 @@ float  DynamicArray<cl_char4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_int4>::sumElements()
+inline float  DynamicArray<cl_int4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -927,7 +928,7 @@ float  DynamicArray<cl_int4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_uint4>::sumElements()
+inline float  DynamicArray<cl_uint4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -941,7 +942,7 @@ float  DynamicArray<cl_uint4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_short4>::sumElements()
+inline float  DynamicArray<cl_short4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -955,7 +956,7 @@ float  DynamicArray<cl_short4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_ushort4>::sumElements()
+inline float  DynamicArray<cl_ushort4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -969,7 +970,7 @@ float  DynamicArray<cl_ushort4>::sumElements()
 }
 
 template<>
-float  DynamicArray<cl_uchar4>::sumElements()
+inline float  DynamicArray<cl_uchar4>::sumElements()
 {
 	float sum = 0.0f;
 	for(int i=0; i<dynamic_array_size; ++i)
@@ -986,7 +987,7 @@ float  DynamicArray<cl_uchar4>::sumElements()
 //	multBy
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
-void DynamicArray<cl_half>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_half>::multBy(int value, bool saturate)
 {
 	cl_float* float_array = new cl_float[dynamic_array_size];
 	
@@ -1005,7 +1006,7 @@ void DynamicArray<cl_half>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_float4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_float4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1017,7 +1018,7 @@ void DynamicArray<cl_float4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_char4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_char4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1044,7 +1045,7 @@ void DynamicArray<cl_char4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_short4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_short4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1071,7 +1072,7 @@ void DynamicArray<cl_short4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_int4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_int4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1083,7 +1084,7 @@ void DynamicArray<cl_int4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_uchar4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_uchar4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1110,7 +1111,7 @@ void DynamicArray<cl_uchar4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_ushort4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_ushort4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1137,7 +1138,7 @@ void DynamicArray<cl_ushort4>::multBy(int value, bool saturate)
 }
 
 template<>
-void DynamicArray<cl_uint4>::multBy(int value, bool saturate)
+inline void DynamicArray<cl_uint4>::multBy(int value, bool saturate)
 {
 	for(int i=0; i<dynamic_array_size; ++i){
 		for(int k=0; k<4; ++k)
@@ -1153,7 +1154,7 @@ void DynamicArray<cl_uint4>::multBy(int value, bool saturate)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //	compareArray - compares array's elements' sum to expectedSum
 template<>
-void  DynamicArray<cl_half>::compareArraySumHalf(float expectedSum)
+inline void  DynamicArray<cl_half>::compareArraySumHalf(float expectedSum)
 {
 	cl_float* float_array = new cl_float[dynamic_array_size];
 	halfp2singles(float_array,dynamic_array,dynamic_array_size);

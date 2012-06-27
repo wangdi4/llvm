@@ -116,9 +116,6 @@ void test2DUseHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_fo
 	size_t origin[] = {0,0,0};
 	size_t region[] = {image_width,image_height,1};
 
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*correctArraySize(image_format));
 
@@ -186,11 +183,7 @@ void test2DAllocHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_
 	size_t image_slice_pitch = 0;
 	size_t origin[] = {0,0,0};
 	size_t region[] = {image_width,image_height,1};
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-
+    
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*correctArraySize(image_format));
 	DynamicArray<T> input_array(arraySize, isHalf);
@@ -265,11 +258,7 @@ void test2DCopyHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_f
 	size_t image_row_pitch = 0;
 	size_t origin[] = {0,0,0};
 	size_t region[] = {image_width,image_height,1};
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-
+    
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*correctArraySize(image_format));
 	DynamicArray<T> input_array(arraySize, isHalf);
@@ -333,11 +322,7 @@ void test3DUseHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_fo
 	size_t image_slice_pitch = 0;
 	size_t origin[] = {0,0,0};
 	size_t region[] = {image_width,image_height,image_depth};
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-	
+    	
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*image_depth*correctArraySize(image_format));
 	DynamicArray<T> input_array(arraySize, isHalf);
@@ -405,11 +390,7 @@ void test3DAllocHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_
 	size_t region[] = {image_width,image_height,image_depth};
 	size_t r_image_row_pitch = 0;
 	size_t r_image_slice_pitch = 0;
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-	
+    	
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*image_depth*correctArraySize(image_format));
 	DynamicArray<T> input_array(arraySize, isHalf);
@@ -484,12 +465,8 @@ void test3DCopyHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_f
 	size_t region[] = {image_width,image_height,image_depth};
 	size_t r_image_row_pitch = 0;
 	size_t r_image_slice_pitch = 0;
-
-	// set work dimensions
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-	
-		// create and initialize array
+    	
+	// create and initialize array
 	int arraySize = (int)(image_width*image_height*image_depth*correctArraySize(image_format));
 	DynamicArray<T> input_array(arraySize, isHalf);
 

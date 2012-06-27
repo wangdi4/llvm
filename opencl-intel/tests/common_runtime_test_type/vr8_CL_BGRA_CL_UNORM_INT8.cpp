@@ -27,11 +27,11 @@ public:
 
 	virtual void SetUp() 
 	{
-		image_format.image_channel_order = CL_BGRA;
-		image_format.image_channel_data_type = CL_UNORM_INT8;
+		this->image_format.image_channel_order = CL_BGRA;
+		this->image_format.image_channel_data_type = CL_UNORM_INT8;
 	}
 };
-;
+
 // Do not add other types here
 typedef ::testing::Types<cl_uchar4>VR8_BGRA_CL_UNORM_INT8Types;
 TYPED_TEST_CASE(VR8_BGRA_CL_UNORM_INT8, VR8_BGRA_CL_UNORM_INT8Types);
@@ -45,30 +45,30 @@ static const char* d3KernelName = "read_image3D_float4";
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }
 
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }
 
 TYPED_TEST(VR8_BGRA_CL_UNORM_INT8, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor));
+	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }

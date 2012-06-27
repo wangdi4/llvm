@@ -27,8 +27,8 @@ public:
 	virtual void SetUp() 
 	{
 		FissionWrapper::SetUp();
-		image_format.image_channel_order = CL_RGBA;
-		image_format.image_channel_data_type = CL_UNSIGNED_INT8;
+		this->image_format.image_channel_order = CL_RGBA;
+		this->image_format.image_channel_data_type = CL_UNSIGNED_INT8;
 	}
 };
 // Do not add other types here
@@ -43,37 +43,37 @@ static const char* d3KernelName = "read_image3D_int4";
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 TYPED_TEST(Fission_VR8_RGBA_CL_UNSIGNED_INT8, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 

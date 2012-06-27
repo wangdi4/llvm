@@ -105,7 +105,6 @@ void test2DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 		general_input_array.dynamic_array));
 
 	// events
-	cl_event user_event = 0;
 	cl_event device_done_event[2];
 
 	// read data
@@ -226,7 +225,6 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 		general_input_array.dynamic_array));
 
 	// events
-	cl_event user_event = 0;
 	cl_event device_done_event[2];
 
 	// read data
@@ -386,7 +384,6 @@ void test2DReadWriteThroughKernel(OpenCLDescriptor& ocl_descriptor, cl_image_for
 		CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, &image_format, width, height, row_pitch, input_array.dynamic_array));
 	
 	// set work dimensions
-	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 
 	cl_mem mem_result[] = {0,0};
@@ -614,7 +611,6 @@ void test3DReadWriteThroughKernel(OpenCLDescriptor& ocl_descriptor, cl_image_for
 		input_array.dynamic_array));
 
 	// set work dimensions
-	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 
 	cl_mem mem_result[] = {0,0};

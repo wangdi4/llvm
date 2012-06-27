@@ -27,11 +27,11 @@ public:
 
 	virtual void SetUp() 
 	{
-		image_format.image_channel_order = CL_LUMINANCE;
-		image_format.image_channel_data_type = CL_UNORM_INT16;
+		this->image_format.image_channel_order = CL_LUMINANCE;
+		this->image_format.image_channel_data_type = CL_UNORM_INT16;
 	}
 };
-;
+
 // Do not add other types here
 typedef ::testing::Types<cl_ushort> VR8_CL_L_CL_UNORM_INT16Types;
 TYPED_TEST_CASE(VR8_CL_L_CL_UNORM_INT16, VR8_CL_L_CL_UNORM_INT16Types);
@@ -51,30 +51,30 @@ static int succDevicesNum = 1;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(VR8_CL_L_CL_UNORM_INT16, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName, divisor, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }

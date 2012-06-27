@@ -27,11 +27,11 @@ public:
 	virtual void SetUp() 
 	{
 		FissionWrapper::SetUp();
-		image_format.image_channel_order = CL_RGBA;
-		image_format.image_channel_data_type = CL_UNORM_INT16;
+		this->image_format.image_channel_order = CL_RGBA;
+		this->image_format.image_channel_data_type = CL_UNORM_INT16;
 	}
 };
-;
+
 // Do not add other types here
 typedef ::testing::Types<cl_ushort4> Fission_VR20_RGBA_CL_UNORM_INT16Types;
 TYPED_TEST_CASE(Fission_VR20_RGBA_CL_UNORM_INT16, Fission_VR20_RGBA_CL_UNORM_INT16Types);
@@ -41,25 +41,25 @@ static const char* d3KernelName = "read_write_image3D_float4";
 
 TYPED_TEST(Fission_VR20_RGBA_CL_UNORM_INT16, Image2DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));	
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR20_RGBA_CL_UNORM_INT16, Image3DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));	
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 
 TYPED_TEST(Fission_VR20_RGBA_CL_UNORM_INT16, Image2DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));	
-	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR20_RGBA_CL_UNORM_INT16, Image3DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));	
-	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }

@@ -27,10 +27,11 @@ public:
 	virtual void SetUp() 
 	{
 		FissionWrapper::SetUp();
-		image_format.image_channel_order = CL_RGBA;
-		image_format.image_channel_data_type = CL_FLOAT;
+		this->image_format.image_channel_order = CL_RGBA;
+		this->image_format.image_channel_data_type = CL_FLOAT;
 	}
 };
+
 // Do not add other types here
 typedef ::testing::Types<cl_float4> Fission_VR8_RGBA_CL_FLOATTypes;
 TYPED_TEST_CASE(Fission_VR8_RGBA_CL_FLOAT, Fission_VR8_RGBA_CL_FLOATTypes);
@@ -61,8 +62,8 @@ static const char* d3KernelName = "read_image3D_float4";
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 //|	TEST: ImageRGBA_CL_FLOAT.Image2AllocHostPtr
@@ -88,8 +89,8 @@ TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2DUseHostPtr)
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 //|	TEST: ImageRGBA_CL_FLOAT.Image2CopyHostPtr
@@ -115,8 +116,8 @@ TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2AllocHostPtr)
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(ocl_descriptor, image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 //|	TEST: ImageTypedCommonRuntime.Image3DUseHostPtr 
@@ -142,8 +143,8 @@ TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image2CopyHostPtr)
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(ocl_descriptor, image_format, d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 //|	TEST: ImageRGBA_CL_FLOAT.Image3AllocHostPtr
@@ -169,8 +170,8 @@ TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image3DUseHostPtr)
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(ocl_descriptor, image_format,  d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format,  d3KernelName));
 }
 
 //|	TEST: ImageRGBA_CL_FLOAT.Image3CopyHostPtr
@@ -196,6 +197,6 @@ TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image3DAllocHostPtr)
 //|
 TYPED_TEST(Fission_VR8_RGBA_CL_FLOAT, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(ocl_descriptor, image_format,  d3KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format,  d3KernelName));
 }
