@@ -1175,7 +1175,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DEVICE_BUILT_IN_KERNELS):
         {
-			*pinternalRetunedValueSize = BuiltInKernelRegestry::GetInstance()->GetBuiltInKernelListSize();
+			*pinternalRetunedValueSize = BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelListSize();
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1183,7 +1183,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-				BuiltInKernelRegestry::GetInstance()->GetBuiltInKernelList((char*)paramVal, valSize);
+				BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelList((char*)paramVal, valSize);
             }
             return CL_DEV_SUCCESS;
         }

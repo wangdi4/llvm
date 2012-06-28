@@ -309,7 +309,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateBuiltInKernelProgram enter"));
 
 	ICLDevBackendProgram_* pProg;
-	cl_dev_err_code err = BuiltInKernelRegestry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
+	cl_dev_err_code err = BuiltInKernelRegistry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
 	if ( CL_DEV_FAILED(err) )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("CreateBuiltInProgram failed with %x"), err);

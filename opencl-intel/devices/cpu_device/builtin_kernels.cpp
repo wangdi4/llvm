@@ -61,7 +61,7 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 		if ( m_mapKernels.find(pFuncName) == m_mapKernels.end() )
 		{
 			IBuiltInKernel* pBIKernel;
-			cl_dev_err_code err = BuiltInKernelRegestry::GetInstance()->CreateBuiltInKernel(pFuncName, &pBIKernel);
+			cl_dev_err_code err = BuiltInKernelRegistry::GetInstance()->CreateBuiltInKernel(pFuncName, &pBIKernel);
 			if ( CL_DEV_FAILED(err) )
 			{
 				return err;
@@ -112,19 +112,19 @@ cl_dev_err_code	BuiltInProgram::GetKernel( int kernelIndex, const ICLDevBackendK
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-BuiltInKernelRegestry*	BuiltInKernelRegestry::g_pMKLRegistery = NULL;
+BuiltInKernelRegistry*	BuiltInKernelRegistry::g_pMKLRegistery = NULL;
 
-BuiltInKernelRegestry* BuiltInKernelRegestry::GetInstance()
+BuiltInKernelRegistry* BuiltInKernelRegistry::GetInstance()
 {
 	if ( NULL == g_pMKLRegistery )
 	{
-		g_pMKLRegistery = new BuiltInKernelRegestry();
+		g_pMKLRegistery = new BuiltInKernelRegistry();
 	}
 
 	return g_pMKLRegistery;
 }
 
-void BuiltInKernelRegestry::RegisterBuiltInKernel(const char* szBIKernelName, fn_BuiltInFunctionCreate* pCreator)
+void BuiltInKernelRegistry::RegisterBuiltInKernel(const char* szBIKernelName, fn_BuiltInFunctionCreate* pCreator)
 {
 	assert(m_mapKernelCreators.find(szBIKernelName) == m_mapKernelCreators.end() && "The function can't be registered twice");
 
@@ -132,7 +132,7 @@ void BuiltInKernelRegestry::RegisterBuiltInKernel(const char* szBIKernelName, fn
 	m_mapKernelCreators[szBIKernelName] = pCreator;
 }
 
-void BuiltInKernelRegestry::GetBuiltInKernelList(char* szBIKernelList, size_t stSize) const
+void BuiltInKernelRegistry::GetBuiltInKernelList(char* szBIKernelList, size_t stSize) const
 {
 	KernelCreatorMap_t::const_iterator it;
 	size_t stTotalSize = 0;
@@ -151,7 +151,7 @@ void BuiltInKernelRegestry::GetBuiltInKernelList(char* szBIKernelList, size_t st
 	}
 }
 
-cl_dev_err_code BuiltInKernelRegestry::CreateBuiltInKernel(const char* szMKLFuncName, IBuiltInKernel* *pMKLExecutor) const
+cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInKernel(const char* szMKLFuncName, IBuiltInKernel* *pMKLExecutor) const
 {
 	KernelCreatorMap_t::const_iterator it = m_mapKernelCreators.find(szMKLFuncName);
 	if ( m_mapKernelCreators.end() == it )
@@ -164,7 +164,7 @@ cl_dev_err_code BuiltInKernelRegestry::CreateBuiltInKernel(const char* szMKLFunc
 	return err;
 }
 
-cl_dev_err_code BuiltInKernelRegestry::CreateBuiltInProgram(const char* szKernelList, ICLDevBackendProgram_* *ppProgram)
+cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernelList, ICLDevBackendProgram_* *ppProgram)
 {
 	BuiltInProgram* pNewProgram = new BuiltInProgram;
 
