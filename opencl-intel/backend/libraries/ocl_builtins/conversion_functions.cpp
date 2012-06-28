@@ -4330,49 +4330,6 @@ _8##TO##8 __attribute__ ((overloadable)) convert_##TONAME##char8_sat##RMODE(floa
 
 //#define DEF_OUT_FLOAT_RTX(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE)\
 
-	//out float in all with RMODE, SAT
-#define DEF_OUT_FLOAT_SAT(RMODE, RMODEVAL, RSVML, RSTACK, FLAG, CPUTYPE, FLAGSVML)\
-	DEF_INT_PROTOF_8(i, , _sat##RMODE)\
-	DEF_INT_PROTOF_8(u, u, _sat##RMODE)\
-	DEF_INT_PROTOF_16(i, , _sat##RMODE)\
-	DEF_INT_PROTOF_16(u, u, _sat##RMODE)\
-    DEF_INT_PROTOF_I32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, _sat)\
-	DEF_INT_PROTOF_U32##FLAGSVML(RMODE, RMODEVAL, RSVML, CPUTYPE, _sat)\
-	DEF_INT_PROTOF_64(i, ,_sat##RMODE, RSVML, CPUTYPE)\
-	DEF_INT_PROTOF_64(u, u, _sat##RMODE, RSVML, CPUTYPE)\
-	DEF_INT_PROTOF_F(, , , , _sat##RMODE)\
-	DEF_SAT_PROTOF_D(_sat##RMODE, RMODEVAL)
-
-
-#define DEF_SAT_FLOAT()\
-	DEF_OUT_FLOAT_SAT(, 0x0, rte, 0x0000, , CTYPE, NOSVML)\
-	DEF_OUT_FLOAT_SAT(_rtz, 0x6000, rtz, 0x0300, Round, CTYPE, USESVML)\
-	DEF_OUT_FLOAT_SAT(_rte, 0x0, rte, 0x0, , CTYPE, NOSVML)\
-	DEF_OUT_FLOAT_SAT(_rtn, 0x2000, rtn, 0x0100, Round, CTYPE, USESVML)\
-	DEF_OUT_FLOAT_SAT(_rtp, 0x4000, rtp, 0x0200, Round, CTYPE, USESVML)
-
-//out double in all with RMODE, SAT
-#define DEF_OUT_DOUBLE_SAT(RMODE, RMODEVAL, RSVML, CPUTYPE)\
-	DEF_INT_PROTOD_8(i, , _sat##RMODE)\
-	DEF_INT_PROTOD_8(u, u, _sat##RMODE)\
-	DEF_INT_PROTOD_16(i, , _sat##RMODE)\
-	DEF_INT_PROTOD_16(u, u, _sat##RMODE)\
-	DEF_INT_PROTOD_I32(_sat##RMODE, RMODEVAL)\
-	DEF_INT_PROTOD_F(_sat##RMODE)\
-	DEF_INT_PROTOD_D(_sat##RMODE) \
-	DEF_INT_PROTOD_U32(_sat##RMODE, RSVML, CPUTYPE)\
-	DEF_INT_PROTOD_64(i, ,_sat##RMODE, RSVML, CPUTYPE)\
-	DEF_INT_PROTOD_64(u, u, _sat##RMODE, RSVML, CPUTYPE)
-
-
-
-#define DEF_SAT_DOUBLE()\
-	DEF_OUT_DOUBLE_SAT(, 0x0, rte, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rtz, 0x6000, rtz, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rte, 0x0, rte, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rtn, 0x2000, rtn, CTYPE)\
-	DEF_OUT_DOUBLE_SAT(_rtp, 0x4000, rtp, CTYPE)
-
 // create all conversion functions
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration" 
 DEF_OUT_CHAR()  
@@ -4388,8 +4345,6 @@ DEF_SAT_SHORT()
 #pragma GCC diagnostic warning "-Wimplicit-function-declaration"
 DEF_SAT_INT()
 DEF_SAT_LONG()
-DEF_SAT_FLOAT()
-DEF_SAT_DOUBLE()
 
 #ifdef __cplusplus
 }
