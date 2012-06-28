@@ -157,7 +157,7 @@ void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 
 bool MICNativeBackendOptions::GetBooleanValue( int optionId, bool defaultValue) const
 {
-    return defaultValue;
+    return (CL_DEV_BACKEND_OPTION_USE_VTUNE == optionId) ? gMicExecEnvOptions.use_vtune : defaultValue;
 }
 
 int MICNativeBackendOptions::GetIntValue( int optionId, int defaultValue) const

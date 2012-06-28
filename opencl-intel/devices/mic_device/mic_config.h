@@ -38,15 +38,16 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_USE_VTUNE             "CL_CONFIG_USE_VTUNE"            // bool
 
 // device setup
-#define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD        "CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"         // bool
-#define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY        "CL_CONFIG_MIC_DEVICE_USE_AFFINITY"         // bool
-#define    CL_CONFIG_MIC_DEVICE_NUM_WORKERS         "CL_CONFIG_MIC_DEVICE_NUM_WORKERS"          // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_NUM_CORES           "CL_CONFIG_MIC_DEVICE_NUM_CORES"	        // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0       "CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
-#define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE    "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
-#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB  "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB"   // unsigned int in MB
-#define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE      "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER       "CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD				"CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"         // bool
+#define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY				"CL_CONFIG_MIC_DEVICE_USE_AFFINITY"         // bool
+#define    CL_CONFIG_MIC_DEVICE_NUM_WORKERS					"CL_CONFIG_MIC_DEVICE_NUM_WORKERS"          // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_NUM_CORES					"CL_CONFIG_MIC_DEVICE_NUM_CORES"	        // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0				"CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE			"CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
+#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB			"CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB"   // unsigned int in MB
+#define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE				"CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				"CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION" // bool
 
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
@@ -75,6 +76,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		unsigned int   Device_2MB_BufferMinSizeInMB() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, 20); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
 		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
+		// Device safe mode setup
+		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, false); }
 
     private:
 

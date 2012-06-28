@@ -353,6 +353,8 @@ struct mic_exec_env_options {
     bool use_affinity;
     bool ignore_core_0;
     bool ignore_last_core;
+	bool kernel_safe_mode;
+	bool use_vtune;
 	uint32_t num_of_worker_threads;
 	uint32_t num_of_cores;
     uint32_t use_TBB_grain_size;

@@ -29,11 +29,17 @@
 
 #include "native_common_macros.h"
 #include "hw_exceptions_handler.h"
+#include "mic_device_interface.h"
 #include <pthread.h>
 #include <stdexcept> 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+
+using namespace Intel::OpenCL::MICDevice;
+
+namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+	extern mic_exec_env_options gMicExecEnvOptions;
 
 static pthread_key_t g_hw_exception_handling_key;
 
@@ -54,7 +60,7 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
     else
     {
         // exception inside JIT
-        siglongjmp(exec_wrapper->setjump_buffer, 1);        
+        longjmp(exec_wrapper->setjump_buffer, 1);        
     }
 
     return;
@@ -110,6 +116,11 @@ void HWExceptionsWrapper::Final( void )
 
 HWExceptionsWrapper::HWExceptionsWrapper() : m_bInside_JIT(false)
 {
+	if (!gMicExecEnvOptions.kernel_safe_mode)
+	{
+		return;
+	}
+
     int err = pthread_setspecific( g_hw_exception_handling_key, this );
 
     assert( 0 == err && "SINK: HWExceptionsWrapper::Execute cannot pthread_setspecific(setjump_buffer)" );
@@ -122,6 +133,11 @@ HWExceptionsWrapper::HWExceptionsWrapper() : m_bInside_JIT(false)
 
 HWExceptionsWrapper::~HWExceptionsWrapper()
 {
+	if (!gMicExecEnvOptions.kernel_safe_mode)
+	{
+		return;
+	}
+
     int err = pthread_setspecific( g_hw_exception_handling_key, NULL );
 
     assert( 0 == err && "SINK: HWExceptionsWrapper::Execute cannot pthread_setspecific(NULL)" );
@@ -138,24 +154,30 @@ cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code,
                                                  const size_t* IN pLocalOffset, 
                                                  const size_t* IN pItemsToProcess )
 {
-    cl_dev_err_code return_code;
-    
-    // save current state including signal handlers state
-    if (0 == sigsetjmp(setjump_buffer, 1))
-    {
-        // normal JIT execution
-        m_bInside_JIT = true;
-        return_code = code->Execute( pGroupId, pLocalOffset, pItemsToProcess );
-        m_bInside_JIT = false;
-    }
-    else
-    {
-        // exception occurred
-        m_bInside_JIT = false;
-        return_code = CL_DEV_ERROR_FAIL;
-        NATIVE_PRINTF("***FATAL***: Most likely exception occured inside JIT code\n");
-    }
+	if (!gMicExecEnvOptions.kernel_safe_mode)
+	{
+		return code->Execute( pGroupId, pLocalOffset, pItemsToProcess );
+	}
 
-    return return_code;
+	cl_dev_err_code return_code;
+    
+	// save current state including signal handlers state
+	if (0 == setjmp(setjump_buffer))
+	{
+		// normal JIT execution
+		m_bInside_JIT = true;
+		return_code = code->Execute( pGroupId, pLocalOffset, pItemsToProcess );
+		m_bInside_JIT = false;
+	}
+	else
+	{
+		// exception occurred
+		m_bInside_JIT = false;
+		return_code = CL_DEV_ERROR_FAIL;
+		NATIVE_PRINTF("***FATAL***: Most likely exception occured inside JIT code\n");
+	}
+
+	return return_code;
 }
 
+}}};

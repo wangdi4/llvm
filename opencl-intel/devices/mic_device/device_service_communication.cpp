@@ -341,6 +341,8 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
         mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
         mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
+		mic_device_options.kernel_safe_mode        = pDevServiceComm->m_config->Device_safeKernelExecution();
+		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
 		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);
 		MEMCPY_S(mic_device_options.mic_cpu_arch_str, MIC_CPU_ARCH_STR_SIZE, get_mic_cpu_arch(), sizeof(get_mic_cpu_arch()));
 
