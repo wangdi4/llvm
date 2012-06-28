@@ -14,14 +14,18 @@ endif (NOT WIN32)
 include_directories( BEFORE ../../backend/ocl_cpu_backend/export
                             ../../fe_compilers/clang_compiler
                             ${HW_UTILS_HEADERS} 
-                            ${OCL_BINARY_DIR} )
+                            ${OCL_BINARY_DIR}
+					)
 							
 include( ../../cmake_utils/itt.cmake )
 
-set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
+if(WIN32)
+	include_directories(
+		${OCL_SOURCE_DIR}/externals/gpa/include
+		)
+endif(WIN32)
 
-FIND_SOURCES()
-CALCULATE_TARGET_SOURCES()
+set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
 if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
@@ -35,43 +39,59 @@ else (WIN32)
     set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 endif (WIN32)
 
-link_directories( 	${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
-					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-					${TBB_LIB_DIR}
+link_directories( 	${TBB_LIB_DIR}
+					${OCL_SOURCE_DIR}/externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
 				)
-
-if(WIN32)
-link_directories(
-					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
-					${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
-				)
-else(WIN32)
-link_directories(
-					${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
-					${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
-				)
-endif(WIN32)
 
 if (WIN32)
      add_definitions( -D_WINDOWS )
 else ()
 	add_definitions( -D_LINUX )
- 	message( WARNING " ERROR-in-CPU-device: Task Analizer DLLs for Linux are not ready yet" )
+ 	message( WARNING " Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
+				
+# Add MKL library integration	
+if (INCLUDE_MKL)
+	message( "Including MKL library" )
+	add_definitions( -D__INCLUDE_MKL__ )
+	
+	if (WIN32)
+		set( MKL_DIR $ENV{ICPP_COMPILER12}/mkl )
+	else(WIN32)
+		set( MKL_DIR "/opt/intel/composerxe" )
+	endif(WIN32)
+		
+	include_directories(
+		${MKL_DIR}/include
+	)
+	if (ADDR EQUAL 64)
+		add_definitions(-DMKL_ILP64 )
+		set( MKL_LIB_DIR ${MKL_DIR}/lib/intel64 )
+		list(APPEND LINK_LIBS ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_intel_ilp64${IMPLIB_STATIC_SUFFIX})
+	else(ADDR EQUAL 64)
+		set( MKL_LIB_DIR ${MKL_DIR}/lib/ia32 )
+	endif(ADDR EQUAL 64)
 
+	#Required for both 32 and 64 bit
+	list(APPEND LINK_LIBS ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_core${IMPLIB_STATIC_SUFFIX} ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_sequential${IMPLIB_STATIC_SUFFIX})
+endif(INCLUDE_MKL)
+
+FIND_SOURCES()
+CALCULATE_TARGET_SOURCES()
+				
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if(WIN32)
-	list(APPEND LINK_LIBS delayimp.lib )
+	list(APPEND LINK_LIBS delayimp.lib)
 endif(WIN32)
 
 add_dependencies( ${TARGET_NAME} clang )
 
 install( TARGETS ${TARGET_NAME}     
-	 RUNTIME DESTINATION bin
-         ARCHIVE DESTINATION lib
-         LIBRARY DESTINATION bin)
+			RUNTIME DESTINATION bin
+			ARCHIVE DESTINATION lib
+			LIBRARY DESTINATION bin)
 
 #COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 
@@ -81,8 +101,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       task_executor 
                                       ${LINK_LIBS} )
 									  
-
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)

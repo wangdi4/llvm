@@ -417,7 +417,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 const char* Program::GetBinaryInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return NULL;
 	}
@@ -430,7 +430,7 @@ const char* Program::GetBinaryInternal(cl_device_id clDevice)
 size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return 0;
 	}
@@ -443,7 +443,7 @@ size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
 cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void *pBinary)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -456,7 +456,7 @@ cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySiz
 cl_err_code Program::ClearBuildLogInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -469,7 +469,7 @@ cl_err_code Program::ClearBuildLogInternal(cl_device_id clDevice)
 cl_err_code Program::SetBuildLogInternal(cl_device_id clDevice, const char *szBuildLog)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -482,7 +482,7 @@ cl_err_code Program::SetBuildLogInternal(cl_device_id clDevice, const char *szBu
 cl_err_code Program::SetBuildOptionsInternal(cl_device_id clDevice, const char* szBuildOptions)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -495,7 +495,7 @@ cl_err_code Program::SetBuildOptionsInternal(cl_device_id clDevice, const char* 
 const char* Program::GetBuildOptionsInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return NULL;
 	}
@@ -508,7 +508,7 @@ const char* Program::GetBuildOptionsInternal(cl_device_id clDevice)
 cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState state)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -521,7 +521,7 @@ cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState
 EDeviceProgramState Program::GetStateInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return DEVICE_PROGRAM_INVALID;
 	}
@@ -534,7 +534,7 @@ EDeviceProgramState Program::GetStateInternal(cl_device_id clDevice)
 cl_err_code Program::SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_program programHandle)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -557,27 +557,20 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	}
 
 	// check if there's a valid program binary already built for any device
-    bool bAnyValid = false;
+	bool bAnyValid = false;
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
-        if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()))
-        {
-            bAnyValid = true;
-            break;
-        }
+		if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()) ||
+			(DEVICE_PROGRAM_BUILTIN_KERNELS==m_ppDevicePrograms[i]->GetStateInternal()))
+		{
+			bAnyValid = true;
+			break;
+		}
 	}
-    if (!bAnyValid)
-    {
-        return CL_INVALID_PROGRAM_EXECUTABLE;
-    }
-
-
-	// check if the current kernel already available in the program
-	//bool bResult = IsKernelExists(psKernelName, ppKernel);
-	//if (true == bResult)
-	//{
-	//	return CL_SUCCESS;
-	//}
+	if (!bAnyValid)
+	{
+		return CL_INVALID_PROGRAM_EXECUTABLE;
+	}
 
 	// create new kernel object
 	Kernel * pKernel = new Kernel(this, psKernelName, m_szNumAssociatedDevices);
@@ -595,7 +588,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	// add the kernel object and adding new key for it
 	//m_pKernels->AddObject((OCLObject<_cl_kernel_int>*)pKernel);
 	m_pKernels.AddObject(pKernel);
-	if (ppKernel)
+	if (NULL != ppKernel)
 	{
 		*ppKernel = pKernel;
 	}
@@ -665,7 +658,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 		return clErrRet;
 	}
 	char** ppKernelNames = new char*[szNumKernels];
-	if (!ppKernelNames)
+	if (NULL==ppKernelNames)
 	{
 		delete[] pszKernelNameLengths;
 		return CL_OUT_OF_HOST_MEMORY;
@@ -747,13 +740,11 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_ui
 	return m_pKernels.GetObjects(uiNumKernels, reinterpret_cast<OCLObject<_cl_kernel_int> **>(ppKernels), puiNumKernelsRet);
 }
 
-
-
-
 DeviceProgram* Program::GetDeviceProgram(cl_device_id clDeviceId)
 {
     return InternalGetDeviceProgram(clDeviceId);
 }
+
 DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)
 {
     for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
@@ -791,7 +782,7 @@ cl_uint Program::GetNumKernels()
 bool Program::Acquire(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return false;
 	}
@@ -802,7 +793,7 @@ bool Program::Acquire(cl_device_id clDevice)
 void Program::Unacquire(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (!pDeviceProgram)
+    if (NULL == pDeviceProgram)
 	{
 		return;
 	}

@@ -564,6 +564,16 @@ cl_dev_err_code MICDevice::clDevCreateProgram( size_t IN binSize, const void* IN
 }
 
 /*******************************************************************************************************************
+clDevCreateProgram
+    Call programService to create program
+**********************************************************************************************************************/
+
+cl_dev_err_code MICDevice::clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog)
+{
+	return CL_DEV_ERROR_FAIL;
+}
+
+/*******************************************************************************************************************
 clDevBuildProgram
     Call programService to build program
 **********************************************************************************************************************/

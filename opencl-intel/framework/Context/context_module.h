@@ -26,8 +26,6 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #include "cl_framework.h"
-#include "icontext.h"
-#include "icontext_gl.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
 #include "cl_objects_map.h"
@@ -62,7 +60,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class ContextModule : public OCLObjectBase, IContext, IContextGL
+	class ContextModule : public OCLObjectBase
 	{
 	
 	public:
@@ -149,6 +147,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// program methods
 		virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
 		virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const unsigned char ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
+		virtual cl_program CreateProgramWithBuiltInKernels(cl_context clContext, cl_uint uiNumDevices, const cl_device_id *  pclDeviceList, const char *szKernelNames, cl_int *pErrcodeRet);
+
 		virtual cl_err_code	RetainProgram(cl_program clProgram);
 		virtual cl_err_code ReleaseProgram(cl_program clProgram);
 		virtual cl_int CompileProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, cl_uint num_input_headers, const cl_program* pclInputHeaders, const char **header_include_names, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData);

@@ -30,6 +30,7 @@
 #include "Context.h"
 #include "fe_compiler.h"
 #include "program.h"
+#include "program_builtin_kernels.h"
 #include "framework_proxy.h"
 #include "events_manager.h"
 #include "cl_device_api.h"
@@ -1185,6 +1186,11 @@ cl_err_code ProgramService::LinkProgram(Program *program,
 cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, const cl_device_id *device_list, const char *options, pfnNotifyBuildDone pfn_notify, void *user_data)
 {
     if (program->GetNumKernels() > 0)
+	{
+		return CL_INVALID_OPERATION;
+	}
+
+	if ( NULL != dynamic_cast<ProgramWithBuiltInKernels*>(program) )
 	{
 		return CL_INVALID_OPERATION;
 	}

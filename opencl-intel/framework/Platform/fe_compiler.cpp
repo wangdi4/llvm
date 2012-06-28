@@ -246,7 +246,7 @@ bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char** szUnrecogn
 
 cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin, 
                                                const char*          szKernelName, 
-                                               KernelArgInfo**      ppArgInfo,
+                                               cl_kernel_argument_info**      ppArgInfo,
                                                unsigned int*        puiNumArgs) const
 {
     LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%d, szKernelName=%d, ppArgInfo=%d, puiNumArgs=%d)"),
@@ -297,7 +297,7 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin,
 
     if (NULL != ppArgInfo)
     {
-        KernelArgInfo* pKernelArgInfo = new KernelArgInfo[uiNumArgs];
+        cl_kernel_argument_info* pKernelArgInfo = new cl_kernel_argument_info[uiNumArgs];
         if (NULL == pKernelArgInfo)
         {
             *ppArgInfo = NULL;
@@ -330,8 +330,8 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin,
                 break;
             }
 
-            STRCPY_S(pKernelArgInfo[i].name, uiNameLength, pResult->getArgName(i));
-            STRCPY_S(pKernelArgInfo[i].typeName, uiTypeNameLength, pResult->getArgTypeName(i));
+            STRCPY_S((char*)pKernelArgInfo[i].name, uiNameLength, pResult->getArgName(i));
+            STRCPY_S((char*)pKernelArgInfo[i].typeName, uiTypeNameLength, pResult->getArgTypeName(i));
         }
 
         if (bFail)

@@ -34,6 +34,7 @@
 #include "Device.h"
 #include "program_with_source.h"
 #include "program_with_binary.h"
+#include "program_builtin_kernels.h"
 #include "program_for_link.h"
 #include "program_service.h"
 #include "sampler.h"
@@ -682,7 +683,7 @@ ocl_gpa_data * Context::GetGPAData() const
 	return m_pGPAData;
 }
 
-
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateProgramWithBinary
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const unsigned char ** ppBinaries, cl_int * piBinaryStatus, Program ** ppProgram)
@@ -745,6 +746,61 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 	*ppProgram = pProgram;
 	return clErrRet;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::CreateProgramWithBuiltInKernels
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
+													const cl_device_id * IN pclDeviceList,
+													const char IN *szKernelNames,
+													Program ** OUT ppProgram)
+{
+	LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%d, pclDeviceList=%d, ppProgram=%p"), 
+		uiNumDevices, pclDeviceList, ppProgram);
+	
+	cl_err_code clErrRet = CL_SUCCESS;
+	
+	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames || NULL == ppProgram)
+	{
+		// invalid input args
+		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames || NULL == ppProgram"));
+		return CL_INVALID_VALUE;
+	}
+
+	// get devices
+	FissionableDevice ** ppDevices = new FissionableDevice *[uiNumDevices];
+	if (NULL == ppDevices)
+	{
+		// can't allocate memory for devices
+		LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+	// check devices
+	bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
+	if (false == bRes)
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+		delete[] ppDevices;
+		return CL_INVALID_DEVICE;
+	}
+
+	// create program object
+	Program* pProgram = new ProgramWithBuiltInKernels(this, uiNumDevices, ppDevices, szKernelNames, &clErrRet);
+	delete[] ppDevices;
+
+	if (!pProgram)
+	{
+		LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
+	
+	m_mapPrograms.AddObject(pProgram);
+	*ppProgram = pProgram;
+	return clErrRet;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::RemoveProgram
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1261,7 +1317,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 	}
 
 	// Calculate supported format key
-	cl_ulong key = getFormatsKey(clObjType, clMemFlags);
+	cl_mem_flags key = getFormatsKey(clObjType, clMemFlags);
 
 	tImageFormatMap::iterator mapIT;
 	{	// Critical section
@@ -1304,7 +1360,7 @@ cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageF
 size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, cl_mem_object_type clObjType )
 {
 	// Calculate supported format key
-	cl_ulong key = getFormatsKey(clObjType, clMemFlags);
+	cl_mem_flags key = getFormatsKey(clObjType, clMemFlags);
 
 	OclAutoMutex mu(&m_muFormatsMap);
 

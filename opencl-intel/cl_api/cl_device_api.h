@@ -117,9 +117,21 @@ enum cl_kernel_arg_type
  */
 struct cl_kernel_argument
 {
-	cl_kernel_arg_type			type;			//!< Type of the argument.
+	cl_kernel_arg_type		type;				//!< Type of the argument.
 	unsigned int			size_in_bytes;		//!< Size of the argument in bytes
 												//!< for pointer types the size is 0
+};
+
+/*! \struct cl_kernel_arg_info
+ *  \brief Defines extended information for a kernel arguments.
+ */
+struct cl_kernel_argument_info
+{
+    const char*                     name;				//!< String specifies the name of the argument
+    const char*                     typeName;			//!< String specifies the argument type
+    cl_kernel_arg_address_qualifier adressQualifier;	//!< Argument's address qualifier
+    cl_kernel_arg_access_qualifier  accessQualifier;	//!< Argument's access qualifier
+    cl_kernel_arg_type_qualifier    typeQualifier;		//!< Argument's type qualifier
 };
 
 /*! \struct cl_prog_binary_desc
@@ -310,7 +322,7 @@ enum cl_dev_binary_prop
 enum cl_dev_kernel_info
 {
 	CL_DEV_KERNEL_NAME					= 1,	//!< Specifies NULL terminated function name.
-	CL_DEV_KERNEL_PROTOTYPE,					//!< Specifies list of kernel arguments (prototype)
+	CL_DEV_KERNEL_PROTOTYPE,					//!< Specifies a list of kernel arguments (prototype)
 												//!< as defined by cl_kernel_arg_type.
 	CL_DEV_KERNEL_MAX_WG_SIZE,					//!< Returns the maximum work-group size that can be used to execute
 												//!< a kernel. The device agent uses resource requirements
@@ -321,8 +333,9 @@ enum cl_dev_kernel_info
 	CL_DEV_KERNEL_WG_SIZE_REQUIRED,				//!< Specifies the required work-group size as was declared during
 												//!< kernel compilation.
 	CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,			//!< Specifies size of implicit local memory buffers defined in kernel.
-	CL_DEV_KERNEL_PRIVATE_SIZE					//!< Specifies size of private memory required for
+	CL_DEV_KERNEL_PRIVATE_SIZE,					//!< Specifies size of private memory required for
 												//!< execution of singe instance of a kernel
+	CL_DEV_KERNEL_ARG_INFO						//!< Specifies a list of kernel argument descriptors
 };
 
 /*! \enum cl_dev_partition_prop
@@ -1153,6 +1166,19 @@ public:
 	virtual cl_dev_err_code clDevCreateProgram( size_t IN bin_size,
 										   const void* IN bin,
 										   cl_dev_binary_prop IN prop,
+										   cl_dev_program* OUT prog
+										   ) = 0;
+
+	//!	Creates a device specific program entity based in a list of built-in kernels
+	/*!
+		\param[in]	szBuiltInNames					A pointer to a null terminated string that contains a list of built-in kernels
+		\param[out]	prog							A valid (non zero) handle to created program object.
+		\retval		CL_DEV_SUCCESS					The function was executed successfully.
+		\retval		CL_DEV_NOT_SUPPORTED			One of the functions in the list is not supported by the device
+		\retval		CL_DEV_OUT_OF_MEMORY			If the device failed to allocate memory for the program.
+	*/
+	virtual cl_dev_err_code clDevCreateBuiltInKernelProgram( 
+										   const char* IN szBuiltInNames,
 										   cl_dev_program* OUT prog
 										   ) = 0;
 

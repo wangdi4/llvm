@@ -41,7 +41,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class DeviceProgram;
 	class Kernel;
 	class Context;
-    struct KernelArgInfo;
 
 	/**********************************************************************************************
 	* Class name:	SKernelPrototype
@@ -58,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		char *				m_psKernelName;
 		cl_uint				m_uiArgsCount;
 		cl_kernel_argument*	m_pArgs;
-        KernelArgInfo*      m_pArgsInfo;
+        cl_kernel_argument_info*      m_pArgsInfo;
 	};
 
 	/**********************************************************************************************
@@ -327,10 +326,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// To ensure all args have been set
 		Intel::OpenCL::Utils::AtomicCounter     m_numValidArgs;
-
-		// For OpenCL 1.2
-		static const char*						g_szArgTypeNames[];
-
 	};
 
 

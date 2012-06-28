@@ -24,15 +24,17 @@
 
 
 #include "stdafx.h"
+
 #include "cpu_device.h"
 #include "program_service.h"
 #include "memory_allocator.h"
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
-#include "buildversion.h"
-#include "CL/cl_ext.h"
-#include "clang_device_info.h"
+#include "builtin_kernels.h"
 
+#include <buildversion.h>
+#include <CL/cl_ext.h>
+#include <clang_device_info.h>
 #include <cl_sys_info.h>
 #include <cpu_dev_limits.h>
 #include <cl_sys_defines.h>
@@ -57,8 +59,6 @@ char clCPUDEVICE_CFG_PATH[MAX_PATH];
 #define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
 
 using namespace Intel::OpenCL::CPUDevice;
-
-const char* Intel::OpenCL::CPUDevice::BUILT_IN_KERNELS = "";
 
 const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
@@ -1175,7 +1175,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         }
         case( CL_DEVICE_BUILT_IN_KERNELS):
         {
-            *pinternalRetunedValueSize = strlen(BUILT_IN_KERNELS) + 1;
+			*pinternalRetunedValueSize = BuiltInKernelRegestry::GetInstance()->GetBuiltInKernelListSize();
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1183,7 +1183,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, BUILT_IN_KERNELS);
+				BuiltInKernelRegestry::GetInstance()->GetBuiltInKernelList((char*)paramVal, valSize);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1870,6 +1870,12 @@ cl_dev_err_code CPUDevice::clDevCreateProgram( size_t IN binSize, const void* IN
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateProgram Function enter"));
     return (cl_dev_err_code)m_pProgramService->CreateProgram(binSize, bin, prop, prog );
+}
+
+cl_dev_err_code CPUDevice::clDevCreateBuiltInKernelProgram( const char* IN szBuiltInNames, cl_dev_program* OUT prog )
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("clDevCreateBuiltInKernelProgram Function enter"));
+	return (cl_dev_err_code)m_pProgramService->CreateBuiltInKernelProgram(szBuiltInNames, prog);
 }
 
 /*******************************************************************************************************************

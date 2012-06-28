@@ -517,6 +517,7 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
 	}
 	return pProgram->GetHandle();
 }
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithBinary
 //////////////////////////////////////////////////////////////////////////
@@ -585,6 +586,73 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context				clContext,
 	}
 	return pProgram->GetHandle();
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateProgramWithBuiltInKernels
+//////////////////////////////////////////////////////////////////////////
+cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
+		cl_uint uiNumDevices,
+		const cl_device_id *  pclDeviceList,
+		const char *szKernelNames,
+		cl_int *pErrcodeRet)
+{
+	LOG_INFO(TEXT("CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d"), clContext, uiNumDevices);
+	if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames)
+	{
+		// invalid value
+		LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames"));
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_VALUE;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	// get the context from the contexts map list
+	Context * pContext = NULL;
+	// get the context object
+	cl_err_code clErrRet = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+	if (CL_FAILED(clErrRet))
+	{
+		LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext, &pContext, clErrRet);
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	Program *pProgram = NULL;
+	clErrRet = pContext->CreateProgramWithBuiltInKernels(uiNumDevices, pclDeviceList, szKernelNames, &pProgram);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErrRet;
+		}
+		pContext->NotifyError("CreateProgramWithBuiltInKernels failed", &clErrRet, sizeof(cl_int));
+        if (pProgram)
+        {
+            pProgram->Release();
+        }		
+		return CL_INVALID_HANDLE;
+	}
+	clErrRet = m_mapPrograms.AddObject((OCLObject<_cl_program_int>*)pProgram, false);
+	if (CL_FAILED(clErrRet))
+	{
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
+		}
+		pContext->NotifyError("CreateProgramWithBuiltInKernels failed", &clErrRet, sizeof(cl_int));
+        pProgram->Release();
+		return CL_INVALID_HANDLE;
+	}
+	if (NULL != pErrcodeRet)
+	{
+		*pErrcodeRet = CL_SUCCESS;
+	}
+	return pProgram->GetHandle();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainProgram
 //////////////////////////////////////////////////////////////////////////

@@ -105,7 +105,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 	assert(szArgsCount / sizeof(cl_kernel_argument) <= CL_MAX_UINT32);
 	m_sKernelPrototype.m_uiArgsCount = (cl_uint)(szArgsCount / sizeof(cl_kernel_argument));
 	m_sKernelPrototype.m_pArgs = new cl_kernel_argument[m_sKernelPrototype.m_uiArgsCount];
-	if (NULL == m_sKernelPrototype.m_pArgs)
+	if ( NULL == m_sKernelPrototype.m_pArgs )
 	{
 		*pErr = CL_OUT_OF_HOST_MEMORY;
 		delete[] m_sKernelPrototype.m_psKernelName;
@@ -113,9 +113,14 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 		return;
 	}
 
-	clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, szArgsCount, m_sKernelPrototype.m_pArgs, NULL);
+	clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE,
+		m_sKernelPrototype.m_uiArgsCount*sizeof(cl_kernel_argument), m_sKernelPrototype.m_pArgs, NULL);
 	if (CL_DEV_FAILED(clErrRet))
 	{
+		delete[] m_sKernelPrototype.m_psKernelName;
+		m_sKernelPrototype.m_psKernelName = NULL;
+		delete[] m_sKernelPrototype.m_pArgs;
+		m_sKernelPrototype.m_pArgs = NULL;
 		*pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
 		return;
     }
@@ -124,22 +129,55 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
     cl_device_id devID = (cl_device_id)m_pDevice->GetHandle();
     const char* pBin = m_pKernel->m_pProgram->GetBinaryInternal(devID);
 
-    cl_err_code clErrCode = pFECompiler->GetKernelArgInfo(pBin, psKernelName, &m_sKernelPrototype.m_pArgsInfo, NULL);
-    if (CL_KERNEL_ARG_INFO_NOT_AVAILABLE == clErrCode)
-    {
-        // No kernel arg info, so just ignore.
-        m_sKernelPrototype.m_pArgsInfo = NULL;
-        return;
-    }
+	if ( (NULL != pFECompiler) && (NULL != pBin) )
+	{
+		cl_err_code clErrCode = pFECompiler->GetKernelArgInfo(pBin, psKernelName, &m_sKernelPrototype.m_pArgsInfo, NULL);
+		if ( CL_FAILED(clErrCode) )
+		{
+			m_sKernelPrototype.m_pArgsInfo = NULL;
+			// If no kernel arg info, so just ignore.
+			// Otherwise, free internal data
+			if ( CL_KERNEL_ARG_INFO_NOT_AVAILABLE != clErrCode )
+			{
+				delete[] m_sKernelPrototype.m_psKernelName;
+				m_sKernelPrototype.m_psKernelName = NULL;
+				delete[] m_sKernelPrototype.m_pArgs;
+				m_sKernelPrototype.m_pArgs = NULL;
+				*pErr = clErrCode;
+			}
+			return;
+		}
 
-    if (CL_OUT_OF_HOST_MEMORY == clErrCode)
-    {
-        m_sKernelPrototype.m_pArgsInfo = NULL;
-        *pErr = CL_OUT_OF_HOST_MEMORY;
-        return;
-    }
+	    assert((CL_SUCCESS == clErrCode) && "other codes indicates logical errors and should never occure");
+	}
+	else
+	{
 
-    assert((CL_SUCCESS == clErrCode) && "other error codes indicates logical errors and should never accure");
+		m_sKernelPrototype.m_pArgsInfo = new cl_kernel_argument_info[m_sKernelPrototype.m_uiArgsCount];
+		if ( NULL == m_sKernelPrototype.m_pArgsInfo )
+		{
+			delete[] m_sKernelPrototype.m_psKernelName;
+			m_sKernelPrototype.m_psKernelName = NULL;
+			delete[] m_sKernelPrototype.m_pArgs;
+			m_sKernelPrototype.m_pArgs = NULL;
+			*pErr = CL_OUT_OF_HOST_MEMORY;
+			return;
+		}
+		
+		clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ARG_INFO,
+			m_sKernelPrototype.m_uiArgsCount*sizeof(cl_kernel_argument_info), m_sKernelPrototype.m_pArgsInfo, NULL);
+		if (CL_DEV_FAILED(clErrRet))
+		{
+			delete[] m_sKernelPrototype.m_psKernelName;
+			m_sKernelPrototype.m_psKernelName = NULL;
+			delete[] m_sKernelPrototype.m_pArgs;
+			m_sKernelPrototype.m_pArgs = NULL;
+			delete[] m_sKernelPrototype.m_pArgsInfo;
+			m_sKernelPrototype.m_pArgsInfo = NULL;
+			*pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+			return;
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -478,10 +516,12 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 
 		// get build status and check that there is a valid binary;
 		cl_build_status clBuildStatus = ppDevicePrograms[i]->GetBuildStatus();
-		if (clBuildStatus != CL_BUILD_SUCCESS)
+		EDeviceProgramState program_state= ppDevicePrograms[i]->GetStateInternal();
+		if ( (CL_BUILD_SUCCESS!=clBuildStatus)  && (DEVICE_PROGRAM_BUILTIN_KERNELS!=program_state) )
 		{
             continue;
 		}
+
 		const FissionableDevice* pDevice = ppDevicePrograms[i]->GetDevice();
 		if (NULL != GetDeviceKernel(pDevice))
 		{
@@ -829,25 +869,6 @@ bool Kernel::IsValidExecutable(const FissionableDevice* pDevice) const
 // OpenCL 1.2 functions
 /////////////////////////////////////////////////////////////////////
 
-const char* Kernel::g_szArgTypeNames[] = 
-{
-	"int",
-	"uint",
-	"float",
-	"double",
-	"vector",
-	"sampler_t",
-	"composite", // Strucure
-	"local*",
-	"global*",
-	"constant*",
-	"__image_2d_t",
-	"__image_3d_t",
-	"__image_2d_array"
-};
-
-/* cl_kernel_arg_info */
-
 cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 								cl_kernel_arg_info paramName,
 								size_t      szParamValueSize,
@@ -857,7 +878,7 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	size_t stParamSize;
 	const void* pValue;
 
-    KernelArgInfo* pKernelArgInfo = NULL;
+    cl_kernel_argument_info* pKernelArgInfo = NULL;
 
     // find a valid device kernel
     for (cl_uint i = 0; i < m_szAssociatedDevices; ++i)

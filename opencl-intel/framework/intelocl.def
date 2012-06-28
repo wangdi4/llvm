@@ -33,6 +33,7 @@ EXPORTS
 	clGetSamplerInfo
 	clCreateProgramWithSource
 	clCreateProgramWithBinary
+	clCreateProgramWithBuiltInKernels
 	clRetainProgram
 	clReleaseProgram
 	clBuildProgram

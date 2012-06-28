@@ -96,6 +96,15 @@ public:
     virtual const cl_kernel_argument* GetKernelParams() const;
 
     /**
+     * Gets the kernel parameters extended information
+     * 
+     * @returns
+     *  In success will return the kernel arguments information; otherwise, NULL 
+     *  value will be returned
+     */
+	virtual const cl_kernel_argument_info* GetKernelArgInfo() const;
+
+    /**
      * Gets the description of the kernel body, the returned object contains all the kernel
      * body proporties
      *

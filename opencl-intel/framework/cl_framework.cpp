@@ -390,6 +390,16 @@ cl_program CL_API_CALL clCreateProgramWithBinary(cl_context           context,
 }
 SET_ALIAS(clCreateProgramWithBinary);
 
+cl_program CL_API_CALL clCreateProgramWithBuiltInKernels(cl_context            context,
+    cl_uint               num_devices,
+    const cl_device_id *  device_list,
+    const char *          kernel_names,
+    cl_int *              errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, errcode_ret));
+}
+SET_ALIAS(clCreateProgramWithBuiltInKernels);
+
 cl_int CL_API_CALL clRetainProgram(cl_program program)
 {
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainProgram(program));

@@ -121,6 +121,7 @@ public:
                     IOCLDevRTMemObjectService* IN pBSService, IOCLDevMemoryObject* OUT *pMemObj );
     cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
     cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
+	cl_dev_err_code clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog);
     cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus );
     cl_dev_err_code clDevReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code clDevUnloadCompiler();

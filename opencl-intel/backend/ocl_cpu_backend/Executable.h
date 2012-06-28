@@ -57,8 +57,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     void Release();
 
     // Returns the executable object which generated this context
-    const ICLDevBackendBinary* GetBinary() const {
-      return (const ICLDevBackendBinary*)m_pBinary;
+    const ICLDevBackendBinary_* GetBinary() const {
+      return (const ICLDevBackendBinary_*)m_pBinary;
     }
 
     // Returns true if copy procedure to be done, false if not

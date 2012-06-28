@@ -57,6 +57,8 @@ protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
     inline WGContext*   GetWGContext(unsigned int id);
 
+	cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam);
+
     TaskDispatcher*             m_pTaskDispatcher;
     MemoryAllocator*            m_pMemAlloc;
     IOCLDevLogDescriptor*       m_pLogDescriptor;

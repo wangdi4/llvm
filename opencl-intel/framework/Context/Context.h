@@ -129,6 +129,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											cl_int *				OUT piBinaryStatus, 
 											Program **				OUT ppProgram);
 
+		/******************************************************************************************
+		* Function: 	CreateProgramWithBuiltInKernels    
+		* Description:	creates new program object with built-in kernels
+		* Arguments:	
+		* Return value:	
+		* Author:		Evgeny Fiksman
+		* Date:			June 2012
+		******************************************************************************************/
+		cl_err_code CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
+													const cl_device_id * IN pclDeviceList,
+													const char IN *szKernelNames,
+													Program ** OUT ppProgram);
+
         /******************************************************************************************
 		* Function: 	CreateProgramForLink    
 		* Description:	creates an empty program
@@ -388,7 +401,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t									m_szArraySize;
 
 		typedef std::list<cl_image_format>		tImageFormatList;
-        typedef std::map<cl_ulong, tImageFormatList>	tImageFormatMap;
+		typedef std::map<cl_mem_flags, tImageFormatList>	tImageFormatMap;
 		Intel::OpenCL::Utils::OclSpinMutex		m_muFormatsMap;
 		tImageFormatMap							m_mapSupportedFormats;
 

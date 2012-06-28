@@ -245,6 +245,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 
 	case DEVICE_PROGRAM_SOURCE:
 	case DEVICE_PROGRAM_LOADED_IR:
+	case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		return CL_BUILD_NONE;
 
 	case DEVICE_PROGRAM_FE_COMPILING:
@@ -327,32 +328,32 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
         case DEVICE_PROGRAM_INVALID:
 		case DEVICE_PROGRAM_SOURCE:
 		case DEVICE_PROGRAM_LOADED_IR:
+		case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		case DEVICE_PROGRAM_FE_COMPILING:
-    case DEVICE_PROGRAM_FE_LINKING:
-    case DEVICE_PROGRAM_BE_BUILDING:
+		case DEVICE_PROGRAM_FE_LINKING:
+		case DEVICE_PROGRAM_BE_BUILDING:
 			uiParamSize = 1;
 			pValue		= &emptyString;
 			break;
 
 		case DEVICE_PROGRAM_COMPILED:
 		case DEVICE_PROGRAM_LINKED:
-    case DEVICE_PROGRAM_COMPILE_FAILED:
-    case DEVICE_PROGRAM_LINK_FAILED:
-      if (m_szBuildLog)
-      {
-	      uiParamSize = m_uiBuildLogSize;
-			  pValue      = m_szBuildLog;
-      }
-      else
-      {
-        uiParamSize = 1;
-			  pValue      = &emptyString;
-      }
-
+		case DEVICE_PROGRAM_COMPILE_FAILED:
+		case DEVICE_PROGRAM_LINK_FAILED:
+			if (m_szBuildLog)
+			{
+				uiParamSize = m_uiBuildLogSize;
+				pValue      = m_szBuildLog;
+			}
+			else
+			{
+				uiParamSize = 1;
+				pValue      = &emptyString;
+			}
 			break;
 
 		case DEVICE_PROGRAM_BUILD_DONE:
-    case DEVICE_PROGRAM_BUILD_FAILED:
+		case DEVICE_PROGRAM_BUILD_FAILED:
 			{
 				cl_dev_err_code clDevErr = CL_DEV_SUCCESS;
 				// still need to append the FE build log
@@ -480,7 +481,7 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 		}
 		// In every other case, we have nothing intelligent to return
 		// Todo: see what I should return here
-		return CL_INVALID_VALUE;
+		return CL_INVALID_OPERATION;
 	}
 }
 

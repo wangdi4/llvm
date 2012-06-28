@@ -42,6 +42,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	enum EDeviceProgramState
 	{
 		DEVICE_PROGRAM_INVALID,         // Object was just created
+		DEVICE_PROGRAM_BUILTIN_KERNELS,	// Program based on the built-in kernels
 		DEVICE_PROGRAM_SOURCE,		    // Source loaded
 		DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
 		DEVICE_PROGRAM_COMPILED,        // Compiled IR

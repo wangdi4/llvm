@@ -60,6 +60,11 @@ public:
                                         cl_dev_binary_prop IN prop,
                                         cl_dev_program* OUT prog
                                        );
+
+    cl_dev_err_code CreateBuiltInKernelProgram( const char* IN szBuiltInNames,
+										cl_dev_program* OUT prog
+                                       );
+
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,
                                         cl_build_status* OUT buildStatus
@@ -132,16 +137,12 @@ protected:
         TName2IdMap             mapKernels;
         OclMutex                muMap;
     };
-    typedef std::map<cl_dev_program, TProgramEntry*>    TProgramMap;
 
     void    DeleteProgramEntry(TProgramEntry* pEntry);
 
     cl_int                           m_iDevId;
     IOCLDevLogDescriptor*            m_pLogDescriptor;
     cl_int                           m_iLogHandle;
-    HandleAllocator<unsigned int>    m_progIdAlloc;
-    TProgramMap                      m_mapPrograms;
-    OclMutex                         m_muProgMap;
     IOCLFrameworkCallbacks*          m_pCallBacks;
     ICLDevBackendServiceFactory*     m_pBackendFactory;
     ICLDevBackendCompilationService* m_pBackendCompiler;

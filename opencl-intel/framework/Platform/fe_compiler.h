@@ -34,15 +34,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    struct KernelArgInfo
-    {
-        char*                           name;
-        char*                           typeName;
-        cl_kernel_arg_address_qualifier adressQualifier;
-        cl_kernel_arg_access_qualifier  accessQualifier;
-        cl_kernel_arg_type_qualifier    typeQualifier;
-    };
-
     /**********************************************************************************************
     * Class name:	FECompiler
     *
@@ -152,13 +143,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Return value:	CL_SUCCESS - The operation succeeded
         *               CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
         *               CL_OUT_OF_HOST_MEMORY for out of host memory
-        * Author:		Sagi Shahar
-        * Date:			March 2012
-        ******************************************************************************************/
-        cl_err_code GetKernelArgInfo( const void*         pBin,
-                                      const char*         szKernelName,
-                                      OUT KernelArgInfo*  *ppArgInfo,
-                                      OUT unsigned int*   puiNumArgs) const;
+		* Author:		Sagi Shahar
+		* Date:			March 2012
+		******************************************************************************************/
+        cl_err_code GetKernelArgInfo(   const void*             pBin,
+                                        const char*             szKernelName,
+                                        OUT cl_kernel_argument_info*      *ppArgInfo,
+                                        OUT unsigned int*       puiNumArgs) const;
 
         /******************************************************************************************
         * Function:     CheckCompileOptions    

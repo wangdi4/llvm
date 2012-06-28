@@ -31,6 +31,7 @@
 #include "program_config.h"
 #include "cpu_logger.h"
 #include "backend_wrapper.h"
+#include "builtin_kernels.h"
 
 #include <cpu_dev_limits.h>
 #include <cl_dynamic_lib.h>
@@ -58,7 +59,7 @@ ProgramService::ProgramService(cl_int devId,
                                IOCLDevLogDescriptor *logDesc, 
                                CPUDeviceConfig *config,
                                ICLDevBackendServiceFactory* pBackendFactory) :
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_progIdAlloc(1, UINT_MAX),
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
     m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(NULL),
     m_pBackendExecutor(NULL), m_pBackendImageService(NULL), m_pCPUConfig(config)
 {
@@ -78,18 +79,6 @@ ProgramService::ProgramService(cl_int devId,
 
 ProgramService::~ProgramService()
 {
-    TProgramMap::iterator   it;
-
-    // Go thought the map and remove all allocated programs
-    for(it = m_mapPrograms.begin(); it != m_mapPrograms.end(); ++it)
-    {
-        DeleteProgramEntry(it->second);
-    }
-
-    m_progIdAlloc.Clear();
-//  m_kernelIdAlloc.Clear();
-    m_mapPrograms.clear();
-
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Distructed"));
 
     if (0 != m_iLogHandle)
@@ -160,7 +149,6 @@ cl_dev_err_code ProgramService::Init()
     m_pBackendExecutor = pExecutor;
     m_pBackendImageService = pImageService;
     return CL_DEV_SUCCESS;
-
 }
 
 
@@ -308,24 +296,39 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_INVALID_BINARY;
     }
 
-    // Allocate new program id
-    unsigned int newProgId;
-    if ( !m_progIdAlloc.AllocateHandle(&newProgId) )
-    {
-        delete pEntry;
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate new handle"));
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
-    m_muProgMap.Lock();
-    m_mapPrograms[(cl_dev_program)newProgId] = pEntry;
-    m_muProgMap.Unlock();
-
-    *prog = (cl_dev_program)newProgId;
+    *prog = (cl_dev_program)pEntry;
 
     return CL_DEV_SUCCESS;
 }
 
+
+ cl_dev_err_code ProgramService::CreateBuiltInKernelProgram( const char* IN szBuiltInNames,
+										cl_dev_program* OUT prog
+                                       )
+ {
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateBuiltInKernelProgram enter"));
+
+	ICLDevBackendProgram_* pProg;
+	cl_dev_err_code err = BuiltInKernelRegestry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
+	if ( CL_DEV_FAILED(err) )
+	{
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("CreateBuiltInProgram failed with %x"), err);
+		return err;
+	}
+
+    TProgramEntry*  pEntry = new TProgramEntry;
+    if ( NULL == pEntry )
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate new handle"));
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
+    pEntry->pProgram = pProg;
+	pEntry->clBuildStatus = CL_BUILD_SUCCESS;
+	assert(NULL!=prog&&"prog expected to be valid pointer");
+	*prog = (cl_dev_program)pEntry;
+	return CL_DEV_SUCCESS;
+}
 
 /*******************************************************************************************************************
 clDevBuildProgram
@@ -354,19 +357,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
-    TProgramMap::iterator   it;
-
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( m_mapPrograms.end() == it )
-    {
-        m_muProgMap.Unlock();
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-
-    TProgramEntry* pEntry = it->second;
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     // Program already built?
     if (CL_BUILD_SUCCESS == pEntry->clBuildStatus)
@@ -435,24 +426,9 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
-    TProgramMap::iterator   it;
-
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( m_mapPrograms.end() == it )
-    {
-        m_muProgMap.Unlock();
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-
-    TProgramEntry* pEntry = it->second;
-    m_mapPrograms.erase(it);
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     DeleteProgramEntry(pEntry);
-
-    m_progIdAlloc.FreeHandle((unsigned int)(size_t)prog);
 
     return CL_DEV_SUCCESS;
 }
@@ -499,19 +475,8 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
-    TProgramMap::iterator   it;
-
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
-    {
-        m_muProgMap.Unlock();
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-    ICLDevBackendProgram_ *pProg = it->second->pProgram;
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
     if ( NULL == pCodeContainer )
@@ -547,19 +512,8 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
-    TProgramMap::iterator   it;
-
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
-    {
-        m_muProgMap.Unlock();
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-    ICLDevBackendProgram_ *pProg = it->second->pProgram;
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const char* pLog = pProg->GetBuildLog();
 
@@ -642,20 +596,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramMap::const_iterator it;
-
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
-    {
-        m_muProgMap.Unlock();
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-
-    TProgramEntry *pEntry = it->second;
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -672,7 +613,6 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         pEntry->muMap.Unlock();
         return CL_DEV_SUCCESS;
     }
-
 
     // Retrieve kernel from program
     cl_dev_err_code iRet;
@@ -700,19 +640,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
-    TProgramMap::const_iterator it;
-    // Access program map
-    m_muProgMap.Lock();
-    it = m_mapPrograms.find(prog);
-    if( it == m_mapPrograms.end())
-    {
-        m_muProgMap.Unlock();
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Requested program not found (%0X)"), (size_t)prog);
-        return CL_DEV_INVALID_PROGRAM;
-    }
-
-    TProgramEntry *pEntry = it->second;
-    m_muProgMap.Unlock();
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -844,6 +772,12 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         stValSize = sizeof(cl_ulong);
         break;
 
+	case CL_DEV_KERNEL_ARG_INFO:
+        stValSize = pKernel->GetKernelParamsCount();
+		pValue = (void*)pKernel->GetKernelArgInfo();
+        stValSize *= sizeof(cl_kernel_argument_info);
+        break;
+
     default:
         return CL_DEV_INVALID_VALUE;
     }
@@ -908,7 +842,17 @@ void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
 {
     // Finally release the object
     assert(m_pBackendCompiler);
-    m_pBackendCompiler->ReleaseProgram(pEntry->pProgram);
+
+	// Ugly code because BE team decided to remove Release() method from the IDevBEProgram
+	BuiltInProgram* pBIProgram = dynamic_cast<BuiltInProgram*>(pEntry->pProgram);
+	if ( NULL != pBIProgram )
+	{
+		delete pBIProgram;
+	}
+	else
+	{
+		m_pBackendCompiler->ReleaseProgram(pEntry->pProgram);
+	}
     pEntry->mapKernels.clear();
     delete pEntry;
 }

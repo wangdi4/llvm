@@ -40,6 +40,7 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+#if 0
 	//*****************************************************************************************
 	//	class ICLDevBackendProgram
 
@@ -274,5 +275,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 		// Returns the binary object which generated this executable context
 		virtual const ICLDevBackendBinary* GetBinary() const = 0;
 	};
-
+#endif
 }}}

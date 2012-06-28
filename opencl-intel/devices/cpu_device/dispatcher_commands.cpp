@@ -30,9 +30,10 @@
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
 #include "wg_context.h"
-#include "cl_dev_backend_api.h"
-#include "cl_sys_defines.h"
-#include "ocl_itt.h"
+#include "builtin_kernels.h"
+#include <cl_dev_backend_api.h>
+#include <cl_sys_defines.h>
+#include <ocl_itt.h>
 
 #define getR(color) ((color >> 16) & 0xFF)
 #define getG(color) ((color >> 8) & 0xFF)
@@ -121,6 +122,69 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 		m_bCompleted = true;
 	}
 	m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
+}
+
+cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam)
+{
+	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+	const char*	pKernelParams = (const char*)cmdParams->arg_values;
+
+	unsigned                    uiNumArgs = pKernel->GetKernelParamsCount();
+    const cl_kernel_argument*   pArgs = pKernel->GetKernelParams();
+	size_t						stOffset = 0;
+
+	// Copy initial values
+	memcpy(pTargetTaskParam, cmdParams->arg_values, cmdParams->arg_size);
+	char* pLockedParams = (char*)pTargetTaskParam;
+
+	// Lock required memory objects
+	for(unsigned int i=0; i<uiNumArgs; ++i)
+	{
+		// Argument is buffer object or local memory size
+		if ( ( CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_CONST == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D_ARR == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_1D_BUF == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
+			)
+
+		{
+			IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)(pKernelParams+stOffset));
+            if (NULL != memObj)
+            {
+			    memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(pLockedParams+stOffset));
+            }
+            else
+            {
+                *(cl_dev_memobj_handle*)(pLockedParams + stOffset) = NULL;
+            }
+			stOffset += sizeof(IOCLDevMemoryObject*);
+		}
+		else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)
+		{
+			stOffset += sizeof(void*);
+		}
+		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
+		{
+			unsigned int uiSize = pArgs[i].size_in_bytes;
+			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
+			stOffset += uiSize;
+		}
+		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
+		{
+			stOffset += sizeof(cl_int);
+		}
+		else
+		{
+			stOffset += pArgs[i].size_in_bytes;
+		}
+	}
+
+	return CL_DEV_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -695,6 +759,14 @@ Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
 cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
+	// First to check if the requried NDRange is one of the built-in kernels
+	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+	IBuiltInKernel* pBIKernel;
+	if ( NULL != (pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel)) )
+	{
+		return pBIKernel->CreateBIKernelTask(pTD, pCmd, pTask);
+	}
+
 	NDRange* pCommand = new NDRange(pTD, pCmd);
 	if (NULL == pCommand)
 	{
@@ -869,73 +941,25 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
     const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-	const char*	pKernelParams = (const char*)cmdParams->arg_values;
 
 #ifdef _DEBUG_PRINT
 	printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), (int)m_pCmd->id);
 #endif
 
-	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    unsigned                    uiNumArgs = pKernel->GetKernelParamsCount();
-    const cl_kernel_argument*   pArgs = pKernel->GetKernelParams();
-	size_t						stOffset = 0;
-
-	// Copy initial values
-	memcpy(m_pLockedParams, cmdParams->arg_values, cmdParams->arg_size);
-
-	// Lock required memory objects
-	for(unsigned int i=0; (i<uiNumArgs) && CL_DEV_SUCCEEDED(m_lastError); ++i)
-	{
-		// Argument is buffer object or local memory size
-		if ( ( CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_CONST == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_1D == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_1D_ARR == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_1D_BUF == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
-			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
-			)
-
-		{
-			IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)(pKernelParams+stOffset));
-            if (NULL != memObj)
-            {
-			    memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(m_pLockedParams+stOffset));
-            }
-            else
-            {
-                *(cl_dev_memobj_handle*)(m_pLockedParams + stOffset) = NULL;
-            }
-			stOffset += sizeof(IOCLDevMemoryObject*);
-		}
-		else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)
-		{
-			stOffset += sizeof(void*);
-		}
-		else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
-		{
-			unsigned int uiSize = pArgs[i].size_in_bytes;
-			uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
-			stOffset += uiSize;
-		}
-		else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
-		{
-			stOffset += sizeof(cl_int);
-		}
-		else
-		{
-			stOffset += pArgs[i].size_in_bytes;
-		}
-	}
 	if ( CL_DEV_FAILED(m_lastError) )
 	{
 		return m_lastError;
 	}
 
-    ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
-    assert(pExecutionService);
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+	cl_dev_err_code clRet = ExtractNDRangeParams(m_pLockedParams);
+	if ( CL_DEV_FAILED(clRet) )
+	{
+		m_lastError = clRet;
+		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
+		return clRet;
+	}
 
     cl_work_description_type workDesc;
     //TODO: Find more elegant solution for filling the workDesc structure
@@ -948,15 +972,19 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     //Todo: caliberate
     workDesc.minWorkGroupNum = 2 * m_pTaskDispatcher->getNumberOfThreads(); 
 
+
 	// Create an "Binary" for these parameters
-    cl_dev_err_code clRet = pExecutionService->CreateBinary(pKernel, 
-                                                            m_pLockedParams, 
-                                                            cmdParams->arg_size, 
-                                                            &workDesc, 
+	ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
+	assert( NULL!=pExecutionService && "NULL==pExecutionService is not expected");
+	clRet = pExecutionService->CreateBinary(pKernel, 
+															m_pLockedParams, 
+															cmdParams->arg_size, 
+															&workDesc, 
 								&m_pBinary);
 	if ( CL_DEV_FAILED(clRet) )
 	{
 		m_lastError = clRet;
+		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
 		return clRet;
 	}
 

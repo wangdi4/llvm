@@ -226,6 +226,11 @@ const cl_kernel_argument* Kernel::GetKernelParams() const
     return m_args.empty() ? NULL : &*m_args.begin();
 }
 
+const cl_kernel_argument_info* Kernel::GetKernelArgInfo() const
+{
+	return NULL;
+}
+
 const ICLDevBackendKernelProporties* Kernel::GetKernelProporties() const
 {
     return m_pProps;
