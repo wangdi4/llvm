@@ -1,4 +1,5 @@
 #include "reference_math.h"
+#include "imathLibd.h"
 #include <math.h>
 #include <limits.h>
 #include "CL/cl.h"
@@ -1748,7 +1749,7 @@ namespace Conformance
     {
         static long double unit_exp = 0;
         if( 0.0L == unit_exp )
-            unit_exp = scalbnl( 1.0L, LDBL_MANT_DIG);
+            unit_exp = CimathLibd::imf_ldexp( 1.0L, LDBL_MANT_DIG);
 
         if( reference_fabsl(x) >= unit_exp )
         {
@@ -1819,7 +1820,7 @@ namespace Conformance
         return res;
     }
 
-    long double reference_exp10l( long double x ){   return reference_exp2l( x * MAKE_HEX_LONG(0xd.49a784bcd1b8afep-2L, 0xd49a784bcd1b8afeLL, -62) );    }
+    long double reference_exp10l( long double x ){   return reference_exp2l( x * (long double)MAKE_HEX_LONG(0xd.49a784bcd1b8afep-2L, 0xd49a784bcd1b8afeLL, -62) );    }
 
 
     // Assumes zeros, infinities and NaNs handed elsewhere
@@ -2194,7 +2195,7 @@ namespace Conformance
 
     }
 
-    long double reference_rsqrtl( long double x){ return 1.0L / sqrtl(x); }
+    long double reference_rsqrtl( long double x){ return 1.0L / CimathLibd::imf_sqrt(x); }
     //long double reference_sincosl( long double x, long double *c ){ *c = reference_cosl(x); return reference_sinl(x); }
     long double reference_sinpil( long double x)
     {
@@ -2220,7 +2221,7 @@ namespace Conformance
         long double z = reference_fabsl(x);
 
         // if big and even  -- caution: only works if x only has single precision
-        if( z >= MAKE_HEX_LONG(0x1.0p53L, 0x1LL, 53) )
+        if( z >= CimathLibd::imf_ldexp( 1.0L, 53) )
         {
             if( z == INFINITY )
                 return x - x;       // nan
@@ -2394,15 +2395,18 @@ namespace Conformance
 
     long double reference_copysignl( long double x, long double y )
     {
-        // We hope that the long double to double conversion proceeds with sign fidelity,
-        // even for zeros and NaNs
-        union{ double d; cl_ulong u;}u; u.d = (double) y;
-
-        x = reference_fabsl(x);
-        if( u.u >> 63 )
-            x = -x;
-
-        return x;
+        union
+        {
+            long double f;
+            struct{ cl_ulong m; cl_ushort sexp; }u;
+        }ux, uy;
+    
+        ux.f = x;
+        uy.f = y;
+    
+        ux.u.sexp = (ux.u.sexp & 0x7fff) | (uy.u.sexp & 0x8000);
+    
+        return ux.f;
     }
 
     long double reference_roundl( long double x )
@@ -2463,22 +2467,7 @@ namespace Conformance
 
     long double reference_rintl( long double x )
     {
-        static long double magic[2] = { 0.0L, 0.0L};
-
-        if( 0.0L == magic[0] )
-        {
-            magic[0] = scalbnl(0.5L, LDBL_MANT_DIG);
-            magic[1] = scalbnl(-0.5L, LDBL_MANT_DIG);
-        }
-
-        if( reference_fabsl(x) < magic[0] && x != 0.0L )
-        {
-            long double m = magic[ x < 0 ];
-            x += m;
-            x -= m;
-        }
-
-        return x;
+        return CimathLibd::imf_rint(x);
     }
 
     long double reference_acoshl( long double x )
@@ -2496,7 +2485,7 @@ namespace Conformance
      *
      */
         if( isnan(x) || isinf(x))
-            return x + fabsl(x);
+            return x + CimathLibd::imf_fabs(x);
 
         if( x < 1.0L )
             return cl_make_nan();
@@ -2504,19 +2493,19 @@ namespace Conformance
         if( x == 1.0L )
             return 0.0L;
 
-        if( x > MAKE_HEX_LONG(0x1.0p60L, 0x1LL, 60) )
+        if( x > CimathLibd::imf_ldexp(1.0L, 60) )
             return reference_logl(x) + 0.693147180559945309417232121458176568L;
 
         if( x > 2.0L )
-            return reference_logl(2.0L * x - 1.0L / (x + sqrtl(x*x - 1.0L)));
+            return reference_logl(2.0L * x - 1.0L / (x + CimathLibd::imf_sqrt(x*x - 1.0L)));
 
-        return reference_log1pl( (x-1.0L) + sqrtl(x + 1) * sqrtl(x-1) );
+        return reference_log1pl( (x-1.0L) + CimathLibd::imf_sqrt(x + 1) * CimathLibd::imf_sqrt(x-1) );
     }
 
     long double reference_asinhl( long double x )
     {
         long double cutoff = 0.0L;
-        const long double ln2 = MAKE_HEX_LONG( 0xb.17217f7d1cf79abp-4L, 0xb17217f7d1cf79abLL, -64);
+        const long double ln2 = CimathLibd::imf_ldexp( (long double)0xb17217f7d1cf79abLL, -64);
 
         if( cutoff == 0.0L )
             cutoff = reference_ldexpl(1.0L, -LDBL_MANT_DIG);
@@ -2531,10 +2520,10 @@ namespace Conformance
         long double sign = reference_copysignl(1.0L, x);
 
         if( absx <= 4.0/3.0 ) {
-            return sign * reference_log1pl( absx + x*x / (1.0 + sqrtl(1.0 + x*x)));
+            return sign * reference_log1pl( absx + x*x / (1.0L + CimathLibd::imf_sqrt(1.0L + x*x)));
         }
-        else if( absx <= MAKE_HEX_LONG(0x1.0p27L, 0x1LL, 27) ) {
-            return sign * reference_logl( 2.0L * absx + 1.0L / (sqrtl( x * x + 1.0 ) + absx));
+        else if( absx <= CimathLibd::imf_ldexp(1.0L, 27) ) {
+            return sign * reference_logl( 2.0L * absx + 1.0L / (CimathLibd::imf_sqrt( x * x + 1.0L ) + absx));
         }
         else {
             return sign * ( reference_logl( absx ) + ln2 );
@@ -2563,27 +2552,18 @@ namespace Conformance
             return cl_make_nan();
 
         if( x < 0.5L )
-            return signed_half * reference_log1pl( 2.0L * ( x + x*x / (1-x) ) );
+            return signed_half * reference_log1pl( 2.0L * ( x + x*x / (1.0L-x) ) );
 
-        return signed_half * reference_log1pl(2.0L * x / (1-x));
+        return signed_half * reference_log1pl(2.0L * x / (1.0L-x));
     }
 
     long double reference_exp2l(  long double x)
     {
-    #if defined( _MSC_VER )
-        //unimplemented
-        return x;
-    #else
-        return exp2l(x);
-    #endif
+        return CimathLibd::imf_exp2(x);
     }
 
     long double reference_expm1l(  long double x)
     {
-    #if defined( _MSC_VER )
-        //unimplemented
-        return x;
-    #else
         union { double f; cl_ulong u;} u;
         u.f = (double) x;
 
@@ -2593,7 +2573,7 @@ namespace Conformance
         if ( x > 710 )
             return INFINITY;
 
-        long double y = expm1l(x);
+        long double y = CimathLibd::imf_expm1(x);
 
         // Range of expm1l is -1.0L to +inf. Negative inf
         // on a few Linux platforms is clearly the wrong sign.
@@ -2601,7 +2581,6 @@ namespace Conformance
             y = INFINITY;
 
         return y;
-    #endif
     }
 
     long double reference_fmaxl( long double x, long double y )
@@ -2622,10 +2601,10 @@ namespace Conformance
 
     long double reference_hypotl( long double x, long double y )
     {
-        static const double big = MAKE_HEX_DOUBLE( 0x1.0p512, 0x1LL, 512 );
-        static const double rbig = MAKE_HEX_DOUBLE( 0x1.0p-512, 0x1LL, -512 );
-        static const double smalll = MAKE_HEX_DOUBLE( 0x1.0p-511, 0x1LL, -511);
-        static const double rsmall = MAKE_HEX_DOUBLE( 0x1.0p+511, 0x1LL, 511);
+        static const double big = CimathLibd::imf_ldexp( 1.0L, 512 );
+        static const double rbig = CimathLibd::imf_ldexp( 1.0L, -512 );
+        static const double smalll = CimathLibd::imf_ldexp( 1.0L, -511);
+        static const double rsmall = CimathLibd::imf_ldexp( 1.0L, 511);
         long double max, min;
 
         if( isinf(x) || isinf(y) )
@@ -2645,7 +2624,7 @@ namespace Conformance
             max *= rbig;
             min *= rbig;
 
-            return big * sqrtl( max * max + min * min );
+            return big * CimathLibd::imf_sqrt( max * max + min * min );
         }
 
         if( max < smalll )
@@ -2653,10 +2632,10 @@ namespace Conformance
             max *= rsmall;
             min *= rsmall;
 
-            return smalll * sqrtl( max * max + min * min );
+            return smalll * CimathLibd::imf_sqrt( max * max + min * min );
         }
 
-        return sqrtl( x * x + y * y );
+        return CimathLibd::imf_sqrt( x * x + y * y );
     }
 
     //long double reference_log2l( long double x )
@@ -2683,13 +2662,7 @@ namespace Conformance
 
     long double reference_log1pl(  long double x)
     {
-    #if defined( _MSC_VER )
-        //unimplemented
-        return x;
-    #else
-        // unimplemented
-        return log1pl(x);
-    #endif
+        return CimathLibd::imf_log1p(x);
     }
 
     long double reference_logbl( long double x )
@@ -2718,8 +2691,8 @@ namespace Conformance
 
     long double reference_maxmagl( long double x, long double y )
     {
-        long double fabsx = fabsl(x);
-        long double fabsy = fabsl(y);
+        long double fabsx = CimathLibd::imf_fabs(x);
+        long double fabsy = CimathLibd::imf_fabs(y);
 
         if( fabsx < fabsy )
             return y;
@@ -2732,8 +2705,8 @@ namespace Conformance
 
     long double reference_minmagl( long double x, long double y )
     {
-        long double fabsx = fabsl(x);
-        long double fabsy = fabsl(y);
+        long double fabsx = CimathLibd::imf_fabs(x);
+        long double fabsy = CimathLibd::imf_fabs(y);
 
         if( fabsx > fabsy )
             return y;
@@ -3132,17 +3105,17 @@ namespace Conformance
         int exception;
         int N = payne_hanek( &x, &exception );
         if( exception )
-            return cosl( x );
+            return CimathLibd::imf_cos((long double)x );
         unsigned int c = N & 3;
         switch ( c ) {
             case 0:
-                return  cosl( x );
+                return  CimathLibd::imf_cos((long double)x );
             case 1:
-                return -sinl( x );
+                return -CimathLibd::imf_sin((long double)x );
             case 2:
-                return -cosl( x );
+                return -CimathLibd::imf_cos((long double)x );
             case 3:
-                return  sinl( x );
+                return  CimathLibd::imf_sin((long double)x );
         }
         return 0.0;
     }
@@ -3153,17 +3126,17 @@ namespace Conformance
         int exception;
         int N = payne_hanek( &x, &exception );
         if( exception )
-            return sinl( x );
+            return CimathLibd::imf_sin((long double)x );
         int c = N & 3;
         switch ( c ) {
             case 0:
-                return  sinl( x );
+                return  CimathLibd::imf_sin((long double)x );
             case 1:
-                return  cosl( x );
+                return  CimathLibd::imf_cos((long double)x );
             case 2:
-                return -sinl( x );
+                return -CimathLibd::imf_sin((long double)x );
             case 3:
-                return -cosl( x );
+                return -CimathLibd::imf_cos((long double)x );
         }
         return 0.0;
     }
@@ -3174,23 +3147,23 @@ namespace Conformance
         int exception;
         int N = payne_hanek( &x, &exception );
         if( exception ) {
-            *y = cosl( x );
-            return sinl( x );
+            *y = CimathLibd::imf_cos((long double)x );
+            return CimathLibd::imf_sin((long double)x );
         }
         int c = N & 3;
         switch ( c ) {
             case 0:
-                *y = cosl( x );
-                return  sinl( x );
+                *y = CimathLibd::imf_cos((long double)x );
+                return  CimathLibd::imf_sin((long double)x );
             case 1:
-                *y = -sinl( x );
-                return  cosl( x );
+                *y = -CimathLibd::imf_sin((long double)x );
+                return  CimathLibd::imf_cos((long double)x );
             case 2:
-                *y = -cosl( x );
-                return -sinl( x );
+                *y = -CimathLibd::imf_cos((long double)x );
+                return -CimathLibd::imf_sin((long double)x );
             case 3:
-                *y = sinl( x );
-                return -cosl( x );
+                *y = CimathLibd::imf_sin((long double)x );
+                return -CimathLibd::imf_cos((long double)x );
         }
         return 0.0;
     }
@@ -3201,17 +3174,17 @@ namespace Conformance
         int exception;
         int N = payne_hanek( &x, &exception );
         if( exception )
-            return tanl( x );
+            return CimathLibd::imf_tan((long double)x );
         int c = N & 3;
         switch ( c ) {
             case 0:
-                return  tanl( x );
+                return  CimathLibd::imf_tan((long double)x );
             case 1:
-                return -1.0 / tanl( x );
+                return -1.0L / CimathLibd::imf_tan((long double)x );
             case 2:
-                return tanl( x );
+                return CimathLibd::imf_tan((long double)x );
             case 3:
-                return -1.0 / tanl( x );
+                return -1.0L / CimathLibd::imf_tan((long double)x );
         }
         return 0.0;
     }
@@ -3456,165 +3429,9 @@ namespace Conformance
         *lo = zlo;
     }
 
-    static long double reference_scalblnl(long double x, long n);
-
-
     long double reference_powl( long double x, long double y )
     {
-
-
-        // this will be used for testing doubles i.e. arguments will
-        // be doubles so cast the input back to double ... returned
-        // result will be long double though .... > 53 bits of precision
-        // if platform allows.
-        // ===========
-        // New finding.
-        // ===========
-        // this function is getting used for computing reference cube root (cbrt)
-        // as follows __powl( x, 1.0L/3.0L ) so if the y are assumed to
-        // be double and is converted from long double to double, truncation
-        // causes errors. So we need to tread y as long double and convert it
-        // to hi, lo doubles when performing y*log2(x).
-
-    //  double x = (double) xx;
-    //  double y = (double) yy;
-
-        static const double neg_epsilon = MAKE_HEX_DOUBLE(0x1.0p53, 0x1LL, 53);
-
-        //if x = 1, return x for any y, even NaN
-        if( x == 1.0 )
-            return x;
-
-        //if y == 0, return 1 for any x, even NaN
-        if( y == 0.0 )
-            return 1.0L;
-
-        //get NaNs out of the way
-        if( x != x  || y != y )
-            return x + y;
-
-        //do the work required to sort out edge cases
-        double fabsy = reference_fabs( y );
-        double fabsx = reference_fabs( x );
-        double iy = reference_rint( fabsy );            //we do round to nearest here so that |fy| <= 0.5
-        if( iy > fabsy )//convert nearbyint to floor
-            iy -= 1.0;
-        int isOddInt = 0;
-        if( fabsy == iy && !reference_isinf(fabsy) && iy < neg_epsilon )
-            isOddInt =  (int) (iy - 2.0 * rint( 0.5 * iy ));        //might be 0, -1, or 1
-
-        ///test a few more edge cases
-        //deal with x == 0 cases
-        if( x == 0.0 )
-        {
-            if( ! isOddInt )
-                x = 0.0;
-
-            if( y < 0 )
-                x = 1.0/ x;
-
-            return x;
-        }
-
-        //x == +-Inf cases
-        if( isinf(fabsx) )
-        {
-            if( x < 0 )
-            {
-                if( isOddInt )
-                {
-                    if( y < 0 )
-                        return -0.0;
-                    else
-                        return -INFINITY;
-                }
-                else
-                {
-                    if( y < 0 )
-                        return 0.0;
-                    else
-                        return INFINITY;
-                }
-            }
-
-            if( y < 0 )
-                return 0;
-            return INFINITY;
-        }
-
-        //y = +-inf cases
-        if( isinf(fabsy) )
-        {
-            if( x == -1 )
-                return 1;
-
-            if( y < 0 )
-            {
-                if( fabsx < 1 )
-                    return INFINITY;
-                return 0;
-            }
-            if( fabsx < 1 )
-                return 0;
-            return INFINITY;
-        }
-
-        // x < 0 and y non integer case
-        if( x < 0 && iy != fabsy )
-        {
-            //return nan;
-            return cl_make_nan();
-        }
-
-        //speedy resolution of sqrt and reciprocal sqrt
-        if( fabsy == 0.5 )
-        {
-            long double xl = sqrtl( x );
-            if( y < 0 )
-                xl = 1.0/ xl;
-            return xl;
-        }
-
-        double log2x_hi, log2x_lo;
-
-        // extended precision log .... accurate to at least 64-bits + couple of guard bits
-        __log2_ep(&log2x_hi, &log2x_lo, fabsx);
-
-        double ylog2x_hi, ylog2x_lo;
-
-        double y_hi = (double) y;
-        double y_lo = (double) ( y - (long double) y_hi);
-
-        // compute product of y*log2(x)
-        // scale to avoid overflow in double-double multiplication
-        if( reference_fabs( y ) > MAKE_HEX_DOUBLE(0x1.0p970, 0x1LL, 970) ) {
-            y_hi = reference_ldexp(y_hi, -53);
-            y_lo = reference_ldexp(y_lo, -53);
-        }
-        MulDD(&ylog2x_hi, &ylog2x_lo, log2x_hi, log2x_lo, y_hi, y_lo);
-        if( fabs( y ) > MAKE_HEX_DOUBLE(0x1.0p970, 0x1LL, 970) ) {
-            ylog2x_hi = reference_ldexp(ylog2x_hi, 53);
-            ylog2x_lo = reference_ldexp(ylog2x_lo, 53);
-        }
-
-        long double powxy;
-        if(isinf(ylog2x_hi) || (reference_fabs(ylog2x_hi) > 2200)) {
-            powxy = reference_signbit(ylog2x_hi) ? MAKE_HEX_DOUBLE(0x0p0, 0x0LL, 0) : INFINITY;
-        } else {
-            // separate integer + fractional part
-            long int m = lrint(ylog2x_hi);
-            AddDD(&ylog2x_hi, &ylog2x_lo, ylog2x_hi, ylog2x_lo, -m, 0.0);
-
-            // revert to long double arithemtic
-            long double ylog2x = (long double) ylog2x_hi + (long double) ylog2x_lo;
-            powxy = reference_exp2l( ylog2x );
-            powxy = reference_scalblnl(powxy, m);
-        }
-
-        // if y is odd integer and x is negative, reverse sign
-        if( isOddInt & reference_signbit(x))
-            powxy = -powxy;
-        return powxy;
+       return CimathLibd::imf_pow(x,y);
     }
 
     double reference_nextafter(double xx, double yy)
@@ -3865,53 +3682,6 @@ namespace Conformance
         return xr;
     }
 
-    static long double reference_scalblnl(long double x, long n)
-    {
-        union
-        {
-            long double d;
-            struct{ cl_ulong m; cl_ushort sexp;}u;
-        }u;
-        u.u.m = CL_LONG_MIN;
-
-        if ( reference_isinf(x) )
-            return x;
-
-        if( x == 0.0L || n < -2200)
-            return reference_copysignl( 0.0L, x );
-
-        if( n > 2200 )
-            return reference_copysignl( INFINITY, x );
-
-        if( n < 0 )
-        {
-            u.u.sexp = 0x3fff - 1022;
-            while( n <= -1022 )
-            {
-                x *= u.d;
-                n += 1022;
-            }
-            u.u.sexp = 0x3fff + n;
-            x *= u.d;
-            return x;
-        }
-
-        if( n > 0 )
-        {
-            u.u.sexp = 0x3fff + 1023;
-            while( n >= 1023 )
-            {
-                x *= u.d;
-                n -= 1023;
-            }
-            u.u.sexp = 0x3fff + n;
-            x *= u.d;
-            return x;
-        }
-
-        return x;
-    }
-
     double reference_exp(double x)
     {
         return reference_exp2( x * MAKE_HEX_DOUBLE(0x1.71547652b82fep+0, 0x171547652b82feLL, -52) );
@@ -3919,7 +3689,7 @@ namespace Conformance
 
     long double reference_expl(long double x)
     {
-        return expl( x );
+        return CimathLibd::imf_exp(x);
     }
 
     double reference_sinh(double x)
@@ -4001,7 +3771,7 @@ namespace Conformance
 
     long double reference_fabsl(long double x)
     {
-        return fabsl( x );
+        return CimathLibd::imf_fabs( x );
     }
 
     double reference_log(double x)
@@ -4184,12 +3954,12 @@ namespace Conformance
 
     long double reference_ldexpl(long double x, int n)
     {
-        return ldexpl( x, n);
+        return CimathLibd::imf_ldexp( x, n);
     }
 
     long double reference_coshl(long double x)
     {
-        return coshl(x);
+        return CimathLibd::imf_cosh(x);
     }
 
     double reference_ceil(double x)
@@ -4210,26 +3980,20 @@ namespace Conformance
         //Prepare a head + tail representation of PI in long double.  A good compiler should get rid of all of this work.
         static const cl_ulong pi_bits[2] = { 0x3243F6A8885A308DULL, 0x313198A2E0370734ULL};  // first 126 bits of pi http://www.super-computing.org/pi-hexa_current.html
         long double head, tail/*, temp*/;
-    #if __LDBL_MANT_DIG__ >= 64
+
         long double temp;
         // long double has 64-bits of precision or greater
-        temp = (long double) pi_bits[0] * MAKE_HEX_LONG(0x1.0p64L, 0x1LL, 64);
+        temp = (long double) pi_bits[0] * CimathLibd::imf_ldexp(1.0L, 64);
         head = temp + (long double) pi_bits[1];
         temp -= head;           // rounding err rounding pi_bits[1] into head
         tail = (long double) pi_bits[1] + temp;
-        head *= MAKE_HEX_LONG( 0x1.0p-125L, 1, -125 );
-        tail *= MAKE_HEX_LONG( 0x1.0p-125L, 1, -125 );
-    #else
-        head = (long double) pi_bits[0];
-        tail = (long double) ((cl_long) pi_bits[0] - (cl_long) head );       // residual part of pi_bits[0] after rounding
-        tail = tail * MAKE_HEX_LONG( 0x1.0p64L, 1, 64 ) + (long double) pi_bits[1];
-        head *= MAKE_HEX_LONG( 0x1.0p-61, 1, -61 );
-        tail *= MAKE_HEX_LONG( 0x1.0p-125, 1, -125 );
-    #endif
+        head *= CimathLibd::imf_ldexp( 1.0L, -125 );
+        tail *= CimathLibd::imf_ldexp( 1.0L, -125 );
+
 
         // oversize values and NaNs go to NaN
         if( ! (x2 <= 1.0) )
-            return sqrtl(1.0L - x2 );
+            return CimathLibd::imf_sqrt(1.0L - x2 );
 
         //
         // deal with large |x|:
@@ -4247,7 +4011,7 @@ namespace Conformance
 
             // z = sqrt( 1-x**2 ) / (1+x) = sqrt( (1-x)(1+x) / (1+x)**2 ) = sqrt( (1-x)/(1+x) )
             long double z2 = (1.0L - fabsx) / (1.0L + fabsx);   // z**2
-            long double z = sign * sqrtl(z2);
+            long double z = sign * CimathLibd::imf_sqrt(z2);
 
             //                     atan(sqrt(q))
             // Minimax fit p(x) = ---------------- - 1
@@ -4319,7 +4083,7 @@ namespace Conformance
                                           -MAKE_HEX_LONG( 0xa.523d97197cd124ap-1L, 0xa523d97197cd124aULL, -61 ), -MAKE_HEX_LONG( 0x8.307ba943978aaeep+0L, 0x8307ba943978aaeeULL, -60 ) } // x - 0.4375 in [ -0x1.0p-4, 0x1.0p-4 ]  Error: 0x1.9ecff73da69c9p-66
                                      };
 
-        const long double offsets[4] = { 0.0625, 0.1875, 0.3125, 0.4375 };
+        const long double offsets[4] = { 0.0625L, 0.1875L, 0.3125L, 0.4375L };
         const size_t coeff_count = sizeof( coeffs[0] ) / sizeof( coeffs[0][0] );
 
         // reduce the incoming values a bit so that they are in the range [-0x1.0p-4, 0x1.0p-4]
@@ -4432,7 +4196,7 @@ namespace Conformance
             return x;
         }
     #endif // _WIN32
-        return frexpl( x, n);
+        return CimathLibd::imf_frexp( x, n);
     }
 
     double reference_atan(double x)
@@ -4442,12 +4206,12 @@ namespace Conformance
 
     long double reference_atanl(long double x)
     {
-        return atanl( x );
+        return CimathLibd::imf_atan( x );
     }
 
     long double reference_asinl(long double x)
     {
-        return asinl( x );
+        return CimathLibd::imf_asin( x );
     }
 
     double reference_asin(double x)
@@ -4468,17 +4232,17 @@ namespace Conformance
     long double reference_sqrtl(long double x)
     {
         //volatile double dx = x;
-        return sqrtl( x );
+        return CimathLibd::imf_sqrt( x );
     }
 
     long double reference_tanhl(long double x)
     {
-        return tanhl( x );
+        return CimathLibd::imf_tanh( x );
     }
 
     long double reference_floorl(long double x)
     {
-        return floor((double) x);
+        return CimathLibd::imf_floor(x);
     }
 
     double reference_tanh(double x)

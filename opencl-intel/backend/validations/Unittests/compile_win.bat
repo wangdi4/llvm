@@ -1,4 +1,5 @@
 @echo off
+echo "@ICC_CPU_CL_NATIVE@"
 rem Compilation of a C file by ICC Compiler
 rem All variables in the form of CMake vars will be replaced by CMake:
 rem     ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment

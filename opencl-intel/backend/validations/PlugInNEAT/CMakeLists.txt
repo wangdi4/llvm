@@ -1,8 +1,12 @@
+cmake_minimum_required(VERSION 2.8.4)
+cmake_policy(SET CMP0001 NEW)
+cmake_policy(SET CMP0011 OLD)
+
+set (TARGET_NAME "PlugInNEAT")
 #
 # Settings for Linux compilation
 #
-if (NOT WIN32)
-
+if( NOT WIN32)
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -21,8 +25,7 @@ set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
 set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
 set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
 set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-endif (NOT WIN32)
+endif()
 
 add_library(PlugInNEAT
   PlugInNEAT.cpp
@@ -36,6 +39,7 @@ include_directories (
   ${BACKEND_ROOT_DIR}/validations/Common
   ${BACKEND_ROOT_DIR}/validations/NEAT
   ${BACKEND_ROOT_DIR}/validations/REFALU
+  ${BACKEND_ROOT_DIR}/validations/ImathLibd
   )
 
 target_link_libraries(PlugInNEAT

@@ -326,7 +326,12 @@ namespace Validation
             return IsAny() || IsInterval() || IsAcc() || IsUnknown() || IsUnwritten();
         }
     private:
+// TODO: delete MaxBytes = sizeof(long double);
+#ifdef _WIN32
+        static const uint32_t MaxBytes = sizeof(double);
+#else
         static const uint32_t MaxBytes = sizeof(long double);
+#endif
         Status m_Status;
         //DataTypeValWrapper m_Type;
         uint8_t m_min[MaxBytes];

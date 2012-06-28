@@ -24,15 +24,115 @@ namespace Validation
     const double NEATALU::DIV_ERROR = 2.5;
     const double NEATALU::MIX_ERROR = 1.5; // rounding error of sub, mul and add
     const double NEATALU::NORMALIZE_ERROR = 2.5; // 2f + 0.5f  error in rsqrt + error in multiply
-    const double NEATALU::NATIVE_TAN_ERROR = 2.16; // Measured by SVML team!!!
 
     const long double NEATALU::pi = 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
     const long double NEATALU::two_pi = 2*3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
     const long double NEATALU::pi_2 = 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L/2.0L;
     const long double NEATALU::div180by_pi = 180.L/3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
+    const long double NEATALU::divpiby_180 = 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L/180.L;
 
   NEATALU::NEATALU()
   {
+  }
+
+  template<>
+  double NEATALU::sqrtSetUlps<float>(void) {
+      return NEATALU::SQRT_ERROR;
+  }
+  template<>
+  double NEATALU::sqrtSetUlps<double>(void) {
+      return NEATALU::SQRT_ERROR_DOUBLE;
+  }
+
+  template<>
+  double NEATALU::divSetUlps<float>(void) {
+      return NEATALU::DIV_ERROR;
+  }
+  template<>
+  double NEATALU::divSetUlps<double>(void) {
+      return NEATALU::DIV_ERROR_DOUBLE;
+  }
+
+  template <>
+  NEATValue NEATALU::InternalDiv<float> ( const NEATValue& a, const NEATValue& b, double ulps)
+  {
+      // Check if both arguments may have any value
+      if(a.IsAny() && b.IsAny())
+          // Then result is unknown
+          return NEATValue(NEATValue::UNKNOWN);
+
+      if (a.IsNaN<float>() || b.IsNaN<float>())
+          return NEATValue::NaN<float>();
+
+      // Case when both could be any was tested. Other special statuses lead to unknown result
+      if(CheckAUU(a) || (CheckAUU(b)))
+      {
+          return NEATValue(NEATValue::UNKNOWN);
+      }
+
+      // if a and b are not finite (i.e. NaN or Inf), the result is NaN
+      if (!b.IsAcc() && (b.Includes((float)0.0) || b.Includes((float)(-0.0))) )
+      {
+          // if b (in a/b) has more than one allowed value
+          //  and one of the values allowed is +0.0 or -0.0,
+          //  then we cannot predict the result (it may be finite and may be inf)
+          return NEATValue(NEATValue::UNKNOWN);
+      }
+
+      const int RES_COUNT = 8;
+      double val[RES_COUNT];
+ 
+      val[0] = RefALU::div((double)*a.GetMin<float>(),(double)*b.GetMin<float>());
+      val[1] = RefALU::div((double)*a.GetMin<float>(),(double)*b.GetMax<float>());
+      val[2] = RefALU::div((double)*a.GetMax<float>(),(double)*b.GetMin<float>());
+      val[3] = RefALU::div((double)*a.GetMax<float>(),(double)*b.GetMax<float>());
+      val[4] = RefALU::mul((double)*a.GetMin<float>(), RefALU::div((double)1.0L,(double)*b.GetMin<float>()) );
+      val[5] = RefALU::mul((double)*a.GetMin<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
+      val[6] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMin<float>()) );
+      val[7] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
+ 
+      return NEATALU::ComputeResult<double>(val, RES_COUNT, ulps);
+  }
+
+  // division for doubles has zero ulps performs in long doubles with no extending the
+  // output interval by using x*1/x operation, just to have division only
+  // TODO: check if using compilator option -Qdiv allows to avoid expanding inoutput interval
+  // CSSD100013313 submitted
+  template <>
+  NEATValue NEATALU::InternalDiv<double> ( const NEATValue& a, const NEATValue& b, double ulps)
+  {
+      // Check if both arguments may have any value
+      if(a.IsAny() && b.IsAny())
+          // Then result is unknown
+          return NEATValue(NEATValue::UNKNOWN);
+
+      if (a.IsNaN<double>() || b.IsNaN<double>())
+          return NEATValue::NaN<double>();
+
+      // Case when both could be any was tested. Other special statuses lead to unknown result
+      if(CheckAUU(a) || (CheckAUU(b)))
+      {
+          return NEATValue(NEATValue::UNKNOWN);
+      }
+
+      // if a and b are not finite (i.e. NaN or Inf), the result is NaN
+      if (!b.IsAcc() && (b.Includes((double)0.0) || b.Includes((double)(-0.0))) )
+      {
+          // if b (in a/b) has more than one allowed value
+          //  and one of the values allowed is +0.0 or -0.0,
+          //  then we cannot predict the result (it may be finite and may be inf)
+          return NEATValue(NEATValue::UNKNOWN);
+      }
+
+      const int RES_COUNT = 4;
+      long double val[RES_COUNT];
+ 
+      val[0] = RefALU::div((long double)*a.GetMin<double>(),(long double)*b.GetMin<double>());
+      val[1] = RefALU::div((long double)*a.GetMin<double>(),(long double)*b.GetMax<double>());
+      val[2] = RefALU::div((long double)*a.GetMax<double>(),(long double)*b.GetMin<double>());
+      val[3] = RefALU::div((long double)*a.GetMax<double>(),(long double)*b.GetMax<double>());
+ 
+      return NEATALU::ComputeResult<long double>(val, RES_COUNT, ulps);
   }
 
   NEATVector NEATALU::processVector(const NEATVector& vec1, const NEATVector& vec2, const NEATValue& val, NEATScalarTernaryOp f)
