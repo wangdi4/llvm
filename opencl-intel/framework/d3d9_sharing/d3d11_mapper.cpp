@@ -39,7 +39,25 @@ ID3D11Buffer* D3d11BufferMapper::CreateResource(const D3D11_BUFFER_DESC& desc)
 ID3D11Texture2D* D3d11Texture2DMapper::CreateResource(const D3D11_TEXTURE2D_DESC& desc)
 {
     ID3D11Texture2D* pTexture2D;
-    const HRESULT res = GetDevice().CreateTexture2D(&desc, NULL, &pTexture2D);
+	D3D11_TEXTURE2D_DESC newDesc = desc;
+	
+    // 0 MipLevels is used to generate a full set of sub-textures
+    assert(desc.MipLevels > 0);
+	const UINT uiSubresourceMipLevel = m_uiSubresource % desc.MipLevels;
+
+	newDesc.Width >>= uiSubresourceMipLevel;
+	if (0 == newDesc.Width)
+	{
+		newDesc.Width = 1;
+	}
+	newDesc.Height >>= uiSubresourceMipLevel;
+	if (0 == newDesc.Height)
+	{
+		newDesc.Height = 1;
+	}
+	newDesc.MipLevels = 1;
+
+    const HRESULT res = GetDevice().CreateTexture2D(&newDesc, NULL, &pTexture2D);
     if (E_OUTOFMEMORY == res)
     {
         LOG_ERROR(TEXT("There is insufficient memory to create the 2D texture"));
@@ -52,7 +70,26 @@ ID3D11Texture2D* D3d11Texture2DMapper::CreateResource(const D3D11_TEXTURE2D_DESC
 ID3D11Texture3D* D3d11Texture3DMapper::CreateResource(const D3D11_TEXTURE3D_DESC& desc)
 {
     ID3D11Texture3D* pTexture3D;
-    const HRESULT res = GetDevice().CreateTexture3D(&desc, NULL, &pTexture3D);
+	D3D11_TEXTURE3D_DESC newDesc = desc;
+
+	newDesc.Width >>= m_uiSubresource;
+	if (0 == newDesc.Width)
+	{
+		newDesc.Width = 1;
+	}
+	newDesc.Height >>= m_uiSubresource;
+	if (0 == newDesc.Height)
+	{
+		newDesc.Height = 1;
+	}
+	newDesc.Depth >>= m_uiSubresource;
+	if (0 == newDesc.Depth)
+	{
+		newDesc.Depth = 1;
+	}
+	newDesc.MipLevels = 1;
+    
+	const HRESULT res = GetDevice().CreateTexture3D(&newDesc, NULL, &pTexture3D);
     if (E_OUTOFMEMORY == res)
     {
         LOG_ERROR(TEXT("There is insufficient memory to create the 3D texture"));

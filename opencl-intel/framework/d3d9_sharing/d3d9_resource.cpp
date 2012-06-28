@@ -457,8 +457,9 @@ UINT D3D11Texture2D::GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInf
     static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
     const UINT uiSubresource = static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
     // 0 MipLevels is used to generate a full set of sub-textures
-    const UINT uiSubresourceMipLevel = desc.MipLevels > 0 ? uiSubresource % desc.MipLevels : uiSubresource;
-    if (desc.Width > 1)
+    assert(desc.MipLevels > 0);
+    const UINT uiSubresourceMipLevel = uiSubresource % desc.MipLevels;
+	if ((desc.Width >> uiSubresourceMipLevel) > 1)
     {
         return desc.Width >> uiSubresourceMipLevel;    // width = desc.Width / 2^uiSubresourceMipLevel
     }
@@ -474,8 +475,9 @@ UINT D3D11Texture2D::GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceIn
     static_cast<ID3D11Texture2D*>(resourceInfo.m_pResource)->GetDesc(&desc);
     const UINT uiSubresource = static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
     // 0 MipLevels is used to generate a full set of sub-textures
-    const UINT uiSubresourceMipLevel = desc.MipLevels > 0 ? uiSubresource % desc.MipLevels : uiSubresource;
-    if (desc.Height > 1)
+    assert(desc.MipLevels > 0);
+    const UINT uiSubresourceMipLevel = uiSubresource % desc.MipLevels;
+	if ((desc.Height >> uiSubresourceMipLevel) > 1)
     {
         return desc.Height >> uiSubresourceMipLevel;   // height = desc.Height / 2^uiSubresourceMipLevel
     }
@@ -520,9 +522,11 @@ UINT D3D11Texture3D::GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInf
 {
     D3D11_TEXTURE3D_DESC desc;
     static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
-    if (desc.Width > 1)
+	
+	const UINT uiWidth = desc.Width >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+	if (uiWidth > 0)
     {
-        return desc.Width >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+        return uiWidth;
     }
     else
     {
@@ -534,9 +538,11 @@ UINT D3D11Texture3D::GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceIn
 {
     D3D11_TEXTURE3D_DESC desc;
     static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
-    if (desc.Height > 1)
+
+	const UINT uiHeight = desc.Height >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    if (uiHeight > 1)
     {
-        return desc.Height >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+        return uiHeight;
     }
     else
     {
@@ -548,9 +554,11 @@ UINT D3D11Texture3D::GetDepth(const D3DResourceInfo<ID3D11Resource>& resourceInf
 {
     D3D11_TEXTURE3D_DESC desc;
     static_cast<ID3D11Texture3D*>(resourceInfo.m_pResource)->GetDesc(&desc);
-    if (desc.Depth > 1)
+
+	const UINT uiDepth = desc.Depth >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+    if (uiDepth > 1)
     {
-        return desc.Depth >> static_cast<const D3D11TextureResourceInfo&>(resourceInfo).m_uiSubresource;
+        return uiDepth;
     }
     else
     {

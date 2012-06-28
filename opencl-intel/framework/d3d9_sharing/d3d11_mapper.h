@@ -91,17 +91,24 @@ protected:
      */
     D3D11_MAPPED_SUBRESOURCE GetMappedSubresource() const { return m_mappedSubresource; }
 
+protected:
+
+	/**
+	 * index number of the subresource
+	 */
+	const UINT m_uiSubresource;
+
 private:
 
     RESOURCE_TYPE& m_resource;    
     const D3D11_MAP m_mapType;
-    const UINT m_uiSubresource;
+    
     ID3D11Device* m_pDevice;
     ID3D11DeviceContext* m_pImmediateContext;
     RESOURCE_TYPE* m_pStagingResource;
     D3D11_MAPPED_SUBRESOURCE m_mappedSubresource;
 
-    void* Map(RESOURCE_TYPE& resource);
+    void* Map(RESOURCE_TYPE& resource, UINT uiSubresource);
 
     bool CopyToStagingResource();
 
@@ -261,7 +268,7 @@ void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map()
     // dynamic resources can only be written by CPU
     if (D3D11_USAGE_DYNAMIC == desc.Usage && D3D11_MAP_WRITE == m_mapType || D3D11_USAGE_STAGING == desc.Usage)
     {
-        return Map(m_resource);
+        return Map(m_resource, m_uiSubresource);
     }
     else    // otherwise create a staging resource, copy the data of the original resource to it and map the staging resource
     {
@@ -269,7 +276,7 @@ void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map()
         {
             return NULL;
         }
-        return Map(*m_pStagingResource);
+        return Map(*m_pStagingResource, 0);
     }    
 }
 
@@ -288,7 +295,7 @@ void D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Unmap()
         m_pImmediateContext->Unmap(m_pStagingResource, 0);
         /* This action is asynchronous and we can't wait for its completion. If the user tries to read from the resource after this, the driver detects the read-after-write
             hazard and takes care of the synchronization. */
-        m_pImmediateContext->CopySubresourceRegion(&m_resource, m_uiSubresource, 0, 0, 0, m_pStagingResource, m_uiSubresource, NULL);
+        m_pImmediateContext->CopySubresourceRegion(&m_resource, m_uiSubresource, 0, 0, 0, m_pStagingResource, 0, NULL);
         m_pStagingResource->Release();
         m_pStagingResource = NULL;
     }
@@ -299,9 +306,9 @@ void D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Unmap()
 }
 
 template<typename RESOURCE_TYPE, typename DESC_TYPE>
-void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map(RESOURCE_TYPE& resource)
+void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map(RESOURCE_TYPE& resource, UINT uiSubresource)
 {
-    const HRESULT res = m_pImmediateContext->Map(&resource, m_uiSubresource, m_mapType, 0, &m_mappedSubresource);
+    const HRESULT res = m_pImmediateContext->Map(&resource, uiSubresource, m_mapType, 0, &m_mappedSubresource);
 
     if (DXGI_ERROR_DEVICE_REMOVED == res)
     {
@@ -343,7 +350,7 @@ bool D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::CopyToStagingResource()
         return false;
     }
     // this action is asynchronous, but the map we do after it will wait for it to complete
-    m_pImmediateContext->CopySubresourceRegion(m_pStagingResource, m_uiSubresource, 0, 0, 0, &m_resource, m_uiSubresource, NULL);
+    m_pImmediateContext->CopySubresourceRegion(m_pStagingResource, 0, 0, 0, 0, &m_resource, m_uiSubresource, NULL);
     return true;
 }
 
