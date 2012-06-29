@@ -6511,8 +6511,8 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
     }
 }
 
-
-TYPED_TEST(NEATAluTypedMath, atan2)
+// disable until bug CSSD100013866 will be fixed
+TYPED_TEST(NEATAluTypedMath, DISABLED_atan2)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type SuperT;

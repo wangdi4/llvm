@@ -981,52 +981,33 @@ TYPED_TEST_CASE(ComparatorImageTestNEATRun, FloatTypes);
 bool ComparatorImageTestNEATRun_should_be_disabled = true;
 // we can't add DISABLE_ to typed tests, so disable them manually
 
-TYPED_TEST(ComparatorImageTestNEATRun, Test1d)
+// disabled due to fail on linux. CSSD100013779
+TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test1d)
 {
-  if (ComparatorImageTestNEATRun_should_be_disabled) { 
-    printf("NOTE: The test ComparatorImageTestNEATRun.Test1d has been manually disabled\n."); 
-    return; 
-  } // disabled due to fail on linux. CSSD100013779
     ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D, 99, 0, 0, 0);
     test.test();
 }
-
-TYPED_TEST(ComparatorImageTestNEATRun, Test1dArr)
+ // disabled due to fail on linux. CSSD100013779
+TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test1dArr)
 {
-  if (ComparatorImageTestNEATRun_should_be_disabled) { 
-    printf("NOTE: The test ComparatorImageTestNEATRun.Test1dArr has been manually disabled\n."); 
-    return; 
-  } // disabled due to fail on linux. CSSD100013779
     ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D_ARRAY, 99, 0, 0, 11);
     test.test();
 }
-
-TYPED_TEST(ComparatorImageTestNEATRun, Test2d)
+ // disabled due to fail on linux. CSSD100013779
+TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test2d)
 {
-  if (ComparatorImageTestNEATRun_should_be_disabled) { 
-    printf("NOTE: The test ComparatorImageTestNEATRun.Test2d has been manually disabled\n."); 
-    return; 
-  } // disabled due to fail on linux. CSSD100013779
     ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D, 99, 33, 0, 0);
     test.test();
 }
-
-TYPED_TEST(ComparatorImageTestNEATRun, Test2dArr)
+ // disabled due to fail on linux. CSSD100013779
+TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test2dArr)
 {
-  if (ComparatorImageTestNEATRun_should_be_disabled) { 
-    printf("NOTE: The test ComparatorImageTestNEATRun.Test2dArr has been manually disabled\n."); 
-    return; 
-  } // disabled due to fail on linux. CSSD100013779
     ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D_ARRAY, 99, 33, 0, 7);
     test.test();
 }
-
-TYPED_TEST(ComparatorImageTestNEATRun, Test3d)
+ // disabled due to fail on linux. CSSD100013779
+TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test3d)
 {
-  if (ComparatorImageTestNEATRun_should_be_disabled) { 
-    printf("NOTE: The test ComparatorImageTestNEATRun.Test3d has been manually disabled\n."); 
-    return; 
-  } // disabled due to fail on linux. CSSD100013779
     ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE3D, 99, 33, 7, 0);
     test.test();
 }
