@@ -29,7 +29,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 std::vector<ImplicitArgProperties> ImplicitArgsUtils::m_implicitArgProps;
 
 void ImplicitArgsUtils::init() {
-   
+  
+  // We're making sure m_implicitArgProps is empty, because in some systems (Windows)
+  // when we unload the DLL and then load it again, during the unload the OS 
+  // might only decrease the DLL's reference count and not unload it immediately,
+  // therefore, the static variable m_implicitArgProps might not be destroyed,
+  // it could exists and already be initialized by the previous DLL load.
+  // If we won't make sure it's empty, then m_implicitArgProps will be initialized twice
+  // and have too many elements
+  if (!m_implicitArgProps.empty()) {
+	m_implicitArgProps.clear();
+  }
   // Initialize m_implicitArgProps
   // Add argument name, size, alignment (if different from size)
   m_implicitArgProps.push_back(ImplicitArgProperties("pLocalMem",       sizeof(void*)));
@@ -44,7 +54,12 @@ void ImplicitArgsUtils::init() {
 }
 
 void ImplicitArgsUtils::terminate() {
-  m_implicitArgProps.clear();
+	// m_implicitArgProps is a constant pre-defined data.
+	// We want it to exist throughout the Program life cycle.
+	// We do not do m_implicitArgProps.clear() here because on some systems (Linux RH)
+	// the static variables are destroyed before ImplicitArgsUtils::terminate()
+	// is called and it causes the system to try to release the same memory twice
+	// which causes a crash.
 }
 
 void ImplicitArgsUtils::createImplicitArgs(char* pDest, std::vector<ImplicitArgument>& /* OUT */ implicitArgs) {
