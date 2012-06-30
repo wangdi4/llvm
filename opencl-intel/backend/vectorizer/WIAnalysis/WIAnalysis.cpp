@@ -160,7 +160,6 @@ bool WIAnalysis::isControlFlowUniform(const Function* F) {
 
   /// Place out-masks
   for (Function::const_iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    if (dyn_cast<ReturnInst>(it->getTerminator())) continue;
     WIAnalysis::WIDependancy dep = whichDepend(it->getTerminator());
     if (dep != WIAnalysis::UNIFORM) {
       // Found a branch which diverges on the input
@@ -477,8 +476,13 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const TerminatorInst* inst) {
       // Unconditional branch is non TID-dependent
       return WIAnalysis::UNIFORM;
     }
+  //Return instructions are unconditional
+  case Instruction::Ret:
+    return WIAnalysis::UNIFORM;
   case Instruction::IndirectBr:
     // TODO: Define the dependency requirements of indirectBr
+  case Instruction::Switch:
+    // TODO: Should this depend only on the condition, like branch?
   default:
     return WIAnalysis::RANDOM;
   }

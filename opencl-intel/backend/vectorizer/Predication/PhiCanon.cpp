@@ -109,7 +109,56 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
     }
   }
 
+  // Ok, that failed. Relax our criteria, and try to find pairs of BBs
+  // that are either both dominated, or both not dominated by the block
+  // to be fixed, merging them first.
+  // The idea is that we don't want the fallback merge below to merge an edge going 
+  // entering a loop header from the outside with a backedge. Such merges can cause
+  // irreducible control flow to be formed.
+  // For example, consider a CFG with the basic blocks: A, B, C, D, 
+  // and the edges are: A => C, B => C, C => C, C => D
+  // If the B => C edge is merge with the C => C self-loop, the result CFG 
+  // (after adding the new block N) is:
+  // A => C, B => N, C => N, N => C, C => D
+  // The loop now has blocks (C and N), and both of them have external incoming
+  // edges (A => C, B => N) which is pretty awful. In particular, the control flow
+  // was reducible in the original graph, but is irreducible now, which kills the
+  // predicator.
+  bb_it_current = pred_begin(toFix);
+  while (bb_it_current != pred_end(toFix) &&
+         std::distance(pred_begin(toFix), pred_end(toFix)) > 2) {
+    BasicBlock *current_bb = *bb_it_current;
+
+    bool pair_found = false;
+    bool dominates = DT->dominates(toFix, current_bb);
+
+    pred_iterator scan_bb_it = bb_it_current;
+    for(scan_bb_it++; scan_bb_it != pred_end(toFix); scan_bb_it++) {
+      BasicBlock *scan_bb = *scan_bb_it;
+
+      if (dominates != DT->dominates(toFix, scan_bb)) continue;
+
+      BasicBlock* new_bb = makeNewPhiBB(toFix, current_bb, scan_bb);
+      // also - add new block to the dominator and postdominator trees
+      DT->runOnFunction(*(new_bb->getParent()));
+      PDT->runOnFunction(*(new_bb->getParent()));
+      pair_found = true;
+      break;
+    }
+
+    if (pair_found) {
+      // BB tree was restructured - restart iteration
+      bb_it_current = pred_begin(toFix);
+    } else {
+      // continue iteration
+      bb_it_current++;
+    }
+  }
+
   // For the rest of BBs - make sure that 'toFix' BB will stay with 2 incoming edges
+  // In theory, this should no longer ever be reached, since every time there are 3 edges,
+  // at least one pair will either both dominate or both not-dominated the block to be
+  // fixed. Still, leave this as a sanity check.
   while (std::distance(pred_begin(toFix), pred_end(toFix)) > 2) {
     // Find the first two candidates
     BasicBlock *current_bb = *(pred_begin(toFix));

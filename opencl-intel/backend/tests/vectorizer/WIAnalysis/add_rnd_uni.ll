@@ -26,4 +26,4 @@ declare i32 @get_global_id(i32)
 
 ;CHECK: WIA 4  %{{[a-z]*}}{{[0-9]*}} = load
 ;CHECK: WIA 4  %{{[a-z]*}}{{[0-9]*}} = add
-;CHECK: WIA 4  ret
+;CHECK: WIA 0  ret
