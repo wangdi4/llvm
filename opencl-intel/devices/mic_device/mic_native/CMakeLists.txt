@@ -17,8 +17,8 @@ set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/backend/llvm/lib )
 set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
 if (KNC_CARD)
-        set( BACKEND_VTUNE_DIR 		 ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
-        set( VTUNE_PROFILING_LIB     jitprofiling)  
+        set( BACKEND_VTUNE_DIR 		 -L ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
+        set( VTUNE_PROFILING_LIB     -ljitprofiling)  
 	set( BACKEND_FILES_TO_COPY
 								${BACKEND_SVML_DIR}/__ocl_svml_b2.so.2.0
 								)
@@ -231,13 +231,13 @@ list( APPEND MIC_LINK_FLAGS
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
-                -L ${BACKEND_VTUNE_DIR}
+                ${BACKEND_VTUNE_DIR}
 
                 # libs to link
                 -lcoi_device
                 -l${BACKEND_LIB}
                 -l${TBB_LIBS_TO_LINK}
-                -l${VTUNE_PROFILING_LIB}
+                ${VTUNE_PROFILING_LIB}
                 -lpthread
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
