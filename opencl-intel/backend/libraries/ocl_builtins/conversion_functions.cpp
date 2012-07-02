@@ -300,13 +300,50 @@ extern "C" {
         return (float8)_mm256_cvtepi32_ps((__m256i)param);
 	}
 #endif
+/*
+float <- uint
+Bob Hanek's suggested method
+The simplest approach would be to split the uint into two 16-bit (signed) integers
+convert them both to floating point and combine with an fma. That would be ~5 instructions:
 
-    float uintToFloat(_1u32 x)
+          lo <- in & 0xffff       hi <- in >> 16
+          flo <- (float) lo        fhi <- (float) hi;
+          res <- 2^16*fhi + flo
+*/
+	float uintToFloat(_1u32 x)
 	{
-		if(x == 0) return 0.0;
-		float res =  ((float)x);
-		return res;
+		int tlo, thi;
+		float flo, fhi;
+		tlo = x & 0xFFFF;
+		flo = convert_float(tlo);
+		thi = x >> 16;
+		fhi = convert_float(thi);
+		return mad(65536.0f, fhi, flo);
 	}
+	
+	float4 uintToFloat4(_4u32 x)
+	{
+		int4 tlo, thi;
+		float4 flo, fhi;
+		tlo = as_int4(x & 0xFFFF);
+		flo = convert_float4(tlo);
+		thi = as_int4(x >> 16);
+		fhi = convert_float4(thi);
+		return mad(65536.0f, fhi, flo);
+	}
+
+	float8 uintToFloat8(_8u32 x)
+	{
+		int8 tlo, thi;
+		float8 flo, fhi;
+		tlo = as_int8(x & 0xFFFF);
+		flo = convert_float8(tlo);
+		thi = as_int8(x >> 16);
+		fhi = convert_float8(thi);
+		return mad(65536.0f, fhi, flo);
+	}
+
+
 
     float4 double2ToFloat4(double2 param, int dummy)
 	{
@@ -1566,32 +1603,23 @@ we need to report this to Nikita and get a fix for this.
 	}\
 	float2 __attribute__ ((overloadable)) convert_float2##FLAGSAT##RMODE(_2u32 x)\
 	{\
-	float2 res;\
-	res.lo = uintToFloat(x.lo);\
-	res.hi = uintToFloat(x.hi);\
-	return res;\
+	uint4 t;\
+	t.lo = x;\
+	return uintToFloat4(t).lo;\
 	}\
 	float3 __attribute__ ((overloadable)) convert_float3##FLAGSAT##RMODE(uint3 x)\
 	{\
-	float3 res;\
-	res.s0 = uintToFloat(x.s0);\
-	res.s1 = uintToFloat(x.s1);\
-	res.s2 = uintToFloat(x.s2);\
-	return res;\
+	uint4 t;\
+	t.s012 = x;\
+	return uintToFloat4(t).s012;\
 	}\
 	float4 __attribute__ ((overloadable)) convert_float4##FLAGSAT##RMODE(_4u32 x)\
 	{\
-	float4 res;\
-	res.lo = convert_float2##RMODE(x.lo);\
-	res.hi = convert_float2##RMODE(x.hi);\
-	return res;\
+	return uintToFloat4(x);\
 	}\
 	float8 __attribute__ ((overloadable)) convert_float8##FLAGSAT##RMODE(_8u32 x)\
 	{\
-	float8 res;\
-	res.lo = convert_float4##RMODE(x.lo);\
-	res.hi = convert_float4##RMODE(x.hi);\
-	return res;\
+	return uintToFloat8(x);\
 	}\
 	float16 __attribute__ ((overloadable)) convert_float16##FLAGSAT##RMODE(_16u32 x)\
 	{\
