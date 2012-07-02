@@ -65,7 +65,7 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
 
-static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {OCL_SUPPORTED_EXTENSIONS,1,1};
+static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {OCL_SUPPORTED_EXTENSIONS,1,1,0};
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -186,6 +186,9 @@ cl_dev_err_code CPUDevice::Init()
 
     m_pCPUDeviceConfig = new CPUDeviceConfig();
     m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
+
+	// Enable VTune source level profiling
+	CPUDevInfo.bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 

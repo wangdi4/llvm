@@ -116,7 +116,8 @@ IOCLFECompiler* OCLBuilder::createCompiler(const char* lib){
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
     strDeviceOptions,
     m_bSupportImages,
-    m_bSupportFP64
+    m_bSupportFP64,
+	0
     };
 
   //

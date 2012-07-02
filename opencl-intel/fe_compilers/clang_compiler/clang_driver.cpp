@@ -312,6 +312,10 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 		list.push_back("-D");
 		list.push_back("__IMAGE_SUPPORT__=1");	
 	}
+	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
+		list.push_back("-g");
+		OptProfiling = true;
+	}
 
 	// Add extension defines
 	std::string extStr = m_sDeviceInfo.sExtensionStrings;
@@ -1188,7 +1192,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back(*opt_i);
             bOptDebugInfo = true;
         }
-        else if (*opt_i == "-profiling") {
+        else if (*opt_i == "-profiling")  {
             // Pass -g on to clang to make it generate debug info
             pList->push_back("-g");
             bOptProfiling = true;
