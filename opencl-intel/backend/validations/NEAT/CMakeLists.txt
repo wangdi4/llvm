@@ -29,7 +29,7 @@ endif ()
 
   set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
   if (NOT DEFINED ICC_WIN32_PATH)
-    message (FATAL_ERROR "ICC is not installed in the system")
+    message (FATAL_ERROR "ICC 12 is not installed in the system")
   endif ()
 
   set (ICC_CPU_ENV_SCRIPT ${ICC_WIN32_PATH}/bin/iclvars.bat)
