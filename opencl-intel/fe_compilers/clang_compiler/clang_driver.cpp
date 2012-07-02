@@ -773,7 +773,7 @@ int ClangFECompilerLinkTask::Link()
 
     MEMCPY_S(pBinary, Buffer.size(), &Buffer.front(), Buffer.size());
 
-    memcpy(pHeader->mask, _CL_CONTAINER_MASK_, 4);
+    MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
 	pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
 	pHeader->container_type = CL_PROG_CNT_PRIVATE;
 	pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;

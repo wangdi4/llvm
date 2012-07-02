@@ -371,6 +371,8 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 				if ( NULL != m_szBuildLog )
 				{
 					uiParamSize += m_uiBuildLogSize;
+					// Now we have reserved place for two '\0's. Remove one.
+					uiParamSize--;
 				}
 				if (NULL != pParamValue && uiParamSize > uiParamValueSize)
 				{
@@ -391,7 +393,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 						//Copy the FE log minus the terminating NULL
 						MEMCPY_S(pParamValue, uiParamValueSize, m_szBuildLog, m_uiBuildLogSize - 1);
 						// and let the device write the rest of the log
-						uiParamSize -= m_uiBuildLogSize;
+						uiParamSize -= (m_uiBuildLogSize - 1);
 
 						clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, ((char*)pParamValue) + m_uiBuildLogSize - 1, NULL);
 					}

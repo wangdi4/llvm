@@ -83,6 +83,12 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		size_t	m_stOutIRSize;
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
+    private:
+      // private copy constructor to prevent wrong assignment
+      ClangFECompilerCompileTask(const ClangFECompilerCompileTask&) {}
+      // private operator= constructor to prevent wrong assignment
+      ClangFECompilerCompileTask& 
+        operator= (ClangFECompilerCompileTask const &) {return *this;}
 	};
 
 
@@ -128,6 +134,12 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool bDisableOptFlag;
         bool bFastRelaxedMathFlag;
         bool bEnableLinkOptionsFlag;
+    private:
+      // private copy constructor to prevent wrong assignment
+      ClangFECompilerLinkTask(const ClangFECompilerLinkTask&) {}
+      // private operator= constructor to prevent wrong assignment
+      ClangFECompilerLinkTask& 
+        operator= (ClangFECompilerLinkTask const &) {return *this;}
 	};
 
     class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo, ClangFETask
@@ -155,6 +167,9 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
       // private copy constructor to prevent wrong assignment
       ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&)
       : m_numArgs(0), m_argsInfo(NULL) {}
+      // private operator= constructor to prevent wrong assignment
+      ClangFECompilerGetKernelArgInfoTask& 
+        operator= (ClangFECompilerGetKernelArgInfoTask const &) {return *this;}
     };
 
     // ClangFECompilerCheckCompileOptions
