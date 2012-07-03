@@ -20,7 +20,8 @@ enum cl_dev_backend_options                // Description                       
     CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE, //!< Target Description Blob Size        |int          |
     CL_DEV_BACKEND_OPTION_TIME_PASSES,      //!< Filename for dumping time passes    |string       |
     CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP,//!< Disables stack dump on crash        |boolean      |
-    CL_DEV_BACKEND_OPTION_BUFFER_PRINTER    //!< Pointer to the Buffer Printer       |pointer      | (Used for ocl_printf)
+    CL_DEV_BACKEND_OPTION_BUFFER_PRINTER,   //!< Pointer to the Buffer Printer       |pointer      | (Used for ocl_printf)
+    CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR //!< Print IR input to heuristic         |boolean      |
 };
 
 /*! \enum cl_dev_backend_dump_options

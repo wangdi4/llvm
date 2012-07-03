@@ -98,6 +98,8 @@ public:
                                 (RC_BR_DUMP_IR_BEFORE, 0);
 
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
+        m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, "");
+
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -110,6 +112,8 @@ public:
         {
         case CL_DEV_BACKEND_OPTION_USE_VTUNE :
             return m_useVTune;
+        case CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR :
+            return m_dumpHeuristcIR;
         default:
             return defaultValue;
         }
@@ -171,6 +175,7 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;
+    bool m_dumpHeuristcIR;
 };
 
 #if defined(INCLUDE_MIC_DEVICE)

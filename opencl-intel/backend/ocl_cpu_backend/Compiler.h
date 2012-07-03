@@ -231,6 +231,8 @@ protected:
     std::vector<int>         m_IRDumpBefore;
     std::string              m_IRDumpDir;
     bool                     m_needLoadBuiltins;
+    bool                     m_dumpHeuristicIR;
+
 
     static bool s_globalStateInitialized;
 

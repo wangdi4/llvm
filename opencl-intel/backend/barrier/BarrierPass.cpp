@@ -631,10 +631,12 @@ namespace intel {
       //The last argument for return value
       m_pDataPerInternalFunction->isInSpecialBuffer(pFuncToFix, numOfArgs) ) {
       Value *pOffsetArg = newFuncArgs[currNewIndex];
-#ifdef _DEBUG
+      
       bool alwaysInSB = 
-#endif
         m_pDataPerInternalFunction->alwaysInSpecialBuffer(pFuncToFix, numOfArgs);
+      //Shut the warning up
+      (void)alwaysInSB;
+      
       std::vector<BasicBlock*> pVecBB;
       for ( Function::iterator bi = pNewFunc->begin(), be = pNewFunc->end(); bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(&*bi);

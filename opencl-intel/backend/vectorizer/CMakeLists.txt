@@ -11,6 +11,8 @@ include_directories(BEFORE "VolcanoWrapper")
 include_directories(BEFORE "AppleWrapper")
 include_directories(BEFORE "PreVectorization")
 include_directories(BEFORE "LoopHandler")
+include_directories(BEFORE "IRPrinter")
+include_directories(BEFORE "Heuristic")
 include_directories(../arch_headers)
 
 add_llvm_library( LLVMVectorizer
@@ -51,5 +53,7 @@ add_llvm_library( LLVMVectorizer
   LoopHandler/CLWGLoopCreator.cpp
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/CLWGBoundDecoder.cpp
+  IRPrinter/IRPrinter.cpp
+  Heuristic/InstCounter.cpp
   ${headers}
 )

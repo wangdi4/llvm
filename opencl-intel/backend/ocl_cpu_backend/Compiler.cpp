@@ -259,7 +259,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
-    m_needLoadBuiltins( config.GetLoadBuiltins())
+    m_needLoadBuiltins(config.GetLoadBuiltins()),
+    m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -298,10 +299,11 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             pOptions->GetProfilingFlag(),
                                             pOptions->GetDisableOpt(),
                                             pOptions->GetRelaxedMath(),
-                                            pOptions->GetlibraryModule());
+                                            pOptions->GetlibraryModule(),
+                                            m_dumpHeuristicIR);
     Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
-
+    
     if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());

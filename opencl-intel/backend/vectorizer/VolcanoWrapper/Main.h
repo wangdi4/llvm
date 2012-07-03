@@ -76,6 +76,12 @@ private:
     /// @brief List for holding the vectorized kernels widths
     SmallVector<int, ESTIMATED_NUM_OF_FUNCTIONS> m_targetFunctionsWidth;
     
+    /// @brief List for holding the pre-vectorization weights 
+    SmallVector<float, ESTIMATED_NUM_OF_FUNCTIONS> m_PreWeight;
+
+    /// @brief List for holding the post-vectorization weights 
+    SmallVector<float, ESTIMATED_NUM_OF_FUNCTIONS> m_PostWeight;
+
     /// @brief Pointer to runtime module
     const Module * m_runtimeModule;
 

@@ -16,7 +16,8 @@ public:
             bool profiling,
             bool disableOpt,
             bool relaxedMath,
-            bool libraryModule):
+            bool libraryModule,
+            bool heuristicIR):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
       m_dumpIROptionsAfter(dumpIROptionAfter),
@@ -26,7 +27,8 @@ public:
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
-      m_libraryModule(libraryModule)
+      m_libraryModule(libraryModule),
+      m_dumpHeuristicIR(heuristicIR)
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
@@ -42,6 +44,7 @@ public:
     // Sets whether optimized code is library module or not (contains kernels)
     // If this options is set to true then some optimization passes will be skipped
     bool GetLibraryModule()   const { return m_libraryModule; }
+    bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
 
 private:
     Intel::CPUId m_cpuId;
@@ -57,6 +60,8 @@ private:
     // Sets whether optimized code is library module or not (contains kernels and barriers)
     // If this options is set to true then some optimization passes will be skipped
     bool m_libraryModule;
+    // Sets whether the vectorize should output heuristic LL IR inputs
+    bool m_dumpHeuristicIR;
 };
 
 

@@ -50,13 +50,15 @@ namespace Validation
         RC_BR_DUMP_IR_DIR,
         RC_BR_DUMP_JIT,
         RC_BR_TIME_PASSES,
-
+        RC_BR_DUMP_HEURISTIC_IR,
         // Reference runner specific options
         RC_REF_USE_NEAT,
 
         // These are comparator related configurations
         RC_COMP_DETAILED_STAT,
         RC_COMP_ULP_TOLERANCE,
+
+
 
         RC_END
     };
@@ -92,6 +94,7 @@ namespace Validation
         std::string m_DumpIRDir;
         std::string m_DumpJIT;
         std::string m_TimePasses;
+        bool m_dumpHeuristcIR;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

@@ -72,6 +72,7 @@ public:
     virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
     virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
     virtual std::string GetDumpIRDir() const = 0;
+    virtual bool GetDumpHeuristicIRFlag() const = 0;
 };
 
 

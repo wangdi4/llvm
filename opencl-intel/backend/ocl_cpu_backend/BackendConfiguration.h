@@ -102,6 +102,8 @@ public:
     }
     std::string GetDumpIRDir() const { return m_dumpIRDir; }
 
+    bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
+
 private:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
@@ -111,6 +113,7 @@ private:
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_dumpIRDir;
+    bool m_dumpHeuristicIR;
 
 };
 
@@ -128,6 +131,7 @@ public:
     std::vector<int> GetIRDumpOptionsAfter() const { return CompilerConfig::GetIRDumpOptionsAfter(); }
     std::vector<int> GetIRDumpOptionsBefore() const { return CompilerConfig::GetIRDumpOptionsBefore(); }
     std::string GetDumpIRDir() const { return CompilerConfig::GetDumpIRDir(); }
+    bool GetDumpHeuristicIRFlag() const { return CompilerConfig::GetDumpHeuristicIRFlag(); }
 
     const TargetDescription& GetTargetDescription() const { return m_TargetDescription; }
 

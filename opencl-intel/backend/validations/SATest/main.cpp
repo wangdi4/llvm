@@ -196,6 +196,11 @@ DumpIRDir("dump-IR-dir",
            llvm::cl::value_desc("dirname"),
            llvm::cl::init(""));
 
+llvm::cl::opt<bool>
+DumpHeuristicIR("dump-heuristic-IR",
+           llvm::cl::desc("Dump IR that is passed into the heuristic"),
+           llvm::cl::init(false));
+
 // turn on printing JIT
 llvm::cl::opt<std::string>
 DumpJIT("dump-JIT",

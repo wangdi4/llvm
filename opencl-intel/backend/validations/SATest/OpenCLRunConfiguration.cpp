@@ -84,6 +84,9 @@ PrintIRBefore;
 extern llvm::cl::opt<std::string>
 DumpIRDir;
 
+extern llvm::cl::opt<bool>
+DumpHeuristicIR;
+
 extern llvm::cl::opt<std::string>
 DumpJIT;
 
@@ -111,7 +114,8 @@ namespace Validation
         m_PrintIRBefore(::PrintIRBefore),
         m_DumpIRDir(::DumpIRDir),
         m_DumpJIT(::DumpJIT),
-        m_TimePasses(::TimePasses)
+        m_TimePasses(::TimePasses),
+        m_dumpHeuristcIR(::DumpHeuristicIR)
     {
     }
 
@@ -134,6 +138,8 @@ namespace Validation
             return m_measurePerformance;
         case RC_BR_BUILD_ONLY :
             return m_buildOnly;
+        case RC_BR_DUMP_HEURISTIC_IR :
+            return m_dumpHeuristcIR;
         default:
             return defaultValue;
         }
@@ -231,6 +237,7 @@ namespace Validation
         m_DumpIRDir = ::DumpIRDir;
         m_DumpJIT = ::DumpJIT;
         m_TimePasses = ::TimePasses;
+        m_dumpHeuristcIR = ::DumpHeuristicIR;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():
