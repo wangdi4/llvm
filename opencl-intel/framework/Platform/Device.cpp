@@ -523,21 +523,21 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     size_t szParamValueSize = 0;
     cl_uint uValue = 0;
     cl_device_id clDevIdVal = 0;
+	cl_device_partition_property clDevPartitionPropVal = 0;
     const void * pValue = NULL;
 
     switch (param_name)
     {
     case CL_DEVICE_PARTITION_MAX_SUB_DEVICES: 
+		szParamValueSize = sizeof(cl_uint);
+		uValue = m_numComputeUnits > 1 ? (cl_uint)m_numComputeUnits : 0;
         //If this was created by PARTITION_BY_NAMES, no more sub-devices allowed
         if (CL_DEVICE_PARTITION_BY_NAMES_INTEL == m_fissionMode)
         {
-            szParamValueSize = sizeof(cl_uint);
             uValue = 0;
-            pValue = &uValue;
-            break;
         }
-        //Else, just answer how many compute units you have
-        //Intentional fallthrough
+		pValue = &uValue;
+        break;
 
     case CL_DEVICE_MAX_COMPUTE_UNITS:
         szParamValueSize = sizeof(cl_uint);
@@ -563,6 +563,15 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         szParamValueSize = m_cachedFissionLength * sizeof(cl_device_partition_property);
         pValue = m_cachedFissionMode;
         break;
+
+	case CL_DEVICE_PARTITION_PROPERTIES:
+		if (m_numComputeUnits <= 1)
+		{
+			szParamValueSize = sizeof(cl_device_partition_property);
+			clDevPartitionPropVal = 0;
+			pValue = &clDevPartitionPropVal;
+			break;
+		}
 
     default:
         return m_pRootDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
