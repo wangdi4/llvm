@@ -64,7 +64,8 @@ public:
                      m_useVTune(false),
                      m_loadBuiltins(true),
                      m_DumpIROptionAfter(NULL), 
-                     m_DumpIROptionBefore(NULL) {}
+                     m_DumpIROptionBefore(NULL),
+                     m_dumpHeuristicIR(false) {}
 
     // CompilerConfiguration methods
     void LoadDefaults();

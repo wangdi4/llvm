@@ -98,7 +98,7 @@ public:
                                 (RC_BR_DUMP_IR_BEFORE, 0);
 
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
-        m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, "");
+        m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
 
     }
 

@@ -35,6 +35,9 @@ bool IRPrinter::runOnFunction(llvm::Function &F)
 {
     // Create the output file.
     std::stringstream fileName;
+    if (m_dumpDir.length() == 0)
+      return false;
+
     fileName << m_dumpDir.c_str() << "/dump." 
       << F.getName().data()
       << "_"
