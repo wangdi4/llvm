@@ -113,7 +113,11 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 //cleanup
                 //
                 result->Release();
-                builder.close();
+                //we have an issue here. When uncommenting the line, the unloading
+                //of clang causes the teardown of static llvm variables, which
+                //in turn causes code that uses llvm to crush. how can we overcome
+                //this?
+                //builder.close();
                 break;
             }
         case LL:
