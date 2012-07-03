@@ -941,7 +941,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     SMDiagnostic Err;
     string ErrorMessage;
-    LLVMContext &Context = getGlobalContext();
+    LLVMContext Context;
 
     cl_prog_container_header* pHeader = (cl_prog_container_header*) pBin;
 
@@ -952,18 +952,19 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
                     sizeof(cl_llvm_prog_header); //Skip the build flags
 
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
-           
-    std::auto_ptr<Module> module(ParseIR(pBinBuff, Err, Context));
 
-    if (module.get() == 0) 
+    Module* pModule = ParseIR(pBinBuff, Err, Context);
+
+    if (NULL == pModule) 
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    NamedMDNode* pKernels = module->getNamedMetadata("opencl.kernels");
+    NamedMDNode* pKernels = pModule->getNamedMetadata("opencl.kernels");
     if (!pKernels)
     {
         assert(false && "couldn't find any kernels in the metadata");
+        delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
 
@@ -989,6 +990,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     if (!bFoundKernel)
     {
         assert(false && "couldn't find our kernel in the metadata");
+        delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
 
@@ -1020,6 +1022,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     if (!bFoundKernelArgsInfo)
     {
+        delete pModule;
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
     }
       
@@ -1041,6 +1044,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     m_argsInfo = new ARG_INFO[m_numArgs];
     if (!m_argsInfo)
     {
+        delete pModule;
         return CL_OUT_OF_HOST_MEMORY;
     }
         
@@ -1114,6 +1118,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         m_argsInfo[i].typeName = new char[szTypeName.length() + 1];
         if (!m_argsInfo[i].typeName)
         {
+            delete pModule;
             return CL_OUT_OF_HOST_MEMORY;
         }
         STRCPY_S(m_argsInfo[i].typeName, szTypeName.length() + 1, szTypeName.c_str());
@@ -1126,13 +1131,14 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         m_argsInfo[i].name = new char[szArgName.length() + 1];
         if (!m_argsInfo[i].name)
         {
+            delete pModule;
             return CL_OUT_OF_HOST_MEMORY;
         }
         STRCPY_S(m_argsInfo[i].name, szArgName.length() + 1, szArgName.c_str());
     }
 
+    delete pModule;
     return CL_SUCCESS;
-
     }
 }
 
