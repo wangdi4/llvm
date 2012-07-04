@@ -31,13 +31,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject* *pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue);
 		virtual ~SyncGLObjects();
-		virtual cl_err_code             Init();        
 		virtual cl_err_code             Execute();        
 		virtual const char*             GetCommandName() const;		
 
 	private:
 		GLContext*		m_pContext;		
-		void*			m_hCallingThread;
 
 		void ExecGLSync(bool bMainGLThread);
 	};

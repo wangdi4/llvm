@@ -497,6 +497,12 @@ cl_err_code GenericMemObject::GetDeviceDescriptor(FissionableDevice* pDevice, IO
     return CL_SUCCESS;
 }
 
+cl_err_code GenericMemObject::UpdateDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject)
+{
+	assert(0 && "GenericMemObject is not supporting this operation");
+	return CL_INVALID_OPERATION;
+}
+
 cl_err_code	GenericMemObject::MemObjCreateDevMappedRegion(
                                         const FissionableDevice* pDevice,
 										cl_dev_cmd_param_map*	cmd_param_map,

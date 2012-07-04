@@ -201,7 +201,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		cl_int                                  m_returnCode;
 
-		cl_int                                  m_eventState;
+		OclEventState                           m_eventState;
 		Context*								m_pContext;
 
 		/**

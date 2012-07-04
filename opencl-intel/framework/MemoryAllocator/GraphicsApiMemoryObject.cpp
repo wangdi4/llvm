@@ -22,6 +22,9 @@
 #include "ocl_event.h"
 #include "memobj_event.h"
 
+using namespace std;
+using namespace Intel::OpenCL::Utils;
+
 namespace Intel { namespace OpenCL { namespace Framework
 {
     /**
@@ -30,10 +33,10 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     GraphicsApiMemoryObject::~GraphicsApiMemoryObject()
     {
-        OclEvent* pOldEvent = m_pAcquireEvent.exchange(NULL);
-        if ( NULL != pOldEvent )
+		for(t_AcquiredObjects::iterator it=m_lstAcquiredObjectDescriptors.begin(); it!=m_lstAcquiredObjectDescriptors.end(); it++)
         {
-            pOldEvent->RemovePendency(this);
+            (*it).first->RemovePendency(this);
+			(*it).second->Release();
         }
     }
 
@@ -53,11 +56,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     OclEvent* GraphicsApiMemoryObject::LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
     {
-        if (NULL == m_pChildObject)
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
             return NULL;
         }
-        return m_pChildObject->LockOnDevice(dev, usage);
+		return m_itCurrentAcquriedObject->second->LockOnDevice(dev, usage);
     }
 
     /**
@@ -66,11 +70,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     void GraphicsApiMemoryObject::UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage )
     {
-        if (NULL == m_pChildObject)
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
             return;
         }
-        return m_pChildObject->UnLockOnDevice(dev, usage);
+        return m_itCurrentAcquriedObject->second->UnLockOnDevice(dev, usage);
     }
 
     /**
@@ -80,9 +85,10 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     void GraphicsApiMemoryObject::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
     {
-        if (NULL != m_pChildObject)
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject )
         {
-            m_pChildObject->GetLayout(dimensions, rowPitch, slicePitch);
+            m_itCurrentAcquriedObject->second->GetLayout(dimensions, rowPitch, slicePitch);
         }
     }
 
@@ -94,11 +100,12 @@ namespace Intel { namespace OpenCL { namespace Framework
     cl_err_code GraphicsApiMemoryObject::CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
         size_t szRowPitch, size_t szSlicePitch) const
     {
-        if (NULL == m_pChildObject)
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
             return CL_INVALID_VALUE;
         }
-        return m_pChildObject->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+        return m_itCurrentAcquriedObject->second->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
     }
 
     /**
@@ -107,11 +114,12 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     void* GraphicsApiMemoryObject::GetBackingStoreData(const size_t* pszOrigin) const
     {
-        if (NULL == m_pChildObject)
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
             return NULL;
         }
-        return m_pChildObject->GetBackingStoreData(pszOrigin);
+        return m_itCurrentAcquriedObject->second->GetBackingStoreData(pszOrigin);
     }
 
     /**
@@ -140,7 +148,12 @@ namespace Intel { namespace OpenCL { namespace Framework
     cl_err_code	GraphicsApiMemoryObject::MemObjCreateDevMappedRegion(const FissionableDevice* pDevice,
         cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr)
     {
-        return m_pChildObject->MemObjCreateDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            return CL_INVALID_OPERATION;
+        }
+        return m_itCurrentAcquriedObject->second->MemObjCreateDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
     }
 
     /**
@@ -151,22 +164,42 @@ namespace Intel { namespace OpenCL { namespace Framework
     cl_err_code	GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(const FissionableDevice* pDevice,
         cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr)
     {
-        return m_pChildObject->MemObjReleaseDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            return CL_INVALID_OPERATION;
+        }
+        return m_itCurrentAcquriedObject->second->MemObjReleaseDevMappedRegion(pDevice, cmd_param_map, pHostMapDataPtr);
     }
 
 	bool GraphicsApiMemoryObject::IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const
 	{
-		return m_pChildObject->IsSynchDataWithHostRequired( pMapInfo, pHostMapDataPtr );
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            return false;
+        }
+		return m_itCurrentAcquriedObject->second->IsSynchDataWithHostRequired( pMapInfo, pHostMapDataPtr );
 	}
 
     cl_err_code GraphicsApiMemoryObject::SynchDataToHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
     {
-        return m_pChildObject->SynchDataToHost( pMapInfo, pHostMapDataPtr );
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            return CL_INVALID_OPERATION;
+        }
+        return m_itCurrentAcquriedObject->second->SynchDataToHost( pMapInfo, pHostMapDataPtr );
     }
 
     cl_err_code GraphicsApiMemoryObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr )
     {
-        return m_pChildObject->SynchDataFromHost( pMapInfo, pHostMapDataPtr );
+		OclAutoMutex mu(&m_muAcquireRelease);
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            return CL_INVALID_OPERATION;
+        }
+        return m_itCurrentAcquriedObject->second->SynchDataFromHost( pMapInfo, pHostMapDataPtr );
     }
 
     /**
@@ -175,15 +208,37 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code GraphicsApiMemoryObject::SetAcquireCmdEvent(OclEvent* pEvent)
     {
+		OclAutoMutex mu(&m_muAcquireRelease);
+
 		if ( NULL != pEvent )
 		{
 			pEvent->AddPendency(this);
+			m_lstAcquiredObjectDescriptors.push_back(t_AcquiredObjects::value_type(pEvent, CL_GFX_OBJECT_NOT_ACQUIRED));
+			if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+			{
+				m_itCurrentAcquriedObject = m_lstAcquiredObjectDescriptors.begin();
+			}
+		} else
+		{
+			assert(!m_lstAcquiredObjectDescriptors.empty() && "On Release the Aquired Event list must be NOT empty");
+
+			MemoryObject* pMemObj = m_lstAcquiredObjectDescriptors.front().second;
+			if ( CL_GFX_OBJECT_NOT_ACQUIRED ==pMemObj )
+			{
+				// Nothing to do with NON acquried objects
+				return CL_SUCCESS;
+			}
+
+			if ( (CL_GFX_OBJECT_NOT_READY != pMemObj) && (CL_GFX_OBJECT_FAIL_IN_ACQUIRE!=pMemObj) )
+			{
+				pMemObj->Release();				// Relase allocated child object
+			}
+			
+			m_lstAcquiredObjectDescriptors.front().first->RemovePendency(this);	// Remove pendency from acquired command
+			m_lstAcquiredObjectDescriptors.pop_front();
+			m_itCurrentAcquriedObject = m_lstAcquiredObjectDescriptors.begin();
 		}
-		OclEvent* pOldEvent = m_pAcquireEvent.exchange(pEvent);        
-        if ( NULL != pOldEvent )
-        {
-            pOldEvent->RemovePendency(this);            
-        }
+
 		return CL_SUCCESS;
     }
 
@@ -194,13 +249,70 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent)
     {
-        if ( NULL == m_pAcquireEvent )
+		OclAutoMutex mu(&m_muAcquireRelease);
+
+        if ( m_lstAcquiredObjectDescriptors.empty() )
         {
             // Trying to get device descriptor before acquire operation was enqueued
             return CL_INVALID_OPERATION;
         }
 
-        if ( CL_NOT_READY == m_clAcquireState )
+		// Need to check if retriving curren acquried object descriptor or not
+		if ( --m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) 
+		{
+			if (CL_GFX_OBJECT_NOT_READY == m_itCurrentAcquriedObject->second) 
+			{
+				// Here the acquire operation is not finished and we need to create child object
+				cl_err_code err = CreateChildObject();
+				if ( CL_FAILED(err) )
+				{
+					return err;
+				}
+			}
+
+			if ( CL_GFX_OBJECT_FAIL_IN_ACQUIRE == m_itCurrentAcquriedObject->second )
+			{
+				return CL_OUT_OF_RESOURCES;
+			}
+			
+			MemoryObject* pCurrentChild = m_itCurrentAcquriedObject->second;
+			if ( NULL != pCurrentChild )
+			{
+				return pCurrentChild->GetDeviceDescriptor(pDevice, ppDevObject, ppEvent);
+			}
+		}
+
+		// Retrieving descriptor of the object that still was not aquired
+
+	    // Now we need to create event that will updated on acquire completion
+		assert(NULL!=ppEvent);
+		OclEvent* pNewEvent = new MemoryObjectEvent(ppDevObject, this, pDevice);
+		if ( NULL == pNewEvent )
+		{
+			return CL_OUT_OF_HOST_MEMORY;
+		}
+
+		// Link to the acquire event
+		pNewEvent->AddDependentOn(m_lstAcquiredObjectDescriptors.back().first);
+		*ppEvent = pNewEvent;
+		// Event is born with user RefCount == 1, we should release it
+		pNewEvent->Release();
+
+	    return CL_NOT_READY;
+	
+    }
+
+	cl_err_code GraphicsApiMemoryObject::UpdateDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject)
+	{
+		OclAutoMutex mu(&m_muAcquireRelease);
+
+        if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+        {
+            // Trying to get device descriptor before acquire operation was enqueued
+            return CL_INVALID_OPERATION;
+        }
+
+        if ( CL_GFX_OBJECT_NOT_READY == m_itCurrentAcquriedObject->second )
         {
             // Here the acquire operation is not finished and we need to create child object
             cl_err_code err = CreateChildObject();
@@ -210,29 +322,19 @@ namespace Intel { namespace OpenCL { namespace Framework
             }
         }
 
-        if ( NULL != m_pChildObject )
+		MemoryObject* pCurrentChild = m_itCurrentAcquriedObject->second;
+        if ( NULL != pCurrentChild )
         {
-            return m_pChildObject->GetDeviceDescriptor(pDevice, ppDevObject, ppEvent);
+            return pCurrentChild->GetDeviceDescriptor(pDevice, ppDevObject, NULL);
         }
 
-        if ( CL_FAILED(m_clAcquireState) )
+        if ( CL_GFX_OBJECT_FAIL_IN_ACQUIRE == m_itCurrentAcquriedObject->second )
         {
-            return m_clAcquireState;
+			return CL_OUT_OF_RESOURCES;
         }
 
-
-        // Now we need to create event that will updated on acquire completion
-        assert(NULL!=ppEvent);
-        OclEvent* pNewEvent = new MemoryObjectEvent(ppDevObject, this, pDevice);
-        if ( NULL == pNewEvent )
-        {
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-        pNewEvent->AddDependentOn(m_pAcquireEvent);
-        *ppEvent = pNewEvent;
-        pNewEvent->Release();
-
-        return CL_NOT_READY;
-    }
+		assert (0 && "We should not get to this line. After acquire completed, it should be a valid object or an error code");
+		return CL_INVALID_OPERATION;
+	}
 
 }}}

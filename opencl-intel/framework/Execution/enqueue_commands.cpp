@@ -70,7 +70,7 @@ Command::Command( IOclCommandQueueBase* cmdQueue ):
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
 	m_pCommandQueue(cmdQueue),
-	m_returnCode(CL_INVALID_OPERATION),
+	m_returnCode(CL_SUCCESS),
 	m_memory_objects_acquired(false)
 {
 	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
@@ -2373,7 +2373,6 @@ cl_err_code WriteMemObjCommand::CommandDone()
  ******************************************************************/
 cl_err_code RuntimeCommand::Execute()
 {
-	m_returnCode = 0;
     LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
     CommandDone();
 	m_Event.SetEventState(EVENT_STATE_DONE);

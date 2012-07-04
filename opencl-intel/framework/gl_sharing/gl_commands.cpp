@@ -31,10 +31,6 @@ SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, (GraphicsApiMemoryObject*
 
 SyncGLObjects::~SyncGLObjects()
 {
-	if ( NULL != m_hCallingThread)
-	{
-		CloseHandle(m_hCallingThread);
-	}
 }
 
 const char* SyncGLObjects::GetCommandName() const
@@ -47,14 +43,6 @@ const char* SyncGLObjects::GetCommandName() const
 	{
 		return "CL_COMMAND_RELEASE_GL_OBJECTS";
 	}
-}
-
-cl_err_code SyncGLObjects::Init()
-{
-    // Get calling thread handle
-    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
-        GetCurrentProcess(), &m_hCallingThread, 0, FALSE, DUPLICATE_SAME_ACCESS);
-    return SyncGraphicsApiObjects::Init();
 }
 
 cl_err_code SyncGLObjects::Execute()
@@ -90,25 +78,34 @@ cl_err_code SyncGLObjects::Execute()
 
 void SyncGLObjects::ExecGLSync(bool bMainGLThread)
 {
+	cl_err_code err = CL_SUCCESS;
 	// Do the actual work here
 	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType() )
 	{
 		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
 		{
-			dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).AcquireGLObject();
+			err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).AcquireGLObject();
+			if ( CL_FAILED(err) )
+			{
+				m_returnCode = err;
+			}
 		}
 	}
 	else
 	{
 		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
 		{
-			dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).ReleaseGLObject();
+			err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).ReleaseGLObject();
+			if ( CL_FAILED(err) )
+			{
+				m_returnCode = err;
+			}
 		}
 		if ( !bMainGLThread )
 		{
 			// If syncronization is done in different thread we must make sure
-			// that all GL commands were issued
-			glFlush();
+			// that all GL commands were completed
+			glFinish();
 		}
 	}
 

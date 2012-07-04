@@ -59,23 +59,25 @@ cl_err_code GLMemoryObject::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size
 cl_err_code GLMemoryObject::ReadData(void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
 					 size_t          szRowPitch, size_t          szSlicePitch)
 {
-	if ( NULL == m_pChildObject)
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
 	{
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	return m_pChildObject->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+	return m_itCurrentAcquriedObject->second->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
 cl_err_code GLMemoryObject::WriteData(	const void * pOutData, const size_t *  pszOrigin, const size_t *  pszRegion,
 					  size_t          szRowPitch, size_t          szSlicePitch)
 {
-	if ( NULL == m_pChildObject)
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
 	{
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+	return m_itCurrentAcquriedObject->second->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
 cl_err_code	GLMemoryObject::SetGLMemFlags()
@@ -236,7 +238,7 @@ cl_err_code GLTexture::CreateChildObject()
 	if ( NULL == pBuffer )
 	{
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
-        SetAcquireState(CL_INVALID_OPERATION);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_INVALID_OPERATION;
 	}
 
@@ -247,7 +249,7 @@ cl_err_code GLTexture::CreateChildObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
-		SetAcquireState(res);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return res;
 	}
 
@@ -258,13 +260,11 @@ cl_err_code GLTexture::CreateChildObject()
 		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
 		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
 		pChild->Release();
-		SetAcquireState(CL_OUT_OF_RESOURCES);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	SetAcquireState(CL_SUCCESS);
-	m_pChildObject.exchange(pChild);
-
+	m_itCurrentAcquriedObject->second = pChild;
 	((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
 
 	return CL_SUCCESS;
@@ -329,15 +329,17 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 
 cl_err_code GLTexture::AcquireGLObject()
 {
-	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
-	if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
+	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
+		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+		)
 	{
 		// We have already acquired object
 		return CL_SUCCESS;
 	}
-
-	m_muAcquireRelease.Lock();
 
 	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
@@ -350,7 +352,7 @@ cl_err_code GLTexture::AcquireGLObject()
 		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, m_glFramebuffer );
 		if( glGetError() != GL_NO_ERROR )
 		{
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 
@@ -358,13 +360,13 @@ cl_err_code GLTexture::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 		if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER_EXT ) != GL_FRAMEBUFFER_COMPLETE_EXT )
 		{
 			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 
@@ -376,15 +378,15 @@ cl_err_code GLTexture::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 		GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
 		m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
-		if( glGetError() != GL_NO_ERROR )
+		if( (glErr = glGetError()) != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 		// glReadPixels() should return immediately, the transfer is in background by DMA
@@ -392,7 +394,7 @@ cl_err_code GLTexture::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 
@@ -412,7 +414,7 @@ cl_err_code GLTexture::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 
@@ -427,29 +429,20 @@ cl_err_code GLTexture::AcquireGLObject()
 		if( glGetError() != GL_NO_ERROR )
 		{
 			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			SetAcquireState(CL_INVALID_OPERATION);
+			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 			return CL_INVALID_OPERATION;
 		}
 
 		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
 	}
 
-	SetAcquireState(CL_NOT_READY);
+	m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_NOT_READY;
 
 	return CL_SUCCESS;
 }
 
 cl_err_code GLTexture::ReleaseGLObject()
 {
-	MemoryObject* pChild = m_pChildObject.exchange(NULL);
-
-	if ( NULL == pChild )
-	{
-		return CL_INVALID_OPERATION;
-	}
-
-	pChild->Release();
-
 	if ( (m_clFlags & CL_MEM_WRITE_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
 		GLenum pboBinding = m_clFlags & CL_MEM_WRITE_ONLY ? GL_PIXEL_UNPACK_BUFFER_BINDING_ARB : GL_PIXEL_PACK_BUFFER_BINDING_ARB;

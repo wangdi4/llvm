@@ -22,6 +22,12 @@
 
 #include "MemoryObject.h"
 
+#include <list>
+
+#define CL_GFX_OBJECT_NOT_READY			((MemoryObject *)1)
+#define CL_GFX_OBJECT_NOT_ACQUIRED		((MemoryObject *)NULL)
+#define CL_GFX_OBJECT_FAIL_IN_ACQUIRE	((MemoryObject *)-1)
+
 namespace Intel { namespace OpenCL { namespace Framework
 {
     /**
@@ -38,15 +44,6 @@ namespace Intel { namespace OpenCL { namespace Framework
     class GraphicsApiMemoryObject : public MemoryObject
     {
 
-        Intel::OpenCL::Utils::AtomicPointer<OclEvent> m_pAcquireEvent;
-        Intel::OpenCL::Utils::AtomicCounter m_clAcquireState;
-
-    protected:
-
-        Intel::OpenCL::Utils::AtomicPointer<MemoryObject> m_pChildObject;
-        // This object is the actual object that handle interaction with devices
-        Intel::OpenCL::Utils::OclMutex m_muAcquireRelease;
-
     public:
 
         /**
@@ -60,8 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          */
 
         GraphicsApiMemoryObject(Context* pContext) :
-          MemoryObject(pContext), m_pAcquireEvent(NULL),
-			m_clAcquireState(CL_SUCCESS), m_pChildObject(NULL) { }
+          MemoryObject(pContext), m_itCurrentAcquriedObject(m_lstAcquiredObjectDescriptors.end()) { }
 
         /**
          * @fn  virtual GraphicsApiMemoryObject::~GraphicsApiMemoryObject();
@@ -94,6 +90,9 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice,
             IOCLDevMemoryObject** ppDevObject, OclEvent** ppEvent);
 
+		virtual cl_err_code UpdateDeviceDescriptor(FissionableDevice* IN pDevice,
+			IOCLDevMemoryObject* OUT *ppDevObject);
+
         virtual bool IsSupportedByDevice(FissionableDevice* pDevice);
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
@@ -104,32 +103,6 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
     protected:
-
-        /**
-         * @fn  long GraphicsApiMemoryObject::GetAcquireState() const
-         *
-         * @brief   Gets the acquire state.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @return  The acquire state.
-         */
-
-        long GetAcquireState() const { return m_clAcquireState; }
-
-        /**
-         * @fn  void GraphicsApiMemoryObject::SetAcquireState(long lVal)
-         *
-         * @brief   Sets an acquire state.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @param   lVal    The value.
-         */
-
-        void SetAcquireState(long lVal) { m_clAcquireState = lVal; }
 
         // This function is responsible for creating a supporting child object
         virtual cl_err_code CreateChildObject() = 0;
@@ -142,6 +115,25 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
             cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr);
 
-    };
+
+        mutable Intel::OpenCL::Utils::OclSpinMutex m_muAcquireRelease;
+		// This list hold the ordered events which represent acquire commands and appropriate child object,
+		// the latest event located in the tail.
+		// Scenario:
+		// clEnqueueAcquireGL...()
+		// clEnqueuNDRange()
+		// clEnqueueReleaseGL...()
+		// clEnqueueAcquireGL...()
+		// clEnqueuNDRange()
+		// clEnqueueReleaseGL...()
+		// ...
+		// clFinish()
+		
+		// The list is protectd by m_muAcquireRelease
+		typedef std::list< std::pair<OclEvent*, MemoryObject*> > t_AcquiredObjects;
+		t_AcquiredObjects m_lstAcquiredObjectDescriptors;
+		t_AcquiredObjects::iterator m_itCurrentAcquriedObject;
+
+	};
 
 }}}

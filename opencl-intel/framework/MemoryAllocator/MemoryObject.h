@@ -252,6 +252,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Return NULL if object was not allocated for the specific device
 		virtual cl_err_code GetDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, OclEvent* OUT *ppEvent) = 0;
 
+		// Return device resource of the memory object, associated with give device
+		// This method is call when delayes Gfx Acquire operation is completed
+		virtual cl_err_code UpdateDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject) = 0;
+
 		// Maps a memory object region to the host space and returns a pointer to it.
 		// The function returns a pointer to the mapped region.
 		// If the object is 2D/3D image and pszImageRowPitch and/or pszImageSlicePitch are not NULL, those

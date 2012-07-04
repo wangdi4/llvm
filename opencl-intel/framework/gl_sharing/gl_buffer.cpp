@@ -90,25 +90,28 @@ cl_err_code GLBuffer::GetDimensionSizes(size_t* pszRegion) const
 cl_err_code GLBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, MemoryObject** ppBuffer)
 {
-	if (NULL == m_pChildObject)
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
 	{
 		return CL_INVALID_GL_OBJECT;
 	}
 
-	return m_pChildObject->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
+	return m_itCurrentAcquriedObject->second->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
 }
 
 cl_err_code GLBuffer::AcquireGLObject()
 {
-	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
-	if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
+	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
+		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+		)
 	{
 		// We have already acquired object
 		return CL_SUCCESS;
 	}
-
-	m_muAcquireRelease.Lock();
 
 	GLint	currBuff;
 	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
@@ -117,8 +120,8 @@ cl_err_code GLBuffer::AcquireGLObject()
 	if ( NULL == pBuffer )
 	{
 		m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
-		SetAcquireState(CL_INVALID_OPERATION);
-		return CL_INVALID_OPERATION;
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+		return CL_OUT_OF_RESOURCES;
 	}
 
 	// Now we need to create child object
@@ -128,7 +131,7 @@ cl_err_code GLBuffer::AcquireGLObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
 		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
-		SetAcquireState(res);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return res;
 	}
 
@@ -143,11 +146,11 @@ cl_err_code GLBuffer::AcquireGLObject()
 	{
 		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
 		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
-		SetAcquireState(CL_OUT_OF_RESOURCES);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	m_pChildObject.exchange(pChild);
+	m_itCurrentAcquriedObject->second = pChild;
 
 	m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 
@@ -156,15 +159,6 @@ cl_err_code GLBuffer::AcquireGLObject()
 
 cl_err_code GLBuffer::ReleaseGLObject()
 {
-	MemoryObject* pChild = m_pChildObject.exchange(NULL);
-
-	if ( NULL == pChild )
-	{
-		return CL_INVALID_OPERATION;
-	}
-
-	pChild->Release();
-
 	GLint	currBuff;
 	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
 	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, m_glObjHandle);

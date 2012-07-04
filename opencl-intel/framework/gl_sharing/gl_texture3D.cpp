@@ -94,7 +94,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
-		SetAcquireState(res);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return res;
 	}
 
@@ -102,7 +102,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 	if (CL_FAILED(res))
 	{
 		pChild->Release();
-		SetAcquireState(CL_OUT_OF_RESOURCES);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
 	}
 
@@ -124,8 +124,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 		glBindTexture(glBaseTarget, currTexture);
 	}
 
-	SetAcquireState(CL_SUCCESS);
-	m_pChildObject.exchange(pChild);
+	m_itCurrentAcquriedObject->second = pChild;
 
 	return CL_SUCCESS;
 
@@ -133,13 +132,6 @@ cl_err_code GLTexture3D::AcquireGLObject()
 
 cl_err_code GLTexture3D::ReleaseGLObject()
 {
-	MemoryObject* pChild = m_pChildObject.exchange(NULL);
-
-	if ( NULL == pChild )
-	{
-		return CL_INVALID_OPERATION;
-	}
-
 	// Now write back image data if requried
 	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_WRITE_ONLY) )
 	{
@@ -158,10 +150,7 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 
 	m_pMemObjData = NULL;
 
-	pChild->Release();
-
 	return CL_SUCCESS;
-
 }
 
 cl_err_code GLTexture3D::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const

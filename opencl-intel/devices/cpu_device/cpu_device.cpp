@@ -1713,7 +1713,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevFlushCommandList Function enter"));
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevFlushCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {
@@ -1781,7 +1781,7 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
     if (NULL != list)
     {
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
@@ -1815,7 +1815,7 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListWaitCompletion Function enter"));
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListWaitCompletion Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
     if (NULL == pList)
     {

@@ -309,7 +309,12 @@ cl_err_code QueueEvent::ObservedEventStateChanged(Intel::OpenCL::Framework::OclE
 	if (CL_SUCCESS > returnCode)
 	{
 		// in case of error or finish
-		m_pCommand->NotifyCmdStatusChanged(0, CL_COMPLETE, returnCode, Intel::OpenCL::Utils::HostTime());
+		unsigned long long ullHostTime = 0;
+		if ( m_bProfilingEnabled )
+		{
+			ullHostTime = Intel::OpenCL::Utils::HostTime();
+		}
+		m_pCommand->NotifyCmdStatusChanged(0, CL_COMPLETE, returnCode, ullHostTime);
 		//Everything else will be handled from the command routine
 		return CL_SUCCESS;
 	}

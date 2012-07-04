@@ -677,7 +677,7 @@ D3DResource<RESOURCE_TYPE, DEV_TYPE>::~D3DResource()
 {
     if (m_bAcquired)
     {
-        m_pChildObject->Release();
+        m_itCurrentAcquriedObject->second->Release();
     }
     if (NULL != m_pResourceInfo)
     {
@@ -724,22 +724,26 @@ template<typename RESOURCE_TYPE, typename DEV_TYPE>
 cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::ReadData(void* pOutData, const size_t* pszOrigin,
     const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
 {
-    if (NULL == m_pChildObject)
-    {
-        return CL_INVALID_VALUE;
-    }
-    return m_pChildObject->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return m_itCurrentAcquriedObject->second->ReadData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::WriteData(const void* pOutData, const size_t* pszOrigin,
     const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
 {
-    if (NULL == m_pChildObject)
-    {
-        return CL_INVALID_VALUE;
-    }
-    return m_pChildObject->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return m_itCurrentAcquriedObject->second->WriteData(pOutData, pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
@@ -747,41 +751,48 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::CreateSubBuffer(cl_mem_flags c
     cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
     MemoryObject** ppBuffer)
 {
-    if (NULL == m_pChildObject)
-    {
-        return CL_INVALID_VALUE;
-    }
-    return m_pChildObject->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
+	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	return m_itCurrentAcquriedObject->second->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
 {
-    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
+    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
     
-    if (NULL != m_pChildObject && CL_SUCCEEDED(GetAcquireState()))
-    {
+	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
+		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+		)
+	{
         // We have already acquired an object
         return;
-    }
-    m_muAcquireRelease.Lock();
-    void* const pData = Lock();
+	}
+
+	void* const pData = Lock();
     if (NULL == pData)
     {
-        SetAcquireState(CL_INVALID_OPERATION);
+		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
         return;
     }
-    // Now we need to create child object
+    
+	// Now we need to create child object
     MemoryObject* pChild;
     cl_err_code res =
         MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU,
         GetChildMemObjectType(), CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
     if (CL_FAILED(res))
     {
-        Unlock();
-        SetAcquireState(res);
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
         return;
     }
+
     if (m_clImageFormat.image_channel_data_type != 0 || m_clImageFormat.image_channel_order != 0)
     {
         res = pChild->Initialize(m_clFlags, &m_clImageFormat, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
@@ -793,23 +804,18 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     
     if (CL_FAILED(res))
     {
-        Unlock();
-        SetAcquireState(CL_OUT_OF_RESOURCES);
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
         return;
     }
-    m_pChildObject.exchange(pChild);
+
     pChild->AddPendency(this);
+    m_itCurrentAcquriedObject->second = pChild;
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 void D3DResource<RESOURCE_TYPE, DEV_TYPE>::ReleaseD3D()
 {   
-    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
-    MemoryObject* const pChild = m_pChildObject.exchange(NULL);
-    assert(NULL != pChild);
     Unlock();
-    pChild->RemovePendency(this);
-    pChild->Release();    
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>

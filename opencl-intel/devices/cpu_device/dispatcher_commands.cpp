@@ -1032,7 +1032,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 
 #ifdef _DEBUG_PRINT
 	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel*)cmdParams->kernel;
+    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 #endif
 #ifdef _DEBUG
 	lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));

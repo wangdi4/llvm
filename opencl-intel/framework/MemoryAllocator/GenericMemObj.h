@@ -93,6 +93,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
 		cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
+		cl_err_code UpdateDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject);
 
         // return TRUE is device can support this sub-buffer - as for alignment and other requirements.
         // assume that all devices do support all sub-buffer alignments.
