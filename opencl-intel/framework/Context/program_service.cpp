@@ -627,7 +627,7 @@ cl_err_code ProgramService::CompileProgram(Program *program,
                 if (0 < i)
                 {
                     //Release all accesses already acquired
-                    for (cl_uint j = i - 1; j >= 0; --j)
+                    for (int j = (int)i - 1; j >= 0; --j)
                     {
                         program->Unacquire(device_list[j]);
                     }
@@ -665,7 +665,7 @@ cl_err_code ProgramService::CompileProgram(Program *program,
                 if (0 < i)
                 {
                     //Release all accesses already acquired
-                    for (cl_uint j = i - 1; j >= 0; --j)
+                    for (int j = (int)i - 1; j >= 0; --j)
                     {
                         program->Unacquire(pDevices[j]);
                     }
@@ -1043,7 +1043,7 @@ cl_err_code ProgramService::LinkProgram(Program *program,
                 if (0 < devID)
                 {
                     //Release all accesses already acquired
-                    for (cl_uint j = devID - 1; j >= 0; --j)
+                    for (int j = (int)devID - 1; j >= 0; --j)
                     {
                         program->Unacquire(pDevices[j]);
                     }
@@ -1335,7 +1335,7 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
                 if (0 < i)
                 {
                     //Release all accesses already acquired
-                    for (cl_uint j = i - 1; j >= 0; --j)
+                    for (int j = (int)i - 1; j >= 0; --j)
                     {
                         program->Unacquire(device_list[j]);
                     }
@@ -1364,7 +1364,7 @@ cl_err_code ProgramService::BuildProgram(Program *program, cl_uint num_devices, 
                 if (0 < i)
                 {
                     //Release all accesses already acquired
-                    for (cl_uint j = i - 1; j >= 0; --j)
+                    for (int j = (int)i - 1; j >= 0; --j)
                     {
                         program->Unacquire(device_list[j]);
                     }
