@@ -26,9 +26,13 @@ namespace intel {
 
   bool SimplifyGEP::runOnFunction(Function &F) {
 
+    // Obtain WIAnalysis of the function
+    m_depAnalysis = &getAnalysis<WIAnalysis>();
+    V_ASSERT(m_depAnalysis && "Unable to get pass");
+
     std::vector<GetElementPtrInst *> worklist;
 
-    // Iterate over all instructions and search load/store instructions
+    // Iterate over all instructions and search GEP instructions
     for (inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii) {
       // searching only GEP instruction with more than 1 index that support simplification
       GetElementPtrInst *pGEP = dyn_cast<GetElementPtrInst>(&*ii);
@@ -48,16 +52,70 @@ namespace intel {
         GetElementPtrInst *pGEP = *gi;
 
         V_ASSERT(pGEP->getPointerOperandIndex() == 0 && "assume Ptr operand is first operand!");
-        Value* pLastIndex = pGEP->getOperand(pGEP->getNumIndices());
-        // Replace last index of original GEP instruction with Zero.
-        pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
-        // Create new GEP instruction with original GEP instruction as pointer
-        // and with its old last index as the new GEP instruction only index.
-        GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
-        pNewGEP->insertAfter(pGEP);
-        pGEP->replaceAllUsesWith(pNewGEP);
-        // workaround as previous function replaced also the pointer of the new GEP instruction!
-        pNewGEP->setOperand(pNewGEP->getPointerOperandIndex(), pGEP);
+
+        if (IsUniformSimplifiableGep(pGEP)) {
+          Value *pLastIndex = pGEP->getOperand(pGEP->getNumIndices());
+          // Replace last index of original GEP instruction with Zero.
+          pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
+          // Create new GEP instruction with original GEP instruction as pointer
+          // and with its old last index as the new GEP instruction only index.
+          GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
+          pNewGEP->insertAfter(pGEP);
+          pGEP->replaceAllUsesWith(pNewGEP);
+          // workaround as previous function replaced also the pointer of the new GEP instruction!
+          pNewGEP->setOperand(pNewGEP->getPointerOperandIndex(), pGEP);
+        }
+        else if(IsIndexTypeSimplifiableGep(pGEP)) {
+          // bitcast base address value to pointer of base type
+          // calculate all indices into one index by multiplying array sizes with indices
+          //[A x [B X [C X type]]]* GEP base, x, a, b, c ==> ((x*A + a)*B + b)*C + c
+          Type *baseType = pGEP->getPointerOperand()->getType();
+
+          V_ASSERT(baseType->isPointerTy() && "type of base address of GEP assumed to be a pointer");
+          baseType = baseType->getContainedType(0);
+
+          std::vector<unsigned int> arraySizes;
+          while (baseType->isArrayTy()) {
+            arraySizes.insert(arraySizes.begin(), cast<ArrayType>(baseType)->getNumElements());
+            baseType = baseType->getContainedType(0);
+          }
+          V_ASSERT(baseType->isSingleValueType() && !baseType->isPointerTy() && "assumed primitive base type!");
+
+          if(baseType->isVectorTy()) {
+            arraySizes.insert(arraySizes.begin(), cast<VectorType>(baseType)->getNumElements());
+          }
+
+          Value *newIndex = NULL;
+          for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
+            Value *index = pGEP->getOperand(i);
+            if (newIndex) {
+              newIndex = BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+            }
+            else {
+              newIndex = index;
+            }
+            Constant *arraySize = ConstantInt::get(index->getType(), arraySizes.back());
+            arraySizes.pop_back();
+            newIndex = BinaryOperator::CreateNUWMul(newIndex, arraySize, "mulIndex", pGEP);
+          }
+          // Add last Index
+          Value *index = pGEP->getOperand(pGEP->getNumOperands()-1);
+          if (newIndex) {
+            newIndex = BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+          }
+          else {
+            newIndex = index;
+          }
+          V_ASSERT(newIndex && "new calculated index should not be NULL");
+          Value* newBase = pGEP->getPointerOperand();
+          newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
+          GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(newBase, newIndex, "simplifiedGEP", pGEP);
+          pGEP->replaceAllUsesWith(pNewGEP);
+          pGEP->eraseFromParent();
+        }
+        else {
+          // Is not simplifiable GEP instruction
+        }
     }
     
     return true;
@@ -68,7 +126,7 @@ namespace intel {
 
     // Support only GEP instructions with
     // pointer operand of type that contains no structures!
-    Value* pPtr = pGEP->getPointerOperand();
+    Value *pPtr = pGEP->getPointerOperand();
 
     Type *type = pPtr->getType();
     if(type->isPointerTy()) {
@@ -81,6 +139,26 @@ namespace intel {
       return true;
     }
     return false;
+  }
+
+  bool SimplifyGEP::IsUniformSimplifiableGep(GetElementPtrInst *pGEP) {
+    // Check if all indices except the last one are uniform
+    for (unsigned int i=1; i<pGEP->getNumIndices(); ++i) {
+      if (WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pGEP->getOperand(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool SimplifyGEP::IsIndexTypeSimplifiableGep(GetElementPtrInst *pGEP) {
+    Type *firstIndexType = pGEP->getOperand(1)->getType();
+    for (unsigned int i=1; i<pGEP->getNumOperands(); ++i) {
+      if (firstIndexType != pGEP->getOperand(i)->getType()) {
+        return false;
+      }
+    }
+    return true;
   }
 
 } // namespace

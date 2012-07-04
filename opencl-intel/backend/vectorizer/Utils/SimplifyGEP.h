@@ -22,6 +22,7 @@ File Name:  SimplifyGEP.h
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 
+#include "WIAnalysis.h"
 #include "Logger.h"
 
 using namespace llvm;
@@ -46,6 +47,7 @@ namespace intel {
     /// @param AU Analysis
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
+      AU.addRequired<WIAnalysis>();
     }
 
     /// @brief LLVM Function pass entry
@@ -58,6 +60,20 @@ namespace intel {
     /// @param pGEP GEP instruction
     /// @return True if GEP instruction can be simplified, False otherwise
     bool SimplifiableGep(GetElementPtrInst *pGEP);
+
+    /// @brief Check if given GEP instruction is unfirom after being simplified
+    /// @param pGEP GEP instruction
+    /// @return True if GEP instruction can be simplified to uniform GEP, False otherwise
+    bool IsUniformSimplifiableGep(GetElementPtrInst *pGEP);
+
+    /// @brief Check if given GEP instruction has i32 indices
+    /// @param pGEP GEP instruction
+    /// @return True if GEP instruction can be simplified to GEP with i32 index, False otherwise
+    bool IsIndexTypeSimplifiableGep(GetElementPtrInst *pGEP);
+
+  private:
+    /// @brief pointer to work-item analysis performed for this function
+    WIAnalysis *m_depAnalysis;
   };
 } // namespace
 
