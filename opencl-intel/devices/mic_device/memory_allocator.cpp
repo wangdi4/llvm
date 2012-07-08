@@ -705,9 +705,8 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     }
 
     // BUGBUG:  COI still have many problems with sub-buffers - temporary disable
-//    assert( false && "Sub-buffers on MIC are still not supported" );
+    assert( false && "Sub-buffers on MIC are still not supported" );
     
-//    return CL_DEV_ERROR_FAIL; // CL_DEV_SUCCESS;
-      return CL_DEV_SUCCESS;
+    return CL_DEV_ERROR_FAIL; // CL_DEV_SUCCESS;
 }
 

@@ -442,7 +442,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
         m_completionBarrier.cmdEvent = copier.get_last_event();
 
-        if (( CL_DEV_CMD_WRITE == m_pCmd->type ) && (0 == pMicMemObj->GetWriteMapsCount()))
+        if (0 == pMicMemObj->GetWriteMapsCount())
         {
             m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObj, m_completionBarrier.cmdEvent );
         }

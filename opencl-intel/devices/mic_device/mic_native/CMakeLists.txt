@@ -47,10 +47,6 @@ else ()
             set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
         endif ()
     endif (NOT TMP_ICC_INSTALL_DIR)
-	
-	set( MIC_TBB_PATH ${TMP_ICC_INSTALL_DIR}/../tbb )
-	set( MIC_TBB_HEADERS_PATH ${MIC_TBB_PATH}/include )
-	set( MIC_TBB_LIB_PATH ${MIC_TBB_PATH}/lib/mic )
 
     if (TMP_ICC_INSTALL_DIR)
         # if environment ICC_INSTALL_DIR is set
@@ -190,8 +186,9 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../
                 -I ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                 -I ${OCL_SOURCE_DIR}/cl_api
-                -I ${MIC_TBB_HEADERS_PATH}
+                -I ${OCL_SOURCE_DIR}/externals/tbb/include
                 -I ${COI_SDK_PATH}/include
+                -I ${MIC_TBB_HEADERS_PATH}
                 )
 				
 list( APPEND MIC_FLAGS
@@ -301,7 +298,7 @@ add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} )
 
-file( GLOB MIC_TBB_LIBS_TO_COPY ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
+file( GLOB MIC_TBB_LIBS_TO_COPY RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
 install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 
 
