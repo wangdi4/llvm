@@ -133,6 +133,7 @@ set (OCL_CPU_DEBUGGING_INCLUDE_FILES
     debuginfo_utils.h
     debugservermessages.pb.h
     protobufpackedmessage.h
+	resource.h
 )
 
 set (OCL_CPU_DEBUGGING_SOURCE_FILES
@@ -142,6 +143,10 @@ set (OCL_CPU_DEBUGGING_SOURCE_FILES
     debuginfo_utils.cpp
     debugservermessages.pb.cc
     protobufpackedmessage.cpp
+)
+
+set (OCL_CPU_DEBUGGING_RC_FILES
+    OclCpuDebugging.rc
 )
 
 if (WIN32)
@@ -167,11 +172,11 @@ include_directories(
   ${OCL_SOURCE_DIR}/externals/tbb/include
 )
 
-
 # Create DLL
 add_library (${TARGET_NAME} SHARED 
     ${OCL_CPU_DEBUGGING_INCLUDE_FILES}
     ${OCL_CPU_DEBUGGING_SOURCE_FILES}
+	${OCL_CPU_DEBUGGING_RC_FILES}
 )
 
 #For OCL SDK - Shared libraries should be in the same location as executables
