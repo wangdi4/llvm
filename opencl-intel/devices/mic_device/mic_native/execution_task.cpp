@@ -56,6 +56,7 @@ void foo(char* blob)
 // For testing only
 //////////////////////////////////////////////////////
 
+unsigned int resume_server_execution = 0;
 
 // Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
@@ -76,7 +77,7 @@ void init_device(uint32_t         in_BufferCount,
 	{
 		printf("********* DEVICE STOPPED PLEASE ATTACH TO PID = %d ************\n", getpid());
 		fflush(stdout);
-		while (true) {};
+		while (resume_server_execution == 0) {};
 	}
 	gMicExecEnvOptions = *tEnvOptions;
 	assert((gMicExecEnvOptions.num_of_worker_threads > 0) && (gMicExecEnvOptions.num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));

@@ -21,30 +21,19 @@ if (NOT WIN32)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif (NOT WIN32)
 
+set( COI_SDK_PATH           /opt/intel/mic/coi )
 if (KNC_CARD)
 	add_definitions( -DKNC_CARD )
 	set( IGNORE_SOURCES knf_sys_info.cpp )
-	set( TBB_DIR_PREFIX Knc )
-	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knc )
 else (KNC_CARD)
 	add_definitions( -DKNF_CARD)
 	set( IGNORE_SOURCES knc_sys_info.cpp )
-	set( TBB_DIR_PREFIX Knf )
-	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knf )
 endif (KNC_CARD)
 
 set( MIC_BACKEND_DLL_NAME   OclCpuBackEnd)
 set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
 set( MIC_NATIVE_SUBDIR_NAME mic_native )
-
-set( MIC_TBB_HEADERS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/include )
-
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( MIC_TBB_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/bin/${TBB_DIR_PREFIX}_Debug )
-else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( MIC_TBB_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/tbb/bin/${TBB_DIR_PREFIX}_Release )
-endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 
 add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}"
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
@@ -65,14 +54,13 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 #string(TOLOWER  ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
 #set( DEBUG_RELEASE ${CMAKE_BUILD_TYPE} )
 string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
-file( GLOB COI_LIBS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib/*.so* )
+file( GLOB COI_LIBS ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib/*.so* )
 
 FIND_SOURCES( ${IGNORE_SOURCES} )
 CALCULATE_TARGET_SOURCES()
 
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-                    ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
                 )
 
@@ -110,7 +98,6 @@ install(FILES ${COI_LIBS} DESTINATION bin)
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
-                                      task_executor
                                       ${COI_HOST_LIB}
                                       ${LINK_LIBS} )
 
