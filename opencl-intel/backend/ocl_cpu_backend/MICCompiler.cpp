@@ -137,9 +137,15 @@ const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module) 
 llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const
 {
     llvm::StringRef MTriple = pRtlModule->getTargetTriple();
-    llvm::StringRef MCPU    = m_CpuId.GetCPUName();
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs;
+
+    const char* pMcpu    = m_CpuId.GetCPUName();
+    if( NULL == pMcpu )
+    {
+        throw Exceptions::CompilerException("Failed to create m-cpu object");
+    }
+    llvm::StringRef MCPU    = pMcpu;
 
     llvm::TargetMachine *TM = llvm::MICCodeGenerationEngine::selectTarget(pRtlModule,
         MArch, MCPU,

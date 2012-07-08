@@ -24,6 +24,7 @@ File Name:  builtin_functions.cpp
 #include <string>
 #include <string.h>
 #include <map>
+#include <algorithm>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE
    #if defined(_WIN32)
@@ -100,7 +101,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   size_t  uiBytesToCopy = numElem*elemSize;
 
   // use memcpy
-  memcpy(pDst, pSrc, uiBytesToCopy);
+  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
+  //memcpy(pDst, pSrc, uiBytesToCopy);
 
   return event;
 }
@@ -135,7 +137,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   size_t  uiBytesToCopy = numElem*elemSize;
 
   // use memcpy
-  memcpy(pDst, pSrc, uiBytesToCopy);
+  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
+  //memcpy(pDst, pSrc, uiBytesToCopy);
   return event;
 }
 

@@ -263,9 +263,11 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     PM.run(local_mod);
 
     if (OutF)
+    {
       fflush(OutF);
-    if (OutF != stderr && OutF != stdout)
-      fclose(OutF);
+      if (OutF != stderr && OutF != stdout)
+        fclose(OutF);
+    }
 
     // If we reached this far, keep the file
     Out->keep();

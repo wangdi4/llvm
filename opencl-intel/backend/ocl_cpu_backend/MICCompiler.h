@@ -103,6 +103,10 @@ protected:
 
 
 private:
+    // Disable copy ctor and assignment operator
+    MICCompiler( const MICCompiler& );
+    bool operator = ( const MICCompiler& );
+
     void SelectMICConfiguration(const ICompilerConfig& config);
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const;
