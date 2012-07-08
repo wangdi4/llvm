@@ -86,6 +86,7 @@ ThreadIDAllocator::ThreadIDAllocator(unsigned int uiNumThreads) : m_uiNumThreads
 
 unsigned int ThreadIDAllocator::GetNextAvailbleId()
 {
+	LOG_INFO(TEXT("Trying to allocate worker ID, m_uiNumThreads=%u, mask=%llx"), m_uiNumThreads, (unsigned long long)m_aThreadAvailabilityMask);
 	unsigned int uiWorkerId = 0;
 	long canExit = false;
 	while (uiWorkerId < m_uiNumThreads)
@@ -98,11 +99,12 @@ unsigned int ThreadIDAllocator::GetNextAvailbleId()
 	if ( uiWorkerId >= m_uiNumThreads )
 	{
 		assert(0 && "We always should be able to allocate ID for worker thread");
+		LOG_ERROR(TEXT("Cannot allocate worker ID, uiWorkerId=%d, m_uiNumThreads=%d, mask=%llx"), uiWorkerId, m_uiNumThreads, (unsigned long long)m_aThreadAvailabilityMask);
 		return -1;
 	}
 
 	m_aRefCount++;
-	return ++uiWorkerId;
+	return uiWorkerId+1;
 }
 
 void ThreadIDAllocator::ReleaseId(unsigned int uiId)
@@ -111,6 +113,7 @@ void ThreadIDAllocator::ReleaseId(unsigned int uiId)
 	if ( INVALID_WORKER_ID != uiId )
 	{
 		m_aThreadAvailabilityMask.bitTestAndSet(uiId-1);
+		LOG_INFO(TEXT("ReleaseID = %u, new mask=%llx"), uiId-1, (unsigned long long)m_aThreadAvailabilityMask);
 	}
 	long prev = m_aRefCount--;
 	if ( 1 == prev )
@@ -151,7 +154,7 @@ void ThreadIDAssigner::ReleaseWorkerID()
 {
 	unsigned int uiWorkerId = t_ThreadIDInfo.uiWorkerId;
 	assert((t_ThreadIDInfo.pIDAllocator!=NULL) && "IDAllocator must be set by this time");
-	t_ThreadIDInfo.pIDAllocator->ReleaseId(uiWorkerId-1);
+	t_ThreadIDInfo.pIDAllocator->ReleaseId(uiWorkerId);
 	t_ThreadIDInfo.pIDAllocator = NULL;
 	t_ThreadIDInfo.uiWorkerId = INVALID_WORKER_ID;
 }
@@ -204,10 +207,7 @@ void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
 	}
 	SetWorkerID(uiWorkerId);
 
-#ifdef _EXTENDED_LOG
-	LOG_INFO("------->%s %d was joined as %d\n", is_worker ? "worker" : "master",
-		GetThreadId(GetCurrentThread()), uiWorkerId);
-#endif
+	LOG_INFO(TEXT("%s was joined as %d\n"), is_worker ? "worker" : "master", uiWorkerId);
 	
 #if defined(WIN32) && defined (_DEBUG)
 	if ( !is_worker )
@@ -233,10 +233,7 @@ void ThreadIDAssigner::on_scheduler_entry( bool is_worker )
 
 void ThreadIDAssigner::on_scheduler_exit( bool is_worker )
 {
-#ifdef _EXTENDED_LOG
-	LOG_INFO("------->%s %d was left as %d\n", is_worker ? "worker" : "master",
-		GetThreadId(GetCurrentThread()), GetWorkerID());
-#endif
+	LOG_INFO(TEXT("%s was left as %d\n"), is_worker ? "worker" : "master",	GetWorkerID());
 	if ( (is_worker)  && (INVALID_WORKER_ID != GetWorkerID()))
 	{
 		ReleaseWorkerID();
@@ -272,10 +269,13 @@ ThreadIDAllocator* ThreadIDAssigner::SetThreadIdAllocator(ThreadIDAllocator* pNe
 
 void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitScheduler = false)
 {
+	LOG_DEBUG(TEXT("Enter iNumeOfThreads = %d, bTBBExplicitScheduler = %d"), iNumeOfThreads, (int)bTBBExplicitScheduler);
+
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( (NULL == pScheduler) && !((IMPLICIT_SCHEDULER_ID == pScheduler) || (ThreadIDAssigner::IsWorkerScheduler())) )
 	{
 		long prevVal = glTaskSchedCounter++;
+		LOG_INFO(TEXT("No scheduler is set, check if one is requried, prev SchedCounter = %ld"), prevVal);
 		pScheduler = IMPLICIT_SCHEDULER_ID;
 		if ( (0==prevVal)  || bTBBExplicitScheduler )
 		{
@@ -283,22 +283,27 @@ void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitSche
 			{
 				iNumeOfThreads = gWorker_threads;
 			}
+			LOG_INFO(TEXT("Creating explicit scheduler for %d threads"), iNumeOfThreads);
 			pScheduler = new tbb::task_scheduler_init(iNumeOfThreads);
 			assert(NULL!=pScheduler && "Failed to create TBB explicit scheduler");
 			if (NULL == pScheduler )
 			{
 				glTaskSchedCounter--;
+				LOG_ERROR(TEXT("%s"), "Leaving - failed to create explicit scheduler, SchedCount = %ld", (long)glTaskSchedCounter);
 				return;
 			}
 			if ( 0==prevVal )
 			{
+				LOG_INFO(TEXT("%s"), "No previoulse allicated explicit schedulers, need to allocate resources");
 				bool rc = static_cast<TBBTaskExecutor*>(GetTaskExecutor())->AllocateResources();
 				if ( !rc )
 				{
 					delete pScheduler;
 					glTaskSchedCounter--;
+					LOG_ERROR(TEXT("%s"), "Leaving - failed to allocate resources, SchedCount = %ld", (long)glTaskSchedCounter);
 					return;
 				}
+				LOG_INFO(TEXT("%s"), "Start observation");
 				ThreadIDAssigner::StartObservation();
 			}
 		}
@@ -306,37 +311,47 @@ void InitSchedulerForMasterThread(int iNumeOfThreads = -1, bool bTBBExplicitSche
 		ThreadIDAssigner::SetScheduler(pScheduler);
 		
 		RegisterReleaseSchedulerForMasterThread();
+		LOG_INFO(TEXT("Leaving explicit scheduling initialization sched = %p, SchedCount = %ld"), pScheduler, (long)glTaskSchedCounter);
 	}
+
+	LOG_DEBUG(TEXT("Leaving, SchedCount = %ld"), (long)glTaskSchedCounter);
 }
 
 void ReleaseSchedulerForMasterThread()
 {
+	LOG_INFO(TEXT("Enter, SchedCount = %ld"), (long)glTaskSchedCounter);
 	tbb::task_scheduler_init* pScheduler = ThreadIDAssigner::GetScheduler();
 	if ( (WORKER_SCHEDULER_ID == pScheduler) || (NULL == pScheduler) )
 	{
+		LOG_INFO(TEXT("Leaving, Worker or Local scheduler is not set, SchedCount = %ld"), (long)glTaskSchedCounter);
 		return;
 	}
-
-	glTaskSchedCounter--;
+	
 	ThreadIDAssigner::SetScheduler(NULL);
 
 	if ( IMPLICIT_SCHEDULER_ID == pScheduler )
 	{
+		glTaskSchedCounter--;
+		LOG_INFO(TEXT("Leaving - Implisit scheduler is set, SchedCount = %ld"), (long)glTaskSchedCounter);
 		return;
 	}
 
-	if ( 0 != glTaskSchedCounter )
+	long prevCount = glTaskSchedCounter--;
+	if ( 1 != prevCount )
 	{
 		// Need to delete explicit scheduler and exit
+		LOG_INFO(TEXT("Leave - deleting scheduler, SchedCount = %ld"), (long)glTaskSchedCounter);
 		delete pScheduler;
 		return;
 	}
 
+	LOG_INFO(TEXT("%s"), "SchedCounter == 0, Releasing resources");
 	static_cast<TBBTaskExecutor*>(GetTaskExecutor())->ReleaseResources();
     ThreadIDAllocator* prev;
     {
 		OclAutoWriter CS(&ThreadIDAssigner::m_IDAllocatorLock);
 	    prev = ThreadIDAssigner::SetThreadIdAllocator(NULL);
+		LOG_INFO(TEXT("SetThreadIdAllocator(NULL), prev = %p"), (void*)prev);
 	}
 	if (NULL == prev)
 	{
@@ -349,6 +364,7 @@ void ReleaseSchedulerForMasterThread()
 
 	delete pScheduler;
 
+	LOG_INFO(TEXT("Start waiting for workers completion refCnt = %ld"), refCount);
 	// Wait for 100ms for workes shutdown
 	while ( 1 < refCount && (uiTimeOutCount < 100))
 	{
@@ -359,6 +375,7 @@ void ReleaseSchedulerForMasterThread()
   	//ThreadIDAssigner::SetThreadIdAllocator(prev);
 
 	//assert((1==refCount) && "RefCount of 1 is expected");
+	LOG_INFO(TEXT("Finish waiting for workers completion refCnt = %ld"), refCount);
 	if ( 1 == refCount )
 	{
 		// We release resources only when all worker threads were shut down,
@@ -369,6 +386,7 @@ void ReleaseSchedulerForMasterThread()
 	{
 		prev->ReleaseId(INVALID_WORKER_ID);
 	}
+	LOG_INFO(TEXT("Leave, SchedCount = %ld"), (long)glTaskSchedCounter);
 }
 
 #ifdef __LOCAL_RANGES__
@@ -1213,8 +1231,6 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 		return 0;
 	}
 
-	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
-	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
 	if (uiNumThreads > 0)
 	{
 		gWorker_threads = uiNumThreads;
@@ -1223,6 +1239,9 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 	{
 		gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
 	}
+
+	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
+	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
 
 #ifdef _DEBUG
 	DEBUG_Thread_ID_running.init(gWorker_threads, 1);
@@ -1234,13 +1253,16 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 
 bool TBBTaskExecutor::Activate()
 {
+	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 	assert(gWorker_threads && "TBB executor should be initialized first");
 	OclAutoMutex mu(&m_muActivate);
 
 	if ( 0 != m_lActivateCount )
 	{
 		// We are already acticated
-		++m_lActivateCount;
+		long newCount = ++m_lActivateCount;
+		long newSchedCount = ++glTaskSchedCounter;
+		LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), newCount, newSchedCount);
 		return true;
 	}
 
@@ -1254,12 +1276,15 @@ bool TBBTaskExecutor::Activate()
 		return false;
 	}
 
-	++m_lActivateCount;
+	m_lActivateCount++;
+	glTaskSchedCounter++;
+	LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 	return true;
 }
 
 bool TBBTaskExecutor::AllocateResources()
 {
+	LOG_INFO(TEXT("%s"), "Enter");
 	m_pGrpContext = new tbb::task_group_context(tbb::task_group_context::bound, tbb::task_group_context::concurrent_wait);
 	if ( NULL == m_pGrpContext )
 	{
@@ -1283,15 +1308,18 @@ bool TBBTaskExecutor::AllocateResources()
 		m_pExecutorList = NULL;
 		delete m_pGrpContext;
 		m_pGrpContext = NULL;
+		LOG_ERROR(TEXT("%s"), "Failed to allocate pNewAllocator");
 		return false;
 	}
 	m_threadPoolChangeObserver->SetThreadIdAllocator(pNewAllocator);
 
+	LOG_INFO(TEXT("%s"), "Leave");
 	return true;
 }
 
 void TBBTaskExecutor::ReleaseResources()
 {
+	LOG_INFO(TEXT("%s"), "Enter");
 	assert(NULL!=m_pExecutorList);
 	if ( NULL != m_pExecutorList )
 	{
@@ -1308,15 +1336,20 @@ void TBBTaskExecutor::ReleaseResources()
 		//delete m_pGrpContext;
 		m_pGrpContext = NULL;
 	}
+	LOG_INFO(TEXT("%s"), "Leave");
 }
 
 void TBBTaskExecutor::Deactivate()
 {
 	OclAutoMutex mu(&m_muActivate);
+	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 
-	if ( 0 != --m_lActivateCount )
+	long count = --m_lActivateCount;
+	long sched_count = --glTaskSchedCounter;
+	if ( 0 != count )
 	{
 		// Need to keep active instance
+		LOG_INFO(TEXT("Leave count = %ld, ShedCounter=%ld"), count, sched_count);
 		return;
 	}
 
@@ -1333,6 +1366,7 @@ void TBBTaskExecutor::Deactivate()
 		//gThreadAvailabilityMask
 		assert(0 && "Don't know what to do when release from worker thread");
 	}
+	LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 }
 
 unsigned int TBBTaskExecutor::GetNumWorkingThreads() const

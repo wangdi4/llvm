@@ -79,6 +79,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
 	LOG_DEBUG(TEXT("%s"), TEXT("Context constructor enter"));
 
+	LOG_INFO(TEXT("%s"), "GetTaskExecutor()->Activate()");
 	m_bTEActivated = GetTaskExecutor()->Activate();
 	if ( !m_bTEActivated )
 	{
@@ -258,13 +259,12 @@ void Context::Cleanup( bool bTerminate )
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
 		m_ppAllDevices[ui]->RemovedFromContext();
 	}
-/* Workaround to cause SANDRA to work. Makes the TBB executor persistent. 
 	if ( m_bTEActivated )
 	{
+		LOG_INFO(TEXT("%s"), TEXT("GetTaskExecutor()->Deactivate();"));
 		GetTaskExecutor()->Deactivate();
 		m_bTEActivated = false;
 	}
-*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -272,7 +272,7 @@ void Context::Cleanup( bool bTerminate )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::~Context()
 {
-	LOG_DEBUG(TEXT("%s"), TEXT("Context destructor enter"));
+	LOG_INFO(TEXT("%s"), TEXT("Context destructor enter"));
     LOG_DEBUG(TEXT("CONTEXT_TEST: Context destructor enter. (id = %d)"), m_iId);
 
     //

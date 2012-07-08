@@ -213,6 +213,7 @@ TaskDispatcher::~TaskDispatcher()
     }
 	if (m_bTEActivated)
 	{	
+		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "TaskExecutor::GetTaskExecutor()->Deactivate();");
 		TaskExecutor::GetTaskExecutor()->Deactivate();
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
@@ -228,6 +229,7 @@ TaskDispatcher::~TaskDispatcher()
 
 cl_dev_err_code TaskDispatcher::init()
 {
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 	m_bTEActivated = m_pTaskExecutor->Activate();
 	if ( !m_bTEActivated )
 	{

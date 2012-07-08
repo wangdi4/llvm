@@ -352,6 +352,18 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		   On success, return the initial value of the appropriate bit, otherwise return -1.
 		*/
 		long bitTestAndSet(unsigned int bitNum);
+
+		// Used for debug and log purposes
+		operator unsigned long long()
+		{
+			unsigned long long val = 0;
+			for(unsigned int i=0;i<m_size;++i)
+			{
+				val |= (m_bitField[i] & 0x1) << (i);
+			}
+			return val;
+		}
+		
 	private:
 		unsigned int m_size;
 		long* m_bitField;

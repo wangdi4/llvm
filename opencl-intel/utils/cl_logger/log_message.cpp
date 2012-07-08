@@ -42,23 +42,6 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#if defined (_WIN32)
-    #define VA_COPY(dst, src) ((dst) = (src))
-    #define VA_END(va)
-
-    #define GMTIME(tmNow, tNow) (gmtime_s(&(tmNow), &(tNow)))
-    #define GET_CURRENT_PROCESS_ID() GetCurrentProcessId()
-    #define GET_CURRENT_THREAD_ID() GetCurrentThreadId()
-
-#else
-    #define VA_COPY(dst, src) (va_copy((dst), (src)))
-    #define VA_END(va) (va_end(va))
-
-    #define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
-    #define GET_CURRENT_PROCESS_ID() getpid()
-    #define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
-#endif
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // LogMessage Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////

@@ -57,6 +57,27 @@
 #define STRDUP(X) (_strdup(X))
 #define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
 
+#define VA_COPY(dst, src) ((dst) = (src))
+#define VA_END(va)
+
+#define GMTIME(tmNow, tNow) (gmtime_s(&(tmNow), &(tNow)))
+#define GET_CURRENT_PROCESS_ID() GetCurrentProcessId()
+#define GET_CURRENT_THREAD_ID() GetCurrentThreadId()
+
+#define MEMCPY_S                          memcpy_s
+#define STRCPY_S                          strcpy_s
+#define STRCAT_S                          strcat_s
+#define STRTOK_S                          strtok_s
+#define SPRINTF_S                         sprintf_s
+#define VSPRINTF_S                        vsprintf_s
+
+typedef unsigned long long               affinityMask_t;
+
+// aligned malloc
+#include <malloc.h>
+#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
+#define ALIGNED_FREE                      _aligned_free
+
 #else //LINUX
 
 #define CL_MAX_INT32 INT_MAX
@@ -112,25 +133,12 @@ typedef int errno_t;
 	#define CPUID(cpu_info, type) cpuid(cpu_info, type)
 #endif
 
-#endif
+#define VA_COPY(dst, src) (va_copy((dst), (src)))
+#define VA_END(va) (va_end(va))
 
-#if defined (_WIN32)
-
-#define MEMCPY_S                          memcpy_s
-#define STRCPY_S                          strcpy_s
-#define STRCAT_S                          strcat_s
-#define STRTOK_S                          strtok_s
-#define SPRINTF_S                         sprintf_s
-#define VSPRINTF_S                        vsprintf_s
-
-typedef unsigned long long               affinityMask_t;
-
-// aligned malloc
-#include <malloc.h>
-#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
-#define ALIGNED_FREE                      _aligned_free
-
-#else
+#define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
+#define GET_CURRENT_PROCESS_ID() getpid()
+#define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
 
 #include "cl_secure_string_linux.h"
 
