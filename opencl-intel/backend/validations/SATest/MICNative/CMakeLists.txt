@@ -187,6 +187,8 @@ list( APPEND MIC_LINK_FLAGS
                 -lcoi_device
                 -lOclDeviceExecutor
 
+                -lpthread
+
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic
 
