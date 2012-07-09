@@ -371,9 +371,6 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   // Check if the function is in the table of functions
   Function *origFunc = inst->getCalledFunction();
   std::string origFuncName = origFunc->getName();
-
-  // Barriers are uniform
-  if (m_rtServices->isSyncFunc(origFuncName)) return WIAnalysis::UNIFORM;
   
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);

@@ -80,7 +80,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // TODO: This function always returns false! Do we really need it?!
     bool ResetAsyncCopy(unsigned int uiKey) {
         if(!m_bIsFirst.count(uiKey)) {
-            assert( false && "not exist event associated with input key" );
+            // repetitive work_group_events() call is treated as no-op 
+            return false;
         }
         // erase element from set
         m_bIsFirst.erase(uiKey);

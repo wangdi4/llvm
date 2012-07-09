@@ -126,10 +126,8 @@ void OpenclRuntime::setPacketizationWidth(unsigned width) {
 
 bool OpenclRuntime::isSyncFunc(const std::string &func_name) const {
   if (0 == func_name.compare("barrier")) return true;
-  if (0 == func_name.compare("_Z21async_work_group_copyPU3AS3fPKU3AS1fjj")) return true;
-  if (0 == func_name.compare("_Z21async_work_group_copyPU3AS1fPKU3AS3fjj")) return true;
-  if (0 == func_name.compare("_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjjj")) return true;
-  if (0 == func_name.compare("_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj")) return true;
+  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
+  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
   if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
   if (0 == func_name.compare("mem_fence")) return true;
   if (0 == func_name.compare("read_mem_fence")) return true;
@@ -146,10 +144,8 @@ bool OpenclRuntime::isKnownUniformFunc(std::string &func_name) const {
   if (0 == func_name.compare("get_work_dim")) return true;
   if (0 == func_name.compare("get_global_offset")) return true;
   if (0 == func_name.compare("barrier")) return true;
-  if (0 == func_name.compare("_Z21async_work_group_copyPU3AS3fPKU3AS1fjj")) return true;
-  if (0 == func_name.compare("_Z21async_work_group_copyPU3AS1fPKU3AS3fjj")) return true;
-  if (0 == func_name.compare("_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjjj")) return true;
-  if (0 == func_name.compare("_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj")) return true;
+  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
+  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
   if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
   if (0 == func_name.compare("mem_fence")) return true;
   if (0 == func_name.compare("read_mem_fence")) return true;
