@@ -25,6 +25,8 @@ File Name:  SimplifyGEP.cpp
 namespace intel {
 
   bool SimplifyGEP::runOnFunction(Function &F) {
+    // obtain TagetData of the module
+    m_pTD = getAnalysisIfAvailable<TargetData>();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -82,7 +84,15 @@ namespace intel {
           V_ASSERT(baseType->isSingleValueType() && !baseType->isPointerTy() && "assumed primitive base type!");
 
           if(baseType->isVectorTy()) {
-            arraySizes.insert(arraySizes.begin(), cast<VectorType>(baseType)->getNumElements());
+            if(!m_pTD) {
+              // No TargetData cannot apply this SimplifyGEP approach!
+              continue;
+            }
+            unsigned int vectorSize = m_pTD->getTypeAllocSize(baseType);
+            unsigned int elementSize = m_pTD->getTypeSizeInBits(cast<VectorType>(baseType)->getElementType()) / 8;
+            V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
+              "vector size should be a multiply of element size");
+            arraySizes.insert(arraySizes.begin(), vectorSize/elementSize);
           }
 
           Value *newIndex = NULL;
@@ -166,7 +176,7 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createSimplifyGEPPass() {
+  FunctionPass* createSimplifyGEPPass() {
     return new intel::SimplifyGEP();
   }
 }

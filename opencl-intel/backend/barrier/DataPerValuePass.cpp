@@ -23,9 +23,9 @@ namespace intel {
     //Initialize barrier utils class with current module
     m_util.init(&M);
 
-    //Create instance of TargetData for this module
-    m_pTD = new TargetData(&M);
-    assert( m_pTD && "Failed to create new instance of TargetData!" );
+    // obtain TagetData of the module
+    m_pTD = getAnalysisIfAvailable<TargetData>();
+    assert( m_pTD && "Failed to obtain instance of TargetData!" );
 
     // Find and sort all connected function into disjointed groups
     CalculateConnectedGraph(M);
@@ -33,8 +33,6 @@ namespace intel {
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       runOnFunction(*fi);
     }
-    //Delete the instance of TargetData
-    delete m_pTD;
 
     //Check that stide size is aligned with max alignment
     for ( TEntryToBufferDataMap::iterator di = m_entryToBufferDataMap.begin(),

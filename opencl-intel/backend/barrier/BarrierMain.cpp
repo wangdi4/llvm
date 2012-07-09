@@ -8,6 +8,7 @@
 #include "llvm/PassManagers.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Target/TargetData.h"
 
 using namespace llvm;
 
@@ -36,6 +37,9 @@ namespace intel {
 
   bool BarrierMain::runOnModule(Module &M) {
     PassManager barrierModulePM;
+
+    //Register TargetData to the pass manager
+    barrierModulePM.add(new llvm::TargetData(&M));
 
     if( !m_isDBG ) {
       //In DBG mode do not run extra llvm optimizations

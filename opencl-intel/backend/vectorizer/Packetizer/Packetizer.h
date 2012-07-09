@@ -15,7 +15,6 @@
 
 #include "RuntimeServices.h"
 #include "WIAnalysis.h"
-#include "SimplifyGEP.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
@@ -76,7 +75,6 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
-    AU.addRequired<SimplifyGEP>();
     AU.addRequired<WIAnalysis>();
   }
 

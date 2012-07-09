@@ -40,6 +40,7 @@ char intel::Vectorizer::ID = 0;
 extern "C" FunctionPass* createScalarizerPass();
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
+extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass* createPacketizerPass(bool);
 extern "C" FunctionPass* createMICResolverPass();
 extern "C" FunctionPass* createX86ResolverPass();
@@ -282,6 +283,10 @@ bool Vectorizer::runOnModule(Module &M)
     // Register DCE
     FunctionPass *dce = createDeadCodeEliminationPass();
     fpm2.add(dce);
+
+    // Register simplifyGEP
+    FunctionPass *simplifyGEP = createSimplifyGEPPass();
+    fpm2.add(simplifyGEP);
 
     // Register packetize
     FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId());

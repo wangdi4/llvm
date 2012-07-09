@@ -21,6 +21,7 @@ File Name:  SimplifyGEP.h
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/Target/TargetData.h"
 
 #include "WIAnalysis.h"
 #include "Logger.h"
@@ -74,6 +75,8 @@ namespace intel {
   private:
     /// @brief pointer to work-item analysis performed for this function
     WIAnalysis *m_depAnalysis;
+    /// @brief This holds TargetData of processed module
+    TargetData *m_pTD;
   };
 } // namespace
 
