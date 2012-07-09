@@ -22,7 +22,7 @@ define void @vect_trunc(<16 x i32>* %pout, <16 x i64>*%pin) {
 ; KNC:  vmovaps   _const_1(%rip), [[V0:%zmm[0-9]+]]
 ; KNC:  vmovaps   _const_0(%rip), [[V1:%zmm[0-9]+]]
 ; KNC:  vpermd    64(%rsi), [[V0]], [[V2:%zmm[0-9]+]] 
-; KNC:  kmov      %rax, [[K1:%k[1-7]+]]
+; KNC:  kmov      %eax, [[K1:%k[1-7]+]]
 ; KNC:  vpermd    (%rsi), [[V1]], [[V2]]{[[K1]]}
 
 

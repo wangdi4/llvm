@@ -22,7 +22,7 @@ define void @vect_sext2(<16 x i32>* %pin, <16 x i64>*%pout) {
 ; KNF:  vsrapi    {{%v[0-9]+}}, [[V2]], {{%v[0-9]+}}
 ;
 ; KNC:  movl      $43690, %eax
-; KNC:  kmov      %rax, [[K1:%k[1-7]+]]
+; KNC:  kmov      %eax, [[K1:%k[1-7]+]]
 ; KNC:  vmovaps   _const_0(%rip), [[V0:%zmm[0-9]+]]
 ; KNC:  vmovaps   _const_1(%rip), [[V1:%zmm[0-9]+]]
 ; KNC:  vpermd    [[V2:%zmm[0-9]+]], [[V0]], [[V3:%zmm[0-9]+]]
@@ -51,7 +51,7 @@ entry:
 ; KNF:  vxorpi    [[V2]], [[V2]], [[V2]]{%k{{[1-7]+}}}
 ;
 ; KNC:  movl      $43690, %eax
-; KNC:  kmov      %rax, [[K1:%k[1-7]+]]
+; KNC:  kmov      %eax, [[K1:%k[1-7]+]]
 ; KNC:  vmovaps   _const_2(%rip), [[V0:%zmm[0-9]+]]
 ; KNC:  vmovaps   _const_3(%rip), [[V1:%zmm[0-9]+]]
 ; KNC:  vpermd    [[V2:%zmm[0-9]+]], [[V0]], [[V4:%zmm[0-9]+]]
