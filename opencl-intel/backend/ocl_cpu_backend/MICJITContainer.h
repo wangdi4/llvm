@@ -52,7 +52,7 @@ public:
      */
     virtual const void* GetJITCode() const;
 
-    virtual size_t GetJITCodeSize() const { return 0; } // TODO: Check this later
+    virtual size_t GetJITCodeSize() const { return m_pModuleJITHolder->GetKernelJITSize(m_funcID); }
 
     /*
      * IJITContainer methods
@@ -64,6 +64,8 @@ public:
      */
     void Serialize(IOutputStream& ost, SerializationStatus* stats);
     void Deserialize(IInputStream& ist, SerializationStatus* stats);
+
+    unsigned long long int GetFuncID() { return m_funcID; }
 
 private:
     const ModuleJITHolder*  m_pModuleJITHolder; // not owned by the class

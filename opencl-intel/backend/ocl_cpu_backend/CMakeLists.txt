@@ -23,6 +23,7 @@ set(OCL_CPU_BACKEND_IMPORT_DIRS
   ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
   ${OCL_CPU_BACKEND_DIR}/../ocl_mic_executor
   ${OCL_CPU_BACKEND_DIR}/../plugin_manager
+  ${OCL_CPU_BACKEND_DIR}/../external/vtune/include
 )
 set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
 # the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
@@ -253,6 +254,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     debuggingservicewrapper.h
     opencl_printf_ext.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
+    ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
@@ -522,6 +524,9 @@ add_dependencies(${TARGET_NAME}
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
+if (KNC_CARD) 
+  add_definitions( -DKNC_CARD )
+endif (KNC_CARD)
 
 if (ENABLE_SDE)
     message("-- Enabling SDE version ... ")

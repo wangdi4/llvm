@@ -170,6 +170,7 @@ list( APPEND MIC_FLAGS
                 -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
                 -I ${BACKEND_ROOT_DIR}/../cl_api
                 -I ${COI_DIR}/include
+                -I ${BACKEND_ROOT_DIR}/external/vtune/include
                 )
 
 # MIC linking flags
@@ -199,6 +200,9 @@ list( APPEND MIC_LINK_FLAGS
                 #  \\\$ will result in passing \$ to the linker script
                 -Wl,-rpath=\\\$ORIGIN -Wl,--enable-new-dtags
                 )
+if (KNC_CARD)
+  list(APPEND MIC_LINK_FLAGS -L ${BACKEND_ROOT_DIR}/external/vtune/libknc -ljitprofiling)
+endif (KNC_CARD)
 
 set( MIC_DEBUG_LINK_FLAGS     )
 set( MIC_RELEASE_LINK_FLAGS   )

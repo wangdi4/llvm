@@ -21,9 +21,26 @@ File Name:  MICKernel.cpp
 #include "IAbstractBackendFactory.h"
 #include "MICSerializationService.h"
 #include <stdio.h>
+#ifdef KNC_CARD
+#include <jitprofiling.h>
+#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+MICKernel::~MICKernel()
+{
+#ifdef KNC_CARD
+  // Unregister with VTune
+  for (std::vector<IKernelJITContainer*>::iterator it = m_JITs.begin(); it != m_JITs.end(); it++) {
+    MICKernelJITProperties* props = static_cast<MICKernelJITProperties*>(((MICJITContainer*)*it)->GetProps());
+    if (props->GetUseVTune()) {
+      iJIT_Method_Id JitData;
+      JitData.method_id = ((MICJITContainer*)*it)->GetFuncID(); 
+      (void) ::iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &JitData);
+    }
+  }
+#endif
+}
 
 void MICKernel::SetKernelID(unsigned long long int kernelID)
 {
@@ -102,6 +119,25 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
         {
             currentArgument = new MICJITContainer();
             currentArgument->Deserialize(ist, stats);
+#ifdef KNC_CARD 
+            // Register with VTune
+            MICKernelJITProperties* props = static_cast<MICKernelJITProperties*>(currentArgument->GetProps());
+            if (props->GetUseVTune()) {
+              iJIT_Method_Load JitData;
+              JitData.method_id = currentArgument->GetFuncID();
+              JitData.method_name = (char *) GetKernelName();
+              JitData.method_load_address = (void *) currentArgument->GetJITCode();
+              JitData.method_size = currentArgument->GetJITCodeSize();
+              JitData.line_number_size = 0;
+              JitData.line_number_table = NULL;
+              JitData.class_id = 0;
+              JitData.class_file_name = NULL;
+              JitData.source_file_name = NULL;
+              JitData.user_data = NULL;
+              JitData.user_data_size = 0;
+              (void) ::iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &JitData);
+            }
+#endif
         }
         m_JITs.push_back(currentArgument);
     }

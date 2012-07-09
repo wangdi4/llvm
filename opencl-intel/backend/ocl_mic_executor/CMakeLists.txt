@@ -176,6 +176,9 @@ set( MIC_FLAGS  -Werror
                 -use-msasm
                 -wd279
             )
+if (KNC_CARD)
+   list( APPEND MIC_FLAGS -DKNC_CARD )
+endif (KNC_CARD)
 			
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
@@ -191,6 +194,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
                 -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
                 -I ${CMAKE_SOURCE_DIR}/backend/llvm/include
+	        -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include 	
                 )
 
 message(STATUS Elior:${CMAKE_SOURCE_DIR}/backend/plugin_manager)

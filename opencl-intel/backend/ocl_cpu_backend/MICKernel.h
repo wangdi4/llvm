@@ -41,6 +41,8 @@ public:
         m_kernelID(0)
         { };
 
+    virtual ~MICKernel();
+
     /**
      * Sets the kernel ID
      */
