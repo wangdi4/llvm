@@ -81,11 +81,8 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
                                                 bool UnitAtATime,
                                                 bool UnrollLoops,
                                                 bool SimplifyLibCalls,
-                                                bool HaveExceptions,
-                                                Pass *InliningPass) {
+                                                bool isDBG) {
     if (OptimizationLevel == 0) {
-      if (InliningPass)
-        PM->add(InliningPass);
       return;
     }
     
@@ -99,11 +96,6 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     PM->add(createInstructionCombiningPass());  // Clean up after IPCP & DAE
     PM->add(createCFGSimplificationPass());     // Clean up after IPCP & DAE
     
-    // Start of CallGraph SCC passes.
-    if (UnitAtATime && HaveExceptions)
-      PM->add(createPruneEHPass());           // Remove dead EH info
-    if (InliningPass)
-      PM->add(InliningPass);
     if (UnitAtATime)
       PM->add(createFunctionAttrsPass());       // Set readonly/readnone attrs
     if (OptimizationLevel > 2)
@@ -133,8 +125,10 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     PM->add(createLoopDeletionPass());          // Delete dead loops
     if (UnrollLoops) {
       PM->add(createLoopUnrollPass(512, 0, 0));          // Unroll small loops
-      PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
     }
+    if (!isDBG)
+      PM->add(createFunctionInliningPass(4096)); //Inline (not only small) functions
+    PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
     PM->add(createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(createInstructionSimplifierPass());
     if (OptimizationLevel > 1)
@@ -237,14 +231,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
       true,
       true,
       false,
-      false,
-      NULL
-      );
+      isDBG);
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
   
   // Should be called before vectorizer!
-  m_modulePasses.add(createInstToFuncCallPass());
+  m_modulePasses.add(createInstToFuncCallPass(pConfig->GetCpuId().IsMIC()));
 
   if ( !isDBG && !pConfig->GetLibraryModule()) {
     m_modulePasses.add(createKernelAnalysisPass());

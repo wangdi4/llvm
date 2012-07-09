@@ -9,7 +9,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 /// Returns an instance of the Inst2Func pass,
 /// which will be added to a PassManager and run on a Module.
-    llvm::ModulePass *createInstToFuncCallPass();
+    llvm::ModulePass *createInstToFuncCallPass(bool isMic);
 
 }}}
 

@@ -23,7 +23,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     public:
         typedef std::pair<const char*, CallingConv::ID> LookupValue;
 
-        Inst2FunctionLookup() {		
+        Inst2FunctionLookup(bool isMic) {		
             //TODO: move this away from here
             Type2ValueLookup FPToUI_Lookup;
             Type2ValueLookup UIToFP_Lookup;
@@ -51,7 +51,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             /// %conv = sitofp i64 %tmp2 to float
             /// With:
             /// %call_conv = call float @_Z13convert_floatl(i64 %tmp2) nounwind
-            SIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatl", CallingConv::C);
+
+            if (isMic)
+              SIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatl", CallingConv::C);
 
             /// Replaces:
             /// %conv = sitofp i64 %tmp2 to double
@@ -63,7 +65,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             /// %conv = uitofp i64 %tmp2 to float
             /// With:
             /// %call_conv = call float @_Z13convert_floatm(i64 %tmp2) nounwind
-            UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
+            if (isMic)
+              UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
 
 
             m_Lookup[Instruction::UIToFP] = UIToFP_Lookup;
@@ -136,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     class InstToFuncCall : public ModulePass
     {
     public:
-        InstToFuncCall();
+        InstToFuncCall(bool isMic);
         bool runOnModule(Module &M);
 
     private:
@@ -147,7 +150,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     };
 
-    InstToFuncCall::InstToFuncCall() : ModulePass(ID) {}
+    InstToFuncCall::InstToFuncCall(bool isMic) : ModulePass(ID), m_I2F(isMic) {}
 
     /// Replaces instruction 'inst' with call to function 'funcName' which has a 
 	/// calling convention 'CC'.
@@ -196,7 +199,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         return changed;
     }
 
-    ModulePass *createInstToFuncCallPass() { return new InstToFuncCall(); }
+    ModulePass *createInstToFuncCallPass(bool isMic) { return new InstToFuncCall(isMic); }
 
     char InstToFuncCall::ID;
 

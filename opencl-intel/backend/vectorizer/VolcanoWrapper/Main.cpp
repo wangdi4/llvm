@@ -35,10 +35,6 @@ FILE * moduleDmp;
 
 using namespace llvm;
 
-namespace llvm {
-  extern Pass *createFunctionInliningPass(int Threshold);
-}
-
 char intel::Vectorizer::ID = 0;
 
 extern "C" FunctionPass* createScalarizerPass();
@@ -191,18 +187,6 @@ bool Vectorizer::runOnModule(Module &M)
   // Load wrappers module from user's root
   ///////
 
-  V_PRINT(wrapper, "\nBefore inlining!\n");
-
-  // Module-wide (inlining)
-  {
-    PassManager mpm1;
-
-    // Register inliner
-    Pass *inlinerPass = createFunctionInliningPass(4096);
-    mpm1.add(inlinerPass);
-
-    mpm1.run(M);
-  }
   V_PRINT(wrapper, "\nBefore preparations!\n");
   // Function-wide (preparations)
   {
@@ -217,7 +201,6 @@ bool Vectorizer::runOnModule(Module &M)
     fpm1.add(createLowerSwitchPass());
 
     // Register Scalarizer
-    FunctionPass *scalarizer = createScalarizerPass();
     fpm1.add(createScalarReplAggregatesPass(1024));
     fpm1.add(createInstructionCombiningPass());
     fpm1.add(createOCLBuiltinPreVectorizationPass());            
@@ -228,7 +211,7 @@ bool Vectorizer::runOnModule(Module &M)
     fpm1.add(createDeadCodeEliminationPass());
     WeightedInstCounter* preCounter = new WeightedInstCounter(true, !autoVec, m_pConfig->GetCpuId());
     fpm1.add(preCounter);
-    fpm1.add(scalarizer);
+    fpm1.add(createScalarizerPass());
 
     // Register mergereturn
     FunctionPass *mergeReturn = new UnifyFunctionExitNodes();
