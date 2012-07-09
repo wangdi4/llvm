@@ -30,16 +30,18 @@
 #include <cl_types.h>
 #include <cl_device_api.h>
 #include <cl_monitor.h>
+#include <map>
 #include <string>
+#include <locale>
 #include <iostream>
 #include <sstream>
+
 #ifdef WIN32
 typedef int threadid_t;
 #else
 #include <sched.h>
 typedef pid_t  threadid_t;
 #endif
-
 
 /**************************************************************************************************
 * Function: 	ClErrTxt
@@ -87,6 +89,30 @@ template<> inline std::string stringify(const signed char& c)
 	return stringify(static_cast<signed int>(c));
 }
 
+/////////////////////////////////////////////////////////////////////////
+// ToNarrow
+//  Change any unicode (wchar) string to "regular" string
+/////////////////////////////////////////////////////////////////////////
+std::string ToNarrow(const wchar_t *s, char dfault = '?', 
+    const std::locale& loc = std::locale());
+
+/////////////////////////////////////////////////////////////////////////
+// FormatClError
+//  Create a formatted OCL error string
+//  This function uses the ClErrTxt to map the CLError argument to its
+//    string representation, and adds a descriptive Base error text to it
+/////////////////////////////////////////////////////////////////////////
+std::string FormatClError(const std::string& Base, cl_int CLError);
+
+/////////////////////////////////////////////////////////////////////////
+// TrimString
+//  Remove any given character from the start and end of a string
+//  Input: 
+//    string Source - the string to trim
+//    char * chars - the chars to "clean" from the source string
+/////////////////////////////////////////////////////////////////////////
+std::string TrimString (const std::string& sSource, const char *chars = " \t");
+
 /**************************************************************************************************
 * Function: 	XXXtoString
 * Description:	Turn some kind of OpenCL objects defines into strings
@@ -110,6 +136,19 @@ const string localMemTypeToString(const cl_device_local_mem_type& memType);
 const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap);
 const string commandTypeToString(const cl_command_type& type);
 
+/**************************************************************************************************
+* Function: 	XXXFromString
+* Description:	Translate a few strings (mostly from GUI entries) to their OCL types
+* Return value:	cl types
+* Author:		Oren Sarid
+* Date:			June 2012
+**************************************************************************************************/
+cl_addressing_mode GetAddressingModeFromString(const std::string& Mode);
+cl_filter_mode GetFilterModeFromString(const std::string& Mode);
+cl_channel_order GetChannelOrderFromString(const std::string& Order);
+cl_channel_type GetChannelTypeFromString(const std::string& Type);
+cl_mem_object_type GetImageTypeFromString(const std::string& Type);
+cl_mem_flags GetMemFlagsFromString(const std::string& Order);
 
 /**************************************************************************************************
 * Function: 	clIsNumaAvailable
@@ -228,3 +267,24 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd);
  * Date:            January 2012
  ************************************************************************/
 size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat);
+
+/////////////////////////////////////////////////////////////////////////
+// GetTempDir
+// Parameters: None
+// Output: Based on an environment variable and platform - the temporary
+//         directory/folder to use
+// Author: Oren Sarid
+// Date:   June 2012
+//
+/////////////////////////////////////////////////////////////////////////
+std::string GetTempDir();
+
+/////////////////////////////////////////////////////////////////////////
+// GetDeviceTypeString
+// Parameters: OpenCL device type
+// Output: Exctract all the different types the device bitfield holds
+// Author: Oren Sarid
+// Date:   June 2012
+//
+/////////////////////////////////////////////////////////////////////////
+std::string GetDeviceTypeString(const cl_device_type& Type);

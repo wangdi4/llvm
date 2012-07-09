@@ -26,11 +26,16 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_utils.h"
+#include <CL/cl.h>
 #include <cassert>
+#include <boost/tokenizer.hpp>
+
+using namespace std;
+using namespace boost;
+using namespace Intel::OpenCL;
 
 #ifdef WIN32
 #include <windows.h>
-
 bool clIsNumaAvailable()
 {
 	return false;
@@ -276,7 +281,6 @@ const char* ClErrTxt(cl_err_code error_code)
 	}
 }
 
-
 // used to make a macro definition into a string simply call DEFINE_TO_STRING with you defined macro "s"
 #define DEFINE_TO_STRING(s) #s
 
@@ -483,6 +487,281 @@ const string commandTypeToString(const cl_command_type& type)
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// GetAddressingModeFromString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_addressing_mode GetAddressingModeFromString(const std::string& Mode)
+{
+    cout << "Getting address mode from '" << Mode << "'" << endl;
+    if(Mode == "CL_ADDRESS_MIRRORED_REPEAT")
+    {
+        return CL_ADDRESS_MIRRORED_REPEAT;
+    }
+    else if (Mode == "CL_ADDRESS_REPEAT")
+    {
+        return CL_ADDRESS_REPEAT;
+    }
+    else if (Mode == "CL_ADDRESS_CLAMP_TO_EDGE")
+    {
+        return CL_ADDRESS_CLAMP_TO_EDGE;
+    }
+    else if (Mode == "CL_ADDRESS_CLAMP")
+    {
+        return CL_ADDRESS_CLAMP;
+    }
+    else if (Mode == "CL_ADDRESS_NONE")
+    {
+        return CL_ADDRESS_NONE;
+    }
+    string Error("Unrecognized addressing mode '");
+    Error += Mode + "'";
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// GetFilterModeFromString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_filter_mode GetFilterModeFromString(const string& Mode)
+{
+    if (Mode == "CL_FILTER_NEAREST")
+    {
+        return CL_FILTER_NEAREST;
+    }
+    else if (Mode == "CL_FILTER_LINEAR")
+    {
+        return CL_FILTER_LINEAR;
+    }
+    string Error("Unrecognized filter mode '");
+    Error += Mode + "'";
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// SetKernelArgument
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_channel_order GetChannelOrderFromString(const string& Order)
+{
+    if (Order == "CL_R")
+    {
+        return CL_R;
+    }
+    else if (Order == "CL_Rx")
+    {
+        return CL_Rx;
+    }
+    else if (Order == "CL_A")
+    {
+        return CL_A;
+    }
+    else if (Order == "CL_INTENSITY")
+    {
+        return CL_INTENSITY;
+    }
+    else if (Order == "CL_LUMINANCE") 
+    {
+        return CL_LUMINANCE;
+    }
+    else if (Order == "CL_RG") 
+    {
+        return CL_RG;
+    }
+    else if (Order == "CL_RGx")
+    {
+        return CL_RGx;
+    }
+    else if (Order == "CL_RA")
+    {
+        return CL_RA;
+    }
+    else if (Order == "CL_RGB")
+    {
+        return CL_RGB;
+    }
+    else if (Order == "CL_RGBx")
+    {
+        return CL_RGBx;
+    }
+    else if (Order == "CL_RGBA")
+    {
+        return CL_RGBA;
+    } 
+    else if (Order == "CL_ARGB")
+    {
+        return CL_ARGB;
+    } 
+    else if (Order == "CL_BGRA")
+    {
+        return CL_BGRA;
+    }
+    string Error("Unrecognized channel order '");
+    Error += Order + "'";
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// SetKernelArgument
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_channel_type GetChannelTypeFromString(const string& Type)
+{
+    if (Type == "CL_SNORM_INT8")
+    {
+        return CL_SNORM_INT8;
+    }
+    else if (Type == "CL_SNORM_INT16")
+    {
+        return CL_SNORM_INT16;
+    }
+    else if (Type == "CL_UNORM_INT8")
+    {
+        return CL_UNORM_INT8;
+    }
+    else if (Type == "CL_UNORM_INT16")
+    {
+        return CL_UNORM_INT16;
+    }
+    else if (Type == "CL_UNORM_SHORT_565")
+    {
+        return CL_UNORM_SHORT_565;
+    }
+    else if (Type == "CL_UNORM_SHORT_555")
+    {
+        return CL_UNORM_SHORT_555;
+    }
+    else if (Type == "CL_UNORM_INT_101010")
+    {
+        return CL_UNORM_INT_101010;
+    }
+    else if (Type == "CL_SIGNED_INT8")
+    {
+        return CL_SIGNED_INT8;
+    }
+    else if (Type == "CL_SIGNED_INT16")
+    {
+        return CL_SIGNED_INT16;
+    }
+    else if (Type == "CL_SIGNED_INT32")
+    {
+        return CL_SIGNED_INT32;
+    }
+    else if (Type == "CL_UNSIGNED_INT8")
+    {
+        return CL_UNSIGNED_INT8;
+    }
+    else if (Type == "CL_UNSIGNED_INT16")
+    {
+        return CL_UNSIGNED_INT16;
+    }
+    else if (Type == "CL_UNSIGNED_INT32")
+    {
+        return CL_UNSIGNED_INT32;
+    }
+    else if (Type == "CL_HALF_FLOAT")
+    {
+        return CL_HALF_FLOAT;
+    }
+    else if (Type == "CL_FLOAT")
+    {
+        return CL_FLOAT;
+    }
+    string Error("Unrecognized channel type '");
+    Error += Type + "'";
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// SetKernelArgument
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_mem_object_type GetImageTypeFromString(const string& Type)
+{
+    if (Type == "CL_MEM_OBJECT_IMAGE1D")
+    {
+        return CL_MEM_OBJECT_IMAGE1D;
+    }
+    else if (Type == "CL_MEM_OBJECT_IMAGE1D_BUFFER")
+    {
+        return CL_MEM_OBJECT_IMAGE1D_BUFFER;
+    }
+    else if (Type == "CL_MEM_OBJECT_IMAGE1D_ARRAY")
+    {
+        return CL_MEM_OBJECT_IMAGE1D_ARRAY;
+    }
+    else if (Type == "CL_MEM_OBJECT_IMAGE2D")
+    {
+        return CL_MEM_OBJECT_IMAGE2D;
+    }
+    else if (Type == "CL_MEM_OBJECT_IMAGE2D_ARRAY")
+    {
+        return CL_MEM_OBJECT_IMAGE2D_ARRAY;
+    }
+    else if (Type == "CL_MEM_OBJECT_IMAGE3D")
+    {
+        return CL_MEM_OBJECT_IMAGE3D;
+    }
+    string Error("Unrecognized image type '");
+    Error += Type + "'";
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// SetKernelArgument
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
+{
+    cl_mem_flags Flags(0);
+    cout << "Getting mem flags from '" << FlagsStr << "'" << endl;
+    char_separator<char> Separators(", ");
+    tokenizer<char_separator<char> > tokens(FlagsStr, Separators);
+    for (tokenizer<char_separator<char> >::iterator iToken = tokens.begin();
+        iToken != tokens.end();
+        ++iToken)
+    {
+        cout << "Current mem flag token is '" << *iToken << "'" << endl;
+        if (*iToken == "CL_MEM_ALLOC_HOST_PTR")
+        {
+            Flags |= CL_MEM_ALLOC_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_COPY_HOST_PTR")
+        {
+            Flags |= CL_MEM_COPY_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_HOST_NO_ACCESS")
+        {
+            Flags |= CL_MEM_HOST_NO_ACCESS;
+        }
+        else if (*iToken == "CL_MEM_HOST_READ_ONLY")
+        {
+            Flags |= CL_MEM_HOST_READ_ONLY;
+        }
+        else if (*iToken == "CL_MEM_HOST_WRITE_ONLY")
+        {
+            Flags |= CL_MEM_HOST_WRITE_ONLY;
+        }
+        else if (*iToken == "CL_MEM_READ_ONLY")
+        {
+            Flags |= CL_MEM_READ_ONLY;
+        }
+        else if (*iToken == "CL_MEM_READ_WRITE")
+        {
+            Flags |= CL_MEM_READ_WRITE;
+        }
+        else if (*iToken == "CL_MEM_USE_HOST_PTR")
+        {
+            Flags |= CL_MEM_USE_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_WRITE_ONLY")
+        {
+            Flags |= CL_MEM_WRITE_ONLY;
+        }
+        else
+        {
+            string Error("Unrecognized memory flags '");
+            Error += *iToken + "'";
+            throw Error;
+        }
+    }
+    return Flags;
+}
+
 void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
 {
 	// Copy 1D array only
@@ -581,3 +860,100 @@ size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
 
 	return szBytesCount * szElementsCount;
 }
+
+/////////////////////////////////////////////////////////////////////////
+// TrimString
+/////////////////////////////////////////////////////////////////////////
+string TrimString(const string& sSource, const char *chars)
+{
+    size_t Start = sSource.find_first_not_of(chars);
+    if (Start == string::npos) {
+        // only "*chars"
+        return "";
+    }
+    size_t End = sSource.find_last_not_of(chars);
+    if ((Start == 0) && (End == sSource.length() - 1)) {
+        // noting to trim
+        return sSource;
+    }
+    return sSource.substr(Start, (End - Start) + 1);
+}
+
+/////////////////////////////////////////////////////////////////////////
+// ToNarrow
+/////////////////////////////////////////////////////////////////////////
+string  ToNarrow(const wchar_t *s, char dfault, 
+    const locale& loc)
+{
+    ostringstream stm;
+
+    while( *s != L'\0' ) {
+        stm << use_facet< ctype<wchar_t> >(loc).narrow(*s++, dfault);
+    }
+    return stm.str();
+}
+
+/////////////////////////////////////////////////////////////////////////
+// FormatClError
+/////////////////////////////////////////////////////////////////////////
+string FormatClError(const string& Base, cl_int CLError) 
+{
+    string Error(Base);
+    Error += ": ";
+    Error += stringify<cl_int>(CLError);
+    Error += " (";
+    //Error += ToNarrow(ClErrTxt(CLError));
+    Error += ClErrTxt(CLError);
+    Error += ")";
+    return Error;
+}
+
+/////////////////////////////////////////////////////////////////////////
+// GetTempDir
+/////////////////////////////////////////////////////////////////////////
+string GetTempDir()
+{
+    string TmpDir;
+#if defined (_WIN32) // Windows
+    char *EnvTemp = getenv("TEMP");
+    if (EnvTemp)
+    {
+        TmpDir = EnvTemp;
+        TmpDir += "\\";
+    }
+#else // Linux
+    TmpDir = "/tmp/";
+#endif
+    return TmpDir;
+}
+
+string GetDeviceTypeString(const cl_device_type& Type)
+{
+    string DevType;
+    if (Type & CL_DEVICE_TYPE_CPU)
+    {
+        DevType += "CL_DEVICE_TYPE_CPU,";
+    }
+    if (Type & CL_DEVICE_TYPE_GPU)
+    {
+        DevType += "CL_DEVICE_TYPE_GPU,";
+    }
+    if (Type & CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        DevType += "CL_DEVICE_TYPE_ACCELERATOR";
+    }
+    if (Type & CL_DEVICE_TYPE_CUSTOM)
+    {
+        DevType += "CL_DEVICE_TYPE_CUSTOM";
+    }
+    if (Type & CL_DEVICE_TYPE_DEFAULT)
+    {
+        DevType += "CL_DEVICE_TYPE_DEFAULT";
+    }
+    if (DevType.empty())
+    {
+        throw string("Failed to get device type");
+    }
+    return DevType.substr(0, DevType.length()-1); // Remove the last comma
+}
+

@@ -9,6 +9,9 @@ set( TARGET_NAME cl_sys_utils )
 
 include_directories( AFTER
             ../cl_hw_utils/export
+			${CMAKE_CURRENT_SOURCE_DIR}/../../externals/boost_1_46_1
+			${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/ToolsUtils
             )
 
 FIND_SOURCES()
@@ -19,8 +22,10 @@ SET_UNICODE_OFF()
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 if (NOT WIN32)
+  link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX})
   target_link_libraries( ${TARGET_NAME} cl_hw_utils numa )
 else ()
+  link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1/lib/win/${BOOST_LIB_DIR_SUFFIX} )
   target_link_libraries( ${TARGET_NAME} cl_hw_utils )
 endif(NOT WIN32)
  
