@@ -29,19 +29,20 @@ BENCH_OBJS = BusSpeedReadback.o \
 			 Sort.o\
 			 FFT.o\
               S3D.o\
-              DeviceMemory.o
+              DeviceMemory.o\
+              MaxFlops.o
 			
 
 BENCHMARKPROG = $(patsubst %.o,$(BINDIR)/%,$(BENCH_OBJS))
 
 # MKL paths
-MKLROOT=/opt/intel/composer_xe_2013.0.021/mkl
-KNF_MKL_LIB_PATH=/opt/intel/composer_xe_2013.0.021/mkl/lib/mic
+MKLROOT=/opt/intel/composerxe/mkl
+KNF_MKL_LIB_PATH=/opt/intel/composerxe/mkl/lib/mic
 
 # Flags to include KNF MKL library
 KNF_MKL_LIBS=-lmkl_core
 
-CFLAGS          = -vec-report3 -parallel -g -O3 -offload-build -openmp -intel-extensions -I/opt/intel/composer_xe_2013.0.021/compiler/include/mic -I./common -I$(SHOC_COMMON) -I$(MKLROOT)/include -opt-report-phase:offload -openmp-report
+CFLAGS          = -vec-report3 -parallel -g -O3 -offload-build -openmp -intel-extensions -I/opt/intel/composerxe/include/mic -I./common -I$(SHOC_COMMON) -I$(MKLROOT)/include -opt-report-phase:offload -openmp-report
 
 LDFLAGS = -vec-report3 -parallel -offload-build -offload-ldopts:"-openmp -L$(MKLROOT)/lib/mic -Wl,--start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl,--end-group" \
                        -L$(MKLROOT)/lib/intel64 -Wl,--start-group  -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl,--end-group
@@ -94,3 +95,5 @@ sort: $(BINDIR)/Sort
 $(BINDIR)/S3D : $(COMMON_OBJS)
 
 s3d : $(BINDIR)/S3D
+
+maxflops : $(BINDIR)/MaxFlops
