@@ -177,61 +177,57 @@ struct ocl_entry_points
     COCLCRTDispatchTable*                           crtDispatch;
 };
 
-
 struct _cl_object 
 {    
 	void * object;
 };
 
-struct _cl_platform_id_int : public _cl_platform_id
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _crt_dispatch
+{	
+    COCLCRTDispatchTable*       crtDispatch;	
+};
+
+struct _cl_platform_id_int : public _cl_platform_id, public _crt_dispatch
+{    
+	void *  object;
+};
+
+struct _cl_device_id_int : public _cl_device_id, public _crt_dispatch
+{       
 	void * object;
 };
 
-struct _cl_device_id_int : public _cl_device_id
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_context_int : public _cl_context, public _crt_dispatch
+{        
 	void * object;
 };
 
-struct _cl_context_int : public _cl_context
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_command_queue_int : public _cl_command_queue, public _crt_dispatch
+{        
 	void * object;
 };
 
-struct _cl_command_queue_int : public _cl_command_queue
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_mem_int : public _cl_mem, public _crt_dispatch
+{       
 	void * object;
 };
 
-struct _cl_mem_int : public _cl_mem
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_program_int : public _cl_program, public _crt_dispatch
+{      
 	void * object;
 };
 
-struct _cl_program_int : public _cl_program
-{
+struct _cl_kernel_int : public _cl_kernel, public _crt_dispatch
+{       
 	void * object;
 };
 
-struct _cl_kernel_int : public _cl_kernel
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_event_int : public _cl_event, public _crt_dispatch
+{     
 	void * object;
 };
 
-struct _cl_event_int : public _cl_event
-{
-    COCLCRTDispatchTable*       crtDispatch;
-	void * object;
-};
-
-struct _cl_sampler_int : public _cl_sampler
-{
-    COCLCRTDispatchTable*       crtDispatch;
+struct _cl_sampler_int : public _cl_sampler, public _crt_dispatch
+{     
 	void * object;
 };

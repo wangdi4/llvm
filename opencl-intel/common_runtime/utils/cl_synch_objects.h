@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -54,7 +54,7 @@ public:
     void Unlock();
 protected:
     void* m_mutexHndl;
-private:    
+private:
 unsigned int m_uiSpinCount;
 };
 
@@ -67,7 +67,7 @@ public:
 
 private:
     IMutex* m_mutexObj;
-};  
+};
 
 // Wait until being signaled
 class OclBinarySemaphore
@@ -76,7 +76,7 @@ public:
     OclBinarySemaphore();
     virtual ~OclBinarySemaphore();
 
-    // Signals the semaphore. 
+    // Signals the semaphore.
     void Signal();
 
     // Consumes a signal

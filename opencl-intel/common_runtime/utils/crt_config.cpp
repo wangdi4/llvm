@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -49,6 +49,6 @@ crt_err_code CrtConfig::Init()
 #else
     m_libraryNames.push_back("igdrcl32.dll");
 #endif
-    
+
     return CRT_SUCCESS;
 }

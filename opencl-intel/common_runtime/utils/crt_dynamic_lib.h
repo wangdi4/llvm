@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -37,8 +37,8 @@ namespace Utils
 /************************************************************************
 Class:          OclDynamicLib
 Description:    Handles load/release and function pointer
- *              retrieval from the dynamically loaded libraries
- ************************************************************************/
+                retrieval from the dynamically loaded libraries
+************************************************************************/
 class OclDynamicLib
 {
 public:

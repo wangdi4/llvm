@@ -135,14 +135,14 @@ void CopyMemoryObject(MemCpyParams* pCopyCmd)
     // Copy 1D array only
     if ( 1 == pCopyCmd->uiDimCount )
     {
-        memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
+        memcpy_s( pCopyCmd->pDst, pCopyCmd->vDstPitch[0], pCopyCmd->pSrc, pCopyCmd->vRegion[0] );
         return;
     }
 
     MemCpyParams sRecParam;
 
     // Copy current parameters
-    memcpy(&sRecParam, pCopyCmd, sizeof(MemCpyParams));
+    memcpy_s( &sRecParam, sizeof(MemCpyParams), pCopyCmd, sizeof(MemCpyParams) );
     sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
     // Make recursion
     for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
@@ -252,10 +252,12 @@ m_context_handle(context_handle)
 
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
+    cl_device_id* outDevices = NULL;
+
     for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
     {
-        cl_device_id* outDevices = new cl_device_id[OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size()];
-        if (NULL == devices)
+        outDevices = new cl_device_id[OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size()];
+        if (NULL == outDevices)
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             break;
@@ -269,7 +271,14 @@ m_context_handle(context_handle)
                             outDevices);
 
         if (matchDevices == 0)
+        {
+            if( outDevices )
+            {
+                delete[] outDevices;
+                outDevices = NULL;
+            }
             continue;
+        }
 
         CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0]);
 
@@ -303,6 +312,12 @@ m_context_handle(context_handle)
             m_DeviceToContext[outDevices[j]] = ctx;
         }
         m_contexts[ctx] = &(OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0])->m_origDispatchTable);
+
+        if( outDevices )
+        {
+            delete[] outDevices;
+            outDevices = NULL;
+        }
     }
 
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
@@ -312,7 +327,13 @@ m_context_handle(context_handle)
         goto FINISH;
     }
     errCode = GetDevicesPreferredAlignment(num_devices, devices, &m_alignment);
+
 FINISH:
+    if( outDevices )
+    {
+        delete[] outDevices;
+        outDevices = NULL;
+    }
     if( errcode_ret )
     {
         *errcode_ret = errCode;
@@ -462,6 +483,8 @@ CrtContext::~CrtContext()
 
 cl_int CrtContext::FlushQueues()
 {
+    OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section
+
     cl_uint errCode = CL_SUCCESS;
     for( std::list<cl_command_queue>::iterator itr = m_commandQueues.begin();
         itr != m_commandQueues.end();
@@ -613,7 +636,7 @@ cl_int CrtMemObject::RegisterDestructorCallback(mem_dtor_fn memDtorFunc, void* u
     return errCode;
 }
 
-bool CrtMemObject::HasPrivateCopy()
+cl_bool CrtMemObject::HasPrivateCopy()
 {
     return ( m_pBstPtr && m_pUsrPtr );
 }
@@ -672,14 +695,15 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
         // Convert bits to bytes
         m_pBstPtr = _aligned_malloc( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
 
-        if (!m_pBstPtr)
+        if ( !m_pBstPtr )
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
 
-        if( m_flags & CL_MEM_COPY_HOST_PTR || m_flags & CL_MEM_USE_HOST_PTR )
+        if( ( m_pUsrPtr != NULL ) &&
+            ( ( m_flags & CL_MEM_COPY_HOST_PTR ) || ( m_flags & CL_MEM_USE_HOST_PTR ) ) )
         {
-            memcpy( m_pBstPtr, m_pUsrPtr, m_size );
+            memcpy_s( m_pBstPtr, m_size, m_pUsrPtr, m_size );
         }
 
         if( !( m_flags & CL_MEM_USE_HOST_PTR ) )
@@ -834,6 +858,7 @@ cl_int CrtBuffer::Create(
     m_pUsrPtr = ( ( m_parentBuffer->m_pUsrPtr == NULL ) ?
                     NULL :
                     ( cl_char* )m_parentBuffer->m_pUsrPtr + region->origin );
+
     m_size = region->size;
 
     itr = m_ContextToMemObj.begin();
@@ -896,10 +921,216 @@ cl_int CrtBuffer::CheckParamsAndBounds(const size_t* origin, const size_t* regio
     }
     return CL_SUCCESS;
 }
-
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+CrtGLBuffer::CrtGLBuffer(
+    cl_bool             isRenderBuffer,
+    cl_mem_flags        flags,
+    GLuint              bufobj,
+    CrtContext*         ctx):
+CrtBuffer(0,flags, NULL, ctx)
+{
+    m_isRenderBuffer = isRenderBuffer;
+    m_glBufObj = bufobj;
+}
+
+cl_int CrtGLBuffer::Create(CrtMemObject** bufObj)
+{
+    CTX_MEM_MAP::iterator ctx_mem_itr;
+    cl_int errCode = CL_SUCCESS;
+
+    *bufObj = this;
+
+    // This is being deallocated in callback 'CrtMemDtorCallBack'
+    CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
+    if( NULL == memData )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    memData->m_count = 0;
+    memData->m_clMemHandle = this;
+
+    for( SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin();
+        itr != m_pContext->m_contexts.end();
+        itr++ )
+    {
+        cl_context ctx = itr->first;
+        cl_mem memObj = NULL;
+
+        if( m_isRenderBuffer )
+        {
+            memObj = ctx->dispatch->clCreateFromGLRenderbuffer(
+                ctx,
+                m_flags,
+                m_glBufObj,
+                &errCode);
+        }
+        else
+        {
+            memObj = ctx->dispatch->clCreateFromGLBuffer(
+                ctx,
+                m_flags,
+                m_glBufObj,
+                &errCode);
+        }
+
+        if( CL_SUCCESS == errCode )
+        {
+            m_ContextToMemObj[ctx] = memObj;
+            m_numValidContextObjs++;
+        }
+        else if( CL_INVALID_BUFFER_SIZE == errCode )
+        {
+            // there might be other device in the context supporting
+            // this image format
+            m_ContextToMemObj[ctx] = (cl_mem)INVALID_MEMOBJ_SIZE;
+            continue;
+        }
+        else
+        {
+            goto FINISH;
+        }
+    }
+
+    // if no device supports the image format, then m_ContextToMemObj
+    // will be an empty map, and we will continue directly to :FINISH
+    // and finally returning CL_IMAGE_FORMAT_NOT_SUPPORTED error code.
+    ctx_mem_itr = m_ContextToMemObj.begin();
+    for ( ; ctx_mem_itr != m_ContextToMemObj.end(); ctx_mem_itr++ )
+    {
+        if( IsValidMemObjSize( ctx_mem_itr->second ) == CL_TRUE )
+        {
+            errCode = ctx_mem_itr->second->dispatch->clSetMemObjectDestructorCallback(
+                ctx_mem_itr->second,
+                CrtMemDestructorCallBack,
+                (void*)memData);
+
+            if( CL_SUCCESS != errCode )
+            {
+                goto FINISH;
+            }
+            memData->m_count++;
+        }
+    }
+
+FINISH:
+
+    if( CL_SUCCESS != errCode )
+    {
+        if( memData->m_count == 0 )
+        {
+            delete memData;
+        }
+        Release();
+        *bufObj = NULL;
+    }
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CrtDX9MediaSurface::CrtDX9MediaSurface(
+    cl_mem_flags            flags,
+    IDirect3DSurface9*      resource,
+    HANDLE                  sharedhandle,
+    UINT                    plane,
+    CrtContext*             ctx):
+CrtMemObject(flags, NULL, ctx)
+{
+    m_resource = resource;
+    m_sharedHandle = sharedhandle;
+    m_plane = plane;
+}
+
+cl_int CrtDX9MediaSurface::Create( CrtMemObject** dx9Obj )
+{
+    CTX_MEM_MAP::iterator ctx_mem_itr;
+    cl_int errCode = CL_SUCCESS;
+
+    *dx9Obj = this;
+
+    // This is being deallocated in callback 'CrtMemDtorCallBack'
+    CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
+    if( NULL == memData )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    memData->m_count = 0;
+    memData->m_clMemHandle = this;
+
+    for( SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin();
+        itr != m_pContext->m_contexts.end();
+        itr++ )
+    {
+        cl_context ctx = itr->first;
+        cl_mem memObj = NULL;
+
+        memObj = ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreateFromDX9MediaSurfaceINTEL(
+            ctx,
+            m_flags,
+            m_resource,
+            m_sharedHandle,
+            m_plane,
+            &errCode);
+
+
+        if( CL_SUCCESS == errCode )
+        {
+            m_ContextToMemObj[ctx] = memObj;
+            m_numValidContextObjs++;
+        }
+        else
+        {
+            goto FINISH;
+        }
+    }
+
+    // if no device supports the image format, then m_ContextToMemObj
+    // will be an empty map, and we will continue directly to :FINISH
+    // and finally returning CL_IMAGE_FORMAT_NOT_SUPPORTED error code.
+    ctx_mem_itr = m_ContextToMemObj.begin();
+    for ( ; ctx_mem_itr != m_ContextToMemObj.end(); ctx_mem_itr++ )
+    {
+        if( IsValidMemObjSize( ctx_mem_itr->second ) == CL_TRUE )
+        {
+            errCode = ctx_mem_itr->second->dispatch->clSetMemObjectDestructorCallback(
+                ctx_mem_itr->second,
+                CrtMemDestructorCallBack,
+                (void*)memData);
+
+            if( CL_SUCCESS != errCode )
+            {
+                goto FINISH;
+            }
+            memData->m_count++;
+        }
+    }
+
+FINISH:
+
+    if( CL_SUCCESS != errCode )
+    {
+        if( memData->m_count == 0 )
+        {
+            delete memData;
+        }
+        Release();
+        *dx9Obj = NULL;
+    }
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CrtImage::CrtImage(
+    cl_mem_flags            flags,
+    CrtContext*             ctx):
+CrtMemObject(flags,NULL,ctx)
+{
+
+}
+
 CrtImage::CrtImage(
     const cl_image_format * image_format,
     const cl_image_desc *   image_desc,
@@ -911,6 +1142,14 @@ m_imageFormat(*image_format),
 m_dimCount(0)
 {
     m_imageDesc.desc = *image_desc;
+
+    m_hostPtrRowPitch = m_imageDesc.desc.image_row_pitch ?
+        m_imageDesc.desc.image_row_pitch:
+        ( (cl_uint)m_imageDesc.desc.image_width * GetImageElementSize(&m_imageFormat) );
+
+    m_hostPtrSlicePitch = m_imageDesc.desc.image_slice_pitch ?
+        m_imageDesc.desc.image_slice_pitch :
+        ( m_hostPtrRowPitch * m_imageDesc.desc.image_height );
 
     switch( m_imageDesc.desc.image_type )
     {
@@ -968,17 +1207,41 @@ m_dimCount(0)
         m_imageDesc.desc.buffer = NULL;
     }
     cl_device_id gpuDevice = ctx->GetDeviceByType( CL_DEVICE_TYPE_GPU );
-    assert( ( gpuDevice != NULL ) && "Image sharing requires GPU device" );
+    if( gpuDevice != NULL )
+    {
+        SOCLEntryPointsTable* gpuDispatch = (SOCLEntryPointsTable*)gpuDevice;
+        // <<<<<<   GMM Query Bug Workaround when arraysize == 1
+        size_t previousArraySize = m_imageDesc.desc.image_array_size;
 
-    SOCLEntryPointsTable* gpuDispatch = (SOCLEntryPointsTable*)gpuDevice;
-    cl_int RetVal = gpuDispatch->crtDispatch->clGetImageParamsINTEL(
-                                         ctx->GetContextByDeviceID( gpuDevice ),
-                                         &m_imageFormat,
-                                         ( cl_image_desc* )( &m_imageDesc ),
-                                         &m_imageDesc.desc.image_row_pitch,
-                                         &m_imageDesc.desc.image_slice_pitch );
+        switch( m_imageDesc.desc.image_type )
+        {
+            case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                m_imageDesc.desc.image_array_size = 2;
+                break;
+        }
+        // >>>>>>   GMM Query Bug Workaround when arraysize == 1
+        cl_int RetVal = gpuDispatch->crtDispatch->clGetImageParamsINTEL(
+                                             ctx->GetContextByDeviceID( gpuDevice ),
+                                             &m_imageFormat,
+                                             ( cl_image_desc* )( &m_imageDesc ),
+                                             &m_imageDesc.desc.image_row_pitch,
+                                             &m_imageDesc.desc.image_slice_pitch );
 
-    assert( ( CL_SUCCESS == RetVal ) && "clGetImageParamsINTEL failed" );
+        // <<<<<<   GMM Query Bug Workaround when arraysize == 1
+        m_imageDesc.desc.image_array_size = previousArraySize;
+        // >>>>>>   GMM Query Bug Workaround when arraysize == 1
+
+        assert(
+            ( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE1D )            ||
+            ( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE2D )            ||
+            ( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER )     ||
+            !( m_imageDesc.desc.image_slice_pitch % m_imageDesc.desc.image_row_pitch ));
+    }
+    else
+    {
+        assert( ( gpuDevice != NULL ) && "Image sharing requires GPU device" );
+    }
 }
 
 void*  CrtImage::GetMapPointer(const size_t* origin, const size_t* region)
@@ -1056,18 +1319,14 @@ CrtImage::~CrtImage()
 }
 
 
-cl_int CrtImage::Create(size_t rowPitch, size_t slicePitch, CrtMemObject**  imageObj)
+cl_int CrtImage::Create(CrtMemObject**  imageObj)
 {
     CTX_MEM_MAP::iterator ctx_mem_itr;
     CrtBuffer* crtBuffer = NULL;
 
     // Calculate the size of memory provided by the app
-    size_t hostPtrSize = 0;
-
-    m_hostPtrRowPitch = rowPitch ? rowPitch: ( (cl_uint)m_imageDesc.desc.image_width * GetImageElementSize(&m_imageFormat) );
-    m_hostPtrSlicePitch = slicePitch ? slicePitch : ( m_hostPtrRowPitch * m_imageDesc.desc.image_height );
     m_size = m_imageDesc.desc.image_slice_pitch * m_imageDesc.desc.image_depth * m_imageDesc.desc.image_array_size;
-    hostPtrSize = m_hostPtrSlicePitch * m_imageDesc.desc.image_depth * m_imageDesc.desc.image_array_size;
+    size_t hostPtrSize = m_hostPtrSlicePitch * m_imageDesc.desc.image_depth * m_imageDesc.desc.image_array_size;
 
     // We need to save these params since, we need use them
     // on Map in case CL_MEM_USE_HOST_PTR has been provided.
@@ -1284,7 +1543,140 @@ FINISH:
     }
     return errCode;
 }
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CrtGLImage::CrtGLImage(    
+    cl_uint                 dim_count,
+    cl_mem_flags            flags,
+    GLenum                  texture_target,
+    GLint                   miplevel,
+    GLuint                  texture,
+    CrtContext*           ctx):
+CrtImage(flags, ctx)
+{    
+    m_dimCount      = dim_count;
+    m_textureTarget = texture_target;
+    m_mipLevel      = miplevel;
+    m_texture       = texture;    
+}
 
+CrtGLImage::~CrtGLImage()
+{    
+}
+
+cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
+{
+    CTX_MEM_MAP::iterator ctx_mem_itr;
+    cl_int errCode = CL_SUCCESS;
+
+    *imageObj = this;
+
+    // This is being deallocated in callback 'CrtMemDtorCallBack'
+    CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
+    if ( NULL == memData )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    memData->m_count = 0;
+    memData->m_clMemHandle = this;
+    
+    cl_uint numActualImages = 0;
+    SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin(); 
+    for( ;itr != m_pContext->m_contexts.end(); itr++ )
+    {
+        cl_context ctx = itr->first;        
+        cl_mem memObj  = NULL;
+       
+        switch( m_dimCount )
+        {
+        case 2:                         
+            memObj = ctx->dispatch->clCreateFromGLTexture2D(
+                ctx,
+                m_flags,
+                m_textureTarget,
+                m_mipLevel,
+                m_texture,
+                &errCode);          
+            break;
+        case 3:
+            memObj = ctx->dispatch->clCreateFromGLTexture3D(
+                ctx,
+                m_flags,
+                m_textureTarget,
+                m_mipLevel,
+                m_texture,
+                &errCode);
+            break;
+        default:
+            memObj = ctx->dispatch->clCreateFromGLTexture(
+                ctx,
+                m_flags,
+                m_textureTarget,
+                m_mipLevel,
+                m_texture,
+                &errCode);
+            break;
+        };
+        
+        if( ( CL_SUCCESS == errCode ) &&
+            ( memObj != NULL ) )
+        {
+            m_ContextToMemObj[ctx] = memObj;
+            m_numValidContextObjs++;
+        }
+        else if( CL_IMAGE_FORMAT_NOT_SUPPORTED == errCode )
+        {
+            // there might be other device in the context supporting
+            // this image format
+            m_ContextToMemObj[ctx] = (cl_mem)INVALID_IMG_FORMAT;
+            continue;
+        }
+        else if( CL_INVALID_IMAGE_SIZE == errCode )
+        {
+            // there might be other device in the context supporting
+            // this image format
+            m_ContextToMemObj[ctx] = (cl_mem)INVALID_MEMOBJ_SIZE;
+            continue;
+        }
+        else
+        {
+            goto FINISH;
+        }
+    }
+    // if no device supports the image format, then m_ContextToMemObj
+    // will be an empty map, and we will continue directly to :FINISH
+    // and finally returning CL_IMAGE_FORMAT_NOT_SUPPORTED error code.
+    ctx_mem_itr = m_ContextToMemObj.begin();
+    for( ; ctx_mem_itr != m_ContextToMemObj.end(); ctx_mem_itr++ )
+    {
+        if( ( IsValidImageFormat( ctx_mem_itr->second ) == CL_TRUE ) &&
+            ( IsValidMemObjSize( ctx_mem_itr->second ) == CL_TRUE ) )
+        {           
+            errCode = ctx_mem_itr->second->dispatch->clSetMemObjectDestructorCallback(
+                ctx_mem_itr->second,
+                CrtMemDestructorCallBack,
+                (void*)memData );
+
+            if( CL_SUCCESS != errCode )
+            {
+                goto FINISH;
+            }
+            memData->m_count++;
+        }
+    }
+FINISH:
+    if( memData->m_count == 0 )
+    {
+         delete memData;
+    }
+    if( CL_SUCCESS != errCode )
+    {
+        Release();
+        *imageObj = NULL;
+    }
+    return errCode;
+}
 
 size_t GetImageElementSize(const cl_image_format *  format)
 {
@@ -1410,7 +1802,7 @@ cl_int CrtContext::CreateImage(
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    errCode = image->Create(image_desc->image_row_pitch, image_desc->image_slice_pitch, imageObj);
+    errCode = image->Create( imageObj );
     if( CL_SUCCESS != errCode )
     {
         image->Release();
@@ -1473,7 +1865,8 @@ cl_int CrtContext::CreateSubBuffer(
     }
 
     CrtMemObject* parentBuf = ((CrtMemObject*)(parent_buffer->object));
-    CrtBuffer* buffer = new CrtBuffer(parentBuf, flags, this);
+    CrtBuffer* buffer = new CrtBuffer(parentBuf, flags, this);           
+            
     errCode = buffer->Create(bufObj, buffer_create_type, buffer_create_info);
     if( CL_SUCCESS != errCode )
     {
@@ -1481,7 +1874,16 @@ cl_int CrtContext::CreateSubBuffer(
         buffer->DecPendencyCnt();
     }
     else
-    {
+    {           
+        if( (flags & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY)) == 0 )
+        {
+            buffer->m_flags |= buffer->m_parentBuffer->m_flags & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY);            
+        }
+        buffer->m_flags |= buffer->m_parentBuffer->m_flags & (CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR | CL_MEM_USE_HOST_PTR);            
+        if( (flags & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_NO_ACCESS)) == 0)
+        {
+            buffer->m_flags |= buffer->m_parentBuffer->m_flags & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_NO_ACCESS);
+        }
         *bufObj = buffer;
     }
     return errCode;
@@ -1516,7 +1918,10 @@ cl_int  CrtContext::CreateCommandQueue(
         pCrtQueue->m_cmdQueueDEV = queueDEV;
         pCrtQueue->m_device = device;
         *crtQueue = pCrtQueue;
-        m_commandQueues.push_back(queueDEV);
+        {
+            OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section
+            m_commandQueues.push_back(queueDEV);
+        }
     }
     return errCode;
 }
@@ -1532,7 +1937,7 @@ m_platformIdDEV(NULL)
 
 CrtKernel::CrtKernel(CrtProgram* program)
 :m_programCRT(program)
-{
+{    
     m_programCRT->IncPendencyCnt();
 }
 
@@ -1594,7 +1999,8 @@ CrtUserEvent::~CrtUserEvent()
 
 cl_int CrtQueue::Release()
 {
-    cl_int errCode  = m_cmdQueueDEV->dispatch->clReleaseCommandQueue(m_cmdQueueDEV);
+    OCLCRT::Utils::OclAutoMutex CS(&m_contextCRT->m_mutex);   // Critical section
+    cl_int errCode  = m_cmdQueueDEV->dispatch->clReleaseCommandQueue(m_cmdQueueDEV);    
     m_contextCRT->m_commandQueues.remove(m_cmdQueueDEV);
     return errCode;
 }
@@ -1953,7 +2359,7 @@ cl_int SyncManager::PrepareToExecute(
     cl_int errCode = CL_SUCCESS;
     
     if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
-	( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
+        ( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
     {
         return CL_INVALID_EVENT_WAIT_LIST;
     }
@@ -2232,3 +2638,86 @@ cl_uint GetPlatformVersion( const char* platform_version )
     }
     return version;
 }
+
+cl_int CrtContext::CreateFromDX9MediaSurface(        
+        cl_mem_flags            flags,        
+        IDirect3DSurface9 *     resource,
+        HANDLE                  sharedHandle,
+        UINT                    plane,
+        CrtMemObject**          memObj)
+{
+    cl_int errCode = CL_SUCCESS;
+
+    CrtDX9MediaSurface* dx9MediaSurfaceObj = new CrtDX9MediaSurface(
+                                                flags, 
+                                                resource,
+                                                sharedHandle,
+                                                plane,
+                                                this);
+
+    if( !dx9MediaSurfaceObj )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    errCode = dx9MediaSurfaceObj->Create( memObj );
+    if( CL_SUCCESS != errCode )
+    {
+        dx9MediaSurfaceObj->Release();
+        dx9MediaSurfaceObj->DecPendencyCnt();
+    }
+    return errCode;
+}
+
+cl_int CrtContext::CreateGLBuffer(
+    bool                    isRender,
+    cl_mem_flags            flags,        
+    GLuint                  bufobj,
+    CrtMemObject**          memObj)
+{
+    cl_int errCode = CL_SUCCESS;
+
+    CrtGLBuffer* buffer = new CrtGLBuffer(isRender, flags, bufobj, this);
+    if( !buffer )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    errCode = buffer->Create( memObj );
+    if( CL_SUCCESS != errCode )
+    {
+        buffer->Release();
+        buffer->DecPendencyCnt();
+    }
+    return errCode;
+};
+
+cl_int CrtContext::CreateGLImage(
+    cl_uint                 dim_count,
+    cl_mem_flags            flags,
+    cl_GLenum               target,
+    cl_GLint                miplevel,
+    cl_GLuint               texture,
+    CrtMemObject**          memObj)
+{
+    cl_int errCode = CL_SUCCESS;
+   
+    CrtGLImage* image = new CrtGLImage(
+        dim_count,
+        flags,
+        target,
+        miplevel,
+        texture,
+        this);
+
+    if( !image )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    errCode = image->Create( memObj );
+    if( CL_SUCCESS != errCode )
+    {
+        image->Release();
+        image->DecPendencyCnt();
+    }
+    return errCode;
+};

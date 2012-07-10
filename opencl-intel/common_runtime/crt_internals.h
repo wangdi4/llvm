@@ -36,7 +36,9 @@ using namespace OCLCRT::Utils;
 class CrtContext;
 class CrtMemObject;
 class CrtBuffer;
+class CrtGLBuffer;
 class CrtImage;
+class CrtGLImage;
 class CrtObject;
 struct CrtSampler;
 class SyncManager;
@@ -157,10 +159,9 @@ struct CrtKernel: public CrtObject
 {
     CrtKernel(CrtProgram* program);
     virtual ~CrtKernel();
-    CTX_KRN_MAP             m_ContextToKernel;
-    CrtProgram*             m_programCRT;
-
-    cl_int                  Release();
+    CTX_KRN_MAP                 m_ContextToKernel;
+    CrtProgram*                 m_programCRT;
+    cl_int                      Release();
 };
 struct CrtQueue: public CrtObject
 {
@@ -249,7 +250,9 @@ public:
 
     virtual cl_int Release();
 
-    bool HasPrivateCopy();
+    virtual cl_bool isInteropObject(){ return CL_FALSE; };
+
+    cl_bool HasPrivateCopy();
 
     inline cl_bool IsValidMemObjSize( cl_mem ptr )
     {
@@ -321,11 +324,11 @@ public:
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
 
-    void*  GetMapPointer(const size_t* origin, const size_t* region);
-    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region);
+    virtual void*  GetMapPointer(const size_t* origin, const size_t* region);
+    virtual cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region);
 
     // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
-    cl_int Create(CrtMemObject**            memObj);
+    virtual cl_int Create(CrtMemObject** memObj);
 
     // Used for creating sub-buffers
     cl_int Create(
@@ -335,7 +338,55 @@ public:
 
     // Used by sub-buffers
     CrtMemObject*       m_parentBuffer;
+};
 
+class CrtGLBuffer: public CrtBuffer
+{
+public:
+    // Buffer Ctor
+    CrtGLBuffer(
+        cl_bool         isRenderBuffer,
+        cl_mem_flags    flags,
+        GLuint          bufobj,
+        CrtContext*     ctx);
+
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
+
+    cl_bool isInteropObject(){ return CL_TRUE; };
+
+    cl_int Create(CrtMemObject** memObj);
+
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; };
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
+
+    cl_bool             m_isRenderBuffer;
+    GLuint              m_glBufObj;
+};
+
+
+class CrtDX9MediaSurface: public CrtMemObject
+{
+public:
+    // Buffer Ctor
+    CrtDX9MediaSurface(
+        cl_mem_flags            flags,
+        IDirect3DSurface9*      resource,
+        HANDLE                  sharedhandle,
+        UINT                    plane,
+        CrtContext*             ctx);
+
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_BUFFER; }
+
+    cl_bool isInteropObject(){ return CL_TRUE; };
+
+    cl_int Create(CrtMemObject** memObj);
+
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; };
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
+
+    IDirect3DSurface9*      m_resource;
+    HANDLE                  m_sharedHandle;
+    UINT                    m_plane;
 };
 
 size_t  GetImageElementSize(const cl_image_format * format);
@@ -360,6 +411,11 @@ public:
         void*                   host_ptr,
         CrtContext*             ctx);
 
+    CrtImage(
+        cl_mem_flags            flags,
+        CrtContext*             ctx);
+
+
     virtual ~CrtImage();
 
     void*  GetMapPointer(const size_t* origin, const size_t* region);
@@ -368,7 +424,7 @@ public:
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
 
     // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
-    cl_int Create(size_t rowPitch, size_t slicePitch, CrtMemObject** memObj);
+    cl_int Create(CrtMemObject** memObj);
 
     const cl_image_format       m_imageFormat;
     CrtImageDesc                m_imageDesc;
@@ -380,6 +436,33 @@ public:
     // For Image2D this will be =2
     // For Image3D this will be =3
     cl_uint                     m_dimCount;
+};
+
+class CrtGLImage: public CrtImage
+{
+public:
+    CrtGLImage(
+        cl_uint                 dim_count,
+        cl_mem_flags            flags,
+        GLenum                  texture_target,
+        GLint                   mipleve,
+        GLuint                  texture,
+        CrtContext*             ctx);
+
+    virtual ~CrtGLImage();
+
+    cl_bool isInteropObject(){ return CL_TRUE; };
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; }
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
+
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
+
+    cl_int Create(CrtMemObject** memObj);
+
+    cl_uint             m_dimCount;
+    GLenum              m_textureTarget;
+    GLint               m_mipLevel;
+    GLuint              m_texture;
 };
 
 /// ------------------------------------------------------------------------------
@@ -402,11 +485,18 @@ public:
         cl_int *                        errcode_ret);
 
     virtual ~CrtContext();
+
     // Memory APIs
     cl_int CreateBuffer(
         cl_mem_flags            flags,
         size_t                  size,
         void *                  host_ptr,
+        CrtMemObject**          memObj);
+
+    cl_int CreateGLBuffer(
+        bool                    isRender,
+        cl_mem_flags            flags,
+        GLuint                  bufobj,
         CrtMemObject**          memObj);
 
     cl_int CreateSubBuffer(
@@ -422,6 +512,21 @@ public:
         const cl_image_desc *           image_desc,
         void *                          host_ptr,
         CrtMemObject**                  memObj);
+
+    cl_int CreateGLImage(
+        cl_uint                 dim_count,
+        cl_mem_flags            flags,
+        cl_GLenum               target,
+        cl_GLint                miplevel,
+        cl_GLuint               texture,
+        CrtMemObject**          memObj);
+
+    cl_int CreateFromDX9MediaSurface(
+        cl_mem_flags            flags,
+        IDirect3DSurface9 *     resource,
+        HANDLE                  sharehandle,
+        UINT                    plane,
+        CrtMemObject**          memObj);
 
     cl_int CreateSampler(
         cl_bool                 normalized_coords,
@@ -501,6 +606,9 @@ public:
 
     cl_context              m_context_handle;
 
+    // mutex gaurding context from concurrent accesses
+    OCLCRT::Utils::OclMutex          m_mutex;
+
 private:
 
     // Calculate the alignment agreed by all devices
@@ -512,13 +620,10 @@ private:
 
     // Common alignment agreed by all devices in the context (in Bytes)
     cl_uint m_alignment;
-
 };
-
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-
 struct CrtSampler: public CrtObject
 {
     CTX_SMP_MAP             m_ContextToSampler;

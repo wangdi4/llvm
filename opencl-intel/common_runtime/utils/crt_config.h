@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -36,5 +36,5 @@ public:
     std::string& getPlatformLibName(cl_uint index);
     ~CrtConfig();
 private:
-    std::vector<std::string>    m_libraryNames; 
+    std::vector<std::string>    m_libraryNames;
 };

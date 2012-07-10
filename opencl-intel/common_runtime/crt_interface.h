@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -26,66 +26,57 @@
 #include "crt_types.h"
 #include "export\crt_dispatch_table.h"
 
+using namespace CRT_ICD_DISPATCH;
+// vendor dispatch table structure
 
-/// vendor dispatch table structure
-
-struct _cl_object
+struct _crt_object
 {
-    KHRicdVendorDispatch *dispatch;
+    SOCLCRTDispatchTable*       crtDispatch;
     void * object;
 };
 
-struct _cl_platform_id_crt : public _cl_platform_id
+struct _cl_platform_id_crt : public _cl_platform_id, public _crt_object
 {
     _cl_platform_id_crt();
-    void * object;
 };
 
-struct _cl_device_id_crt : public _cl_device_id
+struct _cl_device_id_crt : public _cl_device_id, public _crt_object
 {
     _cl_device_id_crt();
-    void * object;
 };
 
-struct _cl_context_crt : public _cl_context
+struct _cl_context_crt : public _cl_context, public _crt_object
 {
     _cl_context_crt();
-    void * object;
 };
 
-struct _cl_command_queue_crt : public _cl_command_queue
+struct _cl_command_queue_crt : public _cl_command_queue, public _crt_object
 {
     _cl_command_queue_crt();
-    void * object;
 };
 
-struct _cl_mem_crt : public _cl_mem
+struct _cl_mem_crt : public _cl_mem, public _crt_object
 {
     _cl_mem_crt();
-    void * object;
 };
 
-struct _cl_program_crt : public _cl_program
+struct _cl_program_crt : public _cl_program, public _crt_object
 {
     _cl_program_crt();
-    void * object;
 };
 
-struct _cl_kernel_crt : public _cl_kernel
+struct _cl_kernel_crt : public _cl_kernel, public _crt_object
 {
     _cl_kernel_crt();
-    void * object;
 };
 
-struct _cl_event_crt : public _cl_event
+struct _cl_event_crt : public _cl_event, public _crt_object
 {
     _cl_event_crt();
-    void * object;
 };
 
-struct _cl_sampler_crt : public _cl_sampler
+struct _cl_sampler_crt : public _cl_sampler, public _crt_object
 {
     _cl_sampler_crt();
-    void * object;
 };
 

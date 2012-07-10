@@ -76,9 +76,9 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clCreateKernelsInProgram , clCreateKernelsInProgram )
     REGISTER_DISPATCH_ENTRYPOINT( clRetainKernel , clRetainKernel )
     REGISTER_DISPATCH_ENTRYPOINT( clReleaseKernel , clReleaseKernel )
-    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelArg , clSetKernelArg )    
+    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelArg , clSetKernelArg )
     REGISTER_DISPATCH_ENTRYPOINT( clGetKernelInfo , clGetKernelInfo )
-    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelWorkGroupInfo , clGetKernelWorkGroupInfo )       
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelWorkGroupInfo , clGetKernelWorkGroupInfo )
     REGISTER_DISPATCH_ENTRYPOINT( clWaitForEvents , clWaitForEvents )
     REGISTER_DISPATCH_ENTRYPOINT( clGetEventInfo , clGetEventInfo )
     REGISTER_DISPATCH_ENTRYPOINT( clRetainEvent , clRetainEvent )
@@ -113,14 +113,14 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clEnqueueAcquireGLObjects
     // clEnqueueReleaseGLObjects
     REGISTER_DISPATCH_ENTRYPOINT( clGetGLContextInfoKHR , clGetGLContextInfoKHR )
-    
-    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D10KHR , clGetDeviceIDsFromD3D10KHR )    
+
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D10KHR , clGetDeviceIDsFromD3D10KHR )
     // clCreateFromD3D10BufferKHR
     // clCreateFromD3D10Texture2DKHR
     // clCreateFromD3D10Texture3DKHR
     // clEnqueueAcquireD3D10ObjectsKHR
     // clEnqueueReleaseD3D10ObjectsKHR
-    
+
     REGISTER_DISPATCH_ENTRYPOINT( clSetEventCallback , clSetEventCallback )
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSubBuffer , clCreateSubBuffer )
     REGISTER_DISPATCH_ENTRYPOINT( clSetMemObjectDestructorCallback , clSetMemObjectDestructorCallback )
@@ -129,30 +129,30 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueReadBufferRect , clEnqueueReadBufferRect )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueWriteBufferRect , clEnqueueWriteBufferRect )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueCopyBufferRect , clEnqueueCopyBufferRect )
-    
+
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSubDevicesEXT , clCreateSubDevicesEXT )
     REGISTER_DISPATCH_ENTRYPOINT( clRetainDeviceEXT , clRetainDeviceEXT )
     REGISTER_DISPATCH_ENTRYPOINT( clReleaseDeviceEXT , clReleaseDeviceEXT )
-    
+
     REGISTER_DISPATCH_ENTRYPOINT( clCreateEventFromGLsyncKHR , clCreateEventFromGLsyncKHR )
-    
+
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSubDevices , clCreateSubDevices )
     REGISTER_DISPATCH_ENTRYPOINT( clRetainDevice , clRetainDevice )
     REGISTER_DISPATCH_ENTRYPOINT( clReleaseDevice , clReleaseDevice )
     REGISTER_DISPATCH_ENTRYPOINT( clCreateImage , clCreateImage )
     REGISTER_DISPATCH_ENTRYPOINT( clCreateProgramWithBuiltInKernels , clCreateProgramWithBuiltInKernels )
     REGISTER_DISPATCH_ENTRYPOINT( clCompileProgram , clCompileProgram )
-    REGISTER_DISPATCH_ENTRYPOINT( clLinkProgram , clLinkProgram )    
+    REGISTER_DISPATCH_ENTRYPOINT( clLinkProgram , clLinkProgram )
     REGISTER_DISPATCH_ENTRYPOINT( clUnloadPlatformCompiler , clUnloadPlatformCompiler )
-    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelArgInfo , clGetKernelArgInfo )    
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelArgInfo , clGetKernelArgInfo )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueFillBuffer , clEnqueueFillBuffer )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueFillImage , clEnqueueFillImage )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueMigrateMemObjects , clEnqueueMigrateMemObjects )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueMarkerWithWaitList , clEnqueueMarkerWithWaitList )
-    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueBarrierWithWaitList , clEnqueueBarrierWithWaitList )    
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueBarrierWithWaitList , clEnqueueBarrierWithWaitList )
     REGISTER_DISPATCH_ENTRYPOINT( clGetExtensionFunctionAddressForPlatform , clGetExtensionFunctionAddressForPlatform )
     // clCreateFromGLTexture
-    
+
     REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D11KHR , clGetDeviceIDsFromD3D11KHR )
     // clCreateFromD3D11BufferKHR
     // clCreateFromD3D11Texture2DKHR
@@ -161,7 +161,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
 
-    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromDX9MediaAdapterKHR , clGetDeviceIDsFromDX9MediaAdapterKHR )    
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromDX9MediaAdapterKHR , clGetDeviceIDsFromDX9MediaAdapterKHR )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
 };
@@ -209,7 +209,7 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
         while( *properties != NULL )
         {
             switch( properties[ 0 ] )
-            {            
+            {
             case CL_GL_CONTEXT_KHR:
                 if( properties[ 1 ] != NULL )
                 {
@@ -287,7 +287,7 @@ crt_err_code CrtModule::Initialize()
             {
                 res = CRT_FAIL;
                 break;
-            }            
+            }
             KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
             if (NULL == pfn_clGetPlatformIDs || !(CL_SUCCESS == pfn_clGetPlatformIDs(1, &pCrtPlatform->m_platformIdDEV, NULL)))
             {
@@ -295,34 +295,34 @@ crt_err_code CrtModule::Initialize()
                 continue;
             }
 
-            m_oclPlatforms.push_back(pCrtPlatform);
+            m_oclPlatforms.push_back( pCrtPlatform );
 
             // Query the Platform extensions for each platform
             size_t extSize = 0;
-            if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
+            if( CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_EXTENSIONS,
                 0,
                 NULL,
-                &extSize))
+                &extSize) )
             {
                 res = CRT_FAIL;
                 break;
             }
 
             pCrtPlatform->m_supportedExtensionsStr = new char[extSize];
-            if (!pCrtPlatform->m_supportedExtensionsStr)
+            if( !pCrtPlatform->m_supportedExtensionsStr )
             {
                 res = CRT_FAIL;
                 break;
             }
 
-            if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
+            if( CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_EXTENSIONS,
                 extSize,
                 pCrtPlatform->m_supportedExtensionsStr,
-                NULL))
+                NULL) )
             {
                 res = CRT_FAIL;
                 break;
@@ -330,30 +330,30 @@ crt_err_code CrtModule::Initialize()
             pCrtPlatform->m_supportedExtensions = GetCrtExtension(pCrtPlatform->m_supportedExtensionsStr);
 
             // Query the ICD Suffix for each platform
-            if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
+            if( CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_ICD_SUFFIX_KHR,
                 0,
                 NULL,
-                &extSize))
+                &extSize) )
             {
                 res = CRT_FAIL;
                 break;
             }
 
             pCrtPlatform->m_icdSuffix = new char[extSize];
-            if (!pCrtPlatform->m_icdSuffix)
+            if( !pCrtPlatform->m_icdSuffix )
             {
                 res = CRT_FAIL;
                 break;
             }
 
-            if (CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
+            if( CL_SUCCESS != pCrtPlatform->m_platformIdDEV->dispatch->clGetPlatformInfo(
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_ICD_SUFFIX_KHR,
                 extSize,
                 pCrtPlatform->m_icdSuffix,
-                NULL))
+                NULL) )
             {
                 res = CRT_FAIL;
                 break;
@@ -370,7 +370,7 @@ crt_err_code CrtModule::Initialize()
                 res = CRT_FAIL;
                 break;
             }
-            
+
             cl_uint curPlatVer = GetPlatformVersion( platformVersionStr );
             if( curPlatVer == 0 )
             {
@@ -378,22 +378,9 @@ crt_err_code CrtModule::Initialize()
                 break;
             }
 
-            if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion == OPENCL_INVALID )
-            {
-                // First platform being loaded
-                OCLCRT::crt_ocl_module.m_CrtPlatformVersion = curPlatVer;
-            }
-            else
-            {
-                // Loaded platforms support different OpenCL API levels
-                if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion != curPlatVer )
-                {
-                    //Temporarily enabled loading different OCL API versions
-                    //TODO: Clean up
-                    //res = CRT_FAIL;
-                    //break;
-                }
-            }
+            OCLCRT::crt_ocl_module.m_CrtPlatformVersion = max(
+                OCLCRT::crt_ocl_module.m_CrtPlatformVersion,
+                curPlatVer );
 
             cl_uint num_devices = 0;
             pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
@@ -402,24 +389,24 @@ crt_err_code CrtModule::Initialize()
                                     0,
                                     NULL,
                                     &num_devices);
-            if (num_devices == 0)
+            if( num_devices == 0 )
             {
                 res = CRT_FAIL;
                 break;
             }
             cl_device_id* pDevices = new cl_device_id[num_devices];
-            if (!(CL_SUCCESS == pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
+            if( !(CL_SUCCESS == pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
                                     CL_DEVICE_TYPE_DEFAULT,
                                     num_devices,
                                     pDevices,
-                                    NULL)))
+                                    NULL)) )
             {
                 res = CRT_FAIL;
                 break;
             }
 
-            for (cl_uint j=0; j < num_devices; j++)
+            for( cl_uint j=0; j < num_devices; j++ )
             {
                 CrtDeviceInfo* pDevInfo = new CrtDeviceInfo;
                 if (NULL == pDevInfo)
@@ -428,12 +415,12 @@ crt_err_code CrtModule::Initialize()
                     break;
                 }
 
-                if (CL_SUCCESS != pDevices[j]->dispatch->clGetDeviceInfo(
+                if( CL_SUCCESS != pDevices[j]->dispatch->clGetDeviceInfo(
                                     pDevices[j],
                                     CL_DEVICE_EXECUTION_CAPABILITIES,
                                     sizeof( pDevInfo->m_deviceCapabilities ),
                                     &pDevInfo->m_deviceCapabilities,
-                                    0))
+                                    0) )
                 {
                     res = CRT_FAIL;
                     break;
@@ -519,8 +506,8 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                     ( cl_ctx_interop_user_sync_set == CL_TRUE ) )
                 {
                     return CL_INVALID_PROPERTY;
-                }                
-                cl_ctx_interop_user_sync_set = CL_TRUE;               
+                }
+                cl_ctx_interop_user_sync_set = CL_TRUE;
                 break;
             case CL_GL_CONTEXT_KHR:
                 if( cl_gl_context_khr_set == CL_TRUE )

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -55,7 +55,7 @@ namespace OCLCRT
     {
     public:
         IcdDispatchMgr();
-        KHRicdVendorDispatch    m_icdDispatchTable;        
+        KHRicdVendorDispatch    m_icdDispatchTable;
     };
 
     typedef std::map<cl_device_id,  CrtDeviceInfo*>     DEV_INFO_MAP;
