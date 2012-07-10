@@ -135,7 +135,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy
   }
 
   // else use memcpy
-  memcpy(pDst, pSrc, uiBytesToCopy);
+  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
+  //memcpy(pDst, pSrc, uiBytesToCopy);
 
   return event;
 }
@@ -184,7 +185,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy
   }
 
   // else use memcpy
-  memcpy(pDst, pSrc, uiBytesToCopy);
+  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
+  //memcpy(pDst, pSrc, uiBytesToCopy);
   return event;
 }
 

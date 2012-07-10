@@ -38,9 +38,10 @@ FunctionArgument::FunctionArgument(char* pValue, size_t size, size_t alignment)
     
 void FunctionArgument::setValue(char* pValue) {
   
-  // TODO : assert pointers not null?
-  // Copy value from given src to dest
-  memcpy(m_pValue, pValue, m_size);
+    // TODO : assert pointers not null?
+    // Copy value from given src to dest
+    std::copy(pValue, pValue+m_size, m_pValue);
+    //memcpy(m_pValue, pValue, m_size);
 }
     
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

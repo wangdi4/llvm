@@ -70,7 +70,7 @@ public:
     static const char* GetCPUName(ECPU CPU) {
         switch (CPU) {
         default:
-            return NULL;
+            return "invalid";
         case CPU_PENTIUM:
             return "pentium";
         case CPU_NOCONA:

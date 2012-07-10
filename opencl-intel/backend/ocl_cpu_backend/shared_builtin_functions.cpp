@@ -135,7 +135,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_c
   default:
     for(unsigned int i=0; i<numElem; ++i)
     {
-      memcpy(pDst, pSrc, elemSize);
+      std::copy(pSrc, pSrc + elemSize, pDst);
+      //memcpy(pDst, pSrc, elemSize);
       pSrc += elemSize;
       pDst += stride*elemSize;
     }
@@ -200,7 +201,8 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_c
   default:
     for(unsigned int i=0; i<numElem; ++i)
     {
-      memcpy(pDst, pSrc, elemSize);
+      std::copy(pSrc, pSrc + elemSize, pDst);
+      //memcpy(pDst, pSrc, elemSize);
       pSrc += stride*elemSize;
       pDst += elemSize;
     }

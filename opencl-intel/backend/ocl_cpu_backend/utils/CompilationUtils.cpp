@@ -166,6 +166,10 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments) {
   // Check maximum number of arguments to kernel
   NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
+  if( NULL == MDArgInfo )
+  {
+      throw Exceptions::CompilerException("Intenal error: opencl.kernels metadata is missing");
+  }
 
   // TODO: this hack is ugly, need to find the right way to get arg info
   // for the vectorized functions (Guy)
@@ -183,7 +187,10 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
       break;
   }
  
-  assert(FuncInfo);
+  if( NULL == FuncInfo )
+  {
+      throw Exceptions::CompilerException("Intenal error: can't find the function info for the scalarized function");
+  }
 
   assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
      " Are you running a workload recorded using old meta data format?");
@@ -362,6 +369,11 @@ void CompilationUtils::getKernelsMetadata( Module* pModule,
                                       std::map<Function*, MDNode*>& /* OUT */ kernelMetadata) {
 
   NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
+
+  if( NULL == pModuleMetadata )
+  {
+      throw Exceptions::CompilerException("Internal Error: opencl.kernels metadata is missing", CL_DEV_BUILD_ERROR);
+  }
 
   unsigned int vecIndex = 0;
   for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i)

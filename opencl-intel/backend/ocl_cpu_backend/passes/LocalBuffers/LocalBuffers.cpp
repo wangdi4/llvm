@@ -184,6 +184,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     std::vector<Instruction*> InstInsert;
     Instruction *pInst = CreateInstrFromConstant(pCE, pTheValue, pBC, &InstInsert);
+    if( NULL == pInst)
+    {
+        return false;
+    }
     //Klocwork add assert to prevent warnings
     assert(pInst && InstInsert.size());
         
