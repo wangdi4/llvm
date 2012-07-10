@@ -53,7 +53,7 @@ typedef struct _cl_dev_internal_cmd_list
     cl_dev_subdevice_id subdevice_id;
 } cl_dev_internal_cmd_list;
 
-static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1,0};
+static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1};
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -143,9 +143,6 @@ cl_dev_err_code MICDevice::Init()
 
     m_pMICDeviceConfig = new MICDeviceConfig();
     m_pMICDeviceConfig->Initialize(clMICDEVICE_CFG_PATH);
-
-    // Enable VTune source level profiling
-    MICDevInfo.bEnableSourceLevelProfiling = m_pMICDeviceConfig->UseVTune();
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 

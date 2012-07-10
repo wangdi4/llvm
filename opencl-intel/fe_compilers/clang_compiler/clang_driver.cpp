@@ -312,10 +312,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 		list.push_back("-D");
 		list.push_back("__IMAGE_SUPPORT__=1");	
 	}
-	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
-		list.push_back("-g");
-		OptProfiling = true;
-	}
 
 	// Add extension defines
 	std::string extStr = m_sDeviceInfo.sExtensionStrings;
