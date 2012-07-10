@@ -37,12 +37,13 @@ File Name:  Optimizer.cpp
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "PrintIRPass.h"
+#include "debuggingservicetype.h"
 
 extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
                                             const intel::OptimizerConfig* pConfig,
                                             llvm::SmallVectorImpl<Function*> &optimizerFunctions,
                                             llvm::SmallVectorImpl<int> &optimizerWidths);
-extern "C" llvm::Pass *createBarrierMainPass(bool isDBG);
+extern "C" llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 extern "C" void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 
 extern "C" llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<Function*> *optimizerFunctions,
@@ -60,12 +61,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 llvm::ModulePass *createRelaxedPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createLocalBuffersPass();
+llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
 llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
@@ -135,7 +137,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
       PM->add(createGVNPass());                 // Remove redundancies
     PM->add(createMemCpyOptPass());             // Remove memcpy / form memset
     PM->add(createSCCPPass());                  // Constant prop with SCCP
-  
+
     // Run instcombine after redundancy elimination to exploit opportunities
     // opened up by them.
     PM->add(createInstructionCombiningPass());
@@ -186,10 +188,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_pModule(pModule),
     m_localBuffersPass(NULL)
 {
+  using namespace intel;
+
   createOpenclRuntimeSupport(pRtlModule);
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
-  bool isDBG = pConfig->GetDebugInfoFlag();
+  DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
   bool isProfiling = pConfig->GetProfilingFlag();
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
@@ -210,7 +214,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   unsigned int uiOptLevel;
-  if (pConfig->GetDisableOpt() || isDBG) {
+  if (pConfig->GetDisableOpt() || debugType != None) {
     uiOptLevel = 0;
   } else {
     uiOptLevel = 3;
@@ -231,14 +235,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
       true,
       true,
       false,
-      isDBG);
+      debugType != None);
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
   
   // Should be called before vectorizer!
   m_modulePasses.add(createInstToFuncCallPass(pConfig->GetCpuId().IsMIC()));
 
-  if ( !isDBG && !pConfig->GetLibraryModule()) {
+  if ( debugType == None && !pConfig->GetLibraryModule()) {
     m_modulePasses.add(createKernelAnalysisPass());
     m_modulePasses.add(createCLWGLoopBoundariesPass());
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());
@@ -246,7 +250,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   }
 
-  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1 && !isDBG && uiOptLevel != 0) {
+  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1
+    && debugType == None
+    && uiOptLevel != 0)
+  {
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
@@ -272,25 +279,24 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy entroduced by those passes
-  if (! isDBG ) {
+  if ( debugType == None ) {
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
-  
-  // The isDBG and isProfiling flags are mutually exclusive, with precedence
-  // given to isDBG.
+ 
+  // The debugType enum and isProfiling flag are mutually exclusive, with precedence
+  // given to debugType.
   //
-  if (isDBG) {
-    // DebugInfo pass must run before Barrier pass!
+  if (debugType == Simulator) {
+    // DebugInfo pass must run before Barrier pass when debugging with simulator
     m_modulePasses.add(createDebugInfoPass(&pModule->getContext(), pRtlModule));
-  }
-  else if (isProfiling) {
+  } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
 
   if (!pConfig->GetLibraryModule()){
     m_modulePasses.add(createCLWGLoopCreatorPass(&m_vectFunctions, &m_vectWidths));
-    m_barrierPass = createBarrierMainPass(isDBG);
+    m_barrierPass = createBarrierMainPass(debugType);
     m_modulePasses.add(m_barrierPass);
   }
 
@@ -304,7 +310,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   {
     m_modulePasses.add(createAddImplicitArgsPass(m_vectFunctions));
     m_modulePasses.add(createResolveWICallPass());
-    m_localBuffersPass = createLocalBuffersPass();
+    m_localBuffersPass = createLocalBuffersPass(debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
   }
 
@@ -328,7 +334,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(llvm::createVerifierPass());
 #endif
 
-  if ( !isDBG ) {
+  if ( debugType == None ) {
     m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
   }
 
@@ -337,7 +343,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createSvmlWrapperPass( &m_pModule->getContext()));
 #endif
 
-  if ( !isDBG ) {
+  if ( debugType == None ) {
     m_modulePasses.add(llvm::createArgumentPromotionPass());        // Scalarize uninlined fn args
   
     if ( !DisableSimplifyLibCalls ) {
@@ -354,7 +360,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if (!pConfig->GetLibraryModule())
     m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
 
-  if ( !isDBG ) {
+  if ( debugType == None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
     m_modulePasses.add(llvm::createFunctionInliningPass());           // Inline
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions

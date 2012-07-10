@@ -39,7 +39,8 @@ namespace intel {
     static char ID;
 
     /// @brief C'tor
-    Barrier();
+    /// @param isNativeDebug true if we are debugging natively (gdb)
+    Barrier(bool isNativeDebug);
 
     /// @brief D'tor
     ~Barrier() {}
@@ -73,6 +74,15 @@ namespace intel {
     /// @param F function to optimize
     /// @returns True if function was modified
     virtual bool runOnFunction(Function &F);
+
+    /// @brief Use the stack for kernel function execution rather then the special
+    ///  work item buffer. This is needed for DWARF based debugging.
+    ///  Variable data will be copied out of a basic block from the special work 
+    ///  item buffer up on entry. Variable data will be copied back out to the work 
+    ///  item buffer upon leaving the basic block.
+    /// @param pInsertBeforeBegin instruction to insert copy out of stack before
+    /// @param pInsertBeforeEnd instruction to insert copy into stack before
+    void useStackAsWorkspace(Instruction* pInsertBeforeBegin, Instruction* pInsertBeforeEnd);
 
     /// @brief Hanlde Values of Group-A of processed function
     void fixAllocaValues();
@@ -122,6 +132,16 @@ namespace intel {
     /// @param M module to optimize
     /// @returns True if module was modified
     bool fixNonInlinedInternalFunctions(Module &M);
+
+    /// @brief Updates metadata nodes with new Function signature
+    /// @param pMetadata The current metadata node
+    /// @param pFunc The function to be replaced
+    /// @param pNewF The function used for replacing
+    void replaceMDUsesOfFunc(MDNode* pMetadata, Function* pFunc, Function* pNewFunc);
+
+    /// @brief Updates metadata nodes with new Function signature
+    /// @param pMetadata The current metadata node
+    void replaceMDUsesOfFunc(MDNode* pMetadata);
 
     /// @brief create new fixed function with extra offset arguments
     /// @param pFuncToFix original function to clone
@@ -215,6 +235,15 @@ namespace intel {
 
     /// This holds a map between kernel function name and buffer stride size
     TMapFunctionNameToBufferStride m_bufferStrideMap;
+
+    /// true if and only if we are running in native (gdb) dbg mode
+    bool m_isNativeDBG;
+
+    /// This holds the function to be fixed
+    Function *m_pFunc;
+
+    /// This holds the function used for fixing
+    Function *m_pNewF;
   };
 
 } // namespace intel

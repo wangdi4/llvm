@@ -7,6 +7,7 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Support/IRBuilder.h"
 #include <set>
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
@@ -14,7 +15,7 @@ namespace intel {
 
   char Barrier::ID = 0;
 
-  Barrier::Barrier() : ModulePass(ID) {}
+  Barrier::Barrier(bool isNativeDebug = false) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {}
 
   bool Barrier::runOnModule(Module &M) {
     //Get Analysis data
@@ -86,8 +87,12 @@ namespace intel {
 
     //Fix special values
     fixSpecialValues();
-    //Fix alloca values
-    fixAllocaValues();
+
+    //Do not fix alloca values in order for DWARF based debugging to work.
+    if (!m_isNativeDBG)
+        //Fix alloca values
+        fixAllocaValues();
+
     //Fix cross barrier uniform values
     fixCrossBarrierValues(F.begin()->begin());
 
@@ -97,6 +102,62 @@ namespace intel {
     //Remove all instructions in m_toRemoveInstructions
     eraseAllToRemoveInstructions();
     return true;
+  }
+
+  void Barrier::useStackAsWorkspace(Instruction* insertBefore, Instruction* insertBeforeEnd) {
+    IRBuilder<> builder(*m_pContext);
+
+    for (TValueVector::iterator vi = m_pAllocaValues->begin(),
+      ve = m_pAllocaValues->end(); vi != ve; ++vi ) {
+        AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
+        assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
+        assert( !m_pDataPerValue->isOneBitElementType(pAllocaInst) && "AllocaInst with base type i1!" );
+        //Get offset of alloca value in special buffer
+        unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
+
+        Value *pAddrInSpecialBufferCopyOut;
+        Value *pAddrInSpecialBufferCopyIn;
+        Type *pAllocaType = pAllocaInst->getAllocatedType();
+        if (pAllocaType->isStructTy() || pAllocaType->isArrayTy()) {
+          Constant *pSizeToCopy = ConstantExpr::getSizeOf(pAllocaType);
+          if (insertBefore) {
+            pAddrInSpecialBufferCopyOut = getAddressInSpecialBuffer(
+                offset, pAllocaInst->getType(), insertBefore);
+
+            // create copy to work item buffer (from stack)
+            builder.SetInsertPoint(insertBefore);
+            builder.CreateMemCpy(pAddrInSpecialBufferCopyOut,
+                            pAllocaInst, pSizeToCopy, pAllocaInst->getAlignment(), false);
+          }
+
+          if (insertBeforeEnd) {
+            pAddrInSpecialBufferCopyIn = getAddressInSpecialBuffer(
+                offset, pAllocaInst->getType(), insertBeforeEnd);
+
+            // create copy to stack (from work item buffer)
+            builder.SetInsertPoint(insertBeforeEnd);
+            builder.CreateMemCpy(pAllocaInst, pAddrInSpecialBufferCopyIn,
+                            pSizeToCopy, pAllocaInst->getAlignment(), false);
+          }
+        } else {
+          if (insertBefore) {
+            pAddrInSpecialBufferCopyOut = getAddressInSpecialBuffer(
+                offset, pAllocaInst->getType(), insertBefore);
+            // create copy to work item buffer (from stack)
+            LoadInst *pLDInstCopyOut = new LoadInst(pAllocaInst, "CopyOut", insertBefore);
+            new StoreInst(pLDInstCopyOut, pAddrInSpecialBufferCopyOut, insertBefore);
+          }
+
+          if (insertBeforeEnd) {
+            pAddrInSpecialBufferCopyIn = getAddressInSpecialBuffer(
+                offset, pAllocaInst->getType(), insertBeforeEnd);
+
+            // create copy to stack (from work item buffer)
+            LoadInst *pLDInstCopyIn = new LoadInst(pAddrInSpecialBufferCopyIn, "CopyIn", insertBeforeEnd);
+            new StoreInst(pLDInstCopyIn, pAllocaInst, insertBeforeEnd);
+          }
+        }
+    }
   }
 
   void Barrier::fixAllocaValues() {
@@ -328,10 +389,16 @@ namespace intel {
 
         //A(2). add the entry tail code
         // if(currWI < WIIterationCount) {pThenBB} else {pElseBB}
-        Value *pLoadedCurrWI = new LoadInst(m_pCurrWIValue, "loadedCurrWI", pPreSyncBB);
+        LoadInst *pLoadedCurrWI = new LoadInst(m_pCurrWIValue, "loadedCurrWI", pPreSyncBB);
         ICmpInst *pCheckWIIter = new ICmpInst(*pPreSyncBB, ICmpInst::ICMP_ULT,
           pLoadedCurrWI, m_pWIIterationCountValue, "check.WI.iter");
-        BranchInst::Create(pThenBB, pElseBB, pCheckWIIter, pPreSyncBB);
+        BranchInst *pBrInst = BranchInst::Create(pThenBB, pElseBB, pCheckWIIter, pPreSyncBB);
+
+        // Set the barrier() debug metadata to these newly added instructions
+        const DebugLoc& DB = pInst->getDebugLoc();
+        pLoadedCurrWI->setDebugLoc(DB);
+        pCheckWIIter->setDebugLoc(DB);
+        pBrInst->setDebugLoc(DB);
 
         //B. Create currWI++ and switch instruction in pThenBB
         DataPerBarrier::SBarrierRelated *pRelated = &m_pDataPerBarrier->getBarrierPredecessors(pInst);
@@ -391,6 +458,42 @@ namespace intel {
           m_util.createMemFence(pElseBB);
         }
         BranchInst::Create(pSyncBB, pElseBB);
+
+        // Only if we are debugging, copy data into the stack from work item buffer
+        // for execution and copy data out when finished. This allows for proper
+        // DWARF based debugging.
+        if (m_isNativeDBG) {
+          // Use the then and else blocks to copy work item data into and out of the stack for each work item
+          Instruction &pThenFront = pThenBB->front();
+          Instruction &pElseFront = pElseBB->front();
+          useStackAsWorkspace(&pThenFront, &(pThenBB->back()));
+          useStackAsWorkspace(&pElseFront, &(pElseBB->back()));
+
+          // I add the function DebugCopy as a marker so it can be handled later in LocalBuffers pass.
+          // LocalBuffers pass is responsible for implementing __local variables correctly in OpenCL
+          // (ie. as work-group globals and not thread globals). I insert them in these marked blocks
+          // so that I know when I need to copy from the local buffer into the thread local (global).
+          // This is also how I know where the beginning of each work item iteration is (in the presence
+          // of barriers) which is where the copying occurs.
+
+          // Maybe there is a better way, I'm not sure. The problem I found is LocalBuffers finds all
+          // uses of a __local variable and updates the references to a local buffer memory location
+          // rather then the thread specific global for which the __local variable symbol is defined.
+          // So any changes to __local variables would have to be delayed until this pass or LocalBuffers 
+          // would have to behave very differently.
+
+          // There is also a copy that occurs from the local buffer into the global variable after each
+          // use of the __local variable so that the thread specific global stays updated. This is
+          // independent of the function markers. This is done in LocalBuffers pass.
+
+          // This only allows for reading of __local variables and not setting.
+
+          Type *pResult = Type::getVoidTy(*m_pContext);
+          Module *M = pThenBB->getParent()->getParent();
+          Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult, NULL);
+          CallInst::Create(pFunc, "", &pThenFront);
+          CallInst::Create(pFunc, "", &pElseFront);
+        }
     }
   }
 
@@ -414,6 +517,15 @@ namespace intel {
 
     //get_iter_count()
     m_pWIIterationCountValue = m_util.createGetIterCount(pInsertBefore);
+
+    if (m_isNativeDBG) {
+      // Move alloca instructions for locals/parameters for debugging purposes
+      for (TValueVector::iterator vi = m_pAllocaValues->begin(), ve = m_pAllocaValues->end();
+           vi != ve; ++vi ) {
+        AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
+        pAllocaInst->moveBefore(pInsertBefore);
+      }
+    }
   }
 
   Instruction* Barrier::getInstructionToInsertBefore(Instruction *pInst, Instruction *pUserInst, bool expectNULL) {
@@ -520,10 +632,44 @@ namespace intel {
               m_toRemoveInstructions.push_back(pCallInst);
             }
         }
+
+        // Since pFuncToFix is being replaced, also update the associated debug metadata
+        NamedMDNode *pllvmDebugCU = pFuncToFix->getParent()->getNamedMetadata("llvm.dbg.cu");
+        if (pllvmDebugCU) {
+            for(int ui = 0, ue = pllvmDebugCU->getNumOperands(); ui < ue; ui++) {
+              MDNode* pMetadata = pllvmDebugCU->getOperand(ui);
+              replaceMDUsesOfFunc(pMetadata, pFuncToFix, pNewFunc);
+            }
+        }
         //Remove all instructions in m_toRemoveInstructions
         eraseAllToRemoveInstructions();
     }
     return true;
+  }
+
+  void Barrier::replaceMDUsesOfFunc(MDNode* pMetadata, Function* pFunc, Function* pNewFunc) {
+    m_pFunc = pFunc;
+    m_pNewF = pNewFunc;
+    replaceMDUsesOfFunc(pMetadata);
+  }
+
+  void Barrier::replaceMDUsesOfFunc(MDNode* pMetadata) {
+    SmallVector<Value *, 16> values;
+    for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
+      Value *elem = pMetadata->getOperand(i);
+      if (MDNode *Node = dyn_cast_or_null<MDNode>(elem)) {
+          replaceMDUsesOfFunc(Node);
+        // Elem needs to be set again otherwise changes will be undone.
+        elem = pMetadata->getOperand(i);
+        if (m_pFunc == dyn_cast<Function>(elem))
+          elem = m_pNewF;
+      }
+      values.push_back(elem);
+    }
+    MDNode* pNewMetadata = MDNode::get(*m_pContext, ArrayRef<Value*>(values));
+    // TODO: Why may pMetadata and pNewMetadata be the same value ?
+    if (pMetadata != pNewMetadata)
+      pMetadata->replaceAllUsesWith(pNewMetadata);
   }
 
   Function* Barrier::createFixFunctionVersion(Function *pFuncToFix) {
@@ -901,8 +1047,8 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createBarrierPass() {
-    return new intel::Barrier();
+  void* createBarrierPass(bool isNativeDebug) {
+    return new intel::Barrier(isNativeDebug);
   }
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {

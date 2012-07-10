@@ -1,6 +1,8 @@
 /*********************************************************************************************
  * TODO: add Copyright © 2011-2012, Intel Corporation
  *********************************************************************************************/
+#include "debuggingservicetype.h"
+
 #include "BarrierMain.h"
 #include "BarrierUtils.h"
 
@@ -19,10 +21,11 @@ extern "C" {
   void* createBarrierInFunctionPass();
   void* createRemoveDuplicationBarrierPass();
   void* createSplitBBonBarrierPass();
+  void* createImplicitGIDPass();
   //void* createDataPerBarrierPass();
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
-  void* createBarrierPass();
+  void* createBarrierPass(bool isNativeDebug);
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
@@ -32,8 +35,8 @@ namespace intel {
 
   char intel::BarrierMain::ID = 0;
 
-  BarrierMain::BarrierMain(bool isDBG) :
-    ModulePass(ID), m_isDBG(isDBG) {}
+  BarrierMain::BarrierMain(DebuggingServiceType debugType) :
+    ModulePass(ID), m_debugType(debugType) {}
 
   bool BarrierMain::runOnModule(Module &M) {
     PassManager barrierModulePM;
@@ -41,7 +44,7 @@ namespace intel {
     //Register TargetData to the pass manager
     barrierModulePM.add(new llvm::TargetData(&M));
 
-    if( !m_isDBG ) {
+    if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
@@ -50,15 +53,25 @@ namespace intel {
     //Register barrier module passes
     barrierModulePM.add((FunctionPass*)createRedundantPhiNodePass());
     barrierModulePM.add((ModulePass*)createBarrierInFunctionPass());
-    barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
+
+    // Only run this when not debugging or when not in native (gdb) debugging
+    if ( m_debugType != Native ) {
+      // This optimization removes debug information from extraneous barrier 
+      // calls by deleting them.
+      barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
+    }
+
     barrierModulePM.add((ModulePass*)createSplitBBonBarrierPass());
-    Pass *pBarrierPass = (ModulePass*)createBarrierPass();
+    if (m_debugType == Native) {
+      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
+    }
+    Pass *pBarrierPass = (ModulePass*)createBarrierPass(m_debugType == Native);
     barrierModulePM.add((ModulePass*)pBarrierPass);
 #ifdef _DEBUG
     barrierModulePM.add(createVerifierPass());
 #endif
 
-    if( !m_isDBG ) {
+    if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
       barrierModulePM.add(createLICMPass());
@@ -82,8 +95,8 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  Pass* createBarrierMainPass(bool isDBG) {
-    return new intel::BarrierMain(isDBG);
+  Pass* createBarrierMainPass(intel::DebuggingServiceType debugType) {
+    return new intel::BarrierMain(debugType);
   }
 
   void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {

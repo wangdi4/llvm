@@ -260,7 +260,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
     m_needLoadBuiltins(config.GetLoadBuiltins()),
-    m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag())
+    m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
+    m_debug(false)
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -316,6 +317,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
     std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
 
+    m_debug = pOptions->GetDebugInfoFlag();
 
     optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
     //dumpModule(*(spModule.get()));

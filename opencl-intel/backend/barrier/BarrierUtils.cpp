@@ -38,6 +38,7 @@ namespace intel {
     m_getIterationCountFunc = 0;
     m_getNewLIDFunc = 0;
     m_getNewGIDFunc = 0;
+    m_getGIDFunc = 0;
 
     //No need to clear these values, each get clears them first
     //m_syncInstructions.clear();
@@ -376,7 +377,7 @@ namespace intel {
       //get_new_global_id() function is not initialized yet
       //There should not be get_new_global_id function declaration in the module
       assert( !m_pModule->getFunction(GET_NEW_GID_NAME) && 
-        "get_new_local_id() instruction is origanlity declared by the module!!!" );
+        "get_new_local_id() instruction is originally declared by the module!!!" );
 
       //Create one
       Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
@@ -389,6 +390,25 @@ namespace intel {
     }
     Value *args[2] = {pArg1, pArg2};
     return CallInst::Create(m_getNewGIDFunc, ArrayRef<Value*>(args, 2), "newGID", pInsertBefore);
+  }
+
+  Instruction* BarrierUtils::createGetGlobalId(unsigned dim, Instruction* pInsertBefore) {
+    if ( !m_getGIDFunc ) {
+      // Get existing get_global_id function
+      m_getGIDFunc = m_pModule->getFunction(GET_GID_NAME);
+    }
+    if (!m_getGIDFunc) {
+      //Create one
+      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
+      std::vector<Type*> funcTyArgs;
+      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
+      m_getGIDFunc =
+        createFunctionDeclaration(GET_GID_NAME, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getGIDFunc);
+    }
+    Type* uint_type = IntegerType::get(m_pModule->getContext(), 32);
+    Value* const_dim = ConstantInt::get(uint_type, dim, false);
+    return CallInst::Create(m_getGIDFunc, const_dim, "GID", pInsertBefore);
   }
 
   bool BarrierUtils::doesCallModuleFunction(Function *pFunc) {

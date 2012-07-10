@@ -19,14 +19,15 @@ File Name:  LocalBuffers.cpp
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
 
+#include "llvm/Support/IRBuilder.h"
 #include "llvm/Target/TargetData.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   char LocalBuffers::ID = 0;
 
-  ModulePass* createLocalBuffersPass() {
-    return new LocalBuffers();
+  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
+    return new LocalBuffers(isNativeDBG);
   }
 
   void getKernelInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
@@ -236,6 +237,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void LocalBuffers::parseLocalBuffers(Function *pFunc, Argument *pLocalMem) {
 
     LocalBuffAnalysis::TUsedLocals localsSet = m_localBuffersAnalysis->getDirectLocals(pFunc);
+    IRBuilder<> builder(*m_pLLVMContext);
 
     unsigned int currLocalOffset = 0;
     // Create code for local buffer
@@ -257,8 +259,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         // Now retrieve to the offset of the local buffer
         GetElementPtrInst *pLocalAddr =
           GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currLocalOffset), "", pFirstInst);
+
         // Now add bitcast to required/original pointer type
         CastInst *pBitCast = CastInst::Create(Instruction::BitCast, pLocalAddr, pLclBuff->getType(), "", pFirstInst);
+
         // Advance total implicit size
         currLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
@@ -272,11 +276,38 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             if ( Inst->getParent()->getParent() == pFunc ) {
               // pBitCast was already added to a basic block during it's creation
               Inst->replaceUsesOfWith(pLclBuff, pBitCast);
+              // Only if debugging, copy from local memory buffer to thread 
+              // specific global buffer.
+              if (m_isNativeDBG) {
+                // Get the next instruction so we can insert the copy to global 
+                // after the Inst instruction.
+                Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(Inst)));
+                builder.SetInsertPoint(pNextInst);
+                builder.CreateMemCpy(pLclBuff, pLocalAddr,
+                        uiArraySize, pLclBuff->getAlignment(), false);
+              }
             }
           } else {
             // Currently, the only possible users of llvm::ContantExpr are llvm::Constant, llvm::Instruction and llvm::Contant
             // llvm::Operator is an internal class, so we do not expect it to be a user of ConstantExp
             assert(0 && "Unknown user of constant expression");
+          }
+        }
+        // Special debugging handling for native (gdb) debugging
+        if (m_isNativeDBG) {
+          // Add copying from local memory buffer to thread global buffer so that the 
+          // thread global (__local) has valid data at the start of the basic block.
+          if (!m_basicBlockSet.empty()) {
+            for (std::set<llvm::BasicBlock*>::iterator vi = m_basicBlockSet.begin(),
+              ve = m_basicBlockSet.end(); vi != ve; ++vi ) {
+                BasicBlock *BB = dyn_cast<BasicBlock>(*vi);
+                Instruction &insertBeforeEnd = BB->back();
+                //Constant *pSizeToCopy = ConstantExpr::getSizeOf(pLclBuff->getType());
+                // Create copy to thread global (from local memory)
+                builder.SetInsertPoint(&insertBeforeEnd);
+                builder.CreateMemCpy(pLclBuff, pLocalAddr,
+                        uiArraySize, pLclBuff->getAlignment(), false);
+            }
           }
         }
     }
@@ -300,10 +331,45 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //    by the execution engine and passed within additional parameters to the kernel,
     //    those parameters are not exposed to the user
 
+    // If we have a debug build, need to get the basic blocks where we need to do
+    // special debug handling for globals (only for native (gdb) debugging).
+    if (m_isNativeDBG)
+      updateUsageBlocks(pFunc);
+
     parseLocalBuffers(pFunc, pLocalMem);
     
     m_mapKernelInfo[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
   }
 
+  void LocalBuffers::updateUsageBlocks(Function *pFunc) {
+    TInstVector instructionsToDelete;
+    instructionsToDelete.clear();
+    m_basicBlockSet.clear();
+
+    // Only process functions with IR
+    if ( !pFunc || pFunc->isDeclaration())
+      return;
+
+    // Look through all basic blocks for calls to DebugCopy.()
+    for (Function::iterator vi = pFunc->begin(), ve = pFunc->end(); vi != ve; ++vi) {
+      BasicBlock *pBB = dyn_cast<BasicBlock>(&*vi);
+      for (BasicBlock::iterator vii = pBB->begin(), vee = pBB->end(); vii != vee; ++vii) {
+        if (CallInst* call_instr = dyn_cast<CallInst>(vii)) {
+          Function* called_func = call_instr->getCalledFunction();
+          if (called_func->getNameStr() == "DebugCopy.") {
+            // These are dummy calls so we know which blocks need special handling
+            // for __locals. These calls are saved to a vector to be deleted later on.
+            m_basicBlockSet.insert(pBB);
+            instructionsToDelete.push_back(call_instr);
+          }
+        }
+      }
+    }
+    for (TInstVector::iterator vi = instructionsToDelete.begin(),
+      ve = instructionsToDelete.end(); vi != ve; ++vi) {
+      Instruction *pInst = dyn_cast<Instruction>(*vi);
+      pInst->eraseFromParent();
+    }
+  }
   
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -325,6 +325,9 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     bool AllocateGVsWithCode = true;
     CodeGenOpt::Level OLevel = llvm::CodeGenOpt::Default;
 
+    if (m_debug)
+      OLevel = llvm::CodeGenOpt::None;
+
     // FP_CONTRACT defined in module
     // Exclude FMA instructions when FP_CONTRACT is disabled
     std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);

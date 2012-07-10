@@ -65,6 +65,7 @@ namespace intel {
 
   typedef std::set<Instruction*> TInstructionSet;
   typedef std::set<Function*> TFunctionSet;
+  typedef std::set<BasicBlock*> TBasicBlockSet;
 
   /// @brief BarrierUtils is utility class that collects several data
   /// and processes several functionality on a given module
@@ -168,6 +169,12 @@ namespace intel {
     /// @returns new created call instruction
     Instruction* createNewGetGlobalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore);
 
+    /// @brief Create new call instruction to get_global_id()
+    /// @param dim dimensionality of kernel
+    /// @param pInsertBefore instruction to insert new call instruction before
+    /// @returns new created call instruction
+    Instruction* createGetGlobalId(unsigned dim, Instruction *pInsertBefore);
+
     /// @brief return an indicator regarding given function calls
     /// a function defined in the module (that was not inlined)
     /// @param pFunc the given function
@@ -224,6 +231,8 @@ namespace intel {
     Function  *m_getNewLIDFunc;
     /// This holds the get_new_global_id() function
     Function  *m_getNewGIDFunc;
+    /// This holds the get_global_id() function
+    Function  *m_getGIDFunc;
 
     /// This holds the all sync instructions of the module
     TInstructionVector  m_syncInstructions;

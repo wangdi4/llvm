@@ -28,6 +28,8 @@ File Name:  LocalBuffers.h
 #include <llvm/Constants.h>
 
 #include <map>
+#include <set>
+#include <vector>
 
 using namespace llvm;
 
@@ -40,8 +42,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// Pass identification, replacement for typeid
     static char ID;
 
-    /// @brief Constructor
-    LocalBuffers() : ModulePass(ID) {}
+    /// @brief Constructor with debug parameter
+    /// @param isNatveiDBG true if native debug set
+    LocalBuffers(bool isNativeDBG) : ModulePass(ID), m_isNativeDBG(isNativeDBG) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -75,6 +78,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief TODO: add comments
     Instruction* CreateInstrFromConstant(Constant *pCE, Value *From, Value *To, std::vector<Instruction*> *InstInsert);
 
+    /// @brief Iterates over all basic blocks for a function looking for
+    ///        DebugStack.() call. The calls are deleted and basic blocks
+    ///        containing these calls are added to a set.
+    /// @param pFunc The function to iterate over for its basic blocks
+    void updateUsageBlocks(Function *pFunc);
+
   protected:
     /// @brief The llvm current processed module
     Module                     *m_pModule;
@@ -85,6 +94,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief map between kernel and its kernel info
     std::map<const Function*, TLLVMKernelInfo>  m_mapKernelInfo;
+
+    /// @brief vector of llvm instructions
+    typedef std::vector<llvm::Instruction*> TInstVector;
+
+    /// @brief set of basic blocks which need copying of globals into the
+    ///        stack for debugging
+    std::set<llvm::BasicBlock*> m_basicBlockSet;
+
+    /// @brief true if and only if we are running in native (gdb) dbg mode
+    bool m_isNativeDBG;
   };
   
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

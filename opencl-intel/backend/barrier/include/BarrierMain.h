@@ -4,6 +4,7 @@
 #ifndef __BARRIER_MAIN_H__
 #define __BARRIER_MAIN_H__
 
+#include "debuggingservicetype.h"
 #include "llvm/Pass.h"
 #include <map>
 
@@ -20,8 +21,8 @@ namespace intel {
     static char ID;
 
     /// @brief C'tor
-    /// @param isDBG true if and only if we are running in DBG mode
-    BarrierMain(bool isDBG);
+    /// @param debugType the type of debugging support enabled
+    BarrierMain(DebuggingServiceType debugType);
 
     /// @brief D'tor
     ~BarrierMain() {}
@@ -43,8 +44,8 @@ namespace intel {
       bufferStrideMap.insert(m_bufferStrideMap.begin(), m_bufferStrideMap.end());
     }
   private:
-    /// true if and only if we are running in DBG mode
-    bool m_isDBG;
+    /// The type of debugging service enabled
+    DebuggingServiceType m_debugType;
 
     /// This holds a map between kernel function name and buffer stride size
     std::map<std::string, unsigned int> m_bufferStrideMap;

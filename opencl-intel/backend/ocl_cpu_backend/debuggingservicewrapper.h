@@ -8,7 +8,7 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 
-class DebuggingServiceWrapper 
+class DebuggingServiceWrapper
 {
 public:
     static DebuggingServiceWrapper& GetInstance() {return instance;}

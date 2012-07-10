@@ -232,7 +232,7 @@ protected:
     std::string              m_IRDumpDir;
     bool                     m_needLoadBuiltins;
     bool                     m_dumpHeuristicIR;
-
+    bool                     m_debug;
 
     static bool s_globalStateInitialized;
 

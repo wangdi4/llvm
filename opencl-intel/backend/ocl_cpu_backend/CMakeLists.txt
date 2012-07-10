@@ -18,6 +18,7 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_CPU_BACKEND_IMPORT_DIRS
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
+  ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
   ${OCL_CPU_BACKEND_DIR}
   ${OCL_CPU_BACKEND_DIR}/../arch_headers
   ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
@@ -252,6 +253,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackManager.h
     ImageCallbackServices.h
     debuggingservicewrapper.h
+    debuggingservicetype.h
     opencl_printf_ext.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
@@ -308,6 +310,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
+    debuggingservicetype.cpp
     ocl_debug_builtins.cpp
   )
 
