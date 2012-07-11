@@ -1,93 +1,93 @@
 ; ModuleID = '<stdin>'
 
-define <1 x i16> @zext_v1i8_v1i16(<1 x i8> %x) {
-  %1 = zext <1 x i8> %x to <1 x i16>
-  ret <1 x i16> %1
+define i16 @zext_v1i8_v1i16(i8 %x) {
+  %1 = zext i8 %x to i16
+  ret i16 %1
 }
 
-define <1 x i16> @sext_v1i8_v1i16(<1 x i8> %x) {
-  %1 = sext <1 x i8> %x to <1 x i16>
-  ret <1 x i16> %1
+define i16 @sext_v1i8_v1i16(i8 %x) {
+  %1 = sext i8 %x to i16
+  ret i16 %1
 }
 
-define <1 x i8> @trunc_v1i16_v1i8(<1 x i16> %x) {
-  %1 = trunc <1 x i16> %x to <1 x i8>
-  ret <1 x i8> %1
+define i8 @trunc_v1i16_v1i8(i16 %x) {
+  %1 = trunc i16 %x to i8
+  ret i8 %1
 }
 
-define <1 x i32> @zext_v1i8_v1i32(<1 x i8> %x) {
-  %1 = zext <1 x i8> %x to <1 x i32>
-  ret <1 x i32> %1
+define i32 @zext_v1i8_v1i32(i8 %x) {
+  %1 = zext i8 %x to i32
+  ret i32 %1
 }
 
-define <1 x i32> @sext_v1i8_v1i32(<1 x i8> %x) {
-  %1 = sext <1 x i8> %x to <1 x i32>
-  ret <1 x i32> %1
+define i32 @sext_v1i8_v1i32(i8 %x) {
+  %1 = sext i8 %x to i32
+  ret i32 %1
 }
 
-define <1 x i8> @trunc_v1i32_v1i8(<1 x i32> %x) {
-  %1 = trunc <1 x i32> %x to <1 x i8>
-  ret <1 x i8> %1
+define i8 @trunc_v1i32_v1i8(i32 %x) {
+  %1 = trunc i32 %x to i8
+  ret i8 %1
 }
 
-define <1 x i64> @zext_v1i8_v1i64(<1 x i8> %x) {
-  %1 = zext <1 x i8> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @zext_v1i8_v1i64(i8 %x) {
+  %1 = zext i8 %x to i64
+  ret i64 %1
 }
 
-define <1 x i64> @sext_v1i8_v1i64(<1 x i8> %x) {
-  %1 = sext <1 x i8> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @sext_v1i8_v1i64(i8 %x) {
+  %1 = sext i8 %x to i64
+  ret i64 %1
 }
 
-define <1 x i8> @trunc_v1i64_v1i8(<1 x i64> %x) {
-  %1 = trunc <1 x i64> %x to <1 x i8>
-  ret <1 x i8> %1
+define i8 @trunc_v1i64_v1i8(i64 %x) {
+  %1 = trunc i64 %x to i8
+  ret i8 %1
 }
 
-define <1 x i32> @zext_v1i16_v1i32(<1 x i16> %x) {
-  %1 = zext <1 x i16> %x to <1 x i32>
-  ret <1 x i32> %1
+define i32 @zext_v1i16_v1i32(i16 %x) {
+  %1 = zext i16 %x to i32
+  ret i32 %1
 }
 
-define <1 x i32> @sext_v1i16_v1i32(<1 x i16> %x) {
-  %1 = sext <1 x i16> %x to <1 x i32>
-  ret <1 x i32> %1
+define i32 @sext_v1i16_v1i32(i16 %x) {
+  %1 = sext i16 %x to i32
+  ret i32 %1
 }
 
-define <1 x i16> @trunc_v1i32_v1i16(<1 x i32> %x) {
-  %1 = trunc <1 x i32> %x to <1 x i16>
-  ret <1 x i16> %1
+define i16 @trunc_v1i32_v1i16(i32 %x) {
+  %1 = trunc i32 %x to i16
+  ret i16 %1
 }
 
-define <1 x i64> @zext_v1i16_v1i64(<1 x i16> %x) {
-  %1 = zext <1 x i16> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @zext_v1i16_v1i64(i16 %x) {
+  %1 = zext i16 %x to i64
+  ret i64 %1
 }
 
-define <1 x i64> @sext_v1i16_v1i64(<1 x i16> %x) {
-  %1 = sext <1 x i16> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @sext_v1i16_v1i64(i16 %x) {
+  %1 = sext i16 %x to i64
+  ret i64 %1
 }
 
-define <1 x i16> @trunc_v1i64_v1i16(<1 x i64> %x) {
-  %1 = trunc <1 x i64> %x to <1 x i16>
-  ret <1 x i16> %1
+define i16 @trunc_v1i64_v1i16(i64 %x) {
+  %1 = trunc i64 %x to i16
+  ret i16 %1
 }
 
-define <1 x i64> @zext_v1i32_v1i64(<1 x i32> %x) {
-  %1 = zext <1 x i32> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @zext_v1i32_v1i64(i32 %x) {
+  %1 = zext i32 %x to i64
+  ret i64 %1
 }
 
-define <1 x i64> @sext_v1i32_v1i64(<1 x i32> %x) {
-  %1 = sext <1 x i32> %x to <1 x i64>
-  ret <1 x i64> %1
+define i64 @sext_v1i32_v1i64(i32 %x) {
+  %1 = sext i32 %x to i64
+  ret i64 %1
 }
 
-define <1 x i32> @trunc_v1i64_v1i32(<1 x i64> %x) {
-  %1 = trunc <1 x i64> %x to <1 x i32>
-  ret <1 x i32> %1
+define i32 @trunc_v1i64_v1i32(i64 %x) {
+  %1 = trunc i64 %x to i32
+  ret i32 %1
 }
 
 define <2 x i16> @zext_v2i8_v2i16(<2 x i8> %x) {
