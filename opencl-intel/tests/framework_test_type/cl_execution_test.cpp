@@ -143,7 +143,7 @@ bool clExecutionTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -154,7 +154,7 @@ bool clExecutionTest()
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -166,7 +166,7 @@ bool clExecutionTest()
 	pBinaryStatus = new cl_int[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -177,7 +177,7 @@ bool clExecutionTest()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -191,25 +191,25 @@ bool clExecutionTest()
     // Create queue
     //
     cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 
 	cl_context cntxInfo;
 	iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
-	bResult &= Check(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
 	bResult &= CheckHandle(L"clGetCommandQueueInfo - context", context, cntxInfo);
 
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
 
     //
     // Create Kernel
     //
     cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= Check(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
     //
     // From here down it is the program execution implementation
@@ -231,13 +231,13 @@ bool clExecutionTest()
     size_t size = sizeof(cl_float);
 
     cl_mem buffer_srcA = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
 
     cl_mem buffer_srcB = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcB", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateBuffer - srcB", CL_SUCCESS, iRet);
 
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
 
 #ifdef NATIVE_KERNEL_TEST
     test_native_kernel(queue1, buffer_srcA, buffer_srcB, buffer_dst);
@@ -251,25 +251,25 @@ bool clExecutionTest()
     // Set arguments
     //
     iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &buffer_srcA);
-    bResult &= Check(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &buffer_srcB);
-    bResult &= Check(L"clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &buffer_dst);
-    bResult &= Check(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
 
     //
     // Execute commands - Write buffers
     //
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcA, false, 0, size* BUFFERS_LENGTH, srcA, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
 
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, false, 0, size* BUFFERS_LENGTH, srcB, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
     
 	iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
-	bResult &= Check(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
+	bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
     //
     // Execute kernel - dot_product
     //
@@ -280,7 +280,7 @@ bool clExecutionTest()
         iRet = clEnqueueTask(queue1, kernel1, 0, NULL, NULL);        
     }
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
 
     //
     // Print kernel output
@@ -304,20 +304,21 @@ bool clExecutionTest()
 	        dst[j] = 0.0f;
 		}
 	    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
-	    bResult &= Check(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
 
 		cl_event ndrEvent;
         iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &ndrEvent);
-        bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+        bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 
 		iRet = clWaitForEvents(1, &ndrEvent);
-		bResult &= Check(L"clWaitForCompletion", CL_SUCCESS, iRet);
+		bResult &= SilentCheck(L"clWaitForCompletion", CL_SUCCESS, iRet);
+        clReleaseEvent(ndrEvent);
 
         //
         // Read results. wait for completion - blocking!
         //
         iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
-        bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+        bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
 
         //
         // Print kernel output
@@ -337,28 +338,28 @@ bool clExecutionTest()
     // Release objects
     //
     iRet = clReleaseMemObject(buffer_dst);
-    bResult &= Check(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
 
     iRet = clReleaseMemObject(buffer_srcA);
-    bResult &= Check(L"clReleaseBuffer - buffer_srcA", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseBuffer - buffer_srcA", CL_SUCCESS, iRet);
 
     iRet = clReleaseMemObject(buffer_srcB);
-    bResult &= Check(L"clReleaseBuffer - buffer_srcB", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseBuffer - buffer_srcB", CL_SUCCESS, iRet);
 
     iRet = clReleaseKernel(kernel1);
-    bResult &= Check(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= Check(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clFinish(queue1);
-    bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clFinish - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue1);
-    bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= Check(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
 
 	delete []pDevices;
 	delete []pBinarySizes;

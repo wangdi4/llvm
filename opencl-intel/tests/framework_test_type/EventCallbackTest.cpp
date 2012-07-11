@@ -205,6 +205,13 @@ bool EventCallbackTest()
 
 	NOISY_CHECK(L"Execution Results", true, bResult);
 
+    clReleaseEvent(kernelEvent1);
+    clReleaseEvent(kernelEvent2);
+    clReleaseEvent(user_event1);
+    clReleaseEvent(user_event2);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
+
 	PROV_RETURN_AND_ABANDON(true);
 }
 

@@ -163,7 +163,9 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	err = clEnqueueCopyBuffer(cmd_queue, buff,buff,0, 0, sizeof(char), 0, NULL, NULL);
 	res &= SilentCheck(L"clEnqueueCopyBuffer, CSSD100006063",CL_MEM_COPY_OVERLAP,err);
 
+
 	clFinish(cmd_queue);
+    clReleaseEvent(ndEvent);
     clReleaseMemObject(buff);
 	SilentCheck(L"Second clReleaseMemObject(buff)", CL_INVALID_MEM_OBJECT, clReleaseMemObject(buff)); // CSSD100005934
 	clReleaseKernel(kernel);

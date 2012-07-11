@@ -55,6 +55,7 @@ static void enqueueAllVariants(cl_command_queue queue, cl_mem bufferForErr, void
     } else {
     	EXPECT_EQ(oclErr(CL_INVALID_OPERATION),oclErr(iRet)) << "clEnqueueWriteBufferRect on buffer with flags ("<< bufFlags <<") should fail.";
     }
+    clFinish(queue);
 }
 
 bool clEnqueueRWBuffer()
@@ -115,6 +116,7 @@ bool clEnqueueRWBuffer()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, false, false, "CL_MEM_HOST_NO_ACCESS");
+    clReleaseMemObject(bufferForErr);
 
 
     bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_READ_ONLY, BUFFER_CL_ALLOC_SIZE, NULL, &iRet) );
@@ -125,6 +127,7 @@ bool clEnqueueRWBuffer()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, true, false, "CL_MEM_HOST_READ_ONLY");
+    clReleaseMemObject(bufferForErr);
 
 
     bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_WRITE_ONLY, BUFFER_CL_ALLOC_SIZE, NULL, &iRet) );
@@ -135,6 +138,10 @@ bool clEnqueueRWBuffer()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, false, true, "CL_MEM_HOST_WRITE_ONLY");
+    clReleaseMemObject(bufferForErr);
+
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
 
 	PROV_RETURN_AND_ABANDON(true);
 }

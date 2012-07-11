@@ -84,6 +84,13 @@ bool clCreateBufferTest()
 	cl_mem bufferWithNoHostAccess =
 			PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_NO_ACCESS, 100, NULL, &iRet) );
 
+    // Release all
+    clReleaseMemObject(bufferWithNoHostAccess);
+    clReleaseMemObject(buffer3);
+    clReleaseMemObject(buffer2);
+    clReleaseMemObject(buffer1);
+    clReleaseContext(context);
+
 	PROV_RETURN_AND_ABANDON(true);
 }
 
@@ -138,6 +145,8 @@ bool clCreateSubBufferTest()
 	subBufferForTesting = PROV_OBJ( clCreateSubBuffer(bufferNoAccess, CL_MEM_HOST_NO_ACCESS, CL_BUFFER_CREATE_TYPE_REGION,
 			(void *)&region, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) for parent with (CL_MEM_HOST_NO_ACCESS) should be fine.";
+    clReleaseMemObject(bufferNoAccess);
+    clReleaseMemObject(subBufferForTesting);
 
 
 	/* sub buffers for CL_MEM_HOST_READ_ONLY */
@@ -151,10 +160,13 @@ bool clCreateSubBufferTest()
 	subBufferForTesting = PROV_OBJ( clCreateSubBuffer(bufferReadOnlyAccess, CL_MEM_HOST_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
 			(void *)&region, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_READ_ONLY) for parent with (CL_MEM_HOST_READ_ONLY) should be fine.";
+    clReleaseMemObject(subBufferForTesting);
 
 	subBufferForTesting = PROV_OBJ( clCreateSubBuffer(bufferReadOnlyAccess, CL_MEM_HOST_NO_ACCESS, CL_BUFFER_CREATE_TYPE_REGION,
 			(void *)&region, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) for parent with (CL_MEM_HOST_READ_ONLY) should be fine.";
+    clReleaseMemObject(bufferReadOnlyAccess);
+    clReleaseMemObject(subBufferForTesting);
 
 
 	/* sub buffers for CL_MEM_HOST_WRITE_ONLY */
@@ -168,10 +180,15 @@ bool clCreateSubBufferTest()
 	subBufferForTesting = PROV_OBJ( clCreateSubBuffer(bufferWriteOnlyAccess, CL_MEM_HOST_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
 			(void *)&region, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_WRITE_ONLY) for parent with (CL_MEM_HOST_WRITE_ONLY) should be fine.";
+    clReleaseMemObject(subBufferForTesting);
 
 	subBufferForTesting = PROV_OBJ( clCreateSubBuffer(bufferWriteOnlyAccess, CL_MEM_HOST_NO_ACCESS, CL_BUFFER_CREATE_TYPE_REGION,
 			(void *)&region, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) for parent with (CL_MEM_HOST_WRITE_ONLY) should be fine.";
+    clReleaseMemObject(bufferWriteOnlyAccess);
+    clReleaseMemObject(subBufferForTesting);
 
-	PROV_RETURN_AND_ABANDON(true);
+    clReleaseContext(context);
+
+    PROV_RETURN_AND_ABANDON(true);
 }

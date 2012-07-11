@@ -571,6 +571,14 @@ TEST_F(NativeKernelSuite, ocl_ooo_to_native)
     delete[] dst_data;
     rc = clFinish(ooo_cmd_queue); 
     ASSERT_EQ(CL_SUCCESS, rc);
+    rc = clReleaseEvent(ev_native);
+    ASSERT_EQ(CL_SUCCESS, rc);
+    rc = clReleaseEvent(ev_writebuf);
+    ASSERT_EQ(CL_SUCCESS, rc);
+    rc = clReleaseEvent(ev_invert);
+    ASSERT_EQ(CL_SUCCESS, rc);
+    rc = clReleaseEvent(ev_mask);
+    ASSERT_EQ(CL_SUCCESS, rc);
     rc = clReleaseCommandQueue(ooo_cmd_queue);
     ASSERT_EQ(CL_SUCCESS, rc);
     rc = clReleaseMemObject(mem_buf_src);

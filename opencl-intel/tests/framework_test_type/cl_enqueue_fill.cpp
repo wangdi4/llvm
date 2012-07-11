@@ -96,6 +96,8 @@ protected:
 
 	virtual void TearDown()
 	{
+        clReleaseCommandQueue(m_queue);
+        clReleaseContext(m_context);
 		PROV_RETURN_AND_ABANDON();
 		m_setupOK = false;
 	}
@@ -234,6 +236,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
 
 	EXPECT_EQ(0, countFillErrors) << "pattern fill with "LENGTH_EIGHT_PATTERN" "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+    clReleaseMemObject(buffer1);
 }
 
 

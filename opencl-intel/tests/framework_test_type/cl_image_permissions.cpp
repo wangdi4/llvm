@@ -40,6 +40,7 @@ static void enqueueAllVariants(cl_command_queue queue, cl_mem img, void *rwBuf, 
     } else {
     	EXPECT_EQ(oclErr(CL_INVALID_OPERATION),oclErr(iRet)) << "clEnqueueWriteImage on image with flags ("<< bufFlags <<") should fail.";
     }
+    clFinish(queue);
 }
 
 bool clImagePermissions()
@@ -120,6 +121,7 @@ bool clImagePermissions()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, imgForErr, rwBuf, buffRectOrigin, buffRectRegion3D, false, false, "CL_MEM_HOST_NO_ACCESS");
+    clReleaseMemObject(imgForErr);
 
     imgForErr = PROV_OBJ( clCreateImage3D(context, CL_MEM_HOST_READ_ONLY, &imgFormat, IMG_W, IMG_H, IMG_D, 0, 0, NULL, &iRet) );
     EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateImage3D with flags (CL_MEM_HOST_READ_ONLY) should be OK.";
@@ -129,6 +131,7 @@ bool clImagePermissions()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, imgForErr, rwBuf, buffRectOrigin, buffRectRegion3D, true, false, "CL_MEM_HOST_READ_ONLY");
+    clReleaseMemObject(imgForErr);
 
     imgForErr = PROV_OBJ( clCreateImage2D(context, CL_MEM_HOST_WRITE_ONLY, &imgFormat, IMG_W, IMG_H, 0, NULL, &iRet) );
     EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateImage3D with flags (CL_MEM_HOST_WRITE_ONLY) should be OK.";
@@ -138,6 +141,10 @@ bool clImagePermissions()
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, imgForErr, rwBuf, buffRectOrigin, buffRectRegion2D, false, true, "CL_MEM_HOST_WRITE_ONLY");
+    clReleaseMemObject(imgForErr);
+
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
 
     PROV_RETURN_AND_ABANDON(true);
 }
