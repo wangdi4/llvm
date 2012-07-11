@@ -228,6 +228,10 @@ namespace intel {
     typedef std::map<Function*, Value*> TMapFunctionToValue;
     /// This holds a map between function and its m_pCurrWIValue
     TMapFunctionToValue m_pCurrWIperFunction;
+    /// This holds a map between function and its m_pCurrSBValue
+    TMapFunctionToValue m_pCurrSBPerFunction;
+    /// This holds a map between function and its m_pWIIterationCountValue
+    TMapFunctionToValue m_pIterationCountPerFunction;
 
     typedef std::map<BasicBlock*, BasicBlock*> TMapBasicBlockToBasicBlock;
     /// This holds a map between sync basic block and previous pre sync loop header basic block

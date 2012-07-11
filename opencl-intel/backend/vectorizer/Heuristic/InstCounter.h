@@ -218,6 +218,17 @@ public:
     // An illegal type in this context is iX, where X > 64.
     // TODO: Check if this is still relevant to the current codegen.
     static bool hasIllegalTypes(Function &F);
+
+    // Checks if the incoming program has unsupported function calls
+    // An unsupported function call is function that contains 
+    // barrier/get_local_id/get_global_id or a call to unsupported function.
+    // Vectorize of kernel that calls non-inline function is done today by
+    // calling the scalar version of called function VecWidth times.
+    // This means that the implict arguments sent to the vectorized kernel
+    // that is respone for calculating the barrier/get_local_id/get_global_id
+    // cannot passed as is to the scalar function, what make it too difficult
+    // to support these cases.
+    static bool hasNonInlineUnsupportedFunctions(Function &F);
   };
 }
 

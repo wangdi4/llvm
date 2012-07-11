@@ -38,9 +38,6 @@ namespace intel {
   #define GET_ITERATION_COUNT "get_iter_count."
   #define GET_SPECIAL_BUFFER "get_special_buffer."
   #define GET_CURR_WI "get_curr_wi."
-  #define CURR_SB_INDEX_ALLOCA "CurrSBIndex."
-  #define CURR_WI_ALLOCA "CurrWI."
-  #define GET_ITER_COUNT "IterCount."
 
   #define VECTORIZED_KERNEL_PREFIX "__Vectorized_."
 

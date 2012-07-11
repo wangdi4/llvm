@@ -84,6 +84,10 @@ namespace intel {
     initArgumentValues(F.begin()->begin(), hasNoInternalCalls);
     //Initialize the currWI pointer of this function
     m_pCurrWIperFunction[&F] = m_pCurrWIValue;
+    //Initialize the CurrSB pointer of this function
+    m_pCurrSBPerFunction[&F] = m_pCurrSBValue;
+    //Initialize the WIIterationCount pointer of this function
+    m_pIterationCountPerFunction[&F] = m_pWIIterationCountValue;
 
     //Fix special values
     fixSpecialValues();
@@ -503,11 +507,11 @@ namespace intel {
       "currBarrier", pInsertBefore);
 
     //Will hold the index in special buffer and will be increased by stride size
-    m_pCurrSBValue = new AllocaInst(m_sizeTType, CURR_SB_INDEX_ALLOCA, pInsertBefore);
+    m_pCurrSBValue = new AllocaInst(m_sizeTType, "CurrSBIndex", pInsertBefore);
 
     //get_curr_wi()
     if (hasNoInternalCalls ) {
-      m_pCurrWIValue = new AllocaInst(m_sizeTType, CURR_WI_ALLOCA, pInsertBefore);
+      m_pCurrWIValue = new AllocaInst(m_sizeTType, "CurrWI", pInsertBefore);
     } else {
       m_pCurrWIValue = m_util.createGetCurrWI(pInsertBefore);
     }
@@ -727,35 +731,14 @@ namespace intel {
 
     pFuncToFix->getParent()->getFunctionList().push_back(pNewFunc);
 
-    //TODO: can we just check at the first basic block?
-    bool bCurrSBIndex = false;
-    bool bCurrWI = false;
-    bool bIterCount = false;
-    for ( inst_iterator ii = inst_begin(pNewFunc), ie = inst_end(pNewFunc); ii != ie; ++ii ) {
-      if ( AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(&*ii) ) {
-        if ( !pAllocaInst->getNameStr().compare(CURR_SB_INDEX_ALLOCA) ) {
-          //Found the "CurrSBIndex." Alloca instruction
-          m_pCurrSBValue = pAllocaInst;
-          bCurrSBIndex = true;
-        } else if ( !pAllocaInst->getNameStr().compare(CURR_WI_ALLOCA) ) {
-          //Found the "CurrWI." Alloca instruction
-          m_pCurrWIValue = pAllocaInst;
-          bCurrWI = true;
-        }
-      } else if ( CallInst *pCallInst = dyn_cast<CallInst>(&*ii) ) {
-        if ( !pCallInst->getNameStr().compare(GET_ITER_COUNT) ) {
-          //Found the "IterCount." Alloca instruction
-          m_pWIIterationCountValue = pCallInst;
-          bIterCount = true;
-        }
-      }
-      if ( bCurrSBIndex && bCurrWI && bIterCount ) {
-        break;
-      }
-    }
-    assert( bCurrSBIndex && "Did not find the \"CurrSBIndex.\" Alloca instruction" );
-    assert( bCurrWI && "Did not find the \"CurrWI.\" Alloca instruction" );
-    assert( bIterCount && "Did not find the \"IterCount.\" Call instruction" );
+    // Identify the CurrWI/CurrSB/WIIterCount in the new function using the clone mapping.
+    m_pCurrWIValue = ValueMap[m_pCurrWIperFunction[pFuncToFix]];
+    m_pCurrSBValue = ValueMap[m_pCurrSBPerFunction[pFuncToFix]];
+    m_pWIIterationCountValue = ValueMap[m_pIterationCountPerFunction[pFuncToFix]];
+    assert( m_pCurrWIValue && "Did not find the \"CurrWI\" instruction" );
+    assert( m_pCurrSBValue && "Did not find the \"CurrSBIndex\" instruction" );
+    assert( m_pWIIterationCountValue && "Did not find the \"IterCount\" instruction" );
+
     //Add get_special_buffer()
     m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pNewFunc->begin()->begin());
 

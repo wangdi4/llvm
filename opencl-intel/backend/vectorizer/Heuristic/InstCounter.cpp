@@ -4,7 +4,8 @@
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Mangler.h"
-
+#include "LoopUtils.h"
+#include "OpenclRuntime.h"
 
 namespace intel {
 
@@ -753,7 +754,7 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
 
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {
-  DominatorTree &DT = getAnalysis<DominatorTree>();  
+  DominatorTree &DT = getAnalysis<DominatorTree>();
   m_canVectorize = CanVectorizeImpl::canVectorize(F, DT);
   return false;
 }
@@ -773,6 +774,11 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
   
   if (hasIllegalTypes(F)) { 
     dbgPrint() << "Types unsupported by codegen, can not vectorize\n";
+    return false;
+  }
+
+  if (hasNonInlineUnsupportedFunctions(F)) { 
+    dbgPrint() << "Call to unsupported functions, can not vectorize\n";
     return false;
   }
 
@@ -880,6 +886,36 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
   return false;
 }
 
+bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
+  Module *pM = F.getParent();
+  std::set<Function *> unsupportedFunctions;
+  std::set<Function *> roots;
+
+  // Add all kernels to root functions
+  // Kernels assumes to have implicit barrier
+  SmallVector<Function *, 4> kernels;
+  LoopUtils::GetOCLKernel(*pM, kernels);
+  roots.insert(kernels.begin(), kernels.end());
+
+  // Add all functions that contains barrier/get_local_id/get_global_id to root functions
+  llvm::StringRef oclFunctionName[3] = {BARRIER_FUNC_NAME, GET_LID_NAME, GET_GID_NAME};
+  for(unsigned int i=0; i<3; i++) {
+    Function *F = pM->getFunction(oclFunctionName[i]);
+    if (!F) continue;
+    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
+         ui != ue; ++ui ) {
+      CallInst *CI = dyn_cast<CallInst> (*ui);
+      if (!CI) continue;
+      Function *pCallingFunc = CI->getParent()->getParent();
+      roots.insert(pCallingFunc);
+    }
+  }
+
+  // Fill unsupportedFunctions set with all functions that calls directly or undirectly
+  // functions from the root functions set
+  LoopUtils::fillFuncUsersSet(roots, unsupportedFunctions);
+  return unsupportedFunctions.count(&F);
+}
 
 extern "C" {
   FunctionPass* createWeightedInstCounter(bool BeforeVec = true) {

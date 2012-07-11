@@ -278,7 +278,7 @@ namespace intel {
         GET_CURR_WI, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getCurrWIFunc);
     }
-    return CallInst::Create(m_getCurrWIFunc, "pCurrWI", pInsertBefore);
+    return CallInst::Create(m_getCurrWIFunc, "CurrWI", pInsertBefore);
   }
 
   Instruction* BarrierUtils::createGetSpecialBuffer(Instruction *pInsertBefore){
@@ -313,7 +313,7 @@ namespace intel {
         GET_ITERATION_COUNT, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getIterationCountFunc);
     }
-    return CallInst::Create(m_getIterationCountFunc, GET_ITER_COUNT, pInsertBefore);
+    return CallInst::Create(m_getIterationCountFunc, "IterCount", pInsertBefore);
   }
 
   TInstructionVector& BarrierUtils::getAllGetLocalId() {
