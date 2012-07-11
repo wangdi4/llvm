@@ -14,7 +14,7 @@ define <8 x double> @f_cvt_pslo_pd(<16 x float> %arg0) {
 ; KNF: f_cvt_pslo_pd:
 ; KNF: vcvtps2pd $0, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNC: f_cvt_pslo_pd:
-; KNC: vcvtps2pd %v{{[0-9]*}}, %v{{[0-9]*}}
+; KNC: vcvtps2pd %zmm{{[0-9]*}}, %zmm{{[0-9]*}}
 entry:
   %ret = call <8 x double> @llvm.x86.mic.cvt.pslo.pd(<16 x float> %arg0)
 
