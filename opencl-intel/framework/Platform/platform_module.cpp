@@ -717,7 +717,8 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     OclAutoMutex CS(&m_deviceFissionMutex);
     cl_err_code ret; 
     FissionableDevice* pParentDevice; 
-    cl_uint numOutputDevices, numSubdevicesToCreate;
+    cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
+	tNumDevices = 0;
     ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
     if (CL_SUCCESS != ret)
     {
@@ -726,7 +727,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 
     if (NULL == properties)
     {
-        return CL_INVALID_PROPERTY;
+        return CL_INVALID_VALUE;
     }
 
     if (0 == num_entries)
@@ -734,7 +735,6 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         if (NULL != out_devices)
         {
             return CL_INVALID_VALUE;
-
         }
     }
 	bool bNeedToCreateDevice = (NULL == pParentDevice->GetDeviceAgent());
@@ -768,10 +768,9 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         *num_devices = numOutputDevices;
         return CL_SUCCESS;
     }
-    if (NULL != num_devices)
-    {
-        *num_devices = numOutputDevices;
-    }
+
+	tNumDevices = numOutputDevices;
+
     if (0 == num_entries)
     {
         return CL_INVALID_VALUE;
@@ -779,7 +778,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 
     if (numOutputDevices > num_entries)
     {
-        numSubdevicesToCreate = num_entries;
+        return CL_INVALID_VALUE;
     }
     else
     {
@@ -802,7 +801,9 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, num_devices, sizes);
+	// TODO: reolace (NULL == num_devices ? NULL : &tNumDevices) with &tNumDevices after fixing issue in common runtime that expect
+	// that if num_devices is null than the creation should fail!
+    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, (NULL == num_devices ? NULL : &tNumDevices), sizes);
     if (ret != CL_SUCCESS)
     {
 		if (bNeedToCreateDevice)
@@ -870,6 +871,11 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
 
     delete[] pNewDevices;
+
+	if (NULL != num_devices)
+    {
+        *num_devices = tNumDevices;
+    }
     
     return CL_SUCCESS;
 }

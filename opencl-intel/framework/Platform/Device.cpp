@@ -363,12 +363,12 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
             break;
 
         default:
-            return CL_INVALID_PROPERTY;
+            return CL_INVALID_VALUE;
         }
         break;
 
     default:
-        return CL_INVALID_PROPERTY;
+        return CL_INVALID_VALUE;
     }
 
     // prepare additional info for the CPU device, for counts / equally / names
@@ -380,6 +380,10 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         {
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
+		if (0 == partitionSizes.size())
+		{
+			return CL_DEVICE_PARTITION_FAILED;
+		}
         if (NULL != sizes)
         {
             for (size_t i = 0; i < partitionSizes.size(); ++i)
@@ -400,7 +404,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         size_t partitionSize = (size_t)props[1];
         if (0 != props[2])
         {
-            return CL_INVALID_PROPERTY;
+            return CL_INVALID_VALUE;
         }
         if (0 == partitionSize)
         {
@@ -458,7 +462,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     if (CL_DEV_INVALID_PROPERTIES == dev_ret)
     {
         //Unsupported fission mode
-        return CL_INVALID_PROPERTY;
+        return CL_INVALID_VALUE;
     }
     return CL_DEVICE_PARTITION_FAILED;
 }
