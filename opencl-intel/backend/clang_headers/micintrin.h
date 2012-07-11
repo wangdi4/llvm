@@ -5347,4 +5347,22 @@ _mm512_int2mask(int mask)
   return __builtin_ia32_int2mask(mask);
 }
 
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm_micfence(void)
+{
+  __builtin_ia32_micfence();
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm_micsfence(void)
+{
+  __builtin_ia32_micsfence();
+}
+
+__inline__ void __attribute__((__always_inline__, __nodebug__))
+_mm_miclfence(void)
+{
+  __builtin_ia32_miclfence();
+}
+
 #endif /* __MICINTRIN_H */

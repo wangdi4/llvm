@@ -293,3 +293,17 @@ OclBuiltinImpl shuffle2_16_long = OclBuiltinImpl<shuffle2_16, [v2i64, v4i64, v8i
                              v2u64, v4u64, v8u64, v16u64,
                              v2f64, v4f64, v8f64, v16f64], 0, shuffle2_promote>;
 
+OclBuiltinImpl _mem_fence = OclBuiltinImpl<mem_fence, [v1i64], 0, [{
+    _mm_micfence();
+  }]>;
+
+OclBuiltinImpl _read_mem_fence = OclBuiltinImpl<read_mem_fence, [v1i64], 0, [{
+    _mm_miclfence();
+  }]>;
+
+OclBuiltinImpl _write_mem_fence = OclBuiltinImpl<write_mem_fence, [v1i64], 0, [{
+    _mm_micsfence();
+  }]>;
+
+
+
