@@ -112,7 +112,9 @@ typedef int errno_t;
 #define MAX_PATH PATH_MAX
 #endif
 
+#ifndef FALSE
 #define FALSE	0
+#endif
 
 #ifdef MAX
 #undef MAX
