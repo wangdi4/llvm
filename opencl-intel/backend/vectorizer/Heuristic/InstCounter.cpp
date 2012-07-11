@@ -92,7 +92,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     float Probability = ProbMap.lookup(BB);
 
-    // And now, some up all the instructions
+    // And now, sum up all the instructions
     for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I) 
       m_totalWeight += Probability * TripCount * 
                        getInstructionWeight(I, MemOpCostMap);
@@ -531,7 +531,8 @@ void WeightedInstCounter::
           continue;
 
         StringRef Name = CondCall->getCalledFunction()->getName();
-        Type* CondType = CondCall->getOperand(0)->getType();
+        Value* AllZOp = CondCall->getOperand(0);
+        Type* AllZOpType = AllZOp->getType();
         // Do not count the ancestor if it's all1/all0, has a vector type, and is data
         // dependent! Not counting penalizes this block, because the less blocks you're 
         // control-dependent on, the higher your probability of being executed is.
@@ -543,10 +544,17 @@ void WeightedInstCounter::
         // the logic of "all workitems must agree for the block to be skipped, which is rarer
         // then a single workitem satisfying the condition" no longer applies.
         if ((Name.startswith(Mangler::name_allZero) || Name.startswith(Mangler::name_allOne))
-          && CondType->isVectorTy() 
+          && AllZOpType->isVectorTy() 
           && (DepSet.find(CondCall) != DepSet.end())) 
             count--;
-      }
+
+        // A degenerate case - an allZero(true) branch is never taken. 
+        // If you depend on one of those, ignore this dependency.
+        ConstantInt* ConstOp = dyn_cast<ConstantInt>(AllZOp);
+        if (Name.startswith(Mangler::name_allZero) &&
+            ConstOp && ConstOp->isOne())
+              count--;
+      }      
     }
 
     ProbMap[BB] = 1.0/(pow(2.0, count));
