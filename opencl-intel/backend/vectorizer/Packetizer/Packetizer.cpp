@@ -575,9 +575,10 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   V_ASSERT(RetDep != WIAnalysis::UNIFORM && "No need to packetize this instr");
   RetDep = RetDep; //silence warning.
 
+  V_ASSERT(MO.Mask && "widenMaskedOp called with a null mask");
   WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
-  WIAnalysis::WIDependancy MaskDep = WIAnalysis::UNIFORM;
-  if (MO.Mask) MaskDep = m_depAnalysis->whichDepend(MO.Mask);
+  WIAnalysis::WIDependancy MaskDep = m_depAnalysis->whichDepend(MO.Mask);
+
 
   // If the pointer is not consecutive then
   // it should be handled via indexed scatter/gather.
