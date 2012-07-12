@@ -234,7 +234,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	}
 	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
-
+        clFinish(m_queue);
 	EXPECT_EQ(0, countFillErrors) << "pattern fill with "LENGTH_EIGHT_PATTERN" "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
     clReleaseMemObject(buffer1);
 }
