@@ -247,6 +247,9 @@ void PhiCanon::fixBasicBlockSucessor(BasicBlock* to_fix,
     for (unsigned int i=0; i<sw->getNumSuccessors() ; ++i) {
       if (old_target == sw->getSuccessor(i)) {
         sw->setSuccessor(i, new_target);
+        // Must stop after finding first match, as in switch there might be 
+        // more than one match that we want to keep for next phiCanon iter
+        break;
       }
     }
   } else if (IndirectBrInst* sw = dyn_cast<IndirectBrInst>(term)) {

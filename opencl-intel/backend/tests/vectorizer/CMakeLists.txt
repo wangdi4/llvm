@@ -105,7 +105,7 @@ if(PYTHONINTERP_FOUND)
                 --param build_mode=${RUNTIME_BUILD_MODE}
                 ${LIT_ARGS}
                 ${CMAKE_CURRENT_BINARY_DIR}
-                COMMENT "Running LLVM regression tests")
+                COMMENT "Running LLVM vectorizer tests")
   set_target_properties(check_vectorizer PROPERTIES FOLDER "Tests")
 
   add_custom_target(check_vectorizer.deps)
