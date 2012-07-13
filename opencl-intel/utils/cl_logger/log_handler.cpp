@@ -123,7 +123,7 @@ cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const ch
 				"\n##########################################################################################################\n" :
 				title;
 
-			if (!fprintf(m_fileHandler, pTitle) )
+			if (fputs(pTitle, m_fileHandler) < 0)
 			{
 				printf("fwrite failed\n");
 				assert(false);
@@ -181,7 +181,7 @@ void FileLogHandler::LogW(LogMessage& logMessage)
     {
         // Lock
         OclAutoMutex CS(&m_CS);
-        if (!fprintf(m_fileHandler, formattedMsg) )
+        if (fputs(formattedMsg, m_fileHandler) < 0)
         {
             printf("fwrite failed\n");
             assert(false);
