@@ -248,7 +248,10 @@ void Context::Cleanup( bool bTerminate ) const
 	if ( m_bTEActivated )
 	{
 		LOG_INFO(TEXT("%s"), TEXT("GetTaskExecutor()->Deactivate();"));
-		GetTaskExecutor()->Deactivate();
+        if (NULL != GetTaskExecutor())
+        {
+		    GetTaskExecutor()->Deactivate();
+        }
 		const_cast<Context*>(this)->m_bTEActivated = false;
 	}
 }

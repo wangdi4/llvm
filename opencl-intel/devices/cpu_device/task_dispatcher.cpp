@@ -214,7 +214,10 @@ TaskDispatcher::~TaskDispatcher()
 	if (m_bTEActivated)
 	{	
 		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "TaskExecutor::GetTaskExecutor()->Deactivate();");
-		TaskExecutor::GetTaskExecutor()->Deactivate();
+        if (NULL != TaskExecutor::GetTaskExecutor())
+        {
+		    TaskExecutor::GetTaskExecutor()->Deactivate();
+        }
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)
