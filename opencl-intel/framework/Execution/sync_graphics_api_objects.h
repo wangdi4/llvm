@@ -42,14 +42,14 @@ namespace Intel { namespace OpenCL { namespace Framework
         const bool m_bIsAcquireCmd;
         const cl_command_type m_cmdType;
         const size_t m_uiMemObjNum;
-        GraphicsApiMemoryObject** m_pMemObjects;
+        SharedPtr<GraphicsApiMemoryObject>* m_pMemObjects;
 
     protected:
         
         /**
          * @fn  SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type cmdType,
-         *      unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue,
-         *      ocl_entry_points * pOclEntryPoints, GraphicsApiMemoryObject** pMemObjects,
+         *      unsigned int uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue,
+         *      ocl_entry_points * pOclEntryPoints, SharedPtr<GraphicsApiMemoryObject>* pMemObjects,
          *      bool bIsAcquireCmd);
          *
          * @brief   Constructor.
@@ -58,9 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/13/2011
          */
 
-        SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
-            IOclCommandQueueBase* cmdQueue,
-            GraphicsApiMemoryObject** pMemObjects, bool bIsAcquireCmd);
+        SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue, SharedPtr<GraphicsApiMemoryObject>* pMemObjects, bool bIsAcquireCmd);
 
         public:
 

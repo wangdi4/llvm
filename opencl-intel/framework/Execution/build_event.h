@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
         BuildEvent(_cl_context_int* context);
 
-		Context*  GetContext() const { return m_pContext; }
+		SharedPtr<Context>  GetContext() const { return m_pContext; }
 
 		// OCLObject implementation
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const { return CL_INVALID_VALUE; }
@@ -47,9 +47,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void        SetComplete(cl_int returnCode);
 
 	protected:
-		virtual ~BuildEvent();        
 
-		Context*   m_pContext;
+		SharedPtr<Context>   m_pContext;
 	};
 
 }}}    // Intel::OpenCL::Framework

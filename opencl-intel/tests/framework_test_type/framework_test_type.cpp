@@ -25,6 +25,89 @@ cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
 std::map<cl_device_type, openBcFunc> gBcfuncMap;
 
+TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
+{
+	EXPECT_TRUE(fission_backwards_compatability_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionBasicTest)
+{
+	EXPECT_TRUE(fission_basic_test());
+}
+
+TEST(FrameworkTestType, Test_clFissionReadBufferTest)
+{
+    EXPECT_TRUE(fission_read_buffer_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionOptionsTest)
+{
+	EXPECT_TRUE(fission_options_test());
+}
+
+TEST(FrameworkTestType, DISABLED_Test_clfissionLogicTest)
+{
+    // Disabled because it's buggy, needs to be rewritten.
+	EXPECT_TRUE(fission_logic_test());
+}
+
+TEST(FrameworkTestType, DISABLED_Test_clfissionThreadTest)
+{
+    // Disabled because it's buggy, needs to be rewritten.
+    // As it is it "usually" works but can randomly fail when it in fact passed
+    // CQ ticket CSSD100006157
+	EXPECT_TRUE(fission_thread_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionBuildTest)
+{
+	EXPECT_TRUE(fission_buildSubDevice_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionBuildMultipleTest)
+{
+	EXPECT_TRUE(fission_buildMultipleSubDevices_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionDeviceInfoTest)
+{
+	EXPECT_TRUE(fission_deviceInfoSelectors_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionCommandQTest)
+{
+	EXPECT_TRUE(fission_commandQ_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionNumaTest)
+{
+	EXPECT_TRUE(fission_numa_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionContextTest)
+{
+	EXPECT_TRUE(fission_context_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionSubdivisionTest)
+{
+	EXPECT_TRUE(fission_subdivision_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionTwoQueuesTest)
+{
+	EXPECT_TRUE(fission_two_queues_test());
+}
+
+TEST(FrameworkTestType, Test_clfissionByNamesTest)
+{
+	EXPECT_TRUE(fission_by_names_test());
+}
+TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
+{
+	EXPECT_TRUE(fission_read_buffer_between_device_test());
+}
+
 TEST(FrameworkTestType, Test_clGetDeviceIDsTest)
 {
     EXPECT_TRUE(clGetDeviceIDsTest());
@@ -125,12 +208,10 @@ TEST(FrameworkTestType, Test_clExecutionTest)
     EXPECT_TRUE(clExecutionTest());
 }
 
-
 TEST(FrameworkTestType, Test_clOODotProductTest)
 {
     EXPECT_TRUE(clOODotProductTest(1));
 }
-
 
 TEST(FrameworkTestType, Test_clEnqueueCopyBufferTest)
 {
@@ -301,87 +382,6 @@ TEST(FrameworkTestType, Test_userDefinedStruct)
     EXPECT_TRUE(clStructTest());
 }
 
-TEST(FrameworkTestType, Test_clfissionBasicTest)
-{
-	EXPECT_TRUE(fission_basic_test());
-}
-
-TEST(FrameworkTestType, Test_clFissionReadBufferTest)
-{
-    EXPECT_TRUE(fission_read_buffer_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionOptionsTest)
-{
-	EXPECT_TRUE(fission_options_test());
-}
-
-TEST(FrameworkTestType, DISABLED_Test_clfissionLogicTest)
-{
-    // Disabled because it's buggy, needs to be rewritten.
-	EXPECT_TRUE(fission_logic_test());
-}
-
-TEST(FrameworkTestType, DISABLED_Test_clfissionThreadTest)
-{
-    // Disabled because it's buggy, needs to be rewritten.
-    // As it is it "usually" works but can randomly fail when it in fact passed
-    // CQ ticket CSSD100006157
-	EXPECT_TRUE(fission_thread_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionBuildTest)
-{
-	EXPECT_TRUE(fission_buildSubDevice_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionBuildMultipleTest)
-{
-	EXPECT_TRUE(fission_buildMultipleSubDevices_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionDeviceInfoTest)
-{
-	EXPECT_TRUE(fission_deviceInfoSelectors_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionCommandQTest)
-{
-	EXPECT_TRUE(fission_commandQ_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionNumaTest)
-{
-	EXPECT_TRUE(fission_numa_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionContextTest)
-{
-	EXPECT_TRUE(fission_context_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionSubdivisionTest)
-{
-	EXPECT_TRUE(fission_subdivision_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionTwoQueuesTest)
-{
-	EXPECT_TRUE(fission_two_queues_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionByNamesTest)
-{
-	EXPECT_TRUE(fission_by_names_test());
-}
-TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
-{
-	EXPECT_TRUE(fission_read_buffer_between_device_test());
-}
-TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
-{
-	EXPECT_TRUE(fission_backwards_compatability_test());
-}
 TEST(FrameworkTestType, Test_clapiTest)
 {
 	EXPECT_TRUE(api_test());

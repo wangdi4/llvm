@@ -57,6 +57,7 @@
 #include <cl_objects_map.h>
 #include <Logger.h>
 #include <cl_local_array.h>
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -132,26 +133,26 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     )
 {
     cl_command_queue iQueueID   = CL_INVALID_HANDLE;
-    Context*    pContext   = NULL;
+    SharedPtr<Context>    pContext   = NULL;
     cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
     {
-		IOclCommandQueueBase* pCommandQueue;
+		SharedPtr<IOclCommandQueueBase> pCommandQueue;
         if (clQueueProperties & CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
         {
-            pCommandQueue = new ImmediateCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
+            pCommandQueue = ImmediateCommandQueue::Allocate(pContext, clDevice, clQueueProperties, m_pEventsManager);
         }
         else
         {
 		    if (clQueueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
 		    {
-			    pCommandQueue = new OutOfOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
+                pCommandQueue = OutOfOrderCommandQueue::Allocate(pContext, clDevice, clQueueProperties, m_pEventsManager);
 		    }
 		    else
 		    {
-			    pCommandQueue = new InOrderCommandQueue(pContext, clDevice, clQueueProperties, m_pEventsManager);
+                pCommandQueue = InOrderCommandQueue::Allocate(pContext, clDevice, clQueueProperties, m_pEventsManager);
 		    }
         }
 
@@ -161,7 +162,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 			if(CL_SUCCEEDED(errVal))
 			{
 				// TODO: guard ObjMap... better doing so inside the map        
-				m_pOclCommandQueueMap->AddObject((OCLObject<_cl_command_queue_int>*)pCommandQueue);
+				m_pOclCommandQueueMap->AddObject(pCommandQueue);
 				iQueueID = pCommandQueue->GetHandle();
                 
                 // this is the first place where we are sure that the commmand queue was created
@@ -185,7 +186,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext)
+cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, SharedPtr<Context>* ppContext)
 {
     cl_int errVal = CL_SUCCESS;
 
@@ -212,17 +213,9 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
  * This function returns a pointer to a command queue.
  * If the command queue is not available a NULL value is returned.
  ******************************************************************/
-IOclCommandQueueBase* ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
+SharedPtr<IOclCommandQueueBase> ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
 {
-    cl_err_code errCode;            
-    OCLObject<_cl_command_queue_int>*  pOclObject = NULL;
-    errCode = m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue, &pOclObject);
-    if (CL_FAILED(errCode))
-    {
-        return NULL;
-    }
-    IOclCommandQueueBase* pCommandQueue = dynamic_cast<IOclCommandQueueBase*>(pOclObject);
-    return pCommandQueue;
+    return m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue).DynamicCast<IOclCommandQueueBase>();
 }
 
 /******************************************************************
@@ -230,7 +223,7 @@ IOclCommandQueueBase* ExecutionModule::GetCommandQueue(cl_command_queue clComman
  ******************************************************************/
 cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
 {
-    OclCommandQueue* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<OclCommandQueue> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -263,7 +256,7 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
 cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
 {
     cl_err_code res = CL_SUCCESS;
-    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<OclCommandQueue> pOclCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pOclCommandQueue)
     {
         res = CL_INVALID_COMMAND_QUEUE;
@@ -281,7 +274,7 @@ cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueu
  ******************************************************************/
 cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties)
 {
-    OclCommandQueue* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<OclCommandQueue> pOclCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pOclCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -354,7 +347,7 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
 {
 	cl_start;
     cl_err_code res = CL_SUCCESS;
-    IOclCommandQueueBase* pOclCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pOclCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pOclCommandQueue)
     {
         res = CL_INVALID_COMMAND_QUEUE;
@@ -374,7 +367,7 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 {
     cl_err_code res = CL_SUCCESS;
 	cl_event dummy = NULL;
-	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
@@ -386,7 +379,7 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 		return res;
 	}
 
-	QueueEvent* pQueueEvent = m_pEventsManager->GetEventClass<QueueEvent>(dummy);
+	SharedPtr<QueueEvent> pQueueEvent = m_pEventsManager->GetEventClass<QueueEvent>(dummy);
 	assert(pQueueEvent && "Expecting non NULL dummy-queue event");
 	res = pCommandQueue->WaitForCompletion(pQueueEvent);
 	if ( CL_FAILED(res) )
@@ -394,7 +387,6 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 		pQueueEvent->Wait();
 	}
 	m_pEventsManager->ReleaseEvent(dummy);
-
 	return CL_SUCCESS;
 }
 
@@ -403,7 +395,7 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
  */
 cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
-    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);    
+    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue);    
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -426,12 +418,12 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clComman
         return err;
     }
 
-    QueueEvent& markerEvent = *pMarkerCommand->GetEvent();
-    m_pEventsManager->RegisterQueueEvent(&markerEvent, pEvent);
+    SharedPtr<QueueEvent> markerEvent = pMarkerCommand->GetEvent();
+    m_pEventsManager->RegisterQueueEvent(markerEvent, pEvent);
     err = pCommandQueue->EnqueueMarkerWaitEvents(pMarkerCommand, uiNumEvents, pEventList);
     if (CL_FAILED(err))
     {
-        m_pEventsManager->ReleaseEvent(markerEvent.GetHandle());
+        m_pEventsManager->ReleaseEvent(markerEvent->GetHandle());
         pMarkerCommand->CommandDone();
         delete pMarkerCommand;
     }
@@ -443,7 +435,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clComman
  */
 cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
-    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -466,12 +458,12 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         return err;
     }
 
-    QueueEvent& barrierEvent = *pBarrierCommand->GetEvent();
-    m_pEventsManager->RegisterQueueEvent(&barrierEvent, pEvent);
+    SharedPtr<QueueEvent> barrierEvent = pBarrierCommand->GetEvent();
+    m_pEventsManager->RegisterQueueEvent(barrierEvent, pEvent);
     err = pCommandQueue->EnqueueBarrierWaitEvents(pBarrierCommand, uiNumEvents, pEventList);
     if (CL_FAILED(err))
     {
-        m_pEventsManager->ReleaseEvent(barrierEvent.GetHandle());
+        m_pEventsManager->ReleaseEvent(barrierEvent->GetHandle());
         pBarrierCommand->CommandDone();
         delete pBarrierCommand;
     }
@@ -489,7 +481,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 		return CL_INVALID_VALUE;
 	}
 
-	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
@@ -509,7 +501,7 @@ cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_e
 		return errVal;
 	}
 
-	QueueEvent* pMarkerEvent = pMarkerCommand->GetEvent();
+	SharedPtr<QueueEvent> pMarkerEvent = pMarkerCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
 
 	errVal = pCommandQueue->EnqueueMarkerWaitForEvents(pMarkerCommand);
@@ -535,7 +527,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 		return CL_INVALID_VALUE;
 	}
 
-	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	// Create Command
 	if (NULL == pCommandQueue)
 	{
@@ -572,7 +564,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 {
 	cl_err_code errVal;
-	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
@@ -593,13 +585,14 @@ cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 		return errVal;
 	}
 
-	QueueEvent* pBarrierEvent = pBarrierCommand->GetEvent();
-	m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
+	SharedPtr<QueueEvent> pBarrierEvent = pBarrierCommand->GetEvent();
+    // TODO: remove this, because no one is going to unregister the event in case of success
+	//m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
 
 	errVal = pCommandQueue->EnqueueBarrierWaitForEvents(pBarrierCommand);
 	if(CL_FAILED(errVal))
 	{
-		m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());
+		// m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());
 		pBarrierCommand->CommandDone();
 		delete pBarrierCommand;
 		return errVal;
@@ -621,7 +614,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
 
     // Validate event context
     cl_context clEventsContext = 0;
-	OclEvent* pEvent = m_pEventsManager->GetEventClass<OclEvent>(cpEventList[0]);
+	SharedPtr<OclEvent> pEvent = m_pEventsManager->GetEventClass<OclEvent>(cpEventList[0]);
 	if ( NULL == pEvent )
 	{
 		return CL_INVALID_EVENT_WAIT_LIST;
@@ -686,14 +679,14 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 	cl_int   err = CL_SUCCESS;
 	cl_event evt = (cl_event)0;
 	//Validate the context is legit
-	Context* pContext = m_pContextModule->GetContext(context);
+	SharedPtr<Context> pContext = m_pContextModule->GetContext(context);
 	if (NULL == pContext)
 	{
 		err = CL_INVALID_CONTEXT;
 	}
 	else
 	{
-		UserEvent* pUserEvent  = m_pEventsManager->CreateEventClass<UserEvent>((_cl_context_int*)context);
+		SharedPtr<UserEvent> pUserEvent  = m_pEventsManager->CreateEventClass<UserEvent>((_cl_context_int*)context);
 		if (pUserEvent)
 		{
 			evt = pUserEvent->GetHandle();
@@ -717,7 +710,7 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 ******************************************************************/
 cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 {
-	UserEvent* pUserEvent = m_pEventsManager->GetEventClass<UserEvent>(evt);
+	SharedPtr<UserEvent> pUserEvent = m_pEventsManager->GetEventClass<UserEvent>(evt);
 	if (NULL == pUserEvent)
 	{
 		return CL_INVALID_EVENT;
@@ -764,7 +757,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
@@ -809,13 +802,13 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -894,13 +887,13 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -982,13 +975,13 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1068,13 +1061,13 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1187,13 +1180,13 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1222,7 +1215,7 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
     {
     	cl_uint         devAlignment;
 
-    	FissionableDevice *pDevice = pCommandQueue->GetDefaultDevice();
+    	SharedPtr<FissionableDevice>pDevice = pCommandQueue->GetDefaultDevice();
     	pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(devAlignment), &devAlignment, NULL);
     	void *pData = pBuffer->GetBackingStoreData();
     	// check there is BS data, and that it is not aligned with the queue device
@@ -1278,14 +1271,14 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     )
 {
     cl_err_code errVal = CL_SUCCESS;
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
-    MemoryObject* pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
+    SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
+    SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcBuffer || NULL == pDstBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1369,14 +1362,14 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     {
         return CL_INVALID_VALUE;
     }
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
-    MemoryObject* pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
+    SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
+    SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcBuffer || NULL == pDstBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1556,13 +1549,13 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
 	cl_start;
     cl_err_code errVal = CL_SUCCESS;
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    MemoryObject* img = m_pContextModule->GetMemoryObject(clImage);
+    SharedPtr<MemoryObject> img = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == img)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -1665,7 +1658,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 	{
 		pErrcodeRet = &err;
 	}
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
@@ -1680,7 +1673,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     }
 
 
-    MemoryObject* pBuffer = m_pContextModule->GetMemoryObject(clBuffer);    
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);    
     if (NULL == pBuffer)
     {
         *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
@@ -1751,13 +1744,13 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal;
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pMemObject = m_pContextModule->GetMemoryObject(clMemObj);    
+    SharedPtr<MemoryObject> pMemObject = m_pContextModule->GetMemoryObject(clMemObj);    
     if (NULL == pMemObject)
     {
         return  CL_INVALID_MEM_OBJECT;
@@ -1828,12 +1821,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 		}
 	}
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
+    SharedPtr<Kernel> pKernel = m_pContextModule->GetKernel(clKernel);
     if (NULL == pKernel)
     {
         return CL_INVALID_KERNEL;
@@ -1844,7 +1837,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_CONTEXT;
     }
 
-	FissionableDevice* pDevice = pCommandQueue->GetDefaultDevice();
+	SharedPtr<FissionableDevice> pDevice = pCommandQueue->GetDefaultDevice();
 	
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
@@ -1981,12 +1974,12 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 {
     cl_err_code errVal = CL_SUCCESS;
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    Kernel* pKernel = m_pContextModule->GetKernel(clKernel);
+    SharedPtr<Kernel> pKernel = m_pContextModule->GetKernel(clKernel);
     if (NULL == pKernel)
     {
         return CL_INVALID_KERNEL;
@@ -2056,16 +2049,16 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-	MemoryObject** pMemObjectsList = NULL;
+	SharedPtr<MemoryObject>* pMemObjectsList = NULL;
 	if (uNumMemObjects > 0)
 	{
 		// Create MemoryObjects references
-		pMemObjectsList = new MemoryObject*[uNumMemObjects];
+		pMemObjectsList = new SharedPtr<MemoryObject>[uNumMemObjects];
 	    
 		if(NULL == pMemObjectsList)
 		{
@@ -2138,7 +2131,7 @@ inline bool DimensionsOverlap(size_t d1_min, size_t d1_max, size_t d2_min, size_
 /******************************************************************
  * Returns true if regions in pMemObj overlap
  ******************************************************************/
-inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion)
+inline bool ExecutionModule::CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion)
 {
     bool isOverlaps = true;
     cl_mem_object_type memObjType = pMemObj->GetType();
@@ -2200,7 +2193,7 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(MemoryObject* pMemObj,
 /******************************************************************
  *
  ******************************************************************/
-inline size_t ExecutionModule::CalcRegionSizeInBytes(MemoryObject* pImage, const size_t* szRegion)
+inline size_t ExecutionModule::CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion)
 {
     size_t szPixelByteSize = 0;
     size_t szRegionSizeInBytes = 0;
@@ -2221,7 +2214,7 @@ inline size_t ExecutionModule::CalcRegionSizeInBytes(MemoryObject* pImage, const
 /******************************************************************
  *
  ******************************************************************/
-inline cl_err_code ExecutionModule::CheckImageFormats( MemoryObject* pSrcImage, MemoryObject* pDstImage)
+inline cl_err_code ExecutionModule::CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage)
 {
     cl_err_code errVal;
     cl_image_format clSrcFormat;
@@ -2268,13 +2261,13 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pImage = m_pContextModule->GetMemoryObject(clImage);
+    SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == pImage)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -2351,13 +2344,13 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pImage = m_pContextModule->GetMemoryObject(clImage);
+    SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == pImage)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -2495,14 +2488,14 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     {
         return CL_INVALID_VALUE;
     }
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
-    MemoryObject* pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
+    SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
+    SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
     if (NULL == pSrcImage || NULL == pDstImage)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -2595,14 +2588,14 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
-    MemoryObject* pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
+    SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
+    SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcImage || NULL == pDstBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -2680,14 +2673,14 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
     
-    MemoryObject* pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
-    MemoryObject* pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
+    SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
+    SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
     if (NULL == pSrcBuffer || NULL == pDstImage)
     {
         return CL_INVALID_MEM_OBJECT;
@@ -2780,8 +2773,8 @@ void * ExecutionModule::EnqueueMapImage(
         *pErrcodeRet = CL_INVALID_VALUE;
         return NULL;
     }
-    IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
-    MemoryObject* pImage = m_pContextModule->GetMemoryObject(clImage);    
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
+    SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);    
 
     if (NULL == pCommandQueue)
     {
@@ -2890,26 +2883,26 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 		return CL_INVALID_VALUE;
 	}
 
-	IOclCommandQueueBase* pCommandQueue = GetCommandQueue(clCommandQueue);
+	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 
-	GLContext* pContext = dynamic_cast<GLContext*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
+    SharedPtr<GLContext> pContext = m_pContextModule->GetContext(pCommandQueue->GetParentHandle()).DynamicCast<GLContext>();
 	if (NULL == pContext)
 	{
 		return CL_INVALID_CONTEXT;
 	}
 	
-	GLMemoryObject* *pMemObjects = new GLMemoryObject*[uiNumObjects];
+	SharedPtr<GraphicsApiMemoryObject>* pMemObjects = new SharedPtr<GraphicsApiMemoryObject>[uiNumObjects];
 	if ( NULL == pMemObjects )
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 	for(unsigned int i=0; i<uiNumObjects; ++i)
 	{
-		MemoryObject* pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
+		SharedPtr<MemoryObject> pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
 		if (NULL == pMemObj)
 		{
 			delete []pMemObjects;
@@ -2921,7 +2914,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 			return CL_INVALID_CONTEXT;
 		}
 		// Check if it's a GL object
- 		if ( NULL != (pMemObjects[i] = dynamic_cast<GLMemoryObject*>(pMemObj)) )
+ 		if ( NULL != (pMemObjects[i] = pMemObj.DynamicCast<GLMemoryObject>()))
 		{
 			continue;
 		}
@@ -2964,16 +2957,13 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 
 cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext)
 {
-	cl_err_code errVal = CL_SUCCESS;
-	OCLObject<_cl_command_queue_int>* pObj = NULL;	
 	for (cl_uint ui=0; ui<m_pOclCommandQueueMap->Count(); ++ui)
 	{
-		errVal = m_pOclCommandQueueMap->GetObjectByIndex(ui, &pObj);
-		if ( CL_FAILED(errVal) )
+        SharedPtr<IOclCommandQueueBase> pQueue = m_pOclCommandQueueMap->GetObjectByIndex(ui).DynamicCast<IOclCommandQueueBase>();
+		if (NULL == pQueue)
 		{
-			return errVal;
+			return CL_ERR_KEY_NOT_FOUND;
 		}
-		IOclCommandQueueBase* pQueue = (IOclCommandQueueBase*)pObj;
 
 		cl_context queueContext = (cl_context)pQueue->GetParentHandle();
 		if(queueContext == clEventsContext)
@@ -2982,7 +2972,7 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 			pQueue->Flush(false);
 		}
 	}
-	return errVal;
+	return CL_SUCCESS;
 }
 
 /**

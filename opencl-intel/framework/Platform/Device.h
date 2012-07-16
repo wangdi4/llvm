@@ -27,6 +27,7 @@
 #pragma once
 
 #include "cl_framework.h"
+#include "fe_compiler.h"
 #include <cl_object.h>
 #include <Logger.h>
 #include <cl_synch_objects.h>
@@ -38,10 +39,11 @@
 #include <d3d9.h>
 #endif
 
+using namespace Intel::OpenCL::Utils;
+
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	// Froward declarations
-	class FrontEndCompiler;
     class Device;
 
     /**********************************************************************************************
@@ -55,14 +57,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class FissionableDevice : public OCLObject<_cl_device_id_int,_cl_platform_id_int>
     {
     public:
-        FissionableDevice(_cl_platform_id_int* platform) :
-		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(NULL) {}
+
+        PREPARE_SHARED_PTR(FissionableDevice);        
 
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
         virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
 
         // An API to get the root-level device of deriving subclasses
-        virtual Device*     GetRootDevice() = 0;
+        virtual SharedPtr<Device>     GetRootDevice() = 0;
+        virtual ConstSharedPtr<Device> GetRootDevice() const = 0;
 
         // A convenience API to query whether a device is root-level or not
         virtual bool        IsRootLevelDevice() = 0;
@@ -126,7 +129,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
          */
         bool IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const;
 
+        /**
+         * @return an OclMutex to synchronize calls to the BE
+         */
+        Intel::OpenCL::Utils::OclMutex& GetDeviceBeMutex() { return m_devBeMutex; }
+
     protected:
+
+        FissionableDevice(_cl_platform_id_int* platform) :
+		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(NULL) {}
+
         ~FissionableDevice() {}
 
 		Intel::OpenCL::Utils::AtomicCounter m_numContexts;
@@ -143,6 +155,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         IUnknown* m_pD3DDevice;
         cl_context_properties m_iD3DDevType;
 
+        Intel::OpenCL::Utils::OclMutex m_devBeMutex;
+
     };
 
 	/**********************************************************************************************
@@ -158,14 +172,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-		/******************************************************************************************
-		* Function: 	Device
-		* Description:	The Device class constructor
-		* Arguments:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		Device(_cl_platform_id_int* platform);
+        PREPARE_SHARED_PTR(Device);		
+
+        static SharedPtr<Device> Allocate(_cl_platform_id_int* platform) { return SharedPtr<Device>(new Device(platform)); }
 
 		/******************************************************************************************
 		* Function: 	GetInfo
@@ -223,7 +232,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		void SetFrontEndCompiler(FrontEndCompiler * pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
+		void SetFrontEndCompiler(SharedPtr<FrontEndCompiler> pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
 
 		/******************************************************************************************
 		* Function: 	GetFrontEndCompiler
@@ -233,7 +242,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		const FrontEndCompiler * GetFrontEndCompiler(){ return m_pFrontEndCompiler; }
+		ConstSharedPtr<FrontEndCompiler> GetFrontEndCompiler(){ return m_pFrontEndCompiler; }
 
 		IOCLDeviceAgent*	GetDeviceAgent() {return m_pDevice;}
 
@@ -248,7 +257,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Inherited from FissionableDevice
         
-		Device* GetRootDevice() { return this; }
+        SharedPtr<Device> GetRootDevice() { return this; }
+        ConstSharedPtr<Device> GetRootDevice() const { return this; }
 
         bool    IsRootLevelDevice() { return true; }
 
@@ -257,9 +267,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         long Release() { return 1; }
         // Cannot retains root-level devices
         cl_err_code Retain() { return CL_SUCCESS; }
-		void Cleanup( bool bIsTerminate = false );
+		void Cleanup( bool bIsTerminate = false ) const;
 
 	protected:
+
 		/******************************************************************************************
 		* Function: 	~Device
 		* Description:	The OCLObject class destructor
@@ -270,6 +281,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~Device();
 
 	private:
+
+        /******************************************************************************************
+		* Function: 	Device
+		* Description:	The Device class constructor
+		* Arguments:
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		Device(_cl_platform_id_int* platform);
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// callback functions
@@ -290,7 +310,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Intel::OpenCL::Utils::OclDynamicLib			m_dlModule;
 		// front-end compiler
-		FrontEndCompiler *						    m_pFrontEndCompiler;
+		SharedPtr<FrontEndCompiler>						    m_pFrontEndCompiler;
 
         // Pointer to the device GetInfo function.
         fn_clDevGetDeviceInfo*	m_pFnClDevGetDeviceInfo;
@@ -319,8 +339,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     class SubDevice : public FissionableDevice
     {
-    public:
-        SubDevice(FissionableDevice* pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props);
+    public:        
+
+        PREPARE_SHARED_PTR(SubDevice);        
+
+        static SharedPtr<SubDevice> Allocate(SharedPtr<FissionableDevice> pParent, size_t numComputeUnits, cl_dev_subdevice_id id,
+            const cl_device_partition_property* props)
+        {
+            return SharedPtr<SubDevice>(new SubDevice(pParent, numComputeUnits, id, props));
+        }
+
+        ~SubDevice();
 
         /******************************************************************************************
         * Function: 	GetInfo
@@ -340,22 +369,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
                             size_t *	param_value_size_ret) const;
 
         // Inherited from FissionableDevice
-        Device* GetRootDevice() { return m_pRootDevice; }
+        SharedPtr<Device> GetRootDevice() { return m_pRootDevice; }
+        ConstSharedPtr<Device> GetRootDevice() const { return m_pRootDevice; }
         bool    IsRootLevelDevice() { return false; }
 
         size_t              GetNumComputeUnits() { return m_numComputeUnits; }
         cl_dev_subdevice_id GetSubdeviceId()     { return m_deviceId; }
-        FissionableDevice*  GetParentDevice()    { return m_pParentDevice; }
+        SharedPtr<FissionableDevice>  GetParentDevice()    { return m_pParentDevice; }
         IOCLDeviceAgent*    GetDeviceAgent()     { return m_pRootDevice->GetDeviceAgent(); }
         const IOCLDeviceAgent* GetDeviceAgent() const { return m_pRootDevice->GetDeviceAgent(); }
 
     protected:
-        ~SubDevice(); 
+        
+        SubDevice(SharedPtr<FissionableDevice> pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props);
 
         void CacheFissionProperties(const cl_device_partition_property* props); 
 
-        Device*             m_pRootDevice;
-        FissionableDevice*  m_pParentDevice;   // Can be a sub-device or a device 
+        SharedPtr<Device>             m_pRootDevice;
+        SharedPtr<FissionableDevice>  m_pParentDevice;   // Can be a sub-device or a device 
         cl_dev_subdevice_id m_deviceId;        // The ID assigned to me by the device
         size_t              m_numComputeUnits; // The amount of compute units represented by this sub-device
         cl_int              m_fissionMode;     // The fission mode that created this sub-device

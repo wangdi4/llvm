@@ -34,28 +34,32 @@
 #include <cl_synch_objects.h>
 #include <map>
 #include "device_program.h"
+#include "kernel.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
-	class Kernel;
 	class Context;
 
 	class Program : public OCLObject<_cl_program_int>
 	{
 
 	public:
-		Program(Context * pContext);
+		Program(SharedPtr<Context> pContext);
+
+        PREPARE_SHARED_PTR(Program);
+
+		Program(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints);
 
 		// return the context to which the program belongs
-		Context * GetContext() const { return m_pContext; }
+		SharedPtr<Context> GetContext() const { return m_pContext; }
 
 		// create new kernel object
-		virtual cl_err_code CreateKernel(const char * pscKernelName, Kernel ** ppKernel);
+		virtual cl_err_code CreateKernel(const char * pscKernelName, SharedPtr<Kernel>* ppKernel);
 
 		// create all kernels from the program object
 		virtual cl_err_code CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
 
 		// get the kernels associated to the program
-		virtual cl_err_code GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_uint * puiNumKernelsRet);
+		virtual cl_err_code GetKernels(cl_uint uiNumKernels, SharedPtr<Kernel>* ppKernels, cl_uint * puiNumKernelsRet);
 
 		// remove kernel from program
 		virtual cl_err_code RemoveKernel(cl_kernel clKernel);
@@ -127,7 +131,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Find the DeviceProgram related to devID and set in pOutID the ID of this DeviceProgram device.
 		// If not found return false, otherwise return true
-		bool GetMyRelatedProgramDeviceIDInternal(cl_device_id devID, cl_int* pOutID);
+		bool GetMyRelatedProgramDeviceIDInternal(const cl_device_id devID, cl_int* pOutID);
 
 	protected:
 		virtual ~Program();
@@ -135,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		DeviceProgram*  GetDeviceProgram(cl_device_id clDeviceId);
         DeviceProgram*  InternalGetDeviceProgram(cl_device_id clDeviceId);
 
-		Context*        m_pContext;
+		SharedPtr<Context>        m_pContext;
 		DeviceProgram** m_ppDevicePrograms;
 		cl_uint         m_szNumAssociatedDevices;
 

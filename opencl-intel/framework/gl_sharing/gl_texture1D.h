@@ -32,8 +32,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class GLTexture1D : public GLTexture
 	{
-	public:
-		GLTexture1D(Context * pContext, cl_gl_object_type clglObjType);
+	public:		
+
+        PREPARE_SHARED_PTR(GLTexture1D);
+
+        static SharedPtr<GLTexture1D> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
+        {
+            return SharedPtr<GLTexture1D>(new GLTexture1D(pContext, clglObjType));
+        }
 
 		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
@@ -43,6 +49,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 	protected:
+
+        GLTexture1D(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		// do not implement
         GLTexture1D(const GLTexture1D&);
         GLTexture1D& operator=(const GLTexture1D&);

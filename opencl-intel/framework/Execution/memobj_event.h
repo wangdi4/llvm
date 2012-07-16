@@ -37,23 +37,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class MemoryObjectEvent : public OclEvent
 	{
-	public:
-		MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject, FissionableDevice* pDevice );
+	public:		
 
+        PREPARE_SHARED_PTR(MemoryObjectEvent);
+
+        static SharedPtr<MemoryObjectEvent> Allocate(IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice)
+        {
+            return SharedPtr<MemoryObjectEvent>(new MemoryObjectEvent(ppDevMemObj, pMemObject, pDevice));
+        }
+
+		// Get the context to which the event belongs.
 		// Get the return code of the command associated with the event.
 		cl_int     GetReturnCode() const {return 0;}
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 			{return CL_INVALID_OPERATION;}
 
 		// IEventObserver
-		cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS);
+		cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode = CL_SUCCESS);
 
 	protected:
+
+        MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice );
+
 		virtual ~MemoryObjectEvent();        
 
 		IOCLDevMemoryObject*	*m_ppDevMemObj;
-		MemoryObject*			m_pMemObject;
-		FissionableDevice*		m_pDevice;
+		SharedPtr<MemoryObject>			m_pMemObject;
+		SharedPtr<FissionableDevice>	m_pDevice;
 
 		// A MemObjectEvent object cannot be copied
 		MemoryObjectEvent(const MemoryObjectEvent&);           // copy constructor

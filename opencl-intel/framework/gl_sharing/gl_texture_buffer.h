@@ -33,7 +33,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLTextureBuffer : public GLBuffer
 	{
 	public:
-		GLTextureBuffer(Context * pContext,cl_mem_object_type clObjType);
+		
+        PREPARE_SHARED_PTR(GLTextureBuffer);
+
+        static SharedPtr<GLTextureBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+        {
+            return SharedPtr<GLTextureBuffer>(new GLTextureBuffer(pContext, clObjType));
+        }
 
 		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
@@ -43,6 +49,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 
 	protected:
+
+        GLTextureBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType);
+
 		// do not implement
         GLTextureBuffer(const GLTextureBuffer&);
         GLTextureBuffer& operator=(const GLTextureBuffer&);

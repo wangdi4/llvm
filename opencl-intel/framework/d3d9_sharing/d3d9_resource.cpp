@@ -20,6 +20,7 @@
 
 #include "d3d9_resource.h"
 #include "cl_logger.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -31,7 +32,7 @@ D3D9Surface::~D3D9Surface()
     if (GetResourceInfo() != NULL)
     {
         IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-        D3D9Context& context = *static_cast<D3D9Context*>(m_pContext);
+        D3D9Context& context = *m_pContext.DynamicCast<D3D9Context>();
         if (NULL != context.GetSurfaceLocker(pSurface))
         {
             context.ReleaseSurfaceLocker(pSurface);
@@ -82,7 +83,7 @@ void* D3D9Surface::Lock()
                                                         plane 1         plane 2
     */
     const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
-    SurfaceLocker* const pSurfaceLocker = static_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
     void* const pData = pSurfaceLocker->Lock();
     assert(NULL != pData);
     assert(0 == plane || 1 == plane || 2 == plane);
@@ -103,7 +104,7 @@ bool D3D9Surface::ObtainPitch(size_t& szPitch)
 {
     IDirect3DSurface9* const pSurface =
         static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-    const SurfaceLocker* const pSurfaceLocker = static_cast<const D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    const SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
     if (NULL != pSurfaceLocker)
     {
         if (MAKEFOURCC('Y', 'V', '1', '2') != GetDesc(*GetResourceInfo()).Format ||
@@ -134,7 +135,7 @@ void D3D9Surface::Unlock()
 {
     IDirect3DSurface9* const pSurface =
         static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
-    SurfaceLocker* const pSurfaceLocker = static_cast<D3D9Context*>(m_pContext)->GetSurfaceLocker(pSurface);
+    SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
     if (NULL != pSurfaceLocker)
     {
         pSurfaceLocker->Unlock();
@@ -165,7 +166,7 @@ cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, s
     assert(0 == plane || 1 == plane || 2 == plane);
     size_t szHeight, szWidth;
 
-    const D3DContext<IDirect3DResource9, IDirect3DDevice9>& context = *static_cast<D3DContext<IDirect3DResource9, IDirect3DDevice9>*>(m_pContext);
+    const D3DContext<IDirect3DResource9, IDirect3DDevice9>& context = *m_pContext.DynamicCast<D3DContext<IDirect3DResource9, IDirect3DDevice9>>();
     if (clParamName == static_cast<const ID3D9Definitions&>(context.GetD3dDefinitions()).GetImageDx9MediaPlane())
     {
         szSize = sizeof(UINT);
@@ -174,19 +175,19 @@ cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, s
     else
     {
         switch (clParamName)
-        {
-        case CL_IMAGE_HEIGHT:
-            if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
             {
-                const UINT height = GetDesc(*GetResourceInfo()).Height;
-                if (0 == plane)
+            case CL_IMAGE_HEIGHT:
+                if (MAKEFOURCC('N', 'V', '1', '2') == format || MAKEFOURCC('Y', 'V', '1', '2') == format)
                 {
-                    szHeight = height;
-                }
-                else
-                {
-                    assert(height % 2 == 0);
-                    szHeight = height / 2;
+                    const UINT height = GetDesc(*GetResourceInfo()).Height;
+                    if (0 == plane)
+                    {
+                        szHeight = height;
+                    }
+                    else
+                    {
+                        assert(height % 2 == 0);
+                        szHeight = height / 2;
                 }
                 szSize = sizeof(size_t);
                 pValue = &szHeight;
@@ -313,7 +314,7 @@ void D3D9Surface::FillDimensions(const D3DResourceInfo<IDirect3DResource9>& reso
 
 bool D3D9Surface::IsValidlyCreated(D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
 {
-    const ID3DSharingDefinitions& d3d9Definitions = (static_cast<const D3D9Context*>(GetContext()))->GetD3dDefinitions();
+    const ID3DSharingDefinitions& d3d9Definitions = GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions();
 
     // In Khronos spec it says that we should check that the surface has been created in D3DPOOL_DEFAULT just for adapter_type CL_ADAPTER_D3D9_KHR
     if (d3d9Definitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL ||

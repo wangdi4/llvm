@@ -51,7 +51,9 @@ class D3DResource : public GraphicsApiMemoryObject
     size_t m_szDimensions[3];
     bool m_bAcquired;
 
-public:        
+public:
+
+    PREPARE_SHARED_PTR(D3DResource);
 
     /**
      * @brief   Finaliser.
@@ -209,7 +211,7 @@ public:
 
     virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
         cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
-        MemoryObject** ppBuffer);
+        SharedPtr<MemoryObject>* ppBuffer);
 
     virtual cl_err_code ReadData(void* pOutData, const size_t* pszOrigin,
         const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch);
@@ -230,7 +232,7 @@ protected:
      * @date    7/6/2011
      */
 
-    D3DResource(Context* pContext) :
+    D3DResource(SharedPtr<Context> pContext) :
          GraphicsApiMemoryObject(pContext), m_pResourceInfo(NULL),
              m_bAcquired(false) { }              
 
@@ -302,15 +304,6 @@ class D3DImage2D : public D3DResource<RESOURCE_TYPE, DEV_TYPE>
 
 public:
 
-    /**
-     * @brief   Constructor.
-     *
-     * @author  Aharon
-     * @date    7/20/2011
-     */
-
-    D3DImage2D(Context* pContext) : D3DResource<RESOURCE_TYPE, DEV_TYPE>(pContext) { }
-
     // inherited methods:
 
     virtual size_t GetRowPitchSize() const { return m_szPitch; }
@@ -324,6 +317,15 @@ public:
     cl_mem_object_type GetChildMemObjectType() const { return CL_MEM_OBJECT_IMAGE2D; }
 
 protected:
+
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3DImage2D(SharedPtr<Context> pContext) : D3DResource<RESOURCE_TYPE, DEV_TYPE>(pContext) { }
 
     /**
      * @brief   Obtains the pitch (by locking and unlocking the resource)
@@ -387,6 +389,13 @@ class D3D9Surface : public D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DS
 
 public:
 
+    PREPARE_SHARED_PTR(D3D9Surface);
+
+    static SharedPtr<D3D9Surface> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<D3D9Surface>(new D3D9Surface(pContext, clObjType));
+    }
+
     /**
      * @brief   Gets the Direct3D 9 flags.
      *
@@ -415,16 +424,6 @@ public:
     {
         return GetD3D9Flags(m_clFlags);
     }
-
-    /**
-     * @brief   Constructor.
-     *
-     * @author  Aharon
-     * @date    7/19/2011
-     */
-
-    D3D9Surface(Context* pContext, cl_mem_object_type clObjType) :
-      D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>(pContext) { }
 
     /**
      * @brief   Destructor
@@ -462,6 +461,16 @@ protected:
 
 private:
 
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/19/2011
+     */
+
+    D3D9Surface(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+      D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>(pContext) { }
+
     D3DSURFACE_DESC GetDesc(const D3DResourceInfo<IDirect3DResource9>& resourceInfo) const;
 
 };
@@ -482,15 +491,12 @@ class D3D11Buffer : public D3DResource<ID3D11Resource, ID3D11Device>
 
 public:
 
-    /**
-     * @brief   Constructor.
-     *
-     * @author  Aharon
-     * @date    7/20/2011
-     */
+    PREPARE_SHARED_PTR(D3D11Buffer);
 
-    D3D11Buffer(Context* pContext, cl_mem_object_type clObjType) :
-      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(NULL) { }
+    static SharedPtr<D3D11Buffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<D3D11Buffer>(new D3D11Buffer(pContext, clObjType));
+    }    
 
     // inherited methods:
 
@@ -535,6 +541,16 @@ protected:
 
 private:
 
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3D11Buffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(NULL) { }
+
     D3d11BufferMapper* m_pBufferMapper;
 
 };    
@@ -547,15 +563,12 @@ class D3D11Texture2D : public D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEX
 
 public:
 
-    /**
-     * @brief   Constructor.
-     *
-     * @author  Aharon
-     * @date    7/20/2011
-     */
+    PREPARE_SHARED_PTR(D3D11Texture2D);
 
-    D3D11Texture2D(Context* pContext, cl_mem_object_type clObjType) :
-      D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(NULL) { }
+    static SharedPtr<D3D11Texture2D> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<D3D11Texture2D>(new D3D11Texture2D(pContext, clObjType));
+    }    
 
     ~D3D11Texture2D()
     {
@@ -590,6 +603,16 @@ protected:
 
 private:
 
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    7/20/2011
+     */
+
+    D3D11Texture2D(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+      D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(NULL) { }
+
     D3d11Texture2DMapper* m_pTexture2DMapper;
 
 };
@@ -602,11 +625,12 @@ class D3D11Texture3D :  public D3DResource<ID3D11Resource, ID3D11Device>
 
 public:
 
-    /**
-     * Constructor
-     */
-    D3D11Texture3D(Context* pContext, cl_mem_object_type clObjType) :
-      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(NULL) { }
+    PREPARE_SHARED_PTR(D3D11Texture3D);
+
+    static SharedPtr<D3D11Texture3D> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<D3D11Texture3D>(new D3D11Texture3D(pContext, clObjType));
+    }    
 
     /**
      * Destructor
@@ -664,6 +688,12 @@ private:
     D3d11Texture3DMapper* m_pTexture3DMapper;
     size_t m_szPitch[2];
 
+    /**
+     * Constructor
+     */
+    D3D11Texture3D(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(NULL) { }
+
     UINT GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
 
     UINT GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
@@ -681,7 +711,7 @@ D3DResource<RESOURCE_TYPE, DEV_TYPE>::~D3DResource()
     }
     if (NULL != m_pResourceInfo)
     {
-        (dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContext))->RemoveResourceInfo(*m_pResourceInfo);
+        m_pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>()->RemoveResourceInfo(*m_pResourceInfo);
         m_pResourceInfo->m_pResource->Release();
         delete m_pResourceInfo;
     }        
@@ -703,7 +733,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::Initialize(cl_mem_flags clMemF
         clEnqueueReleaseD3D for it, but it would fail according to spec, because we
         haven't called clEnqueueAcquireD3D for it. We should clarify this point in
         the spec. */
-        return static_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContext)->GetD3dDefinitions().GetResourceAlreadyAcquired();
+        return m_pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>()->GetD3dDefinitions().GetResourceAlreadyAcquired();
     }
     m_stMemObjSize = GetMemObjSize();
     m_clFlags = clMemFlags;
@@ -749,7 +779,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::WriteData(const void* pOutData
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::CreateSubBuffer(cl_mem_flags clFlags,
     cl_buffer_create_type buffer_create_type, const void* buffer_create_info,
-    MemoryObject** ppBuffer)
+    SharedPtr<MemoryObject>* ppBuffer)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
@@ -766,8 +796,8 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
     
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+        ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
 		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
 		)
 	{
@@ -783,7 +813,7 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     }
     
 	// Now we need to create child object
-    MemoryObject* pChild;
+    SharedPtr<MemoryObject> pChild;
     cl_err_code res =
         MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU,
         GetChildMemObjectType(), CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
@@ -808,7 +838,6 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
         return;
     }
 
-    pChild->AddPendency(this);
     m_itCurrentAcquriedObject->second = pChild;
 }
 

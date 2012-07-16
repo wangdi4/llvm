@@ -33,13 +33,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLTexture2D : public GLTexture1D
 	{
 	public:
-		GLTexture2D(Context * pContext, cl_gl_object_type clglObjType);
+		
+        PREPARE_SHARED_PTR(GLTexture2D);
+
+        static SharedPtr<GLTexture2D> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
+        {
+            return SharedPtr<GLTexture2D>(new GLTexture2D(pContext, clglObjType));
+        }
 
 		GLint CalculateTextureDimensions();
 
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
 
 	protected:
+
+        GLTexture2D(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		// do not implement
         GLTexture2D(const GLTexture2D&);
         GLTexture2D& operator=(const GLTexture2D&);

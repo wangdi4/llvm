@@ -20,7 +20,6 @@
 
 
 #include "gl_texture1D.h"
-
 #include <gl\GL.h>
 #include <gl\glext.h>
 #include <cl\cl.h>
@@ -33,7 +32,7 @@ using namespace Intel::OpenCL::Framework;
 // GLTexture1D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture1D)
-GLTexture1D::GLTexture1D(Context * pContext, cl_gl_object_type clglObjType) :
+GLTexture1D::GLTexture1D(SharedPtr<Context> pContext, cl_gl_object_type clglObjType) :
 	GLTexture(pContext, clglObjType)
 {
 	m_uiNumDim = 1;

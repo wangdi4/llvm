@@ -38,6 +38,13 @@ protected:
 	: m_platform(0), m_setupOK(false)
 	{}
 
+    ~OCLEnvTest()
+    {
+        clFinish(m_queue);
+        clReleaseCommandQueue(m_queue);
+        clReleaseContext(m_context);
+    }
+
 	/**
 	 * Check to see if the test fixture (environment) is ready.
 	 * @return true if setup is OK, false otherwise.

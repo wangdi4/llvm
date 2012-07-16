@@ -31,12 +31,11 @@
 #include "events_manager.h"
 #include "ocl_command_queue.h"
 #include "Context.h"
-
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 ImmediateCommandQueue::ImmediateCommandQueue(
-	Context*                    pContext,
+	SharedPtr<Context>                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
 	EventsManager*              pEventManager
@@ -58,7 +57,7 @@ cl_err_code ImmediateCommandQueue::Initialize()
 cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code ret         = CL_SUCCESS;
-    QueueEvent* pQueueEvent = pCommand->GetEvent();
+    SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
     if (m_bProfilingEnabled)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
@@ -100,7 +99,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
 
 cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
 {
-    QueueEvent* pQueueEvent = cmd->GetEvent();
+    SharedPtr<QueueEvent> pQueueEvent = cmd->GetEvent();
     if ( m_bProfilingEnabled )
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
@@ -155,7 +154,7 @@ cl_err_code ImmediateCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code ImmediateCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code ImmediateCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
 {
 	return CL_SUCCESS;
 }
@@ -165,7 +164,7 @@ cl_err_code ImmediateCommandQueue::SendCommandsToDevice()
     return CL_SUCCESS;
 }
 /*
-bool ImmediateCommandQueue::WaitForCompletion(OclEvent* pEvent)
+bool ImmediateCommandQueue::WaitForCompletion(SharedPtr<OclEvent> pEvent)
 {
 
 }

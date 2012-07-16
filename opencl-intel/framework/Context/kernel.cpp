@@ -34,6 +34,8 @@
 #include <Device.h>
 #include <assert.h>
 #include <cl_utils.h>
+#include "sampler.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -44,8 +46,8 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceKernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-DeviceKernel::DeviceKernel(Kernel *        pKernel, 
-						   FissionableDevice *        pDevice,
+DeviceKernel::DeviceKernel(Kernel*                             pKernel, 
+						   SharedPtr<FissionableDevice>        pDevice,
 						   cl_dev_program  devProgramId,
 						   const char *    psKernelName, 
 						   LoggerClient *  pLoggerClient,
@@ -67,8 +69,6 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 		*pErr = CL_INVALID_VALUE;
 		return;
 	}
-
-	m_pDevice->AddPendency(this);
 
 	// update kernel prototype
 	size_t szNameLength = strlen(psKernelName) + 1;
@@ -125,7 +125,7 @@ DeviceKernel::DeviceKernel(Kernel *        pKernel,
 		return;
     }
     
-    const FrontEndCompiler* pFECompiler = m_pDevice->GetRootDevice()->GetFrontEndCompiler();
+    ConstSharedPtr<FrontEndCompiler> pFECompiler = m_pDevice->GetRootDevice()->GetFrontEndCompiler();
     cl_device_id devID = (cl_device_id)m_pDevice->GetHandle();
     const char* pBin = m_pKernel->m_pProgram->GetBinaryInternal(devID);
 
@@ -196,7 +196,6 @@ DeviceKernel::~DeviceKernel()
 		delete[] m_sKernelPrototype.m_pArgs;
 		m_sKernelPrototype.m_pArgs = NULL;
 	}
-	m_pDevice->RemovePendency(this);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceKernel D'tor
@@ -308,13 +307,10 @@ bool KernelArg::IsLocalPtr() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-Kernel::Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices) :
+Kernel::Kernel(SharedPtr<Program> pProgram, const char * psKernelName, size_t szNumDevices) :
 OCLObject<_cl_kernel_int>(pProgram->GetParentHandle(), "Kernel"),
 m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
 {
-    // Sign to be dependent on the program, ensure the program will be deleted only after the object is
-    m_pProgram->AddPendency(this);
-
 	size_t szNameLength = strlen(psKernelName) + 1;
 	m_sKernelPrototype.m_psKernelName = new char[szNameLength];
 	//Todo: what if allocation fails here?
@@ -345,8 +341,6 @@ Kernel::~Kernel()
 	{
 		delete[] m_sKernelPrototype.m_pArgs;
 	}
-
-    m_pProgram->RemovePendency(this);
 
 	if (m_ppDeviceKernels)
 	{
@@ -399,7 +393,7 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 		if (NULL != m_pProgram && NULL != m_pProgram->GetContext())
 		{
 			szParamSize = sizeof(cl_context);
-			iParam = (cl_long)(const_cast<Context*>(m_pProgram->GetContext())->GetHandle());
+			iParam = (cl_long)m_pProgram->GetContext()->GetHandle();
 			pValue = &iParam;
 		}
 		break;
@@ -436,10 +430,10 @@ cl_err_code	Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetWorkGroupInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	Kernel::GetWorkGroupInfo(FissionableDevice* pDevice, cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
+cl_err_code	Kernel::GetWorkGroupInfo(SharedPtr<FissionableDevice> pDevice, cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
 	LOG_DEBUG(TEXT("Enter Kernel::GetWorkGroupInfo (pDevice=%p, iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
-		pDevice, iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+		pDevice.GetPtr(), iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
 #ifdef _DEBUG
 	assert ( "No context assigned to the kernel" && (NULL != m_pProgram) && (NULL != m_pProgram->GetContext()) );
@@ -521,8 +515,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 		{
             continue;
 		}
-
-		const FissionableDevice* pDevice = ppDevicePrograms[i]->GetDevice();
+		ConstSharedPtr<FissionableDevice> pDevice = ppDevicePrograms[i]->GetDevice();
 		if (NULL != GetDeviceKernel(pDevice))
 		{
 			LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), pDevice->GetId());
@@ -530,8 +523,8 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 		}
 		
 		// create the device kernel object
-		pDeviceKernel = new DeviceKernel(this, const_cast<FissionableDevice*>(ppDevicePrograms[i]->GetDevice()), ppDevicePrograms[i]->GetDeviceProgramHandle(), m_sKernelPrototype.m_psKernelName, GET_LOGGER_CLIENT, &clErrRet);
-		if (!pDeviceKernel)
+		pDeviceKernel = new DeviceKernel(this, ppDevicePrograms[i]->GetDevice(), ppDevicePrograms[i]->GetDeviceProgramHandle(), m_sKernelPrototype.m_psKernelName, GET_LOGGER_CLIENT, &clErrRet);
+		if (NULL == pDeviceKernel)
 		{
 			clErrRet = CL_OUT_OF_HOST_MEMORY;
 		}
@@ -610,7 +603,7 @@ cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
 	if (NULL == m_ppArgs)
 	{
 		m_ppArgs = new KernelArg* [m_sKernelPrototype.m_uiArgsCount];
-		memset(m_ppArgs, 0, sizeof(KernelArg *) * m_sKernelPrototype.m_uiArgsCount);
+		memset(m_ppArgs, 0, sizeof(KernelArg*) * m_sKernelPrototype.m_uiArgsCount);
 	}
 	//cl_return CL_SUCCESS;
 	return CL_SUCCESS;
@@ -640,10 +633,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 	bool bIsMemObj = false;
 	bool bIsSampler = false;
 	bool bIsLocal = false;
-
-	cl_err_code clErr = CL_SUCCESS;
-	Context * pContext = const_cast<Context *>(m_pProgram->GetContext());
-	Sampler * pSampler = NULL;
+	SharedPtr<Context> pContext = m_pProgram->GetContext();	
 
 	// check first if this is a sampler - we have to check the type through the pointer because the device
 	// identify the sampler parameter as CL_KRNL_ARG_INT
@@ -721,9 +711,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		}
 	}
 
-	// set arguments
-	MemoryObject * pMemObj = NULL;
-	KernelArg * pKernelArg = NULL;
+	// set arguments	
+	KernelArg* pKernelArg = NULL;
 	
 	if (bIsMemObj)
 	{
@@ -738,18 +727,18 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
             }
             else
             {
-                clErr = pContext->GetMemObject(clMemId, &pMemObj);
-                if (CL_FAILED(clErr))
+                SharedPtr<MemoryObject> pMemObj = pContext->GetMemObject(clMemId);
+                if (NULL == pMemObj)
                 {
                     return CL_INVALID_MEM_OBJECT;
                 }
                 // TODO: check Memory properties
-                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj, clArg);
+                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj.GetPtr(), clArg);
             }
 		}
 		else
 		{
-			pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
+            pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
 		}
 
 		if (NULL != m_ppArgs[uiIndex])
@@ -770,14 +759,14 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 			return CL_INVALID_SAMPLER;
 		}
 		cl_sampler clSamplerId = *((cl_sampler*)(pValue));
-		clErr = pContext->GetSampler(clSamplerId, &pSampler);
-		if (CL_FAILED(clErr))
+		SharedPtr<Sampler> pSampler = pContext->GetSampler(clSamplerId);
+		if (NULL == pSampler)
 		{
 			return CL_INVALID_SAMPLER;
 		}
 		clArg.type = CL_KRNL_ARG_SAMPLER;
 		clArg.size_in_bytes = 0;
-		pKernelArg = new KernelArg(uiIndex, sizeof(Sampler*), pSampler, clArg);
+        pKernelArg = new KernelArg(uiIndex, sizeof(Sampler*), pSampler.GetPtr(), clArg);
 		if (NULL != m_ppArgs[uiIndex])
 		{
 			delete m_ppArgs[uiIndex];
@@ -810,7 +799,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 
 	return CL_SUCCESS;
 }
-const Context * Kernel::GetContext() const
+ConstSharedPtr<Context> Kernel::GetContext() const
 {
 	return m_pProgram->GetContext(); 
 }
@@ -824,12 +813,12 @@ bool Kernel::IsValidKernelArgs() const
 	return m_numValidArgs == m_sKernelPrototype.m_uiArgsCount;
 }
 
-DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) const
+DeviceKernel* Kernel::GetDeviceKernel(ConstSharedPtr<FissionableDevice> pDevice) const
 {
 	assert (m_ppDeviceKernels);
 	cl_int relatedDeviceObjId = 0;
 	// Get the object id of the device that I'm inherite its binary
-	bool isFound = m_pProgram->GetMyRelatedProgramDeviceIDInternal((const_cast<FissionableDevice*> (pDevice))->GetHandle(), &relatedDeviceObjId);
+    bool isFound = m_pProgram->GetMyRelatedProgramDeviceIDInternal((const cl_device_id)pDevice.DynamicCast<const FissionableDevice>()->GetHandle(), &relatedDeviceObjId);
 	if (isFound)
 	{
 		for (size_t i = 0; i < m_szAssociatedDevices; ++i)
@@ -843,13 +832,13 @@ DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) const
 	return NULL;
 }
 
-const KernelArg * Kernel::GetKernelArg(size_t uiIndex) const
+const KernelArg* Kernel::GetKernelArg(size_t uiIndex) const
 {
 	assert (uiIndex < m_sKernelPrototype.m_uiArgsCount);
 	return m_ppArgs[uiIndex];
 }
 
-cl_dev_kernel Kernel::GetDeviceKernelId(FissionableDevice* pDevice) const
+cl_dev_kernel Kernel::GetDeviceKernelId(SharedPtr<FissionableDevice> pDevice) const
 {
 	DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
 	if (pDeviceKernel)
@@ -859,7 +848,7 @@ cl_dev_kernel Kernel::GetDeviceKernelId(FissionableDevice* pDevice) const
 	return CL_INVALID_HANDLE;
 }
 
-bool Kernel::IsValidExecutable(const FissionableDevice* pDevice) const
+bool Kernel::IsValidExecutable(ConstSharedPtr<FissionableDevice> pDevice) const
 {
 	DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
 	return NULL != pDeviceKernel;

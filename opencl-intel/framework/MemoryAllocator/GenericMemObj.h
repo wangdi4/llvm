@@ -63,9 +63,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	**********************************************************************************************/
 	class GenericMemObject: public MemoryObject, public IOCLDevRTMemObjectService
 	{
-	public:
-		GenericMemObject(Context * pContext, cl_mem_object_type clObjType);
+	public:		
 
+        PREPARE_SHARED_PTR(GenericMemObject);
+
+        static SharedPtr<GenericMemObject> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+        {
+            return SharedPtr<GenericMemObject>(new GenericMemObject(pContext, clObjType));
+        }
+	
 		// MemoryObject methods
 
 		// initialize the data on the memory object
@@ -85,24 +91,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL id data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
+        SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
-        void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
+        void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
 
-		cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
-		cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent);
-		cl_err_code UpdateDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject);
+		cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice);
+		cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent);
+		cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject);
 
         // return TRUE is device can support this sub-buffer - as for alignment and other requirements.
         // assume that all devices do support all sub-buffer alignments.
-		bool IsSupportedByDevice(FissionableDevice* pDevice) { return true; }
+		bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice) { return true; }
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
                                     cl_buffer_create_type buffer_create_type,
 			                        const void * buffer_create_info,
-			                        MemoryObject** ppBuffer);
+			                        SharedPtr<MemoryObject>* ppBuffer);
 
 		// Memory object interface
 		// Assumed Read/Write is used only for data mirroring for the cases when BackingStore differ from
@@ -133,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetSlicePitchSize() const;
 
 		// IDeviceFissionObserver interface
-		cl_err_code NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children);
+		cl_err_code NotifyDeviceFissioned(SharedPtr<FissionableDevice> parent, size_t count, SharedPtr<FissionableDevice>* children);
 
 		// IOCLDevRTMemObjectService Methods
 		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
@@ -149,6 +155,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     protected:
 		
+        GenericMemObject(SharedPtr<Context> pContext, cl_mem_object_type clObjType);
 
         // copy all data required for sub-buffer
         cl_err_code InitializeSubObject(  cl_mem_flags		clMemFlags,
@@ -157,26 +164,74 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                           const size_t*     region );
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
-                                                  FissionableDevice* dev,
+                                                  SharedPtr<FissionableDevice> dev,
                                                   GenericMemObjectBackingStore* bs,
                                                   IOCLDevMemoryObject** dev_object );
 
     private:
 
+        //
+        // Internal DataCopyEvent
+        //
+        class DataCopyEvent : public OclEvent
+        {
+        public:
+
+            PREPARE_SHARED_PTR(DataCopyEvent);
+
+            static SharedPtr<DataCopyEvent> Allocate(_cl_context_int* context)
+            {
+                return SharedPtr<DataCopyEvent>(new GenericMemObject::DataCopyEvent(context));
+            }
+
+	        // Get the return code of the command associated with the event.
+	        cl_int     GetReturnCode() const {return 0;}
+	        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
+		        {return CL_INVALID_OPERATION;}
+
+            void SetCompletionRequired () { m_completion_required = true; };
+            bool IsCompletionRequired() const { return m_completion_required; };
+
+            void SetComplete() 
+            { 
+                NotifyComplete( CL_SUCCESS ); 
+                //RemovePendency( NULL );// Why we need this?
+            };
+
+        private:
+
+            DataCopyEvent(_cl_context_int* context) : OclEvent(context), m_completion_required(false)
+            {
+                SetEventState(EVENT_STATE_HAS_DEPENDENCIES); 
+            };
+
+            bool m_completion_required;
+    
+	        virtual ~DataCopyEvent() {};        
+
+	        // A MemObjectEvent object cannot be copied
+	        DataCopyEvent(const DataCopyEvent&);           // copy constructor
+	        DataCopyEvent& operator=(const DataCopyEvent&);// assignment operator
+        };
+
+        //
+        // END OF Internal DataCopyEvent
+        //
+
 		// Low level mapped region creation function
-		virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
+		virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
 			cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr);
 		// Low level mapped region release function
-		virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
+		virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
 			cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr);
 
         struct DeviceDescriptor
         {
-            FissionableDevice*              m_pDevice;
+            SharedPtr<FissionableDevice>              m_pDevice;
             size_t							m_sharing_group_id;
             size_t							m_alignment;
 
-            DeviceDescriptor( FissionableDevice* dev, size_t group, size_t alignment ) :
+            DeviceDescriptor( SharedPtr<FissionableDevice> dev, size_t group, size_t alignment ) :
                     m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment) {};
 
             DeviceDescriptor( const DeviceDescriptor& o ) :
@@ -186,7 +241,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         typedef std::list<DeviceDescriptor>                     TDeviceDescList;
         typedef std::list<DeviceDescriptor*>                    TDeviceDescPtrList;
-        typedef std::map<FissionableDevice*,DeviceDescriptor*>  TDevice2DescPtrMap;
+        typedef std::map<ConstSharedPtr<FissionableDevice>,DeviceDescriptor*>  TDevice2DescPtrMap;
         typedef std::vector<const IOCLDeviceAgent*>             TDevAgentsVector;
 
         // data copy state
@@ -198,8 +253,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             DATA_COPY_STATE_VALID       // data valid on sharing group
         };
 
-        class DataCopyEvent;
-
         struct SharingGroup
         {
             TDeviceDescPtrList              m_device_list;
@@ -210,7 +263,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             unsigned int                    m_active_writers_count;       // number of active users with write access
             
             // copy-related
-            DataCopyEvent*                  m_data_copy_in_process_event; // for sharing group data use
+            SharedPtr<DataCopyEvent>        m_data_copy_in_process_event; // for sharing group data use
             DataCopyState                   m_data_copy_state;            // 
             unsigned int                    m_data_copy_from_group;       // if copy is in progress from other sharing group
             unsigned int                    m_data_copy_used_by_others_count;  // user use me for copy
@@ -288,27 +341,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // FSM machine code, return non-NULL if operation is in-process
         void           data_sharing_set_init_state( bool valid );
-        DataCopyEvent* data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access );
+        SharedPtr<DataCopyEvent> data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access );
         // read path
-        DataCopyEvent* data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred );
-        DataCopyEvent* drive_copy_between_groups( DataCopyState staring_state, 
+        SharedPtr<DataCopyEvent> data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred );
+        SharedPtr<DataCopyEvent> drive_copy_between_groups( DataCopyState staring_state, 
                                                   unsigned int from_grp_id, 
                                                   unsigned int to_group_id );
         void           invalidate_data_for_group( SharingGroup& group );
         void           ensure_single_data_copy( unsigned int group_id );
         // FSM utilities
         void           acquire_data_sharing_lock();
-        OclEvent*      release_data_sharing_lock( DataCopyEvent* returned_event );
+        SharedPtr<OclEvent>      release_data_sharing_lock( SharedPtr<DataCopyEvent> returned_event );
         class          DataSharingAutoLock;
 
         DataValidState                      m_data_valid_state;    // overall state - sum of all devices
         OclSpinMutex                        m_global_lock;         // lock for control structures changes
 
         cl_err_code allocate_object_for_sharing_group( unsigned int group_id );
-        const DeviceDescriptor* get_device( FissionableDevice* dev ) const;
+        const DeviceDescriptor* get_device( ConstSharedPtr<FissionableDevice> dev ) const;
 
-        DeviceDescriptor* get_device( FissionableDevice* dev )
-                { return const_cast<DeviceDescriptor*>( static_cast<const GenericMemObject*>(this)->get_device(dev) ); };
+        DeviceDescriptor* get_device( ConstSharedPtr<FissionableDevice> dev )
+        { return const_cast<DeviceDescriptor*>( ConstSharedPtr<GenericMemObject>(this)->get_device(dev) ); };
 
         IOCLDevMemoryObject* device_object( const SharingGroup& group )
             { return group.m_dev_mem_obj; };
@@ -329,7 +382,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GenericMemObjectSubBuffer : public GenericMemObject
 	{
 	public:
-		GenericMemObjectSubBuffer(Context * pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
+		GenericMemObjectSubBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
+
+        PREPARE_SHARED_PTR(GenericMemObjectSubBuffer);
+
+        static SharedPtr<GenericMemObjectSubBuffer> Allocate(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType,
+            GenericMemObject& buffer)
+        {
+            return SharedPtr<GenericMemObjectSubBuffer>(new GenericMemObjectSubBuffer(pContext, pOclEntryPoints, clObjType, buffer));
+        }
 
 		cl_err_code Initialize(
 			cl_mem_flags		clMemFlags,
@@ -342,17 +403,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer) {return CL_INVALID_MEM_OBJECT;}
+			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) {return CL_INVALID_MEM_OBJECT;}
 
-		bool IsSupportedByDevice(FissionableDevice* pDevice);
+		bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice);
 
         cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 	protected:
-		virtual ~GenericMemObjectSubBuffer();
+        
+        GenericMemObjectSubBuffer(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
-                                                  FissionableDevice* dev,
+                                                  SharedPtr<FissionableDevice> dev,
                                                   GenericMemObjectBackingStore* bs,
                                                   IOCLDevMemoryObject** dev_object );
 

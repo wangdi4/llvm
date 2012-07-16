@@ -39,6 +39,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLMemoryObject : public GraphicsApiMemoryObject
 	{
 	public:
+
+        PREPARE_SHARED_PTR(GLMemoryObject);
+
 		virtual cl_err_code AcquireGLObject() = 0;
 		virtual cl_err_code ReleaseGLObject() = 0;
 		
@@ -47,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
 		virtual cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 		// Memory Object interface
-		cl_err_code			RelinquishDeviceHandle(FissionableDevice* pDevice, cl_dev_memobj_handle handle);
+		cl_err_code			RelinquishDeviceHandle(SharedPtr<FissionableDevice> pDevice, cl_dev_memobj_handle handle);
 
 		cl_err_code ReadData(	void *          pOutData, 
 			const size_t *  pszOrigin, 
@@ -72,13 +75,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		};
 
 	protected:
-		GLMemoryObject(Context * pContext, cl_gl_object_type lglObjectType);
+        GLMemoryObject(SharedPtr<Context> pContext, cl_gl_object_type lglObjectType);
 
 		cl_err_code	SetGLMemFlags();
 		
 		GLuint		m_glObjHandle;
 		GLuint		m_glMemFlags;
-		GLContext*	m_pGLContext;
+		SharedPtr<GLContext>	m_pGLContext;
 
 		cl_gl_object_type m_clglObjectType;
 	};
@@ -86,7 +89,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLTexture : public GLMemoryObject
 	{
 	public:
-		cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
+
+          PREPARE_SHARED_PTR(GLTexture);
+
+          ~GLTexture();
+
+		  cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
 
 		// MemoryObject Interface
 		cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
@@ -102,7 +110,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetSlicePitchSize() const { return m_stPitches[1]; }
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer) {return CL_INVALID_OPERATION;}
+			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) {return CL_INVALID_OPERATION;}
 
         cl_err_code	GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
@@ -111,9 +119,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual GLint CalculateTextureDimensions() = 0;
 
 	protected:
-		GLTexture(Context * pContext, cl_gl_object_type clglObjType):
+		GLTexture(SharedPtr<Context> pContext, cl_gl_object_type clglObjType):
 		GLMemoryObject(pContext, clglObjType),  m_glFramebuffer(0), m_glPBO(0) {}
-		~GLTexture();
 
 		// Virtual function required for appropriate handling of 1D and 2D textures
 		virtual void BindFramebuffer2Texture() = 0;

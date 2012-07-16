@@ -35,7 +35,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class UserEvent : public OclEvent
 	{
 	public:
-		UserEvent( _cl_context_int* context );
+        PREPARE_SHARED_PTR(UserEvent);		
+
+        static SharedPtr<UserEvent> Allocate(_cl_context_int* context)
+        {
+            return SharedPtr<UserEvent>(new UserEvent(context));
+        }
 
 		// OCLObject implementation
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
@@ -43,6 +48,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void        SetComplete(cl_int returnCode);
 
 	protected:
+        
+        UserEvent( _cl_context_int* context );
+
 		virtual ~UserEvent();        
 
 		// A UserEvent object cannot be copied

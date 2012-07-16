@@ -31,9 +31,14 @@
 #include "Logger.h"
 #include "cl_synch_objects.h"
 #include "ocl_object_base.h"
+#include "cl_shared_ptr.h"
 #include "cl_framework.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
+
+    using Intel::OpenCL::Utils::SmartPtr;
+    using Intel::OpenCL::Utils::SharedPtr;
+    using Intel::OpenCL::Utils::ConstSharedPtr;
 
 	/**********************************************************************************************
 	* Class name:	OCLObject
@@ -54,6 +59,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
+        friend class Intel::OpenCL::Utils::SharedPtr<OCLObject<HandleType, ParentHandleType> >;
+        friend class Intel::OpenCL::Utils::SharedPtr<const OCLObject<HandleType, ParentHandleType> >;
+        SharedPtr<OCLObject<HandleType, ParentHandleType> > operator&() { return SharedPtr<OCLObject<HandleType, ParentHandleType> >(this); }
+        ConstSharedPtr<OCLObject<HandleType, ParentHandleType> > operator&() const { return ConstSharedPtr<OCLObject<HandleType, ParentHandleType> >(this); }
+
 		/******************************************************************************************
 		* Function: 	OCLObject
 		* Description:	The OCLObject class constructor
@@ -71,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:		Arnon Peleg
         * 
         ******************************************************************************************/	
-        virtual void Cleanup( bool bIsTerminate = false )   { return; }
+        virtual void Cleanup( bool bIsTerminate = false ) const { return; }
 
         /******************************************************************************************
         * Function: 	NotifyInvisible    
@@ -118,29 +128,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const = 0;
 
-		/******************************************************************************************
-		* Function: 	AddPendency    
-		* Description:	increase the pendency counter by 1
-		* Arguments:	
-		* Return value:	
-		* Author:		Uri Levy
-		* Date:			February 2008
-		******************************************************************************************/
-		virtual long AddPendency(OCLObjectBase* clObj);
-
-		/******************************************************************************************
-		* Function: 	RemovePendency    
-		* Description:	decrease the pendency counter by 1
-		* Arguments:	
-		* Return value:	
-		* Author:		Uri Levy
-		* Date:			February 2008
-		******************************************************************************************/
-        virtual long RemovePendency(OCLObjectBase* clObj);
-
         cl_err_code SetId(cl_int obj_id) { m_iId = obj_id; return CL_SUCCESS; }		
 		cl_int      GetId() const { return m_iId; }
-		HandleType* GetHandle()   { return &m_handle; }
+        HandleType* GetHandle() { return &m_handle; }
+		const HandleType* GetHandle() const  { return &m_handle; }        
 
 		// Get the context to which object belongs
 		ParentHandleType* GetParentHandle() const {return m_pParentHandle;}
@@ -166,9 +157,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate;}
 
-	protected:
-		
-		/******************************************************************************************
+    protected:
+
+        /******************************************************************************************
+		* Function: 	operator new
+		* Description:	prevent users of OCLObject from allocating objects by themselves. The
+        *               semantics is not changed.
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/
+        void* operator new(size_t size) { return ::operator new(size); }
+
+        /******************************************************************************************
+		* Function: 	operator new
+		* Description:	prevent users of OCLObject from deleting objects by themselves. The
+        *               semantics is not changed.
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/
+        void operator delete(void* p) { ::operator delete(p); }
+
+        /******************************************************************************************
 		* Function: 	~OCLObject
 		* Description:	The OCLObject class destructor
 		* Arguments:		
@@ -178,20 +187,46 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~OCLObject() {}
 		OCLObject(const OCLObject& O){}
 
-		cl_int								m_iId;				// object id
-		Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
-		
-		Intel::OpenCL::Utils::AtomicCounter	m_uiPendency;		// recall the number of dependent resources - will be 
-											                    // used in order to ensure that current object is ready 
-											                    // for deletion
 
 		HandleType	m_handle;									// the OpenCL handle of the object        
+        /******************************************************************************************
+		* Function: 	IncRefCnt
+		* Description:	increment the dependency counter
+		* Arguments:		
+        * Return:       the new value of the counter
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/			
+        long IncRefCnt() const { return ++m_uiPendency; }
+
+		cl_int								m_iId;				// object id
+        Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 
 		ParentHandleType*					m_pParentHandle;	// the OpenCL handle of the parent the object belongs to
 
 		bool		m_bTerminate;
+        /******************************************************************************************
+		* Function: 	DecRefCnt
+		* Description:	decrement the dependency counter
+		* Arguments:		
+        * Return:       the new value of the counter
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/			
+        long DecRefCnt() const { return --m_uiPendency; }
 
-		DECLARE_LOGGER_CLIENT;
+        /**
+         * Return: the current value of the counter
+         */
+        long GetRefCnt() const { return m_uiPendency; }
+
+        DECLARE_LOGGER_CLIENT;
+
+	private:
+
+		mutable Intel::OpenCL::Utils::AtomicCounter	m_uiPendency;		// recall the number of dependent resources - will be 
+											                            // used in order to ensure that current object is ready 
+											                            // for deletion		
 	};
 #include "cl_object.hpp"
 

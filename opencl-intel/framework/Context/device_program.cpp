@@ -84,18 +84,18 @@ DeviceProgram::~DeviceProgram()
 	{
 		if (0 != m_programHandle)
 		{
+            m_pDevice->GetDeviceBeMutex().Lock();
 			m_pDevice->GetDeviceAgent()->clDevReleaseProgram(m_programHandle);
+            m_pDevice->GetDeviceBeMutex().Unlock();
 		}
-		m_pDevice->RemovePendency(this);
 	}
 }
 
-void DeviceProgram::SetDevice(FissionableDevice* pDevice)
+void DeviceProgram::SetDevice(SharedPtr<FissionableDevice> pDevice)
 {
 	m_pDevice = pDevice;
 	//Must not give NULL ptr
 	assert(m_pDevice);
-	m_pDevice->AddPendency(this);
 	m_deviceHandle = m_pDevice->GetHandle();
 }
 
@@ -499,7 +499,7 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
 	cl_err_code    errRet     = CL_SUCCESS;
 	cl_dev_kernel* devKernels = new cl_dev_kernel[szNumNames];
 
-	if (!devKernels)
+	if (NULL == devKernels)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}

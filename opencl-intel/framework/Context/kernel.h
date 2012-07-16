@@ -72,8 +72,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		
 		// Constructor
-		DeviceKernel(	Kernel *		pKernel,
-						FissionableDevice *        pDevice,
+		DeviceKernel(	Kernel*		                        pKernel,
+						SharedPtr<FissionableDevice>        pDevice,
 						cl_dev_program  devProgramId,
 						const char *	psKernelName,
 						Intel::OpenCL::Utils::LoggerClient *	pLoggerClient,
@@ -88,7 +88,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Get device ID
 		cl_int        GetDeviceId() const { return m_pDevice->GetId(); }
 
-		FissionableDevice* GetDevice() const {return m_pDevice;}
+		SharedPtr<FissionableDevice> GetDevice() const {return m_pDevice;}
 
 		// get kernel prototype
 		const SKernelPrototype GetPrototype(){ return m_sKernelPrototype; }
@@ -105,10 +105,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		SKernelPrototype						m_sKernelPrototype;
 
 		// parent kernel
-		Kernel *								m_pKernel;
+        // We hold a regular pointer to Kernel rather than a SharedPtr, because Kernel points to DeviceKerel and otherwise we would have a circular reference.
+		Kernel*     							m_pKernel;
 		
 		// device to which the device kernel is associated
-		FissionableDevice *						m_pDevice;
+		SharedPtr<FissionableDevice>						m_pDevice;
 
 		// logger client
 		DECLARE_LOGGER_CLIENT;
@@ -124,7 +125,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	**********************************************************************************************/	
 	class KernelArg
 	{
-	public:
+	public:        
 
 		KernelArg(	cl_uint uiIndex, 
 					size_t szSize, 
@@ -185,6 +186,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
+        PREPARE_SHARED_PTR(Kernel);
+
+        /******************************************************************************************
+		* Function: 	Allocate
+		* Description:	Allocate a new Kernel
+		* Arguments:	pProgram [in]		- associated program object
+		*				psKernelName [in]	- kernel's name
+        * Return:       a SharedPtr<Kernel> holding the new Kernel
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/		
+        static SharedPtr<Kernel> Allocate(SharedPtr<Program> pProgram, const char * psKernelName, size_t szNumDevices)
+        {
+            return SharedPtr<Kernel>(new Kernel(pProgram, psKernelName, szNumDevices));
+        }
+
 		/******************************************************************************************
 		* Function: 	Kernel
 		* Description:	The Kernel class constructor
@@ -193,7 +210,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/		
-		Kernel(Program * pProgram, const char * psKernelName, size_t szNumDevices);
+		Kernel(SharedPtr<Program> pProgram, const char * psKernelName, size_t szNumDevices);
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
@@ -232,7 +249,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			April 2008
 		******************************************************************************************/
-		cl_err_code	GetWorkGroupInfo(	FissionableDevice*		pDevice,
+		cl_err_code	GetWorkGroupInfo(	SharedPtr<FissionableDevice>		pDevice,
 										cl_int      iParamName, 
 										size_t      szParamValueSize,
 										void *      pParamValue,
@@ -251,21 +268,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsValidKernelArgs() const;
 
         // Return true if there is a successfully built program executable available for device
-        bool IsValidExecutable(const FissionableDevice* pDevice) const;
+        bool IsValidExecutable(ConstSharedPtr<FissionableDevice> pDevice) const;
 
 		// get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
-		const KernelArg * GetKernelArg(size_t uiIndex) const;
+		const KernelArg* GetKernelArg(size_t uiIndex) const;
 
         // Returns non zero handle.
-        cl_dev_kernel GetDeviceKernelId(FissionableDevice* pDevice) const;
+        cl_dev_kernel GetDeviceKernelId(SharedPtr<FissionableDevice> pDevice) const;
 
 		// get kernel's name
 		const char * GetName() const { return m_sKernelPrototype.m_psKernelName; }
 
 		// get kernel's associated program
-		const Program * GetProgram() const { return m_pProgram; }
+		ConstSharedPtr<Program> GetProgram() const { return m_pProgram; }
+        SharedPtr<Program> GetProgram() { return m_pProgram; }
 
-		const Context * GetContext() const;
+		ConstSharedPtr<Context> GetContext() const;
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// OpenCL 1.2 functions
@@ -308,14 +326,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Kernel();
 
-		DeviceKernel* GetDeviceKernel(const FissionableDevice* pDevice) const;
+		DeviceKernel* GetDeviceKernel(ConstSharedPtr<FissionableDevice> pDevice) const;
 
 
 		//Kernel prototype
 		cl_err_code SetKernelPrototype(SKernelPrototype sKernelPrototype);
 		SKernelPrototype						m_sKernelPrototype;
 
-		Program *								m_pProgram;
+		SharedPtr<Program>								m_pProgram;
 		size_t                                  m_szAssociatedDevices;
 
 		// Kernel arguments

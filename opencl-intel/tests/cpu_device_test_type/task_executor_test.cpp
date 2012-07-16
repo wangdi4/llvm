@@ -125,7 +125,7 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 	ITaskList* pList = pTE->CreateTaskList(&p);
 
 	volatile int done = 0;
-	pList->Enqueue(new TestSet(1, &done));
+	pList->Enqueue(new WeakPtr<ITaskBase>(new TestSet(1, &done)));
 	pList->Flush();
 	te_wait_result res = pList->WaitForCompletion(NULL);
 	while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
@@ -161,7 +161,7 @@ bool test_task_executor()
 		volatile int done = 0;
 
 
-		pList->Enqueue(new TestSet(0, &done));
+        pList->Enqueue(new WeakPtr<ITaskBase>(new TestSet(0, &done)));
 		pList->Flush();
 		te_wait_result res = pList->WaitForCompletion(NULL);
 		while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)

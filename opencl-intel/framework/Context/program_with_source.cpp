@@ -6,7 +6,7 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet) :
+ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet) :
 	Program(pContext), m_szSourceString(NULL)
 {
     if ((0 == uiNumStrings) || (NULL == pSources))
@@ -30,7 +30,7 @@ ProgramWithSource::ProgramWithSource(Context* pContext, cl_uint uiNumStrings, co
         }
     }
 
-	FissionableDevice** pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
+	SharedPtr<FissionableDevice>* pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
 	m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
 
 	if (!m_ppDevicePrograms)
@@ -145,7 +145,7 @@ bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSo
 {
     size_t uiTotalLength = 1;
     size_t* puiStringLengths = new size_t[uiNumStrings];
-    if (!puiStringLengths)
+    if (NULL == puiStringLengths)
     {
         return false;
     }

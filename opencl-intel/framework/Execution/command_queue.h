@@ -51,27 +51,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
-		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
+		virtual cl_err_code NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
 	};
 
-	class IOclCommandQueueBase : public ICommandQueue, public OclCommandQueue
+	class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
 	{
 	public:
-		IOclCommandQueueBase(
-			Context*                    pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
+
+        PREPARE_SHARED_PTR(IOclCommandQueueBase);        
 
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
         virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
         virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code	WaitForCompletion(QueueEvent* pEvent );
+		virtual cl_err_code	WaitForCompletion(SharedPtr<QueueEvent> pEvent );
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
 	protected:
+
+        IOclCommandQueueBase(
+			SharedPtr<Context>                    pContext,
+			cl_device_id                clDefaultDeviceID, 
+			cl_command_queue_properties clProperties,
+			EventsManager*              pEventManager
+			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
+
 		virtual ~IOclCommandQueueBase() {}
 
     private:

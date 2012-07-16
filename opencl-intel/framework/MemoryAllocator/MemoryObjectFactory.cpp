@@ -25,7 +25,6 @@
 
 #include "MemoryObjectFactory.h"
 #include "Context.h"
-
 #include <CL/cl.h>
 #include <assert.h>
 
@@ -62,7 +61,7 @@ void MemoryObjectFactory::RegisterMemoryObjectCreator(cl_bitfield iSupportedDevi
 }
 
 cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevices,
-								cl_mem_object_type clObjType, int iGfxSysSharing, Context* pContext, MemoryObject*	*pMemObject)
+								cl_mem_object_type clObjType, int iGfxSysSharing, SharedPtr<Context> pContext, SharedPtr<MemoryObject>	*pMemObject)
 {
 	FactoryKey key;
 
@@ -83,7 +82,7 @@ cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevice
 		    return CL_ERR_FAILURE;
         }
 	}
-	MemoryObject* pMemObj = it->second(pContext, clObjType );
+	SharedPtr<MemoryObject> pMemObj = it->second(pContext, clObjType );
 	if (NULL == pMemObj)
 	{
 		return CL_OUT_OF_HOST_MEMORY;

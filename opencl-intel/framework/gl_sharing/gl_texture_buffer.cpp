@@ -33,7 +33,7 @@ using namespace Intel::OpenCL::Framework;
 // GLTexture1D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture1D)
-GLTextureBuffer::GLTextureBuffer(Context * pContext,cl_mem_object_type clObjType) :
+GLTextureBuffer::GLTextureBuffer(SharedPtr<Context> pContext,cl_mem_object_type clObjType) :
 	GLBuffer(pContext, clObjType)
 {
 	m_clMemObjectType = CL_MEM_OBJECT_IMAGE1D_BUFFER;
@@ -65,6 +65,7 @@ cl_err_code GLTextureBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_
 	glErr |= glGetError();
 
 	glBindTexture(m_glBufferTarget, currTexture);
+    glErr |= glGetError();
 
 	if ( 0 != glErr )
 	{

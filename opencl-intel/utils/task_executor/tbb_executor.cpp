@@ -37,6 +37,7 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
+#include "cl_shared_ptr.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -765,8 +766,8 @@ protected:
 	volatile bool	m_bFired;
 };
 
-typedef OclNaiveConcurrentQueue<ITaskBase*> ConcurrentTaskQueue;
-typedef std::vector<ITaskBase*>           TaskVector;
+typedef OclNaiveConcurrentQueue<SmartPtr<ITaskBase>*> ConcurrentTaskQueue;
+typedef std::vector<SmartPtr<ITaskBase>*>           TaskVector;
 
 template<class cExecTaskClass> class base_command_list : public ITaskList
 {
@@ -786,7 +787,7 @@ public:
 	{
 	}
 
-	unsigned int Enqueue(ITaskBase* pTask)
+	unsigned int Enqueue(SmartPtr<ITaskBase>* pTask)
 	{
         if (!m_subdevice)
         {
@@ -828,7 +829,7 @@ public:
 		if ( NULL == pTaskToWait )
 		{
 			m_MasterSync.Reset();
-			Enqueue(&m_MasterSync);
+			Enqueue(new WeakPtr<ITaskBase>(&m_MasterSync));
 		}
 
 		do
@@ -982,9 +983,10 @@ private:
 	};
 };
 
-static bool execute_command(ITaskBase* cmd)
+static bool execute_command(SmartPtr<ITaskBase>& pCmd)
 {
 	bool runNextCommand = true;
+    ITaskBase* cmd = pCmd.GetPtr();
 
 	if ( cmd->IsTaskSet() )
 	{
@@ -1042,7 +1044,7 @@ public:
 		ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 		assert(work);
 		TaskVector currentCommandBatch;
-		ITaskBase* currentTask;
+		SmartPtr<ITaskBase>* currentTask;
 		bool mustExit = false;
 
 		assert(m_list->m_refCount>1);
@@ -1052,7 +1054,7 @@ public:
 			//First check if we need to stop interating, next get next available record
 			while( !(mustExit && m_list->m_bMasterRunning) && work->TryPop(currentTask))
 			{
-				mustExit = !execute_command(currentTask); //stop requested
+				mustExit = !execute_command(*currentTask); //stop requested
 
 				currentCommandBatch.push_back(currentTask);
 
@@ -1090,7 +1092,8 @@ protected:
 		//release all executed tasks
 		for (TaskVector::const_iterator it = pCmdBatch->begin(); it != pCmdBatch->end(); ++it)
 		{
-			(*it)->Release();
+			(**it)->Release();
+            delete *it;
 		}
 		pCmdBatch->clear();
 	}
@@ -1110,10 +1113,10 @@ struct ExecuteContainerBody
 
 		for (size_t it = range.begin(); it != range.end(); ++it)
 		{
-			ITaskBase* cmd = m_work->at(it);
-			masterSync |= !execute_command(cmd);
+			SmartPtr<ITaskBase>* cmd = m_work->at(it);
+			masterSync |= !execute_command(*cmd);
 
-			cmd->Release();
+			(*cmd)->Release();
 		}
 
 		*m_bMasterSync = masterSync;
@@ -1170,7 +1173,7 @@ protected:
 	size_t FillWork(TaskVector& workList)
 	{
 		unsigned int uiBatchSize = 0;
-		ITaskBase* current;
+		SmartPtr<ITaskBase>* current;
 		while ( (uiBatchSize<MAX_BATCH_SIZE) && m_list->GetExecutingContainer()->TryPop(current) )
 		{
 			workList.push_back(current);
@@ -1397,7 +1400,7 @@ ITaskList* TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param)
 	return pList;
 }
 
-unsigned int TBBTaskExecutor::Execute(ITaskBase * pTask)
+unsigned int TBBTaskExecutor::Execute(SmartPtr<ITaskBase> * pTask)
 {
 	m_pExecutorList->Enqueue(pTask);
 	m_pExecutorList->Flush();		

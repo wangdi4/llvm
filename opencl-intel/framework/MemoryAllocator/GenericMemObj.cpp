@@ -33,6 +33,7 @@
 
 #include "MemoryObjectFactory.h"
 #include "Image1DBuffer.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -40,7 +41,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-GenericMemObject::GenericMemObject(Context * pContext, cl_mem_object_type clObjType) :
+GenericMemObject::GenericMemObject(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
 	MemoryObject(pContext),
     m_BS(NULL), m_active_groups_count(0)
 {
@@ -153,7 +154,7 @@ cl_err_code GenericMemObject::Initialize(
 
     // caclulate alignment requirements and filter out non-conformant devices
     cl_uint             dev_count = 0;
-    FissionableDevice* *pDevices  = m_pContext->GetDevices(&dev_count);
+    SharedPtr<FissionableDevice> *pDevices  = m_pContext->GetDevices(&dev_count);
 
     assert( (0 != dev_count) && (NULL != pDevices) );
 
@@ -168,7 +169,7 @@ cl_err_code GenericMemObject::Initialize(
 
     for ( cl_uint dev_idx = 0; dev_idx < dev_count; ++dev_idx)
     {
-        FissionableDevice* dev = pDevices[ dev_idx ];
+        SharedPtr<FissionableDevice> dev = pDevices[ dev_idx ];
         assert( dev );
 
         cl_dev_alloc_prop device_properties;
@@ -297,9 +298,8 @@ cl_err_code GenericMemObject::InitializeSubObject(
                                             const size_t*     region )
 {
     // sub-buffer related - used by internal functions call later in this function
+    SharedPtr<GenericMemObject> pParent = &parent;
 	m_pParentObject = &parent;
-   	m_pParentObject->AddPendency(this);
-
     memcpy( m_stOrigin, origin, sizeof(m_stOrigin) );
 
     // copy everything from GenericMemObject class only excluding parent classes
@@ -405,7 +405,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 }
 
 
-const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( FissionableDevice* dev ) const
+const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( ConstSharedPtr<FissionableDevice> dev ) const
 {
     TDevice2DescPtrMap::const_iterator found = m_device_2_descriptor_map.find( dev );
     return (found != m_device_2_descriptor_map.end()) ? found->second : NULL;
@@ -427,7 +427,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
         return CL_INVALID_VALUE;
     }
 
-    FissionableDevice* dev = group.m_device_list.front()->m_pDevice;
+    SharedPtr<FissionableDevice> dev = group.m_device_list.front()->m_pDevice;
 
     // Pass only R/W values
 	cl_mem_flags clMemFlags = m_clFlags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY);
@@ -446,7 +446,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
 }
 
 cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
-                                                    FissionableDevice* dev,
+                                                    SharedPtr<FissionableDevice> dev,
                                                     GenericMemObjectBackingStore* bs,
                                                     IOCLDevMemoryObject** dev_object )
 {
@@ -462,7 +462,7 @@ cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
     return CL_DEV_FAILED(devErr) ? CL_OUT_OF_RESOURCES : CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::CreateDeviceResource(FissionableDevice* pDevice)
+cl_err_code GenericMemObject::CreateDeviceResource(SharedPtr<FissionableDevice> pDevice)
 {
     DeviceDescriptor* desc = get_device( pDevice );
 
@@ -480,7 +480,7 @@ cl_err_code GenericMemObject::CreateDeviceResource(FissionableDevice* pDevice)
     return allocate_object_for_sharing_group((unsigned int)desc->m_sharing_group_id);
 }
 
-cl_err_code GenericMemObject::GetDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject, OclEvent** ppEvent)
+cl_err_code GenericMemObject::GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
 {
 	assert(NULL != ppDevObject);
 
@@ -497,21 +497,21 @@ cl_err_code GenericMemObject::GetDeviceDescriptor(FissionableDevice* pDevice, IO
     return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::UpdateDeviceDescriptor(FissionableDevice* pDevice, IOCLDevMemoryObject* *ppDevObject)
+cl_err_code GenericMemObject::UpdateDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject)
 {
 	assert(0 && "GenericMemObject is not supporting this operation");
 	return CL_INVALID_OPERATION;
 }
 
 cl_err_code	GenericMemObject::MemObjCreateDevMappedRegion(
-                                        const FissionableDevice* pDevice,
+                                        SharedPtr<FissionableDevice> pDevice,
 										cl_dev_cmd_param_map*	cmd_param_map,
 										void** pHostMapDataPtr )
 {
     IOCLDevMemoryObject* dev_object;
     cl_err_code          err;
 
-    err = GetDeviceDescriptor( const_cast<FissionableDevice*>(pDevice), &dev_object, NULL );
+    err = GetDeviceDescriptor(pDevice, &dev_object, NULL);
 
     if (CL_FAILED(err))
     {
@@ -536,14 +536,14 @@ cl_err_code	GenericMemObject::MemObjCreateDevMappedRegion(
 }
 
 cl_err_code	GenericMemObject::MemObjReleaseDevMappedRegion(
-                                            const FissionableDevice* pDevice,
+                                            SharedPtr<FissionableDevice> pDevice,
 											cl_dev_cmd_param_map*	cmd_param_map,
 											void* pHostMapDataPtr )
 {
     IOCLDevMemoryObject* dev_object;
     cl_err_code          err;
 
-    err = GetDeviceDescriptor( const_cast<FissionableDevice*>(pDevice), &dev_object, NULL );
+    err = GetDeviceDescriptor(pDevice, &dev_object, NULL );
 
     if (CL_FAILED(err))
     {
@@ -586,7 +586,7 @@ cl_err_code GenericMemObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapIn
                       pMapInfo->pitch[0], pMapInfo->pitch[1] );
 }
 
-cl_err_code GenericMemObject::NotifyDeviceFissioned(FissionableDevice* parent, size_t count, FissionableDevice** children)
+cl_err_code GenericMemObject::NotifyDeviceFissioned(SharedPtr<FissionableDevice> parent, size_t count, SharedPtr<FissionableDevice>* children)
 {
     // TODO: DK: What should I do here?
     return CL_SUCCESS;
@@ -915,7 +915,7 @@ void * GenericMemObject::GetBackingStoreData( const size_t * pszOrigin ) const
             (pszOrigin ? m_BS->GetRawDataOffset( pszOrigin ) : 0);
 }
 
-cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, MemoryObject** ppBuffer)
+cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {
 	const cl_buffer_region* region = static_cast<const cl_buffer_region*>(buffer_create_info);
 
@@ -1093,7 +1093,6 @@ int GenericMemObjectBackingStore::RemovePendency()
 	}
 	return prevVal;
 }
-
 size_t GenericMemObjectBackingStore::get_element_size(const cl_image_format* format)
 {
     if (NULL == format)
@@ -1257,17 +1256,9 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 // SingleUnifiedSubBuffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(Context * pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
+GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
 	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer)
 {
-}
-
-GenericMemObjectSubBuffer::~GenericMemObjectSubBuffer()
-{
-	if ( NULL != m_pParentObject )
-	{
-		m_pParentObject->RemovePendency(this);
-	}
 }
 
 cl_err_code GenericMemObjectSubBuffer::Initialize(
@@ -1285,7 +1276,7 @@ cl_err_code GenericMemObjectSubBuffer::Initialize(
 
 cl_err_code GenericMemObjectSubBuffer::create_device_object(
                                                     cl_mem_flags clMemFlags,
-                                                    FissionableDevice* dev,
+                                                    SharedPtr<FissionableDevice> dev,
                                                     GenericMemObjectBackingStore* bs,
                                                     IOCLDevMemoryObject** dev_object )
 {
@@ -1316,7 +1307,7 @@ cl_err_code GenericMemObjectSubBuffer::create_device_object(
 }
 
 
-bool GenericMemObjectSubBuffer::IsSupportedByDevice(FissionableDevice* pDevice)
+bool GenericMemObjectSubBuffer::IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice)
 {
 	// Need to check only for sub-buffers
 

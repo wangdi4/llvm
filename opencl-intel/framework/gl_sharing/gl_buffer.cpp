@@ -33,7 +33,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_BUFFER, GLBuffer)
 
-GLBuffer::GLBuffer(Context* pContext, cl_gl_object_type clglObjType) :
+GLBuffer::GLBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType) :
 	GLMemoryObject(pContext, clglObjType)
 {
     m_uiNumDim = 1;
@@ -45,6 +45,7 @@ GLBuffer::GLBuffer(Context* pContext, cl_gl_object_type clglObjType) :
 cl_err_code GLBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
 					   const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags )
 {
+	SharedPtr<GLContext> pGLContext = m_pContext.DynamicCast<GLContext>();
 	m_glObjHandle = (GLuint)pHostPtr;
 
 	// Retrieve open GL buffer size
@@ -88,7 +89,7 @@ cl_err_code GLBuffer::GetDimensionSizes(size_t* pszRegion) const
 }
 
 cl_err_code GLBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer)
+			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 	if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
@@ -104,9 +105,9 @@ cl_err_code GLBuffer::AcquireGLObject()
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+        ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
 		)
 	{
 		// We have already acquired object
@@ -115,22 +116,24 @@ cl_err_code GLBuffer::AcquireGLObject()
 
 	GLint	currBuff;
 	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, m_glObjHandle);
+    assert(!glGetError());
+    m_pContext.DynamicCast<GLContext>()->glBindBuffer(m_glBufferTarget, m_glObjHandle);
+    assert(!glGetError());
 	void *pBuffer = m_pGLContext->glMapBuffer(m_glBufferTarget, m_glMemFlags);
 	if ( NULL == pBuffer )
 	{
 		m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
-	}
+	}    
 
 	// Now we need to create child object
-	MemoryObject* pChild;
+	SharedPtr<MemoryObject> pChild;
 	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
-		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
+        m_pContext.DynamicCast<GLContext>()->glUnmapBuffer(m_glBufferTarget);
+		m_pContext.DynamicCast<GLContext>()->glBindBuffer(m_glBufferTarget, currBuff);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return res;
 	}
@@ -144,13 +147,13 @@ cl_err_code GLBuffer::AcquireGLObject()
 	res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, NULL, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
-		((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
+		m_pContext.DynamicCast<GLContext>()->glUnmapBuffer(m_glBufferTarget);
+		m_pContext.DynamicCast<GLContext>()->glBindBuffer(m_glBufferTarget, currBuff);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	m_itCurrentAcquriedObject->second = pChild;
+    m_itCurrentAcquriedObject->second = pChild;
 
 	m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 
@@ -161,11 +164,13 @@ cl_err_code GLBuffer::ReleaseGLObject()
 {
 	GLint	currBuff;
 	glGetIntegerv(m_glBufferTargetBinding, &currBuff);
-	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, m_glObjHandle);
-
-	((GLContext*)m_pContext)->glUnmapBuffer(m_glBufferTarget);
-	((GLContext*)m_pContext)->glBindBuffer(m_glBufferTarget, currBuff);
-
+    assert(!glGetError());
+	m_pContext.DynamicCast<GLContext>()->glBindBuffer(m_glBufferTarget, m_glObjHandle);
+    assert(!glGetError());
+	const GLboolean ret = m_pContext.DynamicCast<GLContext>()->glUnmapBuffer(m_glBufferTarget);
+    assert(GL_TRUE == ret);
+	m_pContext.DynamicCast<GLContext>()->glBindBuffer(m_glBufferTarget, currBuff);
+    assert(!glGetError());
 	return CL_SUCCESS;
 }
 

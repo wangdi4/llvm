@@ -30,6 +30,7 @@
 #include <cl_object.h>
 #include <Logger.h>
 #include <map>
+#include "cl_shared_ptr.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -47,6 +48,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
+        PREPARE_SHARED_PTR(Sampler);
+
+        static SharedPtr<Sampler> Allocate(_cl_context_int* context) { return SharedPtr<Sampler>(new Sampler(context)); }
+
 		/******************************************************************************************
 		* Function: 	Sampler
 		* Description:	The Sampler class constructor
@@ -59,9 +64,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// get image info
 		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
-		virtual cl_err_code Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode);
+		virtual cl_err_code Initialize(SharedPtr<Context> pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode);
 
-		const Context * GetContext() const { return m_pContext; }
+        ConstSharedPtr<Context> GetContext() const { return m_pContext; }
+        SharedPtr<Context> GetContext() { return m_pContext; }
 
 		cl_uint	GetValue() const {return m_clSamlerProps;}
 
@@ -75,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/			
 		virtual ~Sampler();
 
-		Context *			m_pContext;	// the context to which the sampler belongs
+		SharedPtr<Context>			m_pContext;	// the context to which the sampler belongs
 
 		cl_addressing_mode	m_clAddressingMode;
 		cl_filter_mode		m_clFilterMode;

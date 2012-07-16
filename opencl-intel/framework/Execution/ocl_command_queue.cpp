@@ -36,7 +36,6 @@
 #include "in_order_command_queue.h"
 #include "out_of_order_command_queue.h"
 #include "Device.h"
-
 #include "cl_logger.h"
 
 using namespace Intel::OpenCL::Framework;
@@ -46,7 +45,7 @@ using namespace Intel::OpenCL::Utils;
  * Command queue constructor
  ******************************************************************/
 OclCommandQueue::OclCommandQueue(
-    Context*                    pContext, 
+    SharedPtr<Context>                    pContext, 
     cl_device_id                clDefaultDeviceID,
     cl_command_queue_properties clProperties,
     EventsManager*              pEventsManager
@@ -57,14 +56,11 @@ OclCommandQueue::OclCommandQueue(
     m_clDefaultDeviceHandle(clDefaultDeviceID),
 	m_clDevCmdListId(0)
 {
-    m_pContext->GetDevice(clDefaultDeviceID, &m_pDefaultDevice);    
+    m_pDefaultDevice = m_pContext->GetDevice(clDefaultDeviceID);
     // Set queue options
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
     m_bProfilingEnabled  = ((clProperties & CL_QUEUE_PROFILING_ENABLE) ? true : false );
-	// Add dependency to context
-	m_pContext->AddPendency(this);
     // Set logger
-
 	INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"),LL_DEBUG);
 
 	LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
@@ -84,7 +80,6 @@ OclCommandQueue::~OclCommandQueue()
 	{
 		m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
 	}
-	m_pContext->RemovePendency(this);
     m_pContext = NULL;
     m_pDefaultDevice = NULL;
 

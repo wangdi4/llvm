@@ -216,7 +216,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		}
 
 		// ITaskList interface
-		unsigned int Enqueue(ITaskBase* pTaskBase);
+        unsigned int Enqueue(SmartPtr<ITaskBase>* pTaskBase);
 		te_wait_result	WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 
@@ -253,7 +253,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		}
 
 		// ITaskList interface
-		unsigned int Enqueue(ITaskBase* pTaskBase);
+        unsigned int Enqueue(SmartPtr<ITaskBase>* pTaskBase);
 		te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 
@@ -290,7 +290,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetNumWorkingThreads() const
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
-		unsigned int	Execute(ITaskBase * pTask);
+		unsigned int	Execute(SmartPtr<ITaskBase> * pTask);
 		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}
 		void ReleasePerThreadData() {}
 		void Close(bool bCancel);

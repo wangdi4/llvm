@@ -28,6 +28,7 @@
 #include "queue_event.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
+#include "cl_shared_ptr.hpp"
 #include <cl_sys_info.h>
 
 // For debugging
@@ -40,7 +41,7 @@ using namespace Intel::OpenCL::Utils;
 /******************************************************************
 *
 ******************************************************************/
-QueueEvent::QueueEvent(IOclCommandQueueBase* cmdQueue) :
+QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
 	OclEvent( cmdQueue->GetParentHandle()),
 	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
 {
@@ -275,7 +276,7 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
 	}
 }
 
-void QueueEvent::IncludeProfilingInfo( const QueueEvent* other )
+void QueueEvent::IncludeProfilingInfo( ConstSharedPtr<QueueEvent> other )
 {
 	assert( NULL != other );
 
@@ -304,7 +305,7 @@ void QueueEvent::IncludeProfilingInfo( const QueueEvent* other )
 /******************************************************************
 *
 ******************************************************************/
-cl_err_code QueueEvent::ObservedEventStateChanged(Intel::OpenCL::Framework::OclEvent *pEvent, cl_int returnCode)
+cl_err_code QueueEvent::ObservedEventStateChanged(SharedPtr<OclEvent>pEvent, cl_int returnCode)
 {
 	if (CL_SUCCESS > returnCode)
 	{
@@ -320,21 +321,6 @@ cl_err_code QueueEvent::ObservedEventStateChanged(Intel::OpenCL::Framework::OclE
 	}
 	//Else, fall back on regular routine
 	return OclEvent::ObservedEventStateChanged(pEvent, returnCode);
-}
-
-long QueueEvent::RemovePendency(OCLObjectBase* pObj)
-{
-    if (NULL != pObj)
-    {
-        EraseFromDependecySet(pObj);
-    }
-	long newVal = --m_uiPendency;
-	if (0 == newVal)
-	{
-		//m_pCommand aggregates me, so I'm also deleted as a side-effect
-		delete m_pCommand;
-	}
-	return newVal;
 }
 
 OclEventState QueueEvent::SetEventState(OclEventState newColor)
@@ -371,13 +357,13 @@ OclEventState QueueEvent::SetEventState(OclEventState newColor)
 	return retval;
 }
 
-void QueueEvent::DoneWithDependencies(OclEvent* pEvent)
+void QueueEvent::DoneWithDependencies(SharedPtr<OclEvent> pEvent)
 {
     if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {
         SetEventState(EVENT_STATE_READY_TO_EXECUTE);
 
-		QueueEvent *pQEvent = dynamic_cast<QueueEvent*>(pEvent);
+		SharedPtr<QueueEvent>pQEvent = pEvent.DynamicCast<QueueEvent>();
         //See if I have to notify my queue or not
         if ((NULL != pQEvent) && (pQEvent->GetEventQueue()))
         {
@@ -409,4 +395,14 @@ cl_command_queue QueueEvent::GetQueueHandle() const
 cl_int QueueEvent::GetReturnCode() const
 {
 	return m_pCommand->GetReturnCode();
+}
+
+void QueueEvent::operator delete(void* p)
+{
+    QueueEvent* const self = (QueueEvent*)p;
+    if (!self->m_pCommand->IsBeingDeleted())
+    {
+        delete self->m_pCommand;  // this will delete myself as well, since m_pCommand aggregates me
+    }
+    ::operator delete(p);
 }

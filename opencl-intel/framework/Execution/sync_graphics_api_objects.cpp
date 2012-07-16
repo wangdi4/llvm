@@ -19,21 +19,25 @@
 // problem reports or change requests be submitted to it directly
 
 #include "sync_graphics_api_objects.h"
+#include "command_queue.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
 {
     /**
      * @fn  SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type cmdType,
-     *      unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue,
-     *      ocl_entry_points * pOclEntryPoints, GraphicsApiMemoryObject** pMemObjects)
+     *      unsigned int uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue,
+     *      ocl_entry_points * pOclEntryPoints, SharedPtr<GraphicsApiMemoryObject>* pMemObjects)
      */
 
     SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
-        IOclCommandQueueBase* cmdQueue, GraphicsApiMemoryObject** pMemObjects,bool bIsAcquireCmd) :
+        SharedPtr<IOclCommandQueueBase> cmdQueue, SharedPtr<GraphicsApiMemoryObject>* pMemObjects,bool bIsAcquireCmd) :
       RuntimeCommand(cmdQueue), m_bIsAcquireCmd(bIsAcquireCmd), m_cmdType(cmdType), m_uiMemObjNum(uiMemObjNum)
     {
-        m_pMemObjects = new GraphicsApiMemoryObject*[uiMemObjNum];
-        MEMCPY_S(m_pMemObjects, sizeof(GraphicsApiMemoryObject*)*uiMemObjNum, pMemObjects, sizeof(GraphicsApiMemoryObject*)*uiMemObjNum);
+        m_pMemObjects = new SharedPtr<GraphicsApiMemoryObject>[uiMemObjNum];
+        for (size_t i = 0; i < uiMemObjNum; i++)
+        {
+            m_pMemObjects[i] = pMemObjects[i];
+        }
     }
 
     /**
@@ -55,9 +59,8 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             if (m_bIsAcquireCmd)
             {
-                m_pMemObjects[i]->SetAcquireCmdEvent(&m_Event);
+                m_pMemObjects[i]->SetAcquireCmdEvent(m_Event);
             }
-            m_pMemObjects[i]->AddPendency(this);            
         }
         return CL_SUCCESS;
     }
@@ -74,7 +77,6 @@ namespace Intel { namespace OpenCL { namespace Framework
 			{
                 m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
 			}
-            m_pMemObjects[i]->RemovePendency(this);
         }
         return CL_SUCCESS;
     }

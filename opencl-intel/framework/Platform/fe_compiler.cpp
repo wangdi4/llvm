@@ -343,14 +343,14 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin,
             size_t uiTypeNameLength = strlen(pResult->getArgTypeName(i)) + 1;
 
             pKernelArgInfo[i].name = new char[uiNameLength];
-            if (!pKernelArgInfo[i].name)
+            if (NULL == pKernelArgInfo[i].name)
             {
                 bFail = true;
                 break;
             }
 
             pKernelArgInfo[i].typeName = new char[uiTypeNameLength];
-            if (!pKernelArgInfo[i].typeName)
+            if (NULL == pKernelArgInfo[i].typeName)
             {
                 bFail = true;
                 break;

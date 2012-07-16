@@ -33,7 +33,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLRenderBuffer : public GLTexture2D
 	{
 	public:
-		GLRenderBuffer::GLRenderBuffer(Context * pContext, cl_gl_object_type clglObjType);
+
+        PREPARE_SHARED_PTR(GLRenderBuffer);
+
+        static SharedPtr<GLRenderBuffer> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
+        {
+            return SharedPtr<GLRenderBuffer>(new GLRenderBuffer(pContext, clglObjType));
+        }
+		
 		~GLRenderBuffer();
 
 		cl_err_code AcquireGLObject();
@@ -44,6 +51,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
 
 	protected:
+
+        GLRenderBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		// do not implement
         GLRenderBuffer(const GLRenderBuffer&);
         GLRenderBuffer& operator=(const GLRenderBuffer&);

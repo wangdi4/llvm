@@ -336,9 +336,15 @@ bool clOODotProductTest( int iNumLoops )
                 printf("%lf, ", dst[i]);
             }
             printf("\n ==== \n");
+
+            iRet = clReleaseEvent(waitEvent[0]);
+            bResult &= Check(L"clReleaseEvent - waitEvent[0]", CL_SUCCESS, iRet);
+
+            iRet = clReleaseEvent(waitEvent[1]);
+            bResult &= Check(L"clReleaseEvent - waitEvent[1]", CL_SUCCESS, iRet);
         }
         iRet = clFinish(queue1);
-        bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);
+        bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);        
 
         iRet = clReleaseCommandQueue(queue1);
         bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);

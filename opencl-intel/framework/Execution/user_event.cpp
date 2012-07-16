@@ -27,6 +27,7 @@
 
 #include "user_event.h"
 #include "enqueue_commands.h"
+#include "command_queue.h"
 #include <assert.h>
 #include <cl_sys_info.h>
 

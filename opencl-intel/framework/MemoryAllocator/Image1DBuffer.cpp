@@ -54,19 +54,7 @@ cl_err_code Image1DBuffer::GetImageInfo(cl_image_info clParamName, size_t szPara
     return GenericMemObject::GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
-void Image1DBuffer::SetBuffer(GenericMemObject* pBuffer)
+void Image1DBuffer::SetBuffer(SharedPtr<GenericMemObject> pBuffer)
 {
     m_pBuffer = pBuffer;
-	// Pendency is required when create with clCreateTexture()
-	// When created with clCreateTextureFromGLTexture(), this function will not be called
-    pBuffer->AddPendency(this);
 }
-
-Image1DBuffer::~Image1DBuffer()
-{
-	if ( NULL != m_pBuffer )
-	{
-		m_pBuffer->RemovePendency(this);
-	}
-}
-

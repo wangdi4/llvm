@@ -58,9 +58,9 @@ public:
      * @param   d3d9Definitions          a ID3DSharingDefinitions of the version of the extension used
      */
 
-    SyncD3DResources(IOclCommandQueueBase* const cmdQueue, D3DResource<RESOURCE_TYPE, DEV_TYPE>** const pMemObjects, size_t szNumMemObjects, cl_command_type cmdType,
+    SyncD3DResources(SharedPtr<IOclCommandQueueBase> cmdQueue, SharedPtr<GraphicsApiMemoryObject>* const pMemObjects, size_t szNumMemObjects, cl_command_type cmdType,
         const ID3DSharingDefinitions& d3d9Definitions) :
-    SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, (GraphicsApiMemoryObject**)pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDevice()),
+    SyncGraphicsApiObjects(cmdType, szNumMemObjects, cmdQueue, pMemObjects, cmdType == d3d9Definitions.GetCommandAcquireDevice()),
         m_d3dDefinitions(d3d9Definitions)
     { }
 

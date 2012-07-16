@@ -73,7 +73,7 @@ public:
 	InPlaceTaskList(bool bImmediate = true);
 	virtual ~InPlaceTaskList();
 
-	virtual unsigned int	Enqueue(ITaskBase * pTaskBase);
+	virtual unsigned int	Enqueue(SmartPtr<ITaskBase> * pTaskBase);
 	virtual bool			Flush();
 	//Todo: WaitForCompletion only immediately returns if bImmediate is true
 	virtual te_wait_result  WaitForCompletion(ITaskBase* pTask) { return TE_WAIT_COMPLETED; };
@@ -83,7 +83,7 @@ public:
 protected:
     bool m_immediate;
 
-    virtual void ExecuteInPlace(ITaskBase* pTaskBase);
+    virtual void ExecuteInPlace(SmartPtr<ITaskBase>* pTaskBase);
 };
 
 InPlaceTaskList::InPlaceTaskList(bool bImmediate) : m_immediate(bImmediate)
@@ -96,7 +96,7 @@ InPlaceTaskList::~InPlaceTaskList()
 {
 }
 
-unsigned int InPlaceTaskList::Enqueue(ITaskBase *pTaskBase)
+unsigned int InPlaceTaskList::Enqueue(SmartPtr<ITaskBase> *pTaskBase)
 {
     if (m_immediate)
     {
@@ -124,13 +124,13 @@ void InPlaceTaskList::Release()
 
 }
 
-void InPlaceTaskList::ExecuteInPlace(Intel::OpenCL::TaskExecutor::ITaskBase *pTaskBase)
+void InPlaceTaskList::ExecuteInPlace(SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase> *pTaskBase)
 {
     static size_t firstWGID[] = {0, 0, 0};
     assert(pTaskBase);
-    if (pTaskBase->IsTaskSet())
+    if ((*pTaskBase)->IsTaskSet())
     {
-        ITaskSet* pTaskSet = static_cast<ITaskSet*>(pTaskBase);
+        ITaskSet* pTaskSet = static_cast<ITaskSet*>(pTaskBase->GetPtr());
         size_t dim[MAX_WORK_DIM];
         unsigned int dimCount;
         int res = pTaskSet->Init(dim, dimCount);
@@ -150,7 +150,7 @@ void InPlaceTaskList::ExecuteInPlace(Intel::OpenCL::TaskExecutor::ITaskBase *pTa
     }
     else
     {
-        ITask* pTask = static_cast<ITask*>(pTaskBase);
+        ITask* pTask = static_cast<ITask*>(pTaskBase->GetPtr());
         pTask->Execute();
         pTask->Release();
     }
@@ -278,7 +278,7 @@ cl_dev_err_code TaskDispatcher::init()
 		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-	m_pTaskExecutor->Execute(pAffinitizeThreads);
+    m_pTaskExecutor->Execute(new WeakPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(pAffinitizeThreads));
 	m_pTaskExecutor->WaitForCompletion(NULL);
 	
 	return CL_DEV_SUCCESS;
@@ -558,7 +558,7 @@ cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc*
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	pList->Enqueue(pTask);
+	pList->Enqueue(new WeakPtr<ITaskBase>(pTask));
 
 	return CL_DEV_SUCCESS;
 }
@@ -575,7 +575,7 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_des
 		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
-			pList->Enqueue(static_cast<ITaskBase*>(pCommand));
+			pList->Enqueue(new WeakPtr<ITaskBase>(pCommand));
 		} else
 		{
 			// Try to notify about the error in the same list

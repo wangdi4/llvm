@@ -32,6 +32,9 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <malloc.h>
+#include "enqueue_commands.h"
+#include "command_queue.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -57,10 +60,10 @@ Device::~Device()
 	LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter"));
 }
 
-void Device::Cleanup( bool bIsTerminate )
+void Device::Cleanup( bool bIsTerminate ) const
 {
 	// release logger clients
-	map<cl_int,LoggerClient*>::iterator it = m_mapDeviceLoggerClinets.begin();
+	map<cl_int,LoggerClient*>::iterator it = const_cast<Device*>(this)->m_mapDeviceLoggerClinets.begin();
 	while (it != m_mapDeviceLoggerClinets.end())
 	{
 		LoggerClient * pLoggerClient = it->second;
@@ -70,9 +73,9 @@ void Device::Cleanup( bool bIsTerminate )
 		}
 		it++;
 	}
-	m_mapDeviceLoggerClinets.clear();
+	const_cast<Device*>(this)->m_mapDeviceLoggerClinets.clear();
 
-	m_dlModule.Close();
+	const_cast<Device*>(this)->m_dlModule.Close();
 }
 
 cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
@@ -475,7 +478,7 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     assert(CL_SUCCESS == clErr);    
     cl_image_format* const pFormats = new cl_image_format[uiNumEntries];
 
-    if (!pFormats)
+    if (NULL == pFormats)
     {
         LOG_ERROR(TEXT("out of memory"), "");
         return false;
@@ -494,12 +497,11 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     delete[] pFormats;
     return bSupported;
 }
-SubDevice::SubDevice(Intel::OpenCL::Framework::FissionableDevice *pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :
+SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :
 	FissionableDevice((_cl_platform_id_int *)pParent->GetHandle()), m_pParentDevice(pParent), m_deviceId(id),
 		m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
-    m_pParentDevice->AddPendency(this);
     CacheFissionProperties(props);
     //Todo: handle more intelligently
     m_pRootDevice->CreateInstance();
@@ -518,8 +520,6 @@ SubDevice::~SubDevice()
     }
     //Todo: handle more intelligently
     m_pRootDevice->CloseDeviceInstance();
-
-    m_pParentDevice->RemovePendency(this);
 }
 
 cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) const

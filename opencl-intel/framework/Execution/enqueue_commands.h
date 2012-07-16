@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        Command( IOclCommandQueueBase* cmdQueue );
+        Command( SharedPtr<IOclCommandQueueBase> cmdQueue );
         virtual ~Command();
         
         //
@@ -110,20 +110,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         virtual ECommandExecutionType GetExecutionType() const = 0;
         
-        virtual IOclCommandQueueBase* GetCommandQueue() { return m_pCommandQueue; }
+        virtual SharedPtr<IOclCommandQueueBase> GetCommandQueue() { return m_pCommandQueue; }
         
         // ICmdStatusChangedObserver function
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
         
         // Command general functions
-        QueueEvent*     GetEvent    ()                                      { return &m_Event; }
+        SharedPtr<QueueEvent>     GetEvent    ()                                      { return m_Event; }
         void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
-        void            SetDevice(FissionableDevice* pDevice)               { m_pDevice = pDevice; }
-        FissionableDevice* GetDevice() const                                { return m_pDevice; }
+        void            SetDevice(SharedPtr<FissionableDevice> pDevice)               { m_pDevice = pDevice; }
+        SharedPtr<FissionableDevice> GetDevice() const                                { return m_pDevice; }
 
 		cl_dev_cmd_desc* GetDeviceCommandDescriptor();
-        
+
 		// wrapper above Enqueue command to allow pre/post-fix commands
 		// pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
 		// Note: this may disapper during Enqueue if it was successful!
@@ -150,7 +150,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void             GPA_DestroyCommand();
         virtual void             GPA_WriteCommandMetadata() {}
         virtual const char*      GPA_GetCommandName() const { return NULL; }
-        
+
+        /**
+         * @return whether this Command is already being deleted (useful for m_Event, which when destroyed deletes its Command, which is usually the one that contains it)
+         */
+        bool IsBeingDeleted() const { return m_bIsBeingDeleted; }
+
     protected:
         Command(const Command& O) : OCLObjectBase("Command"), ICmdStatusChangedObserver(), m_Event(NULL) {}
         
@@ -159,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //  1. The descriptor value will be set with NULL
         //  2. additional event will be added to dependency list
         //  3. On resolution the provided memory location will be update with device descriptor value
-        cl_err_code GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemoryObject* *ppDevMemObj);
+        cl_err_code GetMemObjectDescriptor(SharedPtr<MemoryObject> pMemObj, IOCLDevMemoryObject* *ppDevMemObj);
 
         // AcquireMemoryObjects() brings required memory objects to the target device and lock them there
         // Must be called from Execute() and accompanied by call to RelinquishMemoryObjects during CommandDone().
@@ -167,42 +172,43 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Subsequent calls to AcquireMemoryObjects() will do nothing and always return CL_SUCCESS
         struct MemoryObjectArg 
         {
-            MemoryObject* pMemObj;
+            SharedPtr<MemoryObject> pMemObj;
             MemoryObject::MemObjUsage access_rights;
 
-            MemoryObjectArg( MemoryObject* a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
+            MemoryObjectArg( SharedPtr<MemoryObject> a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
             MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT) {};
+            MemoryObjectArg(const MemoryObjectArg& other) : pMemObj(other.pMemObj), access_rights(other.access_rights) { }
         };
 
         typedef list<MemoryObjectArg>   MemoryObjectArgList;
 
-        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs, FissionableDevice* pDev = NULL ) 
+        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs, SharedPtr<FissionableDevice> pDev = NULL ) 
         { 
             return AcquireMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        cl_err_code AcquireMemoryObjects( MemoryObjectArg arg, FissionableDevice* pDev = NULL  )
+        cl_err_code AcquireMemoryObjects( MemoryObjectArg arg, SharedPtr<FissionableDevice> pDev = NULL  )
         { 
             return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
         };
 
-        cl_err_code AcquireMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights, FissionableDevice* pDev = NULL  )
+        cl_err_code AcquireMemoryObjects( SharedPtr<MemoryObject> pMemObj, MemoryObject::MemObjUsage access_rights, SharedPtr<FissionableDevice> pDev = NULL  )
         { 
             MemoryObjectArg arg( pMemObj, access_rights ); 
             return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs, FissionableDevice* pDev = NULL ) 
+        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs, SharedPtr<FissionableDevice> pDev = NULL ) 
         { 
             RelinquishMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObjectArg arg, FissionableDevice* pDev = NULL ) 
+        void        RelinquishMemoryObjects( MemoryObjectArg arg, SharedPtr<FissionableDevice> pDev = NULL ) 
         { 
             RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
         };
 
-        void        RelinquishMemoryObjects( MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights, FissionableDevice* pDev = NULL ) 
+        void        RelinquishMemoryObjects( SharedPtr<MemoryObject> pMemObj, MemoryObject::MemObjUsage access_rights, SharedPtr<FissionableDevice> pDev = NULL ) 
         { 
             MemoryObjectArg arg( pMemObj, access_rights ); 
             RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
@@ -210,32 +216,75 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         void prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size );
         
-        QueueEvent                  m_Event;                    // An associated event object
+        SharedPtr<QueueEvent> m_Event;    // An associated event object
+
         cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
         cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
-        FissionableDevice*          m_pDevice;                  // A pointer to the device executing the command
-        IOclCommandQueueBase*       m_pCommandQueue;            // A pointer to the command queue on which the command resides
+        SharedPtr<FissionableDevice>          m_pDevice;                  // A pointer to the device executing the command
+        SharedPtr<IOclCommandQueueBase>       m_pCommandQueue;            // A pointer to the command queue on which the command resides
         cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
         cl_command_type             m_commandType;              // Command type
         
         ocl_gpa_command*            m_pGpaCommand;
+        bool                        m_bIsBeingDeleted;
         
         DECLARE_LOGGER_CLIENT;
     private:
 
         // return true if ready
-        bool AcquireSingleMemoryObject( MemoryObjectArg& arg, FissionableDevice* pDev );
-        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev );
-        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev );
+        bool AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<FissionableDevice> pDev );
+        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev );
+        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev );
                 
         bool                        m_memory_objects_acquired;
        
     };
     
+    /**
+     * This class represents a shared pointer for Command objects. It exposes an interface of SmartPtr<COMMAND_TYPE>, but performs reference of its QueueEvent.
+     * 
+     * @param COMMAND_TYPE the type of pointed to Command
+     */
+    template<typename COMMAND_TYPE = Command>
+    class CommandSharedPtr : public SmartPtr<COMMAND_TYPE>
+    {
+
+    public:
+
+        /**
+         * Constructor
+         * @param pCommand a pointer to the Command
+         */
+        CommandSharedPtr(COMMAND_TYPE* pCommand) : SmartPtr<COMMAND_TYPE>(pCommand), m_pQueueEvent(pCommand ? pCommand->GetEvent().GetPtr() : NULL)
+        {
+        }
+        /**
+         * Copy constructor
+         */
+        CommandSharedPtr(const CommandSharedPtr& command) : SmartPtr<COMMAND_TYPE>(command.GetPtr()), m_pQueueEvent(command ? command->GetEvent().GetPtr() : NULL)
+        {
+        }
+
+        /**
+         * Assignment operator
+         */
+        CommandSharedPtr& operator=(const CommandSharedPtr& command)
+        {
+            this->m_ptr = command.GetPtr();
+            m_pQueueEvent = (command ? command->GetEvent().GetPtr() : NULL);
+            return *this;
+        }
+
+    private:
+
+        ConstSharedPtr<QueueEvent> m_pQueueEvent;
+
+    };
+
     class MemoryCommand : public Command
     {
     public:
-        MemoryCommand( IOclCommandQueueBase* cmdQueue ) : Command(cmdQueue) {}
+        MemoryCommand( SharedPtr<IOclCommandQueueBase> cmdQueue ) : Command(cmdQueue) {}
     protected:        
         cl_dev_cmd_param_rw m_rwParams;
 
@@ -259,9 +308,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -283,7 +332,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code             CommandDone();
         
     protected:
-        MemoryObject*   m_pMemObj;
+        SharedPtr<MemoryObject>   m_pMemObj;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szMemObjRowPitch;
@@ -301,9 +350,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadBufferRectCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer,
+            SharedPtr<MemoryObject>     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
             const size_t      szDstOrigin[MAX_WORK_DIM],
             const size_t      szRegion[MAX_WORK_DIM],
@@ -327,9 +376,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer,
+            SharedPtr<MemoryObject>     pBuffer,
             const size_t      pszOffset[MAX_WORK_DIM],
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
@@ -351,9 +400,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         ReadImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pImage,
+            SharedPtr<MemoryObject>   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -377,10 +426,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szMemObjRowPitch,
@@ -437,9 +486,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     	 * @param pattern_size
     	 */
         FillMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             const size_t*   pszOffset,
             const size_t*   pszRegion,
             const cl_uint   numOfDimms,
@@ -459,9 +508,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param pattern_size
          */
         FillMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             const size_t    pszOffset,
             const size_t    pszRegion,
             const void*     pattern,
@@ -504,10 +553,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            MemoryObject*   pBuffer,
+            SharedPtr<MemoryObject>   pBuffer,
             const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
@@ -527,9 +576,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         FillBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pBuffer,
+            SharedPtr<MemoryObject>   pBuffer,
             const void *pattern,
             size_t pattern_size,
             size_t offset,
@@ -549,10 +598,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         WriteBufferRectCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            MemoryObject*     pBuffer,
+            SharedPtr<MemoryObject>     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
             const size_t      szSrcOrigin[MAX_WORK_DIM],
             const size_t      szRegion[MAX_WORK_DIM],
@@ -579,10 +628,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            MemoryObject*   pImage,
+            SharedPtr<MemoryObject>   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -599,7 +648,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "Write Image"; }
         
     private:
-        MemoryObject*   m_pImage;
+        SharedPtr<MemoryObject>   m_pImage;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szRowPitch;
@@ -612,9 +661,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
     	FillImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pImg,
+            SharedPtr<MemoryObject>   pImg,
             const void *pattern,
             size_t pattern_size,
             const cl_uint num_of_dimms,
@@ -639,10 +688,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcMemObj,
-            MemoryObject*   pDstMemObj,
+            SharedPtr<MemoryObject>   pSrcMemObj,
+            SharedPtr<MemoryObject>   pDstMemObj,
             const size_t*   szSrcOrigin,
             const size_t*   szDstOrigin,
             const size_t*   szRegion,
@@ -662,8 +711,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         
     protected:
-        MemoryObject*   m_pSrcMemObj;
-        MemoryObject*   m_pDstMemObj;
+        SharedPtr<MemoryObject>   m_pSrcMemObj;
+        SharedPtr<MemoryObject>   m_pDstMemObj;
         size_t          m_szSrcOrigin[MAX_WORK_DIM];
         size_t          m_szDstOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
@@ -680,7 +729,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MemoryObjectArgList m_objs;
         
         // Private functions
-        cl_err_code CopyOnDevice    (FissionableDevice* pDevice);
+        cl_err_code CopyOnDevice    (SharedPtr<FissionableDevice> pDevice);
     };
     
     /******************************************************************
@@ -691,10 +740,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer,
-            MemoryObject*   pDstBuffer,
+            SharedPtr<MemoryObject>   pSrcBuffer,
+            SharedPtr<MemoryObject>   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
@@ -717,10 +766,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferRectCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer,
-            MemoryObject*   pDstBuffer,
+            SharedPtr<MemoryObject>   pSrcBuffer,
+            SharedPtr<MemoryObject>   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM],
@@ -747,10 +796,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcImage,
-            MemoryObject*   pDstImage,
+            SharedPtr<MemoryObject>   pSrcImage,
+            SharedPtr<MemoryObject>   pDstImage,
             const size_t*   pszSrcOrigin,
             const size_t*   pszDstOrigin,
             const size_t*   pszRegion
@@ -771,10 +820,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         CopyImageToBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcImage,
-            MemoryObject*   pDstBuffer,
+            SharedPtr<MemoryObject>   pSrcImage,
+            SharedPtr<MemoryObject>   pDstBuffer,
             const size_t*   pszSrcOrigin,
             const size_t*   pszSrcRegion,
             size_t          pszDstOffset[MAX_WORK_DIM]
@@ -796,10 +845,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferToImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer,
-            MemoryObject*   pDstImage,
+            SharedPtr<MemoryObject>   pSrcBuffer,
+            SharedPtr<MemoryObject>   pDstImage,
             size_t          pszSrcOffset[MAX_WORK_DIM],
             const size_t*   pszDstOrigin,
             const size_t*   pszDstRegion
@@ -824,9 +873,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MapMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -856,7 +905,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t*                 m_pszImageSlicePitch;
         cl_dev_cmd_param_map*   m_pMappedRegion;
         void*                   m_pHostDataPtr;
-        FissionableDevice*      m_pActualMappingDevice;
+        SharedPtr<FissionableDevice>      m_pActualMappingDevice;
         ECommandExecutionType   m_ExecutionType;
 
 		// postfix-related. Created in init, pointer zeroed at enqueue.
@@ -873,9 +922,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         MapBufferCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pBuffer,
+            SharedPtr<MemoryObject>   pBuffer,
             cl_map_flags    clMapFlags,
             size_t          szOffset,
             size_t          szCb
@@ -897,9 +946,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MapImageCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pImage,
+            SharedPtr<MemoryObject>   pImage,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -922,9 +971,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         UnmapMemObjectCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*		  pMemObject,
+            SharedPtr<MemoryObject>		  pMemObject,
             void*				  pMappedRegion
         );
         virtual ~UnmapMemObjectCommand();
@@ -947,7 +996,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MemoryObjectArg         m_pMemObject;
         void*                   m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;       
-        FissionableDevice*      m_pActualMappingDevice;
+        SharedPtr<FissionableDevice>      m_pActualMappingDevice;
         ECommandExecutionType   m_ExecutionType;
 
 		// prefix-related. Created in init, pointer zeroed at enqueue.
@@ -962,7 +1011,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class NDRangeKernelCommand : public Command
     {
     public:
-        NDRangeKernelCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, Kernel* pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
+        NDRangeKernelCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<Kernel> pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
         virtual ~NDRangeKernelCommand();
         
         virtual cl_err_code     Init();
@@ -979,7 +1028,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     protected:
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
-        Kernel*         m_pKernel;
+        SharedPtr<Kernel>         m_pKernel;
         cl_uint         m_uiWorkDim;
         const size_t*   m_cpszGlobalWorkOffset;
         const size_t*   m_cpszGlobalWorkSize;
@@ -1000,7 +1049,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        TaskCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, Kernel* pKernel );
+        TaskCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<Kernel> pKernel );
         virtual ~TaskCommand();
         
         // Override Init only to set a different device type
@@ -1022,13 +1071,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         typedef void (CL_CALLBACK*pUserFnc_t)(void *);
         NativeKernelCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             pUserFnc_t          pUserFnc,
             void*               pArgs,
             size_t              szCbArgs,
             cl_uint             uNumMemObjects,
-            MemoryObject**      ppMemObjList,
+            SharedPtr<MemoryObject>*      ppMemObjList,
             const void**        ppArgsMemLoc
         );
         virtual ~NativeKernelCommand();
@@ -1049,7 +1098,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void*                m_pArgs;
         size_t               m_szCbArgs;
         cl_uint              m_uNumMemObjects;
-        MemoryObject**       m_ppMemObjList;
+        SharedPtr<MemoryObject>*       m_ppMemObjList;
         const void**         m_ppArgsMemLoc;
         MemoryObjectArgList  m_MemOclObjects;
     };
@@ -1063,7 +1112,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         MigrateMemObjCommand(
-            IOclCommandQueueBase*  cmdQueue,
+            SharedPtr<IOclCommandQueueBase>  cmdQueue,
             ocl_entry_points *     pOclEntryPoints,
             ContextModule*         pContextModule,
             cl_mem_migration_flags clFlags,
@@ -1102,7 +1151,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class RuntimeCommand : public Command
     {
     public:
-		RuntimeCommand( IOclCommandQueueBase* cmdQueue,
+		RuntimeCommand( SharedPtr<IOclCommandQueueBase> cmdQueue,
             bool bIsDependentOnEvents = false) : Command(cmdQueue),
             m_bIsDependentOnEvents(bIsDependentOnEvents) {}
         virtual ~RuntimeCommand()                               {}
@@ -1127,7 +1176,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        MarkerCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+        MarkerCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~MarkerCommand() {}
         
@@ -1142,7 +1191,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        WaitForEventsCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+        WaitForEventsCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~WaitForEventsCommand() {}
         
@@ -1158,7 +1207,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        BarrierCommand( IOclCommandQueueBase* cmdQueue, bool bIsDependentOnEvents ) :
+        BarrierCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~BarrierCommand() {}
         
@@ -1174,11 +1223,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ErrorQueueEvent : public OclEvent
 	{
 	public:
-		ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(NULL) {};
+
+        PREPARE_SHARED_PTR(ErrorQueueEvent);
+
+        static SharedPtr<ErrorQueueEvent> Allocate(_cl_context_int* context)
+        {
+            return SharedPtr<ErrorQueueEvent>(new ErrorQueueEvent(context));
+        }
+		
 		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
 		//Override to notify my command about failed events it depended on
-		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode);
+		virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode);
 
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const; 
@@ -1186,6 +1242,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
 	private:
+
+        ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(NULL) {};
+
 		PrePostFixRuntimeCommand* m_owner;
 	};
 
@@ -1203,7 +1262,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		long	Release(); 
 
 	private:
-		PrePostFixRuntimeCommand*			m_owner;
+		CommandSharedPtr<PrePostFixRuntimeCommand>			m_owner;
 		bool								m_bIsCompleted;
 	};
 
@@ -1214,8 +1273,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         PrePostFixRuntimeCommand(Command* relatedUserCommand,
 									Mode working_mode, 
-									IOclCommandQueueBase* cmdQueue ); 
-        virtual ~PrePostFixRuntimeCommand();
+									SharedPtr<IOclCommandQueueBase> cmdQueue );
 
 		cl_err_code             Init();
 		cl_err_code				Execute();
@@ -1230,13 +1288,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code				GetForcedErrorCode() const { return m_force_error_return; };
 
         cl_command_type         GetCommandType() const  { return m_relatedUserCommand->GetCommandType(); };
-        const char*             GetCommandName() const  { return m_relatedUserCommand->GetCommandName(); };
+        const char*             GetCommandName() const
+        { 
+            if (m_working_mode == PREFIX_MODE)
+            {
+                return "PreFixRuntimeCommand";
+            }
+            else
+            {
+                return "PostFixRuntimeCommand";
+            }
+        };
 
 	private:
-		 Command*			m_relatedUserCommand;
+		 CommandSharedPtr<> m_relatedUserCommand;
 		 Mode				m_working_mode;
 		 cl_err_code		m_force_error_return;
-		 ErrorQueueEvent	m_error_event;
+		 SharedPtr<ErrorQueueEvent>	m_error_event;
 		 RuntimeCommandTask m_task;
     };
 

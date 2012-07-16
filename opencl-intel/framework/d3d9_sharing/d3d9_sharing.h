@@ -64,6 +64,7 @@ struct D3DResourceInfo
      *
      * @return  true if the first parameter is less than the second.
      */
+        cl_dx9_media_adapter_type_khr m_adapterType;    // this may be 0 in case of Intel version of the extension
 
     virtual bool operator<(const D3DResourceInfo& other) const { return m_pResource < other.m_pResource; }
 

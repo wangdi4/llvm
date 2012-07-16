@@ -44,20 +44,27 @@ class GenericImageArray : public GenericMemObject, public IMemoryObjectArray
 {
 public:    
 
-    /**
-     * Constructor
-     */
-    GenericImageArray(Context* pContext, cl_mem_object_type clObjType) :
-      GenericMemObject(pContext, GetEquivalentSingleImageType(clObjType))
-      {
-          m_clMemObjectType = clObjType;
-      }
+    PREPARE_SHARED_PTR(GenericImageArray);
+
+    static SharedPtr<GenericImageArray> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<GenericImageArray>(new GenericImageArray(pContext, clObjType));
+    }
 
     // overridden methods:
 
 	size_t GetNumObjects() const;
     
 private:
+
+    /**
+     * Constructor
+     */
+    GenericImageArray(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+        GenericMemObject(pContext, GetEquivalentSingleImageType(clObjType))
+    {
+        m_clMemObjectType = clObjType;
+    }
 
     static cl_mem_object_type GetEquivalentSingleImageType(cl_mem_object_type clMemObjType);
 

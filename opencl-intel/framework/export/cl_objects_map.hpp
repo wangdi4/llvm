@@ -1,3 +1,23 @@
+// Copyright (c) 2006-2012 Intel Corporation
+// All rights reserved.
+// 
+// WARRANTY DISCLAIMER
+// 
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 ///////////////////////////////////////////////////////////
 //  OCLObjectsMap.hpp
 //  Implementation of the Class OCLObjectsMap
@@ -5,17 +25,17 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////
 
-template <class HandleType>
-Intel::OpenCL::Utils::AtomicCounter OCLObjectsMap<HandleType>::m_iNextGenKey(1);
+template <class HandleType, class ParentHandleType>
+Intel::OpenCL::Utils::AtomicCounter OCLObjectsMap<HandleType, ParentHandleType>::m_iNextGenKey(1);
 
-template <class HandleType>
-OCLObjectsMap<HandleType>::~OCLObjectsMap()
+template <class HandleType, class ParentHandleType>
+OCLObjectsMap<HandleType, ParentHandleType>::~OCLObjectsMap()
 {
 	m_mapObjects.clear();
 }
 
-template <class HandleType>
-HandleType* OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject)
+template <class HandleType, class ParentHandleType>
+HandleType* OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject)
 {
 	assert ( NULL != pObject );
 	HandleType* hObjectHandle = pObject->GetHandle();
@@ -24,20 +44,18 @@ HandleType* OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject
 	pObject->SetId(iObjectId);
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	/*
-	map<HandleType*, OCLObject<HandleType>*>::iterator it = m_mapObjects.find(hObjectHandle);
+	map<HandleType*, OCLObject<HandleType, ParentHandleType>*>::iterator it = m_mapObjects.find(hObjectHandle);
 	if (it != m_mapObjects.end())
 	{
 		return CL_ERR_KEY_ALLREADY_EXISTS;
 	}
 	*/
 	m_mapObjects[hObjectHandle] = pObject;
-	pObject->AddPendency(this);
-
 	return hObjectHandle;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject, bool bAssignId)
+template <class HandleType, class ParentHandleType>
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject, bool bAssignId)
 {
 	if (NULL == pObject)
 	{
@@ -56,48 +74,40 @@ cl_err_code OCLObjectsMap<HandleType>::AddObject(OCLObject<HandleType> * pObject
 		return CL_ERR_KEY_ALLREADY_EXISTS;
 	}
 	m_mapObjects[hObjectHandle] = pObject;
-	//This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
-	pObject->AddPendency(this);
 	return CL_SUCCESS;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::GetOCLObject(HandleType* hObjectHandle, OCLObject<HandleType> ** ppObject)
+template <class HandleType, class ParentHandleType>
+SharedPtr<OCLObject<HandleType, ParentHandleType> > OCLObjectsMap<HandleType, ParentHandleType>::GetOCLObject(HandleType* hObjectHandle)
 {
-	assert ("Invalid input" && (NULL != ppObject) );
-
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 
 	HandleTypeMapConstIterator it = m_mapObjects.find(hObjectHandle);
 	if (it == m_mapObjects.end())
 	{
-		return CL_ERR_KEY_NOT_FOUND;
+		return NULL;
 	}
-	*ppObject = it->second;
-	return CL_SUCCESS;
+	return it->second;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::GetObjectByIndex(cl_uint uiIndex, OCLObject<HandleType> ** ppObject)
+template <class HandleType, class ParentHandleType>
+SharedPtr<OCLObject<HandleType, ParentHandleType> > OCLObjectsMap<HandleType, ParentHandleType>::GetObjectByIndex(cl_uint uiIndex)
 {
-	assert ("Invalid input" && (NULL != ppObject) );
-
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	if (uiIndex > m_mapObjects.size())
 	{
-		return CL_ERR_KEY_NOT_FOUND;
+		return NULL;
 	}
 	HandleTypeMapConstIterator it = m_mapObjects.begin();
 	for (cl_uint ui = 0; ui < uiIndex; ++ui)
 	{
 		++it;
 	}
-	*ppObject = it->second;
-	return CL_SUCCESS;
+	return it->second;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::RemoveObject(HandleType* hObjectHandle)
+template <class HandleType, class ParentHandleType>
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(HandleType* hObjectHandle)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	HandleTypeMapIterator it = m_mapObjects.find(hObjectHandle);
@@ -106,14 +116,13 @@ cl_err_code OCLObjectsMap<HandleType>::RemoveObject(HandleType* hObjectHandle)
 		return CL_ERR_KEY_NOT_FOUND;
 	}
 	//This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
-	OCLObject<HandleType>* obj = it->second;
+	SharedPtr<OCLObject<HandleType, ParentHandleType> > obj = it->second;
 	m_mapObjects.erase(it);
-	obj->RemovePendency(this);
 	return CL_SUCCESS;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::GetObjects(cl_uint uiObjectCount, OCLObject<HandleType> ** ppObjects, cl_uint * puiObjectCountRet)
+template <class HandleType, class ParentHandleType>
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetObjects(cl_uint uiObjectCount, SharedPtr<OCLObject<HandleType, ParentHandleType> >* ppObjects, cl_uint * puiObjectCountRet)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	if (NULL == ppObjects && NULL == puiObjectCountRet)
@@ -140,8 +149,8 @@ cl_err_code OCLObjectsMap<HandleType>::GetObjects(cl_uint uiObjectCount, OCLObje
 	return CL_SUCCESS;
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::GetIDs(cl_uint uiIdsCount, HandleType** pIds, cl_uint * puiIdsCountRet)
+template <class HandleType, class ParentHandleType>
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetIDs(cl_uint uiIdsCount, HandleType** pIds, cl_uint * puiIdsCountRet)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	if (NULL == pIds && NULL == puiIdsCountRet)
@@ -168,30 +177,30 @@ cl_err_code OCLObjectsMap<HandleType>::GetIDs(cl_uint uiIdsCount, HandleType** p
 	return CL_SUCCESS;
 }
 
-template <class HandleType>
-cl_uint OCLObjectsMap<HandleType>::Count() const
+template <class HandleType, class ParentHandleType>
+cl_uint OCLObjectsMap<HandleType, ParentHandleType>::Count() const
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	assert(m_mapObjects.size() <= CL_MAX_UINT32);
 	return (cl_uint)m_mapObjects.size();
 }
 
-template <class HandleType>
-void OCLObjectsMap<HandleType>::Clear()
+template <class HandleType, class ParentHandleType>
+void OCLObjectsMap<HandleType, ParentHandleType>::Clear()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	m_mapObjects.clear();
 }
 
-template <class HandleType>
-bool OCLObjectsMap<HandleType>::IsExists(HandleType* hObjectHandle)
+template <class HandleType, class ParentHandleType>
+bool OCLObjectsMap<HandleType, ParentHandleType>::IsExists(HandleType* hObjectHandle)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	return (m_mapObjects.find(hObjectHandle) != m_mapObjects.end());
 }
 
-template <class HandleType>
-cl_err_code OCLObjectsMap<HandleType>::ReleaseObject(HandleType* hObject)
+template <class HandleType, class ParentHandleType>
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(HandleType* hObject)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	HandleTypeMapIterator it = m_mapObjects.find(hObject);
@@ -206,15 +215,13 @@ cl_err_code OCLObjectsMap<HandleType>::ReleaseObject(HandleType* hObject)
 	}
 	else if (0 == newRef)
 	{
-		OCLObject<HandleType>* obj = it->second;
 		m_mapObjects.erase(it);
-		obj->RemovePendency(this);
 	}
 	return CL_SUCCESS;
 }
 
-template <class HandleType>
-void OCLObjectsMap<HandleType>::ReleaseAllObjects(bool bTerminate)
+template <class HandleType, class ParentHandleType>
+void OCLObjectsMap<HandleType, ParentHandleType>::ReleaseAllObjects(bool bTerminate)
 {
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
 	HandleTypeMapIterator it = m_mapObjects.begin();
@@ -222,7 +229,6 @@ void OCLObjectsMap<HandleType>::ReleaseAllObjects(bool bTerminate)
 	{
 		it->second->SetTerminate(bTerminate);
 		it->second->Release();
-		it->second->RemovePendency(this);
 		++it;
 	}
 	m_mapObjects.clear();

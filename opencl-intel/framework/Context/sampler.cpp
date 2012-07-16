@@ -48,23 +48,18 @@ Sampler::Sampler(_cl_context_int* context) : OCLObject<_cl_sampler_int>(context,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Sampler::~Sampler()
 {
-    m_pContext->RemovePendency(this);
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter Sampler D'tor"));
 
 	RELEASE_LOGGER_CLIENT;
 }
 
-cl_err_code Sampler::Initialize(Context * pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode)
+cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode)
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter Initialize"));
 
 	assert( pContext != NULL );
 
 	m_pContext = pContext;
-
-    // Sign to be dependent on the context, ensure the context will be delated only after the object was
-    m_pContext->AddPendency(this);
-
 
 	// Combine sampler properties
 	m_clSamlerProps = 0;

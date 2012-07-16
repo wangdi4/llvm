@@ -63,8 +63,7 @@ OclEvent::OclEvent(_cl_context_int* context)
 	  m_complete(false), m_returnCode(CL_SUCCESS),
 	m_eventState(EVENT_STATE_CREATED)
 {
-	m_pContext = (Context*)context->object;
-	m_pContext->AddPendency(this);
+	m_pContext = SharedPtr<Context>((Context*)(context->object));
 	m_pCurrentEvent = NULL;
 }
 
@@ -83,20 +82,15 @@ OclEvent::~OclEvent()
 		m_pCurrentEvent = NULL;
 	}
 #endif
-	m_pContext->RemovePendency(this);
 }
 
 void OclEvent::ExpungeObservers(ObserversList_t &list)
 {
-	// during debug, this is an error! We should never call expunge on non empty lists!
-	assert(list.empty());
-	ObserversList_t::iterator it;
-	for (it = list.begin() ; it != list.end() ; ++it)
-	{
-		IEventObserver *observer= *it;
-		OclEvent *evt = dynamic_cast<OclEvent*>(observer);
-		if (evt) RemovePendency(this); // make sure we free all observers.
-	}
+    ObserversList_t::iterator it;
+    for (it = list.begin() ; it != list.end() ; ++it)
+    {
+        delete *it;
+    }
 	list.clear();
 }
 
@@ -104,9 +98,9 @@ void OclEvent::ExpungeObservers(ObserversList_t &list)
  * Sugaring over AddDependentOnMulti, mainly to stay backwards compatible.
  * @param pDependsOnEvent
  */
-void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
+void OclEvent::AddDependentOn( SharedPtr<OclEvent> pDependsOnEvent)
 {
-	OclEvent *evtList[1];
+	SharedPtr<OclEvent>evtList[1];
 	evtList[0] = pDependsOnEvent;
 	return AddDependentOnMulti(1, evtList);
 }
@@ -116,7 +110,7 @@ void OclEvent::AddDependentOn( OclEvent* pDependsOnEvent)
  * @param count
  * @param pDependencyList
  */
-void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyList)
+void OclEvent::AddDependentOnMulti(unsigned int count, SharedPtr<OclEvent>* pDependencyList)
 {
 	assert(!m_complete && "A weird race happened and an event finished during AddDependentOnMulti.");
     if (m_complete)
@@ -129,14 +123,14 @@ void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyLis
 	m_numOfDependencies.add(count);
 	for (unsigned int i = 0; i < count; ++i)
 	{
-		OclEvent*& evt = pDependencyList[i];
+		SharedPtr<OclEvent>& evt = pDependencyList[i];
 		if (evt != NULL)
 		{
 			// Normal flow, add the dependency
-			AddPendency(evt); //BugFix: When command waits for queue event and user event,
+			//AddPendency(evt); //BugFix: When command waits for queue event and user event,
 			// and user event is set with failure, the second notification will fail
 			// do not: SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-			evt->AddObserver(this); // might trigger this immediately, if evt already occurred.
+            evt->AddObserver(new OclEventSharedPtr(this)); // might trigger this immediately, if evt already occurred.
 			bLastWasNull = false;
 		} else {
 			cl_int depsLeft = --m_numOfDependencies;
@@ -157,9 +151,10 @@ void OclEvent::AddDependentOnMulti(unsigned int count, OclEvent** pDependencyLis
 }
 
 
-void OclEvent::AddObserver(IEventObserver* observer)
+void OclEvent::AddObserver(SmartPtr<IEventObserver>* pObserver)
 {
 	m_ObserversListGuard.Lock();
+    IEventObserver* observer = pObserver->GetPtr();
 
 	if (observer->GetExpectedExecState() >= GetEventExecState())
 	{
@@ -168,19 +163,20 @@ void OclEvent::AddObserver(IEventObserver* observer)
 		cl_int retcode = GetReturnCode();
 		retcode = retcode < 0 ? retcode : observer->GetExpectedExecState();
 		observer->ObservedEventStateChanged(this, retcode);
+        delete pObserver;
 	}
 	else
 	{
 		switch(observer->GetExpectedExecState())
 		{
 		case CL_COMPLETE:
-			m_CompleteObserversList.push_back(observer);
+			m_CompleteObserversList.push_back(pObserver);
 			break;
 		case CL_RUNNING:
-			m_RunningObserversList.push_back(observer);
+			m_RunningObserversList.push_back(pObserver);
 			break;
 		case CL_SUBMITTED:
-			m_SubmittedObserversList.push_back(observer);
+			m_SubmittedObserversList.push_back(pObserver);
 			break;
 		default:
 			assert(0 && "Trying to add an observer to invalid exec state.");
@@ -239,7 +235,7 @@ OclEventState OclEvent::SetEventState(const OclEventState newEventState)
  * Notifies us that pEvent that we were listening on, has completed
  * Assumes we are called on our required event, or on error.
  */
-cl_err_code OclEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode)
+cl_err_code OclEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode)
 {
 	assert(returnCode <= 0 && "OclEvent got a non complete return code.");
 
@@ -253,8 +249,6 @@ cl_err_code OclEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnC
 	{
 		DoneWithDependencies(pEvent);
 	}
-
-	RemovePendency(pEvent);	// Remove pendency that was set in AddDependentOnMulti
 	return CL_SUCCESS;
 }
 
@@ -290,7 +284,7 @@ void OclEvent::NotifyRunning()
 }
 
 
-void OclEvent::DoneWithDependencies(OclEvent* pEvent)
+void OclEvent::DoneWithDependencies(SharedPtr<OclEvent> pEvent)
 {
 	if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
 	{
@@ -334,8 +328,9 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 	ObserversList_t::iterator it;
 	for (it = list.begin() ; it != list.end() ; ++it)
 	{
-		IEventObserver *observer= *it;
+        IEventObserver *observer= (*it)->GetPtr();
 		observer->ObservedEventStateChanged(this, retCode);
+        delete *it;
 	}
 	list.clear();
 }
@@ -346,7 +341,6 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 ******************************************************************/
 void OclEvent::Wait()
 {
-    AddPendency(NULL);
 	if ( !m_complete )
 	{
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
@@ -358,8 +352,7 @@ void OclEvent::Wait()
 #else
 #error "Please define which wait method OclEvent should use. See ocl_event.h"
 #endif
-	}
-    RemovePendency(NULL);
+    }
 }
 
 void OclEvent::WaitSpin()

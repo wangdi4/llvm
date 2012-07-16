@@ -25,9 +25,8 @@
 
 using namespace Intel::OpenCL::Framework;
 
-SyncGLObjects::SyncGLObjects(cl_command_type cmdType, GLContext* pContext, GLMemoryObject**pMemObjects, unsigned int uiMemObjNum, IOclCommandQueueBase* cmdQueue) :
-SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, (GraphicsApiMemoryObject**)(pMemObjects),
-                       cmdType == CL_COMMAND_ACQUIRE_GL_OBJECTS), m_pContext(pContext) { }
+SyncGLObjects::SyncGLObjects(cl_command_type cmdType, SharedPtr<GLContext> pContext, SharedPtr<GraphicsApiMemoryObject>*pMemObjects, unsigned int uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue) :
+SyncGraphicsApiObjects(cmdType, uiMemObjNum, cmdQueue, pMemObjects, cmdType == CL_COMMAND_ACQUIRE_GL_OBJECTS), m_pContext(pContext) { }
 
 SyncGLObjects::~SyncGLObjects()
 {
@@ -62,7 +61,8 @@ cl_err_code SyncGLObjects::Execute()
 			return CL_OUT_OF_RESOURCES;
 		}
 
-		wglMakeCurrent(hCntxDC, hBackupGL);
+		const BOOL ret = wglMakeCurrent(hCntxDC, hBackupGL);
+        assert(ret);
     }
 
     ExecGLSync(NULL == hBackupGL);
@@ -104,10 +104,11 @@ void SyncGLObjects::ExecGLSync(bool bMainGLThread)
 		if ( !bMainGLThread )
 		{
 			// If syncronization is done in different thread we must make sure
-			// that all GL commands were completed
-			glFinish();
-		}
+			// that all GL commands were completed            
+            glFinish();
+            assert(!glGetError());
+		}                
 	}
-
 	RuntimeCommand::Execute();
+    
 }

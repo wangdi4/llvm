@@ -8,6 +8,7 @@
 #include "cl_cpu_detect.h"
 #include "cl_linux_utils.h"
 #include "ocl_itt.h"
+#include "cl_shared_ptr.hpp"
 
 #ifndef _WIN32
 #include "cl_framework_alias_linux.h"

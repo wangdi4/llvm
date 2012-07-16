@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
 OutOfOrderCommandQueue::OutOfOrderCommandQueue(
-	Context*                    pContext,
+	SharedPtr<Context>                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
 	EventsManager*              pEventManager
@@ -51,7 +51,7 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
 }
 
 OutOfOrderCommandQueue::~OutOfOrderCommandQueue() 
-{
+{    
 }
 
 cl_err_code OutOfOrderCommandQueue::Initialize()
@@ -73,6 +73,16 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      // This floating dependence will be resolved at the completion of clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
 	 m_depOnAll = pDepOnAll;
 	 return CL_SUCCESS;	
+}
+
+long OutOfOrderCommandQueue::Release()
+{
+    const long ref = IOclCommandQueueBase::Release();
+    if (0 == ref && m_depOnAll)
+    {
+        delete m_depOnAll;
+    }
+    return ref;
 }
 
 void OutOfOrderCommandQueue::Submit(Command* cmd)
@@ -112,7 +122,7 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 {
 	OclAutoMutex mu(&m_muLastBarrer);
 	
-	OclEvent* cmdEvent = cmd->GetEvent();
+	SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.test_and_set(NULL,NULL));
 	// BUBUG: The bug is here, thus I added the mutex.
@@ -152,23 +162,23 @@ cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
 
 cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
 {
-    OclEvent& cmdEvent = *barrier->GetEvent();
+    SharedPtr<OclEvent> cmdEvent = barrier->GetEvent();
     if (!barrier->IsDependentOnEvents())
     {
 		OclAutoMutex mu(&m_muLastBarrer);
 		
         // Prevent barrier from firing until we're done enqueuing it to avoid races
-        cmdEvent.AddFloatingDependence();
-        cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-        cmdEvent.AddPendency(this);
+        cmdEvent->AddFloatingDependence();
+        cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+        cmdEvent.IncRefCnt();   // TODO: add a comment why this is necessary
         Command* prev_barrier = m_lastBarrier.exchange(barrier);
         if ( NULL != prev_barrier )
         {
         	// Need to remove pendency from the previous barrier
-        	prev_barrier->GetEvent()->RemovePendency(this);
+            prev_barrier->GetEvent().DecRefCnt();
         }
         const cl_err_code ret = AddDependentOnAll(barrier);		
-        cmdEvent.RemoveFloatingDependence();
+        cmdEvent->RemoveFloatingDependence();
         return ret;
     }
     return EnqueueWaitForEvents(barrier);
@@ -178,15 +188,15 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 {		
 	OclAutoMutex mu(&m_muLastBarrer);
 
-	OclEvent* cmdEvent = cmd->GetEvent();
-    cmdEvent->AddPendency(this);
+	SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
+    cmdEvent.IncRefCnt();   // TODO: add a comment why this is necessary
 	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
 	if ( NULL != prev_barrier)
 	{					
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
-		prev_barrier->GetEvent()->RemovePendency(this);
+        prev_barrier->GetEvent().DecRefCnt();
 	}
 	return CL_SUCCESS;	
 }
@@ -202,7 +212,7 @@ cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;	
 }
 
-cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code OutOfOrderCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
 {	
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
@@ -221,7 +231,7 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEv
 				// This is same barrier, and current lastBarrier is NULL
 				if ( prev_barrier == cmd )
 				{
-					cmd->GetEvent()->RemovePendency(this);
+                    //cmd->GetEvent().DecRefCnt();
 				}
 			}
 		}
@@ -245,8 +255,8 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    QueueEvent* pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
-    QueueEvent* pCommandEvent      = cmd->GetEvent();
+    SharedPtr<QueueEvent> pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
+    SharedPtr<QueueEvent> pCommandEvent      = cmd->GetEvent();
     pNewDepnOnAllEvent->Release();
     
     // First of all create a new "depends on all" object and put it in place.
@@ -254,14 +264,10 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
     // Finally remove the floating dependence to allow the thing to resolve in due course.
 
 	Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
-    QueueEvent* pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
+    SharedPtr<QueueEvent> pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
 	pOldDepOnAllEvent->AddFloatingDependence();
 	pOldDepOnAllEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 	pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
 	pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;
-}
-void OutOfOrderCommandQueue::NotifyInvisible()
-{
-    m_depOnAll->GetEvent()->RemovePendency(NULL);
 }

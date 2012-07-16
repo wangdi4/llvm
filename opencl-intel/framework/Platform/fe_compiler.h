@@ -55,8 +55,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
         FrontEndCompiler(const FrontEndCompiler&): OCLObject<_cl_object>(NULL, "") {};	
 
-    public:
-
         /******************************************************************************************
         * Function: 	FECompiler
         * Description:	The Frontend compiler class constructor
@@ -65,6 +63,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Date:			March 2008
         ******************************************************************************************/
         FrontEndCompiler();
+
+    public:
+
+        PREPARE_SHARED_PTR(FrontEndCompiler);
+
+        static SharedPtr<FrontEndCompiler> Allocate()
+        {
+            return SharedPtr<FrontEndCompiler>(new FrontEndCompiler());
+        }
 
         /******************************************************************************************
         * Function: 	Initialize    

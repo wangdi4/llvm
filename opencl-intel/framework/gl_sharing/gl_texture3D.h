@@ -33,8 +33,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class GLTexture3D : public GLTexture2D
 	{
-	public:
-		GLTexture3D(Context * pContext, cl_gl_object_type clglObjType);
+	public:		
+
+        PREPARE_SHARED_PTR(GLTexture3D)
+
+		static SharedPtr<GLTexture3D> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
+        {
+            return SharedPtr<GLTexture3D>(new GLTexture3D(pContext, clglObjType));
+        }
 
 		// GLMemoryObject interface
 		cl_err_code AcquireGLObject();
@@ -50,6 +56,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 
 	protected:
+
+        GLTexture3D(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		// do not implement
         GLTexture3D(const GLTexture3D&);
         GLTexture3D& operator=(const GLTexture3D&);

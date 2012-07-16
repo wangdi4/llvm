@@ -33,22 +33,18 @@ class Image1DBuffer : public GenericMemObject
 
 public:
 
-    /**
-     * Constructor
-     */
-    Image1DBuffer(Context* pContext, cl_mem_object_type clObjType) :
-	  GenericMemObject(pContext, clObjType),  m_pBuffer(NULL) {}
+    PREPARE_SHARED_PTR(Image1DBuffer);    
 
-    /**
-     * Destructor
-     */
-    ~Image1DBuffer();
+    static SharedPtr<Image1DBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    {
+        return SharedPtr<Image1DBuffer>(new Image1DBuffer(pContext, clObjType));
+    }
 
     /**
      * Sets the buffer object from which the Image1DBuffer is created and also increment its dependency
      * @param pBuffer the buffer object
      */
-    void SetBuffer(GenericMemObject* pBuffer);
+    void SetBuffer(SharedPtr<GenericMemObject> pBuffer);
 
     // overloaded functions
 
@@ -56,7 +52,12 @@ public:
 
 private:
 
-    GenericMemObject* m_pBuffer;
+    /**
+     * Constructor
+     */
+    Image1DBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType) { }
+
+    SharedPtr<GenericMemObject> m_pBuffer;
 
 };
 

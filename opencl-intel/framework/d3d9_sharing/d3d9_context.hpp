@@ -26,7 +26,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 D3DContext<RESOURCE_TYPE, DEV_TYPE>::D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-    cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
+    cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
     void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
     ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions, bool bIsInteropUserSync) :
 Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
@@ -56,7 +56,7 @@ D3DContext<RESOURCE_TYPE, DEV_TYPE>::~D3DContext()
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
-cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags clFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, MemoryObject** const ppMemObj,
+cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags clFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, SharedPtr<MemoryObject>* const ppMemObj,
                                                                     cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane)
 {
     Intel::OpenCL::Utils::OclAutoMutex mtx(&m_mutex, true);
@@ -68,7 +68,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
         return m_pd3dDefinitions->GetInvalidResource();    // Khronos DX9 Media Sharing doesn't say anything about this, but the other 2 spec do.
     }
     assert(NULL != ppMemObj);
-    MemoryObject* pMemObj;
+    SharedPtr<MemoryObject> pMemObj;
 
     cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, m_pd3dDefinitions->GetGfxSysSharing(), this, &pMemObj);
     if (CL_FAILED(clErr))
@@ -78,7 +78,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
         return clErr;
     }
     
-    D3DResource<RESOURCE_TYPE, DEV_TYPE>& d3d9Resource = *static_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>*>(pMemObj);
+    D3DResource<RESOURCE_TYPE, DEV_TYPE>& d3d9Resource = *pMemObj.DynamicCast<D3DResource<RESOURCE_TYPE, DEV_TYPE>>();
     if (!d3d9Resource.IsValidlyCreated(*pResourceInfo))
     {
         LOG_ERROR(TEXT("%s"), "resource is not a Direct3D 9 resource created in D3DPOOL_DEFAULT");
@@ -132,7 +132,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
         return clErr;
     }
     m_resourceInfoSet.insert(pResourceInfo);
-    m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pMemObj);
+    m_mapMemObjects.AddObject(pMemObj);
     *ppMemObj = pMemObj;
     return CL_SUCCESS;
 }

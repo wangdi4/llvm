@@ -16,13 +16,19 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+        InitSharedPtrs();
+#endif
 		break;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
 		// release the framework proxy object 
-		Intel::OpenCL::Framework::FrameworkProxy::Destroy();		
+		Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+#if _DEBUG
+        FiniSharedPts();
+#endif
 		break;
 	}
 	return TRUE;

@@ -63,8 +63,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 
 	public:
+
+        PREPARE_SHARED_PTR(OclCommandQueue);
+		
 		OclCommandQueue(
-			Context*                    pContext,
+            SharedPtr<Context>                    pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
 			EventsManager*              pEventManager
@@ -82,7 +85,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled;      }
 		cl_int          GetContextId() const;
 		cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
-		FissionableDevice*	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
+		SharedPtr<FissionableDevice>	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
 		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
 
         // Create a custom tracker in GAP that correspond to the OCL queue
@@ -91,10 +94,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GPA_ReleaseQueue();
 
 	protected:
+
+        OclCommandQueue(
+            SharedPtr<Context> pContext,
+            cl_device_id                clDefaultDeviceID, 
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager,
+            ocl_entry_points *			pOclEntryPoints
+            );
+
 		virtual         ~OclCommandQueue();
 
-		Context*            m_pContext;
-		FissionableDevice*  m_pDefaultDevice;
+		SharedPtr<Context> m_pContext;
+		SharedPtr<FissionableDevice> m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
 		cl_device_id        m_clDefaultDeviceHandle;
 		cl_bool             m_bProfilingEnabled;

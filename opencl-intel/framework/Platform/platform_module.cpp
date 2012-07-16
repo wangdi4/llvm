@@ -44,6 +44,7 @@
 #include <string>
 #include "ocl_supported_extensions.h"
 #include "cl_local_array.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -113,7 +114,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
         return CL_INVALID_DEVICE;
     }
 
-	m_ppRootDevices = new Device*[supported_devices_count];
+	m_ppRootDevices = new SharedPtr<Device>[supported_devices_count];
 	if (NULL == m_ppRootDevices)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -124,8 +125,8 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 	for(unsigned int ui=0; ui<supported_devices_count; ++ui)
 	{
 		// create new device object
-		Device * pDevice = new Device(&m_clPlatformId);
-		if (!pDevice)
+        SharedPtr<Device> pDevice = Device::Allocate(&m_clPlatformId);
+		if (NULL == pDevice)
 		{
             m_mapDevices.ReleaseAllObjects(false);
             m_uiRootDevicesCount = 0;
@@ -138,20 +139,14 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		clErrRet = pDevice->InitDevice(strDevice.c_str());
 		if (CL_FAILED(clErrRet))
 		{
-			// We should use RemovePendency because Release() in not effect ref count
-			pDevice->RemovePendency(this);
 			LOG_ERROR(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
 			continue;
 		}
 
 		// assign device in the objects map
-		m_mapDevices.AddObject((OCLObject<_cl_device_id_int>*)pDevice);
+		m_mapDevices.AddObject(pDevice);
 		m_ppRootDevices[m_uiRootDevicesCount] = pDevice;
         ++m_uiRootDevicesCount;
-
-		// The Root device was created with floating pendency. For root level devices we need
-		// to remove the floating pendency. Thefore NULL
-		pDevice->RemovePendency(NULL);
 
 		if (defaultDevice != "" && defaultDevice == devices[ui])
 		{
@@ -172,13 +167,13 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::InitFECompiler(Device* pRootDevice)
+cl_err_code PlatformModule::InitFECompiler(SharedPtr<Device> pRootDevice)
 {
 	const IOCLDeviceFECompilerDescription& pFEConfig = pRootDevice->GetDeviceAgent()->clDevGetFECompilerDecription();
 	string strModule = pFEConfig.clDevFEModuleName();
-	FrontEndCompiler * pFECompiler = new FrontEndCompiler();
+    SharedPtr<FrontEndCompiler> pFECompiler = FrontEndCompiler::Allocate();
 
-	if (!pFECompiler)
+	if (NULL == pFECompiler)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
@@ -194,7 +189,7 @@ cl_err_code PlatformModule::InitFECompiler(Device* pRootDevice)
 	pRootDevice->SetFrontEndCompiler(pFECompiler);
 
 	// assign compiler in the objects map
-	m_mapFECompilers.AddObject((OCLObject<_cl_object>*)pFECompiler);
+	m_mapFECompilers.AddObject(pFECompiler);
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -319,7 +314,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 	size_t szParamSize = 0;
 	void * pValue = NULL;
 	char * pch = NULL,  *pNextToken;
-	Device * pDevice = NULL;
+	SharedPtr<Device> pDevice = NULL;
 	bool bRes = true;
 	cl_char pcPlatformExtension[8192] = {0};
 	cl_char pcDeviceExtension[8192] = {0};
@@ -436,7 +431,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
 	cl_uint uiNumDevices = m_uiRootDevicesCount;
 	cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
-	Device ** ppDevices = NULL;
+	SharedPtr<Device>* ppDevices = NULL;
 	cl_device_id * pDeviceIds = NULL;
 
 	if (uiNumDevices == 0)
@@ -449,13 +444,16 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 	}
 
 	// prepare list for all devices
-	ppDevices = new Device * [uiNumDevices];
+	ppDevices = new SharedPtr<Device> [uiNumDevices];
 	if (NULL == ppDevices)
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-    MEMCPY_S(ppDevices, uiNumDevices * sizeof(Device *), m_ppRootDevices, m_uiRootDevicesCount * sizeof(Device *));
+    for (size_t i = 0; i < m_uiRootDevicesCount; i++)
+    {
+        ppDevices[i] = m_ppRootDevices[i];
+    }
 	pDeviceIds = new cl_device_id[uiNumDevices];
 	if (NULL == pDeviceIds)
 	{
@@ -528,8 +526,7 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 									  void* pParamValue,
 									  size_t* pszParamValueSizeRet)
 {
-	Device * pDevice = NULL;
-	cl_err_code clErrRet = CL_SUCCESS;
+	SharedPtr<FissionableDevice> pDevice = NULL;
 	size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
 	void * pValue = NULL;
@@ -547,8 +544,8 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
         pValue = &bBoolValue;
         break;
 	default:
-		clErrRet = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice, (OCLObject<_cl_device_id_int>**)(&pDevice));
-		if (CL_FAILED(clErrRet))
+        pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
+		if (NULL == pDevice)
 		{
 			return CL_INVALID_DEVICE;
 		}
@@ -583,16 +580,13 @@ cl_int	PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDevice
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppDevice)
+cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, SharedPtr<Device>* ppDevice)
 {
 	LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
 	assert( (NULL != ppDevice) );
-
-    FissionableDevice* temp = NULL;
-    cl_err_code ret;
 	// get the device from the devices list
-	ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)&temp);
-    if (CL_SUCCESS != ret)
+    SharedPtr<FissionableDevice> temp = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
+    if (!temp)
     {
         return CL_INVALID_DEVICE;
     }
@@ -600,25 +594,22 @@ cl_err_code	PlatformModule::GetRootDevice(cl_device_id clDeviceId, Device ** ppD
     return CL_SUCCESS;
 }
 
-cl_err_code	PlatformModule::GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice)
+SharedPtr<FissionableDevice> PlatformModule::GetDevice(cl_device_id clDeviceId)
 {
-    LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
-    assert( (NULL != ppDevice) );
-
+    LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d"),clDeviceId);
     // get the device from the devices list
-    return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+    return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
 }
 
 //////////////////////////////////////////////////////////////////////////
 // PlatformModule::UnloadCompiler
 //////////////////////////////////////////////////////////////////////////
 cl_int PlatformModule::UnloadCompiler(void)
-{
-	Device * pDevice = NULL;
+{	
 	for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 	{
-		cl_err_code clErr = m_mapDevices.GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
-		if (CL_SUCCEEDED(clErr) && (NULL != pDevice))
+        SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
+		if (NULL != pDevice)
 		{
 			pDevice->GetDeviceAgent()->clDevUnloadCompiler();
 		}
@@ -636,7 +627,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 
 	cl_context_properties hGL, hDC, hDevGL, hDevDC;
 	cl_int ret;
-	Device * pDevice = NULL;
+	SharedPtr<FissionableDevice> pDevice = NULL;
 	cl_device_id	devId = NULL;
 
 	switch(param_name)
@@ -670,8 +661,8 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 		// Find appropriate device
 		for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 		{
-			ret = m_mapDevices.GetObjectByIndex(ui, (OCLObject<_cl_device_id_int>**)&pDevice);
-			if (CL_SUCCEEDED(ret) && (NULL != pDevice))
+            pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
+			if (NULL != pDevice)
 			{
 				pDevice->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &hDevGL, NULL);
 				pDevice->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &hDevDC, NULL);
@@ -714,13 +705,11 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 // Device Fission
 cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
 {
-    OclAutoMutex CS(&m_deviceFissionMutex);
-    cl_err_code ret; 
-    FissionableDevice* pParentDevice; 
+    OclAutoMutex CS(&m_deviceFissionMutex);    
     cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
 	tNumDevices = 0;
-    ret = m_mapDevices.GetOCLObject((_cl_device_id_int*)device, (OCLObject<_cl_device_id_int>**)(&pParentDevice));
-    if (CL_SUCCESS != ret)
+    SharedPtr<FissionableDevice> pParentDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)device).DynamicCast<FissionableDevice>();
+    if (NULL == pParentDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -738,6 +727,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         }
     }
 	bool bNeedToCreateDevice = (NULL == pParentDevice->GetDeviceAgent());
+    cl_err_code ret;
     if (bNeedToCreateDevice)
     {
         ret = pParentDevice->GetRootDevice()->CreateInstance();
@@ -813,7 +803,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return ret;
     }
     //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
-    FissionableDevice** pNewDevices = new FissionableDevice*[numSubdevicesToCreate];
+    SharedPtr<FissionableDevice>* pNewDevices = new SharedPtr<FissionableDevice>[numSubdevicesToCreate];
     if (NULL == pNewDevices)
     {
 		if (bNeedToCreateDevice)
@@ -832,7 +822,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
     for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {
-        pNewDevices[i] = new SubDevice(pParentDevice, sizes[i], subdevice_ids[i], properties);
+        pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i], subdevice_ids[i], properties);
         if (NULL == pNewDevices[i])
         {
             for (cl_uint j = 0; j < i; ++j)
@@ -882,10 +872,8 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 
 cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 {
-    FissionableDevice* pDevice;
-    cl_err_code ret = CL_SUCCESS;
-    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
-    if (CL_ERR_KEY_NOT_FOUND == ret)
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (NULL == pDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -897,10 +885,8 @@ cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 }
 cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
-    FissionableDevice* pDevice;
-    cl_err_code ret = CL_SUCCESS;
-    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
-    if (CL_ERR_KEY_NOT_FOUND == ret)
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (NULL == pDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -1021,11 +1007,8 @@ cl_err_code PlatformModule::clCreateSubDevicesEXT(cl_device_id device, const cl_
 	{
 		return CL_INVALID_VALUE;
 	}
-
-    FissionableDevice* pDevice;
-    cl_err_code ret = CL_SUCCESS;
-    ret = m_mapDevices.GetOCLObject((_cl_device_id_int *)device, (OCLObject<_cl_device_id_int>**)&pDevice);
-    if (CL_ERR_KEY_NOT_FOUND == ret)
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (NULL == pDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -1102,17 +1085,17 @@ cl_err_code PlatformModule::clCreateSubDevicesEXT(cl_device_id device, const cl_
 		    newProp[ui] = translatePartitionPropertyExt(properties[ui]);
         }
 	}
-	ret = clCreateSubDevices(device, newProp, num_entries, out_devices, num_devices);
+	const cl_err_code ret = clCreateSubDevices(device, newProp, num_entries, out_devices, num_devices);
 	delete[] newProp;
 	return ret;
 }
 
 
-cl_err_code PlatformModule::AddDevices(Intel::OpenCL::Framework::FissionableDevice ** ppDevices, unsigned int count)
+cl_err_code PlatformModule::AddDevices(SharedPtr<FissionableDevice>* ppDevices, unsigned int count)
 {
     for (unsigned int i = 0; i < count; ++i)
     {
-        m_mapDevices.AddObject((OCLObject<_cl_device_id_int>*)ppDevices[i]);
+        m_mapDevices.AddObject(ppDevices[i]);
     }
     return CL_SUCCESS;
 }

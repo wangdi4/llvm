@@ -25,6 +25,7 @@
 #include "d3d9_sharing.h"
 #include <basetsd.h>
 #include "surface_locker.h"
+#include "cl_shared_ptr.h"
 #include "Device.h"
 
 namespace Intel { namespace OpenCL { namespace Framework
@@ -75,6 +76,18 @@ class D3DContext : public Context
 
 public:
 
+    PREPARE_SHARED_PTR(D3DContext);
+
+    static SharedPtr<D3DContext> Allocate(const cl_context_properties* clProperties, cl_uint uiNumDevices,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
+        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3DDevice, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3dDefinitions,
+        bool bIsInteropUserSync = false)
+    {
+        return SharedPtr<D3DContext>(new D3DContext(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, pD3DDevice, iDevType,
+            pd3dDefinitions, bIsInteropUserSync));
+    }
+
     /**
      * type of device: CL_CONTEXT_D3D9_DEVICE_INTEL, CL_CONTEXT_D3D9EX_DEVICE_INTEL or
      * CL_CONTEXT_DXVA9_DEVICE_INTEL
@@ -84,34 +97,7 @@ public:
     /**
      * whether the context was created with CL_INTEROP_USER_SYNC property
      */
-    const bool m_bIsInteropUserSync;
-
-    /**
-     * @brief   Constructor.
-     *
-     * @author  Aharon
-     * @date    6/30/2011
-     *
-     * @param   clProperties            context's properties.
-     * @param   uiNumDevices            number of devices associated to the context
-     * @param   uiNumRootDevices        The user interface number root devices.
-     * @param   ppDevices               list of devices.
-     * @param   pfnNotify               error notification function's pointer.
-     * @param   pUserData               user data
-     * @param [in,out]  pclErr          If non-null, the pcl error.
-     * @param   pOclEntryPoints 
-     * @param   pGPAData                If non-null, information describing the gpa.
-     * @param   pD3D9Device             to use for Direct3D interoperability.
-     * @param   iDevType                type of device
-     * @param   pd3d9Definitions         a pointer to ID3DSharingDefinitions of the version of the extension used
-     * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
-     */
-
-    D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-        cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
-        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false);
+    const bool m_bIsInteropUserSync;    
 
     /**
      * @brief   Finaliser.
@@ -167,7 +153,7 @@ public:
      * @return  CL_SUCCESS upon success, error code otherwise.
      */
 
-    cl_err_code CreateD3DResource(cl_mem_flags clFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, MemoryObject** const ppMemObj, cl_mem_object_type clObjType,
+    cl_err_code CreateD3DResource(cl_mem_flags clFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, SharedPtr<MemoryObject>* const ppMemObj, cl_mem_object_type clObjType,
         cl_uint uiDimCnt, UINT plane = MAXUINT);
 
     /**
@@ -182,6 +168,32 @@ public:
     virtual DEV_TYPE* GetDevice(RESOURCE_TYPE* pResource) const = 0;
 
 protected:
+
+    /**
+     * @brief   Constructor.
+     *
+     * @author  Aharon
+     * @date    6/30/2011
+     *
+     * @param   clProperties            context's properties.
+     * @param   uiNumDevices            number of devices associated to the context
+     * @param   uiNumRootDevices        The user interface number root devices.
+     * @param   ppDevices               list of devices.
+     * @param   pfnNotify               error notification function's pointer.
+     * @param   pUserData               user data
+     * @param [in,out]  pclErr          If non-null, the pcl error.
+     * @param   pOclEntryPoints 
+     * @param   pGPAData                If non-null, information describing the gpa.
+     * @param   pD3D9Device             to use for Direct3D interoperability.
+     * @param   iDevType                type of device
+     * @param   pd3d9Definitions         a pointer to ID3DSharingDefinitions of the version of the extension used
+     * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
+     */
+    D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
+        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3DDevice, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3dDefinitions,
+        bool bIsInteropUserSync = false);
 
     /**
      * lock the internal mutex
@@ -221,6 +233,8 @@ class D3D9Context : public D3DContext<IDirect3DResource9, IDirect3DDevice9>
 
 public:
 
+    PREPARE_SHARED_PTR(D3D9Context);
+
     /**
      * @brief   Constructor.
      *
@@ -238,13 +252,15 @@ public:
      * @param   pd3d9Definitions         a pointer to ID3DSharingDefinitions of the version of the extension used
      * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
      */
-    D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-        cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
+    static SharedPtr<D3D9Context> Allocate(const cl_context_properties* clProperties, cl_uint uiNumDevices,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false) :
-    D3DContext<IDirect3DResource9, IDirect3DDevice9>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
+        bool bIsInteropUserSync = false)
+    {
+        return SharedPtr<D3D9Context>(new D3D9Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
+            pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync));
+    }
 
     /**
      * @param   pSurface    a pointer to IDirect3DSurface9
@@ -298,6 +314,31 @@ protected:
 
 private:
 
+    /**
+     * @brief   Constructor.
+     *
+     * @param   clProperties            context's properties.
+     * @param   uiNumDevices            number of devices associated to the context
+     * @param   uiNumRootDevices        The user interface number root devices.
+     * @param   ppDevices               list of devices.
+     * @param   pfnNotify               error notification function's pointer.
+     * @param   pUserData               user data
+     * @param [in,out]  pclErr          If non-null, the pcl error.
+     * @param   pOclEntryPoints 
+     * @param   pGPAData                If non-null, information describing the gpa.
+     * @param   pD3D9Device             to use for Direct3D 9 interoperability.
+     * @param   iDevType                type of device
+     * @param   pd3d9Definitions         a pointer to ID3DSharingDefinitions of the version of the extension used
+     * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
+     */
+    D3D9Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
+        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+        bool bIsInteropUserSync = false) :
+    D3DContext<IDirect3DResource9, IDirect3DDevice9>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
+        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
+
     map<const IDirect3DSurface9*, SurfaceLocker*> m_surfaceLockers;        
 
 };
@@ -308,6 +349,45 @@ private:
 class D3D11Context : public D3DContext<ID3D11Resource, ID3D11Device>
 {
 public:
+
+    PREPARE_SHARED_PTR(D3D11Context);
+
+    /**
+     * @param   clProperties            context's properties.
+     * @param   uiNumDevices            number of devices associated to the context
+     * @param   uiNumRootDevices        The user interface number root devices.
+     * @param   ppDevices               list of devices.
+     * @param   pfnNotify               error notification function's pointer.
+     * @param   pUserData               user data
+     * @param [in,out]  pclErr          If non-null, the pcl error.
+     * @param   pOclEntryPoints 
+     * @param   pGPAData                If non-null, information describing the gpa.
+     * @param   pD3D9Device             to use for Direct3D 11 interoperability.
+     * @param   iDevType                type of device
+     * @param   pd3d9Definitions         a pointer to ID3DSharingDefinitions of the version of the extension used
+     * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
+     */
+    static SharedPtr<D3D11Context> Allocate(const cl_context_properties* clProperties, cl_uint uiNumDevices,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
+        void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
+        ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+        bool bIsInteropUserSync = false)
+    {
+        return SharedPtr<D3D11Context>(new D3D11Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
+            pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync));
+    }
+
+    // overridden methods
+
+    ID3D11Device* GetDevice(ID3D11Resource* pResource) const;
+
+    cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
+
+protected:
+
+    cl_err_code HandlePlanarSurface(D3DResourceInfo<ID3D11Resource>* pResourceInfo, cl_mem_flags clFlags) { return CL_SUCCESS; }
+
+private:
 
     /**
      * @brief   Constructor.
@@ -327,22 +407,12 @@ public:
      * @param   bIsInteropUserSync      whether CL_INTEROP_USER_SYNC context property is set to true (option in OpenCL 1.2)
      */
     D3D11Context(const cl_context_properties* clProperties, cl_uint uiNumDevices,
-        cl_uint uiNumRootDevices, FissionableDevice** ppDevices, logging_fn pfnNotify,
+        cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false) :
     D3DContext<ID3D11Resource, ID3D11Device>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
         pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
-
-    // overridden methods
-
-    ID3D11Device* GetDevice(ID3D11Resource* pResource) const;
-
-    cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
-
-protected:
-
-    cl_err_code HandlePlanarSurface(D3DResourceInfo<ID3D11Resource>* pResourceInfo, cl_mem_flags clFlags) { return CL_SUCCESS; }
 
 };
     

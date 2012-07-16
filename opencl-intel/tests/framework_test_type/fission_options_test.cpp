@@ -107,6 +107,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	clFinish(cmd_queue);
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
+    clReleaseMemObject(buff);
 	return ((CL_SUCCESS == err)? true : false);
 }
 

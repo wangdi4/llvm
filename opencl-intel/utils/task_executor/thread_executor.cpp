@@ -620,7 +620,7 @@ void CTaskSetFragment::getLastWGID(size_t lastWGID[3]) const
 
 //////////////////////////////////////////////////////////////////////////
 // ThreadTaskListOrderedImpl implementation
-unsigned int ThreadTaskListOrderedImpl::Enqueue(ITaskBase* pTaskBase)
+unsigned int ThreadTaskListOrderedImpl::Enqueue(SmartPtr<ITaskBase>* pTaskBase)
 {
 	if (NULL == m_pSelectedWorkerThread)
 	{
@@ -655,7 +655,7 @@ unsigned int ThreadTaskListOrderedImpl::Enqueue(ITaskBase* pTaskBase)
 			}
 		}
 	}
-	if (pTaskBase->IsTaskSet())
+	if ((*pTaskBase)->IsTaskSet())
 	{
 		m_pSelectedWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase, m_pSelectedWorkerThread->m_iQueueId));
 	}
@@ -666,7 +666,7 @@ unsigned int ThreadTaskListOrderedImpl::Enqueue(ITaskBase* pTaskBase)
 	return 0;
 }
 
-unsigned int ThreadTaskListUnOrderedImpl::Enqueue(ITaskBase* pTaskBase)
+unsigned int ThreadTaskListUnOrderedImpl::Enqueue(SmartPtr<ITaskBase>* pTaskBase)
 {
 	WorkerThread * pWorkerThread = g_obThreadPool[0];
 	int i=1;
@@ -682,7 +682,7 @@ unsigned int ThreadTaskListUnOrderedImpl::Enqueue(ITaskBase* pTaskBase)
 		++i;
 	}
 
-	if (pTaskBase->IsTaskSet())
+	if ((*pTaskBase)->IsTaskSet())
 	{
 		pWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase, pWorkerThread->m_iQueueId));
 	}
@@ -753,7 +753,7 @@ ITaskList* ThreadTaskExecutor::CreateTaskList(bool OOO)
 	}
 	return  new ThreadTaskListOrderedImpl();
 }
-unsigned int ThreadTaskExecutor::Execute(ITaskBase * pTask)
+unsigned int ThreadTaskExecutor::Execute(SmartPtr<ITaskBase> * pTask)
 {
 	int ret = m_MyList.Enqueue(pTask);
 	m_MyList.Flush();

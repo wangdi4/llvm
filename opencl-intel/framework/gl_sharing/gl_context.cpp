@@ -47,7 +47,7 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, FissionableDevice **ppDevices, logging_fn pfnNotify,
+GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData) :
 	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData), m_hGLBackupCntx(NULL)
@@ -141,14 +141,14 @@ GLContext::~GLContext()
 }
 
 // create GL buffer object
-cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, MemoryObject ** ppBuffer)
+cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, SharedPtr<MemoryObject>* ppBuffer)
 {
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glBufObj=%d, ppBuffer=%d)"),
 		clFlags, glBufObj, ppBuffer);
 
 	assert ( NULL != ppBuffer );
 
-	MemoryObject* pBuffer;
+	SharedPtr<MemoryObject> pBuffer;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pBuffer);
 	if ( CL_FAILED(clErr) )
 	{
@@ -164,13 +164,13 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Mem
 		return clErr;
 	}
 
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pBuffer);
+	m_mapMemObjects.AddObject(pBuffer);
 
 	*ppBuffer = pBuffer;
 	return CL_SUCCESS;
 }
 
-cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, MemoryObject* *ppImage)
+cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, SharedPtr<MemoryObject>* ppImage)
 {
 
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
@@ -178,7 +178,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 
 	assert ( NULL != ppImage );
 
-	MemoryObject * pImage;
+	SharedPtr<MemoryObject> pImage;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
@@ -199,20 +199,20 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 		return clErr;
 	}
 
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
+	m_mapMemObjects.AddObject(pImage);
 
 	*ppImage = pImage;
 	return CL_SUCCESS;
 }
 
-cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRednderBuffer, MemoryObject* *ppImage)
+cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRednderBuffer, SharedPtr<MemoryObject> *ppImage)
 {
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glRednderBuffer=%d, ppImage=%d)"),
 		clMemFlags, glRednderBuffer, ppImage);
 
 	assert ( NULL != ppImage );
 
-	MemoryObject * pImage;
+	SharedPtr<MemoryObject> pImage;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_RENDERBUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
 	if (CL_FAILED(clErr))
 	{
@@ -228,7 +228,7 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 		return clErr;
 	}
 
-	m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)pImage);
+	m_mapMemObjects.AddObject(pImage);
 
 	*ppImage = pImage;
 	return CL_SUCCESS;

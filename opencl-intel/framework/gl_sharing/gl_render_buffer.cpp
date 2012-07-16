@@ -33,7 +33,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_RENDERBUFFER, GLRenderBuffer)
 
-GLRenderBuffer::GLRenderBuffer(Context * pContext, cl_gl_object_type clglObjType):
+GLRenderBuffer::GLRenderBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType):
 	GLTexture2D(pContext, clglObjType)
 {
 	m_uiNumDim = 2;
@@ -125,9 +125,9 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease, false);
 
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+        ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
 		)
 	{
 		// We have already acquired object
@@ -345,7 +345,7 @@ void GLRenderBuffer::GetGLObjectData()
 }
 void GLRenderBuffer::SetGLObjectData()
 {
-	GLContext* pGLContext = static_cast<GLContext*>(m_pContext);
+	SharedPtr<GLContext> pGLContext = static_cast<SharedPtr<GLContext>>(m_pContext);
 
 	GLint	currBuffer;
 	GLint glErr = 0;

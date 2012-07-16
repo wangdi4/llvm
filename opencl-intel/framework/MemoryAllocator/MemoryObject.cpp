@@ -26,6 +26,7 @@
 
 #include "MemoryObject.h"
 #include "Context.h"
+#include "cl_shared_ptr.hpp"
 
 #include <cl_synch_objects.h>
 #if defined (DX_MEDIA_SHARING)
@@ -36,7 +37,7 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-MemoryObject::MemoryObject(Context* pContext):
+MemoryObject::MemoryObject(SharedPtr<Context> pContext):
 	OCLObject<_cl_mem_int>(pContext->GetHandle(), "MemoryObject"),
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
 	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
@@ -46,14 +47,11 @@ MemoryObject::MemoryObject(Context* pContext):
 
 	memset(m_stOrigin, 0, sizeof(m_stOrigin));
 
-	m_pContext->AddPendency(this);
-
 	m_mapMappedRegions.clear();
 }
 
 MemoryObject::~MemoryObject()
 {
-	m_pContext->RemovePendency(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,11 +147,13 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 #if defined (DX_MEDIA_SHARING)
     /* We handle the following values here and not in D3DResource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
         shared object and not CL_INVALID_VALUE. */
+    /* We handle the following values here and not in D3D9Resource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
+        shared object and not CL_INVALID_VALUE. */
     case CL_MEM_DX9_RESOURCE_INTEL:
         {
             const D3DResource<IDirect3DResource9, IDirect3DDevice9>* const pD3d9Resource =
                 dynamic_cast<const D3DResource<IDirect3DResource9, IDirect3DDevice9>*>(this);
-            const D3D9Context& d3d9Context = *static_cast<const D3D9Context*>(pD3d9Resource->GetContext());
+            const D3D9Context& d3d9Context = *pD3d9Resource->GetContext().DynamicCast<const D3D9Context>();
             if (NULL == pD3d9Resource || d3d9Context.GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
@@ -177,7 +177,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
     case CL_MEM_DX9_SHARED_HANDLE_INTEL:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;                
             }
@@ -188,7 +188,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
     case CL_MEM_DX9_MEDIA_ADAPTER_TYPE_KHR:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
             {
                 return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
             }
@@ -199,7 +199,7 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
     case CL_MEM_DX9_MEDIA_SURFACE_INFO_KHR:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || static_cast<const D3D9Context*>(pD3d9Surface->GetContext())->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
             {
                 return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
             }
@@ -279,7 +279,7 @@ static void AssignPitches(const MemoryObject& memObj, size_t* pImageRowPitch, si
 }
 
 cl_err_code MemoryObject::CreateMappedRegion(
-	const FissionableDevice*    IN pDevice,
+	SharedPtr<FissionableDevice>    IN pDevice,
 	cl_map_flags                IN clMapFlags,
 	const size_t*               IN pOrigin,
 	const size_t*               IN pRegion,
@@ -287,10 +287,10 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	size_t*                     OUT pImageSlicePitch,
 	cl_dev_cmd_param_map*       OUT *pMapInfo,
 	void*                       OUT *pHostMapDataPtr,
-	const FissionableDevice*    OUT *pActualMappingDevice
+	ConstSharedPtr<FissionableDevice>    OUT *pActualMappingDevice
 	)
 {
-	LOG_DEBUG(TEXT("Enter CreateMappedRegion(pDevice = %p)"), pDevice);
+	LOG_DEBUG(TEXT("Enter CreateMappedRegion(pDevice = %p)"), pDevice.GetPtr());
 
 	assert(NULL != pMapInfo);
 
@@ -367,7 +367,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
     assert( ((0 == m_mapCount) == (NULL == m_pMappedDevice)) && "m_mapCount and m_pMappedDevice must be both either 0 or not" );
 
-    const FissionableDevice* device_to_map = (NULL != m_pMappedDevice) ? m_pMappedDevice : pDevice;
+    SharedPtr<FissionableDevice> device_to_map = (NULL != m_pMappedDevice) ? m_pMappedDevice : pDevice;
 
 	cl_err_code err = MemObjCreateDevMappedRegion(device_to_map, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
 	if (CL_FAILED(err))
@@ -387,13 +387,13 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	return CL_SUCCESS;
 }
 
-cl_err_code MemoryObject::GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, 
+cl_err_code MemoryObject::GetMappedRegionInfo(ConstSharedPtr<FissionableDevice> IN pDevice, void* IN mappedPtr, 
                                               cl_dev_cmd_param_map*    OUT *pMapInfo,
-                                              const FissionableDevice* OUT *pMappedOnDevice,
+                                              ConstSharedPtr<FissionableDevice> OUT *pMappedOnDevice,
                                               bool                     OUT *pbWasFullyOverwritten,
                                               bool invalidateRegion)
 {
-	LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"), pDevice, mappedPtr);
+	LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"), pDevice.GetPtr(), mappedPtr);
 	assert(NULL!=pMapInfo);
 	assert(NULL!=pMappedOnDevice);
 	OclAutoMutex CS(&m_muMappedRegions); // release on return

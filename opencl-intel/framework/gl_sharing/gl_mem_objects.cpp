@@ -22,7 +22,6 @@
 #include "gl_mem_objects.h"
 #include "ocl_event.h"
 #include "memobj_event.h"
-
 #include <gl\GL.h>
 #include <gl\glext.h>
 #include <cl\cl.h>
@@ -31,10 +30,10 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
-GLMemoryObject::GLMemoryObject(Context * pContext, cl_gl_object_type clglObjectType) : 
+GLMemoryObject::GLMemoryObject(SharedPtr<Context> pContext, cl_gl_object_type clglObjectType) : 
 GraphicsApiMemoryObject(pContext), m_glObjHandle(NULL), m_glMemFlags(0), m_clglObjectType(clglObjectType)
 {
-	m_pGLContext = static_cast<GLContext*>(pContext);
+    m_pGLContext = pContext.DynamicCast<GLContext>();
 }
 
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
@@ -99,6 +98,8 @@ cl_err_code	GLMemoryObject::SetGLMemFlags()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 GLTexture::~GLTexture()
 {
+	SharedPtr<GLContext> pGLContext = m_pContext.DynamicCast<GLContext>();
+
 	if ( 0 != m_glFramebuffer )
 	{
 		m_pGLContext->glDeleteFramebuffersEXT( 1, &m_glFramebuffer );
@@ -219,6 +220,8 @@ cl_err_code GLTexture::CreateChildObject()
 	GLint glErr = 0;
 	GLint pboBinding;
 
+	SharedPtr<GLContext> pGLContext = m_pContext.DynamicCast<GLContext>();
+
 	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
 		glBindingType = GL_PIXEL_PACK_BUFFER_BINDING_ARB;
@@ -234,21 +237,21 @@ cl_err_code GLTexture::CreateChildObject()
 	// read pixels from framebuffer to PBO
 	// glReadPixels() should return immediately, the transfer is in background by DMA
 	m_pGLContext->glBindBuffer(glBind, m_glPBO);
-	void *pBuffer = ((GLContext*)m_pContext)->glMapBuffer(glBind, m_glMemFlags);
+	void *pBuffer = pGLContext->glMapBuffer(glBind, m_glMemFlags);
 	if ( NULL == pBuffer )
 	{
-		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		pGLContext->glBindBuffer(glBind, pboBinding);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_INVALID_OPERATION;
 	}
 
 	// Now we need to create child object
-	MemoryObject* pChild;
-	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+	SharedPtr<MemoryObject> pChild;
+    cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
-		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		pGLContext->glUnmapBuffer(glBind);
+		pGLContext->glBindBuffer(glBind, pboBinding);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return res;
 	}
@@ -257,15 +260,15 @@ cl_err_code GLTexture::CreateChildObject()
 	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_stPitches[0], pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
-		((GLContext*)m_pContext)->glUnmapBuffer(glBind);
-		((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+		pGLContext->glUnmapBuffer(glBind);
+		pGLContext->glBindBuffer(glBind, pboBinding);
 		pChild->Release();
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_OUT_OF_RESOURCES;
 	}
 
 	m_itCurrentAcquriedObject->second = pChild;
-	((GLContext*)m_pContext)->glBindBuffer(glBind, pboBinding);
+	pGLContext->glBindBuffer(glBind, pboBinding);
 
 	return CL_SUCCESS;
 }
@@ -332,9 +335,9 @@ cl_err_code GLTexture::AcquireGLObject()
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
+        ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+        (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
 		)
 	{
 		// We have already acquired object

@@ -48,7 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Device;
     class FissionableDevice;
 	class Context;
-	template <class HandleType> class OCLObjectsMap;
+	template <class HandleType, class ObjectType> class OCLObjectsMap;
 	class MemoryObject;
     class Kernel;
     template<typename T> struct D3DResourceInfo;
@@ -110,7 +110,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clContext [in] - a valid context handle               	
 		* Return value:	Returns the context object if valid, else returns NULL.
 		******************************************************************************************/
-        Context*        GetContext( cl_context clContext );
+        SharedPtr<Context>        GetContext( cl_context clContext );
 
 		/******************************************************************************************
 		* Function: 	GetKernel
@@ -118,7 +118,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clKernel [in] - a valid memory kernel handle
 		* Return value:	Returns the kernel object if valid, else returns NULL.
 		******************************************************************************************/
-        Kernel*         GetKernel( cl_kernel clKernel );
+        SharedPtr<Kernel>         GetKernel( cl_kernel clKernel );
 
 		/******************************************************************************************
 		* Function: 	GetMemoryObject    
@@ -126,7 +126,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Arguments:	clMemObjId [in] - a valid memory object handle               	
 		* Return value:	Returns the memory object if valid, else returns NULL.
 		******************************************************************************************/
-		MemoryObject * GetMemoryObject(const cl_mem clMemObjId);
+		SharedPtr<MemoryObject> GetMemoryObject(const cl_mem clMemObjId);
 
 		/******************************************************************************************
 		* Function: 	GetGPAData    
@@ -235,7 +235,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * @param array_size
 		 * @return CL_SUCCESS if all parameters OK.
 		 */
-		cl_err_code CheckContextSpecificParameters(Context *pContext,
+		cl_err_code CheckContextSpecificParameters(SharedPtr<Context>pContext,
 										const cl_mem_object_type image_type,
 										const size_t image_width,
 										const size_t image_height,
@@ -244,8 +244,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 		// get pointers to device objects according to the device ids
-		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, Device ** ppDevices);
-        cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, FissionableDevice ** ppDevices);
+		cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, SharedPtr<Device>* ppDevices);
+        cl_err_code GetDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, SharedPtr<FissionableDevice>* ppDevices);
 
         template<size_t DIM, cl_mem_object_type OBJ_TYPE> cl_mem CreateScalarImage(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet, bool bIsImageBuffer = false);
 
@@ -262,7 +262,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap<_cl_context_int>			m_mapContexts;	// map list of contexts
 		OCLObjectsMap<_cl_program_int>			m_mapPrograms;	// map list of programs
 		OCLObjectsMap<_cl_kernel_int>			m_mapKernels;		// map list of kernels
-		OCLObjectsMap<_cl_mem_int>				m_mapMemObjects;	// map list of all memory objects
+		OCLObjectsMap<_cl_mem_int>      		m_mapMemObjects;	// map list of all memory objects
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;	// map list of all memory objects
 
 		ocl_entry_points *						m_pOclEntryPoints;
@@ -289,13 +289,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         LOG_DEBUG(TEXT("Enter CreateScalarImage (clContext=%d, clFlags=%d, clImageFormat=%d, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%d, pErrcodeRet=%d)"), 
             clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
-        Context* pContext = NULL;
-        MemoryObject* pImage = NULL;
-        cl_err_code clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
-
-        if (CL_FAILED(clErr) || NULL == pContext)
+        SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
+        if (NULL == pContext)
         {
-            LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
+            LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
             if (NULL != pErrcodeRet)
             {
                 *pErrcodeRet = CL_INVALID_CONTEXT;
@@ -305,7 +302,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Do some initial (not context specific) parameter checking
         // check input memory flags
-        clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr);
+        cl_err_code clErr = CheckMemObjectParameters(clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr);
         if (CL_FAILED(clErr))
         {
             LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
@@ -329,6 +326,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Create image from context
         const size_t szDims[] = {szImageWidth, szImageHeight, szImageDepth}, szPitches[] = {szImageRowPitch, szImageSlicePitch};
+        SharedPtr<MemoryObject> pImage = NULL;
         clErr = pContext->CreateImage<DIM, OBJ_TYPE>(clFlags, clImageFormat, pHostPtr, szDims, szPitches, &pImage, bIsImageBuffer);
         if (CL_FAILED(clErr))
         {
@@ -342,7 +340,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         clErr = m_mapMemObjects.AddObject(pImage, false);
         if (CL_FAILED(clErr))
         {
-            LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pImage, pImage->GetHandle(), ClErrTxt(clErr))
+            LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pImage.GetPtr(), pImage->GetHandle(), ClErrTxt(clErr))
                 if (NULL != pErrcodeRet)
                 {
                     *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -362,8 +360,8 @@ template<typename RESOURCE_TYPE, typename DEV_TYPE>
 cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags clMemFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
                                              cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane)
 {
-    Context* pContext = NULL;
-    MemoryObject* pMemObj = NULL;
+    SharedPtr<Context> pContext = NULL;
+    SharedPtr<MemoryObject> pMemObj = NULL;
 
     cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL);
     if (CL_FAILED(clErr))
@@ -374,7 +372,7 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
         }
         return CL_INVALID_HANDLE;
     }
-    clErr = m_mapContexts.GetOCLObject((_cl_context_int*)clContext, (OCLObject<_cl_context_int>**)&pContext);
+    pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
     
     if (CL_FAILED(clErr) || NULL == pContext)
     {
@@ -386,7 +384,7 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
         return CL_INVALID_HANDLE;
     }
     
-    D3DContext<RESOURCE_TYPE, DEV_TYPE>* const pD3DContext = dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(pContext);    
+    SharedPtr<D3DContext<RESOURCE_TYPE, DEV_TYPE>> pD3DContext = pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>();
     if (NULL == pD3DContext)
     {
         if (NULL != pErrcodeRet)

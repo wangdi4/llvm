@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     // forward declarations
     class PlatformModule;
     class ContextModule;
-    template <class HandleType> class OCLObjectsMap;
+    template <class HandleType, class ObjectType> class OCLObjectsMap;
     class EventsManager;
     class IOclCommandQueueBase;
     class Context;
@@ -154,19 +154,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		bool				m_bUseTaskalyzer;
         // Private functions
-        IOclCommandQueueBase*    GetCommandQueue(cl_command_queue clCommandQueue);
+        SharedPtr<IOclCommandQueueBase>    GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
-        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, Context** ppContext );
-        cl_err_code         CheckImageFormats( MemoryObject* pSrcImage, MemoryObject* pDstImage);
-		bool                CheckMemoryObjectOverlapping(MemoryObject* pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
-        size_t              CalcRegionSizeInBytes(MemoryObject* pImage, const size_t* szRegion);
+        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, SharedPtr<Context>* ppContext );
+        cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
+		bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
+        size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
 		cl_err_code         FlushAllQueuesForContext(cl_context ctx);
 
         // Members
         PlatformModule*     m_pPlatfromModule;          // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;           // Pointer to the context operation. This is the internal interface of the module.
-        OCLObjectsMap<_cl_command_queue_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
+        OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
         EventsManager*      m_pEventsManager;           // Placeholder for all active events.
         
 		ocl_entry_points *	m_pOclEntryPoints;
@@ -195,26 +195,26 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    IOclCommandQueueBase* const pCommandQueue = GetCommandQueue(clCommandQueue);
+    const SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    D3DContext<RESOURCE_TYPE, DEV_TYPE>* const pContext = dynamic_cast<D3DContext<RESOURCE_TYPE, DEV_TYPE>*>(m_pContextModule->GetContext(pCommandQueue->GetParentHandle()));
+    const SharedPtr<D3DContext<RESOURCE_TYPE, DEV_TYPE>> pContext = m_pContextModule->GetContext(pCommandQueue->GetParentHandle()).DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>();
     if (NULL == pContext)
     {
         return CL_INVALID_CONTEXT;
     }
 
-    D3DResource<RESOURCE_TYPE, DEV_TYPE>** const pMemObjects = new D3DResource<RESOURCE_TYPE, DEV_TYPE>*[uiNumObjects];
+    SharedPtr<GraphicsApiMemoryObject>* const pMemObjects = new SharedPtr<GraphicsApiMemoryObject>[uiNumObjects];
     if (NULL == pMemObjects)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
     for (cl_uint i = 0; i < uiNumObjects; i++)
     {
-        MemoryObject* const pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
+        SharedPtr<MemoryObject> pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
         if (NULL == pMemObj)
         {
             delete[] pMemObjects;
@@ -225,7 +225,8 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
             delete[] pMemObjects;
             return CL_INVALID_CONTEXT;
         }
-        D3DResource<RESOURCE_TYPE, DEV_TYPE>* const pD3dResource = pMemObjects[i] = dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>*>(pMemObj);
+        pMemObjects[i] = pMemObj.DynamicCast<GraphicsApiMemoryObject>();
+        SharedPtr<D3DResource<RESOURCE_TYPE, DEV_TYPE>> pD3dResource = pMemObj.DynamicCast<D3DResource<RESOURCE_TYPE, DEV_TYPE>>();
         // Check if it's a Direct3D 9 object
         if (NULL != pD3dResource)
         {
@@ -275,7 +276,7 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
                 after this and the command itself has been executed yet, we still return an error */
             for (size_t i = 0; i < uiNumObjects; i++)   
             {
-                pMemObjects[i]->SetAcquired(pContext->GetD3dDefinitions().GetCommandAcquireDevice() == cmdType);
+                pMemObjects[i].DynamicCast<D3DResource<RESOURCE_TYPE, DEV_TYPE>>()->SetAcquired(pContext->GetD3dDefinitions().GetCommandAcquireDevice() == cmdType);
             }
         }
     } else

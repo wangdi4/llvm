@@ -27,6 +27,7 @@
 #include "execution_module.h"
 #include <cstring>
 #include "ocl_itt.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Framework;
 
@@ -97,7 +98,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	{
 		pEvent = pUserEvent;
 	}
-	QueueEvent* pQueueEvent = pCommand->GetEvent();
+	SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
 	m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
 
 	pQueueEvent->AddFloatingDependence();
@@ -106,7 +107,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	if( CL_FAILED(errVal))
 	{
 		pQueueEvent->RemoveFloatingDependence();
-		pQueueEvent->RemovePendency(NULL); //implicitly added by Command->SetEvent
 		if (NULL == pUserEvent)
 		{
 			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
@@ -124,7 +124,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	if (CL_FAILED(errVal))
 	{
 		pCommand->CommandDone();
-		pQueueEvent->RemovePendency(NULL); //implicitly added by Command->SetEvent
 		if (NULL == pUserEvent)
 		{
 			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
@@ -161,14 +160,14 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
  */
 cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
 {    
-    QueueEvent* pQueueEvent = cmd.GetEvent();
+    SharedPtr<QueueEvent> pQueueEvent = cmd.GetEvent();
     m_pEventsManager->RegisterQueueEvent(pQueueEvent, NULL);    
     
     const cl_err_code errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
     if(CL_FAILED(errVal))
     {
         m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-        pQueueEvent->RemovePendency(NULL); // Added by Command->SetEvent()
+
         return errVal;
     }
     return CL_SUCCESS;
@@ -226,9 +225,8 @@ cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint
     return errVal;
 }
 
-cl_err_code IOclCommandQueueBase::WaitForCompletion(QueueEvent* pEvent)
+cl_err_code IOclCommandQueueBase::WaitForCompletion(SharedPtr<QueueEvent> pEvent)
 {
-	pEvent->AddPendency(this);
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);
 
@@ -247,6 +245,6 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(QueueEvent* pEvent)
 		color = pEvent->GetEventState();
 	}
 
-	pEvent->RemovePendency(this);
+
 	return CL_DEV_SUCCEEDED(ret) ? CL_SUCCESS : CL_INVALID_OPERATION;
 }

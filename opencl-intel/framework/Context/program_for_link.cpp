@@ -2,16 +2,18 @@
 #include "program_for_link.h"
 #include "cl_logger.h"
 #include "cl_sys_defines.h"
+#include "kernel.h"
+#include "sampler.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramForLink::ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet)
+ProgramForLink::ProgramForLink(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, cl_int *piRet)
 : Program(pContext)
 {
 	m_szNumAssociatedDevices = uiNumDevices;
     m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
-    if (!m_ppDevicePrograms)
+    if (NULL == m_ppDevicePrograms)
 	{
         if (piRet)
 	    {

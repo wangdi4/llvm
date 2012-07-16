@@ -42,30 +42,42 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class OutOfOrderCommandQueue : public IOclCommandQueueBase
 	{
 	public:
-		OutOfOrderCommandQueue(
-			Context*                    pContext,
+
+        PREPARE_SHARED_PTR(OutOfOrderCommandQueue);
+    
+        static SharedPtr<OutOfOrderCommandQueue> Allocate(
+            SharedPtr<Context>          pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			);
+			EventsManager*              pEventManager)
+        {
+            return SharedPtr<OutOfOrderCommandQueue>(new OutOfOrderCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager));
+        }		
+		
 		~OutOfOrderCommandQueue();
 
 		cl_err_code Initialize();
+        long Release();
 		virtual cl_err_code Enqueue(Command* cmd);
 		virtual cl_err_code EnqueueWaitForEvents(Command* cmd);
         virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker);
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor);
+		virtual cl_err_code NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor);
 		// No need for explicit "send commands to device" method, commands are submitted as they become ready
 		virtual cl_err_code SendCommandsToDevice() {return CL_SUCCESS; }
 
 	protected:
-		virtual cl_err_code AddDependentOnAll(Command* cmd);
 
-        //Inherited from OCLObject
-        virtual void NotifyInvisible();
+        OutOfOrderCommandQueue(
+			SharedPtr<Context>                    pContext,
+			cl_device_id                clDefaultDeviceID, 
+			cl_command_queue_properties clProperties,
+			EventsManager*              pEventManager
+			);
+
+		virtual cl_err_code AddDependentOnAll(Command* cmd);
 
 		void                Submit(Command* cmd);
 

@@ -31,14 +31,13 @@
 #include "events_manager.h"
 #include "ocl_command_queue.h"
 #include "Context.h"
-
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 
 
 InOrderCommandQueue::InOrderCommandQueue(
-	Context*                    pContext,
+	SharedPtr<Context>                    pContext,
 	cl_device_id                clDefaultDeviceID, 
 	cl_command_queue_properties clProperties,
 	EventsManager*              pEventManager
@@ -58,11 +57,12 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
     if ( m_bProfilingEnabled )
     {
         cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-    }				
-    cmd->GetEvent()->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-    if (!cmd->GetEvent()->HasDependencies())
+    }
+    SharedPtr<QueueEvent> pEvent = cmd->GetEvent();
+    pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+    if (!pEvent->HasDependencies())
     {
-        cmd->GetEvent()->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
+        pEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
     }
     m_submittedQueue.PushBack(cmd);
 
@@ -81,7 +81,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code InOrderCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
 {
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
@@ -113,7 +113,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 			cl_err_code res;
 			while (!m_submittedQueue.IsEmpty())
 			{
-				Command* cmd = m_submittedQueue.Top();
+				CommandSharedPtr<> cmd = m_submittedQueue.Top();
 				OclEventState color = cmd->GetEvent()->GetEventState();
 				if (EVENT_STATE_READY_TO_EXECUTE == color)
 				{
@@ -124,13 +124,11 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 							break; // Need to wait all executing commands to complete
 						}
 						m_commandsInExecution++;
-						cmd->GetEvent()->AddPendency(this);
 						cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
 						res = cmd->Execute();
 						if ( CL_SUCCEEDED(res) )
 						{
 							m_submittedQueue.PopFront();
-							cmd->GetEvent()->RemovePendency(this);
 							continue;
 						}
 						if (res != CL_NOT_READY)
@@ -138,7 +136,6 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 							assert(0);
 							// keep in the queue
 							m_submittedQueue.PopFront();
-							cmd->GetEvent()->RemovePendency(this);
 							m_commandsInExecution--;
 							continue;
 						}					
@@ -193,7 +190,6 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					// We have completed command in the queue
 					// There is two reasons: 1. runtime command, 2. failed command(one of the dependencies failed)
 					m_submittedQueue.PopFront();
-					cmd->GetEvent()->RemovePendency(this);
 					continue;
 				}
 				else

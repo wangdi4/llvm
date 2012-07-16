@@ -20,7 +20,6 @@
 
 
 #include "gl_texture3D.h"
-
 #include <gl\GL.h>
 #include <gl\glext.h>
 #include <cl\cl.h>
@@ -35,7 +34,7 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture3D)
 
-GLTexture3D::GLTexture3D(Context * pContext, cl_gl_object_type clglObjType):
+GLTexture3D::GLTexture3D(SharedPtr<Context> pContext, cl_gl_object_type clglObjType):
 		  GLTexture2D(pContext, clglObjType)
 {
 	m_clMemObjectType = CL_MEM_OBJECT_IMAGE3D;
@@ -90,8 +89,8 @@ cl_err_code GLTexture3D::AcquireGLObject()
 {
 	// Since there is no efficien mechanism to access 3D texture we need to allacte real memory object
 	// Now we need to create child object
-	MemoryObject* pChild;
-	cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
+	SharedPtr<MemoryObject> pChild;
+    cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;

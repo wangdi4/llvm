@@ -35,22 +35,13 @@ using namespace Intel::OpenCL::Framework;
 
 BuildEvent::BuildEvent( _cl_context_int* context ) : OclEvent(context)
 {
-	//AddPendency(this);	// why we need this?
 	m_pContext = (Context*)context->object;
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     m_returnCode = 0xdead;
-	m_pContext->AddPendency(this);
-}
-
-BuildEvent::~BuildEvent()
-{
-	m_pContext->RemovePendency(this);
 }
 
 void BuildEvent::SetComplete(cl_int returnCode)
 {
 	m_returnCode = returnCode;
 	SetEventState(EVENT_STATE_DONE);
-	//RemovePendency(this);	// why we need this?
 }
-

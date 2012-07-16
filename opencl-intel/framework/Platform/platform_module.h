@@ -31,6 +31,7 @@
 #include "iplatform.h"
 #include "ocl_itt.h"
 #include "cl_objects_map.h"
+#include "cl_shared_ptr.h"
 #include <Logger.h>
 #include <vector>
 #if defined (DX_MEDIA_SHARING)
@@ -43,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define CL_PLATFORM_ID_INTEL	0x1
 
 	class OCLObjectInfo;
-	template <class HandleType> class OCLObjectsMap;
+	template <class HandleType, class ObjectType> class OCLObjectsMap;
 	class Device;
     class FissionableDevice;
 	class OCLConfig;
@@ -109,18 +110,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code		GetRootDevice(cl_device_id IN  clDeviceId, Device ** OUT ppDevice);
+        cl_err_code		GetRootDevice(cl_device_id IN  clDeviceId, SharedPtr<Device>* OUT ppDevice);
 
         /******************************************************************************************
         * Function: 	GetDevice    
         * Description:	Get the device object that assigned to the device id
         * Arguments:	clDeviceId [in] -	device id
-        *				ppDevice [out] -	pointer to the device
-        * Return value:	CL_SUCCESS - The operation succeeded
+        * Return value:	a SharedPtr<FissionableDevice> pointing to the device object or NULL if it
+        *               cannot be found
         * Author:		Doron Singer
         * Date:			March 2011
         ******************************************************************************************/
-        cl_err_code		GetDevice(cl_device_id IN  clDeviceId, FissionableDevice ** OUT ppDevice);
+        SharedPtr<FissionableDevice> GetDevice(cl_device_id IN  clDeviceId);
 
 		/******************************************************************************************
         * Function: 	GetGPAData    
@@ -174,7 +175,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			March 2008
 		******************************************************************************************/
-		cl_err_code InitFECompiler(Device* pRootDevice);
+		cl_err_code InitFECompiler(SharedPtr<Device> pRootDevice);
 
         bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
             (clPlatform==NULL); }
@@ -198,19 +199,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code ReleaseFECompilers(bool bTerminate);
 
-        cl_err_code AddDevices(FissionableDevice** ppDevices, unsigned int count);
+        cl_err_code AddDevices(SharedPtr<FissionableDevice>* ppDevices, unsigned int count);
 
 		_cl_platform_id_int	m_clPlatformId;
 		
 		// map list of all devices
-		OCLObjectsMap<_cl_device_id_int> m_mapDevices;
+        OCLObjectsMap<_cl_device_id_int, _cl_platform_id_int> m_mapDevices;
 
         // A list of root-level devices only. This list is static throughout the module's existence
-		Device **		m_ppRootDevices;
+		SharedPtr<Device>*		m_ppRootDevices;
         unsigned int	m_uiRootDevicesCount;
 
 		// default device
-		Device * m_pDefaultDevice;
+		SharedPtr<Device> m_pDefaultDevice;
 
 		// map list of all front-end compilers
 		OCLObjectsMap<_cl_object>	m_mapFECompilers;

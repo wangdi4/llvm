@@ -34,6 +34,7 @@
 #include "MemoryAllocator/MemoryObject.h"
 #include <Logger.h>
 #include "context_module.h"
+#include "cl_shared_ptr.hpp"
 
 //For debug
 #include <stdio.h>
@@ -64,22 +65,22 @@ using namespace Intel::OpenCL::Utils;
 /******************************************************************
  *
  ******************************************************************/
-Command::Command( IOclCommandQueueBase* cmdQueue ):
+Command::Command( SharedPtr<IOclCommandQueueBase> cmdQueue ):
     OCLObjectBase("Command"),
-    m_Event(cmdQueue),
+    m_Event(QueueEvent::Allocate(cmdQueue)),
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
 	m_pCommandQueue(cmdQueue),
 	m_returnCode(CL_SUCCESS),
-	m_memory_objects_acquired(false)
+    m_bIsBeingDeleted(false),
+	m_memory_objects_acquired(false)    
 {
 	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
+	m_Event->SetCommand(this);
 
-	m_Event.AddPendency(NULL);  // NULL because dependency is released in case of failure by IOclCommandQueueBase
-	m_Event.SetCommand(this);
+	//m_Event->AddPendency(NULL);  // NULL because dependency is released in case of failure by IOclCommandQueueBase
 
 	assert(m_pCommandQueue);
-	m_pCommandQueue->AddPendency(this);
 	m_pDevice = m_pCommandQueue->GetDefaultDevice();
 
     m_pGpaCommand = NULL;
@@ -91,11 +92,23 @@ Command::Command( IOclCommandQueueBase* cmdQueue ):
  ******************************************************************/
 Command::~Command()
 {
+    m_bIsBeingDeleted = true;
 	m_pDevice = NULL;
 	GPA_DestroyCommand();
-	m_pCommandQueue->RemovePendency(this);
-	m_pCommandQueue = NULL;
-
+	m_pCommandQueue = NULL;    
+    assert(m_Event.GetRefCnt() >= 0 && m_Event.GetRefCnt() <= 1);
+    if (m_Event.GetRefCnt() == 1)
+    {
+        // In this case Command is being deleted explicitly, not through the event, so we need to free the event ourselves.
+        m_Event = NULL;
+    }
+    else
+    {
+        /* m_Event has already been destroyed - it's deletion triggered the call to ~Command(), so we need to nullify it without decreasing its reference counter, otherwise we would decrement a
+            reference counter of an object that had already been destroyed. */
+        m_Event.NullifyWithoutDecRefCnt();        
+    }
+    assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
 	RELEASE_LOGGER_CLIENT;
 }
@@ -136,12 +149,12 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		break;
     case CL_SUBMITTED:
 		// Nothing to do, not expected to be here at all
-		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
-        m_Event.SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
+		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
+        m_Event->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
+        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
         break;
     case CL_RUNNING:
-        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
+        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
 		// Running marker
 #if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
@@ -177,27 +190,27 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		#endif
 		}  
 #endif // ITT
-		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
-        m_Event.SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
+		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
+        m_Event->SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
     case CL_COMPLETE:
-		assert(EVENT_STATE_DONE != m_Event.GetEventState());
-		m_Event.SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
+		assert(EVENT_STATE_DONE != m_Event->GetEventState());
+		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
 	    // Complete command,
 		// do that before set event, since side effect of SetEvent(black) may be deleting of this instance.
 		// Is error
 		if (CL_FAILED(iCompletionResult))
 		{
-			LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
+			LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
 			//assert(0 && "Command - DONE - Failure");
 		}
 		else
 		{
-			LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_Event.GetId());
+			LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_Event->GetId());
 		}
 		m_returnCode = iCompletionResult;
         res = CommandDone();
-        m_Event.SetEventState(EVENT_STATE_DONE);
+        m_Event->SetEventState(EVENT_STATE_DONE);
 // Complete marker
 #if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
@@ -234,7 +247,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 		}
 #endif // ITT
 
-		m_Event.RemovePendency(NULL);
+        m_Event.DecRefCnt();    // Since the command holds the shared pointer to the event that is responsible for its own deletion, we need to do this here to break this cycle.
 		break;
     default:
         break;
@@ -242,7 +255,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     return res;
 }
 
-cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemoryObject* *ppMemObj)
+cl_err_code	Command::GetMemObjectDescriptor(SharedPtr<MemoryObject> pMemObj, IOCLDevMemoryObject* *ppMemObj)
 {
     if (NULL == pMemObj)
     {
@@ -250,7 +263,7 @@ cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemory
     }
     else
     {
-        OclEvent* pObjEvent;
+        SharedPtr<OclEvent> pObjEvent;
         cl_err_code res = pMemObj->GetDeviceDescriptor(m_pDevice, ppMemObj, &pObjEvent);
         if ( CL_FAILED(res) )
         {
@@ -261,7 +274,7 @@ cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemory
         if ( CL_NOT_READY == res )
         {
             assert( NULL != pObjEvent);
-            m_Event.AddDependentOn(pObjEvent);
+            m_Event->AddDependentOn(pObjEvent);
         }
     }
 	return CL_SUCCESS;
@@ -269,20 +282,20 @@ cl_err_code	Command::GetMemObjectDescriptor(MemoryObject* pMemObj, IOCLDevMemory
 
 // return true if ready
 inline
-bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, FissionableDevice* pDev  )
+bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<FissionableDevice> pDev  )
 {
     assert( NULL != arg.pMemObj );
-    OclEvent* mem_event = arg.pMemObj->LockOnDevice( pDev, arg.access_rights );
+    SharedPtr<OclEvent> mem_event = arg.pMemObj->LockOnDevice( pDev, arg.access_rights );
 
     if (NULL != mem_event)
     {
-        m_Event.AddDependentOn( mem_event );
+        m_Event->AddDependentOn( mem_event );
     }
 
     return (NULL == mem_event);
 }
 
-cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev )
+cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev )
 {
     if ( m_memory_objects_acquired )
     {
@@ -317,13 +330,13 @@ cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, Memory
 
     if (false == ready)
     {       
-		m_Event.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+		m_Event->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     }
 
     return (ready) ? CL_SUCCESS : CL_NOT_READY;
 }
 
-void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, FissionableDevice* pDev )
+void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev )
 {
     if ( !m_memory_objects_acquired )
     {
@@ -358,7 +371,7 @@ void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObje
 inline
 void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size )
 {
-    m_DevCmd.id          = (cl_dev_cmd_id)m_Event.GetId(); // event ID is set inside queue, so we cannot save it in constructor
+    m_DevCmd.id          = (cl_dev_cmd_id)m_Event->GetId(); // event ID is set inside queue, so we cannot save it in constructor
     m_DevCmd.type        = type;
     m_DevCmd.param_size  = params_size;
     m_DevCmd.params      = params;
@@ -366,7 +379,7 @@ void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, si
 	m_DevCmd.profiling   = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
 	m_DevCmd.data	     = static_cast<ICmdStatusChangedObserver*>(this);
 
-	m_Event.SetEventQueue(m_pCommandQueue);
+	m_Event->SetEventQueue(m_pCommandQueue);
 }
 
 void Command::GPA_InitCommand()
@@ -460,10 +473,10 @@ void MemoryCommand::create_dev_cmd_rw(
  *
  ******************************************************************/
 CopyMemObjCommand::CopyMemObjCommand(
-				  IOclCommandQueueBase* cmdQueue,
+				  SharedPtr<IOclCommandQueueBase> cmdQueue,
 				  ocl_entry_points *    pOclEntryPoints,
-                        MemoryObject*   pSrcMemObj,
-                        MemoryObject*   pDstMemObj,
+                        SharedPtr<MemoryObject>   pSrcMemObj,
+                        SharedPtr<MemoryObject>   pDstMemObj,
                         const size_t*   szSrcOrigin,
                         const size_t*   szDstOrigin,
                         const size_t*   szRegion,
@@ -520,9 +533,6 @@ cl_err_code CopyMemObjCommand::Init()
 	// Initialize GPA data
 	GPA_InitCommand();
 
-    m_pSrcMemObj->AddPendency(this);
-    m_pDstMemObj->AddPendency(this);
-
     bool override_target = m_pDstMemObj->IsWholeObjectCovered(m_uiDstNumDims, m_szDstOrigin, m_szRegion);
 
     m_objs.push_back( MemoryObjectArg( m_pSrcMemObj, MemoryObject::READ_ONLY ) );
@@ -558,18 +568,18 @@ cl_err_code CopyMemObjCommand::Execute()
  * Pre condition for this function is that the 2 buffers are allocated
  * in the device.
  ******************************************************************/
-cl_err_code CopyMemObjCommand::CopyOnDevice(FissionableDevice* pDevice)
+cl_err_code CopyMemObjCommand::CopyOnDevice(SharedPtr<FissionableDevice> pDevice)
 {
     cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     cl_dev_cmd_param_copy* pCopyParams   = &m_copyParams;
 
-	OclEvent* pSrcObjEvent;
+	SharedPtr<OclEvent> pSrcObjEvent;
 	cl_err_code clErr = m_pSrcMemObj->GetDeviceDescriptor(pDevice, &(pCopyParams->srcMemObj), &pSrcObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
 		return clErr;
 	}
-	OclEvent* pDstObjEvent;
+	SharedPtr<OclEvent> pDstObjEvent;
     clErr = m_pDstMemObj->GetDeviceDescriptor(pDevice, &(pCopyParams->dstMemObj), &pDstObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
@@ -596,14 +606,8 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(FissionableDevice* pDevice)
 
     // Sending 1 command to the device where the buffer is located now
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
-
-	m_Event.AddPendency(this);
-	m_pDstMemObj->AddPendency(this);
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 	cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
-	m_pDstMemObj->RemovePendency(this);
-	m_Event.RemovePendency(this);
-
 	return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
@@ -615,10 +619,6 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(FissionableDevice* pDevice)
 cl_err_code CopyMemObjCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_objs);
-    
-    m_pSrcMemObj->RemovePendency(this);
-    m_pDstMemObj->RemovePendency(this);
-
     return CL_SUCCESS;
 }
 
@@ -626,10 +626,10 @@ cl_err_code CopyMemObjCommand::CommandDone()
  *
  ******************************************************************/
 CopyBufferCommand::CopyBufferCommand(
-	  IOclCommandQueueBase* cmdQueue,
+	  SharedPtr<IOclCommandQueueBase> cmdQueue,
 	  ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer,
-            MemoryObject*   pDstBuffer,
+            SharedPtr<MemoryObject>   pSrcBuffer,
+            SharedPtr<MemoryObject>   pDstBuffer,
             const size_t    pszSrcOrigin[3],
             const size_t    pszDstOrigin[3],
             const size_t    pszRegion[3]
@@ -650,10 +650,10 @@ CopyBufferCommand::CopyBufferCommand(
  *
  ******************************************************************/
 CopyBufferRectCommand::CopyBufferRectCommand(
-	  IOclCommandQueueBase* cmdQueue,
+	  SharedPtr<IOclCommandQueueBase> cmdQueue,
 	  ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pSrcBuffer,
-            MemoryObject*   pDstBuffer,
+            SharedPtr<MemoryObject>   pSrcBuffer,
+            SharedPtr<MemoryObject>   pDstBuffer,
             const size_t    pszSrcOrigin[3],
             const size_t    pszDstOrigin[3],
             const size_t    pszRegion[3],
@@ -680,10 +680,10 @@ CopyBufferRectCommand::CopyBufferRectCommand(
  *
  ******************************************************************/
 CopyImageCommand::CopyImageCommand(
-    IOclCommandQueueBase* cmdQueue,
+    SharedPtr<IOclCommandQueueBase> cmdQueue,
     ocl_entry_points *    pOclEntryPoints,
-    MemoryObject*   pSrcImage,
-    MemoryObject*   pDstImage,
+    SharedPtr<MemoryObject>   pSrcImage,
+    SharedPtr<MemoryObject>   pDstImage,
     const size_t*   pszSrcOrigin,
     const size_t*   pszDstOrigin,
     const size_t*   pszRegion
@@ -704,10 +704,10 @@ CopyImageCommand::~CopyImageCommand()
  *
  ******************************************************************/
 CopyBufferToImageCommand::CopyBufferToImageCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
-    MemoryObject*   pSrcBuffer,
-    MemoryObject*   pDstImage,
+    SharedPtr<MemoryObject>   pSrcBuffer,
+    SharedPtr<MemoryObject>   pDstImage,
     size_t          pszSrcOffset[3],
     const size_t*   pszDstOrigin,
     const size_t*   pszDstRegion
@@ -727,10 +727,10 @@ CopyBufferToImageCommand::~CopyBufferToImageCommand()
  *
  ******************************************************************/
 CopyImageToBufferCommand::CopyImageToBufferCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
-    MemoryObject*   pSrcImage,
-    MemoryObject*   pDstBuffer,
+    SharedPtr<MemoryObject>   pSrcImage,
+    SharedPtr<MemoryObject>   pDstBuffer,
     const size_t*   pszSrcOrigin,
     const size_t*   pszSrcRegion,
 	size_t          pszDstOffset[3]
@@ -749,8 +749,8 @@ CopyImageToBufferCommand::~CopyImageToBufferCommand()
 /******************************************************************
  *
  ******************************************************************/
-MapBufferCommand::MapBufferCommand(	IOclCommandQueueBase* cmdQueue, ocl_entry_points *    pOclEntryPoints,
-                                    MemoryObject* pBuffer, cl_map_flags clMapFlags, size_t szOffset, size_t szCb):
+MapBufferCommand::MapBufferCommand(	SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points *    pOclEntryPoints,
+                                    SharedPtr<MemoryObject> pBuffer, cl_map_flags clMapFlags, size_t szOffset, size_t szCb):
     MapMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, NULL, NULL, NULL, NULL)
 {
     m_szOrigin[0] = szOffset;
@@ -768,9 +768,9 @@ MapBufferCommand::~MapBufferCommand()
  *
  ******************************************************************/
 MapImageCommand::MapImageCommand(
-	 IOclCommandQueueBase*  cmdQueue,
+	 SharedPtr<IOclCommandQueueBase>  cmdQueue,
 	 ocl_entry_points *     pOclEntryPoints,
-            MemoryObject*   pImage,
+            SharedPtr<MemoryObject>   pImage,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -792,9 +792,9 @@ MapImageCommand::~MapImageCommand()
  *
  ******************************************************************/
 MapMemObjCommand::MapMemObjCommand(
-      IOclCommandQueueBase* cmdQueue,
+      SharedPtr<IOclCommandQueueBase> cmdQueue,
       ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -843,7 +843,6 @@ MapMemObjCommand::~MapMemObjCommand()
         }
         
         m_pMemObj.pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
-        m_pMemObj.pMemObj->RemovePendency(this);        
     }
 }
 
@@ -854,18 +853,16 @@ MapMemObjCommand::~MapMemObjCommand()
 cl_err_code MapMemObjCommand::Init()
 {
     cl_err_code res;
-    MemoryObject* pMemObj = m_pMemObj.pMemObj;
-    pMemObj->AddPendency(NULL);   // NULL because this command won't be the one that will remove the dependency - the unmap command will
+    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
 
     res = pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(res))
     {
-		pMemObj->RemovePendency(this);
 		assert(0);
 		return res;
 	}
 
-    const FissionableDevice* actual_dev = NULL;
+    ConstSharedPtr<FissionableDevice> actual_dev = NULL;
     
     // Get pointer to the device
 	cl_err_code err = pMemObj->CreateMappedRegion(m_pDevice, m_clMapFlags, m_szOrigin, m_szRegion, m_pszImageRowPitch, m_pszImageSlicePitch,
@@ -877,7 +874,7 @@ cl_err_code MapMemObjCommand::Init()
         return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
 
-    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev);
+    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev.GetPtr());
 	
 	// check whether postfix command should be run to update user mirror area
 	if ((0 == (CL_MAP_WRITE_INVALIDATE_REGION & m_pMappedRegion->flags))	&&		// region was not mapped for overriding by host
@@ -902,7 +899,6 @@ cl_err_code MapMemObjCommand::Init()
 		if (NULL == m_pPostfixCommand)
 		{
 			pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
-			pMemObj->RemovePendency(this);
 			assert(0);
 			return err;
 		}
@@ -946,10 +942,7 @@ cl_err_code MapMemObjCommand::Execute()
 
 	// Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
-	m_Event.AddPendency(this);
-	m_pMemObj.pMemObj->AddPendency(this);
-
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
     cl_dev_cmd_list device_cmd_list = m_clDevCmdListId;
     if (m_pActualMappingDevice != m_pDevice)
     {
@@ -958,14 +951,13 @@ cl_err_code MapMemObjCommand::Execute()
         // use hidden queue if map to another device 
         device_cmd_list = NULL;
         // ensure we will exist after device will call for completion so that runtime scheduler will see us
-        m_Event.AddPendency(this);
+        //m_Event->AddPendency(this);
     }
         
 	cl_dev_err_code errDev = m_pActualMappingDevice->GetDeviceAgent()->clDevCommandListExecute(
                                         device_cmd_list,
                                         &m_pDevCmd, 1);
-	m_pMemObj.pMemObj->RemovePendency(this);
-	m_Event.RemovePendency(this);
+	//m_Event->RemovePendency(this);
 
     cl_err_code err = CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
     
@@ -1015,11 +1007,11 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		m_pPostfixCommand = NULL;	// in the case 'this' will disappear
 
 		// 'this' may disapper after the self-enqueue is successful!
-		// First command should not be BLOCKING
+		// First command should be BLOCKING
 		err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
 		if (CL_FAILED(err))
 		{
-			LogErrorA("Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x", GetCommandName(), m_Event.GetId(), err);
+			LogErrorA("Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x", GetCommandName(), m_Event->GetId(), err);
 			// enqueue unsuccessful - 'this' still alive
 			m_pPostfixCommand = postfix; // restore
 			return err;
@@ -1028,7 +1020,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 		err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
 		if (CL_FAILED(err))
 		{
-			LogErrorA("Command - postfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event.GetId(), err);
+			LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event->GetId(), err);
 			// oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
 			// pEvent and be able to make other commands dependent on it
 			if (NULL != pEvent)
@@ -1121,8 +1113,8 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
 /******************************************************************
  *
  ******************************************************************/
-UnmapMemObjectCommand::UnmapMemObjectCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, 
-											 MemoryObject* pMemObject, void* pMappedPtr):
+UnmapMemObjectCommand::UnmapMemObjectCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, 
+											 SharedPtr<MemoryObject> pMemObject, void* pMappedPtr):
 	Command(cmdQueue),
     m_pMemObject(pMemObject, MemoryObject::READ_WRITE),
     m_pMappedPtr(pMappedPtr),
@@ -1156,8 +1148,8 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
  ******************************************************************/
 cl_err_code UnmapMemObjectCommand::Init()
 {
-    const FissionableDevice* actual_dev;
-    MemoryObject* pMemObj = m_pMemObject.pMemObj;
+    ConstSharedPtr<FissionableDevice> actual_dev;
+    SharedPtr<MemoryObject> pMemObj = m_pMemObject.pMemObj;
     
     /* First check the the region has been mapped - just get the 1st mapped region, the user should
         handle code with multiple map/unmap commands */
@@ -1175,7 +1167,7 @@ cl_err_code UnmapMemObjectCommand::Init()
         m_pMemObject.access_rights = MemoryObject::WRITE_ENTIRE;
     }
    
-    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev);
+    m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev.GetPtr());
 
 	// check whether postfix command should be run to update user mirror area
 	if ((0 != ((CL_MAP_WRITE|CL_MAP_WRITE_INVALIDATE_REGION) & m_pMappedRegion->flags)) && // region was mapped for writing on host 
@@ -1236,7 +1228,7 @@ cl_err_code UnmapMemObjectCommand::Execute()
     prepare_command_descriptor( CL_DEV_CMD_UNMAP, m_pMappedRegion, sizeof(cl_dev_cmd_param_map));
 
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
     // we need to synchronize backing store data with host map data, but this
     // should be done immediately before command execution on device to support
@@ -1252,7 +1244,7 @@ cl_err_code UnmapMemObjectCommand::Execute()
         // use hidden queue if map to another device 
         device_cmd_list = NULL;
         // ensure we will exist after device will call for completion so that runtime scheduler will see us
-        m_Event.AddPendency(this);
+        //m_Event->AddPendency(this);
     }
         
 	cl_dev_err_code errDev = m_pActualMappingDevice->GetDeviceAgent()->clDevCommandListExecute(
@@ -1348,7 +1340,6 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
     m_pMappedRegion = NULL;
 
     RelinquishMemoryObjects(m_pMemObject, m_pActualMappingDevice);
-    m_pMemObject.pMemObj->RemovePendency(NULL); // NULL because this command wasn't the one that added the dependency in the first place - it was the map command
 
     m_bResourcesAllocated = false;
     return errVal;
@@ -1395,13 +1386,13 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
  *
  ******************************************************************/
 NativeKernelCommand::NativeKernelCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
 	void              (CL_CALLBACK*pUserFnc)(void *),
            void*               pArgs,
            size_t              szCbArgs,
            cl_uint             uNumMemObjects,
-           MemoryObject**      ppMemObjList,
+           SharedPtr<MemoryObject>*      ppMemObjList,
            const void**        ppArgsMemLoc):
 	Command(cmdQueue),
     m_pUserFnc(pUserFnc),
@@ -1458,9 +1449,7 @@ cl_err_code NativeKernelCommand::Init()
 	for( i=0; i < m_uNumMemObjects; i++ )
 	{
 		// Check that mem object is allocated on device, if not allocate resource
-		MemoryObject* pMemObj = m_ppMemObjList[i];
-		// Set buffers pendencies
-		pMemObj->AddPendency(this);  
+		SharedPtr<MemoryObject> pMemObj = m_ppMemObjList[i];
 		// Check that mem object is allocated on device, if not allocate resource
 		res = pMemObj->CreateDeviceResource(m_pDevice);
 		if( CL_FAILED(res))
@@ -1473,7 +1462,7 @@ cl_err_code NativeKernelCommand::Init()
 
 		// Set the new args list
 		IOCLDevMemoryObject* clDevMemHndl;
-		OclEvent* pObjEvent;
+		SharedPtr<OclEvent> pObjEvent;
 		res = pMemObj->GetDeviceDescriptor(m_pDevice, &clDevMemHndl, &pObjEvent);
 		if( CL_FAILED(res))
 		{
@@ -1490,8 +1479,7 @@ cl_err_code NativeKernelCommand::Init()
 	{
 		for( cl_uint j=0; j<i; ++j)
 		{
-			MemoryObject* pMemObj = m_ppMemObjList[j];
-			pMemObj->RemovePendency(this);
+			SharedPtr<MemoryObject> pMemObj = m_ppMemObjList[j];
 		}
 
 		delete []pNewArgs;
@@ -1523,7 +1511,7 @@ cl_err_code NativeKernelCommand::Execute()
         return CL_NOT_READY;
     }
     
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 	// Fill command descriptor
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
@@ -1556,8 +1544,7 @@ cl_err_code NativeKernelCommand::CommandDone()
     for( cl_uint i=0; i < m_uNumMemObjects; i++ )
     {
         // Check that mem object is allocated on device, if not allocate resource
-        MemoryObject* pMemObj = m_ppMemObjList[i];
-        pMemObj->RemovePendency(this);
+        SharedPtr<MemoryObject> pMemObj = m_ppMemObjList[i];
     }
 	delete []m_ppMemObjList;
 
@@ -1568,9 +1555,9 @@ cl_err_code NativeKernelCommand::CommandDone()
  *
  ******************************************************************/
 NDRangeKernelCommand::NDRangeKernelCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points*     pOclEntryPoints,
-    Kernel*         pKernel,
+    SharedPtr<Kernel>         pKernel,
     cl_uint         uiWorkDim,
     const size_t*   cpszGlobalWorkOffset,
     const size_t*   cpszGlobalWorkSize,
@@ -1595,14 +1582,12 @@ NDRangeKernelCommand::~NDRangeKernelCommand()
 /******************************************************************
  *
  ******************************************************************/
+
 cl_err_code NDRangeKernelCommand::Init()
 {
     cl_err_code res = CL_SUCCESS;
     // We have to use init to create a snapshot of the buffer kernels on enqueue
     // Thus, we also create and set the device command appropriately as much as we can.
-
-	// Add ownership on the object
-	m_pKernel->AddPendency(this);
 
     // Create args snapshot
     size_t szArgCount = m_pKernel->GetKernelArgsCount();
@@ -1623,11 +1608,10 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             szSize = sizeof(IOCLDevMemoryObject*);
             // Create buffer resources here if not available.
-            MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
+            SharedPtr<MemoryObject> pMemObj = (MemoryObject*)pArg->GetValue();
             if (NULL != pMemObj)    // NULL argument is allowed
             {
                 // Mark as used
-                pMemObj->AddPendency(this);
                 res = pMemObj->CreateDeviceResource(m_pDevice);
                 if( CL_FAILED(res))
                 {
@@ -1641,7 +1625,6 @@ cl_err_code NDRangeKernelCommand::Init()
 		{
             szSize   = sizeof(cl_uint);
 			OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
-			pSampler->AddPendency(this);
             szCurrentLocation += szSize;
             m_NonMemOclObjects.push_back(reinterpret_cast<OCLObject<_cl_mem_int> *>(pSampler));
 		}
@@ -1667,26 +1650,6 @@ cl_err_code NDRangeKernelCommand::Init()
 
 	if ( CL_FAILED(res) )
 	{
-		if ( i == szArgCount )	// Failed on local memory
-		{
-			--i;
-		}
-		// On Error we need to roll back
-		for(size_t k=0; k<=i; ++k)
-		{
-	        pArg = m_pKernel->GetKernelArg(k);
-		    if(pArg->IsMemObject())
-			{
-	            MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
-			    pMemObj->RemovePendency(this);
-			} else if( pArg->IsSampler() )
-			{
-				OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
-				pSampler->RemovePendency(this);
-			}
-		}
-		m_pKernel->RemovePendency(this);
-
 		return res;
 	}
     // Setup Kernel parameters
@@ -1709,8 +1672,9 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             szArgSize = sizeof(cl_dev_memobj_handle);
 			IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)pArgValuesCurrentLocation;
-            MemoryObject* pMemObj = (MemoryObject*)pArg->GetValue();
+            SharedPtr<MemoryObject> pMemObj = (MemoryObject*)pArg->GetValue();
 			res = GetMemObjectDescriptor(pMemObj, devObjSrc);
+
 			if ( CL_FAILED(res) )
 			{
 				assert( 0 && "GetMemObjectDescriptor() supposed to success" );
@@ -1720,7 +1684,7 @@ cl_err_code NDRangeKernelCommand::Init()
         else if( pArg->IsSampler() )
         {
             szArgSize = sizeof(cl_uint);
-            Sampler* pSampler = (Sampler*)pArg->GetValue();
+            SharedPtr<Sampler> pSampler = (Sampler*)pArg->GetValue();
 			cl_uint value = pSampler->GetValue();
             *((cl_uint*)pArgValuesCurrentLocation) = value;
         }
@@ -1773,7 +1737,7 @@ cl_err_code NDRangeKernelCommand::Execute()
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device.
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
@@ -1787,29 +1751,12 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     // Remove object pendencies
     RelinquishMemoryObjects(m_MemOclObjects);
 
-    MemoryObjectArgList::iterator mit;
-    for( mit = m_MemOclObjects.begin(); mit != m_MemOclObjects.end(); mit++)
-    {
-        OCLObject<_cl_mem_int>* obj = mit->pMemObj;
-        obj->RemovePendency(this);
-    }
     m_MemOclObjects.clear();
-
-    list<OCLObject<_cl_mem_int>*>::iterator it;
-    for( it = m_NonMemOclObjects.begin(); it != m_NonMemOclObjects.end(); it++)
-    {
-        OCLObject<_cl_mem_int>* obj = *it;
-        obj->RemovePendency(this);
-    }
     m_NonMemOclObjects.clear();
 
     // Delete local command
 	cl_char* temp = (cl_char*)(m_kernelParams.arg_values);
     delete[] temp;
-
-	// Remove ownership from the object
-	m_pKernel->RemovePendency(this);
-
     return CL_SUCCESS;
 }
 
@@ -1867,7 +1814,7 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __
  * The functions below implement the Read Buffer functinoality
  *
  ******************************************************************/
-ReadBufferCommand::ReadBufferCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, MemoryObject* pBuffer, const size_t pszOffset[3], const size_t pszCb[3], void* pDst)
+ReadBufferCommand::ReadBufferCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<MemoryObject> pBuffer, const size_t pszOffset[3], const size_t pszCb[3], void* pDst)
 :ReadMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset, pszCb, 0, 0, pDst)
 {
 	m_commandType = CL_COMMAND_READ_BUFFER;
@@ -1883,9 +1830,9 @@ ReadBufferCommand::~ReadBufferCommand()
  *
  ******************************************************************/
 ReadBufferRectCommand::ReadBufferRectCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*     pBuffer,
+            SharedPtr<MemoryObject>     pBuffer,
             const size_t      szBufferOrigin[3],
 			const size_t      szDstOrigin[3],
 			const size_t	  szRegion[3],
@@ -1907,9 +1854,9 @@ ReadBufferRectCommand::~ReadBufferRectCommand()
  *
  ******************************************************************/
 ReadImageCommand::ReadImageCommand(
-								   IOclCommandQueueBase* cmdQueue,
+								   SharedPtr<IOclCommandQueueBase> cmdQueue,
 								   ocl_entry_points *    pOclEntryPoints,
-			MemoryObject*   pImage,
+			SharedPtr<MemoryObject>   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -1930,9 +1877,9 @@ ReadImageCommand::~ReadImageCommand()
  *
  ******************************************************************/
 ReadMemObjCommand::ReadMemObjCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
-    MemoryObject*   pMemObj,
+    SharedPtr<MemoryObject>   pMemObj,
     const size_t*   pszOrigin,
     const size_t*   pszRegion,
     size_t          szRowPitch,
@@ -1993,8 +1940,6 @@ ReadMemObjCommand::~ReadMemObjCommand()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::Init()
 {
-	m_pMemObj->AddPendency(this);
-
 	// Initialize GPA data
 	GPA_InitCommand();
 
@@ -2013,7 +1958,7 @@ cl_err_code ReadMemObjCommand::Execute()
         return CL_NOT_READY;
     }
 
-	OclEvent* pObjEvent;
+	SharedPtr<OclEvent> pObjEvent;
 	cl_err_code clErr = m_pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
@@ -2025,7 +1970,7 @@ cl_err_code ReadMemObjCommand::Execute()
 		m_pDst, m_szOrigin, m_szDstOrigin, m_szRegion, m_szDstRowPitch, m_szDstSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
         CL_DEV_CMD_READ );
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
     // Sending 1 command to the device where the buffer is located now
 
 	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
@@ -2038,7 +1983,6 @@ cl_err_code ReadMemObjCommand::Execute()
 cl_err_code ReadMemObjCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_pMemObj, MemoryObject::READ_ONLY);
-    m_pMemObj->RemovePendency(this);
     return CL_SUCCESS;
 }
 
@@ -2046,7 +1990,7 @@ cl_err_code ReadMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-TaskCommand::TaskCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, Kernel* pKernel ):
+TaskCommand::TaskCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<Kernel> pKernel ):
     NDRangeKernelCommand(cmdQueue, pOclEntryPoints, pKernel, 1, NULL, &m_szStaticWorkSize, &m_szStaticWorkSize),
     m_szStaticWorkSize(1)
 {
@@ -2077,7 +2021,7 @@ cl_err_code TaskCommand::Init()
 /******************************************************************
  *
  ******************************************************************/
-WriteBufferCommand::WriteBufferCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points* pOclEntryPoints, cl_bool bBlocking, MemoryObject* pBuffer, const size_t* pszOffset, const size_t* pszCb, const void* cpSrc)
+WriteBufferCommand::WriteBufferCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, cl_bool bBlocking, SharedPtr<MemoryObject> pBuffer, const size_t* pszOffset, const size_t* pszCb, const void* cpSrc)
 : WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, pszOffset, pszCb, 0, 0, cpSrc)
 {
 	m_commandType = CL_COMMAND_WRITE_BUFFER;
@@ -2096,7 +2040,7 @@ WriteBufferCommand::~WriteBufferCommand()
 /******************************************************************
  *  FillBufferCommand
  ******************************************************************/
-FillBufferCommand::FillBufferCommand(IOclCommandQueueBase* cmdQueue, ocl_entry_points *pOclEntryPoints, MemoryObject *pBuffer, const void *pattern, size_t pattern_size, size_t offset, size_t size)
+FillBufferCommand::FillBufferCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points *pOclEntryPoints, SharedPtr<MemoryObject>pBuffer, const void *pattern, size_t pattern_size, size_t offset, size_t size)
 : FillMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, offset, size, pattern, pattern_size)
 {
 	m_commandType = CL_COMMAND_FILL_BUFFER;
@@ -2112,7 +2056,7 @@ FillBufferCommand::~FillBufferCommand()
 /******************************************************************
  *  FillImageCommand
  ******************************************************************/
-FillImageCommand::FillImageCommand( IOclCommandQueueBase* cmdQueue, ocl_entry_points *    pOclEntryPoints, MemoryObject*   pImg, const void *pattern, size_t pattern_size, const cl_uint num_of_dimms, const size_t *offset, const size_t *size)
+FillImageCommand::FillImageCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points *    pOclEntryPoints, SharedPtr<MemoryObject>   pImg, const void *pattern, size_t pattern_size, const cl_uint num_of_dimms, const size_t *offset, const size_t *size)
 : FillMemObjCommand(cmdQueue, pOclEntryPoints, pImg, offset, size, num_of_dimms, pattern, pattern_size)
 {
 	m_commandType = CL_COMMAND_FILL_IMAGE;
@@ -2126,10 +2070,10 @@ FillImageCommand::~FillImageCommand()
  *
  ******************************************************************/
 WriteBufferRectCommand::WriteBufferRectCommand(
-	    IOclCommandQueueBase* cmdQueue,
+	    SharedPtr<IOclCommandQueueBase> cmdQueue,
 	    ocl_entry_points *    pOclEntryPoints,
             cl_bool			bBlocking,
-			MemoryObject*     pBuffer,
+			SharedPtr<MemoryObject>     pBuffer,
             const size_t      szBufferOrigin[3],
 			const size_t      szSrcOrigin[3],
 			const size_t	  szRegion[3],
@@ -2152,10 +2096,10 @@ WriteBufferRectCommand::~WriteBufferRectCommand()
  *
  ******************************************************************/
 WriteImageCommand::WriteImageCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
 	cl_bool			bBlocking,
-    MemoryObject*   pImage,
+    SharedPtr<MemoryObject>   pImage,
     const size_t*   pszOrigin,
     const size_t*   pszRegion,
     size_t          szRowPitch,
@@ -2176,10 +2120,10 @@ WriteImageCommand::~WriteImageCommand()
  *
  ******************************************************************/
 WriteMemObjCommand::WriteMemObjCommand(
-	IOclCommandQueueBase* cmdQueue,
+	SharedPtr<IOclCommandQueueBase> cmdQueue,
 	ocl_entry_points *    pOclEntryPoints,
 	cl_bool			bBlocking,
-    MemoryObject*   pMemObj,
+    SharedPtr<MemoryObject>   pMemObj,
     const size_t*   pszOrigin,
     const size_t*   pszRegion,
     size_t          szRowPitch,
@@ -2253,7 +2197,7 @@ WriteMemObjCommand::~WriteMemObjCommand()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Init()
 {
-    MemoryObject* pMemObj = m_pMemObj.pMemObj;
+    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
     
 	// If we are blocking command, we need to allocate internal buffer
 	if ( m_bBlocking )
@@ -2301,9 +2245,6 @@ cl_err_code WriteMemObjCommand::Init()
 
 	// Initialize GPA data
 	GPA_InitCommand();
-
-    pMemObj->AddPendency(this);
-
     if (pMemObj->IsWholeObjectCovered(
                             CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : m_pMemObj.pMemObj->GetNumDimensions(),
                             m_szOrigin, m_szRegion))
@@ -2323,11 +2264,11 @@ cl_err_code WriteMemObjCommand::Execute()
         return CL_NOT_READY;
     }
 
-    MemoryObject* pMemObj = m_pMemObj.pMemObj;
+    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
  	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
 	/// memory object resides on target device, update it
-	OclEvent* pObjEvent;
+	SharedPtr<OclEvent> pObjEvent;
 	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
@@ -2340,14 +2281,10 @@ cl_err_code WriteMemObjCommand::Execute()
 			m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
 			CL_DEV_CMD_WRITE ) ;
 
-	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 	// Sending 1 command to the device where the buffer is located now
-
-	m_Event.AddPendency(this);
-	pMemObj->AddPendency(this);
 	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
-	pMemObj->RemovePendency(this);
-	m_Event.RemovePendency(this);
+	//m_Event->RemovePendency(this);
 	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
 
@@ -2363,8 +2300,6 @@ cl_err_code WriteMemObjCommand::CommandDone()
 	}
 
     RelinquishMemoryObjects(m_pMemObj);
-    m_pMemObj.pMemObj->RemovePendency(this);
-
     return CL_SUCCESS;
 }
 
@@ -2373,10 +2308,10 @@ cl_err_code WriteMemObjCommand::CommandDone()
  ******************************************************************/
 cl_err_code RuntimeCommand::Execute()
 {
-    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event.GetId());
+    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
     CommandDone();
-	m_Event.SetEventState(EVENT_STATE_DONE);
-	m_Event.RemovePendency(NULL);
+	m_Event->SetEventState(EVENT_STATE_DONE);
+    m_Event = NULL;
     return CL_SUCCESS;
 }
 
@@ -2385,9 +2320,9 @@ cl_err_code RuntimeCommand::Execute()
  *
  ******************************************************************/
 FillMemObjCommand::FillMemObjCommand(
-		IOclCommandQueueBase* cmdQueue,
+		SharedPtr<IOclCommandQueueBase> cmdQueue,
 		ocl_entry_points *    pOclEntryPoints,
-		MemoryObject*   pMemObj,
+		SharedPtr<MemoryObject>   pMemObj,
 		const size_t*   pszOffset,
 		const size_t*   pszRegion,
 		const cl_uint   numOfDimms,
@@ -2409,13 +2344,12 @@ FillMemObjCommand::FillMemObjCommand(
 
     memcpy(m_pattern, pattern, m_pattern_size);
     m_pMemObj.pMemObj = pMemObj;
-    pMemObj->AddPendency(this);
 }
 
 FillMemObjCommand::FillMemObjCommand(
-            IOclCommandQueueBase* cmdQueue,
+            SharedPtr<IOclCommandQueueBase> cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            MemoryObject*   pMemObj,
+            SharedPtr<MemoryObject>   pMemObj,
             const size_t    pszOffset,
             const size_t    pszRegion,
             const void*     pattern,
@@ -2433,7 +2367,6 @@ FillMemObjCommand::FillMemObjCommand(
 
 	memcpy(m_pattern, pattern, m_pattern_size);
 	m_pMemObj.pMemObj = pMemObj;
-	pMemObj->AddPendency(this);
 }
 
 /******************************************************************
@@ -2441,7 +2374,6 @@ FillMemObjCommand::FillMemObjCommand(
  ******************************************************************/
 FillMemObjCommand::~FillMemObjCommand()
 {
-	m_pMemObj.pMemObj->RemovePendency(this);
 }
 
 /******************************************************************
@@ -2480,8 +2412,8 @@ cl_err_code FillMemObjCommand::Execute()
 	}
 
 	/// memory object resides on target device, update it
-	OclEvent* pObjEvent;
-    MemoryObject* pMemObj = m_pMemObj.pMemObj;
+	SharedPtr<OclEvent> pObjEvent;
+    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
 	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &(m_fillCmdParams.memObj), &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
@@ -2508,16 +2440,12 @@ cl_err_code FillMemObjCommand::Execute()
 	prepare_command_descriptor((m_commandType == CL_DEV_CMD_FILL_BUFFER) ? CL_DEV_CMD_FILL_BUFFER : CL_DEV_CMD_FILL_IMAGE, 
 	                            &m_fillCmdParams, sizeof(cl_dev_cmd_param_fill));
 
-	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 	// Sending 1 command to the device where the buffer is located now
 	cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
-
-	m_Event.AddPendency(this);
-	pMemObj->AddPendency(this);
 	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
-	pMemObj->RemovePendency(this);
-	m_Event.RemovePendency(this);
+
 
 	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
@@ -2535,7 +2463,7 @@ cl_err_code FillMemObjCommand::CommandDone()
  *
  ******************************************************************/
 MigrateMemObjCommand::MigrateMemObjCommand(
-		IOclCommandQueueBase*  cmdQueue,
+		SharedPtr<IOclCommandQueueBase>  cmdQueue,
 		ocl_entry_points *     pOclEntryPoints,
 		ContextModule*         pContextModule,
 		cl_mem_migration_flags clFlags,
@@ -2559,15 +2487,6 @@ MigrateMemObjCommand::MigrateMemObjCommand(
  ******************************************************************/
 MigrateMemObjCommand::~MigrateMemObjCommand()
 {
-    MemoryObjectArgList::iterator it     = m_MemObjects.begin();
-    MemoryObjectArgList::iterator it_end = m_MemObjects.end();
-
-    for (; it != it_end; ++it)
-    {
-        MemoryObject* cur = it->pMemObj;
-        cur->RemovePendency(this);
-    }
-
     if (NULL != m_migrateCmdParams.memObjs)
     {
         delete [] m_migrateCmdParams.memObjs;
@@ -2591,10 +2510,10 @@ cl_err_code MigrateMemObjCommand::Init()
     MemoryObject::MemObjUsage access = (0 != (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ?
                             MemoryObject::WRITE_ENTIRE : MemoryObject::READ_ONLY; // use READ_ONLY for optimization
     
-    Context* const pQueueContext = m_pContextModule->GetContext(m_pCommandQueue->GetParentHandle());
+    SharedPtr<Context> const pQueueContext = m_pContextModule->GetContext(m_pCommandQueue->GetParentHandle());
     for (cl_uint i = 0; i < m_migrateCmdParams.mem_num; i++)
     {
-        MemoryObject* pMemObj = m_pContextModule->GetMemoryObject(m_pMemObjects[i]);
+        SharedPtr<MemoryObject> pMemObj = m_pContextModule->GetMemoryObject(m_pMemObjects[i]);
         if (NULL == pMemObj)
         {
             return CL_INVALID_MEM_OBJECT;
@@ -2613,7 +2532,6 @@ cl_err_code MigrateMemObjCommand::Init()
         cl_err = GetMemObjectDescriptor( pMemObj, &( m_migrateCmdParams.memObjs[i]));
         assert( CL_SUCCESS == cl_err );
 
-        pMemObj->AddPendency(this);
         m_MemObjects.push_back( MemoryObjectArg(pMemObj, access ));
     }
     
@@ -2634,7 +2552,7 @@ cl_err_code MigrateMemObjCommand::Execute()
 
 	prepare_command_descriptor(CL_DEV_CMD_MIGRATE, &m_migrateCmdParams, sizeof(cl_dev_cmd_param_migrate));
 
-	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 	// Sending 1 command to the target device
 	cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
@@ -2654,7 +2572,7 @@ cl_err_code MigrateMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code ErrorQueueEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode)
+cl_err_code ErrorQueueEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode)
 {
 	return m_owner->GetEvent()->ObservedEventStateChanged( pEvent, m_owner->GetForcedErrorCode() ); 
 }
@@ -2676,26 +2594,23 @@ cl_err_code	ErrorQueueEvent::GetInfo(cl_int iParamName, size_t szParamValueSize,
  *
  ******************************************************************/
 PrePostFixRuntimeCommand::PrePostFixRuntimeCommand( 
-	Command* relatedUserCommand, Mode working_mode, IOclCommandQueueBase* cmdQueue ): 
+	Command* relatedUserCommand, Mode working_mode, SharedPtr<IOclCommandQueueBase> cmdQueue ): 
 	RuntimeCommand(cmdQueue), 
 	m_relatedUserCommand(relatedUserCommand), 
 	m_working_mode( working_mode ),
 	m_force_error_return(CL_SUCCESS),
-	m_error_event(cmdQueue->GetParentHandle())
+	m_error_event(ErrorQueueEvent::Allocate(cmdQueue->GetParentHandle()))
 {
 	assert( NULL != m_relatedUserCommand );
 
 	m_commandType = relatedUserCommand->GetCommandType();
 	
-	m_error_event.Init( this );
-	GetEvent()->AddPendency(&m_error_event);
+	m_error_event->Init( this );
 
+	m_commandType = relatedUserCommand->GetCommandType();
+	
+	m_error_event->Init( this );
 	m_task.Init( this );
-}
-
-PrePostFixRuntimeCommand::~PrePostFixRuntimeCommand() {
-	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
-	related_event->RemovePendency( this );
 }
 
 /******************************************************************
@@ -2703,10 +2618,10 @@ PrePostFixRuntimeCommand::~PrePostFixRuntimeCommand() {
  ******************************************************************/
 cl_err_code PrePostFixRuntimeCommand::Init()
 {
-	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
+
 
 	// related command should not disapper before I finished
-	related_event->AddPendency( this );
+
 
 	// Initialize GPA data
 	GPA_InitCommand();
@@ -2718,21 +2633,20 @@ cl_err_code PrePostFixRuntimeCommand::Init()
  ******************************************************************/
 cl_err_code PrePostFixRuntimeCommand::CommandDone()
 {
-	QueueEvent* related_event = m_relatedUserCommand->GetEvent();
+    SharedPtr<QueueEvent> related_event = m_relatedUserCommand->GetEvent();
 
 	// update times here
 	if ( PREFIX_MODE == m_working_mode )
 	{
-		related_event->IncludeProfilingInfo( &m_Event );
+		related_event->IncludeProfilingInfo( m_Event );
 	}
 	else
 	{
-		m_Event.IncludeProfilingInfo( related_event );
+		m_Event->IncludeProfilingInfo( related_event );
 	}
 	
-	GetEvent()->RemovePendency(&m_error_event);
 
-    LogDebugA("Command - DONE  : PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
+
 	return CL_SUCCESS;
 }
 
@@ -2742,7 +2656,6 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
 void PrePostFixRuntimeCommand::ErrorDone()
 {
 	CommandDone();
-	m_Event.RemovePendency(NULL);
 }
 
 /******************************************************************
@@ -2756,11 +2669,11 @@ void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_ev
 	// add manually and leave postfix floating
 	EventsManager*	event_manager = GetCommandQueue()->GetEventsManager();
 
-	event_manager->RegisterQueueEvent( &m_Event, user_pEvent );
+	event_manager->RegisterQueueEvent( m_Event, user_pEvent );
 
 	// 'this' may disapper right now
 	cl_err_code err;
-	err = event_manager->RegisterEvents( &m_error_event, 1, intermediate_pEvent );
+    err = event_manager->RegisterEvents( m_error_event, 1, intermediate_pEvent );
 
 	// in our case RegisterEvents() cannot return failure by construction
 	assert( CL_SUCCEEDED( err ));
@@ -2771,11 +2684,11 @@ void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_ev
  ******************************************************************/
 void PrePostFixRuntimeCommand::DoAction()
 {
-	LogDebugA("PrePostFixRuntimeCommand - DoAction Started: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	LogDebugA("PrePostFixRuntimeCommand - DoAction Started: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 	m_returnCode = CL_SUCCESS;
 
-	cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event.GetId();
+	cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event->GetId();
 	NotifyCmdStatusChanged(id, CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
 
 	m_returnCode = ( PREFIX_MODE == m_working_mode ) ?
@@ -2783,7 +2696,7 @@ void PrePostFixRuntimeCommand::DoAction()
 						:
 						m_relatedUserCommand->PostfixExecute();
 
-	LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
+	LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 	NotifyCmdStatusChanged(id, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
 }
 
@@ -2793,15 +2706,11 @@ void PrePostFixRuntimeCommand::DoAction()
 cl_err_code PrePostFixRuntimeCommand::Execute()
 {
 	cl_err_code			ret  = CL_SUCCESS;
-
-	// prevent deletion of the command until task is deleted by TaskExecutor
-	m_Event.AddPendency( this );
-	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(&m_task);
+	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(new WeakPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(&m_task));
 
 	if (0 != task_err)
 	{
-		m_Event.RemovePendency( this );
-		LogDebugA("PrePostFixRuntimeCommand - Execute: Task submission failed for PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event.GetId());
+		LogDebugA("PrePostFixRuntimeCommand - Execute: Task submission failed for PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
 		ret = CL_OUT_OF_RESOURCES;
 		m_returnCode = ret;	
@@ -2837,8 +2746,8 @@ bool RuntimeCommandTask::Execute()
 /******************************************************************
  *
  ******************************************************************/
-long RuntimeCommandTask::Release() 
+long RuntimeCommandTask::Release()
 {
-	m_owner->GetEvent()->RemovePendency(m_owner);
+    m_owner = NULL;
     return 0;
 }

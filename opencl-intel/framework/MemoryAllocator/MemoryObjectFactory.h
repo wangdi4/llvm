@@ -27,6 +27,9 @@
 #include <cl_types.h>
 
 #include <map>
+#include "cl_shared_ptr.h"
+
+using Intel::OpenCL::Utils::SharedPtr;
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -49,14 +52,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		{\
 		MemoryObjectFactory::GetInstance()->RegisterMemoryObjectCreator(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,&CLASS##CreatorRegister::Create);\
 		}\
-		static MemoryObject* Create(Context* pContext, cl_mem_object_type clObjType)\
+		static SharedPtr<MemoryObject> Create(SharedPtr<Context> pContext, cl_mem_object_type clObjType)\
 		{\
-			return new IMPLEMETATION(pContext, clObjType);\
+            /* This is to prevent class B that inherits from A to not define Allocate, while A does. This would compile if we just used 'return', but we'd get an object of class A instead of one of type B */\
+            SharedPtr<IMPLEMETATION> pMemObj = IMPLEMETATION::Allocate(pContext, clObjType);\
+			return pMemObj;\
 		}\
 	};\
 	CLASS##CreatorRegister class##CLASS##CreatorRegister;
 
-	typedef MemoryObject* fn_MemoryObjectCreator(Context* pContext, cl_mem_object_type clObjType);
+    typedef SharedPtr<MemoryObject> fn_MemoryObjectCreator(SharedPtr<Context> pContext, cl_mem_object_type clObjType);
 
 	class MemoryObjectFactory
 	{
@@ -69,7 +74,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											fn_MemoryObjectCreator* pMemObjCreator);
 
 		cl_err_code CreateMemoryObject( cl_bitfield iRequiredDevices, cl_mem_object_type clObjType, int iGfxSysSharing,
-											Context* pContext, MemoryObject* *pMemObject);
+											SharedPtr<Context> pContext, SharedPtr<MemoryObject> *pMemObject);
 
 	protected:
 		struct FactoryKey

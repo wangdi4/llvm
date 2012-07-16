@@ -33,8 +33,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class GLBuffer : public GLMemoryObject
 	{
-	public:
-		GLBuffer(Context* pContext, cl_gl_object_type clglObjType);
+	public:		
+
+        PREPARE_SHARED_PTR(GLBuffer);
+
+		static SharedPtr<GLBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+        {
+            return SharedPtr<GLBuffer>(new GLBuffer(pContext, clObjType));
+        }
 
 		cl_err_code AcquireGLObject();
 		cl_err_code ReleaseGLObject();
@@ -44,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags	creation_flags );
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer);
+			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer);
 
 		size_t GetPixelSize() const {return 1;}
 		// Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
@@ -56,6 +62,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 
 	protected:
+
+        GLBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		cl_err_code CreateChildObject();
 
 		// do not implement

@@ -24,12 +24,9 @@
 
 #include <list>
 
-#define CL_GFX_OBJECT_NOT_READY			((MemoryObject *)1)
-#define CL_GFX_OBJECT_NOT_ACQUIRED		((MemoryObject *)NULL)
-#define CL_GFX_OBJECT_FAIL_IN_ACQUIRE	((MemoryObject *)-1)
-
 namespace Intel { namespace OpenCL { namespace Framework
-{
+{    
+
     /**
      * @class   GraphicsApiMemoryObject
      *
@@ -47,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     public:
 
         /**
-         * @fn  GraphicsApiMemoryObject::GraphicsApiMemoryObject(Context* pContext,
+         * @fn  GraphicsApiMemoryObject::GraphicsApiMemoryObject(SharedPtr<Context> pContext,
          *      ocl_entry_points* pOclEntryPoints)
          *
          * @brief   Constructor.
@@ -56,8 +53,12 @@ namespace Intel { namespace OpenCL { namespace Framework
          * @date    7/13/2011
          */
 
-        GraphicsApiMemoryObject(Context* pContext) :
+        GraphicsApiMemoryObject(SharedPtr<Context> pContext) :
           MemoryObject(pContext), m_itCurrentAcquriedObject(m_lstAcquiredObjectDescriptors.end()) { }
+
+    public:
+
+        PREPARE_SHARED_PTR(GraphicsApiMemoryObject);
 
         /**
          * @fn  virtual GraphicsApiMemoryObject::~GraphicsApiMemoryObject();
@@ -70,11 +71,11 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual ~GraphicsApiMemoryObject();
 
-        cl_err_code SetAcquireCmdEvent(OclEvent* pEvent); // Set Event of Acquire command that belongs to the object.
+        cl_err_code SetAcquireCmdEvent(SharedPtr<OclEvent> pEvent); // Set Event of Acquire command that belongs to the object.
 
         // inherited methods:
-        virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
-        virtual void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage );
+        virtual SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
+        virtual void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
 
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
 
@@ -85,15 +86,15 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
 
-        virtual cl_err_code CreateDeviceResource(FissionableDevice* pDevice);
+        virtual cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice);
 
-        virtual cl_err_code GetDeviceDescriptor(FissionableDevice* pDevice,
-            IOCLDevMemoryObject** ppDevObject, OclEvent** ppEvent);
+        virtual cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice,
+            IOCLDevMemoryObject** ppDevObject, SharedPtr<OclEvent>* ppEvent);
 
-		virtual cl_err_code UpdateDeviceDescriptor(FissionableDevice* IN pDevice,
+		virtual cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice,
 			IOCLDevMemoryObject* OUT *ppDevObject);
 
-        virtual bool IsSupportedByDevice(FissionableDevice* pDevice);
+        virtual bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice);
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
@@ -109,10 +110,10 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         // inherited methods:
 
-        virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
+        virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
             cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
 
-        virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
+        virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
             cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr);
 
 
@@ -128,9 +129,39 @@ namespace Intel { namespace OpenCL { namespace Framework
 		// clEnqueueReleaseGL...()
 		// ...
 		// clFinish()
-		
-		// The list is protectd by m_muAcquireRelease
-		typedef std::list< std::pair<OclEvent*, MemoryObject*> > t_AcquiredObjects;
+
+        enum ClGfxObjectState {
+            CL_GFX_OBJECT_VALID,
+            CL_GFX_OBJECT_NOT_READY,
+            CL_GFX_OBJECT_NOT_ACQUIRED,
+            CL_GFX_OBJECT_FAIL_IN_ACQUIRE
+        };
+
+        class AcquiredObject : public SharedPtr<MemoryObject>
+        {
+        public:
+
+            AcquiredObject(ClGfxObjectState state, const SharedPtr<MemoryObject>& pObj = SharedPtr<MemoryObject>()) : SharedPtr<MemoryObject>(pObj), m_state(state)
+            {
+                assert(Invarient());
+            }
+
+            AcquiredObject(const SharedPtr<MemoryObject>& pObj) : SharedPtr<MemoryObject>(pObj), m_state(CL_GFX_OBJECT_VALID)
+            {
+                assert(Invarient());
+            }
+
+            operator ClGfxObjectState() { return m_state; }
+
+        private:
+
+            bool Invarient() { return !(CL_GFX_OBJECT_VALID == m_state && NULL == m_ptr) && !(CL_GFX_OBJECT_VALID != m_state && NULL != m_ptr); }
+
+            ClGfxObjectState m_state;
+        };
+
+        // The list is protectd by m_muAcquireRelease
+		typedef std::list< std::pair<SharedPtr<OclEvent>, AcquiredObject > > t_AcquiredObjects;
 		t_AcquiredObjects m_lstAcquiredObjectDescriptors;
 		t_AcquiredObjects::iterator m_itCurrentAcquriedObject;
 

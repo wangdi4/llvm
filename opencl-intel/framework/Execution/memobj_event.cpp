@@ -26,13 +26,12 @@
 ///////////////////////////////////////////////////////////
 
 #include "memobj_event.h"
-
 #include <assert.h>
 #include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;
 
-MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, MemoryObject* pMemObject, FissionableDevice* pDevice) :
+MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice) :
 	OclEvent(pMemObject->GetParentHandle()), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
 {
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
@@ -42,7 +41,7 @@ MemoryObjectEvent::~MemoryObjectEvent()
 {
 }
 
-cl_err_code MemoryObjectEvent::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode )
+cl_err_code MemoryObjectEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode )
 {
 	if ( returnCode == CL_SUCCESS )
 	{

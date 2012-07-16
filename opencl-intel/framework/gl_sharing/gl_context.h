@@ -28,6 +28,7 @@
 
 #include "gl/gl.h"
 #include "gl/glext.h"
+#include "cl_shared_ptr.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -55,17 +56,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLContext : public Context
 	{
 	public:
-		GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevices,
-			logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-			cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData);
+
+        PREPARE_SHARED_PTR(GLContext);
+
+        static SharedPtr<GLContext> Allocate(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
+            SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
+            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData)
+        {
+            return SharedPtr<GLContext>(new GLContext(clProperties, uiNumDevices, uiNumRootDevices,
+                ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, hDC, hGLCtx, pGPAData));
+        }        
+
+        GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
+            SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
+            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData);
 
 		cl_context_properties GetDC() const { return m_hDC;}
 		cl_context_properties GetGLCtx() const { return m_hGLCtx;}
 
 		// create GL buffer object
-		cl_err_code CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, MemoryObject ** ppBuffer);
-		cl_err_code CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, MemoryObject* *ppImage);
-		cl_err_code CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRenderBuffer, MemoryObject* *ppImage);
+        cl_err_code CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, SharedPtr<MemoryObject>* ppBuffer);
+		cl_err_code CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType,
+            SharedPtr<MemoryObject>*ppImage);
+		cl_err_code CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRenderBuffer, SharedPtr<MemoryObject>* ppImage);
 
 		pFnglBindBuffer*			glBindBuffer;
 		pFnglMapBuffer*				glMapBuffer;

@@ -9,7 +9,7 @@ EventCallback::EventCallback(eventCallbackFn callback, void* pUserData, const cl
 }
 
 
-cl_err_code EventCallback::ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode /* = CL_SUCCESS */)
+cl_err_code EventCallback::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode /* = CL_SUCCESS */)
 {
 	assert (pEvent);
 	cl_int retCode = returnCode;

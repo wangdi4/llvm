@@ -31,7 +31,7 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
     // Forward declarations 
-    template <class HandleType> class OCLObjectsMap;
+    template <class HandleType, class ObjectType> class OCLObjectsMap;
     class OclEvent;
 	class BuildEvent;
     class QueueEvent;
@@ -62,28 +62,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Event handling functions
 		template<class EventClass>
-			EventClass*  CreateEventClass(_cl_context_int* context)
+        SharedPtr<EventClass> CreateEventClass(_cl_context_int* context)
 			{
-				EventClass* pEvent = new EventClass(context);
+				SharedPtr<EventClass> pEvent = EventClass::Allocate(context);
 				m_mapEvents.AddObject(pEvent);
 				return pEvent;
 			}
 
 		template<class EventClass>
-			EventClass* GetEventClass(cl_event clEvent)
+			SharedPtr<EventClass> GetEventClass(cl_event clEvent)
 			{
-				OCLObject<_cl_event_int>* pOclObject;
-
-				cl_int ret = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent, &pOclObject);
-				if (CL_FAILED(ret))
+				SharedPtr<OCLObject<_cl_event_int> > pOclObject = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent);
+				if (NULL == pOclObject)
 				{
 					return NULL;
 				}
-				return dynamic_cast<EventClass*>(pOclObject);
+				return pOclObject.DynamicCast<EventClass>();
 			}
 
-		void        RegisterQueueEvent(QueueEvent* pEvent, cl_event* pEventHndl);
-        cl_err_code RegisterEvents(OclEvent* pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
+            void        RegisterQueueEvent(SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl);
+        cl_err_code RegisterEvents(SharedPtr<OclEvent> pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
 
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
 
@@ -91,7 +89,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_event_int> m_mapEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
-		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<OclEvent*>& vOclEvents );
+		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >& vOclEvents );
 
         // An EventManger object cannot be copied
         EventsManager(const EventsManager&);           // copy constructor

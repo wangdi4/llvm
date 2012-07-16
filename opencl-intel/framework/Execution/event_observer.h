@@ -28,6 +28,9 @@
 #pragma once
 
 #include <cl_types.h>
+#include "cl_shared_ptr.h"
+
+using Intel::OpenCL::Utils::SharedPtr;
 
 namespace Intel { namespace OpenCL { namespace Framework {
     
@@ -47,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     	virtual ~IEventObserver()
         {}
 
-        virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode = CL_SUCCESS) = 0;
+        virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode = CL_SUCCESS) = 0;
 
         virtual cl_int  GetExpectedExecState() const = 0;
     };

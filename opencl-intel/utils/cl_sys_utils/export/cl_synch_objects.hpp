@@ -53,7 +53,7 @@ T OclNaiveConcurrentQueue<T>::Top()
 	OclAutoMutex mu(&m_queueLock);
 
 	assert(!IsEmpty());
-	T ret = m_queue.front();
+	T& ret = m_queue.front();
 
 	return ret;
 }

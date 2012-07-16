@@ -34,13 +34,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class GLTextureArray : public GLTexture3D
 	{
 	public:
-		GLTextureArray(Context * pContext, cl_gl_object_type clglObjType);
+		
+        PREPARE_SHARED_PTR(GLTextureArray);
+
+        static SharedPtr<GLTextureArray> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
+        {
+            return SharedPtr<GLTextureArray>(new GLTextureArray(pContext, clglObjType));
+        }
 
 		GLint CalculateTextureDimensions();
 
         cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 
 	protected:
+
+        GLTextureArray(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
+
 		// do not implement
         GLTextureArray(const GLTextureArray&);
         GLTextureArray& operator=(const GLTextureArray&);

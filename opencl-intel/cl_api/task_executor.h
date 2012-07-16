@@ -41,6 +41,7 @@
 #include <stddef.h>
 #include <cl_sys_defines.h>
 #include "ocl_itt.h"
+#include "cl_shared_ptr.h"
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -170,7 +171,7 @@ public:
     // Enqueue a given task for execution, the function is asynchronous and exits immediately.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
-	virtual unsigned int	Enqueue(ITaskBase* pTask) = 0; // Dynamically detect Task or TaskSet
+	virtual unsigned int	Enqueue(Intel::OpenCL::Utils::SmartPtr<ITaskBase>* pTask) = 0; // Dynamically detect Task or TaskSet
 
 	// Ensures that all task were send to execution, non-blocking function
     virtual bool			Flush() = 0;
@@ -208,7 +209,7 @@ public:
 	virtual ITaskList* CreateTaskList(CommandListCreationParam* param) = 0;
 
 	// Execute task immediately, independently to "listed" tasks
-	virtual unsigned int Execute(ITaskBase * pTask) = 0; // Dynamically detect Task or TaskSet
+    virtual unsigned int Execute(Intel::OpenCL::Utils::SmartPtr<ITaskBase> * pTask) = 0; // Dynamically detect Task or TaskSet
 
 	// Add the calling thread to execution pool
 	// Function blocks, until all independent tasks are completed.

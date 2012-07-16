@@ -30,7 +30,8 @@
 #include "device_program.h"
 #include "Context.h"
 #include "kernel.h"
-
+#include "sampler.h"
+#include "cl_shared_ptr.hpp"
 #include <string.h>
 #include <Device.h>
 #include <fe_compiler.h>
@@ -42,17 +43,15 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Program::Program(Context * pContext) :
+Program::Program(SharedPtr<Context> pContext) :
 	OCLObject<_cl_program_int>((_cl_context_int*)pContext->GetHandle(), "Program"),
 	m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
-	m_pContext->AddPendency(this);
 }
 
 Program::~Program()
 {
 	assert (0 == m_pKernels.Count());
-	m_pContext->RemovePendency(this);
 }
 
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
@@ -113,7 +112,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
         {
 		    szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
 		    clDevIds = new cl_device_id[m_szNumAssociatedDevices];
-		    if (!clDevIds)
+		    if (NULL == clDevIds)
 		    {
 			    return CL_OUT_OF_HOST_MEMORY;
 		    }
@@ -278,7 +277,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
                     // now get the length of each kernel name
                     size_t* puiKernelNameLengths = new size_t[uiNumKernels];
-	                if (!puiKernelNameLengths)
+	                if (NULL == puiKernelNameLengths)
 	                {
 		                return CL_OUT_OF_HOST_MEMORY;
 	                }
@@ -289,7 +288,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		                return clErrRet;
 	                }
 	                char** pszKernelNames = new char*[uiNumKernels];
-	                if (!pszKernelNames)
+	                if (NULL == pszKernelNames)
 	                {
 		                delete[] puiKernelNameLengths;
 		                return CL_OUT_OF_HOST_MEMORY;
@@ -298,7 +297,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	                {
                         total_length += puiKernelNameLengths[i];
 		                pszKernelNames[i] = new char[puiKernelNameLengths[i]];
-		                if (!pszKernelNames[i])
+		                if (NULL == pszKernelNames[i])
 		                {
 			                for (size_t j = 0; j < i; ++j)
 			                {
@@ -326,7 +325,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
                     // once we have the actual names, we need to concatenate them
                     assert(total_length > 0);
                     szKernelsNames = new char[total_length];
-                    if (!szKernelsNames)
+                    if (NULL == szKernelsNames)
                     {
                         for (size_t i = 0; i < uiNumKernels; ++i)
 	                    {
@@ -544,7 +543,7 @@ cl_err_code Program::SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_progr
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CreateKernel
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
+cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* ppKernel)
 {
 	//cl_start;
 
@@ -573,7 +572,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	}
 
 	// create new kernel object
-	Kernel * pKernel = new Kernel(this, psKernelName, m_szNumAssociatedDevices);
+    SharedPtr<Kernel> pKernel = Kernel::Allocate(this, psKernelName, m_szNumAssociatedDevices);
 	pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 
 	// next step - for each device that has the kernel, create device kernel 
@@ -586,7 +585,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, Kernel ** ppKernel)
 	}
 
 	// add the kernel object and adding new key for it
-	//m_pKernels->AddObject((OCLObject<_cl_kernel_int>*)pKernel);
+	//m_pKernels->AddObject((SharedPtr<OCLObject<_cl_kernel_int>>)pKernel);
 	m_pKernels.AddObject(pKernel);
 	if (NULL != ppKernel)
 	{
@@ -647,7 +646,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
     }
 
 	size_t* pszKernelNameLengths = new size_t[szNumKernels];
-	if (!pszKernelNameLengths)
+	if (NULL == pszKernelNameLengths)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
@@ -666,7 +665,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	for (size_t i = 0; i < szNumKernels; ++i)
 	{
 		ppKernelNames[i] = new char[pszKernelNameLengths[i]];
-		if (!ppKernelNames[i])
+		if (NULL == ppKernelNames[i])
 		{
 			for (size_t j = 0; j < i; ++j)
 			{
@@ -692,7 +691,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 
 	for (size_t i = 0; i < szNumKernels; ++i)
 	{
-        Kernel* pKernel;
+        SharedPtr<Kernel> pKernel;
 		clErrRet = CreateKernel(ppKernelNames[i], &pKernel);
         
 		if (CL_FAILED(clErrRet) || NULL == pKernel)
@@ -732,12 +731,31 @@ cl_err_code Program::RemoveKernel(cl_kernel clKernel)
 	return m_pKernels.RemoveObject((_cl_kernel_int*)clKernel);
 }
 
-cl_err_code Program::GetKernels(cl_uint uiNumKernels, Kernel ** ppKernels, cl_uint * puiNumKernelsRet)
+cl_err_code Program::GetKernels(cl_uint uiNumKernels, SharedPtr<Kernel>* ppKernels, cl_uint * puiNumKernelsRet)
 {
 	LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%d, ppKernels=%d, puiNumKernelsRet=%d"), 
 		uiNumKernels, ppKernels, puiNumKernelsRet);
 
-	return m_pKernels.GetObjects(uiNumKernels, reinterpret_cast<OCLObject<_cl_kernel_int> **>(ppKernels), puiNumKernelsRet);
+    if (NULL == ppKernels)
+    {
+        return m_pKernels.GetObjects(uiNumKernels, NULL, puiNumKernelsRet);
+    }
+    else
+    {
+        assert(uiNumKernels > 0);
+        
+        std::vector<SharedPtr<OCLObject<_cl_kernel_int> > > kernels(uiNumKernels);
+        const cl_err_code err = m_pKernels.GetObjects(uiNumKernels, &kernels[0], puiNumKernelsRet);
+        if (CL_FAILED(err))
+        {
+            return err;
+        }
+        for (size_t i = 0; i < uiNumKernels; i++)
+        {
+            ppKernels[i] = kernels[i].DynamicCast<Kernel>();
+        }
+        return CL_SUCCESS;
+    }
 }
 
 DeviceProgram* Program::GetDeviceProgram(cl_device_id clDeviceId)
@@ -816,21 +834,21 @@ void Program::SetContextDevicesToProgramMappingInternal()
 			realBuiltDeviceToDeviceProgram.insert( pair<cl_device_id, DeviceProgram*>(m_ppDevicePrograms[i]->GetDeviceId(), m_ppDevicePrograms[i]) );
 		}
 	}
-	FissionableDevice** ppContextDevices = m_pContext->GetDevices(&numDevicesInContext);
+	SharedPtr<FissionableDevice>* ppContextDevices = m_pContext->GetDevices(&numDevicesInContext);
 	assert(ppContextDevices);
 	// Collect all context devices in as set
-	set<FissionableDevice*> contextDevicesSet;
+	set<SharedPtr<FissionableDevice> > contextDevicesSet;
 	for (unsigned int i = 0; i < numDevicesInContext; i++)
 	{
 		contextDevicesSet.insert(ppContextDevices[i]);
 	}
-	set<FissionableDevice*>::const_iterator contextDevicesEnd = contextDevicesSet.end();
+	set<SharedPtr<FissionableDevice> >::const_iterator contextDevicesEnd = contextDevicesSet.end();
 	tDeviceProgramMap::iterator realBuiltDeviceIter;
 	tDeviceProgramMap::const_iterator realBuiltDeviceEnd = realBuiltDeviceToDeviceProgram.end();
 	// Traverse over all the devices in the context
 	for (unsigned int i = 0; i < numDevicesInContext; i++)
 	{
-		FissionableDevice* pCurrentLevelDevice = ppContextDevices[i];
+		SharedPtr<FissionableDevice> pCurrentLevelDevice = ppContextDevices[i];
 		while (true)
 		{
 			realBuiltDeviceIter = realBuiltDeviceToDeviceProgram.find(pCurrentLevelDevice->GetHandle());
@@ -845,12 +863,12 @@ void Program::SetContextDevicesToProgramMappingInternal()
 			{
 				break;
 			}
-			pCurrentLevelDevice = ((SubDevice*)pCurrentLevelDevice)->GetParentDevice();
+            pCurrentLevelDevice = pCurrentLevelDevice.DynamicCast<SubDevice>()->GetParentDevice();
 		}
 	}
 }
 
-bool Program::GetMyRelatedProgramDeviceIDInternal(cl_device_id devID, cl_int* pOutID)
+bool Program::GetMyRelatedProgramDeviceIDInternal(const cl_device_id devID, cl_int* pOutID)
 {
 	OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
 	// Find the DeviceProgram that related to me (myne or my parent recursively (if in the same context))

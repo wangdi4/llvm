@@ -6,8 +6,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class ProgramWithSource : public Program
 	{
-	public:
-		ProgramWithSource(Context* pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet);
+
+        PREPARE_SHARED_PTR(ProgramWithSource);
+
+	public:		
+
+        static SharedPtr<ProgramWithSource> Allocate(SharedPtr<Context> pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet)
+        {
+            return SharedPtr<ProgramWithSource>(new ProgramWithSource(pContext, uiNumStrings, pSources, pszLengths, piRet));
+        }		
 
 		cl_err_code	GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
@@ -15,6 +22,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GetSourceInternal() { return m_szSourceString; };
 
 	protected:
+
+        ProgramWithSource(SharedPtr<Context> pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet);
+
 		virtual ~ProgramWithSource();
 
 		bool CopySourceStrings(cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths);

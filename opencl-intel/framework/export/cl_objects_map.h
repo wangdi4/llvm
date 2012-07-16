@@ -36,6 +36,7 @@
 #include "cl_sys_defines.h"
 #include <map>
 #include "ocl_object_base.h"
+#include "cl_shared_ptr.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -46,14 +47,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	template <class HandleType>
+	template <class HandleType, class ParentHandleType = _cl_context_int>
     class OCLObjectsMap : public OCLObjectBase
 	{
 	protected:
 
-		typedef typename std::map<HandleType*, OCLObject<HandleType>*> HandleTypeMap;
-		typedef typename std::map<HandleType*, OCLObject<HandleType>*>::iterator HandleTypeMapIterator;
-		typedef typename std::map<HandleType*, OCLObject<HandleType>*>::const_iterator HandleTypeMapConstIterator;
+		typedef typename std::map<HandleType*, SharedPtr<OCLObject<HandleType, ParentHandleType> > > HandleTypeMap;
+		typedef typename std::map<HandleType*, SharedPtr<OCLObject<HandleType, ParentHandleType> > >::iterator HandleTypeMapIterator;
+		typedef typename std::map<HandleType*, SharedPtr<OCLObject<HandleType, ParentHandleType> > >::const_iterator HandleTypeMapConstIterator;
 
 		// object's map
 		HandleTypeMap									m_mapObjects;
@@ -92,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		HandleType* AddObject(OCLObject<HandleType> * pObject);
+		HandleType* AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject);
 
 		/******************************************************************************************
 		* Function: 	AddObject    
@@ -106,34 +107,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/	
-		cl_err_code AddObject(OCLObject<HandleType> * pObject, bool bAssignId);
+		cl_err_code AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject, bool bAssignId);
 
 		/******************************************************************************************
 		* Function: 	GetOCLObject    
 		* Description:	returns the OpenCL object which assign to the object id
 		* Arguments:	hObjectHandle [in]	the handle of the OpenCL object
-		*				pObject	[out]	pointer to the OpenCL object's pointer. must be a valid 
-		*								pointer
-		* Return value:	CL_SUCCESS -			the object was found and returned
-		*				CL_ERR_KEY_NOT_FOUND -	the current object id wasn't found in the map
+		* Return value:	the OpenCL object or NULL if it is found
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code GetOCLObject(HandleType* hObjectHandle, OCLObject<HandleType> ** ppObject);
+        SharedPtr<OCLObject<HandleType, ParentHandleType> > GetOCLObject(HandleType* hObjectHandle);
 
 		/******************************************************************************************
 		* Function: 	GetObjectByIndex    
 		* Description:	returns the OpenCL object which assign to the index
 		* Arguments:	uiIndex [in]	object's index
-		*				pObject	[out]	pointer to the OpenCL object's pointer. must be a valid 
-		*								pointer
-		* Return value:	CL_SUCCESS -			the object was found and returned
-		*				CL_ERR_LIST_EMPTY -		there are no objects left in the map
-		*				CL_ERR_KEY_NOT_FOUND -	the index number is too high
+		* Return value:	a SharedPtr pointing to the OpenCL object or NULL if the index number is
+        *               too high
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/	
-		cl_err_code GetObjectByIndex(cl_uint uiIndex, OCLObject<HandleType> ** ppObject);
+		SharedPtr<OCLObject<HandleType, ParentHandleType> > GetObjectByIndex(cl_uint uiIndex);
 
 		/******************************************************************************************
 		* Function: 	GetObjects    
@@ -145,7 +140,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			January 2008
 		******************************************************************************************/	
-		cl_err_code GetObjects(cl_uint uiObjectCount, OCLObject<HandleType> ** ppObjects, cl_uint * puiObjectCountRet);
+		cl_err_code GetObjects(cl_uint uiObjectCount, SharedPtr<OCLObject<HandleType, ParentHandleType> >* ppObjects, cl_uint * puiObjectCountRet);
 
 		/******************************************************************************************
 		* Function: 	GetIDs    

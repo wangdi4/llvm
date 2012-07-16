@@ -63,8 +63,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceProgram(const DeviceProgram& dp);
 		virtual ~DeviceProgram();
 
-		void           SetDevice(FissionableDevice* pDevice);
-		const FissionableDevice*  GetDevice()   const { return m_pDevice; }
+        void           SetDevice(SharedPtr<FissionableDevice> pDevice);
+		const SharedPtr<FissionableDevice>  GetDevice()   const { return m_pDevice; }
 		cl_device_id   GetDeviceId()            const { return m_deviceHandle; }
 		cl_dev_program GetDeviceProgramHandle() const { return m_programHandle; }
 		void           SetHandle(cl_program handle)   { m_parentProgramHandle = handle; }
@@ -152,7 +152,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                m_bIsClone;
 
 		// Associated device members
-		FissionableDevice*  m_pDevice;
+		SharedPtr<FissionableDevice>  m_pDevice;
 		cl_device_id        m_deviceHandle;
 		cl_dev_program      m_programHandle;
 		cl_program          m_parentProgramHandle;

@@ -35,6 +35,8 @@
 #include <cl_device_api.h>
 #include <stack>
 #include <map>
+#include "Device.h"
+#include "Context.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -42,8 +44,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Description:	Represents a base memory object interface.
 	**********************************************************************************************/
 	class MemoryObject;
-	class Context;
-	class FissionableDevice;
 	class OclEvent;
 	class GraphicsApiMemoryObject;
 
@@ -78,6 +78,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
+        PREPARE_SHARED_PTR(MemoryObject);
         friend class GraphicsApiMemoryObject;
 
 		/******************************************************************************************
@@ -145,11 +146,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL id data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual OclEvent* LockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) = 0;
+        virtual SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage ) = 0;
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
-        virtual void UnLockOnDevice( IN const FissionableDevice* dev, IN MemObjUsage usage ) = 0;
+        virtual void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage ) = 0;
 
         //
         // end of ownership and data validity management
@@ -157,10 +158,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
      
 
 		// get the type of the memory object
-		cl_mem_object_type GetType() const { return m_clMemObjectType; }
+		cl_mem_object_type GetType() const { return m_clMemObjectType; }        
 
 		// get parent context
-		const Context *GetContext() const { return m_pContext; }
+        SharedPtr<Context> GetContext() { return m_pContext; }
+		ConstSharedPtr<Context> GetContext() const { return m_pContext; }
 
 		// get memory object's flags
 		cl_mem_flags GetFlags() const { return m_clFlags; }
@@ -246,15 +248,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // create resource of memory object for specific device.
 		// this pure virtual function need to be implemented in the buffer or image class
-		virtual cl_err_code CreateDeviceResource(FissionableDevice* pDevice) = 0;
+		virtual cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice) = 0;
 
 		// Return device resource of the memory object, associated with give device
 		// Return NULL if object was not allocated for the specific device
-		virtual cl_err_code GetDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, OclEvent* OUT *ppEvent) = 0;
+		virtual cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, SharedPtr<OclEvent> OUT *ppEvent) = 0;
 
 		// Return device resource of the memory object, associated with give device
 		// This method is call when delayes Gfx Acquire operation is completed
-		virtual cl_err_code UpdateDeviceDescriptor(FissionableDevice* IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject) = 0;
+		virtual cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject) = 0;
 
 		// Maps a memory object region to the host space and returns a pointer to it.
 		// The function returns a pointer to the mapped region.
@@ -264,7 +266,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Note: This function DOES NOT performs the mapping itself - it just notifies device about future
 		//       mapping and creates a mapping handle!
 		virtual cl_err_code CreateMappedRegion(
-			const FissionableDevice*    IN  pDevice,              // preferred device
+			SharedPtr<FissionableDevice>    IN  pDevice,              // preferred device
 			cl_map_flags                IN  clMapFlags,
 			const size_t*               IN  pOrigin,
 			const size_t*               IN  pRegion,
@@ -272,12 +274,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			size_t*                     OUT pImageSlicePitch,
 			cl_dev_cmd_param_map*       OUT *pMapInfo,
 			void*                       OUT *pHostMapDataPtr,
-			const FissionableDevice*    OUT *pActualMappingDevice
+			ConstSharedPtr<FissionableDevice>    OUT *pActualMappingDevice
 			);
 
-		virtual cl_err_code GetMappedRegionInfo(const FissionableDevice* IN pDevice, void* IN mappedPtr, 
+		virtual cl_err_code GetMappedRegionInfo(ConstSharedPtr<FissionableDevice> IN pDevice, void* IN mappedPtr, 
                                                 cl_dev_cmd_param_map*    OUT *pMapInfo, 
-                                                const FissionableDevice* OUT *pMappedOnDevice,
+                                                ConstSharedPtr<FissionableDevice> OUT *pMappedOnDevice,
                                                 bool                     OUT *pbWasFullyOverwritten,
                                                 bool invalidateRegion = false);
 
@@ -303,7 +305,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			November 2010
 		******************************************************************************************/
 		virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-			const void * buffer_create_info, MemoryObject** ppBuffer) = 0;
+			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) = 0;
 
 		/******************************************************************************************
 		* Function: 	GetParent
@@ -312,7 +314,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Rami Jioussy
 		* Date:			August 2010
 		******************************************************************************************/
-		MemoryObject* GetParent() {return m_pParentObject;}
+		SharedPtr<MemoryObject> GetParent() {return m_pParentObject;}
 
 		/******************************************************************************************
 		* Function: 	IsSupportedByDevice
@@ -321,7 +323,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Rami Jioussy
 		* Date:			August 2010
 		******************************************************************************************/
-		virtual bool IsSupportedByDevice(FissionableDevice* pDevice) = 0;
+		virtual bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice) = 0;
 
 		// Registers a callback to be called upon MemoryObject Destructor execution and before
 		// any resources are being freed.
@@ -329,21 +331,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code registerDtorNotifierCallback(mem_dtor_fn pfn_notify, void* pUserData);
 
 		protected:
-			MemoryObject(Context* pContext);
+			MemoryObject(SharedPtr<Context> pContext);
 			virtual ~MemoryObject();
 
 			void		NotifyDestruction();
 
 			// Low level mapped region creation function
-			virtual	cl_err_code	MemObjCreateDevMappedRegion(const FissionableDevice*,
+			virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
 							cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr) = 0;
 
-			virtual	cl_err_code	MemObjReleaseDevMappedRegion(const FissionableDevice*,
+			virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
 				cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr) = 0;
 
             typedef std::multimap<void*, MapParamPerPtr*>   Addr2MapRegionMultiMap;
 
-			Context*								m_pContext;	            // context to which the memory object belongs
+			SharedPtr<Context>								m_pContext;	            // context to which the memory object belongs
 
 			cl_mem_object_type						m_clMemObjectType;
 			cl_image_format							m_clImageFormat;
@@ -353,14 +355,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_uint									m_uiNumDim;				// Number of dimension of the memory object
 			void*									m_pMemObjData;			// pointer to object memory allocated area
 
-			MemoryObject*							m_pParentObject;		// A pointer to parent memory object
+			SharedPtr<MemoryObject>							m_pParentObject;		// A pointer to parent memory object
 			size_t									m_stOrigin[MAX_WORK_DIM]; // Origin of the sub-buffer(image)
 
 			std::stack<MemDtorNotifyData*>			m_pfnNotifiers;		    // Holds a list of pointers to callbacks upon dtor execution
 			Intel::OpenCL::Utils::OclSpinMutex		m_muNotifiers;			// Mutex for accessing m_pfnNotifiers
 			Intel::OpenCL::Utils::AtomicCounter		m_mapCount;	            // A counter for the number of times an object has been mapped
 			Addr2MapRegionMultiMap          	    m_mapMappedRegions;		// A map for storage of Mapped Regions
-            const FissionableDevice*                m_pMappedDevice;        // A device that manages mapped regions
+            SharedPtr<FissionableDevice>            m_pMappedDevice;        // A device that manages mapped regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes
 	};

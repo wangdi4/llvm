@@ -29,15 +29,16 @@
 
 #include "task_executor.h"
 #include "build_event.h"
-
+#include "fe_compiler.h"
+#include "program.h"
 #include <cl_types.h>
+#include "cl_shared_ptr.h"
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel { namespace OpenCL { namespace Framework {    
 
     typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
 
 	class FissionableDevice;
-	class Program;
     class FrontEndCompiler;
     class Context;
 
@@ -53,20 +54,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 
         /******************************************************************************************
-		* Function: 	ProgramService
-		* Description:	The Program Service class constructor
-		* Author:		Sagi Shahar
-		* Date:			January 2012
-		******************************************************************************************/		
-		ProgramService(Context* pContext);
-
-        /******************************************************************************************
 		* Function: 	~ProgramService
 		* Description:	The Program Service class destructor
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/	
 		~ProgramService();
+
+        /******************************************************************************************
+		* Function: 	SetContext
+		* Description:	set the Context of this ProgramService
+		* Author:		Aharon Abramson
+        * Arguments:    pContext a SharedPtr<Context> pointing to the Context to be set
+		* Date:			March 2012
+		******************************************************************************************/	
+        void SetContext(Context* pContext)
+        {
+            m_pContext = pContext;
+        }
 
         /******************************************************************************************
 		* Function: 	CompileProgram  
@@ -84,11 +89,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code CompileProgram(Program*             program, 
+        cl_err_code CompileProgram(SharedPtr<Program>   program, 
                                    cl_uint              num_devices, 
                                    const cl_device_id*  device_list, 
                                    cl_uint              num_input_headers, 
-                                   Program**            input_headers, 
+                                   SharedPtr<Program>*  input_headers, 
                                    const char**         header_include_names, 
                                    const char*          options, 
                                    pfnNotifyBuildDone   pfn_notify, 
@@ -109,11 +114,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code LinkProgram(Program*            program, 
+        cl_err_code LinkProgram(SharedPtr<Program> program, 
                                 cl_uint             num_devices, 
                                 const cl_device_id* device_list, 
                                 cl_uint             num_input_programs, 
-                                Program**           input_programs, 
+                                SharedPtr<Program>* input_programs, 
                                 const char*         options, 
                                 pfnNotifyBuildDone  pfn_notify, 
                                 void*               user_data);
@@ -131,7 +136,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code BuildProgram(Program*               program, 
+        cl_err_code BuildProgram(SharedPtr<Program> program, 
                                  cl_uint                num_devices, 
                                  const cl_device_id*    device_list, 
                                  const char*            options, 
@@ -139,27 +144,39 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                  void*                  user_data);
 
     protected:
-        Context*    m_pContext;
+        Context*    m_pContext; // since ProgramService is aggregated by Context, this can be a regular pointer
     };
 
 
-    class BuildTask : public Intel::OpenCL::TaskExecutor::ITask, public Intel::OpenCL::Framework::BuildEvent
+    class BuildTask : public Intel::OpenCL::Framework::BuildEvent, public Intel::OpenCL::TaskExecutor::ITask
     {
     public:
 
+        PREPARE_SHARED_PTR(BuildTask);
         BuildTask(_cl_context_int* context);
 
 	    virtual bool	Execute() = 0;
 
 	    virtual long	Release();
 
-        virtual void    DoneWithDependencies(OclEvent* pEvent); 
+        virtual void    DoneWithDependencies(SharedPtr<OclEvent> pEvent); 
 
         unsigned int    Launch();
 
     protected:
 
+        BuildTask(cl_context context);
+
         ~BuildTask();
+
+    private:
+
+        class BuildTaskSharedPtr : public SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, public SharedPtr<BuildTask>
+        {
+        public:
+
+            BuildTaskSharedPtr(BuildTask* ptr) : SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(ptr), SharedPtr<BuildTask>(ptr) { }
+        };
     };
 
 
@@ -168,27 +185,44 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
+        PREPARE_SHARED_PTR(CompileTask);                
+
+        static SharedPtr<CompileTask> Allocate(
+            _cl_context_int*        context,
+            cl_device_id            deviceID,
+            ConstSharedPtr<FrontEndCompiler> pFECompiler,
+            const char*             szSource,
+            unsigned int            uiNumHeaders,
+            const char**            pszHeaders,
+            char**					pszHeadersNames,
+            const char*             szOptions,
+            SharedPtr<Program>      pProg)
+        {
+            return SharedPtr<CompileTask>(new CompileTask(context, deviceID,
+                pFECompiler, szSource, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions, pProg));
+        }
+
+	    virtual bool	Execute();
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	CompleteAndCheckSyncPoint() {return false;}
+
+    protected:
+
         CompileTask(_cl_context_int*        context,
                     cl_device_id            deviceID,
-                    const FrontEndCompiler* pFECompiler,
+                    ConstSharedPtr<FrontEndCompiler> pFECompiler,
                     const char*             szSource,
                     unsigned int            uiNumHeaders,
                     const char**            pszHeaders,
                     char**					pszHeadersNames,
                     const char*             szOptions,
-                    Program*                pProg);
-
-		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
-		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
-		bool	CompleteAndCheckSyncPoint() {return false;}
-		bool	Execute();
-
-    protected:
+                    SharedPtr<Program>      pProg);
 
         ~CompileTask();
 
         cl_device_id            m_deviceID;
-        const FrontEndCompiler* m_pFECompiler;
+        ConstSharedPtr<FrontEndCompiler> m_pFECompiler;
 
         const char*             m_szSource;
         unsigned int            m_uiNumHeaders;
@@ -196,7 +230,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const char**            m_pszHeadersNames;
         const char*             m_szOptions;
 
-        Program*                m_pProg;
+        SharedPtr<Program> m_pProg;
     };
 
 
@@ -204,59 +238,94 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        LinkTask(_cl_context_int*         context,
-                 cl_device_id            deviceID,
-                 const FrontEndCompiler* pFECompiler,
-                 IOCLDeviceAgent*		 pDeviceAgent,
-                 Program**               ppBinaries,
-                 unsigned int            uiNumBinaries,
-                 const char*             szOptions,
-                 Program*                pProg);
+        PREPARE_SHARED_PTR(LinkTask);        
 
+        static SharedPtr<LinkTask> Allocate(
+            _cl_context_int*         context,
+            cl_device_id            deviceID,
+            ConstSharedPtr<FrontEndCompiler> pFECompiler,
+            IOCLDeviceAgent*		 pDeviceAgent,
+            SharedPtr<Program>*      ppBinaries,
+            unsigned int             uiNumBinaries,
+            const char*              szOptions,
+            SharedPtr<Program>       pProg)
+        {
+            return SharedPtr<LinkTask>(new LinkTask(context, deviceID, pFECompiler, pDeviceAgent, ppBinaries, uiNumBinaries, szOptions, pProg));
+        }
+
+	    virtual bool	Execute();
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	CompleteAndCheckSyncPoint() {return false;}
-	    bool	Execute();
 
     protected:
 
+        LinkTask(_cl_context_int*         context,
+                 cl_device_id            deviceID,
+                 ConstSharedPtr<FrontEndCompiler> pFECompiler,
+                 IOCLDeviceAgent*		 pDeviceAgent,
+                 SharedPtr<Program>*               ppBinaries,
+                 unsigned int            uiNumBinaries,
+                 const char*             szOptions,
+                 SharedPtr<Program>                pProg);
+
         ~LinkTask();
 
-        cl_device_id			m_deviceID;
-        const FrontEndCompiler* m_pFECompiler;
+        cl_device_id            m_deviceID;
+        ConstSharedPtr<FrontEndCompiler>       m_pFECompiler;
         IOCLDeviceAgent*        m_pDeviceAgent;
 
-        Program**               m_ppPrograms;
+        SharedPtr<Program>* m_ppPrograms;
         unsigned int            m_uiNumPrograms;
         const char*             m_szOptions;
 
-        Program*                m_pProg;
+        SharedPtr<Program> m_pProg;
     };
 
 
     class PostBuildTask : public BuildTask
     {
-    public:
+    public:        
+
+        PREPARE_SHARED_PTR(PostBuildTask);        
+
+        static SharedPtr<PostBuildTask> Allocate(
+            _cl_context_int*    context,
+            cl_uint             num_devices,
+            const cl_device_id* deviceID,
+            unsigned int        uiNumHeaders,
+            SharedPtr<Program>*           ppHeaders,
+            char**        	  pszHeadersNames,
+            unsigned int        uiNumBinaries,
+            SharedPtr<Program>*           ppBinaries,
+            SharedPtr<Program>            pProg,
+            const char*         szOptions,
+            pfnNotifyBuildDone  pfn_notify,
+            void*               user_data)
+        {
+            return SharedPtr<PostBuildTask>(new PostBuildTask(context, num_devices, deviceID, uiNumHeaders, ppHeaders, pszHeadersNames, uiNumBinaries,
+                ppBinaries, pProg, szOptions, pfn_notify, user_data));
+        }
+
+	    virtual bool	Execute();
+		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	CompleteAndCheckSyncPoint() {return false;}
+
+    protected:
 
         PostBuildTask(_cl_context_int*    context,
                       cl_uint             num_devices,
                       const cl_device_id* deviceID,
                       unsigned int        uiNumHeaders,
-                      Program**           ppHeaders,
+                      SharedPtr<Program>*           ppHeaders,
                       char**        	  pszHeadersNames,
                       unsigned int        uiNumBinaries,
-                      Program**           ppBinaries,
-                      Program*            pProg,
+                      SharedPtr<Program>*           ppBinaries,
+                      SharedPtr<Program>            pProg,
                       const char*         szOptions,
                       pfnNotifyBuildDone  pfn_notify,
                       void*               user_data);
-
-		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
-		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
-		bool	CompleteAndCheckSyncPoint() {return false;}
-	    bool	Execute();
-
-    protected:
 
         ~PostBuildTask();
 
@@ -264,13 +333,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const cl_device_id* m_deviceID;
 
         unsigned int        m_uiNumHeaders;
-        Program**           m_ppHeaders;
+        SharedPtr<Program>* m_ppHeaders;
         char**              m_pszHeadersNames;
 
         unsigned int        m_uiNumBinaries;
-        Program**           m_ppBinaries;
+        SharedPtr<Program>* m_ppBinaries;
 
-        Program*            m_pProg;
+        SharedPtr<Program> m_pProg;
 
         const char*         m_szOptions;
 

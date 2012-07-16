@@ -7,13 +7,13 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, const char* szKernelNames, cl_int *piRet)
+ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, const char* szKernelNames, cl_int *piRet)
 	: Program(pContext), m_szKernelNames(szKernelNames)
 {
 	cl_int retError = CL_SUCCESS;
 	m_szNumAssociatedDevices = uiNumDevices;
     m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
-    if (!m_ppDevicePrograms)
+    if (NULL == m_ppDevicePrograms)
 	{
         if (NULL != piRet)
 	    {

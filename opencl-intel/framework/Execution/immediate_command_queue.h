@@ -52,12 +52,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ImmediateCommandQueue : public IOclCommandQueueBase
 	{
 	public:
-		ImmediateCommandQueue(
-			Context*                    pContext,
+
+        PREPARE_SHARED_PTR(ImmediateCommandQueue);
+		
+        static SharedPtr<ImmediateCommandQueue> Allocate(
+            SharedPtr<Context>          pContext,
 			cl_device_id                clDefaultDeviceID, 
 			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			);
+			EventsManager*              pEventManager)
+        {
+            return SharedPtr<ImmediateCommandQueue>(new ImmediateCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager));
+        }
+
 		virtual ~ImmediateCommandQueue();
 
         virtual cl_err_code Initialize();  
@@ -69,12 +75,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(QueueEvent* pEvent, OclEventState prevColor, OclEventState newColor);
+		virtual cl_err_code NotifyStateChange(SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor);
 		virtual cl_err_code SendCommandsToDevice();
 
 
 
 	protected:
+
+        ImmediateCommandQueue(
+			SharedPtr<Context>                    pContext,
+			cl_device_id                clDefaultDeviceID, 
+			cl_command_queue_properties clProperties,
+			EventsManager*              pEventManager
+			);
+
         Intel::OpenCL::Utils::OclMutex m_CS;
 	};
 

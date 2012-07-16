@@ -32,6 +32,8 @@
 #include "cl_synch_objects.h"
 #include "cl_dynamic_lib.h"
 
+using Intel::OpenCL::Utils::SmartPtr;
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	#define INVALID_WORKER_ID		0xFFFFFFFF
@@ -109,7 +111,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		unsigned int GetNumWorkingThreads() const;
 		ITaskList* CreateTaskList(CommandListCreationParam* param);
-		unsigned int	Execute(ITaskBase * pTask);
+		unsigned int	Execute(SmartPtr<ITaskBase> * pTask);
 		te_wait_result	WaitForCompletion(ITaskBase * pTask);
 
 		void Close(bool bCancel);

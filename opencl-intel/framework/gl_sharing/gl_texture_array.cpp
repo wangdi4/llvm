@@ -34,7 +34,7 @@ using namespace Intel::OpenCL::Framework;
 // GLTexture3D
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_CPU, CL_MEMOBJ_GFX_SHARE_GL, CL_GL_OBJECT_TEXTURE2D, GLTexture3D)
-GLTextureArray::GLTextureArray(Context * pContext, cl_gl_object_type clglObjType) :
+GLTextureArray::GLTextureArray(SharedPtr<Context> pContext, cl_gl_object_type clglObjType) :
 	GLTexture3D(pContext, clglObjType)
 {
 	switch (clglObjType)

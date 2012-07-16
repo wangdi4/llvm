@@ -7,10 +7,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class ProgramForLink : public Program
 	{
-	public:
-		ProgramForLink(Context* pContext, cl_uint uiNumDevices, FissionableDevice** pDevices, cl_int *piRet);
+
+        PREPARE_SHARED_PTR(ProgramForLink);
+
+	public:		
+
+        static SharedPtr<ProgramForLink> Allocate(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, cl_int *piRet)
+        {
+            return SharedPtr<ProgramForLink>(new ProgramForLink(pContext, uiNumDevices, pDevices, piRet));
+        }
 
 	protected:
+
+        ProgramForLink(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, cl_int *piRet);
+
 		virtual ~ProgramForLink();
 	};
 }}}

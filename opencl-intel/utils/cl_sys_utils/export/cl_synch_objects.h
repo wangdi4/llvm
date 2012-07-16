@@ -101,6 +101,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	{
 	public:
 		AtomicCounter(long initVal = 0) : m_val(initVal) {}
+        AtomicCounter(const AtomicCounter& ac) {m_val = ac.m_val;}
 		~AtomicCounter() {}
 
 		long operator++();               //prefix. Returns new val
@@ -110,10 +111,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		long add(long val); //returns new val
 		long test_and_set(long comparand, long exchange);
 		long exchange(long val);
-		operator long() const; //casting operator
+		operator long() const; //casting operator        
 
 	private:
-		AtomicCounter(const AtomicCounter& ac) {m_val = ac.m_val;}
+		
 		volatile long m_val;
 	};
 

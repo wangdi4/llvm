@@ -17,6 +17,7 @@
 #endif
 #include "GenericImageArray.h"
 #include "Image1DBuffer.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Framework;
 

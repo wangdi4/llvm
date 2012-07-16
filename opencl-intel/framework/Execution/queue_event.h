@@ -51,11 +51,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 
 	public:
-		friend class Command;
-		QueueEvent( IOclCommandQueueBase* cmdQueue );
+        PREPARE_SHARED_PTR(QueueEvent);
+		friend class Command;		
+        static SharedPtr<QueueEvent> Allocate(SharedPtr<IOclCommandQueueBase> cmdQueue)
+        {
+            return SharedPtr<QueueEvent>(new QueueEvent(cmdQueue));
+        }
 
-		IOclCommandQueueBase*   GetEventQueue() const                               { return m_pEventQueue;}
-		void                    SetEventQueue(IOclCommandQueueBase* pQueue)         { m_pEventQueue = pQueue;}
+        ~QueueEvent();
+
+        SharedPtr<IOclCommandQueueBase>   GetEventQueue() const { return m_pEventQueue;}
+		void SetEventQueue(SharedPtr<IOclCommandQueueBase> pQueue) { m_pEventQueue = pQueue;}
 
 		cl_command_queue GetQueueHandle() const;
 		cl_int           GetReturnCode() const;
@@ -63,28 +69,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
 
 		//Override to notify my command about failed events it depended on
-		virtual cl_err_code ObservedEventStateChanged(OclEvent* pEvent, cl_int returnCode); 
+		virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode); 
 
 		// profiling support
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
 
 		// include times from other command into me
-		void		IncludeProfilingInfo( const QueueEvent* other );
+		void		IncludeProfilingInfo( ConstSharedPtr<QueueEvent> other );
 
-		//Must override RemovePendency to prevent this aggregated object from being deleted
-		virtual long RemovePendency(OCLObjectBase* obj);
-
-		void                    SetCommand(Command* cmd)                            { m_pCommand = cmd;  }
+        void        SetCommand(Command* cmd) { m_pCommand = cmd;  }
 		Command*                GetCommand() const                                  { return m_pCommand; }
 
 		OclEventState           SetEventState(OclEventState newColor); //returns the previous color
 
 	protected:
-		virtual ~QueueEvent();        
+        QueueEvent( SharedPtr<IOclCommandQueueBase> cmdQueue);
 
         //overrides from OclEvent
-        virtual void   DoneWithDependencies(OclEvent* pEvent);
+        virtual void   DoneWithDependencies(SharedPtr<OclEvent> pEvent);
         virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
 		SProfilingInfo			m_sProfilingInfo;
@@ -94,9 +97,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool					m_bCommandStartValid;
 		bool					m_bCommandEndValid;
 		Command*				m_pCommand;             // Pointer to the command represented by this event
-		IOclCommandQueueBase*   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
+		SharedPtr<IOclCommandQueueBase>   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
 	
 	private:
+
+        void operator delete(void* p);
+
 		ocl_gpa_data*           m_pGPAData;
 	#if defined(USE_ITT)
 		__itt_id                m_ittID;

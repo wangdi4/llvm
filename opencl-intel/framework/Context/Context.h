@@ -39,18 +39,19 @@
 #include <map>
 #include "ocl_itt.h"
 #include "cl_heap.h"
+#include "cl_shared_ptr.h"
+#include "sampler.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
     typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
 
-	class Sampler;
     class Device;
 	class FissionableDevice;
 	class Program;
 	class MemoryObject;
 
-    typedef std::set<Device*> tSetOfDevices;
+    typedef std::set<SharedPtr<Device> > tSetOfDevices;
 
 	/**********************************************************************************************
 	* Class name:	Context
@@ -64,6 +65,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
+        PREPARE_SHARED_PTR(Context);
+
+        /******************************************************************************************
+		* Function: 	Allocate
+		* Description:	Allocate a new Context
+		* Arguments:	clProperties [in] -	context's properties
+		*				uiNumDevices [in] -	number of devices associated to the context
+		*				ppDevice [in] -		list of devices
+		*				pfnNotify [in] -	error notification function's pointer
+		*				pUserData [in] -	user date
+        * Return:       a SharedPtr<Context> holding the new Context
+		* Author:		Aharon Abramson
+		* Date:			March 2012
+		******************************************************************************************/		
+        static SharedPtr<Context> Allocate(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
+            SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
+        {
+            return SharedPtr<Context>(new Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevice, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData));
+        }
+
 		/******************************************************************************************
 		* Function: 	Context
 		* Description:	The Context class constructor
@@ -75,7 +96,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, FissionableDevice **ppDevice, logging_fn pfnNotify,
+		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify,
 			void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
 
 		/******************************************************************************************
@@ -85,7 +106,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:		Arnon Peleg
         *
         ******************************************************************************************/
-        void Cleanup( bool bTerminate = false );
+        void Cleanup( bool bTerminate = false ) const;
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
@@ -112,7 +133,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CreateProgramWithSource(cl_uint        IN  uiCount, 
 											const char **  IN  ppcStrings, 
 											const size_t * IN  szLengths, 
-											Program **     OUT ppProgram);
+											SharedPtr<Program>*     OUT ppProgram);
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithBinary    
@@ -127,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 											const size_t *			IN  pszLengths, 
 											const unsigned char **	IN  ppBinaries, 
 											cl_int *				OUT piBinaryStatus, 
-											Program **				OUT ppProgram);
+											SharedPtr<Program>*		OUT ppProgram);
 
 		/******************************************************************************************
 		* Function: 	CreateProgramWithBuiltInKernels    
@@ -140,7 +161,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
 													const cl_device_id * IN pclDeviceList,
 													const char IN *szKernelNames,
-													Program ** OUT ppProgram);
+													SharedPtr<Program>* OUT ppProgram);
 
         /******************************************************************************************
 		* Function: 	CreateProgramForLink    
@@ -152,7 +173,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		cl_err_code CreateProgramForLink(cl_uint				IN  uiNumDevices, 
 										  const cl_device_id *	IN  pclDeviceList, 
-										  Program **			OUT ppProgram);
+										  SharedPtr<Program>*	OUT ppProgram);
 
         /******************************************************************************************
 		* Function: 	CompileProgram  
@@ -209,13 +230,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint GetDevicesCount() { return m_mapDevices.Count(); }
 
 		// get the device object pointers that associated to the context
-		FissionableDevice ** GetDevices(cl_uint* puiNumDevices);
+		SharedPtr<FissionableDevice>* GetDevices(cl_uint* puiNumDevices);
 
 		// get the device ids that associated to the context
 		cl_device_id * GetDeviceIds(cl_uint* puiNumDevices);
 
         // Get the list of root-level devices explicitly associated with this context
-        Device** GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices);
+        SharedPtr<Device>* GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices);
 
         // Get a set of all root devices associated with the context - implicitly, and explicitly.
         const tSetOfDevices *GetAllRootDevices() const;
@@ -227,19 +248,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Function: 	GetDeviceByIndex
 		* Description:	Get a device associated with the context according to the device index
 		* Arguments:	uiDeviceIndex [in]	- Device's index
-		*				pDevice	      [out]	- Placeholder for the device object. must be a valid pointer.		
-		* Return value:	CL_SUCCESS -		- the device was found and returned
-		*				CL_ERR_KEY_NOT_FOUND- the device index is not associated with the context
-        *               CL_INVALID_VALUE    - The pDevice input is not valid.   
+		* Return value:	a SharedPtr<Device> pointing to the device or NULL if the device index is
+        *               not associated with the context
 		* Author:		Arnon Peleg
 		* Date:			January 2009
 		******************************************************************************************/
-        cl_err_code GetDeviceByIndex(cl_uint uiDeviceIndex, Device** pDevice);
+        SharedPtr<FissionableDevice> GetDeviceByIndex(cl_uint uiDeviceIndex);
 
 		// get device by device id
-		cl_err_code GetDevice(cl_device_id clDeviceId, FissionableDevice ** ppDevice)
+		SharedPtr<FissionableDevice> GetDevice(cl_device_id clDeviceId)
 		{
-			return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId, (OCLObject<_cl_device_id_int>**)ppDevice);
+            return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
 		}
 
         // remove the program from the context
@@ -252,10 +271,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code RemoveSampler(cl_sampler clSampler);
 
 		// create new buffer object
-		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, MemoryObject ** ppBuffer);
+		cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, SharedPtr<MemoryObject>* ppBuffer);
 
 		// create new sub buffer object
-		cl_err_code CreateSubBuffer(MemoryObject * buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, MemoryObject ** ppBuffer);
+		cl_err_code CreateSubBuffer(SharedPtr<MemoryObject> buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer);
 
 		// create new image object
         template<size_t DIM, cl_mem_object_type OBJ_TYPE>
@@ -264,7 +283,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 									void *                  pHostPtr,
                                     const size_t*           szImageDims,
 									const size_t*           szImagePitches,
-									MemoryObject **         ppImage,
+									SharedPtr<MemoryObject>*         ppImage,
                                     bool                    bIsImageBuffer);
 
         // create new array of image objects
@@ -272,7 +291,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                      const cl_image_format*	pclImageFormat,
                                      void*					pHostPtr,
                                      const cl_image_desc*   pClImageDesc,
-                                     MemoryObject**         ppImageArr);
+                                     SharedPtr<MemoryObject>*         ppImageArr);
 
 		// get the supported image formats for this context
 		cl_err_code GetSupportedImageFormats(	cl_mem_flags		clFlags,
@@ -282,19 +301,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												cl_uint *			puiNumImageFormats);
 
 		// get memory object according the mem id
-		cl_err_code GetMemObject(cl_mem clMemId, MemoryObject ** ppMemObj);
+		SharedPtr<MemoryObject> GetMemObject(cl_mem clMemId);
 
 		// create new sampler object
-		cl_err_code CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, Sampler ** ppSampler);
+		cl_err_code CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, SharedPtr<Sampler>* ppSampler);
 
 		// get sampler object according to the sampler id
-		cl_err_code GetSampler(cl_sampler clSamplerId, Sampler ** ppSampler);
+		SharedPtr<Sampler> GetSampler(cl_sampler clSamplerId);
 
 		// check that all devices belong to this context
 		bool CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices);
 
 		// Get devices from the device list
-		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, FissionableDevice** ppDevices);
+		bool GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, SharedPtr<FissionableDevice>* ppDevices);
 		
 		ocl_gpa_data * GetGPAData() const;
         /******************************************************************************************
@@ -363,9 +382,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// -------------- DEVICES -------------- 
 		
-		OCLObjectsMap<_cl_device_id_int>		m_mapDevices;			  // holds the devices that associated to the program
-        Device**                                m_ppExplicitRootDevices;  // list of all explicit root devices in the context
-		FissionableDevice **					m_ppAllDevices;
+		OCLObjectsMap<_cl_device_id_int, _cl_platform_id_int> m_mapDevices;			  // holds the devices that associated to the program
+        SharedPtr<Device>*                                m_ppExplicitRootDevices;  // list of all explicit root devices in the context
+		SharedPtr<FissionableDevice>*					m_ppAllDevices;
 		tSetOfDevices                           m_allRootDevices;         // set of all root devices implicitly/explicitly defined in the context.
 		cl_device_id *							m_pDeviceIds;
         cl_device_id *                          m_pOriginalDeviceIds;
@@ -375,7 +394,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_bitfield								m_devTypeMask;			// Mask of device types involved by the context
 		
         OCLObjectsMap<_cl_program_int>			m_mapPrograms;			// holds the programs that related to this context
-		OCLObjectsMap<_cl_mem_int>				m_mapMemObjects;		// holds the memory objects that belongs to the context
+		OCLObjectsMap<_cl_mem_int>		        m_mapMemObjects;		// holds the memory objects that belongs to the context
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;			// holds the sampler objects that belongs to the context
 
         Intel::OpenCL::Framework::ProgramService                          m_programService;
@@ -414,101 +433,5 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 	};
 
-#if !defined (_WIN32)
-    /* In the line:
-    for (size_t i = 0; i < DIM - 1; i++)
-    don't issue an error that i < DIM - 1 is always false when DIM is 1 - this is intentional */
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#endif
-
-template<size_t DIM, cl_mem_object_type OBJ_TYPE>
-cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
-                                 const cl_image_format * pclImageFormat,
-                                 void *                  pHostPtr,
-                                 const size_t*           szImageDims,
-                                 const size_t*           szImagePitches,
-                                 MemoryObject **         ppImage,
-                                 bool                    bIsImageBuffer)
-{
-    assert ( NULL != ppImage );
-    //check image sizes
-    const size_t szImageDimsPerDim[3][3] = {
-        { m_sz2dWidth },                            // DIM == 1
-        { m_sz2dWidth, m_sz2dHeight, 0},            // DIM == 2
-        { m_sz3dWidth, m_sz3dHeight, m_sz3dDepth }  // DIM == 3
-    };
-    // OpenCL 1.2 doesn't state that the dimensions shouldn't be 0, but I believe this is a mistake (Yariv should verify it)
-    if (bIsImageBuffer)
-    {        
-        if (0 == szImageDims[0])
-        {
-            LOG_ERROR(TEXT("image width is 0") , "");
-            return CL_INVALID_IMAGE_DESCRIPTOR;
-        }
-        if (szImageDims[0] > m_sz1dImgBufSize)
-        {
-            LOG_ERROR(TEXT("For a 1D image buffer, the image width must be <= CL_DEVICE_IMAGE_MAX_BUFFER_SIZE"), "");
-            return CL_INVALID_IMAGE_SIZE;
-        }
-    }
-    else
-    {
-        for (size_t i = 0; i < DIM; i++)
-        {
-            if (0 == szImageDims[i])
-            {
-                LOG_ERROR(TEXT("0 == szImageDims[i]"), "");
-                return CL_INVALID_IMAGE_DESCRIPTOR;
-            }
-            if (szImageDims[i] > szImageDimsPerDim[DIM - 1][i])
-            {
-                LOG_ERROR(TEXT("image dimension is not allowed"), "");
-                return CL_INVALID_IMAGE_SIZE;
-            }
-        }
-    }    
-
-    cl_err_code clErr = CheckSupportedImageFormatByMemFlags(clFlags, *pclImageFormat, OBJ_TYPE);
-    if (CL_FAILED(clErr))
-    {
-        return clErr;
-    }
-
-    clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("Error creating new Image3D, returned: %s"), ClErrTxt(clErr));
-        return clErr;
-    }
-
-    size_t dim[3] = {0}, pitch[2] = {0};
-    for (size_t i = 0; i < DIM; i++)
-    {
-        dim[i] = szImageDims[i];
-    }
-    for (size_t i = 0; i < DIM - 1; i++)
-    {
-        pitch[i] = szImagePitches[i];
-    }
-    if (bIsImageBuffer)
-    {
-        clErr = (*ppImage)->Initialize(clFlags, pclImageFormat, DIM, dim, pitch, pHostPtr, CL_RT_MEMOBJ_FORCE_BS);
-    }
-    else
-    {
-        clErr = (*ppImage)->Initialize(clFlags, pclImageFormat, DIM, dim, pitch, pHostPtr, 0);
-    }    
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("Error Initialize new buffer, returned: %s"), ClErrTxt(clErr));
-        (*ppImage)->Release();
-        return clErr;
-    }
-
-    m_mapMemObjects.AddObject((OCLObject<_cl_mem_int>*)*ppImage);
-
-    return clErr;
-}
 
 }}}
-

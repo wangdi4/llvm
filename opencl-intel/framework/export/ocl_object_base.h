@@ -68,6 +68,11 @@ protected:
      */
     void EraseFromDependecySet(OCLObjectBase* pObj);
 
+    /**
+     * @return the type name of this OCLObjectBase
+     */
+    const std::string& GetTypeName() const { return m_typename; }
+
 public:
 
     /**
