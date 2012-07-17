@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -16,8 +16,8 @@
 using namespace llvm;
 namespace intel {
 class LoopUtils {
-
 public:
+
   ///@brief create WI func (get_local_size, get_global_id etc) general 
   ///       util as they all have the same signature.
   ///@param M - module to add function to.
@@ -52,29 +52,16 @@ public:
   ///@brief checks if the BB is in SubLoop of L.
   ///@pararm L - loop to serach in.
   ///@param BB - basic block to query.
-  ///@returns true iff BB is in sub loop of L.
+  ///@returns true iff BB is in loop but not in sub loop of L.
   static bool inSubLoop(Loop *L, BasicBlock *BB);
-
-  ///@brief checks if the Instruction is in SubLoop of L.
-  ///@pararm L - loop to serach in.
-  ///@param I - Instruction to query.
-  ///@returns true iff I is in sub loop of L.
-  static bool inSubLoop(Loop *L, Instruction *I);
 
   ///@brief fills kernels vector with openCL kernels according to metadata.
   ///@param M - module to search.
   ///@param kernels - vector to fill.
   static void GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels);
 
-  ///@brief fills the input vector with blocks that are executed once in L.
-  ///@pararm L - loop to process.
-  ///@param DT - dominator tree t use.
-  ///@param alwaysExecuteOnce - vector to fill.
-  static void getAlwaysExecuteOnceBlocks(Loop * L, DominatorTree *DT,
-                             SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce);
-
-  ///@brief fills the users function through call instructions of roots
-  ///       (also indirect users) into userFuncs.
+  ///@brief fills the users function through instructions of functions in 
+  ///       roots set (also indirect users) into userFuncs.
   ///@param roots - function to obtain their user functions.
   ///@param userFuncs - set to fill with users of roots
   static void fillFuncUsersSet(std::set<Function *> &roots, 

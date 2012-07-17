@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -60,15 +60,11 @@ void LoopUtils::getAllCallInFunc(StringRef funcName, Function *funcToSearch,
 }
 
 bool LoopUtils::inSubLoop(Loop *L, BasicBlock *BB) {
+  assert(L->contains(BB) && "Only valid if BB is IN the loop");
   for (Loop::iterator I = L->begin(), E = L->end(); I != E; ++I) {
     if ((*I)->contains(BB)) return true;  // In a subloop.
   }
   return false;
-}
-
-bool LoopUtils::inSubLoop(Loop *L, Instruction *I) {
-  BasicBlock *BB = I->getParent();
-  return inSubLoop(L, BB);
 }
 
 void LoopUtils::GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
@@ -84,28 +80,6 @@ void LoopUtils::GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
   }
 }
 
-void LoopUtils::getAlwaysExecuteOnceBlocks(Loop * L, DominatorTree *DT,
-                           SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce) {
-  assert(DT && "NULL dominator tree");
-  alwaysExecuteOnce.clear();
-  // Get the exit blocks for the current loop.
-  SmallVector<BasicBlock*, 8> ExitBlocks;
-  L->getExitBlocks(ExitBlocks);
-
-  // Verify that the block dominates each of the exit blocks of the loop.
-  for (Loop::block_iterator BBI = L->block_begin(), BBE = L->block_end();
-       BBI != BBE; ++BBI) {
-    // If this block is in sub loop than it might be executed more than once.
-    if (inSubLoop(L, *BBI)) continue;
-
-    // Check that the block dominates all exit blocks.
-    bool dominatesAll = true;
-    for (unsigned i = 0, e = ExitBlocks.size(); i != e; ++i) {
-      if (!DT->dominates(*BBI, ExitBlocks[i])) dominatesAll = false;
-    }
-    if (dominatesAll)  alwaysExecuteOnce.push_back(*BBI);
-  }
-}
 
 void LoopUtils::fillDirectUsers(std::set<Function *> *funcs,
              std::set<Function *> *userFuncs, std::set<Function *> *newUsers) {

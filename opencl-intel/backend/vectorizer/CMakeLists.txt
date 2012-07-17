@@ -53,8 +53,6 @@ add_llvm_library( LLVMVectorizer
   LoopHandler/CLWGLoopCreator.cpp
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/CLWGBoundDecoder.cpp
-  LoopHandler/LoopStridedCodeMotion.cpp
-  LoopHandler/LoopWIAnalysis.cpp
   IRPrinter/IRPrinter.cpp
   Heuristic/InstCounter.cpp
   ${headers}

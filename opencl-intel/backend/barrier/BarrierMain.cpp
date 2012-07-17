@@ -74,6 +74,7 @@ namespace intel {
     if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
+      barrierModulePM.add(createLICMPass());
     }
 
     //Run module passes
