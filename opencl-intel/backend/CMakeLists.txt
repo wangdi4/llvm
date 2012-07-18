@@ -272,6 +272,7 @@ set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/
 
 set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
 
-install(DIRECTORY tests/MIC/satest/mic/ DESTINATION
-    bin/validation/MICRegression/)
+install(DIRECTORY tests/MIC/satest/mic/
+    DESTINATION bin/validation/MICRegression/
+    PATTERN .svn/ EXCLUDE)
 
