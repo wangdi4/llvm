@@ -637,12 +637,14 @@ namespace intel {
             }
         }
 
-        // Since pFuncToFix is being replaced, also update the associated debug metadata
-        NamedMDNode *pllvmDebugCU = pFuncToFix->getParent()->getNamedMetadata("llvm.dbg.cu");
-        if (pllvmDebugCU) {
-            for(int ui = 0, ue = pllvmDebugCU->getNumOperands(); ui < ue; ui++) {
-              MDNode* pMetadata = pllvmDebugCU->getOperand(ui);
-              replaceMDUsesOfFunc(pMetadata, pFuncToFix, pNewFunc);
+        if (m_isNativeDBG) {
+            // Since pFuncToFix is being replaced, also update the associated debug metadata
+            NamedMDNode *pllvmDebugCU = pFuncToFix->getParent()->getNamedMetadata("llvm.dbg.cu");
+            if (pllvmDebugCU) {
+                for(int ui = 0, ue = pllvmDebugCU->getNumOperands(); ui < ue; ui++) {
+                  MDNode* pMetadata = pllvmDebugCU->getOperand(ui);
+                  replaceMDUsesOfFunc(pMetadata, pFuncToFix, pNewFunc);
+                }
             }
         }
         //Remove all instructions in m_toRemoveInstructions
@@ -661,8 +663,10 @@ namespace intel {
     SmallVector<Value *, 16> values;
     for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
       Value *elem = pMetadata->getOperand(i);
-      if (MDNode *Node = dyn_cast_or_null<MDNode>(elem)) {
-          replaceMDUsesOfFunc(Node);
+      if (elem) {
+        if (MDNode *Node = dyn_cast<MDNode>(elem))
+            replaceMDUsesOfFunc(Node);
+
         // Elem needs to be set again otherwise changes will be undone.
         elem = pMetadata->getOperand(i);
         if (m_pFunc == dyn_cast<Function>(elem))
