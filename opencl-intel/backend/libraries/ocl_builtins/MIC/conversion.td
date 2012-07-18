@@ -42,6 +42,33 @@ OclBuiltinImpl mic_rtn_cvt_f64_f32 = OclBuiltinImpl<convert_f64_rtn,
     return convert_$ReturnType($Arg0VarName);
   }]>;
 
+OclBuiltinImpl mic_rte_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rte,
+                                                    [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return as_$ReturnType(
+            trunc_$Arg0Type_$ReturnType($Arg0VarName));
+  }]>;
+
+OclBuiltinImpl mic_cvt_f32_f64 = OclBuiltinImpl<convert_f32,
+                                                    [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return as_$ReturnType(
+            trunc_$Arg0Type_$ReturnType($Arg0VarName));
+  }]>;
+
+OclBuiltinImpl mic_rtz_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtz,
+                                                    [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return convert_$ReturnType($Arg0VarName);
+  }]>;
+
+OclBuiltinImpl mic_rtp_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtp,
+                                                    [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return convert_$ReturnType($Arg0VarName);
+  }]>;
+
+OclBuiltinImpl mic_rtn_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtn,
+                                                    [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return convert_$ReturnType($Arg0VarName);
+  }]>;
+
 OclBuiltinImpl cvt_f32_i8i16 = OclBuiltinImpl<convert_f32,
                                               [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,
                                                v1i16, v2i16, v3i16, v4i16, v8i16,

@@ -39,3 +39,8 @@ def trunc_i32 : OclBuiltin<"trunc_$Arg0Symgentype_$ReturnSymgentype", (outs i32g
                 Except<[v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
                         v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
 }
+
+let Types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def trunc_f32 : OclBuiltin<"trunc_$Arg0Type_$ReturnType", (outs f32gentype:$ret), (ins gentype:$x), [], []>;
+}
