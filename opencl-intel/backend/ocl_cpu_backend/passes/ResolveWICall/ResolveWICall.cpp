@@ -449,7 +449,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
     params.push_back(m_pCtx);
-    Value *res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
+    CallInst *res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
+    res->setDebugLoc(pCall->getDebugLoc());
     return res;
   }
 
