@@ -1637,11 +1637,19 @@ extern "C" {
 	}																			
 
 #define OCL_SVML_P2_F2_F2_F2(func,svmlfunc)										\
-	__attribute__((svmlcc)) __attribute__((const)) float2 OCL_SVML_FUNCTION(_##svmlfunc##f2)(float2, float2);					\
+	__attribute__((svmlcc)) __attribute__((const)) float4 OCL_SVML_FUNCTION(_##svmlfunc##f2)(float4, float4);					\
 	__attribute__((overloadable)) float2 func(float2 x,float2 y)				\
 	{																			\
-		return OCL_SVML_FUNCTION(_##svmlfunc##f2)(x,y);				\
-	}																			
+		float4 valx, valy;														\
+		valx.s01 = x;															\
+		valx.s23 = 0.0;															\
+		valy.s01 = y;															\
+		valy.s23 = 0.0;															\
+		float4 val = OCL_SVML_FUNCTION(_##svmlfunc##f2)(valx,valy);				\
+		float2 res;																\
+		_mm_storel_epi64((__m128i*)&res, (__m128i)val);							\
+		return res;																\
+	}		
 
 #define OCL_SVML_P2_F3_F3_F3(func,svmlfunc)										\
 	__attribute__((svmlcc)) __attribute__((const)) float4 OCL_SVML_FUNCTION(_##svmlfunc##f4)(float4, float4);					\
