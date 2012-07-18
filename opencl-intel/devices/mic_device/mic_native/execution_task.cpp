@@ -1030,10 +1030,12 @@ ThreadPool* ThreadPool::m_singleThreadPool = NULL;
 
 ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1), m_nextAffinitiesThreadIndex(0)
 {
+	pthread_mutex_init(&m_reserveHwThreadsLock, NULL);
 }
 
 ThreadPool::~ThreadPool()
 {
+	pthread_mutex_destroy(&m_reserveHwThreadsLock);
 }
 
 ThreadPool* ThreadPool::getInstance()
@@ -1141,7 +1143,40 @@ bool ThreadPool::initializeAffinityThreads()
 		}
 	}
 
+	// set 'gMicExecEnvOptions.num_of_worker_threads' to be the minimum between 'gMicExecEnvOptions.num_of_worker_threads' and 'm_orderHwThreadsIds.size()' --> the amount of HW threads.
+	// because if user set 'CL_CONFIG_MIC_DEVICE_USE_AFFINITY=True' and 'CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0=True' and/or 'CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE=True' and did not set 'CL_CONFIG_MIC_DEVICE_NUM_WORKERS'
+	// Than it will set automatically.
+	if (gMicExecEnvOptions.num_of_worker_threads > m_orderHwThreadsIds.size())
+	{
+		gMicExecEnvOptions.num_of_worker_threads = m_orderHwThreadsIds.size();
+	}
+
+	initializeReserveAffinityThreadIds();
+
 	return true;
+}
+
+bool ThreadPool::setAffinityFromReservedIDs()
+{
+	bool result = false;
+	pthread_mutex_lock(&m_reserveHwThreadsLock);
+	pthread_t tOsThreadId = pthread_self();
+	if ((m_reserveHwThreadsIDs.size() > 0) && (m_osThreadToHwThread.end() == m_osThreadToHwThread.find(tOsThreadId)))
+	{
+		unsigned int threadId = m_reserveHwThreadsIDs.back();
+		m_reserveHwThreadsIDs.pop_back();
+		if (setAffinityForCurrentThread(threadId))
+		{
+			m_osThreadToHwThread.insert(pair<pthread_t, unsigned int>(tOsThreadId, threadId));
+			result = true;
+		}
+		else
+		{
+			m_reserveHwThreadsIDs.push_back(threadId);
+		}
+	}
+	pthread_mutex_unlock(&m_reserveHwThreadsLock);
+	return result;
 }
 
 bool ThreadPool::setAffinityForCurrentThread()
@@ -1150,15 +1185,21 @@ bool ThreadPool::setAffinityForCurrentThread()
 	{
 		return true;
 	}
-	cpu_set_t affinityMask;
-	// CPU_ZERO initializes all the bits in the mask to zero.
-	CPU_ZERO(&affinityMask);
 	
 	unsigned int index = m_nextAffinitiesThreadIndex++;
 	index = index % m_orderHwThreadsIds.size();
 
+	return setAffinityForCurrentThread(m_orderHwThreadsIds[index]);
+}
+
+bool ThreadPool::setAffinityForCurrentThread(unsigned int hwThreadId)
+{
+	cpu_set_t affinityMask;
+	// CPU_ZERO initializes all the bits in the mask to zero.
+	CPU_ZERO(&affinityMask);
+
 	// CPU_SET sets only the bit corresponding to cpu.
-	CPU_SET(m_orderHwThreadsIds[index], &affinityMask);
+	CPU_SET(hwThreadId, &affinityMask);
 	
 	if (0 != sched_setaffinity( 0, sizeof(cpu_set_t), &affinityMask))
 	{
@@ -1167,6 +1208,21 @@ bool ThreadPool::setAffinityForCurrentThread()
 		return false;
 	}
 	return true;
+}
+
+bool ThreadPool::releaseReservedAffinity()
+{
+	bool result = false;
+	pthread_mutex_lock(&m_reserveHwThreadsLock);
+	map<pthread_t, unsigned int>::iterator iter = m_osThreadToHwThread.find(pthread_self());
+	if (iter !=  m_osThreadToHwThread.end())
+	{
+		m_reserveHwThreadsIDs.push_back(iter->second);
+		m_osThreadToHwThread.erase(iter);
+		result = true;
+	}
+	pthread_mutex_unlock(&m_reserveHwThreadsLock);
+	return result;
 }
 	
 
@@ -1232,7 +1288,7 @@ bool TBBThreadPool::init()
 	// Set tbb observe - true
 	observe(true);
 	// Create extra arena in order to avoid worker threads termination when the last command queue terminates
-	registerMasterThread();
+	registerMasterThread(false);
 	return true;
 }
 
@@ -1248,7 +1304,7 @@ unsigned int TBBThreadPool::getWorkerID()
 	return alreadyHad ? ret : INVALID_WORKER_ID;
 }
 
-void TBBThreadPool::registerMasterThread()
+void TBBThreadPool::registerMasterThread(bool affinitize)
 {
 	tbb::task_scheduler_init* pScheduler = getScheduler();
 	// If the scheduler didn't set yet and I'm not a worker (I'm muster thread)
@@ -1256,6 +1312,10 @@ void TBBThreadPool::registerMasterThread()
 	{
 		// TBB can create more thread than req.
 		setScheduler(new tbb::task_scheduler_init(m_numOfWorkers));
+	}
+	if (affinitize)
+	{
+		setAffinityFromReservedIDs();
 	}
 }
 
@@ -1269,6 +1329,7 @@ void TBBThreadPool::unregisterMasterThread()
 	}
 	// Release my general TLS pointers.
 	releaseGeneralTls();
+	releaseReservedAffinity();
 }
 
 void* TBBThreadPool::getGeneralTls(unsigned int index)
@@ -1340,5 +1401,17 @@ void TBBThreadPool::releaseGeneralTls()
 			GENERIC_TLS_STRUCT::destructorTlsArr[i](tlsData);
 		}
 		setGeneralTls(i, NULL);
+	}
+}
+
+void TBBThreadPool::initializeReserveAffinityThreadIds()
+{
+	// If there is threads IDs in 'm_orderHwThreadsIds' (If affinity is ON)
+	if (m_orderHwThreadsIds.size() > 0)
+	{
+		// reserve the first thread ID for one master thread.
+		m_reserveHwThreadsIDs.push_back(m_orderHwThreadsIds[0]);
+		// remove the reserve ID from the general list. (such that no worker thread will affinities to it)
+		m_orderHwThreadsIds.erase(m_orderHwThreadsIds.begin());
 	}
 }

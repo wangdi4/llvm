@@ -443,7 +443,7 @@ public:
 	virtual unsigned int getWorkerID() = 0;
 
 	/* Register muster thread to thread pool. */
-	virtual void registerMasterThread() = 0;
+	virtual void registerMasterThread(bool affinitize = true) = 0;
 
 	/* Unregister muster thread from thread pool. */
 	virtual void unregisterMasterThread() = 0;
@@ -463,9 +463,19 @@ protected:
 	/* initialize the m_orderHwThreadsIds list for the req. affinity order. */
 	bool initializeAffinityThreads();
 
+	/* Take threads IDs from 'm_orderHwThreadsIds' and save them in 'm_reserveHwThreadsIDs' that will be use for special cases affinity. (such as for master threads) */
+	virtual void initializeReserveAffinityThreadIds() = 0;
+
 	/* Affinities the current thread. 
 	   Set affinity only if mic_exec_env_options.use_affinity = true*/
 	bool setAffinityForCurrentThread();
+
+	/* Set affinity for current thread from reserved IDs list (if m_reserveHwThreadsIDs.size() > 0 and didn't affinitized from reserved IDs yet). */
+	bool setAffinityFromReservedIDs();
+
+	/* Update 'm_reserveHwThreadsIDs' list (add to it the HW thread ID that I was affinitized to). 
+	   This method assume that this thread is going to close, and does not change the affinity setting of it. */
+	bool releaseReservedAffinity();
 
 	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
 	unsigned int getNextWorkerID() { unsigned int myID = m_NextWorkerID++;
@@ -478,13 +488,26 @@ protected:
 	// Atomic counter that define the worker ID of each worker thread. In case of Muster thread the ID is 0.
 	AtomicCounterNative m_NextWorkerID;
 
-private:
+	// Order list of HW threads IDs, the different from 'm_orderHwThreadsIds' is that the IDs in 'm_orderHwThreadsIds' are for common worker threads and the IDs in 'm_reserveHwThreadsIDs',
+	// are reserved for special threads (for example for master threads)
+	vector<unsigned int> m_reserveHwThreadsIDs;
 
 	// order list of HW threads IDs - Need it in order to affinities the worker threads. 
 	// (The order will be  - all the 1st HW threads of all cores, than all the 2nd, and so on... minus core 0 / last core if it set in "mic_exec_env_options" structure).
 	vector<unsigned int> m_orderHwThreadsIds;
+
+private:
+
+	bool setAffinityForCurrentThread(unsigned int hwThreadId);
+
 	// The next index in "m_orderHwThreadsIds" for affinity. (If m_nextAffinitiesThreadIndex == m_orderHwThreadsIds.size() ==> set m_nextAffinitiesThreadIndex = 0)
 	AtomicCounterNative m_nextAffinitiesThreadIndex;
+
+	// map from OS thread ID to HW thread ID.
+	map<pthread_t, unsigned int> m_osThreadToHwThread;
+
+	// Lock keeper for m_reserveHwThreadsIDs.
+	pthread_mutex_t m_reserveHwThreadsLock;
 
 	// The singleton thread pool
 	static ThreadPool* m_singleThreadPool;
@@ -509,7 +532,7 @@ public:
 
 	virtual unsigned int getWorkerID();
 
-	virtual void registerMasterThread();
+	virtual void registerMasterThread(bool affinitize = true);
 
 	virtual void unregisterMasterThread();
 
@@ -522,6 +545,11 @@ public:
 	
 	/* The task scheduler invokes this method when a thread stops participating in task scheduling, if observing is enabled. */
 	virtual void on_scheduler_exit(bool is_worker);
+
+protected:
+
+	/* It is not thread safe implementation because assuming that it calls by one thread when calling to 'init_device()' function. */
+	void initializeReserveAffinityThreadIds();
 
 private:
 
