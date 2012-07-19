@@ -317,7 +317,8 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ${cl_builtins_TABLEGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
+        COMMAND ${cl_builtins_TABLEGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} 
+        -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
         DEPENDS ${cl_builtins_TABLEGEN_EXE} ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )
