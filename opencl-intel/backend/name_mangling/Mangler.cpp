@@ -38,9 +38,9 @@ const char* mangledTypes[reflection::NUM_TYPES] = {
   "i", //INT
   "m", //ULONG
   "l", //LONG
-  "f", //HALF
-  "d", //FLOAT
-  "Dh" //DOUBLE
+  "Dh",//HALF
+  "f", //FLOAT
+  "d"  //DOUBLE
 };
 
 //Array of constants used by clang to duplicate parameters

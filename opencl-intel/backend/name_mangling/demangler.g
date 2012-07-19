@@ -162,9 +162,9 @@ UINT:    "j";
 INT:     "i";
 ULONG:   "m";
 LONG:    "l";
-HALF:    "f";
-FLOAT:   "d";
-DOUBLE:  "Dh";
+HALF:    "Dh";
+FLOAT:   "f";
+DOUBLE:  "d";
 POINTER_PREFIX: "P";
 VECTOR_PREFIX:  "Dv";
 UNDERSCORE:     "_";
@@ -175,15 +175,3 @@ VOLATILE: "V";
 CONST:    "K";
 PARAM_DUP_PREFIX: "S";
 
-/*
-class DemangleTreeWalker extends TreeParser;
-expr returns [float r]
-{
-	float a,b;
-	r=0;
-}
-	:	#(PLUS a=expr b=expr)	{r = a+b;}
-	|	#(STAR a=expr b=expr)	{r = a*b;}
-	|	i:INT			{r = atof(i->getText().c_str());}
-	;
-*/

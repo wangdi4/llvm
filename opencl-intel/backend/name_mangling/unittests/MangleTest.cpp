@@ -13,15 +13,19 @@
 
   File Name: MangleTest.cpp
 
-  \****************************************************************************/
+\****************************************************************************/
 
 #include <gtest/gtest.h>
 #include "NameMangleAPI.h"
-//#include <iostream>
 #include "antlr/ANTLRException.hpp"
+#include "Type.h"
+#include "FunctionDescriptor.h"
 
 namespace namemangling { namespace tests{
 
+//
+//Tests that demangle/mangle cycle brings us back to the same place
+//
 TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++)
@@ -53,7 +57,6 @@ TEST(DemangleTest, addressSpace){
   ASSERT_TRUE( testDemangle( "_Z17vstore_half16_rtzDv16_fmPU3AS1Dh"));
 }
 
-
 TEST(DemangleTest, pointerAttributes){
   const char* name = "_Z10mask_vloadtmPKU3AS2c";
   ASSERT_TRUE( testDemangle(name) );
@@ -81,6 +84,22 @@ TEST(MangleTest, semidup){
   std::string orig = "_Z5fractDv2_fPU3AS1S_";
   std::string actual = mangle( demangle( orig.c_str() ) );
   ASSERT_EQ(orig, actual);
+}
+
+TEST(MangleBasic, scalarfloat){
+  reflection::Type primitiveFloat(reflection::primitives::FLOAT);
+  reflection::FunctionDescriptor fd;
+  fd.name = "foo";
+  fd.parameters.push_back(&primitiveFloat);
+  ASSERT_STREQ("_Z3foof", mangle(fd).c_str());
+}
+
+TEST(MangleBasic, scalardouble){
+  reflection::Type primitiveDouble(reflection::primitives::DOUBLE);
+  reflection::FunctionDescriptor fd;
+  fd.name = "foo";
+  fd.parameters.push_back(&primitiveDouble);
+  ASSERT_STREQ("_Z3food", mangle(fd).c_str());
 }
 
 }
