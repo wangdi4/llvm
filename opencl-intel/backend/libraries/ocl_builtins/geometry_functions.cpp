@@ -803,7 +803,7 @@ float4  __attribute__((overloadable)) fast_normalize(float4 p)
 	tmp = _mm_hadd_ps(tmp, tmp);	// x^2+y^2
 	tmp = _mm_hadd_ps(tmp, tmp);	// x^2+y^2
 
-	length = _mm_cvtss_f32(p);
+	length = _mm_cvtss_f32(tmp);
 
 	if( length == 0.f )
 	{

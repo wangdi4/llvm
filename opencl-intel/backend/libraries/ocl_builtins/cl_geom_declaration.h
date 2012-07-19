@@ -537,7 +537,9 @@ DATA_TYPE##VEC_WIDTH __attribute__((overloadable)) \
 soa_fast_normalize1( DATA_TYPE##VEC_WIDTH p0 ) \
 { \
 	MASK_DATA_TYPE##VEC_WIDTH gtz_mask = (p0 > 0.f);\
-	return select((DATA_TYPE##VEC_WIDTH)-1.f, (DATA_TYPE##VEC_WIDTH)1.f, gtz_mask);\
+	MASK_DATA_TYPE##VEC_WIDTH zero_mask = (p0 == 0.f);\
+	DATA_TYPE##VEC_WIDTH res = select((DATA_TYPE##VEC_WIDTH)-1.f, (DATA_TYPE##VEC_WIDTH)1.f, gtz_mask);\
+	return select(res, p0, zero_mask);\
 }
 
 #define DEF_GEOM_SOA_NORMALIZE2_DOUBLE_PROTO( VEC_WIDTH ) \
@@ -639,7 +641,9 @@ void __attribute__((overloadable)) \
 soa_fast_normalize2( DATA_TYPE##VEC_WIDTH p0_x, DATA_TYPE##VEC_WIDTH p0_y, \
 		             DATA_TYPE##VEC_WIDTH *res_x, DATA_TYPE##VEC_WIDTH *res_y) \
 { \
-	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( p0_x * p0_x + p0_y * p0_y ); \
+	DATA_TYPE##VEC_WIDTH length = p0_x * p0_x + p0_y * p0_y; \
+	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( length ); \
+	rnorm = (length == (DATA_TYPE##VEC_WIDTH)0.0f) ? (DATA_TYPE##VEC_WIDTH)1.0f : rnorm; \
 	*res_x = p0_x * rnorm; \
 	*res_y = p0_y * rnorm; \
 }
@@ -760,7 +764,9 @@ void __attribute__((overloadable)) \
 soa_fast_normalize3( DATA_TYPE##VEC_WIDTH p0_x, DATA_TYPE##VEC_WIDTH p0_y, DATA_TYPE##VEC_WIDTH p0_z,\
 		             DATA_TYPE##VEC_WIDTH *res_x, DATA_TYPE##VEC_WIDTH *res_y, DATA_TYPE##VEC_WIDTH *res_z) \
 { \
-	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( p0_x * p0_x + p0_y * p0_y + p0_z * p0_z ); \
+	DATA_TYPE##VEC_WIDTH length = p0_x * p0_x + p0_y * p0_y + p0_z * p0_z; \
+	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( length ); \
+	rnorm = (length == (DATA_TYPE##VEC_WIDTH)0.0f) ? (DATA_TYPE##VEC_WIDTH)1.0f : rnorm; \
 	*res_x = p0_x * rnorm; \
 	*res_y = p0_y * rnorm; \
 	*res_z = p0_z * rnorm; \
@@ -898,7 +904,9 @@ void __attribute__((overloadable)) \
 soa_fast_normalize4( DATA_TYPE##VEC_WIDTH p0_x, DATA_TYPE##VEC_WIDTH p0_y, DATA_TYPE##VEC_WIDTH p0_z, DATA_TYPE##VEC_WIDTH p0_w, \
 		             DATA_TYPE##VEC_WIDTH *res_x, DATA_TYPE##VEC_WIDTH *res_y, DATA_TYPE##VEC_WIDTH *res_z, DATA_TYPE##VEC_WIDTH *res_w) \
 { \
-	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( p0_x * p0_x + p0_y * p0_y + p0_z * p0_z + p0_w * p0_w ); \
+	DATA_TYPE##VEC_WIDTH length = p0_x * p0_x + p0_y * p0_y + p0_z * p0_z + p0_w * p0_w; \
+	DATA_TYPE##VEC_WIDTH rnorm = half_rsqrt( length ); \
+	rnorm = (length == (DATA_TYPE##VEC_WIDTH)0.0f) ? (DATA_TYPE##VEC_WIDTH)1.0f : rnorm; \
 	*res_x = p0_x * rnorm; \
 	*res_y = p0_y * rnorm; \
 	*res_z = p0_z * rnorm; \
