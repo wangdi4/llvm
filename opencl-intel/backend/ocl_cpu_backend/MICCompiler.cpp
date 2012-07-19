@@ -57,6 +57,7 @@ File Name:  MICCompiler.cpp
 #include "ModuleJITHolder.h"
 #include "MICJITContainer.h"
 #include "CompilationUtils.h"
+#include "StringUtils.h"
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -70,6 +71,7 @@ void MICCompiler::SelectMICConfiguration(const ICompilerConfig& config)
 {
     Intel::ECPU CPU = Intel::CPUId::GetCPUByName(config.GetCpuArch().c_str());
     m_CpuId = Intel::CPUId(CPU, 0, true);
+    Utils::SplitString( config.GetCpuFeatures(), ",", m_forcedCpuFeatures);
     assert(m_CpuId.IsMIC());
 }
 
@@ -138,7 +140,13 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
 {
     llvm::StringRef MTriple = pRtlModule->getTargetTriple();
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
-    llvm::SmallVector<std::string, 1> MAttrs;
+    llvm::SmallVector<std::string, 1> MAttrs(m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end());
+
+    // FP_CONTRACT defined in module
+    // Exclude FMA instructions when FP_CONTRACT is disabled
+    if (pRtlModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
+      MAttrs.push_back("-fma-mic");
+
 
     const char* pMcpu    = m_CpuId.GetCPUName();
     if( NULL == pMcpu )
