@@ -18,14 +18,9 @@ File Name: OCLBuilder.h
 #ifndef __OCL_BUILDER_H__
 #define __OCL_BUILDER_H__
 
-#include <memory>
 #include "frontend_api.h"
 #include "DynamicLib.h"
 #include "Exception.h"
-
-namespace llvm{
-  class Module;
-}
 
 namespace Validation{
 
@@ -80,30 +75,6 @@ private:
   bool m_bSupportImages;
 };
 
-//simplified API functions
-
-//Name: build
-//Purpose: builds the given OCL kernel using clang API, turning it to LLVM BC.
-//Parameters:
-//  kernel: string containing the openCL source to be compiled.
-//  buildOptions: build options to be passed to clang.
-//Return Value: clang's output. (Notice, the owenrship of the object is
-// transfered to the receiver, that should call 'Release' to for disposing it.
-//
-Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* build(std::string kernel,
-  std::string buildOptions = "");
-
-//
-//Purpose: parses an llvm module out of a given IOCLFEBinaryResult.
-//Parameters:
-//  (in) result   - binary results produced by clang compilation process. (see
-//  'build' function).
-//  (out) pModule - parsed module
-void parseModule(Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* rawresult,
- llvm::Module*& pModule);
-
-std::string genLibName(const std::string& s);
-
-}//End Validation
+}
 
 #endif //__OCL_BUILDER_H__

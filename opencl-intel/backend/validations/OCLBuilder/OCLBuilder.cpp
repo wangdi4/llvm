@@ -16,16 +16,9 @@ File Name: OCLBuilder.cpp
 
 \*****************************************************************************/
 
-#include <cstring>
 #include "OCLBuilder.h"
-#include "cl_types.h"
+#include <cstring>
 #include "clang_device_info.h"
-
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRReader.h"
-#include "llvm/Module.h"
-#include "llvm/LLVMContext.h"
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
@@ -140,76 +133,4 @@ IOCLFECompiler* OCLBuilder::createCompiler(const char* lib){
 
 OCLBuilder OCLBuilder::_instance;
 
-const size_t HEADERS_SIZE =
-  sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-
-struct StrippedBinaryResults: public IOCLFEBinaryResult{
-  IOCLFEBinaryResult*const m_pBinaryResult;
-
-  StrippedBinaryResults(IOCLFEBinaryResult* pBinaryRestuls)
-  : m_pBinaryResult(pBinaryRestuls){
-  }
-
-	size_t	GetIRSize(){
-    return m_pBinaryResult->GetIRSize() - HEADERS_SIZE;
-  }
-
-	const void*	GetIR(){
-    return (const char*)m_pBinaryResult->GetIR() + HEADERS_SIZE;
-  }
-
-	virtual const char* GetErrorLog(){
-    return m_pBinaryResult->GetErrorLog();
-  }
-
-	// release result
-	virtual long Release(){
-    return m_pBinaryResult->Release();
-  }
-
-  // Will be true if link is called with "-create-library"
-  virtual bool IsLibrary() { return m_pBinaryResult->IsLibrary(); }
-};
-
-std::string genLibName(const std::string& s){
-  std::string ret;
-  #ifdef _WIN32
-  ret = s;
-  ret.append(".dll");
-  #else
-  ret = "lib";
-  ret.append(s);
-  ret.append(".so");
-  #endif
-  return ret;
 }
-
-static StrippedBinaryResults stripHeaders(IOCLFEBinaryResult* pRestuts){
-  return StrippedBinaryResults(pRestuts);
-}
-
-Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* build(std::string kernel,
-  std::string buildOptions){
-  OCLBuilder& builder = OCLBuilder::instance();
-  return builder.withLibrary(genLibName("clang_compiler").c_str()).
-  withBuildOptions(buildOptions.c_str()).withSource(kernel.c_str()).build();
-}
-
-void parseModule(IOCLFEBinaryResult* result, llvm::Module*& pModule){
-  //stipping the OCL and LLVM headers
-  StrippedBinaryResults strippedResult = stripHeaders(result);
-  llvm::StringRef data(
-    (const char*)strippedResult.GetIR(), //BC buffer
-    strippedResult.GetIRSize()           //size of the buffer
-  );
-  llvm::MemoryBuffer* pMemBuffer =
-    llvm::MemoryBuffer::getMemBuffer(data, "", false);
-  llvm::SMDiagnostic err;
-  llvm::LLVMContext& context = llvm::getGlobalContext();
-  pModule = llvm::ParseIR(pMemBuffer, err, context);
-  if (!err.getMessage().empty())
-    throw Exception::OperationFailed(err.getMessage());
-}
-
-}//End Validation
-

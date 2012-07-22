@@ -21,10 +21,7 @@ add_dependencies( ${TARGET_NAME} dynamic_load )
 
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/../lib)
 
-target_link_libraries(${TARGET_NAME}
-  LLVMBitReader
-  LLVMAsmParser
-  dynamic_load)
+target_link_libraries(${TARGET_NAME} dynamic_load)
 
 install(TARGETS ${TARGET_NAME} ${TARGET_NAME}
             RUNTIME DESTINATION bin
