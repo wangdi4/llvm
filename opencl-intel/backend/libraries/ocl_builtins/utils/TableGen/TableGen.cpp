@@ -29,7 +29,6 @@
 
 
 #include "OclBuiltinEmitter.h"
-#include "OclBuiltinsHeaderGen.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -43,7 +42,6 @@ using namespace llvm;
 
 enum ActionType {
   GenOCLBuiltin,
-  GenOCLBuiltisnHeader,
   PrintRecords,
   PrintEnums
 };
@@ -58,8 +56,6 @@ Action(cl::desc("Action to perform:"),
                              "Print enum values for a class"),
                   clEnumValN(GenOCLBuiltin, "gen-ocl-bi",
                              "Generate builtins files for ocl"),
-                  clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-biheader",
-                            "Generates a header with builtins mangled names"),
                   clEnumValEnd),
        cl::init(PrintRecords));
 
@@ -89,9 +85,6 @@ public:
         }
       case GenOCLBuiltin:
         OclBuiltinEmitter(Records).run(OS);
-        break;
-      case GenOCLBuiltisnHeader:
-        OclBuiltinsHeaderGen(Records).run(OS);
         break;
     }
 

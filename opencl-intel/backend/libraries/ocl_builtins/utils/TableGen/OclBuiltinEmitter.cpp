@@ -409,21 +409,6 @@ OclBuiltin::getReturnCName(const std::string&) const
   return m_Outputs[0].second;
 }
 
-size_t
-OclBuiltin::getReturnVectorLength(const std::string& TyName)const{
-  if (m_Outputs.size() == 0)
-    return 0;
-  assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
-  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
-  const OclType* T = m_DB.getOclType(GT);
-  return std::atoi(T->getCVecLength().c_str());
-}
-
-size_t
-OclBuiltin::getNumArguments() const{
-  return m_Inputs.size();
-}
-
 std::string
 OclBuiltin::getArgumentCType(unsigned i, const std::string& TyName) const
 {
@@ -583,22 +568,6 @@ OclBuiltin::getCProto(const std::string& TyName, bool isDecl) const
   }
 
   return "";
-}
-
-bool OclBuiltin::isSvml()const{
-  std::string svmlprefix("__ocl_svml");
-  return (getName().substr(0, svmlprefix.length()) == svmlprefix);
-}
-
-bool OclBuiltin::isOverlodable()const{
-  std::vector<const OclBuiltinAttr*>::const_iterator it = m_Attrs.begin(),
-  e = m_Attrs.end();
-  while (it != e){
-    if ("__attribute__((overloadable))" == (*it)->getCAttr())
-      return true;
-    ++it;
-  }
-  return false;
 }
 
 bool
