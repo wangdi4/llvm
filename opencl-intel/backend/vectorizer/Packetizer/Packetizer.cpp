@@ -39,6 +39,8 @@ static bool isGatherScatterType(VectorType *VecTy) {
 
 namespace intel {
 
+const unsigned int PacketizeFunction::MaxLogBufferSize = 31;
+
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
   m_shuffleCtr = 0;
@@ -536,7 +538,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
-Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
+Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &MO) {
   // Obtain the input addresses (but only the first will be used
   // we know that this is an unmasked widen load/store
   Value *inAddr[MAX_PACKET_WIDTH];
@@ -567,30 +569,12 @@ Instruction* PacketizeFunction::widenMemoryOperand(MemoryOperation &MO) {
 }
 
 
-Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
+Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO) {
 
+  V_ASSERT(MO.Mask && "expected masked operation");
   std::string name = (MO.Data? Mangler::getStoreName(MO.Alignment): 
                                Mangler::getLoadName(MO.Alignment));
-
-  WIAnalysis::WIDependancy RetDep = m_depAnalysis->whichDepend(MO.Orig);
-  V_ASSERT(RetDep != WIAnalysis::UNIFORM && "No need to packetize this instr");
-  RetDep = RetDep; //silence warning.
-
-  V_ASSERT(MO.Mask && "widenMaskedOp called with a null mask");
-  WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
   WIAnalysis::WIDependancy MaskDep = m_depAnalysis->whichDepend(MO.Mask);
-
-
-  // If the pointer is not consecutive then
-  // it should be handled via indexed scatter/gather.
-  // Everything else is passed to the resolver.
-  // In here we only handle consecutive pointers.
-  if (PtrDep != WIAnalysis::PTR_CONSECUTIVE) {
-    V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): in "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) << " the pointer is not consecutive\n");
-    V_STAT(m_nonConsecCtr++;)
-    duplicateNonPacketizableInst(MO.Orig);
-    return NULL;
-  }
 
   // Set the mask. We are free to generate scalar or vector masks.
   if (MaskDep == WIAnalysis::UNIFORM) {
@@ -607,7 +591,6 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   MO.Ptr = SclrPtr[0];
   // Widen the load
   // BitCast the "scalar" pointer to a "vector" pointer
-  V_ASSERT(PtrDep == WIAnalysis::PTR_CONSECUTIVE);
   PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(PtrTy && "Pointer must be of pointer type");
   Type *ElemType = PtrTy->getElementType();
@@ -638,80 +621,128 @@ Instruction* PacketizeFunction::widenMaskedOp(MemoryOperation &MO) {
   return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
 }
 
-void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
-  V_ASSERT(MO.Orig && "Invalid instruction");
 
-  V_ASSERT(MO.Ptr->getType()->isPointerTy() && "Pointer operand is not a pointer");
-  V_ASSERT((!MO.Mask || MO.Mask->getType()->getScalarType()->isIntegerTy()) && 
-    "mask must be an integer");
-
+Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
+  // First, try to handle cases that WIAnalysis found to be consecutive.
   WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
-  WIAnalysis::WIDependancy MaskDep = WIAnalysis::UNIFORM;
-  if (MO.Mask) MaskDep = m_depAnalysis->whichDepend(MO.Mask);
+  if (PtrDep == WIAnalysis::PTR_CONSECUTIVE) {
+    if (MO.Mask) {
+      Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
+      V_ASSERT(Wide && "failed to generate masked wide memory operation");
+      return Wide;
+    } else {
+      Instruction *Wide = widenConsecutiveUnmaskedMemOp(MO);
+      V_ASSERT(Wide && "failed to generate non-masked wide memory operation");
+      return Wide;
+    }
+  }
 
-  // If we were told to look for scat/gath regions AND the pointer access is
-  // random (not consecutive or uniform).
-  if (UseScatterGather && PtrDep == WIAnalysis::RANDOM) {
-    Value *Base = 0;
-    Value *Index = 0;
-    bool forcei32 = false;
-    GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(MO.Ptr);
-    // If we found the GEP
-    if (Gep && Gep->getNumIndices() == 1) {
-      Base = Gep->getOperand(0); 
-      // and the base is uniform
-      if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM) {
-        Index = Gep->getOperand(1);
-        // Try to find the i32 index
-        if (!Index->getType()->isIntegerTy(32)) {
-          if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) Index = ZI->getOperand(0);
-          if (SExtInst* SI = dyn_cast<SExtInst>(Index)) Index = SI->getOperand(0);
+  // On non-masked, or unifrom masked memory operations, we also allow cases
+  // where the ptr was calculated as base + index with uniform base and
+  // consecutive index. This relaxation is meant to capture cases where
+  // consecutive 32 bit index was zero extended and was declared random by
+  // WIAnalysis since it may wrap. Since buffer size is <= 2^31, and all work 
+  // items access the memory we know that wrapping can't happen.
+  bool indexConsecutive = MO.Index && MO.Base && // has base, index
+    m_depAnalysis->whichDepend(MO.Index) == WIAnalysis::CONSECUTIVE && // index consecutive
+    m_depAnalysis->whichDepend(MO.Base) == WIAnalysis::UNIFORM && // base uniform
+    MO.Index->getType()->getPrimitiveSizeInBits() > MaxLogBufferSize; // index is at least 32 bit
+  if (!indexConsecutive) return NULL;
+
+  if (MO.Mask) {
+    if(m_depAnalysis->whichDepend(MO.Mask) == WIAnalysis::UNIFORM) {
+      Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
+      V_ASSERT(Wide && "failed to generate masked wide memory operation");
+      return Wide;
+    }
+  } else {
+    Instruction *Wide = widenConsecutiveUnmaskedMemOp(MO);
+    V_ASSERT(Wide && "failed to generate non-masked wide memory operation");
+    return Wide;
+  }
+  return NULL;
+}
+
+void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
+  //Uniform pointer can be seen as the base with 0 index.
+  WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
+  if (PtrDep == WIAnalysis::UNIFORM)  {
+    MO.Index = ConstantInt::getNullValue(Type::getInt32Ty(MO.Ptr->getContext()));
+    MO.Base = MO.Ptr;
+    return;
+  }
+  
+  Value *Base = 0;
+  Value *Index = 0;
+  bool forcei32 = false;
+  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(MO.Ptr);
+  // If we found the GEP
+  if (Gep && Gep->getNumIndices() == 1) {
+    Base = Gep->getOperand(0); 
+    // and the base is uniform
+    if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM) {
+      Index = Gep->getOperand(1);
+      // Try to find the i32 index
+      if (!Index->getType()->isIntegerTy(32)) {
+        if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) {
+          Index = ZI->getOperand(0);
+        }
+        else if (SExtInst* SI = dyn_cast<SExtInst>(Index)) {
+            Index = SI->getOperand(0);
+        }
+        else if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
           // Check for the idiom that keeps the lowest 32bits:
           // %idxprom = ashr exact i64 %XXX, 32
-          if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
-            if (BI->getOpcode() == Instruction::AShr) {
-              // Constants are canonicalized to the RHS.
-              ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-              if (C0 && (C0->getBitWidth() < 65))
-                forcei32 = (C0->getZExtValue() == 32);
-            }
+          if (BI->getOpcode() == Instruction::AShr) {
+            // Constants are canonicalized to the RHS.
+            ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+            if (C0 && (C0->getBitWidth() < 65))
+              forcei32 = (C0->getZExtValue() == 32);
           }
 
           // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
           // the lowest 32bits.
-          if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
-            if (BI->getOpcode() == Instruction::And) {
-              // Constants are canonicalized to the RHS.
-              ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-              if (C0 && (C0->getBitWidth() < 65))
-                forcei32 = (C0->getZExtValue() == (unsigned) -1);
-            }
+          if (BI->getOpcode() == Instruction::And) {
+            // Constants are canonicalized to the RHS.
+            ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+            if (C0 && (C0->getBitWidth() < 65))
+              forcei32 = (C0->getZExtValue() == (unsigned) -1);
           }
         }
-        // If the index is not 32-bit, abort.
-        if (!Index->getType()->isIntegerTy(32) && !forcei32) {
-          V_PRINT(gather_scatter_stat, "PACKETIZER: BASE UNIFORM, INDEX NOT 32" << *MO.Orig <<
-                                 " Gep: " << *Gep << " Index: " << *Index << "\n");
-          Index = NULL;
-        }
+        
       }
-      else
-        V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
+      // If the index is not 32-bit, abort.
+      if (!Index->getType()->isIntegerTy(32) && !forcei32) {
+        V_PRINT(gather_scatter_stat, "PACKETIZER: BASE UNIFORM, INDEX NOT 32" << *MO.Orig <<
+                               " Gep: " << *Gep << " Index: " << *Index << "\n");
+        Index = NULL;
+      }
     }
-    else if (!Gep)
-      V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
     else
-      V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
-    MO.Index = Index;
-    MO.Base = Base;
-    // If we decide to generate a scatter/gather (MO.Index != NULL), and the type of MO.Index is not i32,
-    // then it must hold a value truncatable to i32 (forcei32):
-    V_ASSERT((!MO.Index || MO.Index->getType()->isIntegerTy(32) || forcei32) && 
-              "Index is not i32 but forcei32 is false");
+      V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
   }
+  else if (!Gep)
+    V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
   else
-    V_PRINT(gather_scatter_stat, "PACKETIZER: PtrDep NOT RANDOM" << *MO.Orig << "\n");
+    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
+  MO.Index = Index;
+  MO.Base = Base;
+  // If we decide to generate a scatter/gather (MO.Index != NULL), and the type of MO.Index is not i32,
+  // then it must hold a value truncatable to i32 (forcei32):
+  V_ASSERT((!MO.Index || MO.Index->getType()->isIntegerTy(32) || forcei32) && 
+            "Index is not i32 but forcei32 is false");
+}
 
+
+void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
+  V_ASSERT(MO.Orig && "Invalid instruction");
+  V_ASSERT(MO.Ptr && MO.Ptr->getType()->isPointerTy() && "Pointer operand is not a pointer");
+  V_ASSERT((!MO.Mask || MO.Mask->getType()->getScalarType()->isIntegerTy()) && 
+    "mask must be an integer");
+
+  // Attempt to find if the pointer can be expressed as base + index.
+  obtainBaseIndex(MO);
+    
   // Find the data type;
   Type *DT;
   if (MO.Data) { 
@@ -729,52 +760,32 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     return duplicateNonPacketizableInst(MO.Orig);
   }
 
-  // Indexed scatter/gather in here
-  if (MO.Index) {
-    V_ASSERT(MO.Index && "Must have an index");
-    V_ASSERT(MO.Base && "Index w/o base");
-    Instruction *Scat = 
-      widenScatterGatherOp(MO);
-    if (Scat) {
-      createVCMEntryWithVectorValue(MO.Orig, Scat);
-      m_removedInsts.insert(MO.Orig);
-      V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
-      return;
-    }
-    else MO.Index = NULL;
-  }
-
-  V_ASSERT(!MO.Index && "Was not able to handle a scatter/gather inst");
-
-  if (MO.Mask) {
-    Instruction *Wide = widenMaskedOp(MO);
-    // If wide is null, then we alraedy handled things inside
-    if (Wide) {
-      // Add new value/s to VCM and remove inst
-      createVCMEntryWithVectorValue(MO.Orig, Wide);
-      m_removedInsts.insert(MO.Orig);
-    }
-    return;
-  }
-
-  V_ASSERT(!MO.Mask && "Was not able to handle a mask operation");
-
-  // If the pointer is consecutive, and the data type is scalar
-  if (PtrDep == WIAnalysis::PTR_CONSECUTIVE) {
-    Instruction *Wide = widenMemoryOperand(MO);
-    // Add new value/s to VCM and remove inst
+  // Check if we were able tp obtain a vector wide memory operand, for consecutive access.
+  if (Instruction *Wide = widenConsecutiveMemOp(MO)) {
+    // If we were able to generate wide memory operation update VCM and return.
     createVCMEntryWithVectorValue(MO.Orig, Wide);
     m_removedInsts.insert(MO.Orig);
     return;
   }
 
-  // Handle random pointer, or load/store of non primitive types.
+  // In case we were told the target supports scat/gath regions, and were able to find 
+  // base+index pattern attempt to create scat/gath.
+  if (UseScatterGather && MO.Index) {
+    V_ASSERT(MO.Base && "Index w/o base");
+    // If we were able to generate scatter\gather update VCM and return.
+    if (Instruction *Scat =  widenScatterGatherOp(MO)) {
+      createVCMEntryWithVectorValue(MO.Orig, Scat);
+      m_removedInsts.insert(MO.Orig);
+      V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
+      return;
+    }
+  }
+  
+  // Was not able to vectorize meory operation, fall back to scalarizing.
   V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<": Handles random pointer, or load/store of non primitive types\n");
   V_STAT(m_nonConsecCtr++;)
   return duplicateNonPacketizableInst(MO.Orig);
 }
-
-
 
 
 void PacketizeFunction::packetizeInstruction(CallInst *CI)

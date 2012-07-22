@@ -130,17 +130,30 @@ private:
 
   // Packetize load/store family of functions
 
+  /// @brief Fill the MemoryOperation Index, Base fieds in case the 
+  ///        pointer can be represented as ptr = base + pointer.
+  /// @param MO - memory operation to check.
+  void obtainBaseIndex(MemoryOperation &MO);
+
+
+  /// @brief handles cases of consecutive (masked, unmasked) load\store.
+  /// @param MO - memory operation to handle.
+  /// @returns widen memory operation if successful, NULL otherwise.
+  Instruction *widenConsecutiveMemOp(MemoryOperation &MO);
+
+  /// @brief handles packetization of memory ops ([masked] load, store).
+  /// @brief param MemOp - memory operation to handle.
   void packetizeMemoryOperand(MemoryOperation &MemOp);
 
   /// @brief Widen a load/store instruction when no mask is used
   /// @param MemOp Memory Operand
   /// @return New Widened instruction
-  Instruction* widenMemoryOperand(MemoryOperation &MemOp);
+  Instruction* widenConsecutiveUnmaskedMemOp(MemoryOperation &MemOp);
 
-  /// @brief Widen a masked load/store instruction when no mask is used
+  /// @brief Widen a masked load/store instruction.
   /// @param MemOp Memory Operand
-  /// @return New Widened instruction (NULL if duplicated inside)
-  Instruction* widenMaskedOp(MemoryOperation &MemOp);
+  /// @return New Widened instruction.
+  Instruction* widenConsecutiveMaskedMemOp(MemoryOperation &MemOp);
 
   /// @brief Widen a masked load/store instruction into a scatter/gather call
   /// @param MemOp Memory Operand
@@ -340,6 +353,9 @@ private:
 
   /// @brief BAG (Broadcast Arguments and Globals) map. Map to broadcasted vals.
   DenseMap<Value *, Value *> m_BAG;
+
+  /// @brief maximum log buffere size.
+  static const unsigned int MaxLogBufferSize;
 
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
