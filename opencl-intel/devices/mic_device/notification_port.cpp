@@ -281,8 +281,8 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 	bool keepWork = true;
 	NotificationPort* thisWorker = (NotificationPort*)threadObject;
 
-	vector<notificationPackage> fireCallBacksArr;
-	fireCallBacksArr.reserve(thisWorker->m_maxBarriers);
+	notificationPackage* fireCallBacksArr;
+	fireCallBacksArr = (notificationPackage*)malloc(sizeof(notificationPackage) * thisWorker->m_maxBarriers);
 	unsigned int* firedIndicesArr = (unsigned int*)malloc(sizeof(unsigned int) * thisWorker->m_maxBarriers);
 	assert(firedIndicesArr && "memory allocation for firedIndicesArr failed");
 	unsigned int firedAmount;
@@ -350,7 +350,7 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 		// If more than one element fired, sort the fired element according to their age
 		if (firedAmount > 1)
 		{
-			sort(fireCallBacksArr.begin(), fireCallBacksArr.begin() + firedAmount, notificationPackage::compare);
+			sort(&fireCallBacksArr[0], &fireCallBacksArr[firedAmount], notificationPackage::compare);
 		}
 
 		for (unsigned int i = 0; i < firedAmount; i++)
@@ -372,7 +372,7 @@ void* NotificationPort::ThreadEntryPoint(void *threadObject)
 	return NULL;
 }
 
-void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, vector<notificationPackage>& callBacksRet, bool* workerThreadSignaled)
+void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, notificationPackage* callBacksRet, bool* workerThreadSignaled)
 {
 	unsigned int notSignaledIndex = m_waitingSize - 1;
 
@@ -419,7 +419,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 }
 
 
-void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
+void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
 {
 	m_maxBarriers =   + (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
 	assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
@@ -427,7 +427,8 @@ void NotificationPort::resizeBuffers(vector<notificationPackage>* fireCallBacksA
 	assert(m_barriers && "memory allocation failed for m_barriers");
 	m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
 	assert(m_notificationsPackages && "memory allocation failed for m_notificationsPackages");
-	fireCallBacksArr->reserve(m_maxBarriers);
+	*fireCallBacksArr = (notificationPackage*)realloc(*fireCallBacksArr, sizeof(notificationPackage) * m_maxBarriers);
+	assert(*fireCallBacksArr && "memory allocation failed for *fireCallBacksArr");
 	*firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
 	assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
 }

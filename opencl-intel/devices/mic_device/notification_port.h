@@ -140,9 +140,9 @@ private:
 
 	void releaseResources();
 
-	void getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, vector<notificationPackage>& callBacksRet, bool* workerThreadSignaled);
+	void getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, notificationPackage* callBacksRet, bool* workerThreadSignaled);
 
-	void resizeBuffers(vector<notificationPackage>* fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize);
+	void resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize);
 
     class StaticInitializer;
     static StaticInitializer init_statics;
