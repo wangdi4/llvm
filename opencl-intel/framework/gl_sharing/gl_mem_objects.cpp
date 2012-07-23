@@ -176,6 +176,22 @@ cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
     return CL_SUCCESS;
 }
 
+void GLTexture::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
+{
+    if (NULL != dimensions)
+    {
+        GetDimensionSizes(dimensions);
+    }
+    if (NULL != rowPitch)
+    {
+        *rowPitch = GetRowPitchSize();
+    }
+    if (NULL != slicePitch)
+    {
+        *slicePitch = GetSlicePitchSize();
+    }
+}
+
 cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize)
 {
 	void* pIntVal;

@@ -79,20 +79,6 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  void GraphicsApiMemoryObject::GetLayout(size_t* dimensions, size_t* rowPitch,
-     *      size_t* slicePitch) const
-     */
-
-    void GraphicsApiMemoryObject::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
-    {
-		OclAutoMutex mu(&m_muAcquireRelease);
-        if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject )
-        {
-            m_itCurrentAcquriedObject->second->GetLayout(dimensions, rowPitch, slicePitch);
-        }
-    }
-
-    /**
      * @fn  cl_err_code GraphicsApiMemoryObject::CheckBoundsRect(const size_t* pszOrigin,
      *      const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
      */

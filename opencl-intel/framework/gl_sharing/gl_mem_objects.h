@@ -118,6 +118,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual GLint CalculateTextureDimensions() = 0;
 
+        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
+
 	protected:
 		GLTexture(SharedPtr<Context> pContext, cl_gl_object_type clglObjType):
 		GLMemoryObject(pContext, clglObjType),  m_glFramebuffer(0), m_glPBO(0) {}

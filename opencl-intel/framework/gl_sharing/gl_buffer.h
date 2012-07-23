@@ -61,6 +61,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
 
+        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
+
 	protected:
 
         GLBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);

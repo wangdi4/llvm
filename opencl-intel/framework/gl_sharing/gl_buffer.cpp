@@ -88,6 +88,14 @@ cl_err_code GLBuffer::GetDimensionSizes(size_t* pszRegion) const
     return CL_SUCCESS;
 }
 
+void GLBuffer::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
+{
+    if (NULL != dimensions)
+    {
+        GetDimensionSizes(dimensions);
+    }
+}
+
 cl_err_code GLBuffer::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {

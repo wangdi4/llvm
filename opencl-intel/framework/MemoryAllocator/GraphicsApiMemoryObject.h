@@ -77,9 +77,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
         virtual void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
 
-        virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
-
-        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
+        virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);        
 		
         virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
             size_t szRowPitch, size_t szSlicePitch) const;

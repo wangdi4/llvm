@@ -223,6 +223,8 @@ public:
 
     cl_err_code GetDimensionSizes(size_t* pszRegion) const;
 
+    virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
+
 protected:
 
     /**
@@ -365,7 +367,7 @@ protected:
 
     virtual bool ObtainPitches();
 
-    virtual const size_t* GetPitches() const { return &m_szPitch; }        
+    virtual const size_t* GetPitches() const { return &m_szPitch; }
 
     size_t GetMemObjSize() const;
 
@@ -877,6 +879,27 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetDimensionSizes(size_t* pszR
 {
     FillDimensions(*GetResourceInfo(), pszRegion);
     return CL_SUCCESS;
+}
+
+template<typename RESOURCE_TYPE, typename DEV_TYPE>
+void D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
+{
+    if (NULL != dimensions)
+    {
+        GetDimensionSizes(dimensions);
+    }
+    
+    const size_t* const pitches = GetPitches();
+    const size_t szNumPitches = GetNumDimensions() - 1;
+    assert(szNumPitches <= 2);
+    if (1 <= szNumPitches && NULL != rowPitch)
+    {
+        *rowPitch = pitches[0];
+    }
+    if (2 == szNumPitches && NULL != slicePitch)
+    {
+        *slicePitch = pitches[1];
+    }
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
