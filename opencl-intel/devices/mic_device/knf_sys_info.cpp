@@ -60,12 +60,12 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
     SCAL_VALUE( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,     cl_uint,                        MIC_MAX_WORK_ITEM_DIMENSIONS    ),
     SCAL_VALUE( CL_DEVICE_MAX_WORK_GROUP_SIZE,          size_t,                         MIC_MAX_WORK_GROUP_SIZE         ),
     ARRY_VALUE( CL_DEVICE_MAX_WORK_ITEM_SIZES,          size_t,                         MIC_MAX_WORK_ITEM_SIZES         ),
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,  cl_uint,                        16                              ),	// TODO Should take this value from BE
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, cl_uint,                        8                               ),  // TODO Should take this value from BE
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,   cl_uint,                        4                               ),	// TODO Should take this value from BE
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,  cl_uint,                        2                               ),	// TODO Should take this value from BE
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, cl_uint,                        4                               ),	// TODO Should take this value from BE
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,  cl_uint,                        0                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,  cl_uint,                        1                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, cl_uint,                        1                               ),  // TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,   cl_uint,                        1                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,  cl_uint,                        1                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, cl_uint,                        1                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,  cl_uint,                        1                               ),	// TODO Should take this value from BE
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,     cl_uint,                        16                              ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,    cl_uint,                        8                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,      cl_uint,                        4                               ),	// TODO Should take this value from device SKU
@@ -120,7 +120,7 @@ static MICSysInfo::SYS_INFO_ENTRY knf_info[] =
 #ifdef __DOUBLE_ENABLED__
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT ), // new OpenCL 1.2
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        2                               ),	// TODO Should take this value from device SKU
-    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        2                               ),	// TODO Should take this value from BE
+    SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        1                               ),	// TODO Should take this value from BE
 #else
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            0                               ),
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        0                               ),
