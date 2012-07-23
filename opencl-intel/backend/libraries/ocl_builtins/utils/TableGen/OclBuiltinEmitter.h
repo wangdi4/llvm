@@ -138,6 +138,10 @@ public:
 
   std::string getReturnCName(const std::string&) const;
 
+  size_t      getReturnVectorLength(const std::string&)const;
+
+  size_t      getNumArguments() const;
+
   std::string getArgumentCType(unsigned, const std::string&) const;
 
   std::string getArgumentCVecType(unsigned, const std::string&, int) const;
@@ -162,10 +166,16 @@ public:
 
   std::string getCProto(const std::string&, bool isDecl = false) const;
 
+  //indicates whether the underlying builtin is really an svml function
+  bool isSvml()const;
+
+  bool isOverlodable()const;
+
   typedef std::vector<const OclType*>::const_iterator const_type_iterator;
 
   inline const_type_iterator  type_begin() const { return m_Types.begin(); }
   inline const_type_iterator    type_end() const { return m_Types.end(); }
+  inline size_t                typeCount() const { return m_Types.size(); }
 
   bool isValidType(const std::string&) const;
 
@@ -249,6 +259,7 @@ public:
 
   inline const_proto_iterator proto_begin() const { return m_ProtoMap.begin(); }
   inline const_proto_iterator   proto_end() const { return m_ProtoMap.end(); }
+  inline size_t protoCount() const { return m_ProtoMap.size(); };
 
   const RecordKeeper& getRecords() const { return m_Records; }
 
