@@ -629,14 +629,14 @@ _8i32 __attribute__((overloadable)) shuffle(_4i32 x, _8u32 mask)
 }
 _8i32 __attribute__((overloadable)) shuffle(_8i32 x, _8u32 mask)
 {
-	return (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask , (__m256i) x);
+	return (_8i32) _mm256_permutevar8x32_epi32((__m256i) x, (__m256i) mask);
 }
 
 _16i32 __attribute__((overloadable)) shuffle(_8i32 x, _16u32 mask)
 {
 	_16i32 res;
-	res.lo = (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask.lo , (__m256i) x);
-	res.hi = (_8i32) _mm256_permutevar8x32_epi32((__m256i) mask.hi , (__m256i) x);
+	res.lo = (_8i32) _mm256_permutevar8x32_epi32((__m256i) x, (__m256i) mask.lo);
+	res.hi = (_8i32) _mm256_permutevar8x32_epi32((__m256i) x, (__m256i) mask.hi);
 	return res;
 }
 _16i32 __attribute__((overloadable)) shuffle(_4i32 x, _16u32 mask)
@@ -1091,7 +1091,7 @@ _4i64 __attribute__((overloadable)) shuffle(_4i64 x, _4u64 mask)
 	tmaskhi = tmasklo+1;
 	tmaskhi = (_8u32) _mm256_slli_epi64( (__m256i) tmaskhi, 32);
 	tmask = (_8u32)_mm256_or_si256( (__m256i) tmasklo, (__m256i) tmaskhi);
-	res = (_4i64) _mm256_permutevar8x32_epi32( (__m256i) tmask, (__m256i) x);
+	res = (_4i64) _mm256_permutevar8x32_epi32( (__m256i) x, (__m256i) tmask);
 	return res;
 }
 
@@ -1455,12 +1455,12 @@ float4 __attribute__((overloadable)) shuffle(float8 x, _4u32 mask)
 	_8u32 tmask = (_8u32) _mm256_setzero_si256();
 	float8 res;
 	tmask.lo = mask;
-	res = (float8)_mm256_permutevar8x32_ps ((__m256)tmask,(__m256) x);
+	res = (float8)_mm256_permutevar8x32_ps ((__m256) x, (__m256)tmask);
 	return res.lo;
 }
 float8 __attribute__((overloadable)) shuffle(float8 x, _8u32 mask)
 {
-	return (float8)_mm256_permutevar8x32_ps ((__m256)mask, (__m256) x);
+	return (float8)_mm256_permutevar8x32_ps ((__m256) x, (__m256)mask);
 }
 
 float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
