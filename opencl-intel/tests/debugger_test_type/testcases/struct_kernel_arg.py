@@ -25,10 +25,19 @@ class StructKernelArg(DebuggerTestCase):
         self.assertEqual(
             float(self.client.var_query_value('ksum_rotation')), 
             float(sum(range(16))))
-        
-        self.assertEqual(self.client.var_query_value('kcopy'), 
-            '{100.0|-9999.25|0.25,0.75,1.25,2.25|1024|' +
-            '[0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|8.0|9.0|10.0|11.0|12.0|13.0|14.0|15.0]}')
+       
+        if self.use_gdb:
+            # GDB's printing of user defined types in OCL is a little broken, but individual
+            # members can be accessed OK.
+            self.assertEqual(self.client.var_query_value('kcopy.f1'), '100.0')
+            self.assertEqual(self.client.var_query_value('kcopy.f2'), '-9999.25')
+            self.assertEqual(self.client.var_query_value('kcopy.position'), '0.25,0.75,1.25,2.25')
+            self.assertEqual(self.client.var_query_value('kcopy.size'), '1024')
+            self.assertEqual(self.client.var_query_value('kcopy.rotation'), '0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0')
+        else:
+            self.assertEqual(self.client.var_query_value('kcopy'), 
+                '{100.0|-9999.25|0.25,0.75,1.25,2.25|1024|' +
+                '[0.0|1.0|2.0|3.0|4.0|5.0|6.0|7.0|8.0|9.0|10.0|11.0|12.0|13.0|14.0|15.0]}')
         
         self.client.debug_run_finish([bp])
 

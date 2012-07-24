@@ -1,4 +1,3 @@
-import logging
 import os
 import platform
 import re
@@ -9,18 +8,13 @@ import time
 
 from timelimited import timelimited, TimeLimitExpired
 from debugservermessages_pb2 import ClientToServerMessage, ServerToClientMessage
+from common import logi, os_is_windows, TestClient
 import protocol
 import debuginfo
 
-
-def os_is_windows():
-    return platform.system() == 'Windows'
-
-
 class SimulatorError(Exception): pass
 
-
-class ClientSimulator(object):
+class ClientSimulator(TestClient):
     """ Simulates a debugger client. Allows invocation of a debuggee and 
         communication with the debug server embedded in it.
         
@@ -33,11 +27,13 @@ class ClientSimulator(object):
     def __init__(self,
                  debuggee_exe_path,
                  cl_dir_path,
+                 logfile,
                  server_port=56203):
         self.debuggee_exe_path = debuggee_exe_path
         if os.path.split(self.debuggee_exe_path)[0] == '':
             self.debuggee_exe_path = './' + self.debuggee_exe_path
         self.cl_dir_path = cl_dir_path
+        self.logfile = logfile
         self.server_port = server_port
         self.subproc = None
         
@@ -76,16 +72,10 @@ class ClientSimulator(object):
             and connect_to_server.
         """
         self.server_port = port
-
-    def cl_abs_filename(self, cl_name):
-        """ Make the canonical absolute path from the name of a cl_file.
-        """
-        path = os.path.abspath(os.path.join(self.cl_dir_path, cl_name))
-        path = re.sub(r'\\', '/', path)
-        if os_is_windows():
-            return path.lower()
-        else:
-            return path
+    
+    def get_server_port(self):
+        """ Retrieve the server port """
+        return self.server_port
 
     def execute_debuggee(self, hostprog_name, cl_name, options={}, extra_args=[]):
         """ Loads the debuggee as a subprocess.
@@ -143,6 +133,10 @@ class ClientSimulator(object):
         """ Wait for the debuggee to finish running. Return the pair (rc, log)
             where rc is the subprocess return code and log is its stderr output.
         """
+
+        if self.subproc is None:
+            # This happens when we use skipNotGDB decorator
+            return 0, ''
         rc = self.subproc.poll()
         if rc is None:
             # process is still alive
@@ -165,11 +159,11 @@ class ClientSimulator(object):
         def do_connect():
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             address = ('localhost', self.server_port)
-            logging.info('connect_to_server(timeout=%s)' % timeout)
+            logi('connect_to_server(timeout=%s)' % timeout)
             
             while True:
                 try:
-                    logging.info('Client trying to connect...')
+                    logi('Client trying to connect...')
                     self.socket.connect(address)
                     return
                 except socket.error:
@@ -180,7 +174,7 @@ class ClientSimulator(object):
         
         try:
             timelimited(timeout, do_connect)
-            logging.info('... Connection succeeded.')
+            logi('... Connection succeeded.')
         except TimeLimitExpired:
             raise SimulatorError('failed to connect within timeout')
     

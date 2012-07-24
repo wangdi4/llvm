@@ -19,22 +19,22 @@ class CSSD100007031(DebuggerTestCase):
         bp = (CLNAME, 64)
         self.assertEqual(self.client.debug_run([bp]), bp)
         self.assertEqual(self.client.var_query_value('ii3'), '1,2,3')
-        
+
         # BP in myfooMMM..., mybarBBB..., and blehLLL...
         bps = [(CLNAME, lineno) for lineno in (32, 23, 8)]
-        
+
         # first we stop in myfooMMM...
         self.assertEqual(self.client.debug_run(bps), bps[0])
         # then in mybarBBB...
         self.assertEqual(self.client.debug_run(bps), bps[1])
         # then in blehLLL...
         self.assertEqual(self.client.debug_run(bps), bps[2])
-        
+
         # then again in blehLLL since... it's called from main_kernel too
         self.assertEqual(self.client.debug_run(bps), bps[2])
-        
+
         # enough...
-        
+
         # done
         self.client.debug_run_finish()
 

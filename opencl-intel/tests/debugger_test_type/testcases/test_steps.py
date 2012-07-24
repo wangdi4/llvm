@@ -20,18 +20,21 @@ class TestSteps(DebuggerTestCase):
             cl_name=self.CLNAME2)
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
-        try:
-            self.client.get_stack_trace()
-        except SimulatorError as e:
-            import StringIO
-            message = StringIO.StringIO()
-            print >>message, e
-            self.assertEqual(message.getvalue(), self.ERROR_MSG)
-            message.close()
-        else:
-            self.assertEqual('this should not happen', '!!!')
+        if not self.use_gdb:
+            # GDB (native) client get_stack_trace() is a no op, so this check
+            # is invalid
+            try:
+                self.client.get_stack_trace()
+            except SimulatorError as e:
+                import StringIO
+                message = StringIO.StringIO()
+                print >>message, e
+                self.assertEqual(message.getvalue(), self.ERROR_MSG)
+                message.close()
+            else:
+                self.assertEqual('this should not happen', '!!!')
         self.client.debug_run_finish()
-        
+
     def test_step_in_no_function_calls(self):
     #
     # TC-12
@@ -46,12 +49,11 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME2, 3)
         bps = [bp, (self.CLNAME2, 4), (self.CLNAME2, 5), (self.CLNAME2, 6)]
         self.assertEqual(self.client.debug_run(bps), bp)
-        bp = (self.CLNAME2, 4)
-        self.assertEqual(self.client.debug_step_in(), bp)
-        bp = (self.CLNAME2, 5)
-        self.assertEqual(self.client.debug_step_in(), bp)
-        bp = (self.CLNAME2, 6)
-        self.assertEqual(self.client.debug_step_in(), bp)
+        if not self.use_gdb:
+            # Simulator client stops before GDB does (i.e. before first statement)
+            # so issue a step-in command to get both on the same line.
+            bp = (self.CLNAME2, 4)
+            self.assertEqual(self.client.debug_step_in(), bp)
         bp = (self.CLNAME2, 5)
         self.assertEqual(self.client.debug_step_in(), bp)
         bp = (self.CLNAME2, 6)
@@ -65,7 +67,7 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME2, 10)
         self.assertEqual(self.client.debug_step_in(), bp)
         self.client.debug_run_finish()
-    
+
     def test_start_with_step_in(self):
     #
     # starting with step-in
@@ -76,9 +78,14 @@ class TestSteps(DebuggerTestCase):
             cl_name=self.CLNAME2)
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
-        
-        # starting with step_in is supported
-        self.assertEqual(self.client.debug_step_in(), (self.CLNAME2, 1))
+
+        if self.use_gdb:
+            # GDB start-with-step behaviour is to step into the entry-point of the
+            # program, not the entry of the CL kernel. So continue to CL kernel.
+            bp = (self.CLNAME2, 3)
+            self.assertEqual(self.client.debug_run([bp]), bp)
+        else:
+            self.assertEqual(self.client.debug_step_in(), (self.CLNAME2, 1))
         self.client.debug_run_finish()
 
     def test_simple_step_over2(self):
@@ -86,7 +93,7 @@ class TestSteps(DebuggerTestCase):
     # TC-15, TC-26
     # test the usage of steps over, first command in program is a function calls
     #
-    
+
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME3)
@@ -101,7 +108,7 @@ class TestSteps(DebuggerTestCase):
         self.client.debug_run_finish()
 
     def test_step_over_no_function_calls(self):
-    # 
+    #
     # TC-16
     # test the usage of steps over, of a program with no function calls
     #
@@ -114,12 +121,11 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME2, 3)
         bps = [bp, (self.CLNAME2, 4), (self.CLNAME2, 5), (self.CLNAME2, 6)]
         self.assertEqual(self.client.debug_run(bps), bp)
-        bp = (self.CLNAME2, 4)
-        self.assertEqual(self.client.debug_step_over(), bp)
-        bp = (self.CLNAME2, 5)
-        self.assertEqual(self.client.debug_step_over(), bp)
-        bp = (self.CLNAME2, 6)
-        self.assertEqual(self.client.debug_step_over(), bp)
+        if not self.use_gdb:
+            # Simulator stops before GDB, so issue a step-over to get both
+            # debugger clients to the same place.
+            bp = (self.CLNAME2, 4)
+            self.assertEqual(self.client.debug_step_over(), bp)
         bp = (self.CLNAME2, 5)
         self.assertEqual(self.client.debug_step_over(), bp)
         bp = (self.CLNAME2, 6)
@@ -253,17 +259,16 @@ class TestSteps(DebuggerTestCase):
         bps = [bp, (self.CLNAME1, 20)]
         self.assertEqual(self.client.debug_run(bps), bp)
         bp = (self.CLNAME1, 20)
-        # try to step over a breakpoint 
+        # try to step over a breakpoint
         self.assertEqual(self.client.debug_step_over(), bp)
         self.client.debug_run_finish()
-
 
     def test_simple_stack_trace(self):
     #
     # TC-27
     # test the usage of step out, first command in program is a function calls
     #
-    
+
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME3)
@@ -271,19 +276,23 @@ class TestSteps(DebuggerTestCase):
         self.client.start_session(0, 0, 0)
         # add some breakpoints and go to them with the step in mechanism
         bp = (self.CLNAME3, 3)
-        self.assertEqual(self.client.debug_run([bp]), bp)        
-        self.client.get_stack_trace()
+        self.assertEqual(self.client.debug_run([bp]), bp)
+
+        if not self.use_gdb:
+            # Calling get_stack_trace() is not required in GDB
+            self.client.get_stack_trace()
+
         self.assertEqual(self.client.stack_query_func_name(0), 'foo')
         self.assertEqual(self.client.stack_query_func_name(1), 'main_kernel')
         self.client.debug_run_finish()
 
-        
+
     def test_simple_step_out(self):
     #
     # TC-24
     # test the usage of step out, first command in program is a function calls
     #
-    
+
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME3)
@@ -291,12 +300,12 @@ class TestSteps(DebuggerTestCase):
         self.client.start_session(0, 0, 0)
         # add some breakpoints and go to them with the step in mechanism
         bp = (self.CLNAME3, 3)
-        self.assertEqual(self.client.debug_run([bp]), bp)        
+        self.assertEqual(self.client.debug_run([bp]), bp)
         bp = (self.CLNAME3, 10)
         self.assertEqual(self.client.debug_step_out(), bp)
         self.client.debug_run_finish()
-     
-       
+
+
     def test_step_out(self):
     #
     # TC-22, TC-23, TC-24, TC-30
@@ -319,7 +328,13 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_out(), bp)
         bp = (self.CLNAME1, 6)
         self.assertEqual(self.client.debug_step_out(), bp)
-        bp = (self.CLNAME1, 30)
+        if self.use_gdb:
+            # GDB steps out to the line that invoked the function
+            bp = (self.CLNAME1, 29)
+        else:
+            # Simulator steps out to the next line after the one that invoked
+            # the function
+            bp = (self.CLNAME1, 30)
         self.assertEqual(self.client.debug_step_out(), bp)
         # back in main, get trace
         self.client.get_stack_trace()
@@ -327,7 +342,7 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME1, 19)
         bps = [bp, (self.CLNAME1, 20)]
         self.assertEqual(self.client.debug_run(bps), bp)
-        # after reaching breakpoint in inner function again, get trace 
+        # after reaching breakpoint in inner function again, get trace
         self.client.get_stack_trace()
         self.assertEqual(self.client.stack_query_func_name(0), 'test3')
         self.assertEqual(self.client.stack_query_func_name(1), 'test2')

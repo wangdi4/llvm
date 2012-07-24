@@ -16,7 +16,17 @@ class StartWithStep(DebuggerTestCase):
         
         # First send a SINGLE_STEP_IN
         # Increase timeout since this is the initial run
-        self.assertEqual(self.client.debug_step_in(timeout=45), (self.CLNAME, 9))
+        if self.use_gdb:
+            # GDB single-steps into the program entry point (which varies with
+            # the test driver/gdb version) instead of the test case as the
+            # simulator does. Here, we use a breakpoint to get GDB to the first
+            # line of the kernel.
+            bp = (self.CLNAME, 11)
+            self.assertEqual(self.client.debug_run([bp]), bp)
+            self.assertEqual(self.client.debug_step_in(timeout=45), (self.CLNAME, 12))
+        else:
+            # OCL simulator debugger single-steps into the first OCL kernel
+            self.assertEqual(self.client.debug_step_in(timeout=45), (self.CLNAME, 9))
         
         # Now send a RUN
         bp = (self.CLNAME, 16)

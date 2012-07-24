@@ -7,7 +7,7 @@ class BuiltinsTester(DebuggerTestCase):
             a list of float objects.
         """
         return [float(f) for f in vec_str.split(',')]
-    
+
     def test_use_builtins_math(self):
         CLNAME = 'builtins_math.cl'
         import math

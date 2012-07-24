@@ -204,15 +204,34 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('p_char8'), '34')
         self.assertEqual(self.client.var_query_value('var_char16'), '2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17')
         self.assertEqual(self.client.var_query_value('p_char16'), '34')
-        self.assertEqual(self.client.var_query_value('var_uchar2'), '2,3')
+        # GDB prints uchar variables in different ways depending on the value.
+        # As such, we handle the assertions below on a per-client basis.
+        if self.use_gdb:
+            self.assertEqual(self.client.var_query_value('var_uchar2'), '"\\002\\003"')
+        else:
+            self.assertEqual(self.client.var_query_value('var_uchar2'), '2,3')
         self.assertEqual(self.client.var_query_value('p_uchar2'), '34')
-        self.assertEqual(self.client.var_query_value('var_uchar3'), '2,3,4')
+        if self.use_gdb:
+            self.assertEqual(self.client.var_query_value('var_uchar3'), '"\\002\\003\\004"')
+        else:
+            self.assertEqual(self.client.var_query_value('var_uchar3'), '2,3,4')
         self.assertEqual(self.client.var_query_value('p_uchar3'), '34')
-        self.assertEqual(self.client.var_query_value('var_uchar4'), '2,3,4,5')
+        if self.use_gdb:
+            self.assertEqual(self.client.var_query_value('var_uchar4'), '"\\002\\003\\004\\005"')
+        else:
+            self.assertEqual(self.client.var_query_value('var_uchar4'), '2,3,4,5')
         self.assertEqual(self.client.var_query_value('p_uchar4'), '34')
-        self.assertEqual(self.client.var_query_value('var_uchar8'), '2,3,4,5,6,7,8,9')
+        if self.use_gdb:
+            expected_value = '"\\002\\003\\004\\005\\006\\a\\b\\t"'
+            self.assertEqual(self.client.var_query_value('var_uchar8'), expected_value)
+        else:
+            self.assertEqual(self.client.var_query_value('var_uchar8'), '2,3,4,5,6,7,8,9')
         self.assertEqual(self.client.var_query_value('p_uchar8'), '34')
-        self.assertEqual(self.client.var_query_value('var_uchar16'), '2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17')
+        if self.use_gdb:
+            expected_value = '"\\002\\003\\004\\005\\006\\a\\b\\t\\n\\v\\f\\r\\016\\017\\020\\021"'
+            self.assertEqual(self.client.var_query_value('var_uchar16'), expected_value)
+        else:
+            self.assertEqual(self.client.var_query_value('var_uchar16'), '2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17')
         self.assertEqual(self.client.var_query_value('p_uchar16'), '34')
         self.assertEqual(self.client.var_query_value('var_short2'), '2,3')
         self.assertEqual(self.client.var_query_value('p_short2'), '34')

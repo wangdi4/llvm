@@ -1,4 +1,8 @@
 import unittest
+import functools
+import sys
+
+from common import loge, logw, GDBContinueError
 
 
 class DebuggerTestCase(unittest.TestCase):
@@ -6,11 +10,13 @@ class DebuggerTestCase(unittest.TestCase):
         They will then have a 'self.client' attribute with the 
         ClientSimulator object.
     """
-    def __init__(self, methodName='runTest', client=None, dtt_exe_logfile=None):
-        """ dtt_exe_logfile is a file object into which to write the return
+    def __init__(self, methodName='runTest', use_gdb=True, client=None, dtt_exe_logfile=None):
+        """ native is a flag to specify running of GDB tests when True.
+            dtt_exe_logfile is a file object into which to write the return
             code and stderr of the debuggee invocation.
         """
         super(DebuggerTestCase, self).__init__(methodName)
+        self.use_gdb = use_gdb
         self.client = client
         self.dtt_exe_logfile = dtt_exe_logfile
 
@@ -41,6 +47,49 @@ class DebuggerTestCase(unittest.TestCase):
         if self.dtt_exe_logfile is not None:
             self.dtt_exe_logfile.write('\n\nrc = %s -->' % rc)
             self.dtt_exe_logfile.write(_fix_stream_newlines(stderr))
+
+def expectedFailureGDB(func):
+    """ This decorator is a modified version of unittest.case.expectedFailure.
+        Placing it on a testcase will mark the test as "expected to fail" when
+        native (GDB) tests are being run (i.e. DebuggerTestCase.native == True)
+        NOTE: this decorator requires python 2.7.
+        FIXME: this decorator should call the original unittest.case.expectedFailure
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if sys.version_info < (2, 7):
+            logw("Warning: use Python >= 2.7 (current version is " \
+                + ".".join(map(str, sys.version_info)) + ")" \
+                + " for 'expected fail' support in testcase " + str(func))
+            func(self, *args, **kwargs)
+            return
+        else:
+            if self.use_gdb:
+                try:
+                    func(self, *args, **kwargs)
+                except Exception:
+                    raise unittest.case._ExpectedFailure(sys.exc_info())
+                raise unittest.case._UnexpectedSuccess
+            else:
+                func(self, *args, **kwargs)
+    return wrapper
+
+def skipNotGDB(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if sys.version_info < (2, 7):
+            logw("Warning: use Python >= 2.7 (current version is " \
+                + ".".join(map(str, sys.version_info)) + ")" \
+                + " for 'expected fail' support in testcase " + str(func))
+            func(self, *args, **kwargs)
+            return
+        else:
+            if self.use_gdb:
+                func(self, *args, **kwargs)
+            else:
+                print "Skipping test " + str(func)
+                return unittest.skip("Not supported in simulator testing.")
+    return wrapper
 
 
 def _fix_stream_newlines(s):

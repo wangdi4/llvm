@@ -58,10 +58,11 @@ install(TARGETS ${TARGET} DESTINATION ${DTT_DIR_NAME})
 file(GLOB MAIN_PY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.py)
 install(FILES ${MAIN_PY_FILES} DESTINATION ${DTT_DIR_NAME})
 
-# Copy all .zip files from the main directory
+# Copy all .zip files from the testlib directory
 #
-file(GLOB MAIN_ZIP_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.zip)
-install(FILES ${MAIN_ZIP_FILES} DESTINATION ${DTT_DIR_NAME})
+set(DTT_TESTLIB_DIR_NAME ${DTT_DIR_NAME}/testlib)
+file(GLOB MAIN_ZIP_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} testlib/*.zip)
+install(FILES ${MAIN_ZIP_FILES} DESTINATION ${DTT_TESTLIB_DIR_NAME})
 
 # Create directory for CL files and copy them
 #
@@ -79,8 +80,6 @@ install(FILES ${TESTCASE_FILES} DESTINATION ${DTT_TESTCASES_DIR_NAME})
 
 # Copy all code in the testlib/ dir
 #
-set(DTT_TESTLIB_DIR_NAME ${DTT_DIR_NAME}/testlib)
-
 file(GLOB_RECURSE TESTLIB_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} testlib/*.py)
 install( FILES ${TESTLIB_FILES} DESTINATION ${DTT_TESTLIB_DIR_NAME})
 

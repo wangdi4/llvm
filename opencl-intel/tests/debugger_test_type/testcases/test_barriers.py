@@ -1,6 +1,5 @@
 from testlib.debuggertestcase import DebuggerTestCase
 
-
 class TestBarriers(DebuggerTestCase):
     CLNAME = 'barriers_and_mem_sync.cl'
     FIRST_BARRIER_ROW = 20
@@ -60,5 +59,9 @@ class TestBarriers(DebuggerTestCase):
         bp = (self.CLNAME, self.SECOND_BARRIER_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
         # initiallized to 0,1,2,3 and cell 0 was incremented 32 times by each WI
-        self.assertEqual(self.client.var_query_value('local_arr'), '[32|1|1|1]')
+        # GDB and simulator clients print arrays with different notations...
+        if self.use_gdb:
+            self.assertEqual(self.client.var_query_value('local_arr'), '32,1,1,1')
+        else:
+            self.assertEqual(self.client.var_query_value('local_arr'), '[32|1|1|1]')
         self.client.debug_run_finish()

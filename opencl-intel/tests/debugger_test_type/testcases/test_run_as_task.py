@@ -15,7 +15,4 @@ class TestRunAsTask(DebuggerTestCase):
         self.client.connect_to_server()
         self.client.start_session(3, 0, 0)
         
-        # timeout is increased here because I've been seeing intermittent
-        # failures on x64 Debug with the default timer. Maybe the stdout 
-        # redirection makes the run a bit longer
-        self.client.debug_run_finish(timeout=6)
+        self.client.debug_run_finish()

@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
 
 
 # Test a simple usage of breakpoints for TC-4-9
@@ -15,7 +15,7 @@ class TestBreakpoints(DebuggerTestCase):
     UNREACHED_ROW = 2115
     RESULT_ROW = 2109
 
-    def test_no_breakpoints(self): 
+    def test_no_breakpoints(self):
     #
     #  Test - test the ability to run a kernel without setting any breakpoints
     #  TC-3
@@ -24,13 +24,9 @@ class TestBreakpoints(DebuggerTestCase):
             cl_name=self.CLNAME2)
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
-        
-        # timeout is increased here because I've been seeing intermittent
-        # failures on x64 Debug with the default timer. Maybe the stdout 
-        # redirection makes the run a bit longer
-        self.client.debug_run_finish(timeout=6)
-    
-    
+
+        self.client.debug_run_finish()
+
     def test_breakpoints_in_main_and_unreachable(self):
     #
     # Test a simple usage of breakpoints only set in main

@@ -1,6 +1,5 @@
 from testlib.debuggertestcase import DebuggerTestCase
 
-
 # Test debugging into more than one NDRange in a single session
 #
 class MultiNDRange1(DebuggerTestCase):

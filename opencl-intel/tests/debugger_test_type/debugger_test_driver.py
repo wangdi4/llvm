@@ -5,16 +5,68 @@ import platform
 import sys
 import unittest
 import time
+import Queue
 
-# Note: DO NOT import modules that need (even indirectly) protobuf at module
-# level, without calling setup_path first. 
-# setup_path makes sure the protobuf library will be found
+from optparse import OptionParser
+from multiprocessing import cpu_count, JoinableQueue, Queue, Process
+
+#HACK: fix system path for CI
+testlib_dir = os.path.join(os.getcwd(), 'testlib')
+
+for fname in ['pexpect_2_4.zip', 'protobuf_lib.zip']:
+    path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'testlib', fname))
+    if not os.path.exists(path):
+        raise Exception("Unable to find python library archive at " + path)
+
+    sys.path.insert(0, path)
+
+from testlib.common import find_on_path, os_is_windows, TestSuiteNotFoundException, logd, logw, loge
 from testlib.debuggertestcase import DebuggerTestCase
+from testlib.runner_process import RunnerProcess, RunnerParams
 
+# Maximum number of seconds to wait (per thread) for exit after receiving 
+# a Ctrl-C event before sending a SIGTERM signal.
+MAX_CTRL_C_TIMEOUT = 15
 
+def parse_options():
+    """ Parses commandline options and returns a tuple (options, positional_args)
+    """
+    parser = OptionParser()
+    parser.add_option("-v", "--verbose",
+                      dest="verbose", action="store_true",
+                      default=False,
+                      help="Print additional (debug) information during test runs")
+    parser.add_option("-l", "--log",
+                      dest="logfile", action="store_true",
+                      default=False,
+                      help="Dump debugger client output to logfile (dtt_log.txt). " \
+                           "Not recommended with parallel test execution.")
+    parser.add_option("-t", "--test_client",
+                      dest="test_client", default="gdb",
+                      help="Run the specified test type {gdb|simulator}")
+    parser.add_option("-j", type="int",
+                      dest="num_jobs",
+                      default=cpu_count(),
+                      help="number of tests to run in parallel")
+
+    (opts, positionals) = parser.parse_args()
+
+    # Check for invalid options 
+    if opts.num_jobs < 1:
+        loge("Error: need more than 0 jobs (-j) to run tests")
+        sys.exit(1)
+    if opts.test_client != "gdb" and opts.test_client != "simulator":
+        loge("Error: please specify --test_client=[gdb|simulator]")
+        sys.exit(1)
+
+    if os_is_windows():
+        # force simulator tests (pending working GDB solution)
+        opts.test_client= "simulator"
+
+    return (opts, positionals)
 
 def get_testcase_filenames(dir):
-    """ Yield all testcase filesnames from given directory.
+    """ Yield all testcase filenames from given directory.
     """
     for filename in os.listdir(dir):
         if not filename.startswith('__'):
@@ -22,68 +74,109 @@ def get_testcase_filenames(dir):
             if ext == '.py':
                 yield filename
 
-
 def load_testcase_classes(filename):
     """ Load all testcase classes (children of DebuggerTestCase) from the given
         filename. Yield them one by one.
     """
     module = imp.new_module('testmodule')
+    if not os.path.exists(filename):
+        raise TestSuiteNotFoundException(filename)
+
     codeobj = compile(open(filename, 'rU').read(), filename, 'exec')
     exec codeobj in module.__dict__
-    
+
     for name, klass in inspect.getmembers(module, inspect.isclass):
         if klass.__bases__[0] == DebuggerTestCase:
             yield klass
 
-
-def setup_path():
-    """ Sets up the Python module import path to find protobuf.
-    """
-    sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), 
-                                    'protobuf_lib.zip'))
-
-
-def run_tests(names=None):
-    """ Collect test cases and run them. If 'names' is passed, it's taken as 
-        a list of testcases (file names relative to the testcases/ dir) to 
+def run_tests(names = None, options=None):
+    """ Collect test cases and run them. If 'names' is passed, it's taken as
+        a list of test suites (file names relative to the testcases/ dir) to
         run. Otherwise, auto-discovers and runs all test cases.
-        
-        Return the unittest.TestResult
+
+        Return a Queue of TestResult objects (one per suite)
     """
-    from testlib.clientsimulator import ClientSimulator, os_is_windows
-        
+    SERVER_START_PORT = 56203
+
+    # Queues for synchronization
+    test_queue = JoinableQueue()
+    result_queue = Queue()
+
+    # Initialize OCL parameters
     DTT_EXE_NAME = 'debugger_test_type'
     if os_is_windows():
         DTT_EXE_NAME += '.exe'
 
     CL_KERNELS_DIR = 'cl_kernels'
-    SERVER_PORT = 56203
 
     my_dir = os.path.dirname(sys.argv[0])
     testcases_dir = os.path.join(my_dir, 'testcases')
     dtt_exe_log_filename = os.path.join(my_dir, 'dtt_exe_log.txt')
-    dtt_exe_logfile = open(dtt_exe_log_filename, 'w')
 
-    suite = unittest.TestSuite()
-
-    if names is not None:
-        testcases_iterator = iter(names)
+    search_path = my_dir
+    if not os_is_windows():
+        search_path += ":" + os.environ['LD_LIBRARY_PATH']
     else:
-        testcases_iterator = get_testcase_filenames(testcases_dir)
+        search_path += ":" + os.environ['PATH']
 
-    for testcase_filename in testcases_iterator:
-        testcase_path = os.path.join(my_dir, 'testcases', testcase_filename)
-        for klass in load_testcase_classes(testcase_path):
-            client = ClientSimulator(
-                        debuggee_exe_path=os.path.join(my_dir, DTT_EXE_NAME),
-                        cl_dir_path=os.path.join(my_dir, CL_KERNELS_DIR),
-                        server_port=SERVER_PORT)
-            suite.addTest(DebuggerTestCase.create(
-                            klass, 
-                            client=client,
-                            dtt_exe_logfile=dtt_exe_logfile))
-    
-    return unittest.TextTestRunner(verbosity=2).run(suite)
+    exe_path=find_on_path(DTT_EXE_NAME, search_path)
+    if exe_path is None:
+        exe_path=find_on_path(os.path.join('validation', 'debugger_test_type',
+            DTT_EXE_NAME), search_path)
+        if exe_path is None:
+            loge("Unable to find executable " + DTT_EXE_NAME )
+            sys.exit(1)
+
+    cl_dir_path=os.path.join(os.path.dirname(exe_path), CL_KERNELS_DIR)
+
+    # Build a list of test suites
+    if len(names) > 0:
+        for x in names:
+            test_queue.put(x)
+    else:
+        for x in get_testcase_filenames(testcases_dir):
+            test_queue.put(x)
+
+    worker_processes = []
+    logfile = None
+    if options.logfile:
+        logfile = open("dtt_log.txt", "w")
+
+    #### Run! 
+    try:
+        for i in range(options.num_jobs):
+            p = RunnerProcess(RunnerParams(
+                             test_client=options.test_client,
+                             test_dir=testcases_dir,
+                             exe_path=exe_path,
+                             cl_kernels_dir=cl_dir_path,
+                             port=(SERVER_START_PORT + i),
+                             logfile=logfile,
+                             load_func=load_testcase_classes,
+                             testcase_queue=test_queue,
+                             result_queue=result_queue))
+            p.start()
+            worker_processes.append(p)
+
+        # wait for tests to execute
+        test_queue.join()
+
+        # release thread(s) used to manage the work queue
+        test_queue.close()
+    except KeyboardInterrupt as e:
+        logw("\nCtrl-C detected, test results may be incomplete. " \
+            + "Shutting down child processes...")
+
+        # Cleanup child processes
+        for p in worker_processes:
+            p.join(MAX_CTRL_C_TIMEOUT)
+            if p.is_alive():
+                logw("terminating worker process pid=" + str(p.pid))
+                p.terminate()
+
+    if options.logfile:
+        logfile.close()
+    return result_queue
 
 
 def run_standalone():
@@ -148,13 +241,55 @@ def run_standalone():
     print 'rc =', rc
     print str(s)
 
+def process_results(result_queue):
+    """ Prints results summary and returns the exit code """
+    passed = []
+    unexpected_passed = []
+    failed = []
+    expected_failed = []
+    timed_out = False
+    total = result_queue.qsize()
+
+    while not result_queue.empty():
+      (name, details, success, expected) = result_queue.get()
+      if success and expected:
+          passed.append((name, details))
+      elif success and not expected:
+          unexpected_passed.append((name, details))
+      elif not success and expected:
+          expected_failed.append((name, details))
+      else:
+          failed.append((name, details))
+
+      if "ClientTimeout" in details:
+          timed_out = True
+
+    print "\n===== Test Results Summary (" + str(total) + " Suites) ====="
+    for (listname, l) in [("Failed", failed),
+                          ("Failed (Expected)", expected_failed),
+                          ("Passed (Unexpected)", unexpected_passed),
+                          ("Passed", passed)]:
+        if len(l) > 0:
+            print listname + ": " + str(len(l))
+            for (f, d) in l:
+                print "\t" + f + " " + d
+
+    # Should be TIMEOUT_RETCODE imported from framework/cmdtool.py
+    if timed_out and platform.system() == 'Windows':
+        return 127
+    elif timed_out:
+        return -9
+    elif len(failed) == 0:
+        # success
+        return 0
+    else:
+        # fail
+        return 1
 
 #---------------------------------------------------------------------------
 if __name__ == "__main__":
     import logging
-    logging.basicConfig(stream=sys.stderr, level=logging.ERROR)
     
-    setup_path()
     os.environ['PATH'] = os.getcwd() + ';' + os.environ['PATH']
 
     dlls_path = None
@@ -179,18 +314,21 @@ if __name__ == "__main__":
     #~ sys.argv.extend(['basic_stop_on_bp1.py'])
     #~ sys.argv.extend(['test_variable_types.py', 'test_variable_types_in_several_kernels.py'])
 
-    #### Run!
-    if len(sys.argv) > 1:
-        testresult = run_tests(sys.argv[1:])
+    (options, args) = parse_options()
+
+    if options.verbose:
+        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     else:
-        testresult = run_tests()
-    
-    if testresult.wasSuccessful():
-        print 'TEST SUCCEEDED'
-        sys.exit(0)
-    else:
-        print 'TEST FAILED'
-        sys.exit(1)
+        logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+
+    result_queue = run_tests(options=options, names=args)
+
+    retcode = process_results(result_queue)
+
+    # Release thread(s) used to manage the result queue
+    result_queue.close()
+
+    sys.exit(retcode)
 
     #### ZZZ: this runs when run_tests & sys.exit are commented out
     run_standalone()
