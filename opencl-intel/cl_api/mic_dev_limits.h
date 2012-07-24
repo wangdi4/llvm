@@ -29,7 +29,7 @@
 #define MIC_DEV_MAX_WI_SIZE              1024            // Maximum values that could be specified for WI in one dimension
 #define MIC_DEV_LCL_MEM_SIZE             (32*1024)
 #define MIC_DEV_DCU_LINE_SIZE            64
-#define MIC_DEV_MAXIMUM_ALIGN            512
+#define MIC_DEV_MAXIMUM_ALIGN            128
 
 #define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
 #define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)  (((X)+MIC_DEV_MAXIMUM_ALIGN-1) & (~(MIC_DEV_MAXIMUM_ALIGN-1)))
