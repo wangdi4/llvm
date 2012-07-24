@@ -7,6 +7,7 @@
 #include "Scalarize.h"
 #include "llvm/Constants.h"
 #include "Mangler.h"
+#include "VectorizerUtils.h"
 
 
 namespace intel {
@@ -576,7 +577,7 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
   }
 
   // Add new value/s to SCM
-  updateSCMEntryWithValues(newEntry, scalarValues, II, true);
+  updateSCMEntryWithValues(newEntry, scalarValues, II, true, false);
 
   // Remove original instruction
   m_removedInsts.insert(II);
@@ -636,7 +637,7 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
 
   // Create the new SCM entry
   SCMEntry *newEntry = getSCMEntry(SI);
-  updateSCMEntryWithValues(newEntry, newVector, SI, true);
+  updateSCMEntryWithValues(newEntry, newVector, SI, true, false);
 
   // Remove original instruction
   m_removedInsts.insert(SI);
@@ -1024,10 +1025,11 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
   //   %temp.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
   //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
   // Place the re-assembly in the location where the original instruction was
-  Instruction *insertLocation = dyn_cast<Instruction>(vectorVal);
-  V_ASSERT(insertLocation && "SCM reports a non-instruction was removed. Should not happen");
+  Instruction *vectorInst = dyn_cast<Instruction>(vectorVal);
+  V_ASSERT(vectorInst && "SCM reports a non-instruction was removed. Should not happen");
+  Instruction *insertLocation = vectorInst;
   // If the original instruction was PHI, place the re-assembly only after all PHIs is the block
-  if (isa<PHINode>(insertLocation)) {
+  if (isa<PHINode>(vectorInst)) {
     insertLocation = insertLocation->getParent()->getFirstNonPHI();
   }
 
@@ -1037,8 +1039,10 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
   {
     V_ASSERT(NULL != valueEntry->scalarValues[i] && "SCM entry has NULL value");
     Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-    assembledVector = InsertElementInst::Create(assembledVector,
+    Instruction *insert = InsertElementInst::Create(assembledVector,
       valueEntry->scalarValues[i], constIndex, "temp.vect", insertLocation);
+    VectorizerUtils::SetDebugLocBy(insert, vectorInst);
+    assembledVector = insert;
     V_STAT(m_transposeCtr[((InsertElementInst*)assembledVector)->getOpcode()]++;)
     V_PRINT(scalarizer, 
         "\t\t\tCreated vector assembly inst:" << *assembledVector << "\n");
@@ -1108,7 +1112,8 @@ ScalarizeFunction::SCMEntry *ScalarizeFunction::getSCMEntry(Value *origValue)
 void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *entry,
                                                  Value *scalarValues[],
                                                  Value *origValue,
-                                                 bool isOrigValueRemoved)
+                                                 bool isOrigValueRemoved,
+                                                 bool matchDbgLoc)
 {  
   V_ASSERT(isa<VectorType>(origValue->getType()) && "only Vector vals are supported");
   unsigned width = dyn_cast<VectorType>(origValue->getType())->getNumElements();
@@ -1119,6 +1124,18 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
   {
     V_ASSERT(NULL != scalarValues[i] && "Trying to fill SCM with NULL value");
     entry->scalarValues[i] = scalarValues[i];
+  }
+  
+  if (matchDbgLoc) 
+  {
+    if (Instruction *origInst = dyn_cast<Instruction>(origValue)) 
+    {
+      for (unsigned i = 0; i < width; ++i)
+      {
+        Instruction *scalarInst = dyn_cast<Instruction>(scalarValues[i]);
+        if (scalarInst) VectorizerUtils::SetDebugLocBy(scalarInst, origInst);
+      }
+    }
   }
 }
 
@@ -1181,7 +1198,9 @@ void ScalarizeFunction::resolveDeferredInstructions ()
       for (unsigned i = 0; i < width; i++)
       {
         Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);      
-        newInsts[i] = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
+        Instruction *EE = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
+        VectorizerUtils::SetDebugLocBy(EE, vectorInst);
+        newInsts[i] = EE;
       }
       V_STAT(m_transposeCtr[vectorInst->getOpcode()]++;)
       updateSCMEntryWithValues(currentInstEntry, newInsts, vectorInst, false);

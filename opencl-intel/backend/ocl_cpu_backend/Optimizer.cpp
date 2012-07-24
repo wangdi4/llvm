@@ -255,6 +255,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
     && debugType == None
     && uiOptLevel != 0)
   {
+    // In profiling mode remove llvm.dbg.value calls 
+    // before vectorizer.
+    if (isProfiling) {
+      m_modulePasses.add(createProfilingInfoPass());
+    }
+
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));

@@ -216,8 +216,14 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   } else {
     for (unsigned i=0; i<opWidth; ++i) {
       Constant *constInd = ConstantInt::get( Type::getInt32Ty(CI->getContext()), i);
-      scalarsA.push_back(ExtractElementInst::Create(A, constInd, "extract.dot", CI));
-      scalarsB.push_back(ExtractElementInst::Create(B, constInd, "extract.dot", CI));
+      ExtractElementInst *extractA = 
+        ExtractElementInst::Create(A, constInd, "extract.dot", CI);
+      VectorizerUtils::SetDebugLocBy(extractA, CI);
+      scalarsA.push_back(extractA);
+      ExtractElementInst *extractB = 
+        ExtractElementInst::Create(B, constInd, "extract.dot", CI);
+      VectorizerUtils::SetDebugLocBy(extractB, CI);
+      scalarsB.push_back(extractB);
     }
   }
 
@@ -225,13 +231,15 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   Instruction::BinaryOps mulKind = Instruction::FMul;
   Instruction::BinaryOps addKind = Instruction::FAdd;
   V_PRINT("scalarizer", "Starting: \n");
-  Value* sum = NULL;
+  Instruction* sum = NULL;
   for (unsigned i=0; i<opWidth; i++) {
     V_PRINT("scalarizer", "Iteration #"<<i<<"\n");
-    Value* mul =  BinaryOperator::Create(mulKind, scalarsA[i], scalarsB[i], "mul_dot", CI);
+    Instruction* mul =  BinaryOperator::Create(mulKind, scalarsA[i], scalarsB[i], "mul_dot", CI);
+    VectorizerUtils::SetDebugLocBy(mul, CI);
     V_PRINT("scalarizer", "Creating sum #"<<i<<"\n");
     if (sum) {
       sum = BinaryOperator::Create(addKind, sum, mul, "sum_dot", CI);
+      VectorizerUtils::SetDebugLocBy(sum, CI);
     } else {
       sum = mul;
     }

@@ -312,6 +312,10 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 		list.push_back("-D");
 		list.push_back("__IMAGE_SUPPORT__=1");	
 	}
+	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
+		list.push_back("-g");
+		OptProfiling = true;
+	}
 
 	// Add extension defines
 	std::string extStr = m_sDeviceInfo.sExtensionStrings;
@@ -721,7 +725,7 @@ int ClangFECompilerLinkTask::Link()
             return CL_LINK_PROGRAM_FAILURE;
         }
 
-        if( Linker::LinkModules(composite.get(), M.get(), Linker::PreserveSource, &ErrorMessage))
+        if( Linker::LinkModules(composite.get(), M.get(), Linker::PreserveSource/*Linker::DestroySource*/, &ErrorMessage))
         {
             // apparently LinkModules returns true on failure and false on success
             if ( !ErrorMessage.empty() )

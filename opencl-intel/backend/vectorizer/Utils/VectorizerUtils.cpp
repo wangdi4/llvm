@@ -7,7 +7,21 @@
 
 namespace intel{
 
+void VectorizerUtils::SetDebugLocBy(Instruction *I, Instruction *setBy) {
+  if (!setBy->getDebugLoc().isUnknown()) {
+    I->setDebugLoc(setBy->getDebugLoc());
+  }
+}
 
+void VectorizerUtils::SetDebugLocBy(std::vector<Instruction *> &insts,
+                                    Instruction *setBy) {
+  if (!setBy->getDebugLoc().isUnknown()) {
+    const DebugLoc &dbgloc = setBy->getDebugLoc();
+    for (unsigned i=0; i<insts.size(); ++i) {
+      insts[i]->setDebugLoc(dbgloc);
+    }
+  }
+}
 
 Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, Type *realType)
 {

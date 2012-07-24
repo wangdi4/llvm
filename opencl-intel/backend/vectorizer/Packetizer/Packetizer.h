@@ -117,15 +117,19 @@ private:
   ///@brief creates the transpose shuffle sequence for 4x4 matirx
   ///@param IN input vectors
   ///@param OUT output vectors
+  ///@param generatedShuffles std vector with all generated shuffles
   void obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN, 
-                 	           SmallVectorImpl<Instruction *> &OUT,
-                 	           Instruction *loc);
+                               SmallVectorImpl<Instruction *> &OUT,
+                               std::vector<Instruction *> &generatedShuffles,
+                               Instruction *loc);
   
   ///@brief creates the transpose shuffle sequence for 8x8 matirx
   ///@param IN input vectors
   ///@param OUT output vectors
+  ///@param generatedShuffles std vector with all generated shuffles
   void obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
                                SmallVectorImpl<Instruction *> &OUT,
+                               std::vector<Instruction *> &generatedShuffles,
                                Instruction *loc);
 
   // Packetize load/store family of functions
@@ -176,8 +180,10 @@ private:
   /// @param loc location to put shuffle instructions
   /// @param inputVecotrs input vectored to be transposed 
   /// @param transposedVectors will hold the transposed output vectors
+  /// @param generatedShuffles std vector to hold all generated shuffles.
   void generateShuffles (unsigned AOSVectorWidth, Instruction *loc,
-      Value *inputVectors[MAX_PACKET_WIDTH],  Instruction *transposedVectors[MAX_PACKET_WIDTH]);
+      Value *inputVectors[MAX_PACKET_WIDTH],  Instruction *transposedVectors[MAX_PACKET_WIDTH],
+      std::vector<Instruction *> &generatedShuffles);
 
   /// @brief Generate a constant vector of values, to be used as ShuffleVector inputs
   /// @param width size of vector

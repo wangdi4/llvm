@@ -6,6 +6,7 @@
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "VectorizerUtils.h"
 #include "llvm/Constants.h"
 
 #include <vector>
@@ -279,6 +280,7 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
   // Create the new load
   LoadInst* loader = new LoadInst(caller->getArgOperand(1), "masked_load",
       false, align, caller);
+  VectorizerUtils::SetDebugLocBy(loader, caller);
   caller->replaceAllUsesWith(loader);
   // Replace predicate with control flow
 
@@ -300,6 +302,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Perform a single wide load and a single IF.
   if (!Mask->getType()->isVectorTy()) {
     Instruction *loader = new LoadInst(Ptr, "vload", false, align, caller);
+    VectorizerUtils::SetDebugLocBy(loader, caller);
     toPredicate(loader, Mask);
     caller->replaceAllUsesWith(loader);
     caller->eraseFromParent();
@@ -320,11 +323,16 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedLoadCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
-    Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
+    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
+    Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);    
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
+    VectorizerUtils::SetDebugLocBy(GEP, caller);
+    VectorizerUtils::SetDebugLocBy(MaskBit, caller);
+    VectorizerUtils::SetDebugLocBy(loader, caller);
+    VectorizerUtils::SetDebugLocBy(inserter, caller);
+
     Ret = inserter;
     toPredicate(loader, MaskBit);
   }
@@ -355,6 +363,7 @@ void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
   // Create new store
   StoreInst* st = new StoreInst(
     caller->getArgOperand(1), caller->getArgOperand(2), false, align, caller);
+  VectorizerUtils::SetDebugLocBy(st, caller);
   // Replace predicator with contol flow
   toPredicate(st, caller->getArgOperand(0));
   // Remove original call
@@ -380,6 +389,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   // Perform a single wide store and a single IF.
   if (!Mask->getType()->isVectorTy()) {
     Instruction *storer = new StoreInst(Data, Ptr, false, align, caller);
+    VectorizerUtils::SetDebugLocBy(storer, caller);
     toPredicate(storer, Mask);
     caller->replaceAllUsesWith(storer);
     caller->eraseFromParent();
@@ -394,10 +404,14 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedStoreCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Value *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
-    Value *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
+    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
+    Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
     Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);
+    VectorizerUtils::SetDebugLocBy(GEP, caller);
+    VectorizerUtils::SetDebugLocBy(MaskBit, caller);
+    VectorizerUtils::SetDebugLocBy(DataElem, caller);
+    VectorizerUtils::SetDebugLocBy(storer, caller);
     toPredicate(DataElem, MaskBit);
     toPredicate(storer, MaskBit);
   }
@@ -439,6 +453,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   // Generate a Call the new function
   CallInst* call = CallInst::Create(
     func, ArrayRef<Value*>(params), "", caller);
+  VectorizerUtils::SetDebugLocBy(call, caller);
   caller->replaceAllUsesWith(call);
   // Replace predicate with control flow
   toPredicate(call, caller->getArgOperand(0));

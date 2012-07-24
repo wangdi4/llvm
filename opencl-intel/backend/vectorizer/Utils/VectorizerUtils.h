@@ -9,6 +9,7 @@
 
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
+#include <vector>
 #include "Logger.h"
 
 
@@ -20,6 +21,16 @@ namespace intel {
 class VectorizerUtils {
 
 public:
+
+  /// @brief set debug location of I according to SetBy.
+  /// @param I instruction whose debug location will be set.
+  /// @param setBy instruction from which debug location is gathered.
+  static void SetDebugLocBy(Instruction *I, Instruction *setBy);
+  
+  /// @brief set debug location of I according to SetBy.
+  /// @param I instruction whose debug location will be set.
+  /// @param setBy instruction from which debug location is gathered.
+  static void SetDebugLocBy(std::vector<Instruction *> &insts, Instruction *setBy);
 
   /// @brief Follow thru a function input argument, until finding the root
   //   (where its type matches the "expected" type)

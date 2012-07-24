@@ -12,6 +12,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
+#include "VectorizerUtils.h"
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
@@ -407,7 +408,7 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
     SelectInst* select =
       SelectInst::Create(edge_mask, phi->getIncomingValue(0),
                          phi->getIncomingValue(1), "merge", edge_mask);
-
+    VectorizerUtils::SetDebugLocBy(select, phi);
     // Put in a place which satisfies data dependencies
     moveAfterLastDependant(select);
 
@@ -473,6 +474,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
     CallInst* call =
       CallInst::Create(func, ArrayRef<Value*>(params), "pLoad", inst);
+    VectorizerUtils::SetDebugLocBy(call, load);
     load->replaceAllUsesWith(call);
     load->eraseFromParent();
     return call;
@@ -491,6 +493,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     params.push_back(store->getOperand(1));
     CallInst* call =
       CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
+    VectorizerUtils::SetDebugLocBy(call, store);
     store->replaceAllUsesWith(call);
     store->eraseFromParent();
     return call;
@@ -513,6 +516,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
     CallInst* pcall =
       CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
+    VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();
     return pcall;
@@ -549,6 +553,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   Instruction* prev_value  = new LoadInst(prev_ptr, "prev_value");
   SelectInst* select = SelectInst::Create(predicate, inst, prev_value, "out_sel");
   Instruction* store  = new StoreInst(select,prev_ptr);
+  VectorizerUtils::SetDebugLocBy(select, inst);
 
   // We are predicating a PHINode
   // we can't put the select before we save the mask!
@@ -625,10 +630,16 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
     V_STAT(if (dyn_cast<StoreInst> (it)) m_maskedStoreCtr++;)
     V_STAT(if (dyn_cast<CallInst> (it)) m_maskedCallCtr++;)
 
-    if ( (dyn_cast<LoadInst> (it) ||
-         dyn_cast<StoreInst>(it) ||
-         dyn_cast<CallInst>(it)) && shouldMask) {
-      m_toPredicate.push_back(it);
+    if (shouldMask) {
+      if ( isa<LoadInst> (it) || isa<StoreInst>(it) ) {
+        m_toPredicate.push_back(it);
+      }
+      else if (CallInst *CI = dyn_cast<CallInst>(it)) {
+        std::string funcname = CI->getCalledFunction()->getNameStr();
+        if (funcname != "llvm.dbg.declare" && funcname != "llvm.dbg.value") {
+          m_toPredicate.push_back(it);
+        }
+      }
     }
 
     // If this instruction is used outside its BB,

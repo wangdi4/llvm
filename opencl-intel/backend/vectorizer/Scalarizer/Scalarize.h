@@ -167,8 +167,10 @@ private:
   /// @param scalarValues array of values to place in SCMEntry
   /// @param origValue Value which is the key of the SCMEntry
   /// @param isOrigValueRemoved True if original (vector) value was erased during scalarization
+  /// @param matchDbgLoc True if we want to match debug loc of the scalar value to orig Value.  
   void updateSCMEntryWithValues(SCMEntry *entry, Value *scalarValues[],
-                                Value *origValue, bool isOrigValueRemoved);
+                                Value *origValue, bool isOrigValueRemoved,
+                                bool matchDbgLoc = true);
 
   /// @brief returns an SCM entry if it exists. otherwise return NULL.
   /// @param origValue Value used as key in SCM

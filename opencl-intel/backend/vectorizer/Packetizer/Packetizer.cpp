@@ -1273,7 +1273,8 @@ bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** In
 // <x1,y1,z1,w1,x5,y5,z5,w5>  -->  <x1,y1,z1,w1>  <x5,y5,z5,w5> etc...
 void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *loc,
               Value *inputVectors[MAX_PACKET_WIDTH],
-              Instruction *transposedVectors[MAX_PACKET_WIDTH])
+              Instruction *transposedVectors[MAX_PACKET_WIDTH],
+              std::vector<Instruction *> &generatedShuffles)
 {
   V_ASSERT(AOSVectorWidth <= m_packetWidth && "AOSVectorWidth > m_packetWidth");
   V_ASSERT(AOSVectorWidth > 1 && "AOSVectorWidth <= 1");
@@ -1328,6 +1329,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
       for (unsigned j=0; j<width; j++)
         outputs[ind++] = new ShuffleVectorInst(inputs[i+j], inputs[i+j+width], SeqH , "shuf_transpH", loc);
     }
+    generatedShuffles.insert(generatedShuffles.end(), outputs, outputs + ind);
   }
   // incase of full transpose no need to breakdown the transposed vectors
   if (AOSVectorWidth == m_packetWidth)
@@ -1349,6 +1351,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
     for (unsigned j=0; j< Power2VectorWidth; j++)
       transposedVectors[transposedInd++] = new ShuffleVectorInst(outputs[j], undefVect, breakdownConst , "breakdown", loc);
   }
+  generatedShuffles.insert(generatedShuffles.end(), transposedVectors, transposedVectors + transposedInd);
 }
 
 void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
@@ -1380,7 +1383,9 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   
   // generate shuffles that apply transpose over the set of input vectors  
   Instruction *gatheredValues [MAX_PACKET_WIDTH];
-  generateShuffles(AOSVectorWidth, IEI, vectorizedInputs, gatheredValues);
+  std::vector<Instruction *> generatedShuffles;
+  generateShuffles(AOSVectorWidth, IEI, vectorizedInputs, gatheredValues, generatedShuffles);
+  VectorizerUtils::SetDebugLocBy(generatedShuffles, lastInChain);
   
   //updating VCM with scalar(vector) transposed vector
   createVCMEntryWithMultiScalarValues(lastInChain , gatheredValues);
@@ -1416,6 +1421,7 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
 
 void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
                                            SmallVectorImpl<Instruction *> &OUT,
+                                           std::vector<Instruction *> &generatedShuffles,
                                            Instruction *loc) {
   int Seq64L_seq[] = {0,1,4,5};
   int Seq64H_seq[] = {2,3,6,7};
@@ -1428,7 +1434,7 @@ void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
   Constant *Seq32L = createIndicesForShuffles(m_packetWidth, Seq32L_seq);
   Constant *Seq32H = createIndicesForShuffles(m_packetWidth, Seq32H_seq);
 
-  llvm::SmallVector<Value*, 8> Level64;
+  llvm::SmallVector<Instruction *, 8> Level64;
   Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64L , "Seq_64_0", loc)); // x0,y0,x1,y1
   Level64.push_back(new ShuffleVectorInst(IN[2], IN[3], Seq64L , "Seq_64_1", loc)); // x2,y2,x3,y3
   Level64.push_back(new ShuffleVectorInst(IN[0], IN[1], Seq64H , "Seq_64_2", loc)); // z0,w0,z1,w1
@@ -1438,13 +1444,18 @@ void PacketizeFunction::obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
   OUT.push_back(new ShuffleVectorInst(Level64[0], Level64[1], Seq32H , "Seq_32_1", loc)); // y0,y1,y2,y3
   OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32L , "Seq_32_2", loc)); // z0,z1,z2,z3
   OUT.push_back(new ShuffleVectorInst(Level64[2], Level64[3], Seq32H , "Seq_32_3", loc)); // w0,w1,w2,w3
+
+  // Adding the generated shuffles.
+  generatedShuffles.insert(generatedShuffles.end(), Level64.begin(), Level64.end());
+  generatedShuffles.insert(generatedShuffles.end(), OUT.begin(), OUT.end());
 }
 
 void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
                                            SmallVectorImpl<Instruction *> &OUT,
+                                           std::vector<Instruction *> &generatedShuffles,
                                            Instruction *loc){
-  llvm::SmallVector<Value*, 8> Level128;
-  llvm::SmallVector<Value*, 8> Level64;
+  llvm::SmallVector<Instruction*, 8> Level128;
+  llvm::SmallVector<Instruction*, 8> Level64;
 
   int Seq128L_seq[] = {0,1,2,3,8,9,10,11};
   int Seq128H_seq[] = {4,5,6,7,12,13,14,15};
@@ -1488,6 +1499,11 @@ void PacketizeFunction::obtainTranspVals32bitV8(SmallVectorImpl<Value *> &IN,
   OUT.push_back(new ShuffleVectorInst(Level64[4], Level64[5], Seq32H , "Seq_32_5", loc));
   OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32L , "Seq_32_6", loc));
   OUT.push_back(new ShuffleVectorInst(Level64[6], Level64[7], Seq32H , "Seq_32_7", loc));
+
+  // Adding the generated shuffles.
+  generatedShuffles.insert(generatedShuffles.end(), Level128.begin(), Level128.end());
+  generatedShuffles.insert(generatedShuffles.end(), Level64.begin(), Level64.end());
+  generatedShuffles.insert(generatedShuffles.end(), OUT.begin(), OUT.end());
 }
 
 void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
@@ -1524,6 +1540,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     return duplicateNonPacketizableInst(EI);
   }
 
+  std::vector<Instruction *> generatedShuffles;
   // If inputVectorWidth is smaller than PACKET_WIDTH - extend the input vectors first
   if (inputVectorWidth < m_packetWidth)
   {
@@ -1542,8 +1559,10 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     // Replace all the original input operands with their extended versions
     for (unsigned i = 0; i < m_packetWidth; i++)
     {
-      inputOperands[i] = new ShuffleVectorInst(inputOperands[i],
+      Instruction *extend = new ShuffleVectorInst(inputOperands[i],
         undefVect, vectExtend , "extend_vec", EI);
+      generatedShuffles.push_back(extend);
+      inputOperands[i] = extend;
     }
   }
 
@@ -1556,12 +1575,13 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
         V_STAT(m_cannotHandleCtr++;)
         return duplicateNonPacketizableInst(EI);
     }
-    obtainTranspVals32bitV8(inputOperands, SOA, EI);
+    obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, EI);
   } else {
     V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8");
-    obtainTranspVals32bitV4(inputOperands, SOA, EI);
+    obtainTranspVals32bitV4(inputOperands, SOA, generatedShuffles, EI);
   }
-  
+  VectorizerUtils::SetDebugLocBy(generatedShuffles, EI);
+
   // add new value/s to VCM and Remove original instruction
   for (unsigned i=0, e = extracts.size(); i<e; ++i) {
     ExtractElementInst *curEI = extracts[i];
@@ -1776,7 +1796,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
       Mangler::demangle(CI->getCalledFunction()->getName()));
     V_ASSERT(origFunc && "error finding unmasked function!");
     tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
-
+    VectorizerUtils::SetDebugLocBy(tidGenInst, I);
     // Remove original instruction
     m_removedInsts.insert(I);
   }
@@ -1823,6 +1843,10 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   // Generate the TID vectors
   BinaryOperator *vectorIndex = BinaryOperator::Create(
     addOperation, shuffleInst, ConstantVector::get(ArrayRef<Constant*>(constList)));
+  // Set  debug location.
+  VectorizerUtils::SetDebugLocBy(inst1, I);
+  VectorizerUtils::SetDebugLocBy(shuffleInst, I);
+  VectorizerUtils::SetDebugLocBy(vectorIndex, I);
   vectorIndex->insertAfter(shuffleInst);
 
   // register the new converted value.

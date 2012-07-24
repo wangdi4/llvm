@@ -328,20 +328,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       { 
         // Replace metadata with metada containing information about the wrapper
         MDNode* pMetadata = MDIter->getOperand(ui);
-        iterateMDTree(pMetadata);
+        std::set<MDNode *> visited;
+        iterateMDTree(pMetadata, visited);
       }
     }
 
     return pNewF;
   }
 
-  void AddImplicitArgs::iterateMDTree(MDNode* pMetadata) {
+  void AddImplicitArgs::iterateMDTree(MDNode* pMetadata, std::set<MDNode*> &visited) {
+    // exit condition, avoid inifinte loops due to cyclic metadata
+    if (visited.count(pMetadata)) return;
+    visited.insert(pMetadata);
+
     SmallVector<Value *, 16> values;
     for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
       Value *elem = pMetadata->getOperand(i);
       if (elem) {
         if (MDNode *Node = dyn_cast<MDNode>(elem))
-          iterateMDTree(Node);
+          iterateMDTree(Node, visited);
         // Elem needs to be set again otherwise changes will be undone.
         elem = pMetadata->getOperand(i);
         if (m_pFunc == dyn_cast<Function>(elem))

@@ -6,6 +6,7 @@
  *********************************************************************************************/
 #include "Packetizer.h"
 #include "llvm/Constants.h"
+#include "VectorizerUtils.h"
 
 namespace intel {
 
@@ -37,6 +38,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     && "Trying to get a packetized value of non-primitive type!");
   if (isa<Instruction>(origValue))
   {
+    Instruction *origInst = cast<Instruction>(origValue);
     if (m_VCM.count(origValue))
     {
       // Entry is found in VCM
@@ -61,6 +63,8 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
             ConstantVector::get(std::vector<Constant*>(m_packetWidth, index));
           Instruction *tmpInst = InsertElementInst::Create(undefVec, origValue, index, "temp");
           Instruction *shuffle = new ShuffleVectorInst(tmpInst, undefVec, zeroVector , "vector");
+          VectorizerUtils::SetDebugLocBy(tmpInst, origInst);
+          VectorizerUtils::SetDebugLocBy(shuffle, origInst);
           tmpInst->insertAfter(findInsertPoint(origValue));
           shuffle->insertAfter(tmpInst);
           // Add to return structure and update VCM
@@ -86,6 +90,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
             Instruction *newInst = InsertElementInst::Create(prevResult,
               foundEntry->multiScalarValues[index] , constIndex, "temp.vect");
             V_ASSERT(newInst && "inst creation failure");
+            VectorizerUtils::SetDebugLocBy(newInst, origInst);
             newInst->insertAfter(findInsertPoint(insertPoint));
             prevResult = newInst;
             insertPoint = newInst;
@@ -163,6 +168,7 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
   }
   else
   {
+    Instruction *origInst = cast<Instruction>(origValue);
     if (m_VCM.count(origValue))
     {
       // Entry is found in VCM
@@ -196,6 +202,7 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
             Value * constIndex = ConstantInt::get(Type::getInt32Ty(context()), index);
             Instruction *newEE =
               ExtractElementInst::Create(foundEntry->vectorValue, constIndex, "extract");
+            VectorizerUtils::SetDebugLocBy(newEE, origInst);
             retValues[index] = newEE;
             foundEntry->multiScalarValues[index] = newEE;
             newEE->insertAfter(insertPoint);
@@ -230,6 +237,7 @@ void PacketizeFunction::createVCMEntryWithVectorValue(Instruction *origInst,
   VCMEntry * newEntry = allocateNewVCMEntry();
   newEntry->isScalarRemoved = true;
   newEntry->vectorValue = vectoredValue;
+  VectorizerUtils::SetDebugLocBy(vectoredValue, origInst);
   m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
 }
 
@@ -240,8 +248,10 @@ void PacketizeFunction::createVCMEntryWithMultiScalarValues(Instruction * origIn
   V_ASSERT(0 == m_VCM.count(origInst) && "should not be appearing in VCM already");
   VCMEntry * newEntry = allocateNewVCMEntry();
   newEntry->isScalarRemoved = true;
-  for (unsigned i = 0; i < m_packetWidth; i++)
+  for (unsigned i = 0; i < m_packetWidth; i++) {
     newEntry->multiScalarValues[i] = multiScalarValues[i];
+    VectorizerUtils::SetDebugLocBy(multiScalarValues[i], origInst);
+  }
   m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
 }
 

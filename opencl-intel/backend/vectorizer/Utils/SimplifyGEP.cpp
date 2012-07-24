@@ -17,7 +17,7 @@ File Name:  SimplifyGEP.cpp
 \*****************************************************************************/
 
 #include "SimplifyGEP.h"
-
+#include "VectorizerUtils.h"
 #include "llvm/Support/InstIterator.h"
 
 #include <vector>
@@ -62,6 +62,7 @@ namespace intel {
           // Create new GEP instruction with original GEP instruction as pointer
           // and with its old last index as the new GEP instruction only index.
           GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
+          VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
           pNewGEP->insertAfter(pGEP);
           pGEP->replaceAllUsesWith(pNewGEP);
           // workaround as previous function replaced also the pointer of the new GEP instruction!
@@ -99,19 +100,28 @@ namespace intel {
           for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
             Value *index = pGEP->getOperand(i);
             if (newIndex) {
-              newIndex = BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+              Instruction *addIndex = 
+                BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+              VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
+              newIndex = addIndex;
             }
             else {
               newIndex = index;
             }
             Constant *arraySize = ConstantInt::get(index->getType(), arraySizes.back());
             arraySizes.pop_back();
-            newIndex = BinaryOperator::CreateNUWMul(newIndex, arraySize, "mulIndex", pGEP);
+            Instruction *mulIndex =
+              BinaryOperator::CreateNUWMul(newIndex, arraySize, "mulIndex", pGEP);
+            VectorizerUtils::SetDebugLocBy(mulIndex, pGEP);
+            newIndex = mulIndex;
           }
           // Add last Index
           Value *index = pGEP->getOperand(pGEP->getNumOperands()-1);
           if (newIndex) {
-            newIndex = BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+            Instruction *addIndex = 
+               BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+            VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
+            newIndex = addIndex;
           }
           else {
             newIndex = index;
@@ -120,6 +130,7 @@ namespace intel {
           Value* newBase = pGEP->getPointerOperand();
           newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
           GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(newBase, newIndex, "simplifiedGEP", pGEP);
+          VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
           pGEP->replaceAllUsesWith(pNewGEP);
           pGEP->eraseFromParent();
         }

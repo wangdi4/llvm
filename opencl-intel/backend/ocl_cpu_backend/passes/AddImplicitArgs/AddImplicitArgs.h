@@ -25,7 +25,7 @@ File Name:  AddImplicitArgs.h
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
-
+#include <set>
 #include <map>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -73,7 +73,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Updates metadata nodes with new Function signature
     /// @param pMetadata The current metadata node
-    void iterateMDTree(MDNode* pMetadata);
+    /// @param visited set with metadata we alreay visit.
+    void iterateMDTree(MDNode* pMetadata, std::set<MDNode *> &visited);
 
     /// @brief Adds implicit arguments structure declarations to the module
     void addWIInfoDeclarations();
