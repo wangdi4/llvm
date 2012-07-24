@@ -301,6 +301,7 @@ void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
   if (inIt != m_inMasksToZero.end()) {
     BasicBlock *BB = inIt->second;
     Value *maskP = m_pred->getInMask(BB);
+    V_ASSERT(maskP != NULL && "BB has no in-mask");
     propagateMask(maskP, src, exit, footer);
   }
   MapRegToBBPairVec::iterator outIt = m_outMasksToZero.find(reg);
@@ -308,6 +309,7 @@ void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
     BBPairVec &edges = outIt->second;
     for (unsigned i=0; i<edges.size(); ++i) {
       Value *maskP = m_pred->getEdgeMask(edges[i].first, edges[i].second);
+      V_ASSERT(maskP != NULL && "BB has no in-mask");
       propagateMask(maskP, src, exit, footer);
     }
   }
