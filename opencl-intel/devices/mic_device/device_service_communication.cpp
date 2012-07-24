@@ -42,6 +42,18 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 #endif
 };
 
+const char* const DeviceServiceCommunication::m_vtune_env_vars_names[ENV_VAR_COUNT] = 
+{
+	"INTEL_MRTE_HOST_NAME",
+	"INTEL_JIT_PROFILER64",
+	"INTEL_MRTE_DATA_DIR",
+	"USERAPICOLLECTOR_LOG_DIR",
+	"INTEL_ITTNOTIFY_CONFIG",
+	"INTEL_MRTE_PROFILER_MODE",
+	"INTEL_LIBITTNOTIFY64",
+	"INTEL_ITTNOTIFY_GROUPS", 
+};
+
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config) 
     : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false), m_config(config)
 {
@@ -238,6 +250,45 @@ bool DeviceServiceCommunication::runServiceFunction(
     return true;
 }
 
+
+bool DeviceServiceCommunication::getVTuneEnvVars(char** ppAditionalEnvs, const unsigned int size, unsigned int* retCount)
+{
+	assert(size >= ENV_VAR_COUNT + 1);
+	if (size < ENV_VAR_COUNT + 1)
+	{
+		return false;
+	}
+	const unsigned int elementMaxSize = 256 + MAX_PATH;
+	unsigned int index = 0;
+	for (unsigned int i = 0; (i < size - 1) && (i < ENV_VAR_COUNT) ; i++)
+	{
+		char* tEnvValue = getenv(m_vtune_env_vars_names[i]);
+		if (NULL != tEnvValue)
+		{
+			assert(elementMaxSize - 1 > strlen(m_vtune_env_vars_names[i]) + 1 + strlen(tEnvValue));
+			if (elementMaxSize - 1 <= strlen(m_vtune_env_vars_names[i]) + 1 + strlen(tEnvValue))
+			{
+				for (unsigned int j = 0; j < index; j++)
+				{
+					delete ppAditionalEnvs[j];
+				}
+				return false;
+			}
+			ppAditionalEnvs[index] = new char[elementMaxSize];
+			assert(ppAditionalEnvs);
+			memset(ppAditionalEnvs[index], 0, elementMaxSize);
+			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, m_vtune_env_vars_names[i]);
+			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, "=");
+			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, tEnvValue);
+			index ++;
+		}
+	}
+	ppAditionalEnvs[index] = NULL;
+	*retCount = index;
+	return true;
+}
+
+
 void* DeviceServiceCommunication::initEntryPoint(void* arg)
 {
     COIRESULT result = COI_ERROR;
@@ -261,15 +312,64 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
 	do
 	{
+		// Get the amount of compute units in the device
+		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
+
+        mic_exec_env_options mic_device_options;
+        memset( &mic_device_options, 0, sizeof(mic_device_options) );
+        
+        mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
+        mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
+        mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
+		mic_device_options.num_of_cores				= pDevServiceComm->m_config->Device_NumCores();
+        mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
+        mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
+        mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
+		mic_device_options.kernel_safe_mode        = pDevServiceComm->m_config->Device_safeKernelExecution();
+		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
+		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);
+		MEMCPY_S(mic_device_options.mic_cpu_arch_str, MIC_CPU_ARCH_STR_SIZE, get_mic_cpu_arch(), sizeof(get_mic_cpu_arch()));
+
+        if ((0 == mic_device_options.num_of_worker_threads) || (mic_device_options.num_of_worker_threads > numOfWorkers))
+        {
+            mic_device_options.num_of_worker_threads = numOfWorkers;
+        }
+        mic_device_options.min_work_groups_number   = MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_worker_threads );
+
+		char** ppAditionalEnvs = NULL;
+		unsigned int additionEnvCount = 0;
+		// If USE VTUNE need to send some env variables to sink side
+		if (mic_device_options.use_vtune)
+		{
+			// The + 1 is because the last element must be NULL.
+			const unsigned int size = ENV_VAR_COUNT + 1;
+			ppAditionalEnvs = new char*[size];
+			bool result = pDevServiceComm->getVTuneEnvVars(ppAditionalEnvs, size, &additionEnvCount);
+			if (false == result)
+			{
+				delete ppAditionalEnvs;
+				ppAditionalEnvs = NULL;
+			}
+		}
+
     	// create a process on device and run it's main() function
 		result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
 										 0, NULL,							    // argc, argv
-										 false, NULL,						    // duplicate env, additional env vars
+										 false, (const char**)ppAditionalEnvs,	// duplicate env, additional env vars
 										 MIC_DEV_IO_PROXY_TO_HOST, NULL,	    // I/O proxy required + host root
                                          MIC_DEV_INITIAL_BUFFER_PREALLOCATION,  // reserve inital buffer space
 										 nativeDirName,						    // a path to locate dynamic libraries dependencies for the sink application
 										 &pDevServiceComm->m_process);
 		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
+		// Release the additional env variable array
+		if (ppAditionalEnvs)
+		{
+			for (unsigned int i = 0; i < additionEnvCount; i++)
+			{
+				delete ppAditionalEnvs[i];
+			}
+			delete ppAditionalEnvs;
+		}
 		if (COI_SUCCESS != result)
 		{
 			break;
@@ -328,30 +428,6 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		}
 
 		// Run init device function on device side
-		// Get the amount of compute units in the device
-		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
-
-        mic_exec_env_options mic_device_options;
-        memset( &mic_device_options, 0, sizeof(mic_device_options) );
-        
-        mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
-        mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
-        mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
-		mic_device_options.num_of_cores				= pDevServiceComm->m_config->Device_NumCores();
-        mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
-        mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
-        mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
-		mic_device_options.kernel_safe_mode        = pDevServiceComm->m_config->Device_safeKernelExecution();
-		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
-		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);
-		MEMCPY_S(mic_device_options.mic_cpu_arch_str, MIC_CPU_ARCH_STR_SIZE, get_mic_cpu_arch(), sizeof(get_mic_cpu_arch()));
-
-        if ((0 == mic_device_options.num_of_worker_threads) || (mic_device_options.num_of_worker_threads > numOfWorkers))
-        {
-            mic_device_options.num_of_worker_threads = numOfWorkers;
-        }
-        mic_device_options.min_work_groups_number   = MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_worker_threads );
-
 		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
 		COIEVENT barrier;
 		result = COIPipelineRunFunction(pDevServiceComm->m_pipe, pDevServiceComm->m_device_functions[INIT_DEVICE],

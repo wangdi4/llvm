@@ -63,6 +63,20 @@ public:
         DEVICE_SIDE_FUNCTION_COUNT = LAST_DEVICE_SIDE_FUNCTION // used as a count of functions
     };
 
+	enum VTUNE_ENV_VARS
+	{
+		INTEL_MRTE_HOST_NAME = 0,
+		INTEL_JIT_PROFILER64,
+		INTEL_MRTE_DATA_DIR,
+		USERAPICOLLECTOR_LOG_DIR,
+		INTEL_ITTNOTIFY_CONFIG,
+		INTEL_MRTE_PROFILER_MODE,
+		INTEL_LIBITTNOTIFY64,
+		INTEL_ITTNOTIFY_GROUPS, 
+
+		ENV_VAR_COUNT
+	};
+
     COIFUNCTION getDeviceFunction( DEVICE_SIDE_FUNCTION id ) const;
 
     /* Send function to run through the service pipeline.
@@ -97,6 +111,12 @@ private:
        Unless it already finished. */
     void waitForInitThread() const;
 
+	/* Set in ppAditionalEnvs all the VTune env variables as name=value, set in 'retCount' the amount of defined envs. (it sould be maximum ENV_VAR_COUNT)
+	   The client should allocate ppAditionalEnvs with ENV_VAR_COUNT + 1 elements of char*.
+	   This method will allocate each string element in ppAditionalEnvs[i], and will set NULL in ppAditionalEnvs[size].
+	   The client is response to delete the memory of each element in ppAditionalEnvs from i = 0 to *retCount. */
+	bool getVTuneEnvVars(char** ppAditionalEnvs, const unsigned int size, unsigned int* retCount);
+
     unsigned int m_uiMicId;
 
     COIPROCESS m_process;
@@ -104,6 +124,8 @@ private:
 
     static const char* const m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
     COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];
+
+	static const char* const m_vtune_env_vars_names[ENV_VAR_COUNT];
 
     volatile bool m_initDone;
 
