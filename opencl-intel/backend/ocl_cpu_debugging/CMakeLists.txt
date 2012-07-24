@@ -228,3 +228,8 @@ install( TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
+
+# Install the (GPL'd) GDB OCL plugin. The name and location is important, as
+# GDB will auto-load it if it has the same name as a loaded shared object.
+set (GDB_PLUGIN libintelocl.so-gdb.py)
+install( FILES ${GDB_PLUGIN} DESTINATION bin)
