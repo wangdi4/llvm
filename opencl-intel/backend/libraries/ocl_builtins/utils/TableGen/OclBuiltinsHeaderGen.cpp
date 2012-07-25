@@ -53,7 +53,7 @@ static std::string getZeroLiteral(const std::string& type){
   if ("double" == type)
     return "0.0";
   llvm::errs() << "unhandled type " << type << "\n";
-  assert (0);
+  assert (0 && "unrecognized type");
   return "";
 }
 
@@ -101,19 +101,51 @@ struct MangledNameEmmiter{
     build(m_code, fileName);
     pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");
+    //deleting the temporary output file
     remove(fileName);
-    //TODO: remove the output file
     llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
     assert(pModule && "null llvm module");
     assert(it != e && "module contains no functions!" );
+    int biCounter = 0;
     while (it != e){
-      m_formatter << "\"" << it->getName() << "\"" << ", //";
+      m_formatter << "\"" << it->getName() << "\"" << ",//" << biCounter++;
       m_formatter.endl();
       ++it;
     }
     m_formatter.unindent();
     m_formatter << "}; //end mangled names";
     m_formatter.endl();
+    //generating the corresponding BI prototypes array
+    m_formatter << "const char* prototypes[] = {";
+    m_formatter.endl();
+    m_formatter.indent();
+    std::list<std::string>::const_iterator lit = m_protorypes.begin(),
+    le = m_protorypes.end();
+    biCounter = 0;
+    while(lit != le){
+      m_formatter << "\"" << *lit++ << "\",//" << biCounter++;
+      m_formatter.endl();
+    }
+    m_formatter.unindent();
+    m_formatter << "};//end prototypes;";
+    m_formatter.endl();
+  }
+
+  //generates the prototype of a fucntion as string
+  std::string getPrototype(const llvm::OclBuiltin* bi, const std::string& type){
+    std::string ret;
+    ret.append(bi->getCFunc(type));
+    ret.append("(");
+    size_t argumentNum = bi->getNumArguments();
+    if (argumentNum >0){
+      for(unsigned i=0 ; i < argumentNum-1 ; i++){
+        ret.append(bi->getArgumentCType(i, type));
+        ret.append(", ");
+      }
+      ret.append(bi->getArgumentCType(argumentNum-1, type));
+    }
+    ret.append(")");
+    return ret;
   }
 
   virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
@@ -125,12 +157,13 @@ struct MangledNameEmmiter{
     for (typeIter = pBuiltin->type_begin() ; typeIter != typeEnd; ++typeIter){
       //mangled name
       std::string biName = (*typeIter)->getName();
-      std::string code(pBuiltin->getCProto(biName));
-      code += generateDummyBody(
+      std::string bi = pBuiltin->getCProto(biName);
+      m_protorypes.push_back(getPrototype(pBuiltin, biName));
+      bi += generateDummyBody(
         pBuiltin->getReturnBaseCType(biName),
         pBuiltin->getReturnVectorLength(biName)
       );
-      m_code.append(code);
+      m_code.append(bi);
       m_code.append("\n");
     }
   }
@@ -158,6 +191,9 @@ protected:
 
   //holds the code with the builtins declaration, and dummy body
   std::string m_code;
+
+  //contains the prototype of all the builtin functions
+  std::list<std::string> m_protorypes;
 
   //stream to which code should be generated
   CodeFormatter& m_formatter;

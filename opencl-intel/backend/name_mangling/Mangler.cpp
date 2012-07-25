@@ -82,16 +82,16 @@ public:
       return;
     }
     m_stream << "P";
-    std::vector<std::string>::const_reverse_iterator it =
-    p->rbeginAttributes(), e = p->rendAttributes();
+    std::vector<std::string>::const_reverse_iterator e = p->rendAttributes(),
+    it = p->rbeginAttributes();
     while (it != e ){
       if (*it == "__private")
         m_stream << "U3AS0";
       else if(*it == "__global")
         m_stream << "U3AS1";
-      else if(*it == "__local")
+      else if(*it == "__constant")
         m_stream << "U3AS2";
-      else if(*it == "__const")
+      else if(*it == "__local")
         m_stream << "U3AS3";
       else if(*it == "restrict")
         m_stream << "r";

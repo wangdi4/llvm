@@ -130,8 +130,8 @@ address_space returns [std::string attribute]
     switch (addressSpace){
       case 0: attribute = "__private";  break;
       case 1: attribute = "__global"; break;
-      case 2: attribute = "__local";  break;
-      case 3: attribute = "__const";  break;
+      case 2: attribute = "__constant";  break;
+      case 3: attribute = "__local";  break;
       default: assert (false && "unreachable code");
     }
   }

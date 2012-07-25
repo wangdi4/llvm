@@ -23,12 +23,14 @@ namespace reflection{
 
 std::string FunctionDescriptor::toString()const{
   std::stringstream stream;
-  stream << "name: " << name << "\n";
-  stream << "parameters:\n";
-  std::vector<Type*>::const_iterator it = parameters.begin(),
-  e = parameters.end();
-  while (it != e)
-    stream << "\t" << (*it++)->toString() << "\n";
+  stream << name << "(";
+  size_t paramCount = parameters.size();
+  if (paramCount > 0){
+    for (size_t i=0 ; i<paramCount-1 ; ++i)
+      stream << parameters[i]->toString() << ", ";
+    stream << parameters[paramCount-1]->toString();
+  }
+  stream << ")";
   return stream.str();
 }
 

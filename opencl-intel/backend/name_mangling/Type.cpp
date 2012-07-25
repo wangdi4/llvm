@@ -48,18 +48,18 @@ static std::string toLower(const char* s){
 
 //string represenration for the primitive types
 static const char* PrimitiveNames[NUM_TYPES] ={
-  "i1",
-  "ui8",
-  "i8",
-  "ui16",
-  "i16",
-  "ui32",
-  "i32",
-  "ui64",
-  "i64",
-  "f16",
-  "f32",
-  "f64"
+  "bool",
+  "uchar",
+  "char",
+  "ushort",
+  "short",
+  "uint",
+  "int",
+  "ulong",
+  "long",
+  "half",
+  "float",
+  "double"
 };
 
 #define PrimitiveToString(p) toLower(PrimitiveNames[p-primitives::BOOL])
@@ -141,7 +141,7 @@ std::string Pointer::toString()const{
     it != m_attributes.end();
     it++)
     ret << *it << " ";
-  ret << m_pType->toString() << "*";
+  ret << m_pType->toString() << " *";
   return ret.str();
 }
 
@@ -181,9 +181,8 @@ int Vector::getLen()const{
 
 std::string Vector::toString()const{
   std::stringstream myName;
-  myName << "v";
-  myName << m_len;
   myName << PrimitiveToString(m_primitive);
+  myName << m_len;
   return myName.str();
 }
 
