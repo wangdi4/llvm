@@ -10,8 +10,10 @@ import Queue
 from optparse import OptionParser
 from multiprocessing import cpu_count, JoinableQueue, Queue, Process
 
-#HACK: fix system path for CI
-testlib_dir = os.path.join(os.getcwd(), 'testlib')
+testlib_dir = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'testlib'))
+if not os.path.exists(testlib_dir):
+  raise Exception("Unable to find debugger_test_type library directory " + testlib_dir)
+sys.path.insert(0, testlib_dir)
 
 for fname in ['pexpect_2_4.zip', 'protobuf_lib.zip']:
     path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'testlib', fname))
