@@ -273,3 +273,38 @@ OclBuiltinImpl rootn_svml_v8 = OclBuiltinImpl<rootn, [v8f32], 0, [{
     return as_$ReturnType(out.lo);
   }]>;
 
+// modf
+code workaround_modf = [{
+    float16 f;
+    $Arg1NoASType pf = ($Arg1NoASType)(&f);
+    $Arg0NoASType res = __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, pf);
+    *$Arg1VarName = *pf;
+    return res;
+}];
+OclBuiltinImpl workaround_modf_pas = OclBuiltinImpl<modf_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_modf>;
+OclBuiltinImpl workaround_modf_gas = OclBuiltinImpl<modf_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_modf>;
+OclBuiltinImpl workaround_modf_las = OclBuiltinImpl<modf_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_modf>;
+
+// fract
+code workaround_fract = [{
+    float16 f;
+    $Arg1NoASType pf = ($Arg1NoASType)(&f);
+    $Arg0NoASType res = __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, pf);
+    *$Arg1VarName = *pf;
+    return res;
+}];
+OclBuiltinImpl workaround_fract_pas = OclBuiltinImpl<fract_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_fract>;
+OclBuiltinImpl workaround_fract_gas = OclBuiltinImpl<fract_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_fract>;
+OclBuiltinImpl workaround_fract_las = OclBuiltinImpl<fract_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_fract>;
+
+// sincos
+code workaround_sincos = [{
+    float16 f;
+    $Arg1NoASType pf = ($Arg1NoASType)(&f);
+    $Arg0NoASType res = __ocl_svml_$Target_sincos$SVMLSuffix($Arg0VarName, pf);
+    *$Arg1VarName = *pf;
+    return res;
+}];
+OclBuiltinImpl workaround_sincos_pas = OclBuiltinImpl<sincos_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_sincos>;
+OclBuiltinImpl workaround_sincos_gas = OclBuiltinImpl<sincos_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_sincos>;
+OclBuiltinImpl workaround_sincos_las = OclBuiltinImpl<sincos_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_sincos>;
