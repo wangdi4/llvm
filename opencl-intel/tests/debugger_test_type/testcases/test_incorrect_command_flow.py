@@ -9,9 +9,6 @@ class TestIncorrectCommandFlow(DebuggerTestCase):
     #
     #  Test - test that the Debug-Server respond with the right error after sending commands without first sending a start session message
     #  TC-2
-        from testlib.clientsimulator import SimulatorError
-        from testlib.clientgdb import ClientError
-        import StringIO
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME)
@@ -19,11 +16,12 @@ class TestIncorrectCommandFlow(DebuggerTestCase):
         bp = (self.CLNAME, self.AFTER_LOOP_ROW)
         try:
             self.client.debug_run([bp])
-        except ClientError as e:
-            # GDB error
-            self.assertEqual(self.ERROR_MSG_GDB, str(e))
-        except SimulatorError as e:
-            # Simulator error
-            self.assertEqual(self.ERROR_MSG_SIM, str(e))
+        except Exception as e:
+            if self.use_gdb:
+                # GDB error
+                self.assertEqual(self.ERROR_MSG_GDB, str(e))
+            else:
+                # Simulator error
+                self.assertEqual(self.ERROR_MSG_SIM, str(e))
         else:
             self.assertEqual('this should not happen', '!!!')
