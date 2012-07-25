@@ -1,20 +1,18 @@
 ; XFAIL: win32
-; XFAIL: *
 ; Fails since PCG is missing an optimization for _mm512_extloaduel_epi32
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
 ; RUN:     | FileCheck %s -check-prefix=KNC
 ;
-target datalayout = "e-p:64:64"
 
 define void @A(<16 x i16>* %a, <16 x i16>* %b) nounwind {
 ; KNF: vandpi    (%{{[a-z]*}}){uint16}, %v{{[0-9]*}}, %v{{[0-9]*}}
 ; KNF: vstored    %v{{[0-9]*}}{uint16i}, (%{{[a-z]+}})
 ; KNF: ret
 ;
-; KNC:  vbroadcastss _const_0(%rip), [[V2:%v[0-9]+]]
-; KNC:  vpandd    (%rdi){uint16}, [[V2]], [[V3:%v[0-9]+]]
+; KNC:  vbroadcastss _const_0(%rip), [[V2:%zmm[0-9]+]]
+; KNC:  vpandd    (%rdi){uint16}, [[V2]], [[V3:%zmm[0-9]+]]
 ; KNC:  vmovdqa32 [[V3]]{uint16}, (%rsi)
 ; KNC:  ret
 ;
@@ -39,11 +37,11 @@ define void @B(<16 x i16>* %a, <16 x i16>* %b) nounwind {
 ; KNF: ret
 ;
 ; KNC: movq %rdi, [[R1:%[a-z]+]]
-; KNC: vloadunpackld (%rdi){uint16}, [[V0:%v[0-9]+]]
+; KNC: vloadunpackld (%rdi){uint16}, [[V0:%zmm[0-9]+]]
 ; KNC: andq $63, [[R1]]
 ; KNC: cmpq $32, [[R1]]
 ; KNC: jle
-; KNC: vandd _const_{{[0-9]}}(%rip), [[V0]], [[V1:%v[0-9]+]]
+; KNC: vpandd _const_{{[0-9]}}(%rip){1to16}, [[V0]], [[V1:%zmm[0-9]+]]
 ; KNC: movq %rsi, [[R2:%[a-z]+]]
 ; KNC: vpackstoreld [[V1]]{uint16}, (%rsi)
 ; KNC: andq $63, [[R1]]
