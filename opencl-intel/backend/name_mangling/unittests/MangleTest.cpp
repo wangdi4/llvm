@@ -103,7 +103,7 @@ struct SizeT{
 };
 
 template <>
-struct SizeT<32>{
+struct SizeT<4>{
   static const char* nativeStr(){return "uint";}
 };
 
