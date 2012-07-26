@@ -65,7 +65,7 @@ private:
     size_t GetMaxSupportedPixelSize();
 
 protected:
-	~CPUDevice();
+	virtual ~CPUDevice();
 
   // Called once on init to cache information about the underlying architecture
 	cl_dev_err_code QueryHWInfo();

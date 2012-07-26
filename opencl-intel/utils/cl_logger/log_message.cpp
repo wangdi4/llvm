@@ -34,7 +34,6 @@
     #include <windows.h>
 #else
     #include "cl_secure_string_linux.h"
-    #include <sys/syscall.h>
 #endif
 
 #include "log_message.h"

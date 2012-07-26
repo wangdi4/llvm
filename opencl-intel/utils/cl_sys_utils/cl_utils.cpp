@@ -176,7 +176,7 @@ void clResetThreadAffinityMask(threadid_t tid)
 // cpu_set_t is a bitmask and I'm going to abuse that knowledge
 
 // This should be long enough
-static const unsigned long long allOnes[] = {-1, -1, -1, -1};
+static const unsigned long long allOnes[] = {ULLONG_MAX, ULLONG_MAX, ULLONG_MAX, ULLONG_MAX};
 static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
 sched_setaffinity(tid, sizeof(cpu_set_t), allMask);
 }

@@ -52,7 +52,7 @@ class BuiltinLibrary : public IDynamicFunctionsResolver
 {
 public:
     BuiltinLibrary(const Intel::CPUId&);
-    ~BuiltinLibrary();
+    virtual ~BuiltinLibrary();
 
     llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer.get(); }
     virtual void SetContext(const void* pContext)

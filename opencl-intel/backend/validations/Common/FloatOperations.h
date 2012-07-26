@@ -97,6 +97,8 @@ namespace Validation
 
         static double AsFloat(uint64_t u);
         static float AsFloat(uint32_t u);
+        inline uint64_t AsUInt(double d);
+        inline uint32_t AsUInt(float d);
 
         template<typename T>
         struct IntStorage;

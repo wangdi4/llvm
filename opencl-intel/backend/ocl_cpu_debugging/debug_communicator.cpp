@@ -38,7 +38,7 @@ DebugCommunicator::~DebugCommunicator()
 }
 
 
-int DebugCommunicator::Run()
+RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
 {
     DEBUG_SERVER_LOG("DebugCommunicator thread created");
     try 
@@ -66,7 +66,7 @@ int DebugCommunicator::Run()
             switch (cmd) {
                 case EXIT:
                     log_and_terminate("executing EXIT");
-                    return 0;
+                    return (RETURN_TYPE_ENTRY_POINT)0;
                 case SEND_MESSAGE: 
                 {
                     DEBUG_SERVER_LOG("executing SEND_MESSAGE");
@@ -74,7 +74,7 @@ int DebugCommunicator::Run()
                     ServerToClientMessage msg_to_send = m_msg_send_queue.PopFront();
                     if (!do_send_message(msg_to_send)) {
                         log_and_terminate("Send error -- exiting");
-                        return -1;
+                        return (RETURN_TYPE_ENTRY_POINT)-1;
                     }
                     break;
                 }
@@ -83,7 +83,7 @@ int DebugCommunicator::Run()
                     ClientToServerMessage recv_msg;
                     if (do_receive_message(recv_msg) == false) {
                         log_and_terminate("Receive error -- exiting");
-                        return -1;
+                        return (RETURN_TYPE_ENTRY_POINT)-1;
                     }
                     m_msg_recv_queue.PushBack(recv_msg);
                     m_recv_event.Signal();
@@ -97,7 +97,7 @@ int DebugCommunicator::Run()
     catch (const OclSocketError& e)
     {
         log_and_terminate(string("Socket error: ") + e.what());
-        return -1;
+        return (RETURN_TYPE_ENTRY_POINT)-1;
     }
 }
 

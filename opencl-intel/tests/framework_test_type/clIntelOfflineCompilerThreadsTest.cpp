@@ -92,7 +92,7 @@ public:
 	};
 	bool bResult;
 protected:
-	virtual int Run()
+	virtual RETURN_TYPE_ENTRY_POINT Run()
 	{
 		int res=SUCCESS;
 		printf("@@@ start of running Thread: %d @@@ \n",m_threadId);
@@ -130,7 +130,7 @@ protected:
 		}
 
 		printf("@@@ end of running Thread: %d  @@@ \n",m_threadId);
-		return res; 
+		return (RETURN_TYPE_ENTRY_POINT)res; 
 	};
 	
 };

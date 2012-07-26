@@ -139,6 +139,10 @@ typedef int errno_t;
 #define VA_END(va) (va_end(va))
 
 #define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
+
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #define GET_CURRENT_PROCESS_ID() getpid()
 #define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
 

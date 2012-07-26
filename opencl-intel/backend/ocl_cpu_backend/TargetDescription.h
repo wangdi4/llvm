@@ -31,7 +31,8 @@ class SerializationStatus;
 class TargetDescription : public IDynamicFunctionsResolver
 {    
 public:
-    TargetDescription() { };
+    TargetDescription() {}
+    virtual ~TargetDescription() {}
 
     void SetCPUId(const Intel::CPUId &cpuID)
     {

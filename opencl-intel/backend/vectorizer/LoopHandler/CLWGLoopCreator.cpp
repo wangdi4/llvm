@@ -512,7 +512,6 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   assert(m_F->getFunctionType() == m_vectorFunc->getFunctionType() &&
       "vector and scalar functtion type mismatch"); 
   Function::const_arg_iterator VArgIt = m_vectorFunc->arg_begin();
-  Function::const_arg_iterator VArgE = m_vectorFunc->arg_end();
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {

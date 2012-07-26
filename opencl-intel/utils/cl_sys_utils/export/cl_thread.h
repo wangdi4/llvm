@@ -57,15 +57,15 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual int         Start();
         virtual int         Join();
         virtual int         WaitForCompletion();
-        void                Terminate(unsigned int exitCode);
+        void                Terminate(RETURN_TYPE_ENTRY_POINT exitCode);
 	    int                 SetAffinity(unsigned char ucAffinity);
         bool                IsRunning() const               {return m_running;}
         unsigned int        GetThreadId() const             {return m_threadId;}
         void                Clean();
 
     protected:
-        virtual int         Run()=0;          // The actual thread running loop.
-        void                Exit(unsigned int exitCode);
+        virtual RETURN_TYPE_ENTRY_POINT    Run()=0;          // The actual thread running loop.
+        void                Exit(RETURN_TYPE_ENTRY_POINT exitCode);
 
         static RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT ThreadEntryPoint( void* threadObject );
 

@@ -20,7 +20,7 @@ include_directories( BEFORE ../../backend/ocl_cpu_backend/export
 include( ../../cmake_utils/itt.cmake )
 
 if(WIN32)
-	include_directories(
+	include_directories( AFTER
 		${OCL_SOURCE_DIR}/externals/gpa/include
 		)
 endif(WIN32)
@@ -61,7 +61,7 @@ if (INCLUDE_MKL)
 		set( MKL_DIR "/opt/intel/composerxe" )
 	endif(WIN32)
 		
-	include_directories(
+	include_directories( AFTER
 		${MKL_DIR}/include
 	)
 	if (ADDR EQUAL 64)

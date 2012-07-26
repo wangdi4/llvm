@@ -369,20 +369,20 @@ llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT,
     else if(PixelTy == llvm::Type::IntegerTyID && CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
     {   // pixel is signed int
         int32_t val[4] = 
-        {   PixelGV.AggregateVal[0].IntVal.getSExtValue(), 
-            PixelGV.AggregateVal[1].IntVal.getSExtValue(),
-            PixelGV.AggregateVal[2].IntVal.getSExtValue(), 
-            PixelGV.AggregateVal[3].IntVal.getSExtValue()};
+        {   (int32_t)PixelGV.AggregateVal[0].IntVal.getSExtValue(), 
+            (int32_t)PixelGV.AggregateVal[1].IntVal.getSExtValue(),
+            (int32_t)PixelGV.AggregateVal[2].IntVal.getSExtValue(), 
+            (int32_t)PixelGV.AggregateVal[3].IntVal.getSExtValue()};
 
         write_image_pixel_int(memobj->pData, &desc, u, v, w, val);    
     }
     else if(PixelTy == llvm::Type::IntegerTyID && !CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
     {   // pixel is unsigned int
         uint32_t val[4] = 
-        {   PixelGV.AggregateVal[0].IntVal.getZExtValue(), 
-            PixelGV.AggregateVal[1].IntVal.getZExtValue(),
-            PixelGV.AggregateVal[2].IntVal.getZExtValue(), 
-            PixelGV.AggregateVal[3].IntVal.getZExtValue()};
+        {   (uint32_t)PixelGV.AggregateVal[0].IntVal.getZExtValue(), 
+            (uint32_t)PixelGV.AggregateVal[1].IntVal.getZExtValue(),
+            (uint32_t)PixelGV.AggregateVal[2].IntVal.getZExtValue(), 
+            (uint32_t)PixelGV.AggregateVal[3].IntVal.getZExtValue()};
         write_image_pixel_uint(memobj->pData, &desc, u, v, w, val);    
     }
     else throw Exception::InvalidArgument("lle_X_write_image::Invalid data type of pixel data");

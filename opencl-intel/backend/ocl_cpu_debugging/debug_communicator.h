@@ -54,7 +54,7 @@ public:
 protected:
     // These methods are executed inside a separate thread
     //
-    virtual int Run();
+    virtual RETURN_TYPE_ENTRY_POINT Run();
     bool do_receive_message(ClientToServerMessage& recv_msg);
     bool do_send_message(const ServerToClientMessage& send_msg);
     void log_and_terminate(std::string msg);

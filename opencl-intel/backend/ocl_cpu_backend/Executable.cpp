@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define FORCE_INLINE_PRE __forceinline
 #define FORCE_INLINE_POST 
 #else
-#define FORCE_INLINE_PRE 
+#define FORCE_INLINE_PRE	inline
 #define FORCE_INLINE_POST  __attribute__((always_inline))
 #endif
 

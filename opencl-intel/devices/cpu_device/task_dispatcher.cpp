@@ -737,7 +737,7 @@ SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
 {
 }
 
-int SubdeviceTaskDispatcherThread::Run()
+RETURN_TYPE_ENTRY_POINT SubdeviceTaskDispatcherThread::Run()
 {
 	if ( NULL != m_dispatcher->m_legalCoreIDs )
 	{
@@ -751,7 +751,7 @@ int SubdeviceTaskDispatcherThread::Run()
 	if ( NULL == pLocalWGContext )
 	{
 		m_dispatcher->m_threadInitComplete.Signal();
-		return 0;
+		return (RETURN_TYPE_ENTRY_POINT)0;
 	}
 	
 	//Creation of this object must be in the thread routine
@@ -760,7 +760,7 @@ int SubdeviceTaskDispatcherThread::Run()
 	{
 		delete pLocalWGContext;
 		m_dispatcher->m_threadInitComplete.Signal();
-		return 0;
+		return (RETURN_TYPE_ENTRY_POINT)0;
 	}
 
 	if ( !m_partitioner->Activate() )
@@ -768,7 +768,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		delete m_partitioner;
 		delete pLocalWGContext;
 		m_dispatcher->m_threadInitComplete.Signal();
-		return 0;
+		return (RETURN_TYPE_ENTRY_POINT)0;
 	}
 
 	// Worker thread are running and affinitize at this point
@@ -779,7 +779,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		delete m_partitioner;
 		delete pLocalWGContext;
 		m_dispatcher->m_threadInitComplete.Signal();
-		return 0;
+		return (RETURN_TYPE_ENTRY_POINT)0;
 	}
 	
 	m_dispatcher->m_muDestructReady.Lock(); // Catch destruction mutex, should be release before thread exists
@@ -826,7 +826,7 @@ int SubdeviceTaskDispatcherThread::Run()
 		ReleaseThreadLocalContext();
 	}
 
-	return 0;
+	return (RETURN_TYPE_ENTRY_POINT)0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////

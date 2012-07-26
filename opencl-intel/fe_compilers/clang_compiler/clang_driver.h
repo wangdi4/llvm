@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		long Release() { delete this; return 0; }
 
 	protected:
-        ~ClangFECompilerCompileTask();
+        virtual ~ClangFECompilerCompileTask();
 
         void PrepareArgumentList(ArgListType &list, const char *buildOpts);
 
@@ -107,7 +107,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool IsLibrary() {return bCreateLibrary;}
 
 	protected:
-        ~ClangFECompilerLinkTask();
+        virtual ~ClangFECompilerLinkTask();
 
         void ParseOptions(const char *buildOpts);
         void ResolveFlags();
@@ -159,7 +159,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         long Release() { delete this; return 0;}
     protected:
-        ~ClangFECompilerGetKernelArgInfoTask();
+        virtual ~ClangFECompilerGetKernelArgInfoTask();
 
         unsigned int    m_numArgs;
         ARG_INFO*       m_argsInfo;

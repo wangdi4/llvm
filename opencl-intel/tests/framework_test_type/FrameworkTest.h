@@ -15,7 +15,7 @@
 	#define SET_FPOS_T(var, val) (var) = (val)
 	#define GET_FPOS_T(var) var
 	#define ABS64(x) _abs64(x)
-	#define RETURN_TYPE_ENTRY_POINT int
+	#define RETURN_TYPE_ENTRY_POINT unsigned int
 	#define FPRINTF fprintf_s
 #else
 	#define STDCALL __attribute((stdcall))

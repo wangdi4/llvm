@@ -9,6 +9,12 @@
     #include <tal.h>
 	#include <ittxnotify.h>
 #else
+// A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
+//#if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
+	#undef CDECL
+//#else
+//	#define CDECL   __attribute__((cdecl))
+//#endif
 	#if defined(USE_ITT)
 		#include <stdio.h>
 		#include <ittnotify.h>

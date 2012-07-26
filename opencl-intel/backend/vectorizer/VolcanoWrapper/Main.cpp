@@ -269,7 +269,6 @@ bool Vectorizer::runOnModule(Module &M)
   V_PRINT(wrapper, "\nBefore vectorization passes!\n");
   // Function-wide (vectorization)
   {
-    Intel::CPUId cpuId = m_pConfig->GetCpuId();
     FunctionPassManager fpm2(&M);
 
     // Register predicate

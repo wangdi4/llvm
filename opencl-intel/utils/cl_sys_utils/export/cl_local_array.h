@@ -42,10 +42,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 			if (m_heapAllocated)
 			{
 				m_data = new T[length];
-				if (NULL == m_data)
-				{
-					m_data = false;
-				}
 			}
 			else
 			{

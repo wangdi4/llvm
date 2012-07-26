@@ -303,9 +303,9 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
   unsigned srcSize = CI->getType()->getPrimitiveSizeInBits();
   unsigned dstSize = rootType->getPrimitiveSizeInBits();
   // Fail if retval is not a primitive type which has a measurable size
-  if (0 == srcSize || 0 == dstSize) return false;
+  if (0 == srcSize || 0 == dstSize) return NULL;
   // Fail if the real retval is smaller than the desired size
-  if (srcSize < dstSize) return false;
+  if (srcSize < dstSize) return NULL;
 
   // If the CALL instruction is in the retvalUsers list, create a dummy inst and replace all
   // users of the inst with the dummy val. This is needed now, so the new conversion from the

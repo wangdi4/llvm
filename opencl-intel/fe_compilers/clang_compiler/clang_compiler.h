@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 			delete this;
 		}
 	protected:
-		~ClangFECompiler();
+		virtual ~ClangFECompiler();
 
 		CLANG_DEV_INFO	m_sDeviceInfo;
 

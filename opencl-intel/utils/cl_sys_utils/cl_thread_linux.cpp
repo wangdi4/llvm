@@ -91,7 +91,7 @@ RETURN_TYPE_ENTRY_POINT OclThread::ThreadEntryPoint(void* threadObject)
 	cl_start;
 	OclThread* thisWorker = (OclThread*)threadObject;
 	thisWorker->m_threadId = pthread_self();
-    int rc = thisWorker->Run();
+    RETURN_TYPE_ENTRY_POINT rc = thisWorker->Run();
     // The worker finished his job
     thisWorker->m_running = false;
 
@@ -179,7 +179,7 @@ int OclThread::WaitForCompletion()
  * Note that only user space thread is terminate. Kernel space threads such
  * as the Graphics driver thread may continue to work.
  ************************************************************************/
-void OclThread::Terminate(unsigned int exitCode)
+void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 {
 	if ( NULL != m_threadHandle )
 	{
@@ -192,7 +192,7 @@ void OclThread::Terminate(unsigned int exitCode)
 /************************************************************************
  *
  ************************************************************************/
-void OclThread::Exit(unsigned int exitCode)
+void OclThread::Exit(RETURN_TYPE_ENTRY_POINT exitCode)
 {
 	m_running = false;
 	if ( m_bAutoDelete )

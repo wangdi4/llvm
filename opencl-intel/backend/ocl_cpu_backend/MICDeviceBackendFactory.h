@@ -28,7 +28,7 @@ class MICDeviceBackendFactory : public IAbstractBackendFactory
 {
 protected:
     MICDeviceBackendFactory() { }; 
-    ~MICDeviceBackendFactory() { };
+    virtual ~MICDeviceBackendFactory() { };
 
 public:
     static void Init();

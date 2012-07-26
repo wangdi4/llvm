@@ -35,6 +35,8 @@ namespace Validation {
     /// reports all errors/warnings/mismatched intervals
     class IComparisonResults {
     public:
+    
+    	virtual ~IComparisonResults() {}
         /// @brief Adds mismatch information
         /// @param  [in]  index                 Indexes of mismatched value in containers(BufferContainer index, Buffer index, Vector index, element index)
         /// @param  [in]  bufferDesc            Description of the buffer containing the mismatched element

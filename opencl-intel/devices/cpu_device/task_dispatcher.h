@@ -105,6 +105,7 @@ protected:
 	public:
 		TaskFailureNotification(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode) :
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
+		virtual ~TaskFailureNotification() {};
 
 		// ITask interface
 		bool	CompleteAndCheckSyncPoint() {return false;}
@@ -170,7 +171,7 @@ public:
     SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher); 
     virtual ~SubdeviceTaskDispatcherThread(); 
 
-    virtual int Run();
+    virtual RETURN_TYPE_ENTRY_POINT Run();
 protected:
     SubdeviceTaskDispatcher* m_dispatcher;
     IThreadPoolPartitioner*  m_partitioner;

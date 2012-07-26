@@ -2564,9 +2564,11 @@ namespace Conformance
 
     long double reference_expm1l(  long double x)
     {
+    	/* Not used
         union { double f; cl_ulong u;} u;
         u.f = (double) x;
-
+		*/
+		
         if (reference_isnanl(x))
             return x;
 

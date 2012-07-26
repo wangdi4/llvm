@@ -589,7 +589,7 @@ void ReleaseSchedulerForMasterThread()
 	struct TaskLoopBody3D {
 		ITaskSet &task;
 		TaskLoopBody3D(ITaskSet &t) : task(t) {}
-		void operator()(const tbb::blocked_range3d<int>& r) const {
+		void operator()(const tbb::blocked_range3d<size_t>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
@@ -625,7 +625,7 @@ void ReleaseSchedulerForMasterThread()
 	struct TaskLoopBody2D {
 		ITaskSet &task;
 		TaskLoopBody2D(ITaskSet &t) : task(t) {}
-		void operator()(const tbb::blocked_range2d<int>& r) const {
+		void operator()(const tbb::blocked_range2d<size_t>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
@@ -659,7 +659,7 @@ void ReleaseSchedulerForMasterThread()
 	struct TaskLoopBody1D {
 		ITaskSet &task;
 		TaskLoopBody1D(ITaskSet &t) : task(t) {}
-		void operator()(const tbb::blocked_range<int>& r) const {
+		void operator()(const tbb::blocked_range<size_t>& r) const {
 			unsigned int uiWorkerId;
 			size_t uiNumberOfWorkGroups;
 			uiWorkerId = ThreadIDAssigner::GetWorkerID();
@@ -708,22 +708,22 @@ void ReleaseSchedulerForMasterThread()
 					if (1 == dimCount)
 					{
 						assert(dim[0] <= CL_MAX_INT32);
-						tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
+						tbb::parallel_for(tbb::blocked_range<size_t>(0, dim[0]), TaskLoopBody1D(task), tbb::auto_partitioner());
 					} else if (2 == dimCount)
 					{
 						assert(dim[0] <= CL_MAX_INT32);
 						assert(dim[1] <= CL_MAX_INT32);
-						tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
-																	0, (int)dim[0]),
+						tbb::parallel_for(tbb::blocked_range2d<size_t>(0, dim[1],
+																	0, dim[0]),
 																	TaskLoopBody2D(task), tbb::auto_partitioner());
 					} else
 					{
 						assert(dim[0] <= CL_MAX_INT32);
 						assert(dim[1] <= CL_MAX_INT32);
 						assert(dim[2] <= CL_MAX_INT32);
-						tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
-																	0, (int)dim[1],
-																	0, (int)dim[0]),
+						tbb::parallel_for(tbb::blocked_range3d<size_t>(0, dim[2],
+																	0, dim[1],
+																	0, dim[0]),
 																	TaskLoopBody3D(task), tbb::auto_partitioner());
 					}
 			task.Finish(FINISH_COMPLETED);
@@ -1003,22 +1003,22 @@ static bool execute_command(SmartPtr<ITaskBase>& pCmd)
 		if (1 == dimCount)
 		{
 			assert(dim[0] <= CL_MAX_INT32);
-			tbb::parallel_for(tbb::blocked_range<int>(0, (int)dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
+			tbb::parallel_for(tbb::blocked_range<size_t>(0, dim[0]), TaskLoopBody1D(*pTask), tbb::auto_partitioner());
 		} else if (2 == dimCount)
 		{
 			assert(dim[0] <= CL_MAX_INT32);
 			assert(dim[1] <= CL_MAX_INT32);
-			tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)dim[1],
-														0, (int)dim[0]),
+			tbb::parallel_for(tbb::blocked_range2d<size_t>(0, dim[1],
+														0, dim[0]),
 				TaskLoopBody2D(*pTask), tbb::auto_partitioner());
 		} else
 		{
 			assert(dim[0] <= CL_MAX_INT32);
 			assert(dim[1] <= CL_MAX_INT32);
 			assert(dim[2] <= CL_MAX_INT32);
-			tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)dim[2],
-														0, (int)dim[1],
-														0, (int)dim[0]),
+			tbb::parallel_for(tbb::blocked_range3d<size_t>(0, dim[2],
+														0, dim[1],
+														0, dim[0]),
 				TaskLoopBody3D(*pTask), tbb::auto_partitioner());
 		}
 		runNextCommand = pTask->Finish(FINISH_COMPLETED);

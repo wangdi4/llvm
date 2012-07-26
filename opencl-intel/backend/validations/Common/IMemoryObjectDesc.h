@@ -23,6 +23,7 @@ namespace Validation
     class IMemoryObjectDesc
     {
     public:
+    	virtual ~IMemoryObjectDesc() {} // This interface is passed to a template which call it's destructor. Need virtial destr in place
         /// @brief is NEAT object
         virtual bool IsNEAT() const = 0;
         /// @brief Set NEAT property
@@ -48,7 +49,7 @@ namespace Validation
         IMemoryObjectDescWrapper(const T * pr){
             m_p = pr ? pr->Clone():NULL;
         }
-        ~IMemoryObjectDescWrapper()
+        virtual ~IMemoryObjectDescWrapper()
         {
             if(m_p) delete m_p;
         }

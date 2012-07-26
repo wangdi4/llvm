@@ -76,7 +76,7 @@ public:
 		IOCLDevRTMemObjectService*	pRTMemObjService,
 		ICLDevBackendImageService* pImageService);
 
-	~CPUDevMemoryObject();
+	virtual ~CPUDevMemoryObject();
 
 	cl_dev_err_code Init();
 

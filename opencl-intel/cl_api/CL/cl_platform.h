@@ -296,25 +296,20 @@ typedef unsigned int cl_GLenum;
 #endif
 
 #if defined( __SSE__ )
+    #if defined( __GNUC__ )
+        typedef float __cl_float4   __attribute__((vector_size(16)));
+    #else
     #if defined( __MINGW64__ )
         #include <intrin.h>
     #else
         #include <xmmintrin.h>
     #endif
-    #if defined( __GNUC__ )
-        typedef float __cl_float4   __attribute__((vector_size(16)));
-    #else
         typedef __m128 __cl_float4;
     #endif
     #define __CL_FLOAT4__   1
 #endif
 
 #if defined( __SSE2__ )
-    #if defined( __MINGW64__ )
-        #include <intrin.h>
-    #else
-        #include <emmintrin.h>
-    #endif
     #if defined( __GNUC__ )
         typedef cl_uchar    __cl_uchar16    __attribute__((vector_size(16)));
         typedef cl_char     __cl_char16     __attribute__((vector_size(16)));
@@ -326,6 +321,11 @@ typedef unsigned int cl_GLenum;
         typedef cl_long     __cl_long2      __attribute__((vector_size(16)));
         typedef cl_double   __cl_double2    __attribute__((vector_size(16)));
     #else
+    #if defined( __MINGW64__ )
+        #include <intrin.h>
+    #else
+        #include <emmintrin.h>
+    #endif
         typedef __m128i __cl_uchar16;
         typedef __m128i __cl_char16;
         typedef __m128i __cl_ushort8;
@@ -348,7 +348,6 @@ typedef unsigned int cl_GLenum;
 #endif
 
 #if defined( __MMX__ )
-    #include <mmintrin.h>
     #if defined( __GNUC__ )
         typedef cl_uchar    __cl_uchar8     __attribute__((vector_size(8)));
         typedef cl_char     __cl_char8      __attribute__((vector_size(8)));
@@ -373,6 +372,7 @@ typedef unsigned int cl_GLenum;
             typedef cl_float    __cl_float2     __attribute__((vector_size(8)));
         #endif
     #else
+	    #include <mmintrin.h>
         typedef __m64       __cl_uchar8;
         typedef __m64       __cl_char8;
         typedef __m64       __cl_ushort4;
@@ -395,15 +395,15 @@ typedef unsigned int cl_GLenum;
 #endif
 
 #if defined( __AVX__ )
-    #if defined( __MINGW64__ )
-        #include <intrin.h>
-    #else
-        #include <immintrin.h> 
-    #endif
     #if defined( __GNUC__ )
         typedef cl_float    __cl_float8     __attribute__((vector_size(32)));
         typedef cl_double   __cl_double4    __attribute__((vector_size(32)));
     #else
+    #if defined( __MINGW64__ )
+        #include <intrin.h>
+    #else
+        #include <immintrin.h>
+    #endif
         typedef __m256      __cl_float8;
         typedef __m256d     __cl_double4;
     #endif

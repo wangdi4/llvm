@@ -45,6 +45,7 @@ class OclBuiltinDB;
 class OclType {
 public:
   explicit OclType(const OclBuiltinDB&, const Record*);
+  virtual ~OclType() {};
 
   virtual const std::string& getGenType(const std::string&) const { return m_Name; }
 

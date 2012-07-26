@@ -28,7 +28,7 @@ class CPUDeviceBackendFactory : public IAbstractBackendFactory
 {
 protected:
     CPUDeviceBackendFactory() { }; 
-    ~CPUDeviceBackendFactory() { };
+    virtual ~CPUDeviceBackendFactory() { };
 
 public:
     static void Init();

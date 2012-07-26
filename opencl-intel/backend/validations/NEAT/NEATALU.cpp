@@ -364,7 +364,7 @@ namespace Validation
         // Get the maximum absolute error for this format
         const double formatAbsoluteError = get_max_absolute_error(imageInfo->format, imageSampler); 
 
-        const float maxErrAbs[4] = {
+        const double maxErrAbs[4] = {
             MAX( maxErr * maxPixel.p[0], formatAbsoluteError ),
             MAX( maxErr * maxPixel.p[1], formatAbsoluteError ),
             MAX( maxErr * maxPixel.p[2], formatAbsoluteError ), 
