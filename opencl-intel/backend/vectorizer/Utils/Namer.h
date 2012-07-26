@@ -1,13 +1,18 @@
-#ifndef __BBNAMER_H_
-#define __BBNAMER_H_
+#ifndef __INST_TYPE_NAMER_H_
+#define __INST_TYPE_NAMER_H_
+
+// This pass is a development utility that sets name to values according 
+// to it's type and and opcode (for instructions) and potentiall of it's
+// operands.
+// the main benefit of that pass is to make comparsion of ll files easier
+// since without the matching of the diff viewer is based on the random 
+// names assigned by IR printer.
+// Author: Ran Chachick
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Module.h"
 
 #include <vector>
@@ -15,32 +20,30 @@
 using namespace llvm;
 
 namespace intel {
-/// @brief A debug pass to give nice readable names to basic blocks
-/// @Author Nadav Rotem
-class Namer : public FunctionPass {
-    public:
-    static char ID; // Pass identification, replacement for typeid
-    Namer() : FunctionPass(ID) {}
+class nameByInstType : public FunctionPass {
+public:
 
-    /// @brief Provides name of pass
-    virtual const char *getPassName() const {
-      return "Namer";
-    }
+  static char ID;
 
-    /// @brief LLVM Function pass entry
-    /// @param F Function to transform
-    /// @return True if changed
-    virtual bool runOnFunction(Function &F);
+  bool m_nameAll;
+  /// @brief C'tor
+  nameByInstType(bool nameAll=true): FunctionPass(ID){
+    m_nameAll = nameAll;
+  };
+  /// @brief D'tor
+  ~nameByInstType(){};
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "nameByInstType";
+  }
+  
+  ///s@brief LLVM interface.
+  virtual bool runOnFunction(Function &F) ;
 
-    /*! \name Debug Helpers
-     * \{ */
-    /// @brief DEBUG: give basic blocks letter names (A, B, C ...)
-    /// @param BB BB to name
-    void nameBB(BasicBlock *BB);
-    /*! \} */
+  ///@brief public API to be use not as a pass.
+  void RenameValues(Function &F);
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
 };
-
 }
-#endif //define __BBNAMER_H_
+#endif //define __INST_TYPE_NAMER_H_

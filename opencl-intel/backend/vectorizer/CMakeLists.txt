@@ -46,6 +46,8 @@ add_llvm_library( LLVMVectorizer
   VolcanoWrapper/VecHeuristics.cpp
   Utils/Mangler.cpp
   Utils/VectorizerUtils.cpp
+  Utils/IRInjection.cpp
+  Utils/PrintfAdder.cpp
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
   PreVectorization/OCLBuiltinPreVectorizationPass.cpp
   LoopHandler/KernelAnalysis.cpp
