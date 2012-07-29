@@ -142,10 +142,6 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs(m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end());
 
-    // FP_CONTRACT defined in module
-    // Exclude FMA instructions when FP_CONTRACT is disabled
-    if (pRtlModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
-      MAttrs.push_back("-fma-mic");
 
 
     const char* pMcpu    = m_CpuId.GetCPUName();

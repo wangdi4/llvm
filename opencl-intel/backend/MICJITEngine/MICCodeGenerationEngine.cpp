@@ -247,9 +247,13 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     // need to do switch lowering before code generation
     PM.add(createLowerSwitchPass());
 
+    // FP_CONTRACT defined in module
+    // Exclude FMA instructions when FP_CONTRACT is disabled
+    bool IsContractionsAllowed = !local_mod.getNamedMetadata("opencl.disabled.FP_CONTRACT");
+
     // Add the piggy-back to communicate with the LLVM->PIL converter
     //TODO: add support for printing assermbly, PIL, etc.
-    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF));
+    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF, IsContractionsAllowed));
 
     // Ask the target to add backend passes as necessary.
     CodeGenOpt::Level OLvl = CodeGenOpt::Default;
