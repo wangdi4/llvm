@@ -795,3 +795,12 @@ def soa_all16 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, 
 	 gentype:$x14, gentype:$x15), [], []>;
 }
 
+// Helper built-ins
+// This function is incroduced to overcome issues with division operation on MIC target.
+// WARNING! Do not use it! Your performance could be harmed.
+// This built-in is expected to be removed at WW35'12.
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def division      : OclBuiltin<"division",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+}

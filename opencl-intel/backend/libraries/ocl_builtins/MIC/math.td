@@ -305,6 +305,7 @@ code workaround_sincos = [{
     *$Arg1VarName = *pf;
     return res;
 }];
+
 OclBuiltinImpl workaround_sincos_pas = OclBuiltinImpl<sincos_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64], 0, workaround_sincos>;
 OclBuiltinImpl workaround_sincos_gas = OclBuiltinImpl<sincos_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64], 0, workaround_sincos>;
 OclBuiltinImpl workaround_sincos_las = OclBuiltinImpl<sincos_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64], 0, workaround_sincos>;
@@ -344,3 +345,8 @@ code workaround_lgamma_r = [{
 OclBuiltinImpl workaround_lgamma_r_pas = OclBuiltinImpl<lgamma_r_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_lgamma_r>;
 OclBuiltinImpl workaround_lgamma_r_gas = OclBuiltinImpl<lgamma_r_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_lgamma_r>;
 OclBuiltinImpl workaround_lgamma_r_las = OclBuiltinImpl<lgamma_r_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_lgamma_r>;
+
+// div
+OclBuiltinImpl workaround_div = OclBuiltinImpl<division, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return __ocl_svml_$Target_div$SVMLSuffix($Arg0VarName, $Arg1VarName);
+  }]>;

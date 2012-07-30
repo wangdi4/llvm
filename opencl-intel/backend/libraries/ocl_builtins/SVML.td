@@ -21,6 +21,7 @@ def svml_copysign   : OclBuiltin<"__ocl_svml_$Target_copysign$SVMLSuffix",   (ou
 def svml_cos        : OclBuiltin<"__ocl_svml_$Target_cos$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_cosh       : OclBuiltin<"__ocl_svml_$Target_cosh$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_cospi      : OclBuiltin<"__ocl_svml_$Target_cospi$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
+def svml_div        : OclBuiltin<"__ocl_svml_$Target_div$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def svml_erfc       : OclBuiltin<"__ocl_svml_$Target_erfc$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_erf        : OclBuiltin<"__ocl_svml_$Target_erf$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_exp        : OclBuiltin<"__ocl_svml_$Target_exp$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$x), [], []>;

@@ -23,11 +23,11 @@ File Name:  InstToFuncCall.cpp
 using namespace llvm;
 
 extern "C" {
-  /// @brief Creates new InstToFuncCall module pass
-  /// @returns new InstToFuncCall module pass
-  void* createInstToFuncCallPass(bool isMic) {
-    return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isMic);
-  }
+    /// @brief Creates new InstToFuncCall module pass
+    /// @returns new InstToFuncCall module pass
+    void* createInstToFuncCallPass(bool isMic) {
+        return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isMic);
+    }
 }
 
 /// Register pass to for opt
@@ -41,23 +41,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     InstToFuncCall::InstToFuncCall(bool isMic) : ModulePass(ID), m_I2F(isMic) {}
 
     /// Replaces instruction 'inst' with call to function 'funcName' which has a
-	/// calling convention 'CC'.
+    /// calling convention 'CC'.
     void InstToFuncCall::replaceInstWithCall(Function *func,
         Instruction* inst, const char* funcName, CallingConv::ID CC)
     {
+        // Get number of operands.
+        unsigned int numOperands = inst->getNumOperands();
 
-		Value *Op0 = inst->getOperand(0);
+        std::vector<Value*> args;  // arguments
+        std::vector<Type*>  types; // type of args
+        for (unsigned int i = 0; i < numOperands; ++i)
+        {
+            Value *Op = inst->getOperand(i);
+            args.push_back(Op);
+            types.push_back(Op->getType());
+        }
 
-		std::vector<Value*>      args (1, Op0); // arguments
-		std::vector<Type*> types(1, Op0->getType()); // type of args
-
-		FunctionType *proto = FunctionType::get(inst->getType(), types, false);
-		Constant* new_f = func->getParent()->getOrInsertFunction(funcName, proto);
-		CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv", inst);
-		call->setCallingConv(CC);
-		// replace all users with new function call, DCE will take care of it
-		inst->replaceAllUsesWith(call);
-	}
+        FunctionType *proto = FunctionType::get(inst->getType(), types, false);
+        Constant* new_f = func->getParent()->getOrInsertFunction(funcName, proto);
+        CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv", inst);
+        call->setCallingConv(CC);
+        // replace all users with new function call, DCE will take care of it
+        inst->replaceAllUsesWith(call);
+    }
 
     bool InstToFuncCall::runOnModule(Module &M)
     {

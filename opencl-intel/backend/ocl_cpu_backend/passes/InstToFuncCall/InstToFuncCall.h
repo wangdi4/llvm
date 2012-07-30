@@ -44,6 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             Type2ValueLookup FPToSI_Lookup;
             Type2ValueLookup UIToFP_Lookup;
             Type2ValueLookup SIToFP_Lookup;
+            Type2ValueLookup FDiv_Lookup;
 
             /// Replaces:
             /// %conv = fptoui double %tmp2 to i64
@@ -142,6 +143,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 /// With:
                 /// %call_conv = call float @_Z13convert_floatm(i64 %tmp2) nounwind
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
+
+                /// Replaces:
+                /// %div = fdiv <16 x float> %tmp1, %tmp2
+                /// With:
+                /// %call_div = call <16 x float> @__ocl_svml_b2_div16(<16 x float> %tmp1, <16 x float> %tmp2) nounwind
+                FDiv_Lookup[std::make_pair(Float,Float)] = std::make_pair("_Z8divisionff", CallingConv::C);
+
+                /// Replaces:
+                /// %div = fdiv <16 x float> %tmp1, %tmp2
+                /// With:
+                /// %call_div = call <16 x float> @__ocl_svml_b2_div16(<16 x float> %tmp1, <16 x float> %tmp2) nounwind
+                FDiv_Lookup[std::make_pair(v16xFloat,v16xFloat)] = std::make_pair("_Z8divisionDv16_fS_", CallingConv::C);
+
+                /// Replaces:
+                /// %div = fdiv <16 x double> %tmp1, %tmp2
+                /// With:
+                /// %call_div = call <16 x double> @__ocl_svml_b2_div16(<16 x double> %tmp1, <16 x double> %tmp2) nounwind
+                FDiv_Lookup[std::make_pair(Double,Double)] = std::make_pair("_Z8divisiondd", CallingConv::C);
+
+                /// Replaces:
+                /// %div = fdiv <16 x double> %tmp1, %tmp2
+                /// With:
+                /// %call_div = call <16 x double> @__ocl_svml_b2_div16(<16 x double> %tmp1, <16 x double> %tmp2) nounwind
+                FDiv_Lookup[std::make_pair(v16xDouble,v16xDouble)] = std::make_pair("_Z8divisionDv16_dS_", CallingConv::C);
             }
 
 
@@ -149,6 +174,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
             m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
+            m_Lookup[Instruction::FDiv]   = FDiv_Lookup;
         }
 
         const LookupValue *operator [](const Instruction &inst) const {

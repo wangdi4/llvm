@@ -18,11 +18,7 @@ else ()
     set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
 
     if (NOT TMP_ICC_INSTALL_DIR)
-        if (KNC_CARD)
-          set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
-        else (KNC_CARD)
-          set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin)
-        endif (KNC_CARD)
+        set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
         if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
           set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
           message ("ICC MIC Compiler: ${TMP_ICC_INSTALL_DIR}")
@@ -182,12 +178,14 @@ list( APPEND MIC_LINK_FLAGS
                 -L ${COI_DIR}/device-linux-release/lib
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
                 -L ${OCL_BINARY_DIR}/backend/llvm/lib
+                -L ${BACKEND_ROOT_DIR}/external/vtune/libknc
 
                 # libs to link
                 -lcoi_device
                 -lOclDeviceExecutor
 
                 -lpthread
+                -ljitprofiling
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic
@@ -202,9 +200,6 @@ list( APPEND MIC_LINK_FLAGS
                 #  \\\$ will result in passing \$ to the linker script
                 -Wl,-rpath=\\\$ORIGIN -Wl,--enable-new-dtags
                 )
-if (KNC_CARD)
-  list(APPEND MIC_LINK_FLAGS -L ${BACKEND_ROOT_DIR}/external/vtune/libknc -ljitprofiling)
-endif (KNC_CARD)
 
 set( MIC_DEBUG_LINK_FLAGS     )
 set( MIC_RELEASE_LINK_FLAGS   )
