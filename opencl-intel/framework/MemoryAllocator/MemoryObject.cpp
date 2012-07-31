@@ -153,8 +153,12 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
         {
             const D3DResource<IDirect3DResource9, IDirect3DDevice9>* const pD3d9Resource =
                 dynamic_cast<const D3DResource<IDirect3DResource9, IDirect3DDevice9>*>(this);
+			if (NULL == pD3d9Resource)
+            {
+                return CL_INVALID_DX9_RESOURCE_INTEL;
+            }
             const D3D9Context& d3d9Context = *pD3d9Resource->GetContext().DynamicCast<const D3D9Context>();
-            if (NULL == pD3d9Resource || d3d9Context.GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
+            if (d3d9Context.GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
             }

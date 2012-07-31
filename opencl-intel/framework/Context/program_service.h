@@ -345,6 +345,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         pfnNotifyBuildDone  m_pfn_notify; 
         void*               m_user_data;
+	private:
+		PostBuildTask(const PostBuildTask&);
+		PostBuildTask& operator=(const PostBuildTask&);
     };
 
 }}} // namespace

@@ -472,8 +472,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
         bool		   UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
 		bool		   UseITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT, false); }
-
-    protected:
+	
+	private:
+		BasicCLConfigWrapper(const BasicCLConfigWrapper&);
+		BasicCLConfigWrapper& operator=(const BasicCLConfigWrapper&);
+    
+	protected:
         ConfigFile * m_pConfigFile;
     };
 

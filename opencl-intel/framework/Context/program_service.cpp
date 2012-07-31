@@ -544,14 +544,16 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
         {
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
+			return CL_OUT_OF_HOST_MEMORY;
         }
 
         pszHeadersNames = new char*[num_input_headers];
-        if (NULL == pszHeaders)
+        if (!pszHeadersNames)
         {
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
             delete[] pszHeaders;
+			return CL_OUT_OF_HOST_MEMORY;
         }
     }
 
@@ -885,7 +887,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
     if (options)
     {
         szBuildOptions = new char[strlen(options) + 1];
-        if (NULL == szBuildOptions)
+        if (!szBuildOptions)
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
@@ -895,27 +897,16 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
     {
         // initialize szBuildOptions to empty string
         szBuildOptions = new char[1];
-        if (NULL == szBuildOptions)
+        if (!szBuildOptions)
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
         szBuildOptions[0] = '\0';
     }
 
-    cl_device_id* pDevices = new cl_device_id[uiNumDevices];
-    if (NULL == pDevices)
-    {
-        delete[] szBuildOptions;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+	cl_device_id* pDevices = new cl_device_id[uiNumDevices];
 
-    SharedPtr<OclEvent>* ppLinkTasks = new SharedPtr<OclEvent>[uiNumDevices];
-    if (NULL == ppLinkTasks)
-    {
-        delete[] szBuildOptions;
-        delete[] pDevices;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+	vector<SharedPtr<OclEvent> > ppLinkTasks(uiNumDevices);
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
@@ -940,15 +931,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
     }
 
     // check that all libraries has valid binary
-    bool* pbBuildForDevice = new bool[uiNumDevices];
-    if (NULL == pbBuildForDevice)
-    {
-        delete[] szBuildOptions;
-        delete[] pDevices;
-        delete[] ppLinkTasks;
-
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+    vector<bool> pbBuildForDevice(uiNumDevices);
 
     for (unsigned int devID = 0; devID < uiNumDevices; ++devID)
     {
@@ -983,12 +966,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
             pbBuildForDevice[devID] = true;
             break;
         }
-
-        delete[] szBuildOptions;
-        delete[] pDevices;
-        delete[] ppLinkTasks;
-        delete[] pbBuildForDevice;
-
+		delete[] szBuildOptions;
         return CL_INVALID_OPERATION;
     }
 
@@ -1007,33 +985,14 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
                         program->Unacquire(pDevices[j]);
                     }
                 }
-
-                delete[] szBuildOptions;
-                delete[] pDevices;
-                delete[] ppLinkTasks;
-                delete[] pbBuildForDevice;
-
+				delete[] szBuildOptions;
                 return CL_INVALID_OPERATION;
             }
         }
     }
 
     // // Check if the link options are legal for all the devices
-    ConstSharedPtr<FrontEndCompiler>* pfeCompilers = new ConstSharedPtr<FrontEndCompiler>[uiNumDevices];
-    if (!pfeCompilers)
-    {
-        for (cl_uint i = 0; i < uiNumDevices; ++i)
-        {
-            program->Unacquire(pDevices[i]);
-        }
-
-        delete[] szBuildOptions;
-        delete[] pDevices;
-        delete[] ppLinkTasks;
-        delete[] pbBuildForDevice;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
+	vector<ConstSharedPtr<FrontEndCompiler> > pfeCompilers(uiNumDevices);
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
       cl_device_id deviceID = pDevices[i];
@@ -1054,12 +1013,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
         {
           program->Unacquire(pDevices[j]);
         }
-
-        delete[] szBuildOptions;
-        delete[] pDevices;
-        delete[] ppLinkTasks;
-        delete[] pbBuildForDevice;
-        delete[] szUnrecognizedOptions;
+		delete[] szBuildOptions;
         return CL_INVALID_LINKER_OPTIONS;
       }
     }
@@ -1112,16 +1066,13 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
         }
     }
 
-    // delete FE compilers array, we don't need it anymore
-    delete[] pfeCompilers;
-
-    SharedPtr<PostBuildTask> pPostBuildTask = PostBuildTask::Allocate(context, uiNumDevices, pDevices, 0, NULL, NULL,
-                                                                      num_input_programs, input_programs, program, szBuildOptions, 
-                                                                      pfn_notify, user_data);
+	SharedPtr<PostBuildTask> pPostBuildTask = PostBuildTask::Allocate(context, uiNumDevices, pDevices, 0, NULL, NULL,
+                                                      num_input_programs, input_programs, program, szBuildOptions, 
+                                                      pfn_notify, user_data);
 
     if (NULL == pPostBuildTask)
     {
-        //TODO: clean up
+		delete[] szBuildOptions;
         return CL_OUT_OF_HOST_MEMORY;
     }
 
@@ -1142,9 +1093,6 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
             pBuildTask->Launch();
         }
     }
-
-    // delete link task array, we don't need it anymore
-    delete[] ppLinkTasks;
 
     // If no build required, launch post build task
     if (!bNeedToBuild)
@@ -1453,7 +1401,8 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program>program, cl_uint num_
 
     if (NULL == pPostBuildTask)
     {
-        //TODO: clean up
+		delete[] ppCompileTasks;
+		delete[] ppLinkTasks;
         return CL_OUT_OF_HOST_MEMORY;
     }
 
