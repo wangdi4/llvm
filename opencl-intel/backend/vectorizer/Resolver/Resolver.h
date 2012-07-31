@@ -52,7 +52,7 @@ private:
   /// @param pred Predicator to use
   void CFInstruction(std::vector<Instruction*> insts, Value* pred);
   /// @brief Returns a constant deafult value for givan type. On integers
-  ///        return undef, on FP return 1.0 to avoid denormals calculation.
+  ///        return undef, on FP return 0 to avoid denormals calculation.
   /// @param ty - given type.
   /// @returns default value for input type.
   Constant *getDefaultValForType(Type *ty);

@@ -199,16 +199,10 @@ void FuncResolver::resolve(CallInst* caller) {
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
-  Constant *defaultVal = UndefValue::get(ty);
-  Type *scalarTy = ty->getScalarType();
-  if (scalarTy->isFloatingPointTy()) {
-    defaultVal = ConstantFP::get(scalarTy, 1.0);
-    if (VectorType *VT = dyn_cast<VectorType>(ty)) {
-      defaultVal = ConstantVector::get(
-      std::vector<Constant *> (VT->getNumElements(), defaultVal));
-    }
+  if (ty->isFPOrFPVectorTy()) {
+    return Constant::getNullValue(ty);
   }
-  return defaultVal;
+  return UndefValue::get(ty);
 }
 
 void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
