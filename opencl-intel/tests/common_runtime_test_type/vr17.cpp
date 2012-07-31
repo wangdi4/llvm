@@ -84,4 +84,10 @@ TEST_F(VR17, SharedTask)
 
 	// wait for completion of kernels execution
 	ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
+
+	//release events
+	releaseEvent(user_event);
+		for(int i = 0 ; i < 2 ; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }

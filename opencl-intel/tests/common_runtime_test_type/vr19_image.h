@@ -151,6 +151,12 @@ static void testReadImage2DSharedBody(OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	ASSERT_NO_FATAL_FAILURE(output_array.compareArray(comparison_array));
+
+	releaseEvent(user_event);
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
+	
 }
 
 //|	TEST: ReadImage3DShared (TC-93)
@@ -284,6 +290,12 @@ static void testReadImage3DSharedBody(OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	ASSERT_NO_FATAL_FAILURE(output_array.compareArray(comparison_array));
+
+	releaseEvent(user_event);
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
+	
 }
 
 #endif /* VR19_IMAGE_GTEST_ */

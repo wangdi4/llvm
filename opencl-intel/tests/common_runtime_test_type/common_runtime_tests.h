@@ -58,7 +58,6 @@ class FissionWrapper: public virtual CommonRuntime{
 public:
 	cl_device_id* subdevices;
 	cl_uint subdevices_size;
-
 	// SetUp - called before each test is being run
 	virtual void SetUp() 
 	{		
@@ -69,8 +68,12 @@ public:
 	//	TearDown - called after each test
 	virtual void TearDown() 
 	{		
-		if(NULL!=subdevices)
+		if(NULL != subdevices)
 		{
+			for(int i =0 ; i < subdevices_size ; i++){
+				clReleaseDevice(subdevices[i]);
+				printf("\n Realsed subdevice %d",i);
+			}
 			delete[] subdevices;
 			subdevices = NULL;
 		}
@@ -80,6 +83,7 @@ public:
 	// partitionByCounts - creates numSubDevices subdevices for CPU root device with property CL_DEVICE_PARTITION_BY_COUNTS_*
 	void partitionByCounts(cl_device_id in_device, cl_uint numSubDevices)
 	{
+		subdevices_size = numSubDevices;
 		subdevices = new cl_device_id[numSubDevices];
 		ASSERT_NO_FATAL_FAILURE(createPartitionByCounts(in_device, subdevices, numSubDevices));
 		subdevices_size = numSubDevices;

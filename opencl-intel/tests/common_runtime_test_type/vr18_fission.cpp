@@ -86,7 +86,7 @@ TEST_F(VR18_Fission, Native)
 	// create buffers
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer, ocl_descriptor.context, 
 		CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sizeof(int)*input_array.dynamic_array_size, input_array.dynamic_array));
-
+	
 	// Set up the arrays to call with
 	args.inputStream = ocl_descriptor.in_common_buffer;
 	args.count = arraySize;
@@ -100,10 +100,10 @@ TEST_F(VR18_Fission, Native)
 									  1, &ocl_descriptor.in_common_buffer,
 									  (const void **)memLocs, 
 									  0, NULL, NULL));
-
+	
 	// Finish and wait for the kernel to complete
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
-
+	
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0], ocl_descriptor.in_common_buffer, 
 			 CL_TRUE, 0, sizeof(int)*output_array.dynamic_array_size, 
 			 output_array.dynamic_array, 
@@ -111,7 +111,7 @@ TEST_F(VR18_Fission, Native)
 
 	// validate execution correctness
 	ASSERT_NO_FATAL_FAILURE(validation_array.compareArray(output_array.dynamic_array, arraySize));
-
+	
 	// Run the kernel on GPU
 	ASSERT_EQ(CL_INVALID_OPERATION, clEnqueueNativeKernel(ocl_descriptor.queues[1], test_native_kernel_fn, 
 									  &args, sizeof( args ),

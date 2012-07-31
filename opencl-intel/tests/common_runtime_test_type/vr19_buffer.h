@@ -94,7 +94,7 @@ static void testVR19ReadBufferSharedBody(OpenCLDescriptor& ocl_descriptor)
 			 &output_array.dynamic_array[i*cpu_input_array.dynamic_array_size], 
 			 1, &user_event, &device_done_event[i]));
 	}
-
+	
 	// wait
 	sleepMS(100);
 
@@ -109,6 +109,12 @@ static void testVR19ReadBufferSharedBody(OpenCLDescriptor& ocl_descriptor)
 	// wait for completion of all read buffer executions
 	ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
 
+
+	releaseEvent(user_event);
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
+	
 	// validate execution correctness
 	// create and initialize host array for results comparison
 	DynamicArray<int> comparison_array(arraySize*2);
@@ -234,6 +240,12 @@ static void testVR19ReadBufferRectSharedBody (OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	ASSERT_NO_FATAL_FAILURE(output_array.compareArray(comparison_array));
+
+
+	releaseEvent(user_event);
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 //|	TEST: CopyBufferShared (TC-91)
@@ -349,6 +361,12 @@ static void testVR19CopyBufferSharedBody(OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	ASSERT_NO_FATAL_FAILURE(output_array.compareArray(comparison_array));
+
+
+	releaseEvent(user_event);
+	for(int i = 0 ; i< 4; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 #endif /* VR19_BUFFER_GTEST_ */

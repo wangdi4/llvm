@@ -141,6 +141,11 @@ void test2DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 		// wait for write and read to complete
 		ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
 		ASSERT_NO_FATAL_FAILURE(((0==i)?cpu_array:gpu_array).compareArray(((0==i)?cpu_input_array.dynamic_array:gpu_input_array.dynamic_array),arraySize));
+		
+		//release events
+		for(int i = 0 ; i< 2; i++){
+			releaseEvent(device_done_event[i]);
+		}
 	}
 }
 
@@ -261,6 +266,11 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 		// wait for write and read to complete
 		ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
 		ASSERT_NO_FATAL_FAILURE(((0==i)?cpu_array:gpu_array).compareArray(((0==i)?cpu_input_array.dynamic_array:gpu_input_array.dynamic_array),arraySize));
+	}
+
+
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
 	}
 }
 

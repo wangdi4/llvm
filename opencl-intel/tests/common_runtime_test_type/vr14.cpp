@@ -52,6 +52,11 @@ TEST_F(VR14, KernelCompilation)
 		kernels[i] = 0;
 		ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
 	}
+
+	for(int i=0; i<10; ++i)
+	{
+		clReleaseKernel(kernels[i]);
+	}
 }
 
 //|	TEST: VR14.KernelCompilationIfDefIfPart (TC-77) see more tests below for complete picture
@@ -156,7 +161,7 @@ TEST_F(VR14, KernelCompilationIfDefElsePart)
 //|	-------------
 //|
 //|	Verify that kernel creation returned CL_INVALID_KERNEL_DEFINITION
-TEST_F(VR14, KernelCompilationIfDefBoth)
+TEST_F(VR14, DISABLED_KernelCompilationIfDefBoth)
 {
 	// get pltfrom and device ids
 	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, ocl_descriptor.devices));

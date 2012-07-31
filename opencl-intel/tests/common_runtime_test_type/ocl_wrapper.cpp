@@ -404,6 +404,75 @@ void *user_data)
 	ASSERT_NO_FATAL_FAILURE( buildProgram (program, num_devices, device_list, options, pfn_notify, user_data));
 }
 
+// compileProgram - calls and validates clCompileProgram
+void compileProgram(cl_program* program,cl_uint num_devices,const cl_device_id *device_list,const char *options,cl_uint num_input_headers,
+const cl_program *input_headers,const char **header_include_names,void (CL_CALLBACK *pfn_notify)(cl_program program,
+void *user_data),void *user_data){
+		if(NULL==program || NULL==device_list){
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = clCompileProgram (*program, num_devices, device_list, options,num_input_headers, input_headers, header_include_names,
+		pfn_notify, user_data);
+	if(NULL!=device_list)
+	{
+		if(CL_SUCCESS != errcode_ret)
+		{
+			//	prints build fail log
+			cl_int logStatus;
+			char * buildLog = NULL;
+			size_t buildLogSize = 0;
+			logStatus = clGetProgramBuildInfo(*program, device_list[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
+
+			buildLog = (char*) malloc(buildLogSize);
+			memset(buildLog, 0, buildLogSize);
+
+			logStatus = clGetProgramBuildInfo(*program, device_list[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
+
+			std::cout << " \n\t\t\tBUILD LOG\n";
+			std::cout << " ************************************************\n";
+			std::cout << buildLog << std::endl;
+			std::cout << " ************************************************\n";
+			free(buildLog);
+		}
+	}
+	ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clCompileProgram failed";
+}
+// createAndCompileProgramWithSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel file name
+void createAndCompileProgramWithSource(const char* sFileName, cl_program* program, cl_context context,
+	cl_uint num_devices, const cl_device_id *device_list, const char *options, 
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),  void *user_data)
+{
+	if(NULL==sFileName || NULL ==program || NULL==device_list){
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	const char* kernelSource = NULL;
+	// read kernels file
+	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName));
+	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithStringSource(kernelSource, program, context, num_devices, device_list, options, pfn_notify,
+		user_data));
+	if(NULL!=kernelSource)
+	{
+		delete[] kernelSource;
+		kernelSource = NULL;
+	}
+}
+
+
+// createAndCompileProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clcompileProgram using kernel source
+void createAndCompileProgramWithStringSource(const char* kernelSource, cl_program* program, cl_context context,
+	cl_uint num_devices, const cl_device_id *device_list, const char *options, 
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+void *user_data)
+{
+	// create program
+	ASSERT_NO_FATAL_FAILURE(createProgramWithSource(program, context,	
+		1, &kernelSource, NULL));
+
+	// build program
+	ASSERT_NO_FATAL_FAILURE( compileProgram(program, num_devices, device_list, options, 0, NULL, NULL, pfn_notify, user_data));
+}
+
 // createProgramWithBinary - calls and validates clCreateProgramWithBinary
 void createProgramWithBinary( cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list, const size_t *lengths,
                                const unsigned char **binaries, cl_int *binary_status )
@@ -462,6 +531,8 @@ void createUserEvent(cl_event* user_event, cl_context context)
 	*user_event = clCreateUserEvent(context, &errcode_ret);
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateUserEvent failed";
 	ASSERT_NE((cl_event)0, *user_event) << "clCreateUserEvent returned 0 as event value";
+
+	
 }
 
 // createSampler - calls and validates clCreateSampler
@@ -658,6 +729,24 @@ void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* ker
 	}
 }
 
+//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
+void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName,cl_device_type device_type)
+{
+	// creates context programs and queues
+	setUpContextProgramQueues(ocl_descriptor,kernelFileName);
+
+	//free the created program
+	clReleaseProgram(ocl_descriptor.program);
+
+	//	create and build program for specific device.
+	if(CL_DEVICE_TYPE_CPU==device_type){ //if we get false it means that we want to create a program for GPU or MIC
+		ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource(kernelFileName, &ocl_descriptor.program, ocl_descriptor.context, 1, &ocl_descriptor.devices[0], NULL, NULL, NULL));
+	}
+	else{ 
+		ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource(kernelFileName, &ocl_descriptor.program, ocl_descriptor.context, 1, &ocl_descriptor.devices[1], NULL, NULL, NULL));
+	}
+
+}
 //	setUpSingleContextProgramQueue - creates and validate a context, program and queue device of type device_type
 void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* context, cl_program* program, 
 									 cl_command_queue* queues, cl_device_type device_type)
@@ -984,36 +1073,6 @@ void getCPUGPUDevicesIfNotCreated(OpenCLDescriptor& ocl_descriptor)
 	}
 }
 
-// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
-void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
-	size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
-{
-	ASSERT_EQ(CL_SUCCESS, clEnqueueFillBuffer(command_queue, buffer, pattern, pattern_size, 
-		offset, size, num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillBuffer failed";
-}
-
-// clEnqueueFillImage - calls and validates clEnqueueFillImage
-void enqueueFillImage(cl_command_queue command_queue, cl_mem image, const void *fill_color, const size_t *origin, const size_t *region,
-	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event) 
-{
-	ASSERT_EQ(CL_SUCCESS, clEnqueueFillImage(command_queue, image, fill_color, origin, region, 
-		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillImage failed";
-}
- 
-// getImageInfo - calls and validates clGetImageInfo
-void getImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
-{
-	ASSERT_EQ(CL_SUCCESS, clGetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret)) << "clGetImageInfo failed";
-}
-
-// enqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
-void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags,
-	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event)
-{
-	ASSERT_EQ(CL_SUCCESS, clEnqueueMigrateMemObjects(command_queue, num_mem_objects, mem_objects, flags, 
-		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueMigrateMemObjects failed";
-}
-
 // createProgramWithBuiltInKernels - calls and validates clCreateProgramWithBuiltInKernels
 void createProgramWithBuiltInKernels(cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list,
 	const char *kernel_names)
@@ -1031,13 +1090,68 @@ void createProgramWithBuiltInKernels(cl_program* program, cl_context context, cl
 void enqueueNativeKernel(cl_command_queue command_queue, void (CL_CALLBACK *user_func)(void *), void *args, size_t cb_args,
 	cl_uint num_mem_objects, const cl_mem *mem_list, const void **args_mem_loc, 
 	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *userevent)
+
 {
 	ASSERT_EQ(CL_SUCCESS, clEnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, 
 		num_events_in_wait_list, event_wait_list, userevent)) << "clEnqueueNativeKernel falied";
 }
 
+
+// linkProgram - calls and validates clLinkProgram
+void linkProgram(cl_context context, cl_uint num_devices, const cl_device_id * device_list, const char *options, cl_uint num_input_programs, const cl_program *input_programs,cl_program *output_program)
+				 {
+	cl_int ret;
+	*output_program = clLinkProgram(context, num_devices, device_list, options, num_input_programs, input_programs, NULL, NULL, &ret);
+	ASSERT_EQ(CL_SUCCESS, ret) << "linkProgram failed";
+	ASSERT_NE(NULL,ret) << "linkProgram returned a NULL program";
+}
+//enqueueMarkerWithWaitList - calls and validates clEnqueueMarkerWithWaitList{
+void enqueueMarkerWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *marker){
+	cl_int ret=clEnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, marker);
+	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueMarkerWithWaitList failed";
+}
+
+void enqueueBarrierWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *buffer_event){
+	cl_int ret=clEnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, buffer_event);
+	ASSERT_EQ(CL_SUCCESS, ret) << "clEnqueueBarrierWithWaitList failed";
+}
+// clEnqueueFillImage - calls and validates clEnqueueFillImage
+void enqueueFillImage(cl_command_queue command_queue, cl_mem image, const void *fill_color, const size_t *origin, const size_t *region,
+	cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event) 
+{
+	ASSERT_EQ(CL_SUCCESS, clEnqueueFillImage(command_queue, image, fill_color, origin, region, 
+		num_events_in_wait_list, event_wait_list, user_event)) << "clEnqueueFillImage failed";
+}
+// getImageInfo - calls and validates clGetImageInfo
+void getImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
+{
+	ASSERT_EQ(CL_SUCCESS, clGetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret)) << "clGetImageInfo failed";
+}
+
+//EnqueueMigrateMemObjects - calls and validates clEnqueueMigrateMemObjects
+void enqueueMigrateMemObjects(cl_command_queue command_queue, cl_uint num_mem_objects, const cl_mem *mem_objects, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *migrate_event){
+	cl_int ret=clEnqueueMigrateMemObjects(command_queue, num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, migrate_event);
+	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueMigrateMemObjects failed";
+}
+
+
+// enqueueFillBuffer - calls and validates clEnqueueFillBuffer
+void enqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer, const void *pattern, size_t pattern_size,
+					   size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *user_event){
+	cl_int ret=clEnqueueFillBuffer(command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, user_event);
+	ASSERT_EQ(CL_SUCCESS, ret) << "enqueueFillBuffer failed";
+}
+
+
 // finish - calls and validates clFinish
 void finish(cl_command_queue command_queue)
 {
 	ASSERT_EQ(CL_SUCCESS, clFinish(command_queue)) << "clFinish failed";
+}
+
+
+//releaseEvent - calls and validate clReleaseEvent
+void releaseEvent(cl_event event)
+{
+	ASSERT_EQ(CL_SUCCESS,clReleaseEvent(event));
 }

@@ -32,6 +32,7 @@ static void* slaveFunction(void* data)
 	cl_event* user_event = (cl_event*) data;
 	// set user event as CL_COMPLETE
 	setUserEventStatus(*user_event, CL_COMPLETE);
+	releaseEvent(*user_event);
 	return NULL;
 }
 
@@ -264,6 +265,12 @@ static void waitOnSingleDevice(OpenCLDescriptor& ocl_descriptor, cl_device_type 
 			images[i] = 0;
 		}
 	}
+
+	//release user events
+//	releaseEvent(user_event);
+	for(int i = 0 ; i <= index; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 // waitOnBothDevices - enqueues all commands from VR-9 to both devices' queues, waits for their competion
@@ -468,6 +475,12 @@ static void waitOnBothDevices(OpenCLDescriptor& ocl_descriptor)
 			images[i] = 0;
 		}
 	}
+
+
+//	releaseEvent(user_event);
+	for(int i = 0 ; i< 50; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 // executeKernelOnSingleDevice - enqueues a kernel to device's queue 100 times, waits for their competion
@@ -522,6 +535,12 @@ static void executeKernelOnSingleDevice(OpenCLDescriptor& ocl_descriptor, cl_dev
 			1, &user_event, &device_done_event[i]));
 	}
 	setAndWaitForEvent(&user_event, device_done_event, numEvents);
+	
+
+	//releaseEvent(user_event);
+	for(int i = 0 ; i< 100; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 // executeKernelOnSingleDevice - enqueues a kernel to each device's queue 100 times, waits for their competion
@@ -577,6 +596,11 @@ static void executeKernelOnBothDevices(OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	setAndWaitForEvent(&user_event, device_done_event, numEvents);
+
+	//releaseEvent(user_event);
+	for(int i = 0 ; i< 200; i++){
+		releaseEvent(device_done_event[i]);
+	}
 }
 
 #endif /* VR9_BUFFER_GTEST_ */
