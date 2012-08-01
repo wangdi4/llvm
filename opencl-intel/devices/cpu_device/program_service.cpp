@@ -500,7 +500,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
         return CL_DEV_INVALID_VALUE;
     }
 
-    MEMCPY_S( (char*)binary, size, pCodeContainer->GetCode(), stSize);
+    memcpy( (char*)binary, pCodeContainer->GetCode(), stSize);
     return CL_DEV_SUCCESS;
 }
 
@@ -581,7 +581,7 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
     }
 
     //currently support only user binaries
-    MEMCPY_S(types, size, gSupportedBinTypes, sizeof(gSupportedBinTypes));
+    memcpy(types, gSupportedBinTypes, sizeof(gSupportedBinTypes));
 
     return CL_DEV_SUCCESS;
 }
@@ -796,7 +796,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     {
     	if ( NULL != pValue )
     	{
-    		MEMCPY_S(value, value_size, pValue, stValSize);
+    		memcpy(value, pValue, stValSize);
     	} else {
     		memset(value, 0, stValSize);
     	}
@@ -824,8 +824,8 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
 
 	if(NULL != formats)
     {
-		uiNumEntries = min(uiNumEntries, numEntries);
-        MEMCPY_S(formats, numEntries * sizeof(cl_image_format), supportedImageFormats, uiNumEntries * sizeof(cl_image_format));
+        uiNumEntries = min(uiNumEntries, numEntries);
+        memcpy(formats, supportedImageFormats, uiNumEntries * sizeof(cl_image_format));
     }
     if(NULL != numEntriesRet)
     {

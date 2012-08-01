@@ -224,7 +224,7 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 
 	if ( NULL != pVal)
 	{
-		MEMCPY_S(pVal, valSize, pIntVal, valSize);
+		memcpy(pVal, pIntVal, valSize);
 	}
 	return CL_SUCCESS;
 }

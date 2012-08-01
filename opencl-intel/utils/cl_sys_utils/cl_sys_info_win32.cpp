@@ -83,11 +83,12 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 	{
 		return freq;
 	}
+
 	memset(buffer, 0, sizeof(cpuInfo)*3 + 1);
 	for (unsigned int i = 0x80000002; i <= 0x80000004; i++)
 	{
 		__cpuid(cpuInfo, i);
-		MEMCPY_S(pBuffer, sizeof(cpuInfo)*3 + 1, cpuInfo, sizeof(cpuInfo));
+		memcpy(pBuffer, cpuInfo, sizeof(cpuInfo));
 		pBuffer = pBuffer + sizeof(cpuInfo);
 	}
 

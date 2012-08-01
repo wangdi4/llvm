@@ -912,9 +912,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_entry_points *      m_pOclEntryPoints;
 		PrePostFixRuntimeCommand* m_pPostfixCommand;
         bool                    m_bResourcesAllocated;
-	private:
-		MapMemObjCommand(const MapMemObjCommand&);
-		MapMemObjCommand& operator=(const MapMemObjCommand&);
     };
     
     /******************************************************************
@@ -1006,8 +1003,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		PrePostFixRuntimeCommand* m_pPrefixCommand;
 		ocl_entry_points *      m_pOclEntryPoints;
         bool                    m_bResourcesAllocated;
-		UnmapMemObjectCommand(const UnmapMemObjectCommand&);
-		UnmapMemObjectCommand& operator=(const UnmapMemObjectCommand&);
     };
     
     /******************************************************************

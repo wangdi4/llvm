@@ -203,7 +203,7 @@ CPUDevMemoryObject::~CPUDevMemoryObject()
 cl_dev_err_code CPUDevMemoryObject::Init()
 {
 	m_objDecr.pData = m_pBackingStore->GetRawData();
-	MEMCPY_S( m_objDecr.pitch, sizeof(m_objDecr.pitch), m_pBackingStore->GetPitch(), sizeof(m_objDecr.pitch) );
+	memcpy( m_objDecr.pitch, m_pBackingStore->GetPitch(), sizeof(m_objDecr.pitch) );
 
 	//allocating the memory on the device by querying the backend for the size
 	void* auxObject = NULL;

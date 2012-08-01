@@ -42,7 +42,7 @@ using namespace Intel::OpenCL::Utils;
 *
 ******************************************************************/
 QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
-	OclEvent(cmdQueue?cmdQueue->GetParentHandle():CL_INVALID_HANDLE),
+	OclEvent( cmdQueue->GetParentHandle()),
 	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
 {
 	m_sProfilingInfo.m_ulCommandQueued	= 0;
@@ -58,9 +58,9 @@ QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
 	if (cmdQueue != NULL)
 	{
 		m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
-		m_pGPAData = cmdQueue->GetGPAData();
 	}
 
+	m_pGPAData = cmdQueue->GetGPAData();
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 	{
@@ -143,7 +143,7 @@ cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * 
 	{
 		if ( NULL != paramValue )
 		{
-			MEMCPY_S(paramValue, paramValueSize, localParamValue, outputValueSize);
+			memcpy(paramValue, localParamValue, outputValueSize);
 		}
 		if ( NULL != paramValueSizeRet )
 		{

@@ -1158,7 +1158,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
         /* ppMediaAdapters is defined to be of type void* by the spec. However, this is clearly a bug and it should be of type void**. The problem is that the conformance
             test indeed treats it like void* while passing 1 as uiNumMediaAdapters. This of course can't work for numbers greater than 1. Therefore I'm writing the condition
             like this. When the spec is fixed, I'll change it. */
-        if (NULL == (void*)ppMediaAdapters && 1 == uiNumMediaAdapters || uiNumMediaAdapters > 1 && NULL != (void*)ppMediaAdapters && NULL == ((void**)ppMediaAdapters)[i])
+        if (1 == uiNumMediaAdapters && NULL == (void*)ppMediaAdapters || uiNumMediaAdapters > 1 && NULL == ((void**)ppMediaAdapters)[i])
         {
             if (d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
             {

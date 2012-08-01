@@ -216,9 +216,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pFECompiler;
 
         DECLARE_LOGGER_CLIENT;
-	
-	private:
-		FrontEndCompiler& operator=(const FrontEndCompiler&);
     };
 
 }}}

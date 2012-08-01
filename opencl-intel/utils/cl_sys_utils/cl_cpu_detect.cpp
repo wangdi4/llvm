@@ -170,9 +170,9 @@ void CPUDetect::GetCPUInfo()
     // get the CPU string and the number of valid of valid IDs
     CPUID(viCPUInfo, 0);
     int iValidIDs = viCPUInfo[0];
-    MEMCPY_S( vcCPUString, 4,    viCPUInfo + 1, sizeof(unsigned int));
-    MEMCPY_S( vcCPUString + 4, 4, viCPUInfo + 3, sizeof(unsigned int));
-    MEMCPY_S( vcCPUString + 8, 4, viCPUInfo + 2, sizeof(unsigned int));
+    memcpy( vcCPUString,     viCPUInfo + 1, sizeof(unsigned int));
+    memcpy( vcCPUString + 4, viCPUInfo + 3, sizeof(unsigned int));
+    memcpy( vcCPUString + 8, viCPUInfo + 2, sizeof(unsigned int));
 
     m_szCPUString = STRDUP(vcCPUString);
 	if(!m_szCPUString)
@@ -244,15 +244,15 @@ void CPUDetect::GetCPUInfo()
         // Interpret CPU brand string.
         if (i == 0x80000002)
         {
-            MEMCPY_S(vcCPUBrandString, 16, viCPUInfo, sizeof(viCPUInfo));
+            memcpy(vcCPUBrandString, viCPUInfo, sizeof(viCPUInfo));
         }
         else if (i == 0x80000003)
         {
-            MEMCPY_S(vcCPUBrandString + 16, 16, viCPUInfo, sizeof(viCPUInfo));
+            memcpy(vcCPUBrandString + 16, viCPUInfo, sizeof(viCPUInfo));
         }
         else if (i == 0x80000004)
         {
-            MEMCPY_S(vcCPUBrandString + 32, 16, viCPUInfo, sizeof(viCPUInfo));
+            memcpy(vcCPUBrandString + 32, viCPUInfo, sizeof(viCPUInfo));
         }
     }
 

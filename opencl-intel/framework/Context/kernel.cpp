@@ -788,10 +788,6 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 
 	if (NULL != m_ppArgs[uiIndex])
 	{
-		if (NULL == pValue)
-		{
-			return CL_INVALID_ARG_VALUE;
-		}
 		m_ppArgs[uiIndex]->ModifyValue(szSize, (void*)pValue);;
 	}
 	else

@@ -300,7 +300,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
     // sub-buffer related - used by internal functions call later in this function
     SharedPtr<GenericMemObject> pParent = &parent;
 	m_pParentObject = &parent;
-    MEMCPY_S( m_stOrigin, sizeof(m_stOrigin), origin, sizeof(m_stOrigin) );
+    memcpy( m_stOrigin, origin, sizeof(m_stOrigin) );
 
     // copy everything from GenericMemObject class only excluding parent classes
 
@@ -659,11 +659,11 @@ cl_err_code GenericMemObject::ReadData(void * pData,
     }
 
     // assumption: origin and region both have MAX_WORK_DIM members
-	MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), pszRegion, sizeof(sCpyParam.vRegion));
+	memcpy(sCpyParam.vRegion, pszRegion, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] = pszRegion[0] * m_BS->GetElementSize();
 
 	// set row Pitch for src (we) and dst (them)
-	MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), m_BS->GetPitch(), sizeof(sCpyParam.vSrcPitch));
+	memcpy(sCpyParam.vSrcPitch, m_BS->GetPitch(), sizeof(sCpyParam.vSrcPitch));
     sCpyParam.vDstPitch[0] = szRowPitch;
     sCpyParam.vDstPitch[1] = szSlicePitch;
 
@@ -697,13 +697,13 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
     }
 
     // assumption: origin and region both have MAX_WORK_DIM members
-	MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), pszRegion, sizeof(sCpyParam.vRegion));
+	memcpy(sCpyParam.vRegion, pszRegion, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] = pszRegion[0] * m_BS->GetElementSize();
 
 	// set row Pitch for src (them) and dst (we)
     sCpyParam.vSrcPitch[0] = szRowPitch;
     sCpyParam.vSrcPitch[1] = szSlicePitch;
-	MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch) , m_BS->GetPitch(), sizeof(sCpyParam.vDstPitch));
+	memcpy(sCpyParam.vDstPitch, m_BS->GetPitch(), sizeof(sCpyParam.vDstPitch));
 
 	clCopyMemoryRegion(&sCpyParam);
 
@@ -1045,9 +1045,9 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 
     m_dim_count = copy_setting_from.m_dim_count;
 
-    MEMCPY_S( m_dimensions, sizeof(m_dimensions), region, sizeof(m_dimensions) );
+    memcpy( m_dimensions, region, sizeof(m_dimensions) );
 
-    MEMCPY_S( m_pitches, sizeof(m_pitches), copy_setting_from.m_pitches, sizeof(m_pitches) );
+    memcpy( m_pitches, copy_setting_from.m_pitches, sizeof(m_pitches) );
 
     m_format       = copy_setting_from.m_format;
     m_element_size = copy_setting_from.m_element_size;
@@ -1239,7 +1239,7 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 
     if (NULL != m_ptr && NULL != m_pHostPtr)
     {
-        MEMCPY_S( m_ptr, m_raw_data_size, m_pHostPtr, m_raw_data_size );
+        memcpy( m_ptr, m_pHostPtr, m_raw_data_size );
 
         if (0 == (m_user_flags & CL_MEM_USE_HOST_PTR))
         {
