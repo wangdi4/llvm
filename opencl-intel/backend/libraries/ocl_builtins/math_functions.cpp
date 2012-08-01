@@ -637,102 +637,6 @@ float8  __attribute__((overloadable)) fdim(float8 x, float8 y)
     return res;
 }
 #endif
-#if defined(__FMA__)
-double  __attribute__((overloadable)) mad(double x, double y, double z)
-{
-	double2 res;
-	double2 xVec, yVec, zVec;
-	xVec.lo = x;
-	yVec.lo = y;
-	zVec.lo = z;
-	res = mad(xVec, yVec, zVec);
-	return res.lo;
-}
-
-double2  __attribute__((overloadable)) mad(double2 x, double2 y, double2 z)
-{
-	return _mm_fmadd_pd(x, y, z);
-}
-
-double3  __attribute__((overloadable)) mad(double3 x, double3 y, double3 z)
-{
-	double3 res;
-	res.s01 = mad(x.s01, y.s01, z.s01);
-	res.s2 = mad(x.s2, y.s2, z.s2);
-    return res;
-}
-
-double4  __attribute__((overloadable)) mad(double4 x, double4 y, double4 z)
-{
-	return _mm256_fmadd_pd(x, y, z);
-}
-
-double8  __attribute__((overloadable)) mad(double8 x, double8 y, double8 z)
-{
-	double8 res;
-	res.lo = mad(x.lo, y.lo, z.lo);
-	res.hi = mad(x.hi, y.hi, z.hi);
-	return res;
-}
-
-double16  __attribute__((overloadable)) mad(double16 x, double16 y, double16 z)
-{
-	double16 res;
-	res.lo = mad(x.lo, y.lo, z.lo);
-	res.hi = mad(x.hi, y.hi, z.hi);
-	return res;
-}
-
-
-float  __attribute__((overloadable)) mad(float x, float y, float z)
-{
-	float4 res;
-	float4 xVec, yVec, zVec;
-	xVec.s0 = x; 
-	yVec.s0 = y;
-	zVec.s0 = z;
-	res = mad(xVec, yVec, zVec);
-	return res.s0;
-}
-float2  __attribute__((overloadable)) mad(float2 x, float2 y, float2 z)
-{
-	float4 xVec, yVec, zVec;
-	float4 res;
-    xVec.lo = x;
-	yVec.lo = y;
-	zVec.lo = z;
-	res = mad(xVec, yVec, zVec);
-    return res.lo;
-}
-
-float3  __attribute__((overloadable)) mad(float3 x, float3 y, float3 z)
-{
-	float4 xVec, yVec, zVec;
-	float4 res;
-    xVec.s012 = x;
-	yVec.s012 = y;
-	zVec.s012 = z;
-	res = mad(xVec, yVec, zVec);
-    return res.s012;
-}
-
-float4  __attribute__((overloadable)) mad(float4 x, float4 y, float4 z)
-{
-	return _mm_fmadd_ps(x, y, z);
-}
-float8  __attribute__((overloadable)) mad(float8 x, float8 y, float8 z)
-{
-	return _mm256_fmadd_ps(x, y, z);
-}
-float16  __attribute__((overloadable)) mad(float16 x, float16 y, float16 z)
-{
-	float16 res;
-	res.lo = mad(x.lo, y.lo, z.lo);
-	res.hi = mad(x.hi, y.hi, z.hi);
-	return res;
-}
-
-#else // defined(__FMA__)
 double  __attribute__((overloadable)) mad(double x, double y, double z)
 {
 	return (x*y+z);
@@ -789,7 +693,6 @@ float16  __attribute__((overloadable)) mad(float16 x, float16 y, float16 z)
 {
 	return (x*y+z);
 }
-#endif // defined(__FMA__)
 
 float  __attribute__((overloadable)) nan(_1u32 x)
 {
