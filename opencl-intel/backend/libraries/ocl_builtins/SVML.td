@@ -74,25 +74,6 @@ def svml_tgamma     : OclBuiltin<"__ocl_svml_$Target_tgamma$SVMLSuffix",     (ou
 def svml_trunc      : OclBuiltin<"__ocl_svml_$Target_trunc$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 }
 
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
-    Attrs = [SVMLCC, CONSTFUNC],
-    IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def svml_cos_half     : OclBuiltin<"__ocl_svml_$Target_cos$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_div_half     : OclBuiltin<"__ocl_svml_$Target_div$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def svml_exp_half     : OclBuiltin<"__ocl_svml_$Target_exp$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_exp2_half    : OclBuiltin<"__ocl_svml_$Target_exp2$SVMLSuffix_half",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_exp10_half   : OclBuiltin<"__ocl_svml_$Target_exp10$SVMLSuffix_half",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_inv_half     : OclBuiltin<"__ocl_svml_$Target_inv$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log_half     : OclBuiltin<"__ocl_svml_$Target_log$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log2_half    : OclBuiltin<"__ocl_svml_$Target_log2$SVMLSuffix_half",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_log10_half   : OclBuiltin<"__ocl_svml_$Target_log10$SVMLSuffix_half",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_powr_half    : OclBuiltin<"__ocl_svml_$Target_powr$SVMLSuffix_half",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def svml_rsqrt_half   : OclBuiltin<"__ocl_svml_$Target_rsqrt$SVMLSuffix_half",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_sin_half     : OclBuiltin<"__ocl_svml_$Target_sin$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_sqrt_half    : OclBuiltin<"__ocl_svml_$Target_sqrt$SVMLSuffix_half",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_tan_half     : OclBuiltin<"__ocl_svml_$Target_tan$SVMLSuffix_half",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-}
-
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [SVMLCC, CONSTFUNC],

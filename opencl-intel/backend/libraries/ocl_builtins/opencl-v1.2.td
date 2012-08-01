@@ -90,7 +90,8 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 
 
 // OpenCL 1.2 rev 15, Table 6.9
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 // half
 def half_cos      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -107,12 +108,6 @@ def half_rsqrt    : OclBuiltin<"half_rsqrt",    (outs gentype:$ret), (ins gentyp
 def half_sin      : OclBuiltin<"half_sin",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def half_sqrt     : OclBuiltin<"half_sqrt",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-}
-
-// OpenCL 1.2 rev 15, Table 6.9
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
 // native
 def native_cos    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_divide : OclBuiltin<"native_divide", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
