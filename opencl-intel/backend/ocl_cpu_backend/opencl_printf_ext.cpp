@@ -66,7 +66,12 @@ const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 // argument promotion rules of C99.
 //
 #define INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
-#define NEXT_ARG(args, type) (*(type*)((args += INTSIZEOF(type)) - INTSIZEOF(type)))
+
+template <typename T>
+const char* CopyAndAdvance(const char* src, T& dest) {
+    std::copy(src, src + sizeof(T), (char*)&dest);
+    return src + INTSIZEOF(T);
+}
 
 
 // An accumulator that writes into a FILE* stream.
@@ -438,7 +443,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             // Note: according to C99, a negative width argument means a '-'
             // flag followed by a positive width.
             //
-            width = NEXT_ARG(args, int);
+            args = CopyAndAdvance(args, width);
             if (width < 0) {
                 width = -width;
                 conversion_flags |= FLAG_MINUS;
@@ -461,7 +466,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         if (c == '.') {
             c = *++format;    // skip the dot
             if (c == '*') {
-                precision = NEXT_ARG(args, int);
+                args = CopyAndAdvance(args, precision);
                 c = *++format;
             } 
             else {
@@ -590,7 +595,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 break;
             case 'c': 
                 for (unsigned i = 0; i < vector_len; ++i) {
-                    char_val = NEXT_ARG(args, char);
+                    args = CopyAndAdvance(args, char_val);
 
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, char_val)) >= cbuflen)
                         return -1;
@@ -601,8 +606,9 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
             case 's':
-                if ('\0' != ((unsigned long)*args & 0xffff))
-                  str_val = NEXT_ARG(args, char*);
+                if ('\0' != ((unsigned long)*args & 0xffff)){
+                  args = CopyAndAdvance(args, str_val);
+                }
                 else{
                   //a 'fatalic' case, in which the string pointer is NULL.
                   //We print the null string, and advancing the buffer pointer
@@ -615,7 +621,8 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 output.append(cbuf);
                 break;
             case 'p':
-                voidptr = NEXT_ARG(args, void*);
+                args = CopyAndAdvance(args, voidptr);
+
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, voidptr)) >= cbuflen)
                     return -1;
                 output.append(cbuf);
@@ -629,16 +636,28 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 for (unsigned i = 0; i < vector_len; ++i) {
                     switch (modifier) {
                         case MODIFIER_CHAR:
-                            if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_uchar);
-                            else
-                                int_val = NEXT_ARG(args, cl_char);
+                            if (is_unsigned_specifier(c)){
+                                cl_uchar dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
+                            else{
+                                cl_char dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
                             break;
                         case MODIFIER_SHORT:
-                            if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_ushort);
-                            else
-                                int_val = NEXT_ARG(args, cl_short);
+                            if (is_unsigned_specifier(c)){
+                                cl_ushort dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
+                            else{
+                                cl_short dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
                             break;
                         case MODIFIER_LONG:
                         case MODIFIER_LONGLONG:
@@ -648,23 +667,43 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                             // (u)int64_t is taken. intmax and longlong aren't 
                             // supported, so we keep them as 'long'.
                             //
-                            if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, uint64_t);
-                            else
-                                int_val = NEXT_ARG(args, int64_t);
+                            if (is_unsigned_specifier(c)){
+                                uint64_t dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
+                            else{
+                                int64_t dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
                             break;
                         case MODIFIER_PTRDIFF:
-                            int_val = NEXT_ARG(args, ptrdiff_t);
+                            {
+                            ptrdiff_t dest;
+                            args = CopyAndAdvance(args, dest);
+                            int_val = dest;
+                            }
                             break;
                         case MODIFIER_SIZE_T:
-                            int_val = NEXT_ARG(args, size_t);
+                            {
+                            size_t dest;
+                            args = CopyAndAdvance(args, dest);
+                            int_val = dest;
+                            }
                             break;
                         case MODIFIER_VEC32BITELEMENT: //fall through
                         default:
-                            if (is_unsigned_specifier(c))
-                                int_val = NEXT_ARG(args, cl_uint);
-                            else
-                                int_val = NEXT_ARG(args, cl_int);
+                            if (is_unsigned_specifier(c)){
+                                cl_uint dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
+                            else{
+                                cl_int dest;
+                                args = CopyAndAdvance(args, dest);
+                                int_val = dest;
+                            }
                             break;
                     }
 
@@ -690,7 +729,8 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     // Practically, the LONGDOUBLE modifier is ignored since OpenCL
                     // has no such type. 
                     // 
-                    float_val = NEXT_ARG(args, double);
+                    args = CopyAndAdvance(args, float_val);
+
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, float_val)) >= cbuflen)
                         return -1;
                     //in some cases (i.e., inf, nan), values, we need to reformat
