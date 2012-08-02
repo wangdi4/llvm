@@ -170,6 +170,7 @@ list (APPEND C_SOURCE_FILES
   DMTest.cpp
   DMImageTest.cpp
   CMPTest.cpp
+  OpenCLKernelArgumentsParserTest.cpp
   DGTest.cpp
   Float16Test.cpp
   NEATALUUtils.cpp
@@ -257,6 +258,7 @@ add_dependencies(${TARGET_NAME}
   dynamic_load
   OCLRecorderStat
   OCLBuilder
+  OpenCLKernelArgumentsParser
   )
 
 add_dependencies(UnitTests ${TARGET_NAME})
@@ -271,6 +273,7 @@ add_llvm_executable(${TARGET_NAME}
   DMTest.cpp
   DMImageTest.cpp
   CMPTest.cpp
+  OpenCLKernelArgumentsParserTest.cpp
   DGTest.cpp
   Float16Test.cpp
   NEATALUUtils.h
@@ -282,6 +285,7 @@ add_llvm_executable(${TARGET_NAME}
   NEATValueTest.cpp
   NEATMathTest.cpp
   OCLBuiltinParserTest.cpp
+  OpenCLKernelArgumentsParserTest.cpp
   NEATALUImageTest.cpp
   SourceRecorder.cpp
   ClangSA.cpp
@@ -290,6 +294,7 @@ add_llvm_executable(${TARGET_NAME}
 add_subdirectory(fe_plugin_mock)
 
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
+include_directories(${LLVM_MAIN_SRC_DIR}/include)
 include_directories(${BACKEND_ROOT_DIR}/../cl_api)
 include_directories(${BACKEND_ROOT_DIR}/plugin_manager)
 include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)
@@ -306,12 +311,14 @@ include_directories(${LLVM_MAIN_SRC_DIR}/../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/PlugInNEAT)
 include_directories(${VALIDATIONS_ROOT}/OCLBuilder)
 include_directories(${VALIDATIONS_ROOT}/OCLRecorder)
+include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/Common )
 
 link_directories(${VALIDATIONS_ROOT}/../validations)
 link_directories(${LLVM_MAIN_SRC_DIR}/../external/tinyxml)
 link_directories(${VALIDATIONS_ROOT}/NEAT)
 link_directories(${VALIDATIONS_ROOT}/PlugInNEAT)
+
 
 set(DATA_MANAGER_LIBS DataManager tinyxml_STL)
 set(COMPARATOR_LIBS Comparator)
@@ -333,10 +340,15 @@ target_link_libraries(${TARGET_NAME}
   ${NEAT_ALU_LIBS}
   ${PLUGIN_NEAT_LIBS}
   ${LLVM_BINARY_DIR}/lib/libImathLibd.so
+  LLVMSupport
+  LLVMCore
+  LLVMAsmParser
   OclPluginManager
+  OpenCLKernelArgumentsParser
   dynamic_load
   OCLRecorderStat
   OCLBuilder
+  OpenCLKernelArgumentsParser
 )
 
 add_dependencies(${TARGET_NAME} 
@@ -348,6 +360,7 @@ add_dependencies(${TARGET_NAME}
   ${PLUGIN_NEAT_LIBS}
   ImathLibd_wrapper
   OclPluginManager
+  OpenCLKernelArgumentsParser
   dynamic_load
   OCLRecorderStat
   OCLBuilder
