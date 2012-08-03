@@ -24,6 +24,10 @@
 //In case of failures, an exception is thrown.
 reflection::FunctionDescriptor demangle(const char* rawstring);
 
+//
+//returns the stripped function name, of the function mangled byu the given
+//string
+std::string stripName(const char* rawstring);
 
 //
 //Purpose: converts the given function descriptor to string that represents

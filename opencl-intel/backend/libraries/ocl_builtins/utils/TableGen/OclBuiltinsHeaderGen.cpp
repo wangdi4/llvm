@@ -89,16 +89,35 @@ struct MangledNameEmmiter{
     m_formatter << "const char* mangledNames[] = {";
     m_formatter.endl();
     m_formatter.indent();
-    //enable double extentions in clang
-    m_code.append("#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n");
+    m_formatter.endl();
   }
+
+typedef std::pair<const OclBuiltin*,std::string> TypedBi;
+typedef std::list<TypedBi> TypedBiList;
+typedef TypedBiList::const_iterator TypedBiIter;
 
   ~MangledNameEmmiter(){
     llvm::Module* pModule = NULL;
     const char* fileName = "builtins.ll";
     llvm::SMDiagnostic errDiagnostic;
     llvm::LLVMContext context;
-    build(m_code, fileName);
+    std::list<const OclBuiltin*>::const_iterator biit = m_builtins.begin(),
+    bie = m_builtins.end();
+    TypedBiList typedbiList;
+    for(; biit != bie ; ++biit){
+      OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
+      for (typeIter=(*biit)->type_begin() ; typeIter!=typeEnd; ++typeIter){
+        TypedBi typedBi( *biit, (*typeIter)->getName() );
+        typedbiList.push_back( typedBi );
+      }
+    }
+    //enable double extentions in clang
+    std::string code = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+    typedbiList.sort(isLess);
+    TypedBiIter typeit, typee = typedbiList.end();
+    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
+      code += generateBuiltinOverload(typeit->first, typeit->second);
+    build(code, fileName);
     pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");
     //deleting the temporary output file
@@ -116,14 +135,13 @@ struct MangledNameEmmiter{
     m_formatter << "}; //end mangled names";
     m_formatter.endl();
     //generating the corresponding BI prototypes array
-    m_formatter << "const char* prototypes[] = {";
+    m_formatter << "const char* UNUSED(prototypes[]) = {";
     m_formatter.endl();
     m_formatter.indent();
-    std::list<std::string>::const_iterator lit = m_protorypes.begin(),
-    le = m_protorypes.end();
     biCounter = 0;
-    while(lit != le){
-      m_formatter << "\"" << *lit++ << "\",//" << biCounter++;
+    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
+      m_formatter << "\"" << getPrototype(typeit->first, typeit->second) <<
+      "\", //" << ++biCounter;
       m_formatter.endl();
     }
     m_formatter.unindent();
@@ -131,8 +149,29 @@ struct MangledNameEmmiter{
     m_formatter.endl();
   }
 
+  virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
+    const OclBuiltin* pBuiltin = it.second;
+    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable())
+      return;
+    m_builtins.push_back(pBuiltin);
+  }
+
+protected:
+  static bool isLess(const TypedBi& leftBi, const TypedBi& rightBi){
+    size_t lindex , rindex;
+    std::string left = getPrototype(leftBi.first, leftBi.second);
+    std::string right = getPrototype(rightBi.first, rightBi.second);
+    lindex = left.find('(');
+    rindex = right.find('(');
+    assert(lindex != std::string::npos && "illegal function prototype");
+    assert(rindex != std::string::npos && "illegal function prototype");
+    std::string lname = left.substr(0, lindex);
+    std::string rname = right.substr(0, rindex);
+    return lname.compare(rname) < 0;
+  }
+
   //generates the prototype of a fucntion as string
-  std::string getPrototype(const llvm::OclBuiltin* bi, const std::string& type){
+  static std::string getPrototype(const llvm::OclBuiltin* bi, const std::string& type){
     std::string ret;
     ret.append(bi->getCFunc(type));
     ret.append("(");
@@ -147,28 +186,6 @@ struct MangledNameEmmiter{
     ret.append(")");
     return ret;
   }
-
-  virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
-    const OclBuiltin* pBuiltin = it.second;
-    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable())
-      return;
-    OclBuiltin::const_type_iterator typeIter, typeEnd = pBuiltin->type_end();
-    //creating a function descriptor array
-    for (typeIter = pBuiltin->type_begin() ; typeIter != typeEnd; ++typeIter){
-      //mangled name
-      std::string biName = (*typeIter)->getName();
-      std::string bi = pBuiltin->getCProto(biName);
-      m_protorypes.push_back(getPrototype(pBuiltin, biName));
-      bi += generateDummyBody(
-        pBuiltin->getReturnBaseCType(biName),
-        pBuiltin->getReturnVectorLength(biName)
-      );
-      m_code.append(bi);
-      m_code.append("\n");
-    }
-  }
-
-protected:
 
   //generates 'dummy code' (which does nothing but lets the module compile)
   std::string generateDummyBody(const std::string& type, size_t veclen)const{
@@ -189,22 +206,47 @@ protected:
     return sstream.str();
   }
 
-  //holds the code with the builtins declaration, and dummy body
-  std::string m_code;
+  std::string generateBuiltinOverload(const OclBuiltin* pBuiltin,
+    const std::string& typeName){
+    std::string ret = pBuiltin->getCProto(typeName);
+    ret += generateDummyBody(
+      pBuiltin->getReturnBaseCType(typeName),
+      pBuiltin->getReturnVectorLength(typeName)
+    );
+    return ret;
+  }
 
-  //contains the prototype of all the builtin functions
-  std::list<std::string> m_protorypes;
+  //a list of built in function to be generated
+  std::list<const OclBuiltin*> m_builtins;
 
   //stream to which code should be generated
   CodeFormatter& m_formatter;
 };
 
+const char* DESC=
+"Ocl built-in functions data. (mangled name array, and a corresponding prototype array";
+
 void OclBuiltinsHeaderGen::run(raw_ostream& stream){
   OclBuiltinDB bidb(m_recordKeeper);
+  EmitSourceFileHeader(DESC, stream);
   CodeFormatter formatter(stream);
   formatter << "#ifndef __MANGLED_BI_NAMES_H__";
   formatter.endl();
   formatter << "#define __MANGLED_BI_NAMES_H__";
+  formatter.endl();
+  //
+  //emit the UNUSED macro
+  //
+  formatter << "#if defined(_WIN32) || defined(_WIN64)";
+  formatter.endl();
+  formatter << "#define UNUSED(X) __pragma(warning(suppress:4100))X";
+  formatter.endl();
+  formatter << "#else";
+  formatter.endl();
+  formatter << "#define UNUSED(X) X __attribute__((unused))";
+  formatter.endl();
+  formatter << "#endif//UNUSED";
+  formatter.endl();
   formatter.endl();
   {
     MangledNameEmmiter mangleEmmiter(formatter);

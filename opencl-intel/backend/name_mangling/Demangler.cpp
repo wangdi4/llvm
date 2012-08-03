@@ -94,3 +94,15 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
     parameterAccumulator.m_parameters.rend() );
   return ret;
 }
+
+//
+//Implementation of an API function.
+std::string stripName(const char* rawstring){
+  std::string mangledName(rawstring);
+  //making sure it starts with _Z
+  peelPrefix(mangledName);
+  std::string nameLen = peelNameLen(mangledName);
+  //cutting the prefix
+  int len = atoi(nameLen.c_str());
+  return mangledName.substr(0, len);
+}

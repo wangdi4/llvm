@@ -13,7 +13,7 @@
 
   File Name: FunctionDescriptor.h
 
-  \****************************************************************************/
+\****************************************************************************/
 
 #include <string>
 #include <vector>
@@ -22,6 +22,18 @@
 #define __FDESCRIPTOR_H__
 
 namespace reflection {
+
+namespace width{
+
+enum V{
+  SCALAR = 1,
+  TWO,
+  THREE,
+  FOUR = 4,
+  EIGHT = 8,
+  SIXTEEN = 16
+};
+}
 
 struct Type;
 
@@ -34,6 +46,11 @@ struct FunctionDescriptor{
   std::string name;
   //Parameter list of the function
   std::vector<Type*> parameters;
+  
+  bool operator == (const FunctionDescriptor&)const;
+  
+  width::V getWidth()const;
 };
 }//end reflection
+
 #endif
