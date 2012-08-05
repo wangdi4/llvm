@@ -381,6 +381,10 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 
 	SharedPtr<QueueEvent> pQueueEvent = m_pEventsManager->GetEventClass<QueueEvent>(dummy);
 	assert(pQueueEvent && "Expecting non NULL dummy-queue event");
+	if (NULL == pQueueEvent)
+	{
+		return CL_INVALID_VALUE;
+	}
 	res = pCommandQueue->WaitForCompletion(pQueueEvent);
 	if ( CL_FAILED(res) )
 	{

@@ -2342,7 +2342,7 @@ FillMemObjCommand::FillMemObjCommand(
 		m_szRegion[i] = pszRegion[i];
     }
 
-    memcpy(m_pattern, pattern, m_pattern_size);
+    MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
     m_pMemObj.pMemObj = pMemObj;
 }
 
@@ -2365,7 +2365,7 @@ FillMemObjCommand::FillMemObjCommand(
 	m_szOffset[0] = pszOffset;
 	m_szRegion[0] = pszRegion;
 
-	memcpy(m_pattern, pattern, m_pattern_size);
+	MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
 	m_pMemObj.pMemObj = pMemObj;
 }
 
@@ -2434,7 +2434,7 @@ cl_err_code FillMemObjCommand::Execute()
     // No need to copy m_pattern's content, since we are still in the host.
     assert(MAX_PATTERN_SIZE	>= m_pattern_size && "Trying to use a pattern larger than possible");
 	m_fillCmdParams.pattern_size = m_pattern_size;
-    memcpy(m_fillCmdParams.pattern, m_pattern, m_fillCmdParams.pattern_size);
+    MEMCPY_S(m_fillCmdParams.pattern, m_fillCmdParams.pattern_size, m_pattern, m_fillCmdParams.pattern_size);
 
 	//FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 	prepare_command_descriptor((m_commandType == CL_DEV_CMD_FILL_BUFFER) ? CL_DEV_CMD_FILL_BUFFER : CL_DEV_CMD_FILL_IMAGE, 

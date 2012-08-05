@@ -2356,6 +2356,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
             {
                 *errcode_ret = CL_INVALID_VALUE;
             }
+			delete pResourceInfo;
             return CL_INVALID_HANDLE;
         }
         return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, plane);
@@ -2369,6 +2370,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
             {
                 *errcode_ret = CL_INVALID_VALUE;
             }
+			delete pResourceInfo;
             return CL_INVALID_HANDLE;
         }
         return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, plane);
@@ -2381,6 +2383,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         {
             *errcode_ret = CL_INVALID_VALUE;
         }
+		delete[] pResourceInfo;
         return CL_INVALID_HANDLE;
     }
     return CreateFromD3DResource<IDirect3DResource9, IDirect3DDevice9>(context, flags, pResourceInfo, errcode_ret, CL_DX9_OBJECT_SURFACE, 2, MAXUINT);

@@ -136,7 +136,7 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
     {
         if ( NULL != pParamValue )
         {
-            memcpy(pParamValue, localParamValue, szOutputValueSize);
+            MEMCPY_S(pParamValue, szParamValueSize, localParamValue, szOutputValueSize);
         }
         if ( NULL != pszParamValueSizeRet )
         {

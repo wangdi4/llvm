@@ -393,6 +393,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_device_partition_property* m_cachedFissionMode;   // A copy of the property list used to create this device
         cl_uint                       m_cachedFissionLength; // How many entries the list contains
+	private:
+		SubDevice(const SubDevice&);
+		SubDevice& operator=(const SubDevice&);
     };
 
 

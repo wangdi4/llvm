@@ -107,7 +107,7 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	{
 		if ( NULL != paramValue )
 		{
-			memcpy(paramValue, localParamValue, outputValueSize);
+			MEMCPY_S(paramValue, szParamValueSize, localParamValue, outputValueSize);
 		}
 		if ( NULL != szParamValueSizeRet )
 		{

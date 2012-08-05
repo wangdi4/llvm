@@ -343,7 +343,7 @@ cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, c
 {
     // start by cleaning target:
     //memset(trgtColor, 0, sizeof(VecType));
-    memcpy(trgtColor, srcColor, sizeof(VecType));
+    MEMCPY_S(trgtColor, sizeof(VecType), srcColor, sizeof(VecType));
     
     #define MAP_CHANNEL(dst, src) trgtColor->s[dst] = srcColor->s[src];
     
