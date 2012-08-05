@@ -28,14 +28,14 @@ using namespace Validation;
 static std::string buildLibName (const char* s){
   std::stringstream ret;
 #ifdef _WIN32
-  ret << ".dll";
+  ret << s << ".dll";
 #else
   ret << "lib" << s << ".so";
 #endif
   return ret.str();
 }
 
-TEST( DISABLED_ClangStadalone, instance_creation){
+TEST(ClangStadalone, instance_creation){
 // this test crashes, so it is disabled until CSSD100013412 will be fixed
   std::string clangLib = buildLibName("clang_compiler");
   const char* source =   "__kernel void add (__global const int *a, __global const int *b, __global int *c){"
