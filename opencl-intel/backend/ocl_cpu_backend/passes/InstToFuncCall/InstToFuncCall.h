@@ -145,18 +145,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
 
                 /// Replaces:
-                /// %div = fdiv <16 x float> %tmp1, %tmp2
-                /// With:
-                /// %call_div = call <16 x float> @__ocl_svml_b2_div16(<16 x float> %tmp1, <16 x float> %tmp2) nounwind
-                FDiv_Lookup[std::make_pair(Float,Float)] = std::make_pair("_Z8divisionff", CallingConv::C);
-
-                /// Replaces:
-                /// %div = fdiv <16 x float> %tmp1, %tmp2
-                /// With:
-                /// %call_div = call <16 x float> @__ocl_svml_b2_div16(<16 x float> %tmp1, <16 x float> %tmp2) nounwind
-                FDiv_Lookup[std::make_pair(v16xFloat,v16xFloat)] = std::make_pair("_Z8divisionDv16_fS_", CallingConv::C);
-
-                /// Replaces:
                 /// %div = fdiv <16 x double> %tmp1, %tmp2
                 /// With:
                 /// %call_div = call <16 x double> @__ocl_svml_b2_div16(<16 x double> %tmp1, <16 x double> %tmp2) nounwind
