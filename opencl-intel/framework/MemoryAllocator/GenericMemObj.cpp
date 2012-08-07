@@ -180,6 +180,11 @@ cl_err_code GenericMemObject::Initialize(
         assert( CL_DEV_SUCCEEDED( err ) );
         assert( (unsigned int)device_properties.imageSharingGroupId  < MAX_DEVICE_SHARING_GROUP_ID );
         assert( (unsigned int)device_properties.bufferSharingGroupId < MAX_DEVICE_SHARING_GROUP_ID );
+		if ((unsigned int)device_properties.bufferSharingGroupId >= MAX_DEVICE_SHARING_GROUP_ID ||
+			(unsigned int)device_properties.imageSharingGroupId  >= MAX_DEVICE_SHARING_GROUP_ID)
+		{
+			return CL_INVALID_VALUE;
+		}
         assert( 0 == (device_properties.alignment & (device_properties.alignment - 1))
                         && "Device Mem alignment requirement is not a power of 2");
         assert( 0 == (device_properties.preferred_alignment & (device_properties.preferred_alignment - 1))

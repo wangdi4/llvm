@@ -50,6 +50,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
 		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
+
+	private:
+		CPUDeviceConfig(const CPUDeviceConfig&);
+		CPUDeviceConfig& operator=(const CPUDeviceConfig&);
     };
 
 }}}

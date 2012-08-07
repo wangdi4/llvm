@@ -85,7 +85,11 @@ void* D3D9Surface::Lock()
     const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
     SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
     void* const pData = pSurfaceLocker->Lock();
-    assert(NULL != pData);
+	assert(NULL != pData);
+	if (NULL == pData)
+	{
+		return NULL;
+	}
     assert(0 == plane || 1 == plane || 2 == plane);
     if (0 == plane)
     {

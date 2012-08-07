@@ -544,6 +544,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
         {
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
+			delete[] pDevices;
 			return CL_OUT_OF_HOST_MEMORY;
         }
 
@@ -553,6 +554,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
             delete[] pszHeaders;
+			delete[] pDevices;
 			return CL_OUT_OF_HOST_MEMORY;
         }
     }
@@ -572,7 +574,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
 
             delete[] pszHeaders;
             delete[] pszHeadersNames;
-
+			delete[] pDevices;
             return CL_INVALID_OPERATION;
         }
 
@@ -590,7 +592,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
 
             delete[] pszHeaders;
             delete[] pszHeadersNames;
-
+			delete[] pDevices;
             return CL_OUT_OF_HOST_MEMORY;
         }
 
@@ -727,7 +729,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
 
             delete[] pszHeaders;
             delete[] pszHeadersNames;
-
+			delete[] pfeCompilers;
             delete[] szUnrecognizedOptions;
             return CL_INVALID_COMPILER_OPTIONS;
         }
@@ -801,7 +803,8 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
                                                                       szBuildOptions, pfn_notify, user_data); 
     if (NULL == pPostBuildTask)
     {
-        //TODO: clean up
+        delete[] ppCompileTasks;
+		delete[] pszHeaders;
         return CL_OUT_OF_HOST_MEMORY;
     }
 
@@ -1307,7 +1310,7 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program>program, cl_uint num_
           delete[] ppCompileTasks;
           delete[] ppLinkTasks;
           delete[] szUnrecognizedOptions;
-
+		  delete[] pfeCompilers;
           return CL_INVALID_BUILD_OPTIONS;
       }
     }

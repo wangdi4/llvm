@@ -52,6 +52,10 @@ GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDe
 					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData) :
 	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData), m_hGLBackupCntx(NULL)
 {
+	if (*pclErr != CL_SUCCESS)
+	{
+		return;
+	}
     if (NULL == hGLCtx)
     {
         *pclErr = CL_INVALID_VALUE;

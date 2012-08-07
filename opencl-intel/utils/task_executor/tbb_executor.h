@@ -145,6 +145,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 #endif
 		ThreadIDAssigner*					m_threadPoolChangeObserver;
 		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
+
+	private:
+		TBBTaskExecutor(const TBBTaskExecutor&);
+		TBBTaskExecutor& operator=(const TBBTaskExecutor&);
 	};
 
     class MyObserver;
@@ -159,5 +163,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
     protected:
         MyObserver* m_observer;
+	
+	private:
+		TBBThreadPoolPartitioner(const TBBThreadPoolPartitioner&);
+		TBBThreadPoolPartitioner& operator=(const TBBThreadPoolPartitioner&);
     };
 }}}

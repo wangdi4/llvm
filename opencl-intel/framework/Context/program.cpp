@@ -276,23 +276,16 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
                     }
 
                     // now get the length of each kernel name
-                    size_t* puiKernelNameLengths = new size_t[uiNumKernels];
-	                if (NULL == puiKernelNameLengths)
-	                {
-		                return CL_OUT_OF_HOST_MEMORY;
-	                }
-	                clErrRet = pDevProg->GetKernelNames(NULL, puiKernelNameLengths, uiNumKernels);
+                    //size_t* puiKernelNameLengths = new size_t[uiNumKernels];
+					vector<size_t> puiKernelNameLengths(uiNumKernels);
+
+	                clErrRet = pDevProg->GetKernelNames(NULL, &puiKernelNameLengths[0], uiNumKernels);
 	                if (CL_FAILED(clErrRet))
 	                {
-		                delete[] puiKernelNameLengths;
 		                return clErrRet;
 	                }
-	                char** pszKernelNames = new char*[uiNumKernels];
-	                if (NULL == pszKernelNames)
-	                {
-		                delete[] puiKernelNameLengths;
-		                return CL_OUT_OF_HOST_MEMORY;
-	                }
+	                //char** pszKernelNames = new char*[uiNumKernels];
+					vector<char*> pszKernelNames(uiNumKernels);
 	                for (size_t i = 0; i < uiNumKernels; ++i)
 	                {
                         total_length += puiKernelNameLengths[i];
@@ -303,22 +296,18 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 			                {
 				                delete[] pszKernelNames[j];
 			                }
-			                delete[] pszKernelNames;
-			                delete[] puiKernelNameLengths;
 			                return CL_OUT_OF_HOST_MEMORY;
 		                }
 	                }
 
                     // and finaly get the names
-	                clErrRet = pDevProg->GetKernelNames(pszKernelNames, puiKernelNameLengths, uiNumKernels);
+	                clErrRet = pDevProg->GetKernelNames(&pszKernelNames[0], &puiKernelNameLengths[0], uiNumKernels);
 	                if (CL_FAILED(clErrRet))
 	                {
 		                for (size_t i = 0; i < uiNumKernels; ++i)
 		                {
 			                delete[] pszKernelNames[i];
 		                }
-		                delete[] pszKernelNames;
-		                delete[] puiKernelNameLengths;
 		                return clErrRet;
 	                }
 
@@ -331,8 +320,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	                    {
 		                    delete[] pszKernelNames[i];
 	                    }
-	                    delete[] pszKernelNames;
-	                    delete[] puiKernelNameLengths;
                         return CL_OUT_OF_HOST_MEMORY;
                     }
 

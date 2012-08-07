@@ -431,6 +431,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		t_OsEventPool	m_OsEventPool;
 #endif
+	
+	private:
+		Context(const Context&);
+		Context& operator=(const Context&);
 	};
 
 

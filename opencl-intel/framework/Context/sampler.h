@@ -90,7 +90,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint				m_clSamlerProps;
 		
 		DECLARE_LOGGER_CLIENT;
-
+	
+	private:
+		Sampler(const Sampler&);
+		Sampler& operator=(const Sampler&);
 	};
 
 }}}

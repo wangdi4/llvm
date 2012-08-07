@@ -213,6 +213,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												size_t *    pszParamValueSizeRet);
 
 	private:
+		
+		ContextModule(const ContextModule&);
+		ContextModule& operator=(const ContextModule&);
 
 		cl_err_code CheckMemObjectParameters(cl_mem_flags clMemFlags,
 										const cl_image_format * clImageFormat,

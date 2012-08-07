@@ -95,6 +95,10 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::drive_copy_between_
         case DATA_COPY_STATE_TO_BS:
             {          
                 assert( MAX_DEVICE_SHARING_GROUP_ID > from_grp_id );
+				if (MAX_DEVICE_SHARING_GROUP_ID <= from_grp_id)
+				{
+					return NULL;
+				}
                 SharingGroup& from = m_sharing_groups[ from_grp_id ];
 
                 dev_error = from.m_dev_mem_obj->clDevMemObjUpdateBackingStore( (void*)to_grp_id, &update_mode );

@@ -194,6 +194,10 @@ protected:
 	unsigned int* m_legalCoreIDs;
     TbbWorkersTrapper* m_trapper;
 	IAffinityChangeObserver* m_pObserver;
+
+private:
+	MyObserver(const MyObserver&);
+	MyObserver& operator=(const MyObserver&);
 };
 
 TBBThreadPoolPartitioner::TBBThreadPoolPartitioner(int numThreads, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver)

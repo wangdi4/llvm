@@ -174,6 +174,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_gpa_data *      m_pGPAData;
 
 		DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
+
+	private:
+		ExecutionModule(const ExecutionModule&);
+		ExecutionModule& operator=(const ExecutionModule&);
     };
 
 #if defined (DX_MEDIA_SHARING)

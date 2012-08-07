@@ -287,7 +287,7 @@ bool ReadWriteMemObject::Execute()
 	pObjPtr = MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
 
 	// Set Source/Destination
-	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+	MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
 
 	// In case the pointer parameter (Destination for CMD_READ and Source for CMD_WRITE) has pitch properties,
@@ -299,16 +299,16 @@ bool ReadWriteMemObject::Execute()
 	if ( CL_DEV_CMD_READ == m_pCmd->type )
 	{
 		sCpyParam.pSrc = (cl_char*)pObjPtr;
-		memcpy(sCpyParam.vSrcPitch, pObjPitchPtr, sizeof(sCpyParam.vSrcPitch));
+		MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), pObjPitchPtr, sizeof(sCpyParam.vSrcPitch));
 		sCpyParam.pDst = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
-		memcpy(sCpyParam.vDstPitch, cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
+		MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
 	}
 	else
 	{
 		sCpyParam.pSrc = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
-		memcpy(sCpyParam.vSrcPitch, cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
+		MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
 		sCpyParam.pDst = (cl_char*)pObjPtr;
-		memcpy(sCpyParam.vDstPitch, pObjPitchPtr, sizeof(sCpyParam.vDstPitch));
+		MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), pObjPitchPtr, sizeof(sCpyParam.vDstPitch));
 	}
 
 	// Execute copy routine
@@ -435,8 +435,8 @@ bool CopyMemObject::Execute()
 	//Copy 2D image to buffer
 	//Copy 3D image to buffer
 	//Buffer to image
-	memcpy(sCpyParam.vSrcPitch, cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
-	memcpy(sCpyParam.vDstPitch, cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vDstPitch));
+	MEMCPY_S(sCpyParam.vSrcPitch,  sizeof(sCpyParam.vSrcPitch), cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
+	MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vDstPitch));
 
 	sCpyParam.pSrc = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pSrcMemObj->pData, cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vSrcPitch, pSrcMemObj->uiElementSize);
 	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pDstMemObj->pData, cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
@@ -464,7 +464,7 @@ bool CopyMemObject::Execute()
 
 	//If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
 	//based on the size of each element in bytes multiplied by width.
-	memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
+	MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region, sizeof(sCpyParam.vRegion));
 	sCpyParam.vRegion[0] *= uiSrcElementSize;
 
 #if defined(USE_ITT)
@@ -965,9 +965,9 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     //TODO: Find more elegant solution for filling the workDesc structure
     //      Probably by making it part of cmdParams.
     workDesc.workDimension = cmdParams->work_dim;
-    memcpy(workDesc.globalWorkOffset, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM);
-    memcpy(workDesc.globalWorkSize, cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
-    memcpy(workDesc.localWorkSize, cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
+    MEMCPY_S(workDesc.globalWorkOffset, sizeof(workDesc.globalWorkOffset), cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM);
+    MEMCPY_S(workDesc.globalWorkSize, sizeof(workDesc.globalWorkSize), cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
+    MEMCPY_S(workDesc.localWorkSize, sizeof(workDesc.localWorkSize), cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
 
     //Todo: caliberate
     workDesc.minWorkGroupNum = 2 * m_pTaskDispatcher->getNumberOfThreads(); 
@@ -1101,6 +1101,10 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 		}
 	}
 
+	if (NULL == pCtx->GetExecutable())
+	{
+		return (cl_int)CL_DEV_ERROR_FAIL;
+	}
 	pCtx->GetExecutable()->PrepareThread();
 
 #if defined(USE_ITT)
@@ -1164,6 +1168,18 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 #endif // ITT
 
     WGContext* pCtx = GetWGContext(uiWorkerId);
+	if ( NULL == pCtx )
+	{
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
+		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
+		return (cl_int)CL_DEV_ERROR_FAIL;
+	}
+	if (NULL == pCtx->GetExecutable())
+	{
+		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
+		return (cl_int)CL_DEV_ERROR_FAIL;
+	}
+
     int ret = pCtx->GetExecutable()->RestoreThreadState();
 
     return ret;
@@ -1208,6 +1224,13 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 		assert((0 == y) && (0 == z));
 	}
 #endif
+	if (NULL == pExec)
+	{
+		#ifdef _DEBUG
+			-- m_lExecuting;
+		#endif
+		return;
+	}
 	pExec->Execute(groupId, NULL, NULL);
 
 #ifdef _DEBUG
@@ -1226,6 +1249,13 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
 
     assert(GetWGContext(uiWorkerId));
     ICLDevBackendExecutable_* pExec = GetWGContext(uiWorkerId)->GetExecutable();
+	if (NULL == pExec)
+	{
+		#ifdef _DEBUG
+			-- m_lExecuting;
+		#endif
+		return;
+	}
     // We always start from (0,0,0) and process whole WG
     // No Need in parameters now
 #ifdef _DEBUG
@@ -1241,6 +1271,7 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
         {
             for (groupId[0] = 0; groupId[0] < dims[0]; ++groupId[0])
             {
+
                 pExec->Execute(groupId, NULL, NULL);
             }
         }
@@ -1345,7 +1376,7 @@ bool FillMemObject::Execute()
 
     for (size_t offset=0 ; offset < width ; offset += cmdParams->pattern_size)
 	{
-		memcpy((fillBuf + offset), cmdParams->pattern, cmdParams->pattern_size);
+		MEMCPY_S((fillBuf + offset), width - offset , cmdParams->pattern, cmdParams->pattern_size);
 	}
 
 #ifdef _DEBUG_PRINT

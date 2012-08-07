@@ -1663,9 +1663,8 @@ cl_err_code NDRangeKernelCommand::Init()
 
     size_t szArgSize = 0;
     cl_char* pArgValuesCurrentLocation = pArgValues;
-
     // Here set the arguments.
-    for(i=0, szCurrentLocation=0; i< szArgCount; i++)
+    for(i=0; i< szArgCount; i++)
     {
         pArg = m_pKernel->GetKernelArg(i);
         if(pArg->IsMemObject())
@@ -1692,7 +1691,7 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             szArgSize = pArg->GetSize();
             // Copy data
-            memcpy(pArgValuesCurrentLocation, pArg->GetValue(), szArgSize);
+            MEMCPY_S(pArgValuesCurrentLocation, pArgValues + szCurrentLocation - pArgValuesCurrentLocation, pArg->GetValue(), szArgSize);
         }
         // increment pointer
         pArgValuesCurrentLocation += szArgSize;

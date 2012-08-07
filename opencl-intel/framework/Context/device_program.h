@@ -172,6 +172,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		// Ensure the object is multi-thread safe
 		mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
+
+	private:
+		DeviceProgram& operator=(const DeviceProgram&);
 	};
 }}}
 

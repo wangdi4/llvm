@@ -241,6 +241,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		DECLARE_LOGGER_CLIENT;
 
+		PlatformModule(const PlatformModule&);
+		PlatformModule& operator=(const PlatformModule&);
 	};
 
 }}}

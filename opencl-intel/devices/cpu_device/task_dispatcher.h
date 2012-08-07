@@ -72,7 +72,7 @@ public:
 	virtual void            setAffinityPermutation(size_t* pAffinityPermutation) { m_pAffinityPermutation = pAffinityPermutation; }
 	virtual size_t*         getAffinityPermutation() const                       { return m_pAffinityPermutation; }
 	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
-	
+
 protected:
 	cl_int						m_iDevId;
 	IOCLDevLogDescriptor*		m_pLogDescriptor;
@@ -119,6 +119,10 @@ protected:
 		cl_int					m_retCode;
 	};
 	cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+
+private:
+	TaskDispatcher(const TaskDispatcher&);
+	TaskDispatcher& operator=(const TaskDispatcher&);
 };
 
 class SubdeviceTaskDispatcherThread;

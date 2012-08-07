@@ -172,6 +172,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// type of kernel argument
 		cl_kernel_argument	m_clKernelArgType;
+
+		KernelArg(const KernelArg&);
+		KernelArg& operator=(const KernelArg&);
 	};
 
 	/**********************************************************************************************

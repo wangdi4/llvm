@@ -231,6 +231,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DECLARE_LOGGER_CLIENT;
     private:
 
+		Command& operator=(const Command&);
         // return true if ready
         bool AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<FissionableDevice> pDev );
         cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev );

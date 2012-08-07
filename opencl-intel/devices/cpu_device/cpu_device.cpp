@@ -1449,6 +1449,8 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 					//Disallow re-partitioning devices BY_NAMES
 					if (pParent->is_by_names)
 					{
+						delete[] pNewsubdeviceId->legal_core_ids;
+						delete pNewsubdeviceId;
 						return CL_DEV_NOT_SUPPORTED;
 					}
 					pNewsubdeviceId->is_numa     = pParent->is_numa;

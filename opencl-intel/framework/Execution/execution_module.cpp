@@ -1930,7 +1930,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 			return CL_INVALID_WORK_ITEM_SIZE;
 		}
         clLocalArray<size_t> pszMaxWorkItemSizes(uiMaxWorkItemDim);
-        pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
+		pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
 
         for( ui =0; ui<uiWorkDim; ui++)
         {

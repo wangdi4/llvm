@@ -30,5 +30,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool CopySourceStrings(cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths);
 
 		char*  m_szSourceString;
+	
+	private:
+		ProgramWithSource(const ProgramWithSource&);
+		ProgramWithSource& operator=(const ProgramWithSource&);
 	};
 }}}
