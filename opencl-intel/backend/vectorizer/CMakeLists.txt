@@ -43,7 +43,6 @@ add_llvm_library( LLVMVectorizer
   Resolver/SelectLower.cpp
   Resolver/SpecialCaseBuiltinResolver.cpp
   VolcanoWrapper/Main.cpp
-  VolcanoWrapper/VecHeuristics.cpp
   Utils/Mangler.cpp
   Utils/VectorizerUtils.cpp
   Utils/IRInjection.cpp

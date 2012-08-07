@@ -918,8 +918,9 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 }
 
 extern "C" {
-  FunctionPass* createWeightedInstCounter(bool BeforeVec = true) {
-    return new intel::WeightedInstCounter(BeforeVec);
+  FunctionPass* createWeightedInstCounter(bool preVec = true, bool sanityOnly = false, 
+                                          Intel::CPUId cpuId = Intel::CPUId()) {
+    return new intel::WeightedInstCounter(preVec, sanityOnly, cpuId);
   }
 }
 

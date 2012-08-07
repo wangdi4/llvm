@@ -669,6 +669,14 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   // Getting here, the function is a "normal" kind of builtin function.
   unsigned vectorWidth = foundFunction.second;
   V_ASSERT(foundFunction.first && vectorWidth > 1 && "should still have found vector function");
+  // In release mode, just don't scalarize the instruction if the first part
+  // of the above assert fails.
+  if (!foundFunction.first)
+  {
+    recoverNonScalarizableInst(CI);
+    return;
+  }
+
   V_ASSERT(MAX_INPUT_VECTOR_WIDTH >= vectorWidth && "vector size not supported");
 
   // Find scalar function, using hash entry

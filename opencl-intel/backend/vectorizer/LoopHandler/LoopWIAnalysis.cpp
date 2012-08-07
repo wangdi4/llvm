@@ -96,7 +96,13 @@ bool LoopWIAnalysis::runOnLoop(Loop *L, LPPassManager &LPM) {
   getHeaderPHiStride();
 
   // Analyze rest of the loop instructions.
-  ScanLoop(m_DT->getNode(m_header));
+  DomTreeNode* DTNode = m_DT->getNode(m_header);
+  assert(DTNode && "Could not get DT node for header");
+  // In release, don't try to analyze...
+  if (!DTNode)
+    return false;
+
+  ScanLoop(DTNode);
 
   // Analysis does not change the module.
   return false;

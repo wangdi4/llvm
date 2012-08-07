@@ -51,7 +51,9 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
   getHeaderPHi();
 
   // Scans the loop for strided values to be moved to the pre-header.
-  ScanLoop(m_DT->getNode(m_header));
+  DomTreeNode* DTNode = m_DT->getNode(m_header);
+  assert(DTNode && "Could not get DT node for header");
+  ScanLoop(DTNode);
 
   // Screens instruction that are expected to create performance degradation
   // from the hoisted instructions set.

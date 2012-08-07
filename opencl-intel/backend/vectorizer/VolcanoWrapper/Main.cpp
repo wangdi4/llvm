@@ -45,6 +45,7 @@ extern "C" FunctionPass* createPacketizerPass(bool);
 extern "C" FunctionPass* createMICResolverPass();
 extern "C" FunctionPass* createX86ResolverPass();
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
+extern "C" FunctionPass* createWeightedInstCounter(bool, bool, Intel::CPUId);
 extern "C" Pass *createSpecialCaseBuiltinResolverPass();
 
 
@@ -210,7 +211,8 @@ bool Vectorizer::runOnModule(Module &M)
       fpm1.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_scalarizer"));
 
     fpm1.add(createDeadCodeEliminationPass());
-    WeightedInstCounter* preCounter = new WeightedInstCounter(true, !autoVec, m_pConfig->GetCpuId());
+    WeightedInstCounter* preCounter = (WeightedInstCounter*)
+                                        createWeightedInstCounter(true, !autoVec, m_pConfig->GetCpuId());
     fpm1.add(preCounter);
     fpm1.add(createScalarizerPass());
 
@@ -299,7 +301,8 @@ bool Vectorizer::runOnModule(Module &M)
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
       
     //We only need the "post" run if there's doubt about what to do.
-    WeightedInstCounter* postCounter = new WeightedInstCounter(false, !autoVec, m_pConfig->GetCpuId());
+    WeightedInstCounter* postCounter = (WeightedInstCounter*)
+                                          createWeightedInstCounter(false, !autoVec, m_pConfig->GetCpuId());
     if (autoVec)
       fpm2.add(postCounter);
 

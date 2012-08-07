@@ -146,10 +146,14 @@ void FunctionSpecializer::CollectDominanceInfo() {
   for (Function::iterator bb = m_func->begin(), bbe = m_func->end(); bb != bbe ; ++bb) {
     Region *reg = m_RI->getRegionFor(bb);
     V_ASSERT(reg && "getRegionFor failed!");
+    // In release versions, just don't try to specialize...
+    if (!reg)
+      return;
+
     // Look for every region only once - upon its entry BB
     if (reg->getEntry() != bb) continue;
     // Accounting for the case of nested regions, starting from this BB: 
-	// select the outmost one which has a successor
+	  // select the outmost one which has a successor
     Region *cur_reg = reg;
     while (cur_reg && cur_reg->getEntry() == bb && RegionHasSuccessor(cur_reg)) {
       reg = cur_reg;
