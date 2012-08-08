@@ -11,7 +11,7 @@ define i16 @cvt(double %a) nounwind readnone ssp {
 entry:
 ; KNF: vcvtpd2pi
 ;
-; KNC: vcvtfxpntpd2dq $0, %zmm0, %zmm{{[1-9]}}{%k{{[1-9]}}}
+; KNC: vcvtfxpntpd2dq $3, %zmm0, %zmm{{[1-9]}}{%k{{[1-9]}}}
   %conv = fptoui double %a to i16
   ret i16 %conv
 }
@@ -23,7 +23,7 @@ entry:
   %i = load double* @g
 ; KNF: vcvtpd2pi
 ; 
-; KNC: vcvtfxpntpd2dq $0, g(%rip){1to8}, %zmm0{%k{{[1-9]}}} 
+; KNC: vcvtfxpntpd2dq $3, g(%rip){1to8}, %zmm0{%k{{[1-9]}}} 
   %conv = fptoui double %i to i16
   ret i16 %conv
 }

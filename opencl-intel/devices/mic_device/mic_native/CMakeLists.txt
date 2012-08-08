@@ -115,7 +115,7 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                             COMMAND ${DEVICE_LINKER} ${TARGET_EXE} ${OBJ_FILES}
 
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT}
+                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${BACKEND_LIB_DIR}/lib${BACKEND_LIB}.a
                             WORKING_DIRECTORY ${BIN_DIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
                             VERBATIM
@@ -168,9 +168,9 @@ endif()
 
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
-#               -std=c++0x
-				# next entry - support converting Linux trap signals into C++ exceptions
-				-fnon-call-exceptions
+                # -std=c++0x
+                # next entry - support converting Linux trap signals into C++ exceptions
+                -fnon-call-exceptions
                 -fstack-security-check
                 -use-msasm
                 -mCG_lrb_rex_workaround=F
@@ -193,15 +193,15 @@ list( APPEND MIC_FLAGS
                 -I ${MIC_TBB_HEADERS_PATH}
                 -I ${COI_SDK_PATH}/include
                 )
-				
+
 list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
     )
 
 if (KNC_CARD)
-	list( APPEND MIC_FLAGS -DKNC_CARD )
+    list( APPEND MIC_FLAGS -DKNC_CARD )
 else (KNC_CARD)
-	list( APPEND MIC_FLAGS -DKNF_CARD )
+    list( APPEND MIC_FLAGS -DKNF_CARD )
 endif (KNC_CARD)
 
 if ( MIC_TESTING_MODE )
@@ -227,8 +227,8 @@ set( MIC_LINK_FLAGS      )
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
-				# next entry - support converting Linux trap signals into C++ exceptions
-				-fnon-call-exceptions
+                # next entry - support converting Linux trap signals into C++ exceptions
+                -fnon-call-exceptions
 
                 # library search path at link
                 -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib

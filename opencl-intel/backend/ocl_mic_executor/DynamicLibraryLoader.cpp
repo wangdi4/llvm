@@ -25,7 +25,7 @@ File Name:  DynamicLibraryLoader.cpp
 #if defined(_WIN32)
     #include <windows.h>
 #else
-    #include <dlfcn.h> 
+    #include <dlfcn.h>
     #include <linux/limits.h>
     #define MAX_PATH PATH_MAX
 #endif
@@ -33,7 +33,7 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-#define OCL_SVML_FUNCTIONS_COUNT    1956
+#define OCL_SVML_FUNCTIONS_COUNT    1974
 
 // The conversion functions use the old format for rounding modes on KNF.
 // We use the tokens defined in CVT_RT? and replace them with the appropriate values at run time,
@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #define CVT_RTZ "%2"
 #define CVT_RTP "%3"
 #define CVT_RTE "%4"
-static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] = 
+static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] =
 {
     "acos1",
     "acos16",
@@ -428,6 +428,24 @@ static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] =
     "cospif4_native",
     "cospif8",
     "cospif8_native",
+    "cvtfp64tofp32"CVT_RTZ"1",
+    "cvtfp64tofp32"CVT_RTZ"16",
+    "cvtfp64tofp32"CVT_RTZ"2",
+    "cvtfp64tofp32"CVT_RTZ"3",
+    "cvtfp64tofp32"CVT_RTZ"4",
+    "cvtfp64tofp32"CVT_RTZ"8",
+    "cvtfp64tofp32"CVT_RTP"1",
+    "cvtfp64tofp32"CVT_RTP"16",
+    "cvtfp64tofp32"CVT_RTP"2",
+    "cvtfp64tofp32"CVT_RTP"3",
+    "cvtfp64tofp32"CVT_RTP"4",
+    "cvtfp64tofp32"CVT_RTP"8",
+    "cvtfp64tofp32"CVT_RTN"1",
+    "cvtfp64tofp32"CVT_RTN"16",
+    "cvtfp64tofp32"CVT_RTN"2",
+    "cvtfp64tofp32"CVT_RTN"3",
+    "cvtfp64tofp32"CVT_RTN"4",
+    "cvtfp64tofp32"CVT_RTN"8",
     "cvtfptoi32"CVT_RTN"nosat1",
     "cvtfptoi32"CVT_RTN"nosat16",
     "cvtfptoi32"CVT_RTN"nosat2",
@@ -2020,7 +2038,7 @@ DynamicLibraryLoader::~DynamicLibraryLoader()
     if(NULL != m_pLibHandle)
     {
 #if defined(__LP64__)
-        dlclose(m_pLibHandle); 
+        dlclose(m_pLibHandle);
 #else
         assert(false && "Not Implemented");
 #endif
@@ -2063,7 +2081,7 @@ void DynamicLibraryLoader::Load()
     }
 
 #endif
-    if (NULL == m_pLibHandle) 
+    if (NULL == m_pLibHandle)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Loading SVML library failed - ") + strErr);
     }
@@ -2112,7 +2130,7 @@ void DynamicLibraryLoader::GetLibraryFunctions(
         void* pFuncAddress = NULL;
 
 #if defined(__LP64__)
-        pFuncAddress = dlsym(m_pLibHandle, functionName.c_str()); 
+        pFuncAddress = dlsym(m_pLibHandle, functionName.c_str());
 #else
         assert(false && "Not Implemented");
 #endif

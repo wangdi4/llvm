@@ -310,4 +310,5 @@ include "MIC/relational.td"
 include "MIC/vloadstore.td"
 include "MIC/misc.td"
 include "MIC/conversion.td"
+include "MIC/conversion_sat.td"
 }

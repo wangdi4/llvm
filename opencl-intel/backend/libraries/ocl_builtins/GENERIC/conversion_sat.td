@@ -43,65 +43,35 @@ code u2s_u2u_down_sat = [{
 
 // f32-to-X conversion
 code fp2signed_flat_sat  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)(generic_min_$ReturnBaseType), ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_flat_sat_rte  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_flat_sat_rtz  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_flat_sat_rtp  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_flat_sat_rtn  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName);
   }];
 
 code fp2unsigned_flat_sat  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_flat_sat_rte  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_flat_sat_rtz  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_flat_sat_rtp  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_flat_sat_rtn  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName);
   }];
 
 code fp2signed_down_sat =  [{
@@ -113,7 +83,7 @@ code fp2signed_down_sat =  [{
 code fp2signed_down_sat_rte =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code fp2signed_down_sat_rtz =  [{
@@ -138,157 +108,102 @@ code fp2signed_down_sat_rtn =  [{
 code fp2unsigned_down_sat =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
+                  ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rte =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtz =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtp =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtn =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 
 code fp2unsigned_up_sat = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_up_sat_rte = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_up_sat_rtz = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_up_sat_rtp = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2unsigned_up_sat_rtn = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType), ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName);
   }];
 
 code fp2signed_up_sat = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_up_sat_rte = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_up_sat_rtz = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_up_sat_rtp = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName);
   }];
 code fp2signed_up_sat_rtn = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName);
   }];
 
-// f64-to-X conversion 
+// f64-to-X conversion
 code dp2signed_flat_sat  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2signed_flat_sat_rte  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2signed_flat_sat_rtz  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2signed_flat_sat_rtp  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2signed_flat_sat_rtn  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName);
   }];
 
 code dp2unsigned_flat_sat  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2unsigned_flat_sat_rte  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2unsigned_flat_sat_rtz  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2unsigned_flat_sat_rtp  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName);
   }];
 code dp2unsigned_flat_sat_rtn  = [{
-    return as_$ReturnType(
-            clamp(
-              as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                  ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType));
+    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName);
   }];
 
 code dp2signed_down_sat =  [{
@@ -300,7 +215,7 @@ code dp2signed_down_sat =  [{
 code dp2signed_down_sat_rte =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code dp2signed_down_sat_rtz =  [{
@@ -325,94 +240,37 @@ code dp2signed_down_sat_rtn =  [{
 code dp2unsigned_down_sat =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rte =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtz =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtp =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtn =  [{
     return as_$ReturnType(
             trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-
-code dp2unsigned_up_sat = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2unsigned_up_sat_rte = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2unsigned_up_sat_rtz = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2unsigned_up_sat_rtp = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2unsigned_up_sat_rtn = [{
-    return as_$ReturnType(
-            zext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-
-code dp2signed_up_sat = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2signed_up_sat_rte = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2signed_up_sat_rtz = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2signed_up_sat_rtp = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
-  }];
-code dp2signed_up_sat_rtn = [{
-    return as_$ReturnType(
-            sext_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
-                    ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
+              as_$Arg0igentype(
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
+                    ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 
 //def convert_u8_sat_rte  : OclBuiltin<"convert_$ReturnType_sat_rte", (outs  u8gentype:$ret), (ins gentype:$x), [], []>;
@@ -599,15 +457,14 @@ list<OclType> u64_s2u_up = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
 OclBuiltinImpl unsigned_up_u64_sat = OclBuiltinImpl<convert_u64_sat, u64_unsigned_up, 0, unsigned_up_sat>;
 OclBuiltinImpl flat_u64_sat = OclBuiltinImpl<convert_u64_sat, u64_flat, 0, s2u_flat_sat>;
 OclBuiltinImpl s2u_up_u64_sat = OclBuiltinImpl<convert_u64_sat, u64_s2u_up, 0, s2u_up_sat>;
-OclBuiltinImpl fp2unsigned_up_u64_sat = OclBuiltinImpl<convert_u64_sat, f32_types, 0, fp2signed_up_sat>;
-OclBuiltinImpl dp2unsigned_flat_u64_sat = OclBuiltinImpl<convert_u64_sat, f64_types, 0, dp2signed_flat_sat>;
-OclBuiltinImpl fp2unsigned_up_u64_sat_rte = OclBuiltinImpl<convert_u64_sat_rte, f32_types, 0, fp2signed_up_sat_rte>;
-OclBuiltinImpl dp2unsigned_flat_u64_sat_rte = OclBuiltinImpl<convert_u64_sat_rte, f64_types, 0, dp2signed_flat_sat_rte>;
-OclBuiltinImpl fp2unsigned_up_u64_sat_rtz = OclBuiltinImpl<convert_u64_sat_rtz, f32_types, 0, fp2signed_up_sat_rtz>;
-OclBuiltinImpl dp2unsigned_flat_u64_sat_rtz = OclBuiltinImpl<convert_u64_sat_rtz, f64_types, 0, dp2signed_flat_sat_rtz>;
-OclBuiltinImpl fp2unsigned_up_u64_sat_rtp = OclBuiltinImpl<convert_u64_sat_rtp, f32_types, 0, fp2signed_up_sat_rtp>;
-OclBuiltinImpl dp2unsigned_flat_u64_sat_rtp = OclBuiltinImpl<convert_u64_sat_rtp, f64_types, 0, dp2signed_flat_sat_rtp>;
-OclBuiltinImpl fp2unsigned_up_u64_sat_rtn = OclBuiltinImpl<convert_u64_sat_rtn, f32_types, 0, fp2signed_up_sat_rtn>;
-OclBuiltinImpl dp2unsigned_flat_u64_sat_rtn = OclBuiltinImpl<convert_u64_sat_rtn, f64_types, 0, dp2signed_flat_sat_rtn>;
-
+OclBuiltinImpl fp2unsigned_up_u64_sat = OclBuiltinImpl<convert_u64_sat, f32_types, 0, fp2unsigned_up_sat>;
+OclBuiltinImpl dp2unsigned_flat_u64_sat = OclBuiltinImpl<convert_u64_sat, f64_types, 0, dp2unsigned_flat_sat>;
+OclBuiltinImpl fp2unsigned_up_u64_sat_rte = OclBuiltinImpl<convert_u64_sat_rte, f32_types, 0, fp2unsigned_up_sat_rte>;
+OclBuiltinImpl dp2unsigned_flat_u64_sat_rte = OclBuiltinImpl<convert_u64_sat_rte, f64_types, 0, dp2unsigned_flat_sat_rte>;
+OclBuiltinImpl fp2unsigned_up_u64_sat_rtz = OclBuiltinImpl<convert_u64_sat_rtz, f32_types, 0, fp2unsigned_up_sat_rtz>;
+OclBuiltinImpl dp2unsigned_flat_u64_sat_rtz = OclBuiltinImpl<convert_u64_sat_rtz, f64_types, 0, dp2unsigned_flat_sat_rtz>;
+OclBuiltinImpl fp2unsigned_up_u64_sat_rtp = OclBuiltinImpl<convert_u64_sat_rtp, f32_types, 0, fp2unsigned_up_sat_rtp>;
+OclBuiltinImpl dp2unsigned_flat_u64_sat_rtp = OclBuiltinImpl<convert_u64_sat_rtp, f64_types, 0, dp2unsigned_flat_sat_rtp>;
+OclBuiltinImpl fp2unsigned_up_u64_sat_rtn = OclBuiltinImpl<convert_u64_sat_rtn, f32_types, 0, fp2unsigned_up_sat_rtn>;
+OclBuiltinImpl dp2unsigned_flat_u64_sat_rtn = OclBuiltinImpl<convert_u64_sat_rtn, f64_types, 0, dp2unsigned_flat_sat_rtn>;
 
