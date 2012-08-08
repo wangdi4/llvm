@@ -1,10 +1,11 @@
 /*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
+ * Copyright © 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "CLWGLoopBoundaries.h"
@@ -275,8 +276,6 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
       // cur is uniform than fill uniformCands.
       uniformConds.push_back(cur);
     } else if (ICmpInst *cmp = dyn_cast<ICmpInst>(cur)) {
-      // cur is icmp if relational (<, <=, >, >=) fills compares.
-      if (!cmp->isRelational()) return false;
       compares.push_back(cmp);
     } else if (cur->getOpcode() == rootOp) {
       // It is the same as root it's operands are new candidates
@@ -324,6 +323,23 @@ bool CLWGLoopBoundaries::traceBackBound(ICmpInst *cmp, unsigned TIDInd,
   return false;
 }
 
+void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
+                                              Value *toRep) {
+  assert(toRep->getType() == m_indTy && "bad type");
+  SmallVector<CallInst *, 4> tidCalls;
+  if (isGID) LoopUtils::getAllCallInFunc(GET_GID_NAME, m_F, tidCalls);
+  else       LoopUtils::getAllCallInFunc(GET_LID_NAME, m_F, tidCalls);
+  for (unsigned i=0; i<tidCalls.size(); ++i) {
+    CallInst *tidCall = tidCalls[i];
+    assert(isa<ConstantInt>(tidCall->getArgOperand(0)) && "non const dim");
+    ConstantInt *dimConst = cast<ConstantInt>(tidCall->getArgOperand(0));
+    unsigned dimArg = dimConst->getZExtValue();
+    if (dim == dimArg) {
+      tidCall->replaceAllUsesWith(toRep);
+      tidCall->eraseFromParent();
+    }
+  }
+}
 
 bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
                                            TIDDescVec& eeVec){
@@ -341,16 +357,74 @@ bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
   // Traceback the boundary value.
   Value *bound, *tid;
   if (!traceBackBound(cmp, TIDInd, bound, tid)) return false;
+
+  // Get the tid properties from the map
   assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
-  
-  //Collect attributes of the compare instruction. 
+  std::pair<unsigned, bool> tidProp = m_TIDs[tid];
+  unsigned dim = tidProp.first;
+  bool isGID = tidProp.second;
+
   CmpInst::Predicate pred = cmp->getPredicate();
+  if(!cmp->isRelational()) {
+    assert ((pred == CmpInst::ICMP_EQ || pred == CmpInst::ICMP_NE) && 
+           "unexpected non relational cmp predicate");
+    if ((pred == CmpInst::ICMP_EQ) ^ EETrueSide) {
+      // Here is support for cases where bound is the only value for the tid,
+      // meaning the branch is one of the two options:
+      // a. if (tid == bound) { kernel_code}
+      // b. if (tid != bound) exit
+    
+      // Since bound is the only valid value for the TID we can replace all
+      // the calls with it.
+      replaceTidWithBound(isGID, dim, bound);
+      
+      // The bound is the only option for tid so we will fill it as both 
+      // upper bound and lower bound, both inclusive. sign of the comparison
+      // is not important, since it is equality.
+      // Note that we must still update the eeVec with the bounds since
+      // the bound might be out of range (not in [0 - local_size))
+      eeVec.push_back(TIDDesc(bound, dim, true, true, false, isGID));
+      eeVec.push_back(TIDDesc(bound, dim, false, true, false, isGID));
+      return true;
+    } else {
+      // In general we do not support case where single work item does not execute,
+      // meaning the branch is one of the two options:
+      // a. if (tid != bound) { kernel_code}
+      // b. if (tid == bound) exit
+      // However, if bound=0 we can treat this as exclusive lower bound since tid is
+      // known to be >=0.
+      Constant *constBound = dyn_cast<Constant>(bound);
+      // Incase the bound is not a constant try constant fold it.
+      if (!constBound) {
+        Instruction *instBound = dyn_cast<Instruction>(bound);
+        if (instBound) {
+          constBound = ConstantFoldInstruction(instBound);
+        }
+      }
+
+      if (constBound && constBound->isNullValue()) {
+        eeVec.push_back(TIDDesc(bound, dim, false, false, false, isGID));
+        return true;
+      }
+    }
+
+    // Could not handle non- relational compare.
+    return false;
+  }
+
+  // Here is the support for relational compare {<, <= , >, >=}
+  assert ((pred == CmpInst::ICMP_ULT || pred == CmpInst::ICMP_ULE ||
+           pred == CmpInst::ICMP_SLT || pred == CmpInst::ICMP_SLE ||
+           pred == CmpInst::ICMP_UGT || pred == CmpInst::ICMP_UGE ||
+           pred == CmpInst::ICMP_SGT || pred == CmpInst::ICMP_SGE )
+           && "unexpected relational cmp predicate");
+  //Collect attributes of the compare instruction. 
   bool isPredUpper = (pred == CmpInst::ICMP_ULT || pred == CmpInst::ICMP_ULE ||
                       pred == CmpInst::ICMP_SLT || pred == CmpInst::ICMP_SLE);
   bool isInclusive = (pred == CmpInst::ICMP_ULE || pred == CmpInst::ICMP_UGE ||
                       pred == CmpInst::ICMP_SLE || pred == CmpInst::ICMP_SGE);
   bool isSigned = cmp->isSigned();
-  
+
   // When decidng whether the uniform value is an upper bound, and whether it 
   // is inclusive we need to take into consideration the index of unifrom value
   // and the whether we exit if the condition is met.
@@ -361,13 +435,10 @@ bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
   // if BB1 is return uni is lower bound and inclusive
   bool isUpper = isPredUpper ^ (TIDInd == 1) ^ EETrueSide;
   bool containsVal = isInclusive ^ EETrueSide;
- 
-  // Get the tid properties from the map
-  std::pair<unsigned, bool> tidProp= m_TIDs[tid];
-  unsigned dim = tidProp.first;
-  bool isGID = tidProp.second;
+
   // Update the boundary descriptions vector with the current compare.
   eeVec.push_back(TIDDesc(bound, dim, isUpper, containsVal, isSigned, isGID));
+
   return true;
 }
 
@@ -391,8 +462,7 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   if (isUniform(condInst)) {
     uniformConds.push_back(condInst);
   } else if (ICmpInst *cmp = dyn_cast<ICmpInst>(condInst) ) {
-    if(!cmp->isRelational()) return false;
-    compares.push_back(cast<ICmpInst>(condInst));
+    compares.push_back(cmp);
   } else if (EETrueSide && condInst->getOpcode() == Instruction::Or) {
     if (!collectCond(compares, uniformConds, condInst)) return false; 
   } else if (!EETrueSide && condInst->getOpcode() == Instruction::And) {
@@ -443,11 +513,11 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
         return true;
       // For calls ask the runtime object.
       case Instruction::Call :
-	  {	
+      {    
         std::string name = (cast<CallInst>(it))->getCalledFunction()->getNameStr();
         if (!m_rtServices->hasNoSideEffect(name)) return true;
-		break;
-	  }
+        break;
+      }
       default:
         break;
     }    

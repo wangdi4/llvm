@@ -279,6 +279,12 @@ private:
   ///@brief retruns the uniform early exit condition.
   Value *obtainUniformCond(BasicBlock *BB, VMap &valueMap);
 
+  ///@brief replaces tid calls with given value.
+  ///@param isGID - true get_global_id , false get_local_id.
+  ///@param dim - dimension argument.
+  ///@param toRep - value to replace tid with.
+  void replaceTidWithBound (bool isGID, unsigned dim, Value *toRep);
+
   /// @brief print data collected by the pass on the given module
   /// @param OS stream to print the info regarding the module into
   /// @param M pointer to the Module
