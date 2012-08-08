@@ -338,7 +338,7 @@ cl_int CL_API_CALL clGetDeviceIDs(
 
     cl_int errCode = CL_SUCCESS;
 
-    // Lock Devices Map, devices might be concurrently modifed
+    // Lock Devices Map, devices might be concurrently modified
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
     for( OCLCRT::DEV_INFO_MAP::const_iterator itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
@@ -7349,6 +7349,8 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_device_id* platform_devices  = NULL;
 
 
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
     if( ( platform == NULL ) || !isValidPlatform( platform ) )
     {
         errCode = CL_INVALID_PLATFORM;
@@ -7361,8 +7363,6 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
         errCode = CL_INVALID_VALUE;
         goto FINISH;
     }
-
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
     for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
          itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
@@ -7433,9 +7433,9 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
             break;
         }
     }
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
 
 FINISH:
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
@@ -7461,6 +7461,8 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(
     cl_uint platform_num_devices = 0;
     cl_device_id* platform_devices = NULL;
 
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
         return CL_INVALID_DEVICE;
@@ -7477,9 +7479,7 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(
     {
         errCode = CL_INVALID_VALUE;
         goto FINISH;
-    }
-
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+    }     
 
     for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
          itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
@@ -7551,9 +7551,9 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(
             break;
         }
     }
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
 
 FINISH:
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
@@ -7578,6 +7578,8 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
     cl_uint platform_num_devices    = 0;
     cl_device_id* platform_devices  = NULL;
 
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
     if( ( platform == NULL ) || !isValidPlatform( platform ) )
     {
         errCode = CL_INVALID_PLATFORM;
@@ -7590,8 +7592,6 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
         errCode = CL_INVALID_VALUE;
         goto FINISH;
     }
-
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
     for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
          itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
@@ -7661,9 +7661,9 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromD3D10KHR(
             break;
         }
     }
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
 
 FINISH:
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;
@@ -7688,6 +7688,8 @@ cl_int CL_API_CALL clGetDeviceIDsFromD3D11KHR(
     cl_uint platform_num_devices    = 0;
     cl_device_id* platform_devices  = NULL;
 
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
         return CL_INVALID_DEVICE;
@@ -7705,8 +7707,6 @@ cl_int CL_API_CALL clGetDeviceIDsFromD3D11KHR(
         errCode = CL_INVALID_VALUE;
         goto FINISH;
     }
-
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
     for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
          itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
@@ -7776,9 +7776,9 @@ cl_int CL_API_CALL clGetDeviceIDsFromD3D11KHR(
             break;
         }
     }
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
 
 FINISH:
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
     if( num_devices != NULL )
     {
         *num_devices = num_devices_ret;

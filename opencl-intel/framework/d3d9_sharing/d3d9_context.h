@@ -68,8 +68,7 @@ class D3DContext : public Context
         bool operator()(const D3DResourceInfo<RESOURCE_TYPE>* left, const D3DResourceInfo<RESOURCE_TYPE>* right) const;
 
     };
-
-    IUnknown* const m_pD3DDevice;
+    
     set<const D3DResourceInfo<RESOURCE_TYPE>*, D3DResourceInfoComparator> m_resourceInfoSet;
     Intel::OpenCL::Utils::OclMutex m_mutex;        
     const ID3DSharingDefinitions* const m_pd3dDefinitions;
@@ -195,6 +194,8 @@ protected:
         ocl_gpa_data* pGPAData, IUnknown* const pD3DDevice, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3dDefinitions,
         bool bIsInteropUserSync = false);
 
+    
+    IUnknown* const m_pD3DDevice;
     /**
      * lock the internal mutex
      */
@@ -372,9 +373,14 @@ public:
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false)
-    {
+    {        
         return SharedPtr<D3D11Context>(new D3D11Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
             pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync));
+    }
+
+    ~D3D11Context()
+    {
+        m_pD3DDevice->Release();
     }
 
     // overridden methods
@@ -412,7 +418,10 @@ private:
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
         bool bIsInteropUserSync = false) :
     D3DContext<ID3D11Resource, ID3D11Device>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
+        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) 
+    { 
+        pD3D9Device->AddRef();
+    }
 
 };
     

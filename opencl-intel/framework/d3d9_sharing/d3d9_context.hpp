@@ -37,7 +37,13 @@ Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUse
     Direct3D 9 device with which the cl_device_ids against which this context is to be created may interoperate." However, I don't know how to check the validity of the
     device. I guess a non-valid device will cause a segmentation fault if one of its methods are called and we don't want that. */
 
-    m_pD3DDevice->AddRef();
+    // The following is disabled since media_sharing from OCL1.2::extensions  doesn't
+    // require that we should Inc/Dec reference count of the D3D9 interface, in contrary
+    // to whats required for D3D10/11. Besides AddRef/Release of D3DDevice is causing D3D9
+    // mem leaks, probably due to driver bug.
+
+    //m_pD3DDevice->AddRef();
+
     for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
     {
         m_ppAllDevices[i]->SetD3DDevice(pD3D9Device, iDevType);
@@ -47,7 +53,12 @@ Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUse
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 D3DContext<RESOURCE_TYPE, DEV_TYPE>::~D3DContext()
 {
-    m_pD3DDevice->Release();
+    // The following is disabled since media_sharing from OCL1.2::extensions  doesn't
+    // require that we should Inc/Dec reference count of the D3D9 interface, in contrary
+    // to whats required for D3D10/11. Besides AddRef/Release of D3DDevice is causing D3D9
+
+    //m_pD3DDevice->Release();
+
     for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
     {
         m_ppAllDevices[i]->SetD3DDevice(NULL, 0);
