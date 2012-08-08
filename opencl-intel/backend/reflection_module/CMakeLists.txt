@@ -6,18 +6,10 @@ project (${TARGET_NAME})
 
 add_subdirectory(unittest)
 
-if (WIN32)
-  set(LINK_CMD
-    ln --force
-    ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
-    BuiltinList.h
-  )
-else(WIN32)
-  set(LINK_CMD
-    ln -s --force ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
-    BuiltinList.h
-  )
-endif(WIN32)
+set(LINK_CMD
+  ln --force ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
+  BuiltinList.h
+)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/BuiltinList.h
@@ -32,7 +24,6 @@ add_library(
   STATIC
   BuiltinKeeper.cpp
   BuiltinList.h
-  utils.h
 )
 
 include_directories(
