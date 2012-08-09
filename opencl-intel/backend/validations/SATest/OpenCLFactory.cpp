@@ -71,8 +71,7 @@ IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfigura
     std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
     bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);
     if ((std::string("auto-remote") == cpuArch ||
-        std::string("knc") == cpuArch ||
-        std::string("knf") == cpuArch) &&
+        std::string("knc") == cpuArch) &&
         !isSDEmode
         )
     {

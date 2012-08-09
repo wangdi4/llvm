@@ -61,7 +61,6 @@ using namespace Validation;
 
 COI_ISA_TYPE COIProcessAndPipelineWrapper::GetCOIISAType(std::string cpuArch)
 {
-    if(std::string("knf") == cpuArch) return COI_ISA_KNF;
     if(std::string("knc") == cpuArch) return COI_ISA_KNC;
     return COI_ISA_INVALID;
 }

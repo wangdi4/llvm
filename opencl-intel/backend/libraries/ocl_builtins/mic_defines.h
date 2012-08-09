@@ -2,7 +2,7 @@
 // All rights reserved.
 #ifndef MIC_DEFINES__H
 #define MIC_DEFINES__H
-// This file provides implementation for KNF/KNC only
+// This file provides implementation for KNC only
 #define MIC_SIMD_BYTES 64
 #define MIC_SIMD_BYTES_MASK (MIC_SIMD_BYTES - 1)
 #define MIC_SIMD_INT (MIC_SIMD_BYTES >> 2)

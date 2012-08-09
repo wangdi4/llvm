@@ -55,8 +55,6 @@ if (INCLUDE_MIC_DEVICE)
     if (KNC_CARD)
         set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knc)
         add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
-    else (KNC_CARD)
-        set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knf)
     endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
 

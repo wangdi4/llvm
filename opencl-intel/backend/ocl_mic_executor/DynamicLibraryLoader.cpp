@@ -35,7 +35,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #define OCL_SVML_FUNCTIONS_COUNT    1974
 
-// The conversion functions use the old format for rounding modes on KNF.
 // We use the tokens defined in CVT_RT? and replace them with the appropriate values at run time,
 // depending on the target.
 #define CVT_RTN "%1"
@@ -2105,11 +2104,10 @@ void DynamicLibraryLoader::GetLibraryFunctions(
     char functionPrefix[MAX_PATH];
 
     const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
-    bool isKNF = m_cpuId.GetCPU() == MIC_KNF;
-    std::string rtEven = isKNF ? "rtn" : "rte";
+    std::string rtEven = "rte";
     std::string rtZero = "rtz";
-    std::string rtPositive = isKNF ? "up" : "rtp";
-    std::string rtNegative = isKNF ? "down" : "rtn";
+    std::string rtPositive = "rtp";
+    std::string rtNegative = "rtn";
 
 #if defined (_WIN32)
     assert(false && "Not Implemented");

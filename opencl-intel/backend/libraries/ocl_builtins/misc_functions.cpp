@@ -23,7 +23,7 @@
 ///////////////////////////////////////////////////////////
 
 #if defined (__MIC__) || defined(__MIC2__)
-//knf implementation
+//MIC implementation
 #else
 #ifdef __cplusplus
 extern "C" {

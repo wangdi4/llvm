@@ -1167,24 +1167,12 @@ OclBuiltinDB::getOclBuiltinImpl(const OclBuiltin* proto) const
 std::string
 OclBuiltinDB::getSVMLRounding(const std::string& pat) const
 {
-  const std::string& Target = getTarget();
-
-  if (Target == "b1") {
-    // Old style SVML rounding name
-    // So far, only KNF retains old style SVML rounding mode due to
-    // end-of-life.
-    if (pat.substr(0, 4) == "$rtn") return "rtn" + pat.substr(4);
-    if (pat.substr(0, 4) == "$rtz") return "rtz" + pat.substr(4);
-    if (pat.substr(0, 3) == "$up") return "up" + pat.substr(3);
-    if (pat.substr(0, 5) == "$down") return "down" + pat.substr(5);
-  } else {
-    // New style SVML rounding name
-    // Both KNC and CPU already switched to new style rounding name.
-    if (pat.substr(0, 4) == "$rtn") return "rte" + pat.substr(4);
-    if (pat.substr(0, 4) == "$rtz") return "rtz" + pat.substr(4);
-    if (pat.substr(0, 3) == "$up") return "rtp" + pat.substr(3);
-    if (pat.substr(0, 5) == "$down") return "rtn" + pat.substr(5);
-  }
+  // New style SVML rounding name
+  // KNC and CPU switched to new style rounding name.
+  if (pat.substr(0, 4) == "$rtn") return "rte" + pat.substr(4);
+  if (pat.substr(0, 4) == "$rtz") return "rtz" + pat.substr(4);
+  if (pat.substr(0, 3) == "$up") return "rtp" + pat.substr(3);
+  if (pat.substr(0, 5) == "$down") return "rtn" + pat.substr(5);
 
   report_fatal_error("Invalid rounding name.");
   return "";

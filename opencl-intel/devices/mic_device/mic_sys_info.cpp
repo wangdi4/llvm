@@ -271,7 +271,7 @@ uint32_t MICSysInfo::getEngineCount()
         COIRESULT result = COI_ERROR;
         uint32_t tNumEngines = 0;
 
-        // Let's make sure there is a KNF / KNC device available
+        // Let's make sure there is a MIC device available
         result = COIEngineGetCount(CL_COI_ISA_MIC, &tNumEngines);
         if( result != COI_SUCCESS )
         {
@@ -565,7 +565,7 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         COIRESULT           result = COI_ERROR;
         COIENGINE           engine = NULL;
 
-        // Get a handle to the specific KNF / KNC engine
+        // Get a handle to the specific MIC engine
         result = COIEngineGetHandle(CL_COI_ISA_MIC, deviceId, &engine);
         if( result != COI_SUCCESS )
         {

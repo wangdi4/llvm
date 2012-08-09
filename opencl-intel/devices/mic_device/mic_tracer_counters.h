@@ -23,9 +23,7 @@
 * File mic_tracer_counters.h
 *
 */
-#ifdef KNF_CARD
-	#define MIC_TRACER_NUM_OF_THREADS 120
-#elif KNC_CARD
+#ifdef KNC_CARD
 	#define MIC_TRACER_NUM_OF_THREADS 256
 #else
     #error "MIC_TRACER: Unknown KN* card"

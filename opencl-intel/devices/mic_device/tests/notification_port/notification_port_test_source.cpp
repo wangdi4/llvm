@@ -389,9 +389,9 @@ bool mic_cpu_test()
     uint32_t                num_engines = 0;
     const char*             SINK_NAME = "notification_port_test_sink_mic";
 
-    // Make sure there is a KNF device available
+    // Make sure there is a KNC device available
     CHECK_RESULT(
-    COIEngineGetCount(COI_ISA_KNF, &num_engines));
+    COIEngineGetCount(COI_ISA_KNC, &num_engines));
 
     printf("%u engines available\n", num_engines);
 
@@ -402,9 +402,9 @@ bool mic_cpu_test()
         return false;
     }
 
-    // Get a handle to the "first" KNF engine
+    // Get a handle to the "first" KNC engine
     CHECK_RESULT(
-    COIEngineGetHandle(COI_ISA_KNF, 0, &engine));
+    COIEngineGetHandle(COI_ISA_KNC, 0, &engine));
 
     // Process: Represents process created on the device enumerated(engine).
     //          Processes created on sink side are referenced by COIPROCESS

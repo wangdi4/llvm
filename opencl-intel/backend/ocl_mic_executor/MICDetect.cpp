@@ -21,7 +21,7 @@ File Name:  MICDetect.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-MICDetect::MICDetect(void) : m_CPUId(MIC_KNF, 0, true)
+MICDetect::MICDetect(void) : m_CPUId(MIC_KNC, 0, true)
 {
     // TODO-KNC: Call CPUID for detection of the MIC Card type
 }

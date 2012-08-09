@@ -209,7 +209,7 @@ def mask_any : OclBuiltin<"mask_any", (outs si32gentype:$ret), (ins masktype:$ma
 def mask_all : OclBuiltin<"mask_all", (outs si32gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
 }
 
-class KNF : Generic {
+class KNC : Generic {
 
   list<OclType> NativeTypes = [v16f32, v8f64, v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v8i64, v8u64];
 
@@ -226,7 +226,7 @@ class KNF : Generic {
   #include <intrin.h>
 
   #include "generic-builtin-defines.h"
-  #include "knf-builtin-defines.h"
+  #include "knc-builtin-defines.h"
   #include "mic_dev_limits.h"
   }];
 

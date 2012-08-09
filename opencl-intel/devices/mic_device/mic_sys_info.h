@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
     // the following methods may be used internally inside MIC device
 
-        /* Returns the number of engines in the system that match COI_ISA_KNF / COI_ISA_KNC.
+        /* Returns the number of engines in the system that match COI_ISA_KNC.
            Calculate it once (Thread safe) */
         uint32_t getEngineCount();
 

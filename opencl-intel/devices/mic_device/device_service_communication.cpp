@@ -299,7 +299,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
     MICSysInfo& info = MICSysInfo::getInstance();
 
-    // Get a handle to KNF / KNC engine number m_engineId
+    // Get a handle to MIC engine number m_engineId
     COIENGINE engine = info.getCOIEngineHandle( pDevServiceComm->m_uiMicId );
 
     // The following call creates a process on the sink.

@@ -10,9 +10,7 @@
 #include "mic_sys_info.h"
 #include "buildversion.h"
 
-#ifdef KNF_CARD
-	#define CL_COI_ISA_MIC COI_ISA_KNF
-#elif KNC_CARD
+#ifdef KNC_CARD
 	#define CL_COI_ISA_MIC COI_ISA_KNC
 #endif
 

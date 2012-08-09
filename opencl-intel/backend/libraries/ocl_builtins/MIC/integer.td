@@ -385,7 +385,7 @@ OclBuiltinImpl upsample_v8_u32 = OclBuiltinImpl<upsample, [v8u32], 0, [{
     uint16 val;
     val.hi = $Arg0VarName;
     val.lo = $Arg1VarName;
-    // Note that both KNF & KNC are in-order core without register renaming.
+    // Note that MIC (KNC) is an in-order core without register renaming.
     // The following instructions are independent as their mask values have no
     // overlap and hence has the shorter latency.
     __m512 $ReturnVarName = _mm512_undefined_ps();

@@ -912,7 +912,7 @@ long8 __attribute__((overloadable)) upsample(int8 hi, int8 lo)
     int16 val;
     val.hi = hi;
     val.lo = lo;
-    // Note that both KNF & KNC are in-order core without register renaming.
+    // Note that MIC (KNC) is an in-order core without register renaming.
     // The following instructions are independent as their mask values have no
     // overlap and hence has the shorter latency.
     long8 r = as_long8(_mm512_undefined_epi64());

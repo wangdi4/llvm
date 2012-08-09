@@ -185,7 +185,7 @@ public:
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
         m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO);
-        m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "knf");
+        m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "knc");
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
         m_fileName      = runConfig.GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "-");
@@ -317,7 +317,7 @@ public:
 private:
     bool isMIC()
     {
-        return m_cpu == "knc" || m_cpu == "knf";
+        return m_cpu == "knc";
     }
 
     size_t              m_targetDescSize;
@@ -418,7 +418,7 @@ public:
 private:
     bool isMIC() const
     {
-        return m_cpu == "knf" || m_cpu == "knc";
+        return m_cpu == "knc";
     }
 
     void copy(const SDEBackendOptions& options)

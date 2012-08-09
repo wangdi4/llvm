@@ -459,7 +459,6 @@ add_subdirectory (corei7)
 add_subdirectory (sandybridge)
 add_subdirectory (haswell)
 if (INCLUDE_MIC_DEVICE)
-  add_subdirectory (knf)
   add_subdirectory (knc)
 endif()
 

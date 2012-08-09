@@ -1,7 +1,7 @@
 // vim:ts=2:sw=2:et:
 
-include "KNF.td"
+include "KNC.td"
 
-def target : KNF {
+def target : KNC {
   string Target = "b2";
 }

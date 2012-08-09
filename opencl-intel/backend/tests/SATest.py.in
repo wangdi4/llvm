@@ -8,7 +8,7 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
     # TODO: implement command line argument processing/checking
-    runCommand = ['sde', '--', '@LLVM_BINARY_DIR@/bin/' + 'SATest', '-sde', '-cpuarch=knf', '-single_wg', '-trace=false', '-vtune=false', '-cpufeatures="" '] + argv[1:] 
+    runCommand = ['sde', '--', '@LLVM_BINARY_DIR@/bin/' + 'SATest', '-sde', '-cpuarch=knc', '-single_wg', '-trace=false', '-vtune=false', '-cpufeatures="" '] + argv[1:] 
     print runCommand
     process = subprocess.check_call(runCommand)
     # TODO: if process.communicate()[1] 

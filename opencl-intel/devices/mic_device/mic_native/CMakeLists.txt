@@ -198,11 +198,7 @@ list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
     )
 
-if (KNC_CARD)
-    list( APPEND MIC_FLAGS -DKNC_CARD )
-else (KNC_CARD)
-    list( APPEND MIC_FLAGS -DKNF_CARD )
-endif (KNC_CARD)
+list( APPEND MIC_FLAGS -DKNC_CARD )
 
 if ( MIC_TESTING_MODE )
     list( APPEND MIC_FLAGS
