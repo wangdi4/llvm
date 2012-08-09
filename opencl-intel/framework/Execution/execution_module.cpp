@@ -1860,9 +1860,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     //
     // Query kernel info to validate input params
     //
-    size_t szWorkGroupSize = 0;
+    size_t szCompiledWorkGroupMaxSize = 0;
     size_t szComplieWorkGroupSize[3] = {0};
-    pKernel->GetWorkGroupInfo(pDevice, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szWorkGroupSize, NULL);
+    pKernel->GetWorkGroupInfo(pDevice, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &szCompiledWorkGroupMaxSize, NULL);
     pKernel->GetWorkGroupInfo(pDevice, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t) * 3, szComplieWorkGroupSize, NULL);
     cl_uint ui=0;
 
@@ -1919,6 +1919,14 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
              */
             return CL_INVALID_WORK_GROUP_SIZE;
         }
+
+        if (szWorkGroupSize > szCompiledWorkGroupMaxSize)
+        {
+            // according to spec this is not an invalid WG size error, but it will be manifested
+            // as out of resources.
+            return CL_OUT_OF_RESOURCES;
+        }
+
         cl_uint uiMaxWorkItemDim = 0;
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uiMaxWorkItemDim, NULL);
 		if (uiMaxWorkItemDim == 0)

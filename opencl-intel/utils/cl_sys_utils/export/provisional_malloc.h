@@ -273,14 +273,18 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 
 #define PROV_ARRAY_NAME _mallocArr_
 
+#ifndef GTEST_INCLUDE_GTEST_GTEST_H_
 /**
  * Call this macro in the function body, before starting dynamic allocation.
  * You can set the value for PROVISIONAL_MALLOC_SIZE !!before!! including this header, to
  * increase the dynamic memory allocation (from the default 20).
+ * DO NOT CALL THIS MACRO IF YOU USE THE GTEST FIXTURE.
  */
 #define PROV_INIT \
 	_PROVISONAL_MallocArray_t PROV_ARRAY_NAME; \
 	PROV_INIT_MALLOCARRAY_T(PROV_ARRAY_NAME, PROVISIONAL_MALLOC_SIZE)
+
+#endif // !GTEST_INCLUDE_GTEST_GTEST_H_
 
 /**
  * Call this macro instead of malloc.
@@ -298,9 +302,11 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 #define PROV_ALIGNED_MALLOC(sz, align) \
     alignedMallocAndRegister(&PROV_ARRAY_NAME, sz, align, #sz" aligned at: "#align, __LINE__)
 
+#ifndef GTEST_INCLUDE_GTEST_GTEST_H_
 /**
  * Call this macro when exiting your function, if all is OK, and
  * the dynamically allocated data should be kept.
+ * DO NOT CALL THIS MACRO IF YOU USE THE GTEST FIXTURE.
  */
 #define PROV_RETURN_AND_KEEP(retval) \
     finalizeMalloc(&PROV_ARRAY_NAME, true); \
@@ -309,17 +315,20 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 /**
  * Call this macro when exiting your functionon error, and
  * the dynamically allocated data should be deleted/freed.
+ * DO NOT CALL THIS MACRO IF YOU USE THE GTEST FIXTURE.
  */
 #define PROV_RETURN_AND_ABANDON(retval) \
     finalizeMalloc(&PROV_ARRAY_NAME, false); \
     return retval;
+
+#endif // !GTEST_INCLUDE_GTEST_GTEST_H_
 
 #ifdef __cplusplus
 
 /**
  * Call this macro to make an (new) allocated object provisional. Use it for objects
  * allocated somewhere else, or for objects with a special new operator.
- * CMyClass *c = MAKE_OBJ_PROVISIONAL( new(CMyClass::special_new) CMyClass(1, 2, "abc") );
+ * CMyClass *c = PROV_OBJ( new(CMyClass::special_new) CMyClass(1, 2, "abc") );
  */
 #define PROV_OBJ(obj_declaration_with_allocation) \
 	registerObject(&PROV_ARRAY_NAME, obj_declaration_with_allocation, #obj_declaration_with_allocation, __LINE__)
@@ -327,12 +336,37 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 /**
  * Call this macro to make a (new) allocated array provisional. Use it for arrays
  * allocated somewhere else, or for arrays with a special new operator.
- * CMyClass arr[] = MAKE_OBJARR_PROVISIONAL( new(CMyClass::special_new) CMyClass[5] );
+ * CMyClass arr[] = PROV_ARR( new(CMyClass::special_new) CMyClass[5] );
  */
 #define PROV_ARR(objarr_declaration_with_allocation) \
 		registerNewArr(&PROV_ARRAY_NAME, objarr_declaration_with_allocation, #objarr_declaration_with_allocation, __LINE__)
 
 #endif // __cplusplus
-	
+
+
+#ifdef GTEST_INCLUDE_GTEST_GTEST_H_
+
+#define PROV_ARRAY_NAME m_provisionalArray
+/**
+ * This is GTEST specific fixture that seamlessly harnesses the PROVISIONAL API.
+ */
+class BaseProvisionalTest : public ::testing::Test
+{
+protected:
+    virtual void SetUp()
+    {
+        PROV_INIT_MALLOCARRAY_T(PROV_ARRAY_NAME, PROVISIONAL_MALLOC_SIZE);
+    }
+
+    virtual void TearDown()
+    {
+        finalizeMalloc(&PROV_ARRAY_NAME, false);
+    }
+
+	_PROVISONAL_MallocArray_t PROV_ARRAY_NAME;
+};
+
+#endif // GTEST_INCLUDE_GTEST_GTEST_H_
+
 #endif // __PROVISIONAL_MALLOC_H_
 
