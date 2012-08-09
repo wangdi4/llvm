@@ -20,7 +20,7 @@ bool clGetKernelArgInfoTest()
 {
 	bool bResult = true;
 	const char *ocl_test_program[] = {\
-	"__kernel void test_kernel1(__global char16* pBuff0, __global char* pBuff1, __global const char* pBuff2, image2d_t __read_only test_image)"\
+	"__kernel void test_kernel1(__global char16 pBuff0[], __global char* pBuff1, __global const char* pBuff2, image2d_t __read_only test_image)"\
 	"{"\
 	"	size_t id = get_global_id(0);"\
 	"	pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
@@ -127,6 +127,15 @@ bool clGetKernelArgInfoTest()
         iRet = -1;
     }
 
+    char szTypeName[255];
+    iRet |= clGetKernelArgInfo (clKernel1, 0, CL_KERNEL_ARG_TYPE_NAME, 
+        sizeof(szTypeName), szTypeName, NULL);
+    
+    if (0 != strcmp(szTypeName, "char16*"))
+    {
+        iRet = -1;
+    }
+
     iRet |= clGetKernelArgInfo (clKernel1, 1, CL_KERNEL_ARG_ACCESS_QUALIFIER, 
         sizeof(cl_kernel_arg_address_qualifier), &accessQualifier, NULL);
     
@@ -151,7 +160,6 @@ bool clGetKernelArgInfoTest()
         iRet = -1;
     }
 
-    char szTypeName[255];
     iRet |= clGetKernelArgInfo (clKernel2, 0, CL_KERNEL_ARG_TYPE_NAME, 
         sizeof(szTypeName), szTypeName, NULL);
     

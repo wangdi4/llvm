@@ -220,7 +220,7 @@ bool clLinkProgramTest()
 		return false;
 	}
 
-    iRet = clCompileProgram(clLibs[0], uiNumDevices, pDevices, NULL, 0, NULL, NULL, NULL, NULL);
+    iRet = clCompileProgram(clLibs[0], uiNumDevices, pDevices, "-profiling", 0, NULL, NULL, NULL, NULL);
     if (CL_SUCCESS != iRet)
 	{
         clReleaseProgram(clHeaders[0]);
@@ -238,7 +238,7 @@ bool clLinkProgramTest()
 		return false;
 	}
 
-    iRet = clCompileProgram(clLibs[1], uiNumDevices, pDevices, NULL, 0, NULL, NULL, NULL, NULL);
+    iRet = clCompileProgram(clLibs[1], uiNumDevices, pDevices, "-g", 0, NULL, NULL, NULL, NULL);
     if (CL_SUCCESS != iRet)
 	{
         clReleaseProgram(clHeaders[0]);

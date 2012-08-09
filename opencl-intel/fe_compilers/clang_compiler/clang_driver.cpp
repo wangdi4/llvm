@@ -92,6 +92,10 @@ DECLARE_LOGGER_CLIENT;
 
 OclMutex ClangFETask::s_serializingMutex;
 
+// We use this ID in order to give each source a unique file name to prevent
+// Multiple compile units with the same ID later
+static int g_uiProgID = 1;
+
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
@@ -313,8 +317,22 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 		list.push_back("__IMAGE_SUPPORT__=1");	
 	}
 	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
-		list.push_back("-g");
-		OptProfiling = true;
+        OptProfiling = true;
+
+        if (!OptDebugInfo)
+        {
+            list.push_back("-g");
+
+            if (m_source_filename.empty()) 
+            {
+                // Add a unique name when using profiling
+                Twine t(g_uiProgID++);
+            
+                list.push_back("-main-file-name");
+                list.push_back(t.str());
+            }
+        }
+		
 	}
 
 	// Add extension defines
@@ -406,13 +424,13 @@ int ClangFECompilerCompileTask::Compile()
 	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
 
 	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(
-        m_pProgDesc->pProgramSource, 
+        m_pProgDesc->pProgramSource,
         m_source_filename);
 	Clang->SetInputBuffer(SB);
 
     for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
     {
-        llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i]);
+        llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
         Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
     }
 
@@ -652,7 +670,6 @@ int ClangFECompilerLinkTask::Link()
 
     // We have more the one binary so we need to link
     
-    SMDiagnostic Err;
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
 
@@ -669,11 +686,10 @@ int ClangFECompilerLinkTask::Link()
 
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
            
-    std::auto_ptr<Module> composite(ParseIR(pBinBuff, Err, Context));
+    std::auto_ptr<Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
 
     if (composite.get() == 0) 
     {
-        ErrorMessage = Err.getMessage();
         if ( !ErrorMessage.empty() )
 	    {
             m_pLogString = new char[ErrorMessage.length() + 1];
@@ -705,10 +721,9 @@ int ClangFECompilerLinkTask::Link()
 
         MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
                
-        std::auto_ptr<Module> M(ParseIR(pBinBuff, Err, Context));
+        std::auto_ptr<Module> M(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
         if (M.get() == 0) 
         {
-            ErrorMessage = Err.getMessage();
             if ( !ErrorMessage.empty() )
 	        {
                 m_pLogString = new char[ErrorMessage.length() + 1];
@@ -725,7 +740,7 @@ int ClangFECompilerLinkTask::Link()
             return CL_LINK_PROGRAM_FAILURE;
         }
 
-        if( Linker::LinkModules(composite.get(), M.get(), Linker::PreserveSource/*Linker::DestroySource*/, &ErrorMessage))
+        if( Linker::LinkModules(composite.get(), M.get(), Linker::DestroySource, &ErrorMessage))
         {
             // apparently LinkModules returns true on failure and false on success
             if ( !ErrorMessage.empty() )
@@ -1257,6 +1272,9 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                     szFileName.begin(),
                     ::tolower);
 #endif
+
+                pList->push_back("-main-file-name");
+                pList->push_back(szFileName);
             }
             else {
                 UnrecognizedArgs.push_back(flag);
@@ -1346,6 +1364,27 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 }
             }
         }
+    }
+
+    // Handle DebugInfo and profiling flags
+    // Hope this covers all the cases
+    if (bOptDebugInfo && szFileName.empty())
+    {
+        // if we have -g but we didn't get a -s create a unique name
+        Twine t(g_uiProgID++);
+            
+        pList->push_back("-main-file-name");
+        pList->push_back(t.str());
+    }
+
+    if (bOptProfiling && !bOptDebugInfo && szFileName.empty())
+    {
+        // We are in profiling mode without a given source name and we didn't 
+        // already added a unique name
+        Twine t(g_uiProgID++);
+            
+        pList->push_back("-main-file-name");
+        pList->push_back(t.str());
     }
 
     if (pbCLStdSet)
