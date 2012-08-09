@@ -51,7 +51,7 @@ public:
 	cl_mem buffers[2];
 	cl_mem in_common_sub_buffer;
 
-
+	cl_event events[5];
 	cl_program program;
 	cl_kernel kernels[2];
 
@@ -75,6 +75,9 @@ public:
 			kernels[i] = 0;
 			buffers[i] = 0;
 			sub_devices[i] = 0;
+		}
+		for(int i = 0 ; i<5 ; i++){
+				events[i] = 0;
 		}
 	}
 	
@@ -146,6 +149,13 @@ public:
 			{	
 				EXPECT_EQ(CL_SUCCESS, clReleaseDevice(sub_devices[i])) << "clReleaseDevice failed";
 				sub_devices[i] = 0;
+			}
+		}
+		for(int i = 0 ; i<5 ; i++){
+			if(events[i]!=0)
+			{
+				clReleaseEvent(events[i]); //was not wraped becouse of headers order
+				events[i] = 0;
 			}
 		}
 	}
