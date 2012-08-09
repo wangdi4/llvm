@@ -661,15 +661,28 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 		// Find appropriate device
 		for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
 		{
+            
             pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
 			if (NULL != pDevice)
 			{
-				pDevice->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &hDevGL, NULL);
-				pDevice->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &hDevDC, NULL);
-				if ( (hDC == hDevDC) && (hGL == hDevGL))
-				{
-					devId = pDevice->GetHandle();
-				}
+                size_t extensionsSize = 0;                
+                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, 0, NULL, &extensionsSize);                
+			    if (CL_FAILED(ret))
+			    {
+                    return ret;
+                }
+                std::string extensions;
+                extensions.resize(extensionsSize);
+                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, extensionsSize, &extensions[0], NULL);
+                if (CL_FAILED(ret))
+			    {
+                    return ret;
+                } 
+                if (extensions.find("cl_khr_gl_sharing") != std::string::npos)
+                {
+                    devId = pDevice->GetHandle();
+                    break;
+                }			                                    
 			}
 		}
 
