@@ -144,7 +144,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 
     //supplementing additional data
     unsigned int TOIndex=TYPE_ORDER_TO_INDEX(pImageAuxData->format.image_channel_data_type, pImageAuxData->format.image_channel_order);
-    memset(pImageAuxData->read_img_callback, 0, sizeof(pImageAuxData->read_img_callback));
+    memset(pImageAuxData->read_img_callback_int, 0, sizeof(pImageAuxData->read_img_callback_int));
+    memset(pImageAuxData->read_img_callback_float, 0, sizeof(pImageAuxData->read_img_callback_float));
     memset(pImageAuxData->coord_translate_f_callback, 0, sizeof(pImageAuxData->coord_translate_f_callback));
     memset(pImageAuxData->dim,0,sizeof(pImageAuxData->dim));
     memset(pImageAuxData->offset,0,sizeof(pImageAuxData->offset));
@@ -172,7 +173,11 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     
     ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_CpuId);
 
-    //////////////////The float coordinates callbacks
+    for(unsigned int i = 0; i<sizeof(pImageAuxData->read_img_callback_int)/sizeof(pImageAuxData->read_img_callback_int[0]); i++)
+    {
+        pImageAuxData->read_img_callback_float[i] = pImageCallbackFuncs->GetUndefReadFloat();
+        pImageAuxData->read_img_callback_int[i] = pImageCallbackFuncs->GetUndefReadInt();
+    }
 
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
@@ -227,38 +232,43 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     }
 
     ///////////////////////////Read & write image callbacks
+    void** read_cbk_ptr = NULL;
+    if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
+        read_cbk_ptr = pImageAuxData->read_img_callback_int;
+    else
+        read_cbk_ptr = pImageAuxData->read_img_callback_float;
 
     for (unsigned int i=NONE_FALSE_NEAREST;i<NONE_FALSE_LINEAR;i++)
-        pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetNearestNoClamp(TOIndex);
+        read_cbk_ptr[i] = pImageCallbackFuncs->GetNearestNoClamp(TOIndex);
     if( !IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
         if(pImageAuxData->dim_count == 1)
         {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp1D(TOIndex);
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp1D(TOIndex);
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
         } else if(pImageAuxData->dim_count == 2)
-        {           
+        {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp2D(TOIndex);
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp2D(TOIndex);
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
         }
         else
         {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                pImageAuxData->read_img_callback[i] = pImageCallbackFuncs->GetLinearNoClamp3D(TOIndex);
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
-            IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp3D(TOIndex);
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
+            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
         }
     }
-    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
-    IMG_SET_CALLBACK(pImageAuxData->read_img_callback[CLAMP_TRUE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
+    IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
+    IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
 
     pImageAuxData->write_img_callback = pImageCallbackFuncs->GetWriteImage(TOIndex);
-    
-  return CL_DEV_SUCCESS;
+
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code ImageCallbackService::DeleteImageObject(cl_mem_obj_descriptor* pImageObject, void** auxObject) const

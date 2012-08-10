@@ -112,7 +112,7 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
     const int32_t FUNCTIONS_COUNT = TRANS_CBK_COUNT + // count translate callbacks first
              INT_FORMATS_COUNT * INT_CBK_PER_FORMAT + // add integer callbacks
              FLOAT_FORMATS_COUNT * FLOAT_CBK_PER_FORMAT + // add float callbacks
-             1; // and add one undefined reading callback
+             2; // and add two undefined reading callbacks
 
     // List of function names to retrieve from images module
     const char* funcNames[FUNCTIONS_COUNT]={
@@ -466,11 +466,12 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
         "_Z40read_sample_LINEAR1D_CLAMP_RG_HALF_FLOATP10_image2d_tDv4_iS1_Dv4_fPv",      
         "_Z26write_sample_RG_HALF_FLOATPvDv4_f",
 
-        "_Z26read_sample_UNDEFINED_QUADP10_image2d_tDv4_iPv"
+        "_Z30read_sample_UNDEFINED_QUAD_INTP10_image2d_tDv4_iPv",
+        "_Z32read_sample_UNDEFINED_QUAD_FLOATP10_image2d_tDv4_iS1_Dv4_fPv"
     };
 
-    // Make sure the last string is read_sample_undefined
-    assert(strcmp(funcNames[FUNCTIONS_COUNT - 1], "_Z26read_sample_UNDEFINED_QUADP10_image2d_tDv4_iPv") == 0);
+    // Make sure the last string is read_sample_undefined_float
+    assert(strcmp(funcNames[FUNCTIONS_COUNT - 1], "_Z32read_sample_UNDEFINED_QUAD_FLOATP10_image2d_tDv4_iS1_Dv4_fPv") == 0);
 
     // List of image function pointers
     llvm::Function* funcPointers[FUNCTIONS_COUNT];
@@ -589,9 +590,10 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
         
     }
 
-    assert(InitIndex == FUNCTIONS_COUNT - 1);
+    assert(InitIndex == FUNCTIONS_COUNT - 2);
     // set undefined float reading callback
-    m_fpUndefReadQuad.Init(funcPointers[FUNCTIONS_COUNT-1]);
+    m_fpUndefReadInt.Init(funcPointers[FUNCTIONS_COUNT-2]);
+    m_fpUndefReadFloat.Init(funcPointers[FUNCTIONS_COUNT-1]);
 
     m_pCompiler = pCompiler;
 }

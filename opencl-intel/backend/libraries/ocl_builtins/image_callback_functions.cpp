@@ -45,9 +45,9 @@ ALIGN16 const float4 f4two = {2.f, 2.f, 2.f, 2.f};
 /// Minimal representative float. It is represented as zero mantissa 
 /// and exponenta with only last bit set to one
 ALIGN16 const int4 oneOneOneZero = {1, 1, 1, 0};
-ALIGN16 const int4 ZeroInt = {0, 0, 0, 0};
-ALIGN16 const float4 float4Allzeros = {0.f ,0.f , 0.f, 0.f};
-ALIGN16 const float4 float4Allones = {1.f ,1.f , 1.f, 1.f};
+ALIGN16 const int4   int4AllZeros = {0, 0, 0, 0};
+ALIGN16 const int4   int4MinusOnes= {-1,-1,-1,-1};
+ALIGN16 const float4 float4AllZeros = {0.f ,0.f , 0.f, 0.f};
 ALIGN16 const float4 f4Unorm8Dim = {(float)(1./255.), (float)(1./255.), (float)(1./255.), (float)(1./255.)};
 ALIGN16 const float4 f4Unorm16Dim = {(float)(1./65535.), (float)(1./65535.), (float)(1./65535.), (float)(1./65535.)};
 ALIGN16 const float4 f4unorm16mul = {65535.f, 65535.f, 65535.f, 65535.f};
@@ -64,9 +64,6 @@ ALIGN16 const int4 BorderColorAlphaInt = {0, 0, 0, 1};
 
 ALIGN16 const uint4 BorderColorAlphaUint = {0, 0, 0, 1}; 
 ALIGN16 const float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
-
-ALIGN16 const int4 UndefCoordInt={-1,-1, -1, -1};
-ALIGN16 const float4 ZeroFloat={0.0f,0.0f,0.0f,0.0f};
 
 // utility functions declarations
 int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord);
@@ -415,7 +412,7 @@ int4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_FALSE_NEAREST(i
 
 int4 __attribute__((overloadable)) trans_coord_float_UNDEFINED(image2d_t image, float4 coord)
 {
-    return UndefCoordInt;   //will be background color, but it's a "don't care" situtation
+    return int4AllZeros;   //will be background color, but it's a "don't care" situtation
 }
 
 int4 __attribute__((overloadable)) trans_coord_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord)
@@ -453,7 +450,7 @@ int4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_NEAREST(image
 {
 #ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-    __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4Allzeros);
+    __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4AllZeros);
     __m128 mcoord = (float4)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
     mcoord= _mm_round_ps((__m128)mcoord, _MM_ROUND_NEAREST);
     mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
@@ -479,31 +476,31 @@ float4 __attribute__((overloadable)) trans_coord_float_float_NONE_FALSE_NEAREST(
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *square0=ProjectNearest(coord);
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_CLAMPTOEDGE_FALSE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     *square0=ProjectToEdgeInt(image,ProjectNearest(coord));
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_UNDEFINED(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-    return ZeroFloat;   //will be background color, but it's a "don't care" situtation
+    return float4AllZeros;   //will be background color, but it's a "don't care" situtation
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *square0=ProjectNearest(Unnormalize(image, coord));
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_CLAMPTOEDGE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     *square0=ProjectToEdgeInt(image, ProjectNearest(Unnormalize(image, coord)));
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
@@ -522,14 +519,14 @@ float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST
 #else
     *square0 = urcoord % upper;
 #endif
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
 #ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-    __m128 isZero = _mm_cmpeq_ps(coord, float4Allzeros);
+    __m128 isZero = _mm_cmpeq_ps(coord, float4AllZeros);
     __m128 mcoord = (__m128)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
     mcoord = _mm_round_ps(mcoord, _MM_ROUND_NEAREST);
     mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
@@ -539,13 +536,13 @@ float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEARE
     mcoord = _mm_sub_ps(mcoord, coord);
     mcoord = _mm_abs_ps(mcoord);
 #else
-    int4 upper = vload4(0,(((image_aux_data*)image)->dimSub1));
+    int4 upper = vload4(0,(((image_aux_data*)image)->dimSub1)); 
     float4 mcoord=2.0f*rint(0.5f*coord);
     mcoord=fabs(coord-mcoord);
 #endif
     int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
     *square0=min(urcoord,upper);
-    return ZeroFloat;
+    return float4AllZeros;
 }
 
 
@@ -598,7 +595,7 @@ float4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_LINEAR(image2
     int4 sq1 = sq0 + oneOneOneZero;
 
 #ifdef __SSE4_1__
-    __m128i mask0 = _mm_cmpgt_epi32((__m128i)ZeroInt, (__m128i)sq0);
+    __m128i mask0 = _mm_cmpgt_epi32((__m128i)int4AllZeros, (__m128i)sq0);
     __m128i addedVal = _mm_and_si128(mask0, (__m128i)upper);
     *square0 = sq0 + (int4)addedVal;
 
@@ -2199,10 +2196,10 @@ int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
     __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
     // Prepare mask for compare mask extraction
     int iMask=((image_aux_data*)image)->dimmask;
-    __m128i iCoord = _mm_max_epi32((__m128i)coord, (__m128i)UndefCoordInt);
+    __m128i iCoord = _mm_max_epi32((__m128i)coord, (__m128i)int4MinusOnes);
     iCoord = _mm_min_epi32(iCoord, i4up);
     __m128i isUp=_mm_cmpeq_epi32(iCoord,(__m128i)i4up);
-    __m128i isLo=_mm_cmpeq_epi32(iCoord,(__m128i)UndefCoordInt);
+    __m128i isLo=_mm_cmpeq_epi32(iCoord,(__m128i)int4MinusOnes);
     int iBorder=(_mm_movemask_epi8(isUp) | _mm_movemask_epi8(isLo)) & iMask;
     return iBorder;
 #else
@@ -2331,9 +2328,14 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 
 //general functions
 
-uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD(image2d_t image, int4 coord, void* pData)
+uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, void* pData)
 {
-    return BorderColorNoAlphaUint;  //a don't care result
+    return BorderColorNoAlphaUint;  //return all zeros vector
+}
+
+float4 __attribute__ ((overloadable)) read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+{
+    return BorderColorNoAlphaFloat;  //return all zeros vector
 }
 
 #ifdef __cplusplus

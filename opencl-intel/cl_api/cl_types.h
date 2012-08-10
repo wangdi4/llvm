@@ -149,7 +149,8 @@ typedef ALIGN16 struct _image_aux_data
 	unsigned		uiElementSize;			// Size of image pixel element.
 	
 	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
-	void*			read_img_callback[32]; // the list of integer image reader & filter callbacks
+	void*			read_img_callback_int[32];   // the list of integer image reader & filter callbacks
+	void*			read_img_callback_float[32]; // the list of float   image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
 
 	ALIGN16 int dimSub1[MAX_WORK_DIM+1];		// Image size for each dimension subtracted by one

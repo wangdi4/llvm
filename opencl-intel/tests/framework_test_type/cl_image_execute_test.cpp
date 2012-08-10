@@ -148,20 +148,24 @@ bool clImageExecuteTest()
 					bResult &= Check(L"clCreateSampler", CL_SUCCESS, iRet);
 					if (!bResult) goto release_image;
 
+					cl_sampler samplerLinear = clCreateSampler(context, CL_FALSE, CL_ADDRESS_NONE, CL_FILTER_LINEAR, &iRet);
+					bResult &= Check(L"clCreateSampler", CL_SUCCESS, iRet);
+					if (!bResult) goto release_sampler;
+
 					// Set Kernel Arguments
 					iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clSrcImg);
 					bResult &= Check(L"clSetKernelArg - clSrcImg", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+					if (!bResult) goto release_linear_sampler;
 					iRet = clSetKernelArg(kernel, 1, sizeof(cl_sampler), &sampler);
 					bResult &= Check(L"clSetKernelArg - sampler", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+					if (!bResult) goto release_linear_sampler;
 					iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &clDstBuff);
 					bResult &= Check(L"clSetKernelArg - clDstBuff", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+					if (!bResult) goto release_linear_sampler;
 
 					iRet = clEnqueueWriteImage(queue, clSrcImg, CL_TRUE, origin, region, 0, 0, pSrcImageValues, 0, NULL, NULL);
 					bResult &= Check(L"clEnqueueWriteImage - src", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+					if (!bResult) goto release_linear_sampler;
 
 					{
 						//size_t global_work_size[2] = { szSrcWidth, szSrcHeight };
@@ -177,7 +181,7 @@ bool clImageExecuteTest()
 					//
 					iRet = clEnqueueReadBuffer( queue, clDstBuff, CL_TRUE, 0, stBuffSize, pDstBuffer, 0, NULL, NULL );
 					bResult &= Check(L"clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+					if (!bResult) goto release_linear_sampler;
 
 					for( unsigned y=0; y < szSrcHeight; ++y )
 					{
@@ -200,6 +204,25 @@ bool clImageExecuteTest()
 						printf ("!!!!!! clImageExecuteTest compare verification failed !!!!! \n");
 					}
 
+					/// Test invalid sampler not to crash
+					printf ("Testing that invalid sampler usage don't lead to app crash..\n");
+					iRet = clSetKernelArg(kernel, 1, sizeof(cl_sampler), &samplerLinear);
+					bResult &= Check(L"clSetKernelArg - sampler", CL_SUCCESS, iRet);
+					if (!bResult) goto release_linear_sampler;
+
+					// we don't really care about image content here, so just left it as in previous test
+					{
+						//size_t global_work_size[2] = { szSrcWidth, szSrcHeight };
+						size_t global_work_size[2] = { 100, 100 };
+						size_t local_work_size[2] = { 1, 1 };
+
+						// Execute kernel
+						iRet = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
+					}
+					printf ("Invalid sampler passed successfully!\n");
+
+				release_linear_sampler:
+					clReleaseSampler(samplerLinear);
 				release_sampler:
 					clReleaseSampler(sampler);
 				}
