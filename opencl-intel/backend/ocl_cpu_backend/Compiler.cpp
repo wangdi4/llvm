@@ -376,12 +376,12 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
-	SetTargetTripple(spModule.get());
+	SetTargetTriple(spModule.get());
 	return spModule.release();
 
 }
 
-void SetTargetTripple(llvm::Module *pModule)
+void SetTargetTriple(llvm::Module *pModule)
 {
     //Force ELF codegen, even on Windows.
 #if defined(_M_X64)

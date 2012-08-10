@@ -16,21 +16,25 @@ File Name:  ImageCallbackLibrary.cpp
 
 \*****************************************************************************/
 
-#include <stdio.h>
-#include "ImageCallbackLibrary.h"
+#include "BitCodeContainer.h"
+#include "CompiledModule.h"
+#include "Compiler.h"
 #include "exceptions.h"
+#include "ImageCallbackLibrary.h"
+#include "ProgramContainerMemoryBuffer.h"
 #include "SystemInfo.h"
 #include "ServiceFactory.h"
-#include "BitCodeContainer.h"
-#include "llvm/Module.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/FormattedStream.h"
-#include "ProgramContainerMemoryBuffer.h"
-#include "llvm/Support/DynamicLibrary.h"
+
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "Compiler.h"
+#include "llvm/Module.h"
+#include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Memory.h"
+
 #include <string>
 
 #if defined(_WIN32)
@@ -43,10 +47,8 @@ File Name:  ImageCallbackLibrary.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-void ImageCallbackLibrary::Load()
-{
+std::string ImageCallbackLibrary::getLibraryBasename() {
     char szModuleName[MAX_PATH];
-    char szRTLibName[MAX_PATH];
     std::string strErr;
 
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
@@ -57,38 +59,57 @@ void ImageCallbackLibrary::Load()
     if( Intel::CPU_SANDYBRIDGE == m_CpuId.GetCPU() && !m_CpuId.HasAVX1())
     {
         // Use SSE4 if AVX1 is not supported
-        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7, m_CpuId.Is64BitOS());
+        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7,
+                                                m_CpuId.Is64BitOS());
     }
+    std::string ret = std::string(szModuleName)
+                    + "clbltfn"
+                    + std::string(pCPUPrefix)
+                    + "_img_cbk";
 
-    // Load LLVM built-ins module
-#if defined (_WIN32)
-    sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s_img_cbk.rtl", szModuleName, pCPUPrefix);
-#else
-    snprintf(szRTLibName, MAX_PATH, "%sclbltfn%s_img_cbk.rtl", szModuleName, pCPUPrefix);
-#endif
-
-//    m_pRtlBuffer = llvm::MemoryBuffer::getFile(szRTLibName);
-    llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
-    if( !m_pRtlBuffer )
-    {
-        throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the image callback rtl library"));
-    }
+    assert(ret.length() <= MAX_PATH);
+    return ret;
 }
 
-bool ImageCallbackLibrary::Build()
-{
-    CompilerBuildOptions buildOptions(false, // debugInfo
-                                      false, // profiling
-                                      true,  // disableOpt
-                                      false, // relaxedMath
-                                      true   // libraryModule
-                                      );
+std::string ImageCallbackLibrary::getLibraryObjectName() {
+  return getLibraryBasename() + ".o";
+}
 
-    ProgramBuildResult buildResult;  //what is this for?
-    m_pModule = m_Compiler->BuildProgram(m_pRtlBuffer.get(),&buildOptions, &buildResult);
-    m_pExecutionEngine = m_Compiler->GetExecutionEngine();
-    m_ImageFunctions = new ImageCallbackFunctions(m_pModule, m_Compiler);
-    return (m_pModule != NULL);
+std::string ImageCallbackLibrary::getLibraryRtlName() {
+  return getLibraryBasename() + ".rtl";
+}
+
+void ImageCallbackLibrary::Load()
+{
+    // Load built-ins module IR from an rtl file.
+    llvm::MemoryBuffer::getFile(
+      getLibraryRtlName().c_str(), m_pRtlBuffer);
+    if( !m_pRtlBuffer )
+    {
+        throw Exceptions::DeviceBackendExceptionBase(
+          std::string("Failed to load the image callback rtl library"));
+    }
+
+    // read IR into a Module
+    llvm::Module* M = m_Compiler->ParseModuleIR(m_pRtlBuffer.get());
+
+    // create an execution engine (which assumes ownership of M)
+    m_Compiler->CreateExecutionEngine(M);
+    llvm::OwningPtr<llvm::ExecutionEngine> EE (
+      static_cast<llvm::ExecutionEngine*>(m_Compiler->GetExecutionEngine()));
+
+    // initialize the object cache with the path to the pre-compiled image
+    // callback library object.
+    m_pLoader->AddLocation(M, getLibraryObjectName());
+    EE->setObjectCache(m_pLoader.get());
+
+    // put the module and the execution engine in a container
+    m_pCompiledModule.reset(new CompiledModule(M, EE.take()));
+}
+
+void ImageCallbackLibrary::Build()
+{
+    m_ImageFunctions = new ImageCallbackFunctions(m_pCompiledModule.get());
 }
 
 // For CPU this should be left empty
@@ -98,7 +119,7 @@ bool ImageCallbackLibrary::LoadExecutable()
     return true;
 }
 
-ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CPUCompiler* pCompiler)
+ImageCallbackFunctions::ImageCallbackFunctions(CompiledModule* pCompiledModule)
 {
     // Total number of coordinate translation callbacks
     const int TRANS_CBK_COUNT = 20;
@@ -478,7 +499,7 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
 
     for (int32_t index=0;index<FUNCTIONS_COUNT;index++){
         llvm::StringRef fName(funcNames[index]);
-        funcPointers[index] = pImagesRTModule->getFunction(fName);
+        funcPointers[index] = pCompiledModule->getFunction(fName);
         if(funcPointers[index] == NULL)
             throw Exceptions::DeviceBackendExceptionBase(std::string("Image function wasn't found in the module. Make sure image libraries are valid."));
     }
@@ -595,23 +616,17 @@ ImageCallbackFunctions::ImageCallbackFunctions(llvm::Module* pImagesRTModule, CP
     m_fpUndefReadInt.Init(funcPointers[FUNCTIONS_COUNT-2]);
     m_fpUndefReadFloat.Init(funcPointers[FUNCTIONS_COUNT-1]);
 
-    m_pCompiler = pCompiler;
+    m_pCompiledModule = pCompiledModule;
 }
 
 ImageCallbackLibrary::~ImageCallbackLibrary()
 {
     if (m_ImageFunctions) 
         delete m_ImageFunctions;
-    if(m_pExecutionEngine) 
-    {
-        ((llvm::ExecutionEngine*)m_pExecutionEngine)->removeModule(m_pModule);
-        delete (llvm::ExecutionEngine*)m_pExecutionEngine;
-    }
-    // Module should be freed before compiler
-    // Otherwise module's destructor will fail
-    delete m_pModule;
+
+    // Module must be freed before compiler.
+    delete m_pCompiledModule.take();
     delete m_Compiler;
 }
-
 
 }}} // namespace

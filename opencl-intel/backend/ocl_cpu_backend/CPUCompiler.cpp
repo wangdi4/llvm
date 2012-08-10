@@ -335,7 +335,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
       cpuFeatures.push_back("-fma3");
 
-    SetTargetTripple(pModule);
+    SetTargetTriple(pModule);
 
     llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
                   .setEngineKind(llvm::EngineKind::JIT)

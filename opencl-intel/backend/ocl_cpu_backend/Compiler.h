@@ -28,10 +28,10 @@ File Name:  Compiler.h
 
 namespace llvm {
     class ExecutionEngine;
-    class LLVMContext;
-    class Module;
     class Function;
+    class LLVMContext;
     class MemoryBuffer;
+    class Module;
     class Type;
 }
 
@@ -217,8 +217,9 @@ public:
      */
     virtual llvm::Module* GetRtlModule() const = 0;
 
-protected:
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+
+protected:
 
     llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
 
@@ -243,6 +244,6 @@ private:
 
 };
 
-void SetTargetTripple(llvm::Module *pModule);
+void SetTargetTriple(llvm::Module *pModule);
 
 }}}

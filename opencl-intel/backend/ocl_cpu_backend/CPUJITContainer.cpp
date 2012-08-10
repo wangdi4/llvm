@@ -18,26 +18,18 @@ File Name:  CPUJITContainer.cpp
 #include "CPUJITContainer.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUJITContainer::CPUJITContainer(const void* pFuncCode,
                                  llvm::Function* pFunction,
                                  llvm::Module* pModule,
-                                 llvm::ExecutionEngine* pEE,
                                  KernelJITProperties* pProps):
     m_pFuncCode(pFuncCode),
     m_pFunction(pFunction),
     m_pModule(pModule),
-    m_pExecutionEngine(pEE),
     m_pProps(pProps) // get ownership of the pProps pointer
 {}
-
-void CPUJITContainer::FreeJITCode()
-{
-    m_pExecutionEngine->freeMachineCodeForFunction(m_pFunction);
-}
 
 CPUJITContainer::~CPUJITContainer()
 {

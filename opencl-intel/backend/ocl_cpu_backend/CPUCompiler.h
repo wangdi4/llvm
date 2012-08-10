@@ -78,9 +78,6 @@ protected:
      */
     llvm::Module* GetRtlModule() const;
 
-protected:
-
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
 private:
     // Disable the copy ctor and assignment operator

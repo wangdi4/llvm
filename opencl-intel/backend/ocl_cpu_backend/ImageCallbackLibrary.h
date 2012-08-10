@@ -18,10 +18,12 @@ File Name:  ImageCallbackLibrary.h
 #pragma once
 
 #include "BuiltinModule.h"
+#include "CompiledModule.h"
 #include "CPUDetect.h"
 #include "CPUCompiler.h"
-#include "llvm/Module.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "StaticObjectLoader.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/ExecutionEngine/ObjectCache.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -89,13 +91,13 @@ public:
         m_fncPtr = pFunc;
     }
 
-    void* GetPtr(CPUCompiler* pCompiler)
+    void* GetPtr(CompiledModule* pCompiledModule)
     {
-        assert(pCompiler != NULL);
+        assert(pCompiledModule != NULL);
         if(m_fncPtr == NULL)
             throw Exceptions::DeviceBackendExceptionBase(std::string("Images internal error. Uninitialized callback function requested"));
         // Request pointer to function. If it is the first request function is being JITted.
-        void* ptr = pCompiler->GetPointerToFunction(m_fncPtr);
+        void* ptr = pCompiledModule->getPointerToFunction(m_fncPtr);
         if( ptr == NULL){
             throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error occurred while jitting image functions"));
         }
@@ -113,7 +115,7 @@ private:
 class ImageCallbackFunctions{
 public:
 
-    ImageCallbackFunctions(llvm::Module* pImagesRTModule, CPUCompiler* pCompiler);
+    ImageCallbackFunctions(CompiledModule* pCompiledModule);
 
 private:
 
@@ -123,7 +125,7 @@ private:\
 public:\
     void* Get##NAME()\
     {\
-        return m_fp##NAME.GetPtr(m_pCompiler);\
+        return m_fp##NAME.GetPtr(m_pCompiledModule);\
     }
 
 #define DECLARE_CALLBACK_ARRAY(NAME, COUNT)\
@@ -133,7 +135,7 @@ public:\
     void* Get##NAME(int idx)\
     {\
         assert(idx < COUNT);\
-        return m_fp##NAME[idx].GetPtr(m_pCompiler);\
+        return m_fp##NAME[idx].GetPtr(m_pCompiledModule);\
     }
 
     //float coordinate translation callbacks
@@ -178,8 +180,8 @@ public:\
     // image writing callbackS
     DECLARE_CALLBACK_ARRAY(WriteImage, MAX_NUM_FORMATS)
 
-    // Used for Lazy compilation. Not owned by this class
-    CPUCompiler* m_pCompiler;
+    // Used for function lookup. Not owned by this class
+    CompiledModule* m_pCompiledModule;
 };
 
 /**
@@ -192,7 +194,8 @@ public:
     */
     ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
       m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler),
-      m_pRtlBuffer(NULL), m_pModule(NULL), m_pExecutionEngine(NULL) { }
+      m_pRtlBuffer(NULL), m_pLoader(new StaticObjectLoader)
+    { }
 
     /**
     *  Loads image module from platform-specific rtl file
@@ -200,9 +203,9 @@ public:
     void Load();
 
     /**
-    *  Builds preliminarily loaded image module. Should only be called after Load call
+    *  Populates m_ImageFunctions. Should only be called after Load call
     */
-    bool Build();
+    void Build();
     /**
     *  MIC-specific: serialize library and load it to the device
     *  Then send address back to the host
@@ -217,6 +220,12 @@ public:
     ~ImageCallbackLibrary();
 
 private:
+
+    /// Get the path to the builtin library
+    std::string getLibraryBasename();
+    std::string getLibraryRtlName();
+    std::string getLibraryObjectName();
+
     Intel::CPUId m_CpuId;
     // Instance with all function pointers. Owned by this class
     ImageCallbackFunctions* m_ImageFunctions;
@@ -226,10 +235,14 @@ private:
     CPUCompiler* m_Compiler;
     // pointer to library Rtl Buffer. Owned by this class
     llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
-    // Pointer to built images module. Owned by m_Compiler
-    llvm::Module* m_pModule;
-    // Pointer to Execution Engine
-    void *        m_pExecutionEngine;
+
+    // Pointer to OCL implementation of llvm::ObjectCache used to load from disk
+    // object files which have been statically compiled (i.e. by MCJIT or llc)
+    llvm::OwningPtr<StaticObjectLoader> m_pLoader;
+
+    // Pointer to CompiledModule instance (contains ExecutionEngine)
+    llvm::OwningPtr<CompiledModule> m_pCompiledModule;
+
 
 private:
     // Disable copy ctor and assignment operator

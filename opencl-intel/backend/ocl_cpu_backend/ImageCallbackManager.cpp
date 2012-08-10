@@ -92,9 +92,8 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
   // ImageCallbackLibrary becomes the owner of compiler. So release compiler here
   std::auto_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
   spLibrary->Load();
-  if ( ! spLibrary->Build() ){
-      return false;   //something went wrong
-  }
+  spLibrary->Build();
+
   if (! spLibrary->LoadExecutable()){
       return false;   // failed to load library to the device
   }

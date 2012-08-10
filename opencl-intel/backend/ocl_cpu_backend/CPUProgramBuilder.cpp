@@ -38,7 +38,6 @@ File Name:  CPUProgramBuilder.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -232,7 +231,6 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
     IKernelJITContainer* pJIT = new CPUJITContainer( pProgram->GetPointerToFunction(pFunc),
                                            pFunc,
                                            pModule,
-                                           pProgram->GetExecutionEngine(),
                                            pProps);
     pKernel->AddKernelJIT( pJIT );
 }

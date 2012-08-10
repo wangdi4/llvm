@@ -25,7 +25,6 @@ File Name:  CPUJITContainer.h
 namespace llvm {
     class Module;
     class Function;
-    class ExecutionEngine;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -36,7 +35,6 @@ public:
     CPUJITContainer(const void* pFuncCode,
                  llvm::Function* pFunction,
                  llvm::Module* pModule,
-                 llvm::ExecutionEngine* pEE,
                  KernelJITProperties* pProps);
     ~CPUJITContainer();
 
@@ -46,7 +44,6 @@ public:
     virtual const void* GetJITCode() const { return m_pFuncCode; }
     virtual size_t GetJITCodeSize() const { return 0; } // TODO: Check this later
 
-    virtual void FreeJITCode();
     /*
      * IJITContainer methods
      */
@@ -64,7 +61,6 @@ private:
     llvm::Function*        m_pFunction;
     llvm::Module*          m_pModule; // not owned by the class 
 
-    llvm::ExecutionEngine* m_pExecutionEngine; //not owned by the class
     KernelJITProperties*   m_pProps;
 
     // Klockwork Issue

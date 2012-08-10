@@ -132,13 +132,19 @@ if (NOT DEFINED OCL_HOST_LLVM_LINK)
 else()
   set (LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
+if (NOT DEFINED OCL_HOST_LLC) 
+  set (LLC llc)
+else()
+  set (LLC OCL_HOST_LLC)
+endif()
 
-# LLVM triple is per OS and Arch
+
+# LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
 if (WIN32)	
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32)
+    set (TRIPLE i686-pc-win32-elf)
   else ()
-    set (TRIPLE x86_64-pc-win32) 
+    set (TRIPLE x86_64-pc-win32-elf) 
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)	
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -155,6 +161,7 @@ endif (WIN32)
 message ("CLANG:     ${CLANG}")
 message ("LLVM_OPT:  ${LLVM_OPT}")
 message ("LLVM_LINK: ${LLVM_LINK}")
+message ("LLC:       ${LLC}")
 message ("TRIPLE:    ${TRIPLE}")
 
 # 
@@ -163,6 +170,8 @@ message ("TRIPLE:    ${TRIPLE}")
 
 # clang
 set (OCL_OUTPUT_EXTENSION .rtl)
+set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
+
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim
   -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins
@@ -177,9 +186,16 @@ set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -O3)
 
-# llvm-link
+# llvm-link parameters
 set (LLVM_LINK_PARAMS -f)
 
+# llc parameters
+set (LLC_PARAMS -filetype=obj)
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
+else (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (LLC_PARAMS ${LLC_PARAMS} -code-model=large -relocation-model=pic)
+endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #------------------- Utility functions ---------------------------
 
 #
@@ -222,22 +238,25 @@ endfunction( compile_ocl )
 #
 # add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR ...FILES... )
 #
-#   OUTPUT_FILE_VAR - output, contains generated library
-#   TARGET_NAME     - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
-#   ARCH            - target SIMD arch type
-#   PROC            - target CPU
-#   USE_OPT         - Optimize output library with llvm opt tool
-#   OUTPUT_DIR      - output directory for the intermediate files
-#   FILES           - input files list
+#   OUTPUT_FILE_VAR   - output, contains generated library (rtl file)
+#   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
+#   TARGET_NAME       - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
+#   ARCH              - target SIMD arch type
+#   PROC              - target CPU
+#   USE_OPT           - Optimize output library with llvm opt tool
+#   ENABLE_PRECOMPILE - enable precompiling (to native machine code)
+#   OUTPUT_DIR        - output directory for the intermediate files
+#   FILES             - input files list
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR)
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT ENABLE_PRECOMPILE OUTPUT_DIR)
 
-  if (${ARGC} LESS 7)
+  if (${ARGC} LESS 9)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
   endif ()
 
   set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set (PRECOMPILED_OUTPUT_FILE ${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
@@ -261,7 +280,32 @@ function( add_ocl_library OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_D
       )
   endif(${USE_OPT})
 
+  # compile the rtl file to native objects
+  if(${ENABLE_PRECOMPILE})
+    message("Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
+
+    # Initialize the llc parameter "-mattr" based on PROC
+    SET (MATTR "-mattr=")
+    if (${PROC} MATCHES ".*avx2$")
+      set (MATTR "${MATTR}+avx2")
+    else()
+      if (${PROC} MATCHES ".*avx$")
+        set (MATTR "${MATTR}+avx")
+      endif ()
+    endif ()
+
+    add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}
+      COMMENT "OCL Building Static Object ${PRECOMPILED_OUTPUT_FILE}"
+      COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} -o ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE} < ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      DEPENDS ${LLC} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      VERBATIM
+      )
+  else (${ENABLE_PRECOMPILE})
+    message ("Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
+  endif(${ENABLE_PRECOMPILE})
+
   set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
+  set (${PRECOMPILED_OUTPUT_FILE_VAR} ${PRECOMPILED_OUTPUT_FILE} PARENT_SCOPE)
 
 endfunction( add_ocl_library )
 
@@ -326,16 +370,17 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
 endfunction(tblgenoclblt)
 
 #
-# create_target( PROC ARCH)
+# create_target( PROC ARCH PREBUILD_IMAGE_LIBRARY)
 #
 # Uses:
 #   TARGET_NAME_PREFIX - base name of the target OpenCL library
 #   OCL_SOURCE_FILES   - list of sources for OpenCL library
 # Parameters
-#   PROC            - target CPU
-#   ARCH            - target SIMD arch type
+#   PROC                    - target CPU
+#   ARCH                    - target SIMD arch type
+#   PREBUILD_IMAGE_LIBRARY  - flag to control creation of object files for image callback library
 
-function( create_target PROC ARCH )
+function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
 
   set (TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
   if(ARCH STREQUAL b2)
@@ -367,17 +412,25 @@ function( create_target PROC ARCH )
   endif( OCL_TABLEGEN_FILE )
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB ${TARGET_NAME} ${ARCH} ${PROC}  FALSE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${ARCH} ${PROC}  FALSE FALSE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
-  # build .rtl file out of OCL image callbacks (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
+  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )
 
+  # Unconditional dependent targets
+  set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
+
+  # If prebuilt library is built, depend on it so it gets built.
+  if( PREBUILD_IMAGE_LIBRARY )
+    set (TARGET_DEPENDENCIES ${TARGET_DEPENDENCIES} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+  endif( PREBUILD_IMAGE_LIBRARY)
+
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
+    DEPENDS ${TARGET_DEPENDENCIES}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -386,9 +439,17 @@ function( create_target PROC ARCH )
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
   if (WIN32)
-    install( FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} DESTINATION bin)
+    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
+    if( PREBUILD_IMAGE_LIBRARY)
+      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    endif( PREBUILD_IMAGE_LIBRARY)
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
   else(WIN32)
-    install( FILES ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} DESTINATION bin)
+    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
+    if( PREBUILD_IMAGE_LIBRARY)
+      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    endif( PREBUILD_IMAGE_LIBRARY)
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
   endif(WIN32)
 
 endfunction( create_target)
