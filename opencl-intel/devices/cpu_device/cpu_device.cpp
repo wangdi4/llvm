@@ -1409,7 +1409,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 totalNumUnits += partitionSizes[i];
             }
 			//Disallow partitions that equal the sub-device
-            if (totalNumUnits >= availableComputeUnits)
+            if (totalNumUnits > availableComputeUnits)
             {
                 return CL_DEV_INVALID_VALUE;
             }
