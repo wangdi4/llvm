@@ -3312,21 +3312,55 @@ __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_shuf128x32(__m512 v2, const _MM_PERM_ENUM perm128,
                   const _MM_PERM_ENUM perm32)
 {
-  return __builtin_ia32_shuf128x32(v2, perm128, perm32);
+  __m512 vtmp = __builtin_ia32_permute4f128(v2, perm128);
+  return __builtin_ia32_shuffle(vtmp, perm32);
 }
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_shuf128x32(__m512 v1_old, __mmask16 k1,
                        __m512 v2, const _MM_PERM_ENUM perm128,
                        const _MM_PERM_ENUM perm32)
 {
-  return __builtin_ia32_mask_shuf128x32(v1_old, k1, v2, perm128, perm32);
+  __m512 vtmp = __builtin_ia32_mask_permute4f128(v1_old, k1, v2, perm128);
+  return __builtin_ia32_mask_shuffle(v1_old, k1, vtmp, perm32);
 }
+
+/*
+ * Shuffle vector 128bit blocks
+ */
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_permute4f128(__m512 v2, const _MM_PERM_ENUM perm128)
+{
+  return __builtin_ia32_permute4f128(v2, perm128);
+}
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_permute4f128(__m512 v1_old, __mmask16 k1,
+                       __m512 v2, const _MM_PERM_ENUM perm128)
+{
+  return __builtin_ia32_mask_permute4f128(v1_old, k1, v2, perm128);
+}
+
+/*
+ * Shuffle vector 32bit blocks
+ */
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_shuffle(__m512 v2, const _MM_PERM_ENUM perm32)
+{
+  return __builtin_ia32_shuffle(v2, perm32);
+}
+__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_shuffle(__m512 v1_old, __mmask16 k1,
+                       __m512 v2, const _MM_PERM_ENUM perm32)
+{
+  return __builtin_ia32_mask_shuffle(v1_old, k1, v2, perm32);
+}
+
 /*
  * Shuffle vector dqwords then doublewords from memory.
  *    Shuffles 128-bit blocks of the vector read from memory 'mt',
  *    and then 32-bit blocks of the result.  The result of the second shuffle
  *    is returned.
  */
+/*
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_shuf128x32_m(void const* mt,
                     const _MM_PERM_ENUM perm128,
@@ -3344,7 +3378,7 @@ _mm512_mask_shuf128x32_m(__m512 v1_old, __mmask16 k1,
 {
   return __builtin_ia32_mask_shuf128x32m(v1_old, k1, mt, perm128, perm32, nt);
 }
-
+*/
 /* FIXME: need builtins to unify the interface for KNC */
 #define _mm512_shuffle_epi32(v2, perm) \
   _mm512_shuf128x32((v2), _MM_PERM_DCBA, (perm))
