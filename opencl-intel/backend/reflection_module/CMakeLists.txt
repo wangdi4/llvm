@@ -6,17 +6,14 @@ project (${TARGET_NAME})
 
 add_subdirectory(unittest)
 
-#we assume the existance of Cygwin, or some other linux simulation layer in
-#WINDOWS
 add_custom_command(
   OUTPUT BuiltinList.h
-  COMMAND cp ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
   BuiltinList.h
   DEPENDS NameManglingTests
   COMMENT "copying MangledNames.h ..."
   VERBATIM
 )
-
 
 add_library(
   ${TARGET_NAME}
