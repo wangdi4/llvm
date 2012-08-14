@@ -23,10 +23,10 @@
 #include <vector>
 #include "dynamic_array.h"
 
-class CRT_12_VR_124_127: public CommonRuntime{};
+class CRT12_VR_124_127: public CommonRuntime{};
 
 
-//|	TEST: CRT_12_VR_124_127.FillBufferSynchronized_vr124
+//|	TEST: CRT12_VR_124_127.FillBufferSynchronized_vr124
 //|
 //|	Purpose
 //|	-------
@@ -54,7 +54,7 @@ class CRT_12_VR_124_127: public CommonRuntime{};
 //|	The host should be able to receive events either from CPU device, GPU device, or both of them.
 //|
 
-TEST_F(CRT_12_VR_124_127, DISABLED_FillBufferSynchronized_vr124 ){ //I think there's a dead lock on line 111
+TEST_F(CRT12_VR_124_127, DISABLED_FillBufferSynchronized_vr124 ){ //I think there's a dead lock on line 111
 	DynamicArray<cl_int> buffer1(2);
 	DynamicArray<cl_int> buffer2(2);
 	cl_int pattern[2]={1,2};
@@ -134,7 +134,7 @@ TEST_F(CRT_12_VR_124_127, DISABLED_FillBufferSynchronized_vr124 ){ //I think the
 }
 
 
-//|	TEST: CRT_12_VR_124_127.MemoryObjectVisibilityReadWrite_vr126 (TC-1)
+//|	TEST: CRT12_VR_124_127.MemoryObjectVisibilityReadWrite_vr126 (TC-1)
 //|
 //|	Purpose
 //|	-------
@@ -155,7 +155,7 @@ TEST_F(CRT_12_VR_124_127, DISABLED_FillBufferSynchronized_vr124 ){ //I think the
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
+TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
@@ -200,7 +200,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 }
 
 
-//|	TEST: CRT_12_VR_124_127.MemoryObjectVisibilityReadOnly_vr126 (TC-2)
+//|	TEST: CRT12_VR_124_127.MemoryObjectVisibilityReadOnly_vr126 (TC-2)
 //|
 //|	Purpose
 //|	-------
@@ -222,7 +222,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 //|
 
 //maybe I should use one memory object?
-TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
+TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
@@ -272,7 +272,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 }
 
 
-//|	TEST: CRT_12_VR_124_127.MemoryObjectVisibilityWriteOnly_vr126 (TC-3)
+//|	TEST: CRT12_VR_124_127.MemoryObjectVisibilityWriteOnly_vr126 (TC-3)
 //|
 //|	Purpose
 //|	-------
@@ -293,7 +293,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
+TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
@@ -338,7 +338,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 
 
 
-//|	TEST: CRT_12_VR_124_127.SubBufferObjectVisibilityReadWrite_vr127_VR127 (TC-1)
+//|	TEST: CRT12_VR_124_127.SubBufferObjectVisibilityReadWrite_vr127_VR127 (TC-1)
 //|
 //|	Purpose
 //|	-------
@@ -360,7 +360,7 @@ TEST_F(CRT_12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
+TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
@@ -416,7 +416,7 @@ TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 }
 
 
-//|	TEST: CRT_12_VR_124_127.SubBufferVisibilityReadOnly_VR127 (TC-2)
+//|	TEST: CRT12_VR_124_127.SubBufferVisibilityReadOnly_VR127 (TC-2)
 //|
 //|	Purpose
 //|	-------
@@ -437,7 +437,7 @@ TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
+TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
@@ -493,7 +493,7 @@ TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
 }
 
 
-//|	TEST: CRT_12_VR_124_127.SubBufferVisibilityWriteOnly (TC-3)
+//|	TEST: CRT12_VR_124_127.SubBufferVisibilityWriteOnly (TC-3)
 //|
 //|	Purpose
 //|	-------
@@ -514,7 +514,7 @@ TEST_F(CRT_12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT_12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
+TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
