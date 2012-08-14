@@ -56,7 +56,7 @@ ALIGN16 const float4 f4unorm8mul = {255.f, 255.f, 255.f, 255.f};
 ALIGN16 const float4 f4unorm8lim = {0.0f, 0.0f, 0.0f, 0.0f};
 ALIGN16 const int4 i4int16Min = {SHRT16_MIN, SHRT16_MIN, SHRT16_MIN, SHRT16_MIN};
 ALIGN16 const int4 i4int16Max = {SHRT16_MAX, SHRT16_MAX, SHRT16_MAX, SHRT16_MAX};
-ALIGN16 const int4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
+ALIGN16 const uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
 
 // Clamp Border color used for CL_R, CL_RG, CL_RGB, CL_LUMINANCE
 ALIGN16 const float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f}; 
@@ -293,29 +293,46 @@ void __attribute__((overloadable)) vstore_half(float data_val, size_t offset, ha
     *((short *)ptr) = ((short4)data.lo).x;
 }
 
-float4  __attribute__((overloadable)) floor(float4 x)
-{
-    return _mm_floor_ps(x);
-}
-
-int4 __attribute__((overloadable)) convert_int4(float4 x)
-{
-    return (int4)_mm_cvtps_epi32((__m128)x);
-}
-
-float4  __attribute__((overloadable)) rint(float4 x)
-{
-    return _mm_round_ps((__m128)x, 0);
-}
-
 float4  __attribute__((overloadable)) fabs(float4 p)
 {
     p = _mm_and_ps(p, *(__m128*)mth_signMask);
     return p;
 }
 
-
 #ifdef __SSE4_1__
+float4  __attribute__((overloadable)) floor(float4 x)
+{
+    return _mm_floor_ps(x);
+}
+
+float4  __attribute__((overloadable)) rint(float4 x)
+{
+    return _mm_round_ps((__m128)x, _MM_ROUND_NEAREST);
+}
+#else
+// Required for Atom POC on Win8/Android
+/*
+float4 __attribute__((overloadable)) convert_float4(char4);
+float4 __attribute__((overloadable)) convert_float4(uchar4);
+float4 __attribute__((overloadable)) convert_float4(short4);
+float4 __attribute__((overloadable)) convert_float4(ushort4);
+float4 __attribute__((overloadable)) convert_float4(int4);
+float4 __attribute__((overloadable)) convert_float4(uint4);
+*/
+float4 __ocl_svml_v8_floorf4(float4);
+float4 __ocl_svml_v8_rintf4(float4);
+
+float4  __attribute__((overloadable)) floor(float4 x)
+{
+    return __ocl_svml_v8_floorf4(x);
+}
+
+float4  __attribute__((overloadable)) rint(float4 x)
+{
+    return __ocl_svml_v8_rintf4(x);
+}
+#endif
+
 // Auxiliary routines
 __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 {
@@ -328,25 +345,89 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
     return _mm_cvtps_epi32(f4Val);
 }
 
-int4    __attribute__((overloadable)) min(int4 x, int4 y)
+#ifdef __SSE4_1__
+int4    __attribute__((overloadable)) min_int(int4 x, int4 y)
 {
     return (int4) _mm_min_epi32((__m128i)x ,(__m128i) y);  
 }
 
-int4    __attribute__((overloadable)) max(int4 x, int4 y)
+int4    __attribute__((overloadable)) max_int(int4 x, int4 y)
 {
     return (int4) _mm_max_epi32((__m128i)x ,(__m128i) y);
 }
 
-uint4   __attribute__((overloadable)) min(uint4 x, uint4 y)
+uint4   __attribute__((overloadable)) min_int(uint4 x, uint4 y)
 {
     return (uint4) _mm_min_epu32((__m128i)x, (__m128i) y);
 }
 
-uint4   __attribute__((overloadable)) max(uint4 x, uint4 y)
+uint4   __attribute__((overloadable)) max_int(uint4 x, uint4 y)
 {
     return (uint4) _mm_max_epu32((__m128i)x, (__m128i) y);
 }
+#else
+// Required for Atom POC Win8/Android
+int4    __attribute__((overloadable)) min_int(int4 x, int4 y)
+{
+    ALIGN16 int _y[4];
+    ALIGN16 int _x[4];
+    ALIGN16 int r[4];
+    _mm_store_si128((__m128i*)_x, (__m128i) x);
+    _mm_store_si128((__m128i*)_y, (__m128i) y);
+    for(int i=0;i<4;++i)
+    {
+        r[i] = _x[i]<_y[i] ? _x[i] : _y[i];
+    }
+
+    return (int4) _mm_load_si128((__m128i*)r);
+}
+
+int4    __attribute__((overloadable)) max_int(int4 x, int4 y)
+{
+    ALIGN16 int _y[4];
+    ALIGN16 int _x[4];
+    ALIGN16 int r[4];
+    _mm_store_si128((__m128i*)_x, (__m128i) x);
+    _mm_store_si128((__m128i*)_y, (__m128i) y);
+    for(int i=0;i<4;++i)
+    {
+        r[i] = _x[i]>_y[i] ? _x[i] : _y[i];
+    }
+
+    return (int4) _mm_load_si128((__m128i*)r);
+}
+
+uint4   __attribute__((overloadable)) min_int(uint4 x, uint4 y)
+{
+    ALIGN16 unsigned int _y[4];
+    ALIGN16 unsigned int _x[4];
+    ALIGN16 unsigned int r[4];
+    _mm_store_si128((__m128i*)_x, (__m128i) x);
+    _mm_store_si128((__m128i*)_y, (__m128i) y);
+    for(int i=0;i<4;++i)
+    {
+        r[i] = _x[i]<_y[i] ? _x[i] : _y[i];
+    }
+
+    return (uint4) _mm_load_si128((__m128i*)r);
+}
+
+uint4   __attribute__((overloadable)) max_int(uint4 x, uint4 y)
+{
+    ALIGN16 unsigned int _y[4];
+    ALIGN16 unsigned int _x[4];
+    ALIGN16 unsigned int r[4];
+    _mm_store_si128((__m128i*)_x, (__m128i) x);
+    _mm_store_si128((__m128i*)_y, (__m128i) y);
+    for(int i=0;i<4;++i)
+    {
+        r[i] = _x[i]>_y[i] ? _x[i] : _y[i];
+    }
+
+    return (uint4) _mm_load_si128((__m128i*)r);
+}
+
+#endif
 
 float4 Half4ToFloat4(_8i16 xmm0)
 {
@@ -395,7 +476,6 @@ float4 Half4ToFloat4(_8i16 xmm0)
     return xmm5;
 }
 
-#endif
 
 /************************Float coordinate translations*************************************/
 
@@ -430,11 +510,7 @@ int4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_TRUE_NEAREST(im
 
 int4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 {
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-#else
-    int4 upper=(int4)(0,0,0,0);
-#endif
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
     
 #ifdef __SSE4_1__
@@ -448,24 +524,18 @@ int4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_NEAREST(image2d
 
 int4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_NEAREST(image2d_t image, float4 coord)
 {
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4AllZeros);
     __m128 mcoord = (float4)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
-    mcoord= _mm_round_ps((__m128)mcoord, _MM_ROUND_NEAREST);
+    mcoord= rint((__m128)mcoord);
     mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
     /// Set to zero coordinates that were equal to zero before
     /// multiplications
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);
     mcoord = (__m128)_mm_sub_ps((__m128)mcoord, (__m128)coord);
-#else
-    int4 upper = vload4(0,(((image_aux_data*)image)->dimSub1));
-    float4 mcoord=2.0f*rint(0.5f*coord);
-    mcoord=coord-mcoord;
-#endif
     mcoord=fabs(mcoord);
     int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
-    urcoord=min(urcoord,upper);
+    urcoord=min_int(urcoord,upper);
     return urcoord;
 }
 
@@ -506,11 +576,7 @@ float4 __attribute__((overloadable)) trans_coord_float_float_CLAMPTOEDGE_TRUE_NE
 float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
 
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-#else
-    int4 upper=(int4)(0,0,0,0);
-#endif
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
     
 #ifdef __SSE4_1__
@@ -524,24 +590,18 @@ float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST
 
 float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     __m128 isZero = _mm_cmpeq_ps(coord, float4AllZeros);
     __m128 mcoord = (__m128)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
-    mcoord = _mm_round_ps(mcoord, _MM_ROUND_NEAREST);
+    mcoord = rint(mcoord);
     mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
     /// Set to zero coordinates that were equal to zero before
     /// multiplications
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);
     mcoord = _mm_sub_ps(mcoord, coord);
     mcoord = _mm_abs_ps(mcoord);
-#else
-    int4 upper = vload4(0,(((image_aux_data*)image)->dimSub1)); 
-    float4 mcoord=2.0f*rint(0.5f*coord);
-    mcoord=fabs(coord-mcoord);
-#endif
     int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
-    *square0=min(urcoord,upper);
+    *square0=min_int(urcoord,upper);
     return float4AllZeros;
 }
 
@@ -585,11 +645,7 @@ float4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_TRUE_LINEAR(i
 
 float4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dim));
-#else
-     int4 upper=(int4)(0,0,0,0);
-#endif
     float4 ucoord = Unnormalize(image, coord-floor(coord));  //unrepeated coords
     int4 sq0 = ProjectNearest(ucoord - halfhalfhalfzero);
     int4 sq1 = sq0 + oneOneOneZero;
@@ -611,19 +667,15 @@ float4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_LINEAR(image2
 
 float4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
- #ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-#else
-    int4 upper=(int4)(0,0,0,0);
- #endif
     float4 mcoord=2.0f*rint(0.5f*coord);
     mcoord=fabs(coord - mcoord);
     float4 urcoord = Unnormalize(image, mcoord);  //unrepeated coords
     int4 sq0 = ProjectNearest(urcoord - halfhalfhalfzero);
     int4 sq1 = sq0 + oneOneOneZero;
     int4 lower = (int4)(0,0,0,0);
-    *square0 = max(lower, sq0);
-    *square1 = min(sq1, upper);
+    *square0 = max_int(lower, sq0);
+    *square1 = min_int(sq1, upper);
 
     return frac(urcoord-halfhalfhalfzero);
 }
@@ -713,61 +765,40 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 
 void __attribute__((overloadable)) write_sample_RGBA_UINT8(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
-    color = min(color, (uint4)(UCHAR_MAX));
+    color = min_int(color, (uint4)(UCHAR_MAX));
     *(char4*)pixel = trunc_v4i32_v4i8(*((int4*)&color));
-#else
-    // This function should be copy-pasted from BI module
-    (*(uchar4*)pixel)=convert_uchar4_sat(color);
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_UINT8(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = _mm_min_epi32(i4Val, i4uint8Max);
+    i4Val = (__m128i)min_int((int4)i4Val, (int4)i4uint8Max);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    // This function should be copy-pasted from BI module
-    (*(uchar2*)pixel)=convert_uchar4_sat(color).lo;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_UINT8(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = _mm_min_epi32(i4Val, i4uint8Max);
+    i4Val = (__m128i)min_int((int4)i4Val, (int4)i4uint8Max);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    // This function should be copy-pasted from BI module
-    (*(uchar*)pixel)=convert_uchar4_sat(color).x;
-#endif
 }
 
 /*****************************RGBA_UINT16 Image type i/o functions****************************************************/
 
 uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT16(void* pPixel)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     return (uint4)i4Val;
-#else
-    /// This function should be copy-pasted from BI module
-    return convert_uint4(*((ushort4*)pPixel));
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_min_epi32((__m128i)color, (__m128i)i4uint16Max);
+    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
@@ -776,33 +807,22 @@ void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 c
     *((unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    (*(ushort4*)pixel)=convert_ushort4_sat(color);
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_UINT16(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_min_epi32((__m128i)color, (__m128i)i4uint16Max);
+    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    (*(ushort2*)pixel)=convert_ushort4_sat(color).xy;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_UINT16(void* pixel, uint4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_min_epi32((__m128i)color, (__m128i)i4uint16Max);
+    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    (*(ushort4*)pixel)=convert_ushort4_sat(color).x;
-#endif
 }
 
 /*****************************RGBA_UINT32 Image type i/o functions****************************************************/
@@ -835,7 +855,6 @@ void __attribute__((overloadable)) write_sample_RG_UINT32(void* pixel, uint4 col
 
 int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
@@ -843,106 +862,73 @@ int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel)
     i4Val = _mm_slli_si128(i4Val, 3);
     i4Val = _mm_srai_epi32(i4Val, 24);
     return (int4)i4Val;
-#else 
-    /// This function should be copy-pasted from Built-ins module
-    return convert_int4(*((char4*)pPixel));
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_INT8(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_max_epi32((__m128i)color, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
-#else
-    (*(char4*)pixel)=convert_char4_sat(color);
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_INT8(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_max_epi32((__m128i)color, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
-#else
-    (*(char*)pixel)=convert_char4_sat(color).x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_INT8(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
-    __m128i i4Val = _mm_max_epi32((__m128i)color, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
-#else
-    (*(unsigned short*)pixel)=((ushort2)convert_char4_sat(color)).x;
-#endif
 }
 /*****************************RGBA_INT16 Image type i/o functions****************************************************/
 
 int4 __attribute__((overloadable)) load_pixel_RGBA_INT16(void* pPixel)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     // Extend sign
     i4Val = _mm_slli_si128(i4Val, 2);
     i4Val = _mm_srai_epi32(i4Val, 16);
     return (int4)i4Val;
-#else
-    /// This function should be copy-pasted from BI module
-    return convert_int4(*((short4*)pPixel));
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_INT16(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = (__m128i)color;
-    i4Val = _mm_max_epi32(i4Val, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     // Shrink to 8bit
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     _mm_storel_epi64((__m128i*)pixel, i4Val);
-#else
-    (*(short4*)pixel)=convert_short4_sat(color);
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_INT16(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = (__m128i)color;
-    i4Val = _mm_max_epi32(i4Val, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     // i4Val already contains valid short value
     (*(short*)pixel)=((int4)i4Val).x;
     ((short*)pixel)[1]=((int4)i4Val).y;
-#else
-    (*(short2*)pixel)=convert_short4_sat(color).lo;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_INT16(void* pixel, int4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = (__m128i)color;
-    i4Val = _mm_max_epi32(i4Val, (__m128i)i4int16Min);
-    i4Val = _mm_min_epi32(i4Val, (__m128i)i4int16Max);
+    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
     // i4Val already contains valid short value
     (*(short*)pixel)=((int4)i4Val).x;
-#else
-    (*(short*)pixel)=convert_short4_sat(color).x;
-#endif
 }
 
 /*****************************RGBA_INT32 Image type i/o functions****************************************************/
@@ -974,23 +960,16 @@ void __attribute__((overloadable)) write_sample_RG_INT32(void* pixel, int4 color
 
 float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT8(void* pPixel)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = (__m128i)_mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     float4 converted = _mm_cvtepi32_ps(i4Val);
-#else
-    uchar4 input = vload4(0, (uchar*)pPixel);
-    // This function should be copy-pasted from BI module
-    float4 converted = convert_float4(input);
-#endif
     converted = converted*(float4)(1.0f/255.0f);
     return converted;
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
@@ -999,47 +978,27 @@ void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT8(void* pixel, flo
     *((unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar4*)pixel) = convertedColor;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar2*)pixel) = convertedColor.lo;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_A_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     i4Val = _mm_srli_si128(i4Val, 12);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar*)pixel) = convertedColor.w;
-#endif
-
 }
 
 /***************************************RGBA_UNORM16 Image type i/o functions*****************************************************/
@@ -1047,23 +1006,14 @@ void __attribute__((overloadable)) write_sample_A_UNORM_INT8(void* pixel, float4
 float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT16(void* pPixel)
 {
 
-#ifdef __SSE4_1__
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     __m128 f4Val = _mm_cvtepi32_ps(i4Val);
     return _mm_mul_ps(f4Val, f4Unorm16Dim);
-#else
-    //__m128 i4Val = _mm_loadl_epi64((__m128i*)pPixel);
-    ushort4 input = vload4(0, (ushort*)pPixel);
-    /// convert_float4 should be copy-pasted from built-ins module
-    float4 converted = convert_float4(input)*(1.0f/65535.0f);
-    return converted;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm16mul, (__m128)f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
@@ -1072,47 +1022,27 @@ void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT16(void* pixel, fl
     *((unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(ushort4*)pixel) = convertedColor;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RG_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(ushort2*)pixel) = convertedColor.lo;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(unsigned short*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_A_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     i4Val = _mm_srli_si128(i4Val, 12);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(unsigned short*)pixel) = convertedColor.w;
-#endif
-
 }
 
 
@@ -1122,7 +1052,6 @@ void __attribute__((overloadable)) write_sample_A_UNORM_INT16(void* pixel, float
 float4 __attribute__((overloadable)) load_pixel_BGRA_UNORM_INT8(void* pPixel)
 {
 
-#ifdef __SSE4_1__
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
@@ -1130,19 +1059,10 @@ float4 __attribute__((overloadable)) load_pixel_BGRA_UNORM_INT8(void* pPixel)
     i4Val = (__m128i)_mm_mul_ps((__m128)i4Val, (__m128)f4Unorm8Dim);
     i4Val = _mm_shuffle_epi32(i4Val, _MM_SHUFFLE(3, 0, 1, 2));
     return (float4)i4Val;
-#else
-    uchar4 input = vload4(0, (uchar*)pPixel);
-    // This function should be copy-pasted from BI module
-    float4 res = convert_float4(input)*(float4)(1.f/255.0f);
-    // This function should be copy-pasted from BI module
-    res = res.zyxw;
-    return res;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     float4 convertedColor = color.zyxw;
     __m128i i4Val = cvt_to_norm((__m128i)convertedColor, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
@@ -1152,11 +1072,6 @@ void __attribute__((overloadable)) write_sample_BGRA_UNORM_INT8(void* pixel, flo
     *((unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    convertedColor = (uchar4)convertedColor.zyxw;
-    (*(uchar4*)pixel) = convertedColor;
-#endif
 }
 
 
@@ -1180,11 +1095,7 @@ void __attribute__((overloadable)) write_sample_RGBA_FLOAT(void* pixel, float4 c
 
 float4 __attribute__((overloadable)) load_pixel_RGBA_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     return (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)pPixel));
-#else
-    return vloada_half4(0, (half*)pPixel);
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_HALF_FLOAT(void* pixel, float4 color)
@@ -1258,13 +1169,9 @@ float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT16(void* pPix
 
 float __attribute__((overloadable)) load_value_LUMINANCE_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     half4 pix;
     pix.x = *(half*)pPixel;
     float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
-#else
-    float4 val = vloada_half4(0, (half*)pPixel);
-#endif
     return val.x;
 }
 
@@ -1300,13 +1207,9 @@ float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT16(void* pPix
 
 float __attribute__((overloadable)) load_value_INTENSITY_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     half4 pix;
     pix.x = *(half*)pPixel;
     float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
-#else
-    float4 val = vloada_half4(0, (half*)pPixel);
-#endif
     return val.x;
 }
 
@@ -1342,46 +1245,26 @@ void __attribute__((overloadable)) write_sample_INTENSITY_FLOAT(void* pixel, flo
 
 void __attribute__((overloadable)) write_sample_INTENSITY_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_INTENSITY_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(ushort*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_LUMINANCE_UNORM_INT8(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
-#else
-    uchar4 convertedColor = convert_uchar4(color * 255.0f);
-    (*(uchar*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_LUMINANCE_UNORM_INT16(void* pixel, float4 color)
 {
-#ifdef __SSE4_1__
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
-#else
-    ushort4 convertedColor = convert_ushort4(color * 65535.0f);
-    (*(ushort*)pixel) = convertedColor.x;
-#endif
 }
 
 void __attribute__((overloadable)) write_sample_R_FLOAT(void* pixel, float4 color)
@@ -1859,13 +1742,9 @@ float4 __attribute__((overloadable)) load_pixel_A_FLOAT(void* pPixel)
 // returns a uint4 (0, 0, 0, a)
 float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     half4 pix;
     pix.x = *(half*)pPixel;
     float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
-#else
-    float4 val = vloada_half4(0, (half*)pPixel);
-#endif
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.w = val.x;
@@ -1882,13 +1761,9 @@ float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 // returns a uint4 (r, 0, 0, 1.0)
 float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     half4 pix;
     pix.x = *(half*)pPixel;
     float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
-#else
-    float4 val = vloada_half4(0, (half*)pPixel);
-#endif
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = val.x;
@@ -1905,13 +1780,9 @@ float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 // returns a uint4 (r, g, 0, 1.0)
 float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
 {
-#ifdef __SSE4_1__
     half4 pix;
     pix.lo = *(half2*)pPixel;
     float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
-#else
-    float4 val = vloada_half4(0, (half*)pPixel);
-#endif
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.lo = val.lo;
@@ -1928,13 +1799,9 @@ float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
 // returns a uint4 (r, g, b, a)
 uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT8(void* pPixel)
 {
-#ifdef __SSE4_1__
     char4 color = *(char4*)pPixel; // nevermind signed/unsigned.
     int4 converted = zext_v4i8_v4i32(color);
     return *(uint4*)&converted;
-#else
-    return convert_uint4(*((uchar4*)pPixel));
-#endif
 }
 
 
@@ -2192,52 +2059,31 @@ void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, 
 // return: nonzero if the image is out of bounds, otherwise 0
 int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
 {
-#ifdef __SSE4_1__
     __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
     // Prepare mask for compare mask extraction
     int iMask=((image_aux_data*)image)->dimmask;
-    __m128i iCoord = _mm_max_epi32((__m128i)coord, (__m128i)int4MinusOnes);
-    iCoord = _mm_min_epi32(iCoord, i4up);
-    __m128i isUp=_mm_cmpeq_epi32(iCoord,(__m128i)i4up);
-    __m128i isLo=_mm_cmpeq_epi32(iCoord,(__m128i)int4MinusOnes);
+    int4 iCoord = max_int(coord, int4MinusOnes);
+    iCoord = min_int(iCoord, (int4)i4up);
+    __m128i isUp=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)i4up);
+    __m128i isLo=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)int4MinusOnes);
     int iBorder=(_mm_movemask_epi8(isUp) | _mm_movemask_epi8(isLo)) & iMask;
     return iBorder;
-#else
-    int4 upper = vload4(0,((image_aux_data*)image)->dimSub1);
-    int4 lower = (int4)(0,0,0 , 0);
-    
-    upper = upper < coord;
-    lower = lower > coord;
-
-    int4 isOOB = upper || lower;
-    int result=isOOB.x || isOOB.y || isOOB.z;
-    return result;
-#endif
 }
 
 int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 {
-#ifdef __SSE4_1__
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-#else
-    int4 upper=(int4)(0,0,0,0);
-#endif
     int4 lower = (int4)(0, 0, 0, 0);
     
-    int4 correctCoord=min(coord, upper);
-    correctCoord=max(correctCoord,lower);
+    int4 correctCoord=min_int(coord, upper);
+    correctCoord=max_int(correctCoord,lower);
     return correctCoord;
 
 }
 
 float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord)
 {
-#ifdef __SSE4_1__
     float4 fupper = _mm_load_ps((float*)(&((image_aux_data*)image)->dimf));
-#else
-    int4 upper=(int4)(0,0,0,0);
-    float4 fupper=convert_float4(upper);
-#endif
     return fupper*coord;
 }
 
@@ -2245,7 +2091,7 @@ float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord)
 //the coordinate here should be unnormalized already
 int4 __attribute__((overloadable)) ProjectNearest(float4 coord)
 {
-    return convert_int4(floor(coord));
+    return (int4)_mm_cvtps_epi32(floor(coord));
 }
 
 float4 __attribute__((overloadable)) frac(float4 coord)

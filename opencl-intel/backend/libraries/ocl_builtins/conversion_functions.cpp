@@ -128,6 +128,198 @@ extern "C" {
 	ALIGN16 int minIntVal32[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 	ALIGN16 int maxIntVal32[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
+#ifndef __SSE4_1__
+// This code is required for compilation on Atom processors
+// which support SSSE3 only
+__m128i _mm_cvtepi8_epi16(__m128i param)
+{
+	ALIGN16 short	a[8];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<8; ++i)
+	{
+		r[2*i] = (char)a[i];
+		r[2*i+1] = a[i] < 0 ? 0xFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+__m128i _mm_cvtepu8_epi16(__m128i param)
+{
+	ALIGN16 short	a[8];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<8; ++i)
+	{
+		r[2*i] = (char)a[i];
+		r[2*i+1] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+__m128i _mm_cvtepi8_epi32(__m128i param)
+{
+	ALIGN16 int		a[4];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<4; ++i)
+	{
+		r[4*i] = (char)a[i];
+		r[4*i+1] = r[4*i+2] = r[4*i+3] = a[i] < 0 ? 0xFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepi16_epi32(__m128i param)
+{
+	ALIGN16 int		a[4];
+	ALIGN16 short	r[8];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<4; ++i)
+	{
+		r[2*i] = (short)a[i];
+		r[2*i+1] = a[i] < 0 ? 0xFFFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepu8_epi32(__m128i param)
+{
+	ALIGN16 int		a[4];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<4; ++i)
+	{
+		r[4*i] = (char)a[i];
+		r[4*i+1] = r[4*i+2] = r[4*i+3] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepu16_epi32(__m128i param)
+{
+	ALIGN16 int		a[4];
+	ALIGN16 short	r[8];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<4; ++i)
+	{
+		r[2*i] = (short)a[i];
+		r[2*i+1] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepi8_epi64(__m128i param)
+{
+	ALIGN16 long	a[2];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[8*i] = (char)a[i];
+		r[8*i+1] = r[8*i+2] = r[8*i+3] = r[8*i+4] =
+			r[8*i+5] = r[8*i+6] = r[8*i+7] = a[i] < 0 ? 0xFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepi16_epi64(__m128i param)
+{
+	ALIGN16 long 	a[2];
+	ALIGN16 short	r[8];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[4*i] = (short)a[i];
+		r[4*i+1] = r[4*i+2] = r[4*i+3] = a[i] < 0 ? 0xFFFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepi32_epi64(__m128i param)
+{
+	ALIGN16 long	a[2];
+	ALIGN16 int		r[4];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[2*i] = (int)a[i];
+		r[2*i+1] = a[i] < 0 ? 0xFFFFFFFF : 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepu8_epi64(__m128i param)
+{
+	ALIGN16 long	a[2];
+	ALIGN16 char	r[16];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[8*i] = (char)a[i];
+		r[8*i+1] = r[8*i+2] = r[8*i+3] = r[8*i+4] =
+			r[8*i+5] = r[8*i+6] = r[8*i+7] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepu16_epi64(__m128i param)
+{
+	ALIGN16 long 	a[2];
+	ALIGN16 short	r[8];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[4*i] = (short)a[i];
+		r[4*i+1] = r[4*i+2] = r[4*i+3] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_cvtepu32_epi64(__m128i param)
+{
+	ALIGN16 long	a[2];
+	ALIGN16 int		r[4];
+	_mm_store_si128((__m128i*)a, param);
+	for(int i=0; i<2; ++i)
+	{
+		r[2*i] = (int)a[i];
+		r[2*i+1] = 0;
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+
+__m128i _mm_packus_epi32( 
+   __m128i a_x,
+   __m128i b_x
+   )
+{
+	ALIGN16 int			a[4];
+	ALIGN16 int			b[4];
+	ALIGN16 short		r[8];
+	_mm_store_si128((__m128i*)a, a_x);
+	_mm_store_si128((__m128i*)b, b_x);
+
+	for(int i=0; i<4;++i)
+	{
+		r[i] = (a[i] < 0) ? 0 : ((a[i] > 0xffff) ? 0xffff : (short)a[i]);
+		r[i+4] = (b[i] < 0) ? 0 : ((b[i] > 0xffff) ? 0xffff : (short)b[i]);
+	}
+
+	return _mm_load_si128((__m128i*)r);
+}
+#endif
+
 #if defined(__AVX__)
 	__m256i float8ToInt8(float8 param)
 	{
