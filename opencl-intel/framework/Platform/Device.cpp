@@ -450,6 +450,10 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         }
 		dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &requestedUnits, out_devices);
     }
+    else if (CL_DEV_PARTITION_AFFINITY_NUMA == partitionMode)
+    {
+        dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, sizes, out_devices);
+    }
     else // no other mode today requires an additional param
     {
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, NULL, out_devices);

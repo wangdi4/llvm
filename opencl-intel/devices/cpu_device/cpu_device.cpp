@@ -1507,6 +1507,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 			size_t leftoverProcessors = availableComputeUnits % numNumaNodes;
             cl_uint i;
 			cl_uint lastUsedIdx = 0;
+            size_t* sizes = (size_t*)param;
             for (i = 0; i < num_subdevices_to_create; ++i)
             {
 				size_t extraProcessors = i < leftoverProcessors ? 1 : 0;
@@ -1538,6 +1539,10 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				lastUsedIdx += pNewsubdeviceId->num_compute_units;
 
 				subdevice_ids[i] = pNewsubdeviceId;
+                                if (sizes != NULL)
+                                {
+                                    sizes[i] = pNewsubdeviceId->num_compute_units;
+                                }
 
 			}
             return CL_DEV_SUCCESS;
