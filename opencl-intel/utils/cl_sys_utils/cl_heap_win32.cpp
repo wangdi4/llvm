@@ -158,9 +158,11 @@ int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
     if (bResult != FALSE) {
         //_tprintf(TEXT("The low-fragmentation heap has been enabled.\n"));
     } else {
-        _tprintf(TEXT("Failed to enable the low-fragmentation heap with LastError %d."
-            " If running from debugger you need to set environment variable _NO_DEBUG_HEAP=1\n"),
-                 GetLastError());
+		char cBuf[256];
+        SPRINTF_S(cBuf, 256, "'CPU Runtime': Failed to enable the low-fragmentation heap with LastError %d."
+            " If running from debugger you need to set environment variable _NO_DEBUG_HEAP=1\n",
+            GetLastError());
+        OutputDebugString(cBuf);
     }
 #endif
 
