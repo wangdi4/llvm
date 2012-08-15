@@ -35,11 +35,11 @@ OpenCLMICArgsBuffer::OpenCLMICArgsBuffer(const cl_kernel_argument * pKernelArgs,
                                    cl_uint kernelNumArgs, 
                                    IBufferContainerList * input,
                                    COIBuffersWrapper& coiBuffers,
-                                   const COIPROCESS& deviceProcess):
-m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs)
+                                   const COIPROCESS& deviceProcess,
+                                   bool isCheckOOBAccess):
+m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_isCheckOOBAccess(isCheckOOBAccess)
 {
     m_argsBufferSize = CalcArgsBufferSize();
-
     m_pArgsBuffer.reset(new uint8_t[m_argsBufferSize]);
     FillArgsBuffer(input, coiBuffers, deviceProcess);
 }
@@ -101,10 +101,24 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
             size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
 
+            if(m_isCheckOOBAccess) {
+                // Padding is added to both sides of the buffer.
+                DEBUG(llvm::dbgs() << "Padding buffer...\tPadding Size is " << PaddingSize << " bytes\n");
+                bufferSize += (2*PaddingSize);
+                pData = malloc(bufferSize);
+                std::fill((uint8_t*)pData, (uint8_t*)pData + PaddingSize, PaddingVal);
+                std::fill((uint8_t*)pData + bufferSize - PaddingSize, (uint8_t*)pData + bufferSize, PaddingVal);
+                memcpy((uint8_t*)pData + PaddingSize, pMemObj->GetDataPtr(), bufferSize - 2*PaddingSize);
+                // Pointers passed to COI can only be destructed after COI buffer is destroyed, so we save the pointers
+                // to be freed after execution. 
+                m_paddedDataPointers.push_back(pData);
+            }
+
             BufferDirective buffDirective;
             buffDirective.bufferIndex = coiBuffers.GetNumberOfBuffers();
             buffDirective.offset_in_blob = offset;
-
+            buffDirective.isPadded = m_isCheckOOBAccess;
+           
             FillMemObjDescriptor( buffDirective.mem_obj_desc, bufferDesc, NULL);
 
             // Create buffer with dispatcher data for all kernels.
@@ -125,6 +139,7 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
                 m_directives[m_directives.size() - 1].offset_in_blob << "\n");
 
             offset += sizeof(void *);
+
             break;
         }
         case CL_KRNL_ARG_PTR_LOCAL:
@@ -353,3 +368,9 @@ size_t OpenCLMICArgsBuffer::CalcArgsBufferSize()
 
     return bufferSize;
 }
+
+std::vector<void*> OpenCLMICArgsBuffer::GetPaddedDataPointers() 
+{
+    return m_paddedDataPointers;
+}
+

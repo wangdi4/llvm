@@ -104,16 +104,19 @@ namespace Validation
         /// @param pKernelConfig   [IN] contains kernel name to run and workspace configuraton
         /// @param runResult       [OUT] initialized with input data and ignore list for comparator
         /// @param dispatcherData  [OUT] keeps details about data layout in COI buffers.
+        /// @param isCheckOOBAccess [IN] true if out of bounds access to buffers checking is needed.
         void PrepareInputData( BufferContainerList& input,
             char **kernelArgValues,
             const ICLDevBackendProgram_* pProgram,
             const OpenCLKernelConfiguration *const& pKernelConfig,
             IRunResult* runResult,
-            DispatcherData& dispatcherData);
+            DispatcherData& dispatcherData,
+            bool isCheckOOBAccess);
 
         void CopyOutputData( BufferContainer& output,
                        const ICLDevBackendKernel_* pKernel,
-                       size_t& coiFuncArgsId );
+                       size_t& coiFuncArgsId, 
+                       bool isCheckOOBAccess );
 
 
         COIProcessAndPipelineWrapper m_procAndPipe;
@@ -132,6 +135,9 @@ namespace Validation
         static const char* m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
         COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];
         Sample m_serializationTime;
+        
+        // pointers to padded buffers
+        std::vector<void*> m_paddedDataPointers;
     };
 }
 

@@ -25,13 +25,17 @@ File Name:  OpenCLArgsBuffer.cpp
 
 #include "cpu_dev_limits.h"
 
+#include <algorithm>
+#include "MICNative/common.h"
+
 using namespace Validation;
 
 OpenCLArgsBuffer::OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs, 
                                    cl_uint kernelNumArgs, 
                                    IBufferContainerList * input,
-                                   const ICLDevBackendImageService* pImageService):
-m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_pImageService(pImageService)
+                                   const ICLDevBackendImageService* pImageService,
+                                   bool isCheckOOBAccess) : 
+m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_pImageService(pImageService), m_isCheckOOBAccess(isCheckOOBAccess)
 {
     m_argsBufferSize = CalcArgsBufferSize();
 
@@ -184,14 +188,30 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             // Kernel argument is a buffer - need to pass a pointer in the arguments buffer
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
             size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
+            
+            // Add Padding to both sides of the buffer
+            if (m_isCheckOOBAccess) 
+            {
+                bufferSize += (2*PaddingSize);
+            }
 
             // Kernel execution assumes all buffer arguments are aligned
             // If we do not align the buffer the execution crashes
             auto_ptr_aligned spNewBuffer((char*)align_malloc(bufferSize, CPU_DEV_MAXIMUM_ALIGN));
             auto_ptr_aligned spMemDesc((char*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
 
-            memcpy(spNewBuffer.get(), (char*)pData, bufferSize);
-            FillMemObjDescriptor( *((cl_mem_obj_descriptor*)spMemDesc.get()), bufferDesc, spNewBuffer.get());
+            if (m_isCheckOOBAccess) 
+            {
+                char* pPaddedData = spNewBuffer.get();
+                std::fill(pPaddedData, pPaddedData + bufferSize, PaddingVal);
+                memcpy(pPaddedData + PaddingSize, (char*)pData, bufferSize - 2*PaddingSize);
+                FillMemObjDescriptor( *((cl_mem_obj_descriptor*)spMemDesc.get()), bufferDesc, pPaddedData + PaddingSize);
+            }
+            else
+            {
+                memcpy(spNewBuffer.get(), (char*)pData, bufferSize);
+                FillMemObjDescriptor( *((cl_mem_obj_descriptor*)spMemDesc.get()), bufferDesc, spNewBuffer.get());
+            }
 
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             *pBufferArg = spMemDesc.release();
@@ -276,7 +296,10 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
 
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;
-            align_free(pMemDesc->pData);
+           
+            // Correct pointer in case the buffer is padded 
+            void* pBuffer = m_isCheckOOBAccess ? (char*)(pMemDesc->pData) - PaddingSize : pMemDesc->pData;
+            align_free(pBuffer);
             align_free(pMemDesc);
 
             offset += sizeof(void *);
@@ -364,10 +387,26 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             // Need to pass a pointer in the arguments buffer
 
             size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
-
+            
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;
             void* pBufferArgData = pMemDesc->pData;
+
+            if (m_isCheckOOBAccess) 
+            {
+
+                // Check for mutations
+                if ( (std::find_if( (char*)pBufferArgData - PaddingSize, 
+                                    (char*)pBufferArgData, 
+                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != (char*)pBufferArgData) 
+                        ||
+                     (std::find_if( (char*)pBufferArgData + bufferSize, 
+                                    (char*)pBufferArgData + bufferSize + PaddingSize, 
+                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != (char*)pBufferArgData + bufferSize + PaddingSize) )
+                {
+                    throw Exception::OutOfRange("Padding was mutated!");
+                }
+            }
 
             memcpy(pData, pBufferArgData, bufferSize);
 
@@ -382,7 +421,6 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             size_t locSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(origSize); 
             stLocMemSize += locSize;
             offset += sizeof(void*);
-
             // TODO : assign value
         }
         else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)

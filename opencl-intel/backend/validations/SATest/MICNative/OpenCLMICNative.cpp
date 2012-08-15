@@ -19,7 +19,7 @@ File Name:  OpenCLMICNative.cpp
 #include <assert.h>
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
-#include <common/COIMacros_common.h>
+#include <common/COIMacros_common.h>                
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +28,9 @@ File Name:  OpenCLMICNative.cpp
 #include "WGContext.h"
 #include "common.h"
 #include "Performance.h"
+#include "Exception.h"
+#include <stdint.h>
+#include <algorithm>
 
 #if defined(__LP64__)
 #include <sys/mman.h>
@@ -239,7 +242,6 @@ int main(int argc, char** argv)
     // Functions enqueued on the sink side will not start executing until
     // you call COIPipelineStartExecutingRunFunctions(). This call is to
     // synchronize any initialization required on the sink side.
-
     COIRESULT result = COIPipelineStartExecutingRunFunctions();
     if ( COI_SUCCESS != result )
     {
@@ -346,8 +348,6 @@ void executeKernels(uint32_t         in_BufferCount,
     CHECK_RESULT(serializer->DeSerializeProgram(&pProgram, in_ppBufferPointers[0], size_t(in_pBufferLengths[0])));
     DEBUG_PRINT("done.\n");
     deserializationTimer.Stop();
-    // Save deserialization time to the return value.
-    *(Validation::Sample*)(in_pReturnValue) = deserializationTimer;
 
     uint64_t numOfKernels = *(uint64_t*)in_pMiscData;
     // Last buffer contains dispatcher data.
@@ -403,7 +403,8 @@ void executeKernels(uint32_t         in_BufferCount,
             {
                 *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = &(directives[j].bufferDirective.mem_obj_desc);
                 DEBUG_PRINT("Pointer value[%d] = %p\n", j, &(directives[j].bufferDirective.mem_obj_desc));
-                directives[j].bufferDirective.mem_obj_desc.pData = in_ppBufferPointers[directives[j].bufferDirective.bufferIndex];
+                size_t padding = directives[j].bufferDirective.isPadded ? PaddingSize : 0;
+                directives[j].bufferDirective.mem_obj_desc.pData = (uint8_t*)(in_ppBufferPointers[directives[j].bufferDirective.bufferIndex]) + padding;
                 DEBUG_PRINT("Pointer value = %p\n", directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("First three values = %f, %f, %f\n", *(float*)directives[j].bufferDirective.mem_obj_desc.pData, *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
             }
@@ -479,9 +480,34 @@ void executeKernels(uint32_t         in_BufferCount,
                 }
             }
             DEBUG_PRINT("Timer data: total time: %lu, total ticks: %lu, samples count: %lu", timer.TotalTime(), timer.TotalTicks(), timer.SamplesCount());
-            ((Validation::Sample*)in_pReturnValue)[i*exeOptions->executeIterationsCount+j+1] = timer;
         }
         DEBUG_PRINT("done.\n");
+
+        *(bool*)in_pReturnValue = true; 
+        for (uint32_t j = 0; j < dispatchers[i].preExeDirectivesCount; ++j) 
+        {
+            if (directives[j].id == BUFFER && directives[j].bufferDirective.isPadded)
+            {
+                // Buffer is padded, need to check for mutations 
+                DEBUG_PRINT("Checking buffer %d for mutations... ", j);
+                char* bufferPtr = (char*)(in_ppBufferPointers[directives[j].bufferDirective.bufferIndex]);
+                size_t dataSize = directives[j].bufferDirective.mem_obj_desc.dimensions.dim[0];
+                if ( (std::find_if (bufferPtr, 
+                                    bufferPtr + PaddingSize, 
+                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + PaddingSize) 
+                        ||
+                     (std::find_if (bufferPtr + PaddingSize + dataSize,
+                                    bufferPtr + 2*PaddingSize + dataSize, 
+                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + 2*PaddingSize + dataSize) )
+                {
+                   DEBUG_PRINT("Padding was mutated!\n");
+                   *(bool*)in_pReturnValue = false; 
+                }
+                else {
+                    DEBUG_PRINT("done.\n");
+                }
+            }
+        }
 
         delete [] kernelsArgs;
         delete [] pMemBuffSizes;

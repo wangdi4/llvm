@@ -19,7 +19,6 @@ File Name:  common.h
 #ifndef SATEST_NATIVE_COMMON_H
 #define SATEST_NATIVE_COMMON_H
 
-#include <stdint.h>
 #include "cl_device_api.h"
 #include "cl_types.h"
 
@@ -42,6 +41,7 @@ struct BufferDirective
     uint32_t bufferIndex;
     uint64_t offset_in_blob;
     cl_mem_obj_descriptor mem_obj_desc;
+    bool isPadded;
 };
 
 struct PrintfDirective
@@ -182,5 +182,9 @@ enum OPTIONAL_DISPATCH_BUFFERS
 
     AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS
 };
+
+// Padding Parameters
+const size_t    PaddingSize = 4096;       // Must be a multiple of 64 to avoid alignment issues.
+const uint8_t   PaddingVal = 0xcc;
 
 #endif // SATEST_NATIVE_COMMON_H

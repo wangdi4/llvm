@@ -33,7 +33,7 @@ File Name:  OpenCLMICArgsBuffer.h
 namespace Validation
 {
   /// @brief This class is responsible for handling the arguments buffer need for creation of kernel binary
-  class OpenCLMICArgsBuffer
+  class OpenCLMICArgsBuffer 
   {
 
   public:
@@ -42,11 +42,14 @@ namespace Validation
     /// @param [IN] pKernelArgs Kernel arguments description
     /// @param [IN] kernelNumArgs Number of kernel arguments
     /// @param [IN] input Input buffers for the test program
+    /// @param [IN] isCheckOOBAccess if true, checks for out of bounds
+    ///             access
       OpenCLMICArgsBuffer(const cl_kernel_argument * pKernelArgs,
           cl_uint kernelNumArgs,
           IBufferContainerList * input,
           COIBuffersWrapper& coiBuffers,
-          const COIPROCESS& deviceProcess);
+          const COIPROCESS& deviceProcess,
+          bool isCheckOOBAccess);
 
     /// @brief Destructor
     ~OpenCLMICArgsBuffer(void);
@@ -69,6 +72,9 @@ namespace Validation
     {
         return m_directives;
     }
+
+    /// @brief Returns the pointers to padded buffers
+    std::vector<void*> GetPaddedDataPointers();
 
     /// Adds first buffer container from intput buffer container list into the output buffer container list.
     void CopyFirstBC(IBufferContainerList *output, const IBufferContainerList * input);
@@ -98,6 +104,12 @@ namespace Validation
 
     std::vector<BufferDirective> m_directives;
 
+    // Will this buffer self-check for out of bounds access?
+    bool m_isCheckOOBAccess;
+    
+    // Pointers to padded data are passed to COI and cannot be freed until the COI buffers are destroyed.
+    // Therfore, they are saved and should be freed when it is safe to do so (after execution).
+    std::vector<void*> m_paddedDataPointers;
   };
 }
 

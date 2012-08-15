@@ -53,10 +53,12 @@ namespace Validation
     /// @param [IN] pKernelArgs Kernel arguments description
     /// @param [IN] kernelNumArgs Number of kernel arguments
     /// @param [IN] input Input buffers for the test program
+    /// @param {IN] isCheckOOBAccess if true, check for out of bounds access
     OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs,
                      cl_uint kernelNumArgs,
                      IBufferContainerList * input,
-                     const ICLDevBackendImageService* pImageService);
+                     const ICLDevBackendImageService* pImageService,
+                     bool isCheckOOBAccess);
 
     /// @brief Destructor
     ~OpenCLArgsBuffer(void);
@@ -101,6 +103,10 @@ namespace Validation
     cl_uint m_kernelNumArgs;
     // Image service to use for image aux data initialization
     const ICLDevBackendImageService* m_pImageService;
+
+    // will this buffer self-check for out of bounds access?
+    bool m_isCheckOOBAccess;
+
   };
 }
 

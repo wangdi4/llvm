@@ -34,6 +34,7 @@ File Name:  OpenCLMICBackendRunner.cpp
 #include <assert.h>
 #include <string>
 #include <limits.h>
+#include <algorithm>
 
 #define DEBUG_TYPE "OpenCLMICBackendRunner"
 #include "llvm/Support/raw_ostream.h"
@@ -288,7 +289,8 @@ void OpenCLMICBackendRunner::SerializeProgram(ICLDevBackendSerializationService*
 
 void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
                        const ICLDevBackendKernel_* pKernel,
-                       size_t& coiFuncArgsId )
+                       size_t& coiFuncArgsId, 
+                       bool isCheckOOBAccess )
 {
     // Get kernel arguments
     uint32_t kernelNumArgs = pKernel->GetKernelParamsCount();
@@ -327,6 +329,14 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
             // Copy output data from the device.
             char*   bufferPtr;
             m_coiFuncArgs.Map(COI_MAP_READ_ONLY, 0, NULL, (void**)&bufferPtr, coiFuncArgsId);
+            
+            if (isCheckOOBAccess) 
+            {
+                
+                // Skip the initial padding before copying the actual output.
+                bufferPtr += PaddingSize;
+            }
+            
             DEBUG(llvm::dbgs()<< "Output data before copying the results.\n");
             DEBUG(llvm::dbgs()<< "First three values (as floats): " << *(float*)pData << ", " << *(((float*)pData) + 1)  << ", " << *(((float*)pData) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as ints): " << *(int*)pData << ", " << *(((int*)pData) + 1)  << ", " << *(((int*)pData) + 2) << ".\n");
@@ -345,12 +355,13 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
     }
 }
 
-void OpenCLMICBackendRunner::PrepareInputData( BufferContainerList& input,
+void OpenCLMICBackendRunner::PrepareInputData(    BufferContainerList& input,
                                                   char **kernelNameAndArgs,
                                                   const ICLDevBackendProgram_* pProgram,
                                                   const OpenCLKernelConfiguration *const& pKernelConfig,
                                                   IRunResult* runResult,
-                                                  DispatcherData& dispatcherData )
+                                                  DispatcherData& dispatcherData,
+                                                  bool isCheckOOBAccess )
 {
     // Get kernel to run
     std::string kernelName = pKernelConfig->GetKernelName();
@@ -374,7 +385,7 @@ void OpenCLMICBackendRunner::PrepareInputData( BufferContainerList& input,
         pKernelConfig->GetLocalWorkSize());
 
     // Create the argument buffer
-    OpenCLMICArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, m_coiFuncArgs, m_procAndPipe.GetProcessHandler());
+    OpenCLMICArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, m_coiFuncArgs, m_procAndPipe.GetProcessHandler(), isCheckOOBAccess);
     dispatcherData.kernelArgSize = argsBuffer.GetArgsBufferSize();
 
     std::vector<DirectivePack> directives;
@@ -404,6 +415,11 @@ void OpenCLMICBackendRunner::PrepareInputData( BufferContainerList& input,
     //argsBuffer.CopyOutput(runResult, &input, kernelName.c_str());
     IBufferContainerList& output = runResult->GetOutput(kernelName.c_str());
     argsBuffer.CopyFirstBC(&output, &input);
+
+    // Save pointers to padded Data until the point where it can be freed
+    std::vector<void*> paddedArgs = argsBuffer.GetPaddedDataPointers();
+    m_paddedDataPointers.reserve(m_paddedDataPointers.size() + paddedArgs.size());
+    m_paddedDataPointers.insert(m_paddedDataPointers.end(), paddedArgs.begin(), paddedArgs.end());
 }
 
 void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
@@ -429,7 +445,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
         LoadInputBuffer(*it, kernelArgBufferValues + dispatcherIndex);
 
         PrepareInputData(kernelArgBufferValues[dispatcherIndex], kernelArgsValues+dispatcherIndex, pProgram, *it,
-            pRunResult, kernelDataDispatchers[dispatcherIndex]);
+            pRunResult, kernelDataDispatchers[dispatcherIndex], !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) );
     }
 
 
@@ -453,6 +469,8 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
     uint32_t numOfTimers = numOfKernels*exeOptions->executeIterationsCount + 1;
     auto_ptr_ex<Sample, ArrayDP<Sample> > micTimers(new Sample[numOfTimers]);
 
+    bool returnValue; 
+
     DEBUG(llvm::dbgs()<< "Number of buffers for RunFunction function: " << m_coiFuncArgs.GetNumberOfBuffers() << "\n");
 
     COIEVENT barrier;
@@ -465,10 +483,16 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
         m_coiFuncArgs.GetNumberOfBuffers(), m_coiFuncArgs.GetBufferHandler(0), m_coiFuncArgs.GetBufferAccessFlags(0),  // Buffers and access flags
         0, NULL,                                                    // Input dependencies
         &numOfKernels, sizeof(uint64_t),                            // Misc Data to pass to the function
-        micTimers.get(), sizeof(Sample)*(numOfTimers),              // Return values that will be passed back
+        &returnValue, sizeof(returnValue),              // Return values that will be passed back
         &barrier                                                    // Barrier to signal when it completes
         ));
+    
     CHECK_COI_RESULT(COIEventWait(1, &barrier, -1, true, NULL, NULL));
+    
+    if (!returnValue)
+    {
+        throw Exception::OutOfRange("Padding was Mutated!");
+    }
 
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
@@ -514,7 +538,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
 
             // Copy result data to the runRunsults.
             DEBUG(llvm::dbgs()<< "Copy output data starting from COI buffer #" << currCOIBufferId << ".\n");
-            CopyOutputData(*static_cast<BufferContainer*>(buffCont), pKernel, currCOIBufferId);
+            CopyOutputData(*static_cast<BufferContainer*>(buffCont), pKernel, currCOIBufferId, !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
             ++buffContainerId;
             kernelRunCounter[kernelName] = buffContainerId;
@@ -533,6 +557,12 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
         delete [] kernelArgsValues[i];
     }
     delete [] kernelArgsValues;
+
+    // free padded buffers
+    for (std::vector<void*>::iterator i = m_paddedDataPointers.begin(); i != m_paddedDataPointers.end(); i++)
+    {
+       free (*i);
+    }
 }
 
 } // namespace Validation

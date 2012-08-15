@@ -435,7 +435,8 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
 
     // Create the argument buffer
-    OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService);
+    OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService,
+            !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
     OpenCLBinaryContext binary( pKernel,
                                 pExecutionService,
