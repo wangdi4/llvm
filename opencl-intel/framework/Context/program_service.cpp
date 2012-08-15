@@ -110,26 +110,24 @@ bool CompileTask::Execute()
                                   &uiBinarySize, 
                                   &szCompileLog);
 
+    
     if (NULL != szCompileLog)
     {
         m_pProg->SetBuildLogInternal(m_deviceID, szCompileLog);
-        m_pProg->SetBuildLogInternal(m_deviceID, "Compilation failed\n");
         delete[] szCompileLog;
-    }
-    else
-    {
-
-        m_pProg->SetBuildLogInternal(m_deviceID, "Compilation done\n");
     }
 
     if (0 == uiBinarySize)
     {
         assert( NULL == pBinary);
         //Build failed
+        m_pProg->SetBuildLogInternal(m_deviceID, "Compilation failed\n");
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_COMPILE_FAILED);
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
+
+    m_pProg->SetBuildLogInternal(m_deviceID, "Compilation done\n");
 
     //Else compile succeeded
     m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
