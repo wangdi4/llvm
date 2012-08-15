@@ -7,8 +7,8 @@
 ;declare <16 x float> @llvm.x86.mic.mask.shuf128x32(<16 x float>, i16, <16 x float>, i32, i32) nounwind readnone
 
 ;define <16 x float> @test_1(<16 x float> %arg1, <16 x float> %arg2) {
-; RCHECK: vpermf32x4
-; RCHECK: vpshufd
+; XX: vpermf32x4
+; XX: vpshufd
 ;  %res = call <16 x float> @llvm.x86.mic.mask.shuf128x32(<16 x float> %arg1, i16 2570, <16 x float> %arg2, i32 250, i32 114) nounwind
 ;  ret <16 x float> %res
 ;}
@@ -16,8 +16,8 @@
 ;declare <16 x float> @llvm.x86.mic.shuf128x32(<16 x float>, i32, i32) nounwind readnone
 
 ;define <16 x float> @test_2(<16 x float> %arg1, <16 x float> %arg2) {
-; RCHECK: vpermf32x4
-; RCHECK: vpshufd
+; XX: vpermf32x4
+; XX: vpshufd
 ;  %res = call <16 x float> @llvm.x86.mic.shuf128x32(<16 x float> %arg1, i32 250, i32 114) nounwind
 ;  ret <16 x float> %res
 ;}
