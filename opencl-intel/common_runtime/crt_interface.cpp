@@ -833,124 +833,110 @@ cl_int CL_API_CALL clGetGLContextInfoKHR( const cl_context_properties * properti
                                           void *                        param_value,
                                           size_t *                      param_value_size_ret)
 {
+    OCLCRT::DEV_INFO_MAP::const_iterator itr;
+    cl_int errCode                          = CL_SUCCESS;    
+    size_t total_value_size_ret             = 0;    
+    void* platform_param_value              = NULL;
+    size_t platform_param_value_size_ret    = 0;
 
-    // No supported for GL in a shared Context yet!
-    cl_int retCode = CL_SUCCESS;
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
     if( param_value == NULL && param_value_size_ret == NULL )
     {
         return CL_INVALID_VALUE;
     }
 
-    if( CL_SUCCESS != (retCode = OCLCRT::crt_ocl_module.isValidProperties( properties ) ) )
+    if( CL_SUCCESS != (errCode = OCLCRT::crt_ocl_module.isValidProperties( properties ) ) )
     {
-        return retCode;
+        return errCode;
     }
 
-    switch( param_name )
+    for( itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+         itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+         itr++ )
     {
-        case CL_DEVICES_FOR_GL_CONTEXT_KHR:
-            {
-                size_t platforms_param_size_ret = 0;
+        CrtPlatform* devicePlatform = itr->second->m_crtPlatform;
 
-                std::vector<CrtPlatform*>::iterator itr = OCLCRT::crt_ocl_module.m_oclPlatforms.begin();
-                for (;itr != OCLCRT::crt_ocl_module.m_oclPlatforms.end(); ++itr)
-                {
-                    cl_context_properties* props = NULL;
-                    if( CRT_FAIL == OCLCRT::ReplacePlatformId( properties, (*itr)->m_platformIdDEV, &props ) )
-                    {
-                        retCode = CL_OUT_OF_HOST_MEMORY;
-                        goto FINISH;
-                    }
+        if( !( devicePlatform->m_supportedExtensions & CRT_CL_GL_EXT ) )
+        {
+            // The current platform isn't supporting DX9 interop
+            continue;
+        }
 
-                    void* platform_param_value = NULL;
-                    if ( param_value != NULL )
-                    {
-                        platform_param_value = &reinterpret_cast<char*>(param_value)[ platforms_param_size_ret ];
-                    }
+        cl_context_properties* props = NULL;
+        if( CRT_FAIL == OCLCRT::ReplacePlatformId( properties, itr->second->m_crtPlatform->m_platformIdDEV, &props ) )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
 
-                    size_t platform_param_size_ret = 0;
-                    retCode = (*itr)->m_platformIdDEV->dispatch->clGetGLContextInfoKHR( props,
-                        param_name,
-                        param_value_size,
-                        platform_param_value,
-                        &platform_param_size_ret );
-
-                    delete[] props;
-                    props = NULL;
-
-                    if( retCode == CL_SUCCESS )
-                    {
-                        platforms_param_size_ret += platform_param_size_ret;
-
-                        if ( ( param_value != NULL ) && ( platforms_param_size_ret > param_value_size ) )
-                        {
-                            retCode = CL_INVALID_VALUE;
-                            goto FINISH;
-                        }
-                    }
-                    else
-                    {
-                        retCode = CL_OUT_OF_HOST_MEMORY;
-                        goto FINISH;
-                    }
-                }
-
-                if( param_value_size_ret != NULL )
-                {
-                    *param_value_size_ret = platforms_param_size_ret;
-                }
-
-                break;
-            }
+        switch( param_name )
+        {
         case CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR:
-            {
-                std::vector<CrtPlatform*>::iterator itr = OCLCRT::crt_ocl_module.m_oclPlatforms.begin();
-                for (;itr != OCLCRT::crt_ocl_module.m_oclPlatforms.end(); ++itr)
-                {
-                    cl_context_properties* props = NULL;
-                    if( CRT_FAIL == OCLCRT::ReplacePlatformId( properties, (*itr)->m_platformIdDEV, &props ) )
-                    {
-                        retCode = CL_OUT_OF_HOST_MEMORY;
-                        goto FINISH;
-                    }
-
-                    size_t platform_param_size_ret = 0;
-                    retCode = (*itr)->m_platformIdDEV->dispatch->clGetGLContextInfoKHR( props,
+           if( ( ( OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU ) &&
+               ( itr->second->m_devType != CL_DEVICE_TYPE_GPU ) ) ||
+               ( itr->second->m_isRootDevice == false ) )
+           {
+               continue;
+           }
+           errCode = itr->second->m_crtPlatform->m_platformIdDEV->dispatch->clGetGLContextInfoKHR( props,
                         param_name,
                         param_value_size,
                         param_value,
-                        &platform_param_size_ret );
+                        &total_value_size_ret );
+            
+           delete[] props;
+           props = NULL;
 
+           if( errCode == CL_SUCCESS )
+           {                          
+               goto FINISH;
+           }
+           break;
 
-                    delete[] props;
-                    props = NULL;
-
-                    if( retCode == CL_SUCCESS )
-                    {
-                        if( platform_param_size_ret != 0 )
-                        {
-                            if( param_value_size_ret != NULL )
-                            {
-                                *param_value_size_ret = platform_param_size_ret;
-                            }
-                        }
-                        goto FINISH;
-                    }
-                }
-                break;
+        case CL_DEVICES_FOR_GL_CONTEXT_KHR:
+            if( param_value != NULL )
+            {                
+                platform_param_value = &( ((char*)param_value)[ total_value_size_ret ] );
             }
-        default:
+            errCode = itr->second->m_crtPlatform->m_platformIdDEV->dispatch->clGetGLContextInfoKHR( props,
+                        param_name,
+                        param_value_size,
+                        platform_param_value,
+                        &platform_param_value_size_ret );
+           
+            delete[] props;
+            props = NULL;
+
+            if( errCode == CL_SUCCESS )
             {
-                retCode = CL_INVALID_VALUE;
+                total_value_size_ret += platform_param_value_size_ret;
+
+                if ( ( param_value != NULL ) && ( total_value_size_ret > param_value_size ) )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+            }
+            else
+            {
                 goto FINISH;
             }
+            break;
+        default:
+            errCode = CL_INVALID_VALUE;
+            goto FINISH;
+            break;
+        }        
     }
 FINISH:
-    return retCode;
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+    if( param_value_size_ret != NULL )
+    {
+        *param_value_size_ret = total_value_size_ret;
+    }
+    return errCode;
 }
-
-
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -3837,9 +3823,9 @@ cl_int CL_API_CALL clSetKernelArg(
     paramT.assign(paramType);
 
     // conformance 1.2 require the image type be without prefix; as "image"; but we still support 1.1 too; so we have both forms here
-    bool isImage	= ( !(paramT.compare(0, strlen("image"),"image")) || !(paramT.compare(0, strlen("__image"),"__image"))  );
-    bool isBuffer	= ( paramT[paramT.size()-1] == '*' );
-    bool isSampler	= !(paramT.compare(0, strlen("sampler"),"sampler"));
+    bool isImage    = ( !(paramT.compare(0, strlen("image"),"image")) || !(paramT.compare(0, strlen("__image"),"__image"))  );
+    bool isBuffer   = ( paramT[paramT.size()-1] == '*' );
+    bool isSampler  = !(paramT.compare(0, strlen("sampler"),"sampler"));
 
     CrtSampler* crtSamplerObj = NULL;
     CrtMemObject* crtMemObj = NULL;
@@ -3885,14 +3871,14 @@ cl_int CL_API_CALL clSetKernelArg(
             errCode = CL_INVALID_ARG_VALUE;
             goto FINISH;
         }
-        _cl_kernel_crt* ClKernel = *((_cl_kernel_crt**)(arg_value));
-        if (NULL == ClKernel)
+        _cl_sampler_crt* ClSampler = *((_cl_sampler_crt**)(arg_value));
+        if( NULL == ClSampler )
         {
             errCode = CL_INVALID_ARG_VALUE;
             goto FINISH;
         }
-        crtSamplerObj = reinterpret_cast<CrtSampler*>(ClKernel->object);
-        if (NULL == crtSamplerObj)
+        crtSamplerObj = reinterpret_cast<CrtSampler*>(ClSampler->object);
+        if( NULL == crtSamplerObj )
         {
             errCode = CL_INVALID_SAMPLER;
             goto FINISH;

@@ -257,7 +257,7 @@ m_context_handle(context_handle)
     for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
     {
         outDevices = new cl_device_id[OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size()];
-        if (NULL == outDevices)
+        if( NULL == outDevices )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             break;

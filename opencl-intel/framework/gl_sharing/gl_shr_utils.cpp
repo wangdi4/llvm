@@ -71,7 +71,7 @@ struct fmt_cvt
 
 fmt_cvt formatConvert[] =
 {
-	{{{CL_RGBA, CL_UNSIGNED_INT8}, false}, GL_RGBA},
+	{{{CL_RGBA, CL_UNORM_INT8}, false}, GL_RGBA},
 	{{{CL_RGBA, CL_UNORM_INT8}, false}, GL_RGBA8},
 	{{{CL_RGBA, CL_UNORM_INT16}, false}, GL_RGBA16},
 	{{{CL_RGBA, CL_SIGNED_INT8}, true}, GL_RGBA8I},
