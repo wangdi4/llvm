@@ -315,6 +315,10 @@ namespace llvm {
 #undef DECLARE_EXECUTE_N_WITH_SUFFIX
 #undef DECLARE_EXECUTE
 
+        /// get constant expression from NEAT context
+        NEATGenericValue getConstantExprValue (ConstantExpr *CE, NEATExecutionContext &NSF);
+        /// get constant value
+        NEATGenericValue getConstantValueFromValue (Value *V);
         /// obtain operant from NEAT context
         NEATGenericValue getOperandValue(Value *V, NEATExecutionContext &SF);
         /// loads NEAT data from memory

@@ -172,59 +172,90 @@ void NEATPlugIn::visitLoadInst(LoadInst &I)
 
 }
 
-NEATGenericValue NEATPlugIn::getOperandValue(Value *V, NEATExecutionContext &SF)
+
+NEATGenericValue NEATPlugIn::getConstantExprValue (ConstantExpr *CE,NEATExecutionContext &SF) 
 {
-    if (GlobalValue *GV = dyn_cast<GlobalValue>(V))
-    {
-        return PTONGV(getPointerToGlobal(GV));
+    switch (CE->getOpcode()) {
+    case Instruction::GetElementPtr:
+        return executeGEPOperation(CE->getOperand(0), gep_type_begin(CE),
+                          gep_type_end(CE), SF);
+    default :
+           throw Exception::IllegalFunctionCall("[NEATPlug-in::getConstantExprValue] : Not supported NEAT instruction");
+      break;
     }
-    else if (dyn_cast<ConstantExpr>(V) ||
-        dyn_cast<Constant>(V)) {
-            NEATGenericValue Ret;
-            if ( isa<UndefValue>(V) ) {
-                // if operand value is 'undef' then no need to initialize NEATValue. It's already UNWRITTEN by default.
-                // We need just set correct vector length for vector values.
-                if (Type::VectorTyID == V->getType()->getTypeID()) {
-                    Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(cast<VectorType>(V->getType())->getNumElements()));
+
+    dbgs() << "[NEATPlug-in] Unhandled ConstantExpr: " << *CE << "\n";
+    return NEATGenericValue();
+}
+
+NEATGenericValue NEATPlugIn::getConstantValueFromValue (Value *V)
+{
+    NEATGenericValue Ret;
+    if ( isa<UndefValue>(V) ) {
+        // if operand value is 'undef' then no need to initialize NEATValue. It's already UNWRITTEN by default.
+        // We need just set correct vector length for vector values.
+        if (Type::VectorTyID == V->getType()->getTypeID()) {
+            Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(cast<VectorType>(V->getType())->getNumElements()));
+        }
+    } else {
+
+        GenericValue GV = m_pInterp->getOperandValueAdapter(V, m_pECStack->back());
+
+        switch(V->getType()->getTypeID())
+        {
+        case Type::FloatTyID:
+            Ret.NEATVal.SetAccurateVal<float>(GV.FloatVal);
+            break;
+        case Type::DoubleTyID:
+            Ret.NEATVal.SetAccurateVal<double>(GV.DoubleVal);
+            break;
+        case Type::PointerTyID:
+            {
+            const PointerType* PT = cast<PointerType>(V->getType());
+            if (NEATTargetData::IsNEATSupported(PT->getElementType())) {
+                if (GlobalValue *GV2 = dyn_cast<GlobalValue>(V)) {
+                    Ret = PTONGV(getPointerToGlobal(GV2));
+                } else {
+                    Exception::IllegalFunctionCall("[NEATPlug-in::getConstantValue] : Value is not GlobalValue");
                 }
             } else {
-                GenericValue GV = m_pInterp->getOperandValueAdapter(V, m_pECStack->back());
-                switch(V->getType()->getTypeID())
-                {
-                case Type::FloatTyID:
-                    Ret.NEATVal.SetAccurateVal<float>(GV.FloatVal);
-                    break;
-                case Type::DoubleTyID:
-                    Ret.NEATVal.SetAccurateVal<double>(GV.DoubleVal);
-                    break;
-                case Type::PointerTyID:
-                    Ret.PointerVal = GV.PointerVal;
-                    break;
-                case Type::VectorTyID: {
-                    const VectorType* VT = cast<VectorType>(V->getType());
-                    Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(VT->getNumElements()));
-                    for (unsigned int i = 0; i < VT->getNumElements(); ++i)
-                    {
-                        if (VT->getElementType()->getTypeID() == Type::FloatTyID) {
-                            Ret.NEATVec[i].SetAccurateVal<float>(GV.AggregateVal[i].FloatVal);
-                        }
-                        if (VT->getElementType()->getTypeID() == Type::DoubleTyID) {
-                            Ret.NEATVec[i].SetAccurateVal<double>(GV.AggregateVal[i].DoubleVal);
-                        }
-                    }
-                    break;
-                                       }
-                                       // TODO: Add Array and Structure data types support!
-                default:
-                    // Unsupported constant data type - do nothing.
-                    // Maybe it would be better throw a warning message to a log?
-                    //throw Exception::IllegalFunctionCall("Not supported NEAT data type");
-                    break;
+                Ret.PointerVal = GV.PointerVal;
+            }
+            break;
+            }
+        case Type::VectorTyID: {
+            const VectorType* VT = cast<VectorType>(V->getType());
+            Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(VT->getNumElements()));
+            for (unsigned int i = 0; i < VT->getNumElements(); ++i)
+            {
+                if (VT->getElementType()->getTypeID() == Type::FloatTyID) {
+                    Ret.NEATVec[i].SetAccurateVal<float>(GV.AggregateVal[i].FloatVal);
+                }
+                if (VT->getElementType()->getTypeID() == Type::DoubleTyID) {
+                    Ret.NEATVec[i].SetAccurateVal<double>(GV.AggregateVal[i].DoubleVal);
                 }
             }
-            return Ret;
+            break;
+         }                               // TODO: Add Array and Structure data types support!
+        default:
+            // Unsupported constant data type - do nothing.
+            throw Exception::IllegalFunctionCall("[NEATPlug-in::getConstantValue] : Not supported NEAT data type");
+            break;
+        }
+    }
+    return Ret;
+}
+
+NEATGenericValue NEATPlugIn::getOperandValue(Value *V, NEATExecutionContext &NSF)
+{
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
+        return getConstantExprValue(CE,NSF);
+    } else if (dyn_cast<Constant>(V)) {
+        return getConstantValueFromValue(V);
+    } else if (GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
+        return PTONGV(getPointerToGlobal(GV));
     } else {
-        return SF.Values[V];
+        return NSF.Values[V];
     }
 }
 
@@ -1372,6 +1403,9 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
   HANDLE_EVENT(PRE_INST);
   DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
+  if (!m_NTD.IsNEATSupported(I.getOperand(1)->getType()))
+      return;
+
   NEATExecutionContext &SF = m_NECStack.back();
   const Type *Ty    = I.getOperand(0)->getType();
   GenericValue MaskGV = m_pInterp->getOperandValueAdapter(I.getOperand(0), m_pECStack->back());
@@ -1397,18 +1431,10 @@ void NEATPlugIn::visitSelectInst( SelectInst &I )
   {
     if (I.getOperand(1)->getType()->isVectorTy())
     {
-      if (cast<VectorType>(I.getOperand(1)->getType())->getElementType()->isIntegerTy())
-      {
-        return;
-      }
       R.NEATVec = NEAT_WRAP::select_fd(MaskGV.IntVal != 0, Src2.NEATVec, Src3.NEATVec);
     }
     else
     {
-      if (I.getOperand(1)->getType()->isIntegerTy())
-      {
-        return;
-      }
       R.NEATVal = NEAT_WRAP::select_fd(MaskGV.IntVal != 0, Src2.NEATVal, Src3.NEATVal);
     }
   }
@@ -1947,7 +1973,10 @@ void NEATPlugIn::visitCallSite( CallSite CS )
     Function::arg_iterator AI = CalledF->arg_begin(), AE = CalledF->arg_end();
     for (CallSite::arg_iterator i = CS.arg_begin(),
         e = CS.arg_end(); (i != e) || (AI != AE); ++AI, ++i) {
-            ArgVals[AI] = getOperandValue(*i, SF);
+            // use the NEAT supported arguments only
+            if(m_NTD.IsNEATSupported(AI->getType())) {
+                ArgVals[AI] = getOperandValue(*i, SF);
+            }
     }
     callFunction(CalledF, ArgVals);
 }
@@ -2233,15 +2262,16 @@ void NEATPlugIn::execute_vload ## n(Function *F,                                
     size_t offset = ValArg0.IntVal.getZExtValue();                                      \
     Fit++;                                                                              \
     Value *arg1 = Fit++;                                                                \
+    const Type *Ty1 = arg1->getType();                                                  \
+    if(!m_NTD.IsNEATSupported(Ty1)) return;                                             \
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);                            \
     NEATValue* p = (NEATValue*) NGVTOP(ValArg1);                                        \
-    const Type *Ty1 = arg1->getType();                                                  \
     const PointerType *PTy = dyn_cast<PointerType>(Ty1);                                \
     const Type *ETy = PTy->getElementType();                                            \
     if (ETy->isFloatTy()) {                                                             \
-        Result.NEATVec = NEAT_WRAP::vload ## n ## _f(offset, p);                                   \
+        Result.NEATVec = NEAT_WRAP::vload ## n ## _f(offset, p);                        \
     } else if (ETy->isDoubleTy()) {                                                     \
-        Result.NEATVec = NEAT_WRAP::vload ## n ## _d(offset, p);                                   \
+        Result.NEATVec = NEAT_WRAP::vload ## n ## _d(offset, p);                        \
     } else if (ETy->isIntegerTy()) {                                                    \
         return;                                                                         \
     } else {                                                                            \
@@ -2263,16 +2293,17 @@ void NEATPlugIn::execute_v##name##mode(Function *F,                             
 {                                                                                           \
     Function::arg_iterator Fit = F->arg_begin();                                            \
     Value *arg0 = Fit++;                                                                    \
+    const Type *Ty0 = arg0->getType();                                                      \
+    if(!m_NTD.IsNEATSupported(Ty0)) return;                                                  \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                                \
     GenericValue ValArg1 = GetGenericArg(1);                                                \
     size_t offset = ValArg1.IntVal.getZExtValue();                                          \
     const GenericValue& ValArg2 = GetGenericArg(2);                                         \
     uint16_t* p = (uint16_t*) GVTOP(ValArg2);                                               \
-    const Type *Ty0 = arg0->getType();                                                      \
     if (Ty0->isFloatTy()) {                                                                 \
-        NEAT_WRAP::v##name##mode##_f(ValArg0.NEATVal, offset, p);                                      \
+        NEAT_WRAP::v##name##mode##_f(ValArg0.NEATVal, offset, p);                           \
     } else if (Ty0->isDoubleTy()) {                                                         \
-        NEAT_WRAP::v##name##mode##_d(ValArg0.NEATVal, offset, p);                                      \
+        NEAT_WRAP::v##name##mode##_d(ValArg0.NEATVal, offset, p);                           \
     } else {                                                                                \
         throw Exception::IllegalFunctionCall("[NEATPlug-in::vstore_half]: Invalid data type"\
                                              " for vstore_half built-in");                  \
@@ -2297,13 +2328,14 @@ EXECUTE_VSTORE_HALF(_half_rtn)
     const OCLBuiltinParser::ArgVector& ArgList) {                                       \
     Function::arg_iterator Fit = F->arg_begin();                                        \
     Value *arg0 = Fit++;                                                                \
+    const Type *Ty2 = arg0->getType();                                                  \
+    if(!m_NTD.IsNEATSupported(Ty2)) return;                                             \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                            \
     const NEATVector data = ValArg0.NEATVec;                                            \
     GenericValue ValArg1 = GetGenericArg(1);                                            \
     size_t offset = ValArg1.IntVal.getZExtValue();                                      \
     const GenericValue& ValArg2 = GetGenericArg(2);                                     \
     uint16_t* p = (uint16_t*) GVTOP(ValArg2);                                           \
-    const Type *Ty2 = arg0->getType();                                                  \
     const VectorType *PTy = dyn_cast<VectorType>(Ty2);                                  \
     const Type *ETy = PTy->getElementType();                                            \
     if (ETy->isFloatTy()) {                                                             \
@@ -2344,6 +2376,8 @@ void NEATPlugIn::execute_vstore ## n(Function *F,                               
                                 const OCLBuiltinParser::ArgVector& ArgList) {           \
     Function::arg_iterator Fit = F->arg_begin();                                        \
     Value *arg0 = Fit++;                                                                \
+    const Type *Ty0 = arg0->getType();                                                  \
+    if(!m_NTD.IsNEATSupported(Ty0)) return;                                             \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                            \
     const NEATVector data = ValArg0.NEATVec;                                            \
     GenericValue ValArg1 = GetGenericArg(1);                                            \
