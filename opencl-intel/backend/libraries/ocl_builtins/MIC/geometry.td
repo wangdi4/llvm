@@ -63,16 +63,19 @@ OclBuiltinImpl length_f32_v3_v4 = OclBuiltinImpl<length, [v3f32, v4f32], 0, [{
     data = _mm512_mul_pd(data, data);
     add_reduce1_pd(data);
     add_reduce2_pd(data);
+    data = sqrt(as_double8(data));
     __m512 sum = _mm512_cvt_roundpd_pslo(data, _MM_FROUND_CUR_DIRECTION);
-    return sqrt(as_float16(sum).s0);
+    return as_float16(sum).s0;
   }]>;
 OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     double8 data = (double8)0.0;
     data$Pattern = $Arg0VarName;
     long8 sign_mask   = (long8)(0x7fffffffffffffffL);
-    long8 exp_upper   = (long8)(0x5ff0000000000000L); // the upper limit of exponent that might trigger overflow
-    long8 exp_zero    = (long8)(0x4000000000000000L); // zero exponent
-    long8 exp_lower   = (long8)(0x2010000000000000L); // the lower limit of exponent that might trigger underflow
+    double8 exp_upper = (double8)(0x1p-510);            // the upper limit of exponent that might trigger overflow
+    double8 exp_zero  = (double8)(0x1p-1);              // zero exponent
+    double8 exp_lower = (double8)(0x1p+510);            // the lower limit of exponent that might trigger underflow
+    double8 norm_up   = (double8)(0x1p-512);            // the upper limit of exponent that might trigger overflow
+    double8 norm_down = (double8)(0x1p+512);            // the lower limit of exponent that might trigger underflow
 
     double8 norm    = (double8)(1.0);
     double8 denorm  = (double8)(1.0);
@@ -80,20 +83,22 @@ OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     __m512i abs_data = _mm512_and_epi64((__m512i)data, (__m512i)sign_mask);
     // The "any" function is implemented through _mm512_kortestz, so there should result no (or almost no)
     // branch prediction penality
-    __mmask16 match     = _mm512_cmplt_epi32(abs_data, (__m512i)exp_lower);
-    __mmask16 zero_exp  = _mm512_cmple_epi32(abs_data, (__m512i)exp_zero);
+    __mmask8 match     = _mm512_cmplt_epi64((__m512i)abs_data, (__m512i)exp_upper);
+    __mmask8 zero_exp  = _mm512_cmplt_epi64(abs_data, (__m512i)exp_zero);
     // Any of the data is smaller than the underflow threshold, pluse none of the data will result overflow after multiplied
     // with norm; !_mm512_kortestz is a "any" operation and _mm512_kortestc is a "all" operation
-    if (!_mm512_kortestz(match, match) && _mm512_kortestc(zero_exp, zero_exp)){
-      norm    = (double8)exp_upper;
-      denorm  = (double8)exp_lower;
+    if (!_mm512_kortestz(match, match) &&
+        ((zero_exp & 0xFF) == 0xFF)){
+        //_mm512_kortestc(zero_exp, zero_exp)){
+      norm    = norm_down;
+      denorm  = norm_up;
     }
 
     // According to OpenCL manual, overflow needs to be addressed first, then underflow
-    match = _mm512_cmpnle_epi32(abs_data, (__m512i)exp_upper);
-    if (!_mm512_kortestz(match, match)){
-      norm    = (double8)exp_lower;
-      denorm  = (double8)exp_upper;
+    match = _mm512_cmplt_epi64((__m512i)exp_lower, (__m512i)abs_data);
+    if (match){
+      norm    = norm_up;
+      denorm  = norm_down;
     }
 
     data = _mm512_mul_pd(data, norm);
@@ -103,15 +108,14 @@ OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     add_reduce2_pd(data);
 
     return sqrt(data.s0)*denorm.s0;
+    return ((double8)abs_data).s0;
   }]>;
 
 // normalize
-OclBuiltinImpl normalize_f32_scalar = OclBuiltinImpl<normalize, [v1f32], 0, [{
-    int ifnan = isnan($Arg0VarName);
-    int nan = 0xFF800000;
-    int result = (as_int($Arg0VarName) & 0x80000000) | 0x3f800000;
-    result = (ifnan & nan) | (result & ~nan);
-    return ($Arg0VarName==0)?0.0:as_float(result);
+OclBuiltinImpl normalize_f32_scalar = OclBuiltinImpl<normalize, [v1f32, v1f64], 0, [{
+    return ($Arg0VarName==0) ? 0.0f :
+           isnan($Arg0VarName) ? $Arg0VarName :
+           ($Arg0VarName < 0) ? -1.0f : 1.0f;
   }]>;
 OclBuiltinImpl normalize_f32_vector = OclBuiltinImpl<normalize, [v2f32, v3f32, v4f32], 0, [{
     float16 x_reg = (float16)0.0;
@@ -140,22 +144,17 @@ OclBuiltinImpl normalize_f32_vector = OclBuiltinImpl<normalize, [v2f32, v3f32, v
     int flag;
 
     // <Caveat> Use a more efficient 4-element length since normalize only support up to 4 elements
-    float norm = length(x_reg$Pattern);
+    double8 x_dp = _mm512_cvtpslo_pd(x_reg);
+    double norm = length(x_dp$Pattern);
 
     // norm = all_zero?1.0:norm;
     flag = _mm512_kortestc(equal, equal);
     norm = flag?1.0:norm;
 
-    float16 result = x_reg / norm;
+    double8 result = division(x_dp, (double8)norm);
+    float16 spResult = _mm512_cvt_roundpd_pslo(result, _MM_FROUND_CUR_DIRECTION);
 
-    return result$Pattern;
-  }]>;
-OclBuiltinImpl normalize_f64_scalar = OclBuiltinImpl<normalize, [v1f64], 0, [{
-    long ifnan = isnan($Arg0VarName);
-    long nan = 0xFFF0000000000000L;
-    long result = (as_long($Arg0VarName) & 0x8000000000000000L) | 0x3FF0000000000000L;
-    result = (ifnan & nan) | (result & ~nan);
-    return ($Arg0VarName==0)?0.0:as_double(result);
+    return spResult$Pattern;
   }]>;
 OclBuiltinImpl normalize_f64_vector = OclBuiltinImpl<normalize, [v2f64, v3f64, v4f64], 0, [{
     double8 x_reg = (double8)0.0;
@@ -183,14 +182,23 @@ OclBuiltinImpl normalize_f64_vector = OclBuiltinImpl<normalize, [v2f64, v3f64, v
     __mmask8 equal = _mm512_cmpeq_pd(x_reg, (double8)0.0);
     int flag;
 
+    double sum = x_reg.s0 * x_reg.s0 + x_reg.s1 * x_reg.s1 + x_reg.s2 * x_reg.s2 + x_reg.s3 * x_reg.s3;
+    double8 x_norm = x_reg;
+    double8 norm_o = (double8)1.0;
+    double8 norm_of = (double8)0x1.0p-513;
+    double8 norm_uf = (double8)0x1.0p700;
+
+    norm_o = isinf(sum) ? norm_of : norm_o;
+    norm_o = isless(sum, (2 * DBL_MIN / DBL_EPSILON)) ? norm_uf : norm_o;
+
     // <Caveat> Use a more efficient 4-element length since normalize only support up to 4 elements
-    double norm = length(x_reg$Pattern);
+    double norm = length((x_norm*norm_o)$Pattern);
 
     // norm = all_zero?1.0:norm;
     flag = _mm512_kortestc(equal, equal);
     norm = flag?1.0:norm;
 
-    double8 result = x_reg / norm;
+    double8 result = division(x_norm * norm_o, norm);
 
     return result$Pattern;
   }]>;
@@ -247,14 +255,14 @@ OclBuiltinImpl cross_f64_v3 = OclBuiltinImpl<cross, [v3f64], 0, [{
 
     f_result.s012 = $Arg1VarName;
     y_reg = f_result;
-    s201_s012_pd(y_reg, k);
+    y_reg = s201_s012_pd(y_reg, k);
 
     x_reg = _mm512_mul_pd(x_reg, y_reg);
     result = x_reg;
 
     f_result.s012 = $Arg0VarName;
     x_reg = f_result;
-    s201_s012_pd(x_reg, k);
+    x_reg = s201_s012_pd(x_reg, k);
 
     f_result.s012 = $Arg1VarName;
     y_reg = f_result;
@@ -296,7 +304,7 @@ OclBuiltinImpl fast_distance_all = OclBuiltinImpl<fast_distance, [v1f32, v2f32, 
 
 // fast_normalize
 OclBuiltinImpl fast_normalize_scalar = OclBuiltinImpl<fast_normalize, [v1f32], 0, [{
-    return ($Arg0VarName < sqrt(FLT_MIN))?$Arg0VarName:($Arg0VarName/fabs($Arg0VarName));
+    return (fabs($Arg0VarName) < sqrt(FLT_MIN))?$Arg0VarName:($Arg0VarName/fabs($Arg0VarName));
   }]>;
 OclBuiltinImpl fast_normalize_f32_vector = OclBuiltinImpl<fast_normalize, [v2f32, v3f32, v4f32], 0, [{
     float16 x_reg = (float16)0.0;
@@ -557,8 +565,8 @@ OclBuiltinImpl dp_soa_length2_native = OclBuiltinImpl<soa_length2, dp_native_typ
     $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
     $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
   
-    norm    = select(norm, norm_of, isnan(sum));
-    denorm  = select(denorm, denorm_of, isnan(sum));
+    norm    = select(norm, norm_of, isinf(sum));
+    denorm  = select(denorm, denorm_of, isinf(sum));
     norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
     denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
   
@@ -581,10 +589,10 @@ OclBuiltinImpl dp_soa_length3_native = OclBuiltinImpl<soa_length3, dp_native_typ
     $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
     $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
   
-    norm    = select(norm, norm_of, isnan(sum));
-    denorm  = select(denorm, denorm_of, isnan(sum));
-    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
-    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+    norm    = select(norm, norm_of, isinf(sum));
+    denorm  = select(denorm, denorm_of, isinf(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(3 * DBL_MIN / DBL_EPSILON)));
+    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(3 * DBL_MIN / DBL_EPSILON)));
   
     $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
     $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
@@ -606,10 +614,10 @@ OclBuiltinImpl dp_soa_length4_native = OclBuiltinImpl<soa_length4, dp_native_typ
     $Arg0Type denorm_of = ($Arg0Type)0x1.0p600;
     $Arg0Type denorm_uf = ($Arg0Type)0x1.0p-700;
   
-    norm    = select(norm, norm_of, isnan(sum));
-    denorm  = select(denorm, denorm_of, isnan(sum));
-    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
-    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+    norm    = select(norm, norm_of, isinf(sum));
+    denorm  = select(denorm, denorm_of, isinf(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(4 * DBL_MIN / DBL_EPSILON)));
+    denorm  = select(denorm, denorm_uf, isless(sum, ($Arg0Type)(4 * DBL_MIN / DBL_EPSILON)));
   
     $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
     $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
@@ -683,14 +691,56 @@ OclBuiltinImpl fp_soa_normalize1_native = OclBuiltinImpl<soa_normalize1, fp_nati
 OclBuiltinImpl fp_soa_normalize1_promote = OclBuiltinImpl<soa_normalize1, fp_promote_types, 0, NonMaskPromote1>;
 OclBuiltinImpl fp_soa_normalize1_expand = OclBuiltinImpl<soa_normalize1, fp_expand_types, 0, Expand1>;
 // soa_normalize2
-OclBuiltinImpl fp_soa_normalize2_native = OclBuiltinImpl<soa_normalize2, fp_native_types, 0, [{
-    $Arg0Type temp_x = $Arg0VarName;
-    $Arg1Type temp_y = $Arg1VarName;
-    $NativeArg0Type length = soa_length2($Arg0VarName, $Arg1VarName);
-    *$Arg2VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg3VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
+OclBuiltinImpl sp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, sp_promote_types, 0, [{
+    $NativeArg0Type x_reg; x_reg$Pattern = $Arg0VarName;
+    $NativeArg1Type y_reg; y_reg$Pattern = $Arg1VarName;
+    $NativeArg2Type temp_x;
+    $NativeArg3Type temp_y;
+
+    double8 x_dp = as_double8(_mm512_cvtpslo_pd( x_reg));
+    double8 y_dp = as_double8(_mm512_cvtpslo_pd( y_reg));
+    double8 sum = x_dp * x_dp + y_dp *y_dp;
+    double8 length = sqrt(sum);
+    double8 temp_x_dp = division(x_dp, length);
+    double8 temp_y_dp = division(y_dp, length);
+    long8 mask; mask = isequal(length, (double8)0.0);
+    temp_x_dp = select(temp_x_dp, x_dp, mask);
+    temp_y_dp = select(temp_y_dp, y_dp, mask);
+    temp_x = _mm512_cvt_roundpd_pslo(temp_x_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_y = _mm512_cvt_roundpd_pslo(temp_y_dp, _MM_FROUND_CUR_DIRECTION);
+
+    *$Arg2VarName = temp_x$Pattern;
+    *$Arg3VarName = temp_y$Pattern;
   }]>;
-OclBuiltinImpl fp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, fp_promote_types, 0, [{
+OclBuiltinImpl sp_soa_normalize2_native = OclBuiltinImpl<soa_normalize2, sp_native_types, 0, [{
+    float8 temp_x;
+    float8 temp_y;
+    soa_normalize2($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, &temp_x, &temp_y);
+    (*$Arg2VarName)$ExpandLoPattern = temp_x;
+    (*$Arg3VarName)$ExpandLoPattern = temp_y;
+    soa_normalize2($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, &temp_x, &temp_y);
+    (*$Arg2VarName)$ExpandHiPattern = temp_x;
+    (*$Arg3VarName)$ExpandHiPattern = temp_y;
+  }]>;
+
+OclBuiltinImpl dp_soa_normalize2_native = OclBuiltinImpl<soa_normalize2, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-513;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+
+    norm    = select(norm, norm_of, isinf(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName;
+    $Arg0Type length = sqrt(sum);
+
+    *$Arg2VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg3VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg0Type)0.0) );
+  }]>;
+OclBuiltinImpl dp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, dp_promote_types, 0, [{
     $NativeArg2Type temp_x;
     $NativeArg3Type temp_y;
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
@@ -699,7 +749,7 @@ OclBuiltinImpl fp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, fp_pro
     *$Arg2VarName = temp_x$Pattern;
     *$Arg3VarName = temp_y$Pattern;
   }]>;
-OclBuiltinImpl fp_soa_normalize2_expand = OclBuiltinImpl<soa_normalize2, fp_expand_types, 0, [{
+OclBuiltinImpl dp_soa_normalize2_expand = OclBuiltinImpl<soa_normalize2, dp_expand_types, 0, [{
     double8 temp_x;
     double8 temp_y;
     soa_normalize2($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, &temp_x, &temp_y);
@@ -709,17 +759,71 @@ OclBuiltinImpl fp_soa_normalize2_expand = OclBuiltinImpl<soa_normalize2, fp_expa
     (*$Arg2VarName)$ExpandHiPattern = temp_x;
     (*$Arg3VarName)$ExpandHiPattern = temp_y;
   }]>;
+
 // soa_normalize3
-OclBuiltinImpl fp_soa_normalize3_native = OclBuiltinImpl<soa_normalize3, fp_native_types, 0, [{
-    $Arg0Type temp_x = $Arg0VarName;
-    $Arg1Type temp_y = $Arg1VarName;
-    $Arg2Type temp_z = $Arg2VarName;
-    $NativeArg0Type length = soa_length3($Arg0VarName, $Arg1VarName, $Arg2VarName);
-    *$Arg3VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg4VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg5VarName = select(temp_z/length, temp_z, isequal(length, ($NativeArg0Type)0.0));
+OclBuiltinImpl sp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, sp_promote_types, 0, [{
+    $NativeArg0Type x_reg; x_reg$Pattern = $Arg0VarName;
+    $NativeArg1Type y_reg; y_reg$Pattern = $Arg1VarName;
+    $NativeArg2Type z_reg; z_reg$Pattern = $Arg2VarName;
+    $NativeArg3Type temp_x;
+    $NativeArg4Type temp_y;
+    $NativeArg5Type temp_z;
+
+    double8 x_dp = as_double8(_mm512_cvtpslo_pd(x_reg));
+    double8 y_dp = as_double8(_mm512_cvtpslo_pd(y_reg));
+    double8 z_dp = as_double8(_mm512_cvtpslo_pd(z_reg));
+    double8 sum = x_dp * x_dp + y_dp * y_dp + z_dp * z_dp;
+    double8 length = sqrt(sum);
+    double8 temp_x_dp = division(x_dp, length);
+    double8 temp_y_dp = division(y_dp, length);
+    double8 temp_z_dp = division(z_dp, length);
+    long8 mask; mask = isequal(length, (double8)0.0);
+    temp_x_dp = select(temp_x_dp, x_dp, mask);
+    temp_y_dp = select(temp_y_dp, y_dp, mask);
+    temp_z_dp = select(temp_z_dp, z_dp, mask);
+    temp_x = _mm512_cvt_roundpd_pslo(temp_x_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_y = _mm512_cvt_roundpd_pslo(temp_y_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_z = _mm512_cvt_roundpd_pslo(temp_z_dp, _MM_FROUND_CUR_DIRECTION);
+
+    *$Arg3VarName = temp_x$Pattern;
+    *$Arg4VarName = temp_y$Pattern;
+    *$Arg5VarName = temp_z$Pattern;
   }]>;
-OclBuiltinImpl fp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, fp_promote_types, 0, [{
+OclBuiltinImpl sp_soa_normalize3_native = OclBuiltinImpl<soa_normalize3, sp_native_types, 0, [{
+    float8 temp_x;
+    float8 temp_y;
+    float8 temp_z;
+    soa_normalize3($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, &temp_x, &temp_y, &temp_z);
+    (*$Arg3VarName)$ExpandLoPattern = temp_x;
+    (*$Arg4VarName)$ExpandLoPattern = temp_y;
+    (*$Arg5VarName)$ExpandLoPattern = temp_z;
+    soa_normalize3($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, &temp_x, &temp_y, &temp_z);
+    (*$Arg3VarName)$ExpandHiPattern = temp_x;
+    (*$Arg4VarName)$ExpandHiPattern = temp_y;
+    (*$Arg5VarName)$ExpandHiPattern = temp_z;
+  }]>;
+
+OclBuiltinImpl dp_soa_normalize3_native = OclBuiltinImpl<soa_normalize3, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-513;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+
+    norm    = select(norm, norm_of, isinf(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    $Arg2Type new_$Arg2VarName = $Arg2VarName * norm;
+    sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName;
+    $Arg0Type length = sqrt(sum);
+
+    *$Arg3VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg4VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
+    *$Arg5VarName = select(division(new_$Arg2VarName,length), $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
+  }]>;
+
+OclBuiltinImpl dp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, dp_promote_types, 0, [{
     $NativeArg3Type temp_x;
     $NativeArg4Type temp_y;
     $NativeArg5Type temp_z;
@@ -731,7 +835,7 @@ OclBuiltinImpl fp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, fp_pro
     *$Arg4VarName = temp_y$Pattern;
     *$Arg5VarName = temp_z$Pattern;
   }]>;
-OclBuiltinImpl fp_soa_normalize3_expand = OclBuiltinImpl<soa_normalize3, fp_expand_types, 0, [{
+OclBuiltinImpl dp_soa_normalize3_expand = OclBuiltinImpl<soa_normalize3, dp_expand_types, 0, [{
     double8 temp_x;
     double8 temp_y;
     double8 temp_z;
@@ -743,20 +847,83 @@ OclBuiltinImpl fp_soa_normalize3_expand = OclBuiltinImpl<soa_normalize3, fp_expa
     (*$Arg3VarName)$ExpandHiPattern = temp_x;
     (*$Arg4VarName)$ExpandHiPattern = temp_y;
     (*$Arg5VarName)$ExpandHiPattern = temp_z;
-  }]>; 
-// soa_normalize4
-OclBuiltinImpl fp_soa_normalize4_native = OclBuiltinImpl<soa_normalize4, fp_native_types, 0, [{
-    $Arg0Type temp_x = $Arg0VarName;
-    $Arg1Type temp_y = $Arg1VarName;
-    $Arg2Type temp_z = $Arg2VarName;
-    $Arg3Type temp_w = $Arg3VarName;
-    $NativeArg0Type length = soa_length4($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
-    *$Arg4VarName = select(temp_x/length, temp_x, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg5VarName = select(temp_y/length, temp_y, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg6VarName = select(temp_z/length, temp_z, isequal(length, ($NativeArg0Type)0.0));
-    *$Arg7VarName = select(temp_z/length, temp_w, isequal(length, ($NativeArg0Type)0.0));
   }]>;
-OclBuiltinImpl fp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, fp_promote_types, 0, [{
+// soa_normalize4
+OclBuiltinImpl sp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, sp_promote_types, 0, [{
+    $NativeArg0Type x_reg; x_reg$Pattern = $Arg0VarName;
+    $NativeArg1Type y_reg; y_reg$Pattern = $Arg1VarName;
+    $NativeArg2Type z_reg; z_reg$Pattern = $Arg2VarName;
+    $NativeArg3Type w_reg; w_reg$Pattern = $Arg3VarName;
+    $NativeArg4Type temp_x;
+    $NativeArg5Type temp_y;
+    $NativeArg6Type temp_z;
+    $NativeArg7Type temp_w;
+
+    double8 x_dp = as_double8(_mm512_cvtpslo_pd(x_reg));
+    double8 y_dp = as_double8(_mm512_cvtpslo_pd(y_reg));
+    double8 z_dp = as_double8(_mm512_cvtpslo_pd(z_reg));
+    double8 w_dp = as_double8(_mm512_cvtpslo_pd(w_reg));
+    double8 sum = x_dp * x_dp + y_dp * y_dp + z_dp * z_dp + w_dp * w_dp;
+    double8 length = sqrt(sum);
+    double8 temp_x_dp = division(x_dp, length);
+    double8 temp_y_dp = division(y_dp, length);
+    double8 temp_z_dp = division(z_dp, length);
+    double8 temp_w_dp = division(w_dp, length);
+    long8 mask; mask = isequal(length, (double8)0.0);
+    temp_x_dp = select(temp_x_dp, x_dp, mask);
+    temp_y_dp = select(temp_y_dp, y_dp, mask);
+    temp_z_dp = select(temp_z_dp, z_dp, mask);
+    temp_w_dp = select(temp_w_dp, w_dp, mask);
+    temp_x = _mm512_cvt_roundpd_pslo(temp_x_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_y = _mm512_cvt_roundpd_pslo(temp_y_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_z = _mm512_cvt_roundpd_pslo(temp_z_dp, _MM_FROUND_CUR_DIRECTION);
+    temp_w = _mm512_cvt_roundpd_pslo(temp_w_dp, _MM_FROUND_CUR_DIRECTION);
+
+    *$Arg4VarName = temp_x$Pattern;
+    *$Arg5VarName = temp_y$Pattern;
+    *$Arg6VarName = temp_z$Pattern;
+    *$Arg7VarName = temp_w$Pattern;
+  }]>;
+OclBuiltinImpl sp_soa_normalize4_native = OclBuiltinImpl<soa_normalize4, sp_native_types, 0, [{
+    float8 temp_x;
+    float8 temp_y;
+    float8 temp_z;
+    float8 temp_w;
+    soa_normalize4($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern, $Arg3VarName$ExpandLoPattern, &temp_x, &temp_y, &temp_z, &temp_w);
+    (*$Arg4VarName)$ExpandLoPattern = temp_x;
+    (*$Arg5VarName)$ExpandLoPattern = temp_y;
+    (*$Arg6VarName)$ExpandLoPattern = temp_z;
+    (*$Arg7VarName)$ExpandLoPattern = temp_w;
+    soa_normalize4($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern, $Arg3VarName$ExpandHiPattern, &temp_x, &temp_y, &temp_z, &temp_w);
+    (*$Arg4VarName)$ExpandHiPattern = temp_x;
+    (*$Arg5VarName)$ExpandHiPattern = temp_y;
+    (*$Arg6VarName)$ExpandHiPattern = temp_z;
+    (*$Arg7VarName)$ExpandHiPattern = temp_w;
+  }]>;
+
+OclBuiltinImpl dp_soa_normalize4_native = OclBuiltinImpl<soa_normalize4, dp_native_types, 0, [{
+    $Arg0Type sum = $Arg0VarName * $Arg0VarName + $Arg1VarName * $Arg1VarName + $Arg2VarName * $Arg2VarName + $Arg3VarName * $Arg3VarName;
+    $Arg0Type norm = ($Arg0Type)1.0;
+    $Arg0Type norm_of = ($Arg0Type)0x1.0p-513;
+    $Arg0Type norm_uf = ($Arg0Type)0x1.0p700;
+
+    norm    = select(norm, norm_of, isinf(sum));
+    norm    = select(norm, norm_uf, isless(sum, ($Arg0Type)(2 * DBL_MIN / DBL_EPSILON)));
+
+    $Arg0Type new_$Arg0VarName = $Arg0VarName * norm;
+    $Arg1Type new_$Arg1VarName = $Arg1VarName * norm;
+    $Arg2Type new_$Arg2VarName = $Arg2VarName * norm;
+    $Arg3Type new_$Arg3VarName = $Arg3VarName * norm;
+    sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName + new_$Arg3VarName * new_$Arg3VarName;
+    $Arg0Type length = sqrt(sum);
+
+    *$Arg4VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg5VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
+    *$Arg6VarName = select(division(new_$Arg2VarName,length), $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
+    *$Arg7VarName = select(division(new_$Arg3VarName,length), $Arg3VarName, isequal(sum, ($NativeArg3Type)0.0) );
+  }]>;
+
+OclBuiltinImpl dp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, dp_promote_types, 0, [{
     $NativeArg4Type temp_x;
     $NativeArg5Type temp_y;
     $NativeArg6Type temp_z;
@@ -771,7 +938,7 @@ OclBuiltinImpl fp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, fp_pro
     *$Arg6VarName = temp_z$Pattern;
     *$Arg7VarName = temp_w$Pattern;
   }]>;
-OclBuiltinImpl fp_soa_normalize4_expand = OclBuiltinImpl<soa_normalize4, fp_expand_types, 0, [{
+OclBuiltinImpl dp_soa_normalize4_expand = OclBuiltinImpl<soa_normalize4, dp_expand_types, 0, [{
     double8 temp_x;
     double8 temp_y;
     double8 temp_z;
@@ -786,8 +953,8 @@ OclBuiltinImpl fp_soa_normalize4_expand = OclBuiltinImpl<soa_normalize4, fp_expa
     (*$Arg5VarName)$ExpandHiPattern = temp_y;
     (*$Arg6VarName)$ExpandHiPattern = temp_z;
     (*$Arg7VarName)$ExpandHiPattern = temp_w;
-  }]>; 
-  
+  }]>;
+
 // soa_fast_normalize (sp only)
 // soa_fast_normalize1
 OclBuiltinImpl sp_soa_fast_normalize1_native = OclBuiltinImpl<soa_fast_normalize1, sp_native_types, 0, [{

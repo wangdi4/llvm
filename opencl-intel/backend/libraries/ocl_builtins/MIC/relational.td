@@ -13,7 +13,7 @@ OclBuiltinImpl isequal_f32_v16 = OclBuiltinImpl<isequal, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl isequal_f32_promote = OclBuiltinImpl<isequal, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isequal_f64_v8 = OclBuiltinImpl<isequal, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmpeq_pd($Arg0VarName, $Arg1VarName);
+    __mmask8 flags = _mm512_cmpeq_pd($Arg0VarName, $Arg1VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl isequal_f64_promote = OclBuiltinImpl<isequal, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -29,7 +29,7 @@ OclBuiltinImpl isnotequal_f32_v16 = OclBuiltinImpl<isnotequal, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl isnotequal_f32_promote = OclBuiltinImpl<isnotequal, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isnotequal_f64_v8 = OclBuiltinImpl<isnotequal, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmpneq_pd($Arg0VarName, $Arg1VarName);
+    __mmask8 flags = _mm512_cmpneq_pd($Arg0VarName, $Arg1VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl isnotequal_f64_promote = OclBuiltinImpl<isnotequal, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -45,7 +45,7 @@ OclBuiltinImpl isgreater_f32_v16 = OclBuiltinImpl<isgreater, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl isgreater_f32_promote = OclBuiltinImpl<isgreater, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isgreater_f64_v8 = OclBuiltinImpl<isgreater, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmplt_pd($Arg1VarName, $Arg0VarName);
+    __mmask8 flags = _mm512_cmplt_pd($Arg1VarName, $Arg0VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl isgreater_f64_promote = OclBuiltinImpl<isgreater, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -61,7 +61,7 @@ OclBuiltinImpl isgreaterequal_f32_v16 = OclBuiltinImpl<isgreaterequal, [v16f32],
   }]>;
 OclBuiltinImpl isgreaterequal_f32_promote = OclBuiltinImpl<isgreaterequal, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isgreaterequal_f64_v8 = OclBuiltinImpl<isgreaterequal, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmple_pd($Arg1VarName, $Arg0VarName);
+    __mmask8 flags = _mm512_cmple_pd($Arg1VarName, $Arg0VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl isgreaterequal_f64_promote = OclBuiltinImpl<isgreaterequal, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -77,7 +77,7 @@ OclBuiltinImpl isless_f32_v16 = OclBuiltinImpl<isless, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl isless_f32_promote = OclBuiltinImpl<isless, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isless_f64_v8 = OclBuiltinImpl<isless, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmplt_pd($Arg0VarName, $Arg1VarName);
+    __mmask8 flags = _mm512_cmplt_pd($Arg0VarName, $Arg1VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl isless_f64_promote = OclBuiltinImpl<isless, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -93,7 +93,7 @@ OclBuiltinImpl islessequal_f32_v16 = OclBuiltinImpl<islessequal, [v16f32], 0, [{
   }]>;
 OclBuiltinImpl islessequal_f32_promote = OclBuiltinImpl<islessequal, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl islessequal_f64_v8 = OclBuiltinImpl<islessequal, [v8f64], 0, [{
-    __mmask16 flags = _mm512_cmple_pd($Arg0VarName, $Arg1VarName);
+    __mmask8 flags = _mm512_cmple_pd($Arg0VarName, $Arg1VarName);
     return mask2pq(flags);
   }]>;
 OclBuiltinImpl islessequal_f64_promote = OclBuiltinImpl<islessequal, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
@@ -112,8 +112,8 @@ OclBuiltinImpl islessgreater_f32_v16 = OclBuiltinImpl<islessgreater, [v16f32], 0
   }]>;
 OclBuiltinImpl islessgreater_f32_promote = OclBuiltinImpl<islessgreater, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl islessgreater_f64_v8 = OclBuiltinImpl<islessgreater, [v8f64], 0, [{
-    __mmask16 isless = _mm512_cmplt_pd($Arg0VarName, $Arg1VarName);
-    __mmask16 isgreater = _mm512_cmplt_pd($Arg1VarName, $Arg0VarName);
+    __mmask8 isless = _mm512_cmplt_pd($Arg0VarName, $Arg1VarName);
+    __mmask8 isgreater = _mm512_cmplt_pd($Arg1VarName, $Arg0VarName);
     isless = _mm512_kor(isless, isgreater);
     return mask2pq(isless);
   }]>;
@@ -158,10 +158,9 @@ OclBuiltinImpl isinf_f64_v1 = OclBuiltinImpl<isinf, [v1f64], 0, [{
     return ((as_long($Arg0VarName) & const_dp_no_sign) == const_dp_exp)?1:0;
   }]>;
 OclBuiltinImpl isinf_f64_v8 = OclBuiltinImpl<isinf, [v8f64], 0, [{
-    $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
-    __m512i no_sign = _mm512_and_epi32((__m512i)(upper), (__m512i)((int16)const_dp_no_sign));
-    __mmask16 inf = _mm512_cmpeq_epi32(no_sign, (__m512i)((int16)const_dp_exp));
-    return ($NativeReturnType)mask2pi(inf);
+    __m512i no_sign = _mm512_and_epi64((__m512i)($Arg0VarName), (__m512i)((long8)const_dp_no_sign));
+    __mmask8 inf = _mm512_cmpeq_epi64(no_sign, (__m512i)((long8)const_dp_exp));
+    return mask2pq(inf);
   }]>;
 OclBuiltinImpl isinf_f64_promote = OclBuiltinImpl<isinf, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
 OclBuiltinImpl isinf_f64_expand = OclBuiltinImpl<isinf, [v16f64], 0, Expand1>;

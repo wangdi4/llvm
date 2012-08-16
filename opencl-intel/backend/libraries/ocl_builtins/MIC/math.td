@@ -137,16 +137,24 @@ OclBuiltinImpl native_fmod_f64_expand = OclBuiltinImpl<native_fmod, [v16f64], 0,
 
 // native_fract
 code native_fract_f32_v16 = [{
-    float16 f = _mm512_floor_ps($Arg0VarName);
+    // !!! WORKAROUND: PCG generates call to compiler SVML library at the moment for floor intrinsics. !!!
+    // Until it is fixed we will call original fract version.
+    // TODO: uncomment once PCG bug is fixed.
+    /*float16 f = _mm512_floor_ps($Arg0VarName);
     *($Arg1NoASType)$Arg1VarName = f;
-    return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
+    return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));*/
+    return fract($Arg0VarName, $Arg1VarName);
   }];
 code mask_native_fract_f32_v16 = [{
-    float16 nx; nx$Pattern = $Arg0VarName;
+    // !!! WORKAROUND: PCG generates call to compiler SVML library at the moment for floor intrinsics. !!!
+    // Until it is fixed we will call original fract version.
+    // TODO: uncomment once PCG bug is fixed.
+    /*float16 nx; nx$Pattern = $Arg0VarName;
     float16 f = _mm512_mask_floor_ps(nx, $Mask, nx);
     *($Arg1NoASType)$Arg1VarName = f$Pattern;
     float16 nret = _mm512_mask_min_ps(nx, $Mask, _mm512_mask_sub_ps(nx, $Mask, nx, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
-    return nret$Pattern;
+    return nret$Pattern;*/
+    return fract($Arg0VarName, $Arg1VarName);
   }];
 OclBuiltinImpl native_fract_f32_v16_pas = OclBuiltinImpl<native_fract_pas, [v16f32], 0, native_fract_f32_v16>;
 OclBuiltinImpl native_fract_f32_v16_las = OclBuiltinImpl<native_fract_las, [v16f32], 0, native_fract_f32_v16>;
