@@ -4,14 +4,14 @@
 
 ; Pointer is consecutive, do not use a scatter/gather
 
-;CHECK: kernel
-;CHECK-NOT: gather_
-;CHECK-NOT: scatter_
-;CHECK: ret void
-
 ; ModuleID = '/tmp/webcompile/_3159_0.bc'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
 target triple = "x86_64-unknown-linux-gnu"
+
+;CHECK: kernel
+;CHECK-NOT: gather
+;CHECK-NOT: scatter
+;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {
   %1 = tail call i32 (...)* @get_global_id(i32 0) nounwind

@@ -84,7 +84,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
     "Requested packetization width out of range!");
 
   // Packetization is possible only on functions which return void (kernels)
-  if (!F.getReturnType()->isVoidTy())  {
+  if (!F.getReturnType()->isVoidTy()) {
     return false;
   }
   V_PRINT(packetizer, "\nStarting packetization of: " << m_currFunc->getName());
@@ -151,13 +151,13 @@ bool PacketizeFunction::runOnFunction(Function &F)
   V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_getElemPtrCtr<<" getelemptr instructions\n");
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
     if (m_nonPrimitiveCtr[i] > 0) {
-      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_nonPrimitiveCtr[i]<<" "<<Instruction::getOpcodeName(i) 
+      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_nonPrimitiveCtr[i]<<" "<<Instruction::getOpcodeName(i)
                                << " instructions of non-primitive type (int, float, intV, floatV)\n");
     }
   }
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) {
     if (m_castCtr[i] > 0) {
-      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_castCtr[i]<<" "<<Instruction::getOpcodeName(i) 
+      V_PRINT(vectorizer_stat, "Couldn't packetize "<<m_castCtr[i]<<" "<<Instruction::getOpcodeName(i)
                                << " cast instructions not supporting vector type\n");
     }
   }
@@ -214,7 +214,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
   if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(I))
   {
     // since we are never getting uniform values from other dependencies 
-    // (even though sub consecutive consecutive = uniform ) 
+    // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
     return useOriginalConstantInstruction(I);
   }
@@ -466,7 +466,7 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 
 
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
-      V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
+  V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
 
   Type *ElemTy = 0;
   if (MO.Data) {
@@ -482,46 +482,50 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
     return NULL;
   }
-  bool is_masked = (MO.Mask != NULL);
-  bool is_gather = (MO.Data == NULL);
-  std::string name = Mangler::getGatherScatterName(is_masked, is_gather, VecElemTy);
-
-  std::vector<Value*> args;
-  std::vector<Type *> types;
+  Type *i1Ty = Type::getInt1Ty(MO.Orig->getContext());
+  Type *i32Ty = Type::getInt32Ty(MO.Orig->getContext());
 
   Value *SclrBase[MAX_PACKET_WIDTH];
-  obtainMultiScalarValues(SclrBase, MO.Base , MO.Orig);
+  obtainMultiScalarValues(SclrBase, MO.Base, MO.Orig);
   MO.Base = SclrBase[0];
 
-  if (MO.Mask)
-    obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
+  if (MO.Mask) {
+    // if mask is uniform keep it scalar (will be handled later in resolver)
+    if( WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Mask) ) {
+      Value *SclrMask[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(SclrMask, MO.Mask, MO.Orig);
+      MO.Mask = SclrMask[0];
+    }
+    else {
+      obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
+    }
+  }
+  else {
+    // If there is no mask, create uniform positive mask
+    MO.Mask = ConstantInt::get(i1Ty, 1);
+  }
 
   Type *IndexTy = MO.Index->getType();
   obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
-  if (!IndexTy->isIntegerTy(32)) {
-    Type *IndTy = IntegerType::get(MO.Orig->getContext(), 32);
-    VectorType *VecTy = VectorType::get(IndTy, m_packetWidth);
-    Instruction* truncInst = new TruncInst(MO.Index, VecTy, "vindex32", MO.Orig);
-    MO.Index = truncInst;
-    V_PRINT(gather_scatter_stat, "PACKETIZER: TRUNC " << *MO.Index << "\n");
-  }
  
   if (MO.Data)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
+  // Remove address space from pointer type
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
-  PointerType *StrippedBaseTy =
-    PointerType::get(BaseTy->getElementType(),0);
+  PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
   MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
-  if (MO.Mask) args.push_back(MO.Mask);
+  SmallVector<Value*, 8> args;
+  // Fill the arguments of the internal gather/scatter, these are the variants:
+  // internal.gather.*[].m*(Mask, BasePtr, Index, IndexValidBits, IndexIsSigned)
+  // internal.scatter.*[].m*(Mask, BasePtr, Index, Data, IndexValidBits, IndexIsSigned)
+  args.push_back(MO.Mask);
   args.push_back(MO.Base);
   args.push_back(MO.Index);
   if (MO.Data) args.push_back(MO.Data);
-  if (MO.Mask) types.push_back(MO.Mask->getType());
-  types.push_back(MO.Base->getType());
-  types.push_back(MO.Index->getType());
-  if (MO.Data) types.push_back(MO.Data->getType());
+  args.push_back(ConstantInt::get(i32Ty, MO.IndexValidBits));
+  args.push_back(ConstantInt::get(i1Ty, MO.IndexIsSigned));
 
   if (MO.Data) {
     V_ASSERT(VecElemTy == MO.Data->getType() && "Invalid vector type");
@@ -532,10 +536,13 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     RetTy = VecElemTy;
   }
 
-  FunctionType *intr = FunctionType::get(RetTy, types, false);
-  Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(name, intr);
-  V_ASSERT(isa<Function> (new_f) && "mismatch function type");
-  return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
+  bool is_gather = (MO.Data == NULL);
+  std::string name = Mangler::getGatherScatterInternalName(is_gather, MO.Mask->getType(), VecElemTy, IndexTy);
+  // Create new gather/scatter caller instruction
+  Module *pModule = MO.Orig->getParent()->getParent()->getParent();
+  Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, RetTy, args, MO.Orig);
+
+  return newCaller;
 }
 
 Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &MO) {
@@ -579,7 +586,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   // Set the mask. We are free to generate scalar or vector masks.
   if (MaskDep == WIAnalysis::UNIFORM) {
     Value *SclrMask[MAX_PACKET_WIDTH];
-    obtainMultiScalarValues(SclrMask,MO.Mask ,MO.Orig);
+    obtainMultiScalarValues(SclrMask, MO.Mask, MO.Orig);
     MO.Mask = SclrMask[0];
   } else {
     obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
@@ -666,57 +673,64 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
 void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
   //Uniform pointer can be seen as the base with 0 index.
   WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
-  if (PtrDep == WIAnalysis::UNIFORM)  {
+  if (PtrDep == WIAnalysis::UNIFORM) {
     MO.Index = ConstantInt::getNullValue(Type::getInt32Ty(MO.Ptr->getContext()));
     MO.Base = MO.Ptr;
+    MO.IndexIsSigned = true;
+    MO.IndexValidBits = 0;
     return;
   }
   
   Value *Base = 0;
   Value *Index = 0;
-  bool forcei32 = false;
   GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(MO.Ptr);
   // If we found the GEP
   if (Gep && Gep->getNumIndices() == 1) {
-    Base = Gep->getOperand(0); 
+    Base = Gep->getOperand(0);
     // and the base is uniform
     if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM) {
       Index = Gep->getOperand(1);
-      // Try to find the i32 index
-      if (!Index->getType()->isIntegerTy(32)) {
-        if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) {
-          Index = ZI->getOperand(0);
-        }
-        else if (SExtInst* SI = dyn_cast<SExtInst>(Index)) {
-            Index = SI->getOperand(0);
-        }
-        else if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
-          // Check for the idiom that keeps the lowest 32bits:
-          // %idxprom = ashr exact i64 %XXX, 32
-          if (BI->getOpcode() == Instruction::AShr) {
-            // Constants are canonicalized to the RHS.
-            ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-            if (C0 && (C0->getBitWidth() < 65))
-              forcei32 = (C0->getZExtValue() == 32);
-          }
-
-          // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
-          // the lowest 32bits.
-          if (BI->getOpcode() == Instruction::And) {
-            // Constants are canonicalized to the RHS.
-            ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-            if (C0 && (C0->getBitWidth() < 65))
-              forcei32 = (C0->getZExtValue() == (unsigned) -1);
-          }
-        }
-        
+      MO.IndexIsSigned = true;
+      MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
+      if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) {
+        Index = ZI->getOperand(0);
+        MO.IndexIsSigned = false;
+        MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
       }
-      // If the index is not 32-bit, abort.
-      if (!Index->getType()->isIntegerTy(32) && !forcei32) {
-        V_PRINT(gather_scatter_stat, "PACKETIZER: BASE UNIFORM, INDEX NOT 32" << *MO.Orig <<
-                               " Gep: " << *Gep << " Index: " << *Index << "\n");
-        Index = NULL;
+      else if (SExtInst* SI = dyn_cast<SExtInst>(Index)) {
+        Index = SI->getOperand(0);
+        MO.IndexIsSigned = true;
+        MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
       }
+      // Fall throw in order to catch bit reduction on ZExt/SExt operand!
+      if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
+        // Check for the idiom that keeps the lowest 32bits:
+        // %idxprom = ashr exact i64 %XXX, 32
+        if (BI->getOpcode() == Instruction::AShr || BI->getOpcode() == Instruction::LShr) {
+          // Constants are canonicalized to the RHS.
+          ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+          if (C0 && (C0->getBitWidth() < 65)) {
+            MO.IndexIsSigned = (BI->getOpcode() == Instruction::AShr);
+            unsigned int totalBits = BI->getType()->getPrimitiveSizeInBits();
+            unsigned int shiftCount = C0->getZExtValue();
+            MO.IndexValidBits = (totalBits > shiftCount) ? totalBits - shiftCount : 0;
+            V_ASSERT(shiftCount != 0 && "This means the SHR is redundant!");
+          }
+        }
+        // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
+        // the lowest 32bits.
+        else if (BI->getOpcode() == Instruction::And) {
+          // Constants are canonicalized to the RHS.
+          ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
+          if (C0 && (C0->getBitWidth() < 65)) {
+            MO.IndexValidBits = VectorizerUtils::getBSR(C0->getZExtValue()) + 1;
+            MO.IndexIsSigned = (C0->getBitWidth() == MO.IndexValidBits);
+            V_ASSERT(C0->getBitWidth() != MO.IndexValidBits && "This means the AND is redundant!");
+          }
+        }
+      }
+      MO.Index = Index;
+      MO.Base = Base;
     }
     else
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
@@ -725,19 +739,13 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
   else
     V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
-  MO.Index = Index;
-  MO.Base = Base;
-  // If we decide to generate a scatter/gather (MO.Index != NULL), and the type of MO.Index is not i32,
-  // then it must hold a value truncatable to i32 (forcei32):
-  V_ASSERT((!MO.Index || MO.Index->getType()->isIntegerTy(32) || forcei32) && 
-            "Index is not i32 but forcei32 is false");
 }
 
 
 void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   V_ASSERT(MO.Orig && "Invalid instruction");
   V_ASSERT(MO.Ptr && MO.Ptr->getType()->isPointerTy() && "Pointer operand is not a pointer");
-  V_ASSERT((!MO.Mask || MO.Mask->getType()->getScalarType()->isIntegerTy()) && 
+  V_ASSERT((!MO.Mask || MO.Mask->getType()->getScalarType()->isIntegerTy()) &&
     "mask must be an integer");
 
   // Attempt to find if the pointer can be expressed as base + index.
@@ -745,7 +753,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     
   // Find the data type;
   Type *DT;
-  if (MO.Data) { 
+  if (MO.Data) {
     DT = MO.Data->getType(); // stored type
   } else {
     DT = MO.Orig->getType(); // loaded type
@@ -797,7 +805,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   
   // Avoid packetizing fake insert\extract that are used to 
   // obtain the scalar elements of vector arguments\return of scalar built-ins.
-  if (Mangler::isFakeExtract(origFuncName) || 
+  if (Mangler::isFakeExtract(origFuncName) ||
       Mangler::isFakeInsert(origFuncName)) {
     m_removedInsts.insert(CI);
     return;
@@ -850,7 +858,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     isMangled = false;
     // "cheat" the function to use the scalar function as the packetized function
     vectorFuncName = scalarFuncName.c_str();
-    LibFunc = m_currFunc->getParent()->getFunction(scalarFuncName); 
+    LibFunc = m_currFunc->getParent()->getFunction(scalarFuncName);
     V_ASSERT(LibFunc && "sync function is called, but not defined in module");
   } else {
     // Look for the function in the builtin functions hash
@@ -863,7 +871,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
 
     // If function was not found in hash (or is not scalar), need to duplicate it
     if (vecWidth != 1) {
-      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function:" <<origFuncName<<"\n"); 
+      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function:" <<origFuncName<<"\n");
       V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
     }
@@ -877,7 +885,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     V_ASSERT(LibFunc && "Mismatch between function hash and runtime module");
     // Fallback in case function was not found in runtime module: just duplicate scalar func
     if (!LibFunc) {
-      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function in runtime module:" <<origFuncName<<"\n"); 
+      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function in runtime module:" <<origFuncName<<"\n");
       V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
     }
@@ -891,7 +899,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   std::string vectorFuncNameStr = LibFunc->getNameStr();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
-    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n"); 
+    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
     return duplicateNonPacketizableInst(CI);
   }
@@ -961,7 +969,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       // here we assume that any scalar vector operand must be spread
       if (!SpreadVectorParam(CI, curScalarArg, LibFuncTy, newArgs)){
         V_ASSERT (0 && "unsupported parameter type");
-        return false;  
+        return false;
       }
     } else if (neededType == curScalarArgType) {
       // If a non-packetized argument is needed, simply use the first argument of 
@@ -1031,7 +1039,7 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
     // array of vectors , or it is the return is by pointers as last arguments.
     if (newCall->getType()->isVoidTy()) {
       // return by pointers.
-      return HandleReturnByPointers(CI, newCall); 
+      return HandleReturnByPointers(CI, newCall);
     } else {
       // return using array of vectors.
       return HandleReturnValueSOA(CI, newCall);
@@ -1142,7 +1150,7 @@ bool PacketizeFunction::HandleReturnByPointers(CallInst* CI, CallInst *newCall) 
     if (!ptr) return false;
     Instruction* LI = new LoadInst(ptr, "", CI);
     V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
-    V_ASSERT(cast<VectorType>(LI->getType()) ==  
+    V_ASSERT(cast<VectorType>(LI->getType()) ==
      VectorType::get(vTy->getElementType(), m_packetWidth) && "bad signature");
     loads.push_back(LI);
   }
@@ -1246,7 +1254,7 @@ bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** In
     if (i < (AOSVectorWidth-1))
     {
       if (IEI->getNumUses() != 1) return false;
-      IEI = dyn_cast<InsertElementInst>(*(IEI->use_begin()));    
+      IEI = dyn_cast<InsertElementInst>(*(IEI->use_begin()));
     } 
     else 
     {
@@ -1282,7 +1290,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
   // computing next power of two and adding undef inputs in case 
   // the origianl vector width is not a power of 2 since the algorithm 
   // only supports power of 2
-  unsigned Power2VectorWidth = 1; 
+  unsigned Power2VectorWidth = 1;
   while (Power2VectorWidth < AOSVectorWidth) Power2VectorWidth <<= 1;
   for (unsigned i=AOSVectorWidth; i<Power2VectorWidth; ++i)
     inputVectors[i] = UndefValue::get(inputVectors[0]->getType());
@@ -1291,7 +1299,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
   int shuffleMaskL [MAX_PACKET_WIDTH]; // holds Low  int mask
   int shuffleMaskH [MAX_PACKET_WIDTH]; // holds High int mask
   //tmps hold input and output of transposing iterations
-  Instruction *tmp1 [MAX_PACKET_WIDTH], *tmp2 [MAX_PACKET_WIDTH]; 
+  Instruction *tmp1 [MAX_PACKET_WIDTH], *tmp2 [MAX_PACKET_WIDTH];
   unsigned iter = 0;
   Value **inputs = inputVectors;
   Instruction **outputs = tmp2;
@@ -1586,7 +1594,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   for (unsigned i=0, e = extracts.size(); i<e; ++i) {
     ExtractElementInst *curEI = extracts[i];
     if (curEI) {
-      createVCMEntryWithVectorValue(curEI, SOA[i]);  
+      createVCMEntryWithVectorValue(curEI, SOA[i]);
       m_removedInsts.insert(curEI);
     }
   }
@@ -1804,16 +1812,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   // Prepare: Obtain the used type of the ID, and make a vector for it
   Type * usedType = tidGenInst->getType();
   V_ASSERT(!isa<VectorType>(usedType) && "expected TID value to be scalar");
-  VectorType *vectorIndexType = VectorType::get(usedType, m_packetWidth);
 
   // Generate the broadcasting of the original ID
-  Constant * constZero = ConstantInt::get(Type::getInt32Ty(context()), 0);
-  UndefValue *undefVect = UndefValue::get(vectorIndexType);
-  Instruction *inst1 = InsertElementInst::Create(undefVect, tidGenInst, constZero, "broadcast1");
-  Constant *zeroVector = ConstantVector::get(std::vector<Constant*>(m_packetWidth, constZero));
-  Instruction *shuffleInst = new ShuffleVectorInst(inst1, undefVect, zeroVector , "broadcast2");
-  inst1->insertAfter(tidGenInst);
-  shuffleInst->insertAfter(inst1);
+  Instruction *shuffleInst = VectorizerUtils::createBroadcast(tidGenInst, m_packetWidth, tidGenInst, true);
 
   // Generate the constant vector
   std::vector<Constant*> constList;
@@ -1843,9 +1844,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   // Generate the TID vectors
   BinaryOperator *vectorIndex = BinaryOperator::Create(
     addOperation, shuffleInst, ConstantVector::get(ArrayRef<Constant*>(constList)));
-  // Set  debug location.
-  VectorizerUtils::SetDebugLocBy(inst1, I);
-  VectorizerUtils::SetDebugLocBy(shuffleInst, I);
+  // Set debug location
   VectorizerUtils::SetDebugLocBy(vectorIndex, I);
   vectorIndex->insertAfter(shuffleInst);
 

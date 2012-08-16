@@ -6,6 +6,7 @@
  *********************************************************************************************/
 #include "LoopStridedCodeMotion.h"
 #include "LoopUtils.h"
+#include "VectorizerUtils.h"
 #include "llvm/Constants.h"
 
 char intel::LoopStridedCodeMotion::ID = 0;
@@ -259,13 +260,7 @@ Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
 
   // For non constant broadcast the stride.
   Instruction *loc = m_preHeader->getTerminator();
-  UndefValue * undefVect = UndefValue::get(vTy);
-  Value *insertStride = 
-     InsertElementInst::Create(undefVect, stride, m_zero, "insert.delta", loc);
-  std::vector<Constant*> vec0(nElts, m_zero);
-  Constant *constVec0 = ConstantVector::get(vec0);
-  ShuffleVectorInst *SVI = new ShuffleVectorInst(insertStride, undefVect,
-                                            constVec0, "broadcast.delta", loc);
+  Instruction *SVI = VectorizerUtils::createBroadcast(stride, nElts, loc);
   return SVI;
 }
 

@@ -9,6 +9,8 @@ const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
 const std::string Mangler::mask_prefix_load     = "masked_load_align";
 const std::string Mangler::mask_prefix_store    = "masked_store_align";
+const std::string Mangler::prefix_gather        = "internal.gather";
+const std::string Mangler::prefix_scatter       = "internal.scatter";
 const std::string Mangler::name_allOne          = "allOne";
 const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
@@ -43,27 +45,41 @@ std::string Mangler::getLoadName(unsigned align) {
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
   std::string alignStr = toString(align);
-  return mask_prefix_load + alignStr + "_" + suffix;  
+  return mask_prefix_load + alignStr + "_" + suffix;
 }
 
 std::string Mangler::getStoreName(unsigned align) {
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
   std::string alignStr = toString(align);
-  return mask_prefix_store + alignStr + "_" + suffix;  
+  return mask_prefix_store + alignStr + "_" + suffix;
 }
 
-std::string Mangler::getGatherScatterName(bool masked, bool gather, VectorType *VecTy) {
+std::string Mangler::getGatherScatterName(bool isMasked, bool isGather, VectorType *VecTy) {
   std::stringstream result;
   unsigned numElements = VecTy->getNumElements();
   const char* elemTyName = getGatherScatterTypeName(VecTy->getScalarType());
   // Format:
-  // [masked_]gather|scatter.v16[i|f][32|64]
+  // [masked_]gather|scatter.v16<i|f><32|64>
 
-  if (masked)
+  if (isMasked)
     result << "masked_";
-  result << (gather ? "gather.v" : "scatter.v");
+  result << (isGather ? "gather.v" : "scatter.v");
   result << numElements << elemTyName;
+  return result.str();
+}
+
+std::string Mangler::getGatherScatterInternalName(bool isGather, Type *maskType, VectorType *retDataVecTy, Type *indexType) {
+  std::stringstream result;
+  unsigned numElements = retDataVecTy->getNumElements();
+  const char* elemRetTyName = getGatherScatterTypeName(retDataVecTy->getScalarType());
+  const char* elemIndexTyName = getGatherScatterTypeName(indexType->getScalarType());
+  // Format:
+  // internal.gather|scatter.v16<i|f><32|64>.i[<32|64>].m[1|16]
+
+  result << (isGather ? prefix_gather : prefix_scatter);
+  result << ".v" << numElements << elemRetTyName << "[" << elemIndexTyName << "].m";
+  result << (isa<VectorType>(maskType) ? cast<VectorType>(maskType)->getNumElements() : 1);
   return result.str();
 }
 
@@ -102,6 +118,14 @@ bool Mangler::isMangledStore(const std::string& name) {
 
 bool Mangler::isMangledCall(const std::string& name) {
   return name.find(mask_prefix_func) != std::string::npos;
+}
+
+bool Mangler::isMangledGather(const std::string& name) {
+  return name.find(prefix_gather) != std::string::npos;
+}
+
+bool Mangler::isMangledScatter(const std::string& name) {
+  return name.find(prefix_scatter) != std::string::npos;
 }
 
 bool Mangler::isFakeExtract(const std::string& name) {

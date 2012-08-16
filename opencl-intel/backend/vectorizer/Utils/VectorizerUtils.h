@@ -60,9 +60,40 @@ public:
   /// @return casted value
   static Instruction *getCastedRetIfNeeded(CallInst *CI, Type *targetType);
 
-  ///@brief checks if both types are pointer to opaque types
-  ///@param x type 1
-  ///@param y type 2
+  /// @brief Creates a call to function "name" with given args. It also creates
+  ///       the function declaration if not already exists in the module.
+  /// @param pModule module that contains the function declaration
+  /// @param name function name
+  /// @param retType function return type
+  /// @param args list of arguments to call the function with
+  /// @param insertBefore instruction to insert new callInst before
+  /// @return new call instruction
+  static Instruction *createFunctionCall(Module *pModule, std::string name,
+    Type *retType, SmallVectorImpl<Value *> &args, Instruction* insertBefore);
+
+  /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
+  /// @param pVal value to prodcast
+  /// @param packetWidth width of generated vector with broadcast value
+  /// @param whereTo instruction to insert new instructions before or after
+  /// @param insertAfter if true, insert after whereTo instruction, otherwise insert before it.
+  /// @return new broadcast vector
+  static Instruction *createBroadcast(Value * pVal, unsigned int packetWidth, Instruction* whereTo, bool insertAfter = false);
+
+  /// @brief Calculate BSR - (bit set reverse order) if argument is not zero
+  ///  it is equivalent to count-leading-zeroes + 1. Mathematically, it computes floor(log(x)).
+  /// @param number given number
+  /// @return index [1-64] of highest bit set to 1 in given number
+  ///         returns zero for input zero
+  static unsigned int getBSR(uint64_t number);
+
+  /// @brief Calculate LOG - Assumes number is a power of 2.
+  /// @param number given number
+  /// @return index [1-64] of highest bit set to 1 in given number.
+  static unsigned int getLOG(uint64_t number);
+
+  /// @brief checks if both types are pointer to opaque types
+  /// @param x type 1
+  /// @param y type 2
   static bool isOpaquePtrPair(Type *x, Type *y);
 
 private:

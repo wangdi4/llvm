@@ -34,10 +34,17 @@ struct MemoryOperation {
   Value *Mask;
   Value *Ptr;
   Value *Data;
-  unsigned Alignment;
+  unsigned int Alignment;
   // If these values are set, then Base + Index = Ptr.
   Value *Base;
   Value *Index;
+  // Information about above Index
+  // Index can be signed/unsigned value
+  // Index actual value is limitted to the range:
+  // [0, 2^ValidBits] if unsigned
+  // [-2^(ValidBits-1), 2^(ValidBits-1)-1] if signed
+  bool IndexIsSigned;
+  unsigned int IndexValidBits;
   // Original Instruction
   Instruction *Orig;
 };

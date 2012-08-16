@@ -28,8 +28,19 @@ public:
   /// @return name
   static std::string getStoreName(unsigned align);
   /// @brief Get mangled name for gather or scatter instruction
+  /// @param isMasked true for masked instruction, false for non masked instruction
+  /// @param isGather true for gather instruction, false for scatter instruction
+  /// @param retDataVecTy type of return/data value (should be a vector)
   /// @return name
-  static std::string getGatherScatterName(bool masked, bool gather, VectorType *);
+  static std::string getGatherScatterName(bool isMasked, bool isGather, VectorType *retDataVecTy);
+  /// @brief Get internal mangled name for gather or scatter instruction
+  /// (this name will be resolved at Resolver pass, thus it is for vectorizer internal use only)
+  /// @param isGather true for gather instruction, false for scatter instruction
+  /// @param maskType type of mask value (can be scalar of vector)
+  /// @param retDataVecTy type of return/data value (should be a vector)
+  /// @param indexType type of index element
+  /// @return name
+  static std::string getGatherScatterInternalName(bool isGather, Type *maskType, VectorType *retDataVecTy, Type *indexType);
   /// @brief Is this a mangled load instruction
   /// @param name Name of function
   /// @return True if load
@@ -42,6 +53,14 @@ public:
   /// @param name Name of function
   /// @return True if mangled
   static bool isMangledCall(const std::string& name);
+  /// @brief Is this a mangled gather instruction
+  /// @param name Name of function
+  /// @return True if mangled
+  static bool isMangledGather(const std::string& name);
+  /// @brief Is this a mangled scatter instruction
+  /// @param name Name of function
+  /// @return True if mangled
+  static bool isMangledScatter(const std::string& name);
   /// @brief Is this a special function which checks the mask.
   ///  Is this a call to 'all-one' or 'all-zero' ?
   /// @param name Name of function
@@ -97,6 +116,10 @@ private:
   static const std::string mask_prefix_load;
   /// @brief mangling of store operations
   static const std::string mask_prefix_store;
+  /// @brief mangling of internal gather operations
+  static const std::string prefix_gather;
+  /// @brief mangling of internal scatter operations
+  static const std::string prefix_scatter;
   /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
   /// @brief mangling fake extract calls used for vectorization of 

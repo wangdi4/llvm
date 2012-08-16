@@ -56,20 +56,11 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
           // Original value is kept, so just need to broadcast it
           //  %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
           //  %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
-          Constant *index = ConstantInt::get(Type::getInt32Ty(context()), 0);
-          UndefValue *undefVec =
-            UndefValue::get(VectorType::get(origValue->getType(), m_packetWidth));
-          Constant *zeroVector =
-            ConstantVector::get(std::vector<Constant*>(m_packetWidth, index));
-          Instruction *tmpInst = InsertElementInst::Create(undefVec, origValue, index, "temp");
-          Instruction *shuffle = new ShuffleVectorInst(tmpInst, undefVec, zeroVector , "vector");
-          VectorizerUtils::SetDebugLocBy(tmpInst, origInst);
-          VectorizerUtils::SetDebugLocBy(shuffle, origInst);
-          tmpInst->insertAfter(findInsertPoint(origValue));
-          shuffle->insertAfter(tmpInst);
+          Instruction *shuffleInst = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
+
           // Add to return structure and update VCM
-          *retValue = shuffle;
-          foundEntry->vectorValue = shuffle;
+          *retValue = shuffleInst;
+          foundEntry->vectorValue = shuffleInst;
         }
         else
         {
@@ -131,19 +122,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
         // Need to broadcast the value
         //    %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
         //    %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
-        UndefValue *undefVect =
-          UndefValue::get(VectorType::get(origValue->getType(), m_packetWidth));
-        Constant *constIndex =
-          ConstantInt::get(Type::getInt32Ty(context()), 0);
-        Instruction *insertInst =
-          InsertElementInst::Create(undefVect, origValue, constIndex, "temp");
-        Constant *zeroVector =
-          ConstantVector::get(std::vector<Constant*>(m_packetWidth, constIndex));
-        broadcastedVal = new ShuffleVectorInst(insertInst, undefVect, zeroVector , "vector");
-        // Place instructions in start of function
-        Instruction * firstInstructionInFunc = &*(inst_begin(m_currFunc));
-        insertInst->insertBefore(firstInstructionInFunc);
-        dyn_cast<Instruction>(broadcastedVal)->insertAfter(insertInst);
+        broadcastedVal = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
         // Add broadcast to BAG
         m_BAG.insert(std::pair<Value*,Value*>(origValue, broadcastedVal));
       }

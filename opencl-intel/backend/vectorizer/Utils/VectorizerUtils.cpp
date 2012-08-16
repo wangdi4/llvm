@@ -4,6 +4,7 @@
 #include "VectorizerCommon.h"
 #include "Logger.h"
 #include "llvm/Constants.h"
+#include "llvm/Module.h"
 
 namespace intel{
 
@@ -73,7 +74,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
   LLVMContext &context = CI->getContext();
   // Is the argument already in the correct type?
   Type *argType = arg->getType();
-  if (argType == rootType) return arg; 
+  if (argType == rootType) return arg;
 
   if (isOpaquePtrPair(argType, rootType))
   {
@@ -484,6 +485,64 @@ Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetTyp
   Instruction *castedInst = TruncValToType(CI, targetType, insertPoint);
   insertPoint->eraseFromParent();
   return castedInst;
+}
+
+Instruction *VectorizerUtils::createFunctionCall(Module *pModule, std::string name,
+  Type *retType, SmallVectorImpl<Value *> &args, Instruction* insertBefore) {
+  SmallVector<Type *, 8> types;
+  
+  for(unsigned int i=0; i<args.size(); ++i) {
+    types.push_back(args[i]->getType());
+  }
+
+  FunctionType *intr = FunctionType::get(retType, types, false);
+  Constant* new_f = pModule->getOrInsertFunction(name.c_str(), intr);
+  V_ASSERT(isa<Function>(new_f) && "mismatch function type");
+  Instruction *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
+
+  // Set debug location
+  SetDebugLocBy(newCall, insertBefore);
+
+  return newCall;
+}
+
+Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, Instruction* whereTo, bool insertAfter) {
+  Instruction *insertBefore = insertAfter? NULL: whereTo;
+  Constant *index = ConstantInt::get(Type::getInt32Ty(pVal->getContext()), 0);
+  Constant *zeroVector = ConstantVector::get(std::vector<Constant*>(width, index));
+  UndefValue *undefVec = UndefValue::get(VectorType::get(pVal->getType(), width));
+  Instruction *tmpInst = InsertElementInst::Create(undefVec, pVal, index, "temp", insertBefore);
+  Instruction *shuffle = new ShuffleVectorInst(tmpInst, undefVec, zeroVector , "vector", insertBefore);
+
+  if(insertAfter) {
+    // Insert instruction in reverse order
+    shuffle->insertAfter(whereTo);
+    tmpInst->insertAfter(whereTo);
+  }
+
+  if(Instruction *pInst = dyn_cast<Instruction>(pVal)) {
+    // Set debug location
+    SetDebugLocBy(tmpInst, pInst);
+    SetDebugLocBy(shuffle, pInst);
+  }
+
+  return shuffle;
+}
+
+unsigned int VectorizerUtils::getBSR(uint64_t number) {
+  unsigned int res = 0;
+  for(int i=63; i>=0; --i) {
+    if(number & (((uint64_t)0x1)<<i)) {
+      res = i;
+      break;
+    }
+  }
+  return res;
+}
+
+unsigned int VectorizerUtils::getLOG(uint64_t number) {
+  V_ASSERT(number && 0 == (number & (number-1)) && "LOG is valid for power of 2 numbers!");
+  return getBSR(number);
 }
 
 // rooting a sequence like this:

@@ -4,12 +4,12 @@
 
 ; This testcase checks that we do not fail nor generate scatters for v4i8 types if -subscript-v4i8 is not specified.
 
-;CHECK: kernel
-;CHECK-NOT: @scatter.v4i8
-;CHECK: ret void
-
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
 target triple = "x86_64-unknown-linux-gnu"
+
+;CHECK: kernel
+;CHECK-NOT: scatter
+;CHECK: ret void
 
 
 define void @kernel(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
@@ -24,7 +24,7 @@ entry:
 }
 
 ;CHECK: kernel2
-;CHECK-NOT: @scatter.v4i8
+;CHECK-NOT: scatter
 ;CHECK: ret void
 
 define void @kernel2(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
@@ -39,7 +39,7 @@ entry:
 }
 
 ;CHECK: kernel_int
-;CHECK-NOT: @scatter.v4i8
+;CHECK-NOT: scatter
 ;CHECK: ret void
 
 define void @kernel_int(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
