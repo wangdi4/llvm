@@ -439,6 +439,9 @@ public:
 
 	virtual void release() = 0;
 
+    /* startup all threads in a pool */
+    virtual void wakeup_all();
+
 	/* Return current thread worker ID (worker ID of muster thread is always 0 and for worker thread >= 1). */
 	virtual unsigned int getWorkerID() = 0;
 
@@ -496,6 +499,8 @@ protected:
 	// (The order will be  - all the 1st HW threads of all cores, than all the 2nd, and so on... minus core 0 / last core if it set in "mic_exec_env_options" structure).
 	vector<unsigned int> m_orderHwThreadsIds;
 
+    virtual void startup_all_workers() = 0;
+
 private:
 
 	bool setAffinityForCurrentThread(unsigned int hwThreadId);
@@ -511,6 +516,9 @@ private:
 
 	// The singleton thread pool
 	static ThreadPool* m_singleThreadPool;
+    
+    static OclMutexNative m_workers_initialization_lock;
+    static volatile bool  m_workers_initialized;
 };
 
 
@@ -551,6 +559,8 @@ protected:
 	/* It is not thread safe implementation because assuming that it calls by one thread when calling to 'init_device()' function. */
 	void initializeReserveAffinityThreadIds();
 
+    virtual void startup_all_workers();
+    
 private:
 
 	// Do not delete those TLS structures Because a worker thread can use its TLS data after this object destructor. - Memory leak
@@ -568,6 +578,8 @@ private:
 
 	// Run over all the general tls destructors.
 	void releaseGeneralTls();
+
+    struct WorkersWakeup;
 };
 
 

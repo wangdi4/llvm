@@ -337,7 +337,10 @@ cl_dev_err_code MICDevice::CreateCommandList( bool external_list,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateCommandList Function enter"));
     CommandList* tCommandList;
-    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, m_pNotificationPort, m_pDeviceServiceComm, m_pFrameworkCallBacks, m_pProgramService, &tCommandList);
+    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, 
+                                                          m_pNotificationPort, m_pDeviceServiceComm, 
+                                                          m_pFrameworkCallBacks, m_pProgramService, &m_overhead_data,
+                                                          &tCommandList);
     if (CL_DEV_FAILED(ret))
     {
         return ret;

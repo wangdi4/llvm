@@ -7,6 +7,7 @@
 #include "mic_device.h"
 #include "mic_device_interface.h"
 #include "mic_sys_info_internal.h"
+#include "profiling_notification.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
@@ -35,6 +36,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 	"release_device",						// CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
 	"init_commands_queue",					// INIT COMMANDS QUEUE ON DEVICE
 	"release_commands_queue",				// RELEASE COMMANDS QUEUE ON DEVICE
+	"execute_device_utility",               // EXECUTE UTILITY FUNCTION ON DEVICE (as part of some user queue thread)
 	"fill_mem_object"						// FILL MEM OBJECT
 #ifdef ENABLE_MIC_TRACER
 	,"get_trace_size",
@@ -151,6 +153,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 		// Write to file host trace
 		MICDevice::m_tracer->draw_host_to_file(m_config);
 #endif
+		ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 		// Run release device function on device side
 		runServiceFunction(RELEASE_DEVICE, 0, NULL, 0, NULL, 0, NULL, NULL);
 
@@ -193,7 +196,9 @@ bool DeviceServiceCommunication::runServiceFunction(
                             DEVICE_SIDE_FUNCTION func,
                             size_t input_data_size, void* input_data,
                             size_t output_data_size, void* output_data,
-                            unsigned int numBuffers, const COIBUFFER* buffers, const COI_ACCESS_FLAGS* bufferAccessFlags)
+                            unsigned int numBuffers, const COIBUFFER* buffers, 
+                            const COI_ACCESS_FLAGS* bufferAccessFlags,
+                            COIPIPELINE use_pipeline )
 {
     COIRESULT   result = COI_ERROR;
     COIEVENT  barrier;
@@ -225,13 +230,15 @@ bool DeviceServiceCommunication::runServiceFunction(
 
     waitForInitThread();
 
-	if (NULL == m_pipe)
+    COIPIPELINE pipe = (NULL != use_pipeline) ? use_pipeline : m_pipe;
+
+	if (NULL == pipe)
 	{
 		return false;
 	}
 
     // Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
-    result = COIPipelineRunFunction(m_pipe, getDeviceFunction(func),
+    result = COIPipelineRunFunction(pipe, getDeviceFunction(func),
                                     numBuffers, buffers, bufferAccessFlags,
                                     0, NULL,                    // dependecies
                                     input_data, input_data_size,
@@ -453,10 +460,18 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		{
 			break;
 		}
+
+		if (false == ProfilingNotification::getInstance().registerProfilingNotification(pDevServiceComm->m_process))
+		{
+			err = CL_DEV_ERROR_FAIL;
+			break;
+		}
 	}
 	while (0);
 	if ((COI_SUCCESS != result) || (CL_DEV_FAILED(err)))
 	{
+		ProfilingNotification::getInstance().unregisterProfilingNotification(pDevServiceComm->m_process);
+
 		if (NULL != pDevServiceComm->m_pipe)
 		{
 			COIPipelineDestroy(pDevServiceComm->m_pipe);

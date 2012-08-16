@@ -9,7 +9,7 @@ InOrderCommandSynchHandler*		CommandSynchHandler::m_singletonInOrderCommandSynch
 OutOfOrderCommandSynchHandler*	CommandSynchHandler::m_singletonOuOfOrderCommandSynchHandler = NULL;
 
 Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
-m_pCommandList(pCommandList), m_pFrameworkCallBacks(pFrameworkCallBacks)
+m_pCommandList(pCommandList), m_cmdRunningTime(0), m_cmdCompletionTime(0), m_pFrameworkCallBacks(pFrameworkCallBacks)
 {
 	// Set command id for the tracer.
 	m_commandTracer.set_command_id((size_t)(pCmd->id));
@@ -64,11 +64,48 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 void Command::fireCallBack(void* arg)
 {
 	// Set end coi execution time for the tracer. (Notification)
-	m_commandTracer.set_current_time_coi_execute_command_time_end();
+	m_commandTracer.set_current_time_coi_notify_command_time_end();
 	// Notify runtime that  the command completed
-	notifyCommandStatusChanged(CL_COMPLETE);
+	assert(m_pCmd->profiling == false || (m_cmdRunningTime > 0 && m_cmdCompletionTime > 0));
+	notifyCommandStatusChanged(CL_RUNNING, m_cmdRunningTime);
+	notifyCommandStatusChanged(CL_COMPLETE, m_cmdCompletionTime);
 	// Delete this Command object
 	delete this;
+}
+
+void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
+{
+	switch (type)
+	{
+	case RUN_FUNCTION_START:
+		assert(0 == m_cmdCompletionTime);
+		// Set end coi execution time for the tracer. (COI RUNNING)
+		m_commandTracer.set_current_time_coi_execution_time_start();
+		if (m_pCmd->profiling) 
+		{
+			m_cmdRunningTime = HostTime();
+		}
+		break;
+	case BUFFER_OPERATION_READY:
+		// This case should be overwrite in Buffer command (In case of Buffer command only)
+		break;
+	case BUFFER_OPERATION_COMPLETE:
+		// This case should be overwrite in Buffer command (In case of Buffer command only)
+		break;
+	case RUN_FUNCTION_COMPLETE:
+	case USER_EVENT_SIGNALED:
+		// Set end coi execution time for the tracer. (COI COMPLETED)
+		m_commandTracer.set_current_time_coi_execution_time_end();
+		if (m_pCmd->profiling) 
+		{
+			m_cmdCompletionTime = HostTime();
+		}
+		break;
+	case RUN_FUNCTION_READY:
+		break;
+	default:
+		assert(0 && "Unknow COI_NOTIFICATIONS type");
+	};
 }
 
 void Command::releaseResources()

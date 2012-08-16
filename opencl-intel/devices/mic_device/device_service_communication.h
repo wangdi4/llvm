@@ -50,6 +50,7 @@ public:
 		RELEASE_DEVICE,
 		INIT_COMMANDS_QUEUE,
 		RELEASE_COMMANDS_QUEUE,
+		EXECUTE_DEVICE_UTILITY,
 
 		FILL_MEM_OBJECT,
 
@@ -79,7 +80,7 @@ public:
 
     COIFUNCTION getDeviceFunction( DEVICE_SIDE_FUNCTION id ) const;
 
-    /* Send function to run through the service pipeline.
+    /* Send function to run through the service pipeline unless use_pipeline is provided
        It is block operation - wait until the function completed on the device.
        func - COIFunction to run.
        input_data - input raw data to be send to the function without using COI Buffers
@@ -92,7 +93,9 @@ public:
     bool runServiceFunction(DEVICE_SIDE_FUNCTION func,
                             size_t input_data_size, void* input_data,
                             size_t output_data_size, void* output_data,
-                            unsigned int numBuffers, const COIBUFFER* buffers, const COI_ACCESS_FLAGS* bufferAccessFlags);
+                            unsigned int numBuffers, const COIBUFFER* buffers, 
+                            const COI_ACCESS_FLAGS* bufferAccessFlags,
+                            COIPIPELINE use_pipeline = NULL );
 
 private:
 

@@ -2,6 +2,7 @@
 #include "memory_allocator.h"
 #include "command_list.h"
 #include "mic_device_interface.h"
+#include "cl_sys_info.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIProcess_source.h>
@@ -124,6 +125,10 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
                           &fired_event );
     }
 
+	// Nullify NotificationCallBack context such that the next command will not set this command context. (Actually it is in order to avoid many changes in command status in case of rectangular operation,
+	// We want to set context to the first and the last command only.
+	COINotificationCallbackSetContext(NULL);
+
     if (!ok)
     {
         m_error_occured = true;
@@ -222,11 +227,48 @@ BufferCommands::~BufferCommands()
 {
 }
 
+void BufferCommands::eventProfilingCall(COI_NOTIFICATIONS& type)
+{
+	switch (type)
+	{
+	case RUN_FUNCTION_START:
+		assert(0 && "This case should be implemented in Command object");
+	case BUFFER_OPERATION_READY:
+		// Set end coi execution time for the tracer. (COI RUNNING)
+		m_commandTracer.set_current_time_coi_execution_time_start();
+		if ((m_pCmd->profiling) && (m_cmdRunningTime == 0))
+		{
+			m_cmdRunningTime = HostTime();
+		}
+		break;
+	case BUFFER_OPERATION_COMPLETE:
+		// Set end coi execution time for the tracer. (COI COMPLETED)
+		m_commandTracer.set_current_time_coi_execution_time_end();
+		if (m_pCmd->profiling) 
+		{
+			m_cmdCompletionTime = HostTime();
+		}
+		break;
+	case RUN_FUNCTION_COMPLETE:
+	case USER_EVENT_SIGNALED:
+	case RUN_FUNCTION_READY:
+		assert(0 && "This case should be implemented in Command object");
+	default:
+		assert(0 && "Unknow COI_NOTIFICATIONS type");
+	};
+}
+
 void BufferCommands::CopyRegion(mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
 {
-    CopyRegionInternal( pMemCopyInfo, chunk_consumer );
+	// Set this object to be the context when notifying for event status change. (For the first command in case of rectangular operation)
+	COINotificationCallbackSetContext(this);
+	CopyRegionInternal( pMemCopyInfo, chunk_consumer );
+	COINotificationCallbackSetContext(NULL);
 
+	// Set this object to be the context when notifying for event status change. (For the last command in case of rectangular operation, or for first and last command in case of regular operatiron)
+	COINotificationCallbackSetContext(this);
     chunk_consumer->process_finish();
+	COINotificationCallbackSetContext(NULL);
 }
 
 void BufferCommands::CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
@@ -263,6 +305,8 @@ COIEVENT BufferCommands::ForceTransferToDevice( const MICDevMemoryObject* mem_ob
 
     COIEVENT transfer_event;
 
+	COINotificationCallbackSetContext(this);
+
     COIRESULT coi_result = COIBufferSetState( 
                         mem_obj->clDevMemObjGetCoiBufferHandler(),  // Buffer to transfer
                         m_pCommandList->getDeviceProcess(),         // Target Device process 
@@ -272,6 +316,8 @@ COIEVENT BufferCommands::ForceTransferToDevice( const MICDevMemoryObject* mem_ob
                         &transfer_event );                          // event to be signaled on completion
 
     assert( (COI_SUCCESS == coi_result) && "Wrong params for COIBufferSetState" );
+
+	COINotificationCallbackSetContext(NULL);
 
     // this is an optimization - if failed, nothing to do
     return ((COI_SUCCESS == coi_result) ? transfer_event : last_chunk_event);
@@ -351,8 +397,6 @@ cl_dev_err_code ReadWriteMemObject::execute()
     bool error = false;
 
     do {
-    	notifyCommandStatusChanged(CL_RUNNING);
-
        	COIEVENT* barrier = NULL;
     	unsigned int numDependecies = 0;
     	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
@@ -416,7 +460,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
         }
 
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
         CopyRegion( &sCpyParam, &copier );
 
@@ -541,10 +585,6 @@ cl_dev_err_code CopyMemObject::execute()
 			m_lastError = CL_DEV_INVALID_COMMAND_PARAM;
 			break;
 		}
-
-		// No we can notify that we are running
-		notifyCommandStatusChanged(CL_RUNNING);
-
 		//Options for different dimensions are
 		//Copy a 2D image object to a 2D slice of a 3D image object.
 		//Copy a 2D slice of a 3D image object to a 2D image object.
@@ -656,7 +696,7 @@ cl_dev_err_code CopyMemObject::execute()
 		}
 
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
         CopyRegion( &sCpyParam, pCopier );
 
@@ -776,8 +816,6 @@ cl_dev_err_code MapMemObject::execute()
 		return err;
 	}
 
-	notifyCommandStatusChanged(CL_RUNNING);
-
 	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
 	sCpyParam.from_Offset = MemoryAllocator::CalculateOffset(pMemObj.dim_count, cmdParams->origin, pMemObj.pitch, pMemObj.uiElementSize);
@@ -819,7 +857,7 @@ cl_dev_err_code MapMemObject::execute()
                                MemoryAllocator::GetCoiMapParams(cmdParams) ); // Get the 'SMemMapParamsList' pointer of this memory object
 
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
 		CopyRegion( &sCpyParam, &copier );
 
@@ -904,8 +942,6 @@ cl_dev_err_code UnmapMemObject::execute()
 		return err;
 	}
 
-	notifyCommandStatusChanged(CL_RUNNING);
-
 	bool error = false;
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
@@ -939,18 +975,24 @@ cl_dev_err_code UnmapMemObject::execute()
 		UnmapMemoryChunk unmapper( barrier );
 
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
+		// Set this object to be the context when notifying for event status change. (For the first command in case of rectangular operation)
+		COINotificationCallbackSetContext(this);
 		// Init map handler iterator and traversing over it.
 		coiMapParam.initMapHandleIterator();
 		while (coiMapParam.hasNextMapHandle())
 		{
 			UnmapMemoryChunkStruct::Chunk tChunk(coiMapParam.getNextMapHandle());
 			unmapper.process_chunk(tChunk);
+			COINotificationCallbackSetContext(NULL);
 		}
 
+		// Set this object to be the context when notifying for event status change. (For the last command in case of rectangular operation, or for first and last command in case of regular operatiron)
+		COINotificationCallbackSetContext(this);
 		// Call to 'process_finish()' in order to complete the last unmap operations.
 		unmapper.process_finish();
+		COINotificationCallbackSetContext(NULL);
 
 		if (unmapper.error_occured())
         {
@@ -1085,11 +1127,8 @@ cl_dev_err_code MigrateMemObject::execute()
 			break;
 		}
 
-		// TODO - Call it only when realy starting the command.
-		notifyCommandStatusChanged(CL_RUNNING);
-
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
         // now enqueue all operations independently, except of the last, that should be dependent on all other
         vector<COIEVENT> independent_ops;

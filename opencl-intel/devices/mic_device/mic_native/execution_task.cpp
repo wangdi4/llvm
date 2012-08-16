@@ -129,7 +129,9 @@ void init_commands_queue(uint32_t         in_BufferCount,
 				         void*            in_pReturnValue,
 				         uint16_t         in_ReturnValueLength)
 {
-	ThreadPool::getInstance()->registerMasterThread();
+    ThreadPool* pool = ThreadPool::getInstance();
+	pool->registerMasterThread();
+    pool->wakeup_all();
 }
 
 // release current pipeline command queue. Call it before Pipeline destruction of Command list.
@@ -145,6 +147,38 @@ void release_commands_queue(uint32_t         in_BufferCount,
 	ThreadPool::getInstance()->unregisterMasterThread();
 }
 
+
+// Execute device utility function
+COINATIVELIBEXPORT
+void execute_device_utility( uint32_t         in_BufferCount,
+        					 void**           in_ppBufferPointers,
+        					 uint64_t*        in_pBufferLengths,
+        					 void*            in_pMiscData,
+        					 uint16_t         in_MiscDataLength,
+        					 void*            in_pReturnValue,
+        					 uint16_t         in_ReturnValueLength)
+{
+    //
+    // Execute some management function on device as part of some queue
+    //
+    assert( ((NULL != in_pMiscData) && (sizeof(utility_function_options) == in_MiscDataLength)) 
+                                            && "Wrong params to execute_device_utility" );
+
+    if ((NULL == in_pMiscData) || (sizeof(utility_function_options) != in_MiscDataLength))
+    {
+        return;
+    }
+
+    utility_function_options* options = (utility_function_options*)in_pMiscData;
+
+    switch (options->request)
+    {
+        case UTILITY_MEASURE_OVERHEAD:
+            break;
+
+        default:;
+    }
+}
 
 void execute_command(uint32_t					in_BufferCount,
 					 void**						in_ppBufferPointers,
@@ -1026,7 +1060,9 @@ GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERI
 };
 
 
-ThreadPool* ThreadPool::m_singleThreadPool = NULL;
+ThreadPool*     ThreadPool::m_singleThreadPool = NULL;
+OclMutexNative  ThreadPool::m_workers_initialization_lock;
+volatile bool   ThreadPool::m_workers_initialized = false;
 
 ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1), m_nextAffinitiesThreadIndex(0)
 {
@@ -1224,6 +1260,25 @@ bool ThreadPool::releaseReservedAffinity()
 	pthread_mutex_unlock(&m_reserveHwThreadsLock);
 	return result;
 }
+
+void ThreadPool::wakeup_all()
+{
+    if (m_workers_initialized)
+    {
+        return;
+    }
+
+    OclAutoMutexNative lock( &m_workers_initialization_lock );
+
+    if (m_workers_initialized)
+    {
+        return;
+    }
+
+    startup_all_workers();
+    m_workers_initialized = true;
+}
+
 	
 
 
@@ -1415,3 +1470,29 @@ void TBBThreadPool::initializeReserveAffinityThreadIds()
 		m_orderHwThreadsIds.erase(m_orderHwThreadsIds.begin());
 	}
 }
+
+struct TBBThreadPool::WorkersWakeup
+{
+    AtomicCounterNative& counter;
+    
+    WorkersWakeup( AtomicCounterNative& workers_left ) : counter(workers_left) {};
+
+    void operator()(const tbb::blocked_range<int>& r) const 
+    {
+        --counter;
+        while (0 != counter)
+        {
+            hw_pause();
+        } 
+    }
+};
+
+void TBBThreadPool::startup_all_workers()
+{
+    AtomicCounterNative workers_left(gMicExecEnvOptions.num_of_worker_threads);
+
+    tbb::parallel_for(tbb::blocked_range<int>(0, int(gMicExecEnvOptions.num_of_worker_threads), 1), 
+                      WorkersWakeup(workers_left), 
+                      tbb::auto_partitioner());
+}
+

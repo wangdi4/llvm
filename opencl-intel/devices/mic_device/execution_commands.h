@@ -48,6 +48,8 @@ protected:
 
 	virtual void fireCallBack(void* arg);
 
+    void init_profiling_mode();
+
 	MiscDataHandler m_miscDatahandler;
 
 	DispatcherDataHandler m_dispatcherDatahandler;

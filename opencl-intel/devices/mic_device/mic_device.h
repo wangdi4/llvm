@@ -49,9 +49,19 @@ class MemoryAllocator;
 class DeviceServiceCommunication;
 class CommandList;
 
+// performance overhead store per device
+struct PerformanceDataStore
+{
+    OclMutex    lock;
+    cl_ulong    execution_overhead;
+
+    static const cl_ulong NOT_MEASURED = (cl_ulong)(-1);
+    
+    PerformanceDataStore() :  execution_overhead(NOT_MEASURED) {};      
+};
+
 class MICDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription
 {
-
 private:
     ProgramService*                 m_pProgramService;
     MemoryAllocator*                m_pMemoryAllocator;
@@ -67,11 +77,12 @@ private:
     NotificationPort*               m_pNotificationPort;
 
     set<CommandList*>               m_commandListsSet;
+    
+    PerformanceDataStore            m_overhead_data;
 
     // static set to handle all existing MIC DA instancies
     static set<IOCLDeviceAgent*>*    m_mic_instancies;
     static OclMutex*                 m_mic_instancies_mutex;
-
     // manage multiple DAs
     static void RegisterMicDevice( MICDevice* dev );
     // Return true if dev exist in m_mic_instancies

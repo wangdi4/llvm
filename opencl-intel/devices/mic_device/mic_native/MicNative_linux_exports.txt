@@ -10,6 +10,7 @@ Base {
         copy_program_to_device;
         remove_program_from_device;
         fill_mem_object;
+        execute_device_utility;
 		
 		get_trace_size;
 		get_trace;

@@ -8,7 +8,7 @@ include (../../cmake_utils/CMakeFuncs.txt)
 include( ../../cmake_utils/itt.cmake )
 
 if (KNC_CARD)
-	set( COI_SDK_PATH           ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/coi/knc )
+	set( COI_SDK_PATH           /opt/intel/mic/coi )
 endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )

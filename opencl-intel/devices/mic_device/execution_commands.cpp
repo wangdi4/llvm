@@ -19,6 +19,68 @@ ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallb
 {
 }
 
+//
+// StartUp device services before ExecutionCommand launch if profiling mode was required
+//
+void ExecutionCommand::init_profiling_mode()
+{
+    PerformanceDataStore* overhead_data = m_pCommandList->getOverheadData();
+    if (PerformanceDataStore::NOT_MEASURED != overhead_data->execution_overhead)
+    {
+        return;
+    }
+    
+    OclAutoMutex( &(overhead_data->lock) );
+    if (PerformanceDataStore::NOT_MEASURED != overhead_data->execution_overhead)
+    {
+        return;
+    }
+
+    // Get this queue COIPIPELINE handle
+    utility_function_options options;
+    bool                     ok;
+    
+    // measure execution overhead on device
+    options.request = UTILITY_MEASURE_OVERHEAD;
+
+    cl_ulong time_sum = 0;
+
+    COINotificationCallbackSetContext(this);
+
+    for (unsigned int i = 0; i < MIC_DEVICE_EXECUTION_OVERHEAD_LOOP_COUNT; ++i)
+    {
+        m_cmdRunningTime = 0;
+        m_cmdCompletionTime = 0;
+
+        ok = m_pCommandList->runQueueServiceFunction( DeviceServiceCommunication::EXECUTE_DEVICE_UTILITY,
+                                                      sizeof(options), &options, // input
+                                                      0, NULL,                   // ouput
+                                                      0, NULL, NULL              // buffers 
+                                                     );
+        assert( ok );
+        if (! ok)
+        {
+            break;
+        }
+
+        time_sum += (m_cmdCompletionTime - m_cmdRunningTime);
+    }
+
+    COINotificationCallbackSetContext(NULL);
+
+    m_cmdRunningTime = 0;
+    m_cmdCompletionTime = 0;
+    
+    if (!ok)
+    {
+        overhead_data->execution_overhead = 0;
+        return;
+    }
+
+    overhead_data->execution_overhead = time_sum / MIC_DEVICE_EXECUTION_OVERHEAD_LOOP_COUNT;
+}
+
+
 cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr)
 {
 	cl_dev_err_code err = CL_DEV_SUCCESS;
@@ -55,11 +117,15 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 			break;
 		}
 
-		// TODO - Call it only when realy starting the command.
-		notifyCommandStatusChanged(CL_RUNNING);
+        if (m_pCmd->profiling)
+        {
+            init_profiling_mode();
+        }
+
+		COINotificationCallbackSetContext(this);
 
 		// Set start coi execution time for the tracer.
-		m_commandTracer.set_current_time_coi_execute_command_time_start();
+		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
 		size_t tCoiBuffsArrSize = coiBuffsArr.size();
 
@@ -72,6 +138,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
 												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
+		COINotificationCallbackSetContext(NULL);
 		if (result != COI_SUCCESS)
 		{
             assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
@@ -87,7 +154,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 void ExecutionCommand::fireCallBack(void* arg)
 {
 	// Set end coi execution time for the tracer. (Notification)
-	m_commandTracer.set_current_time_coi_execute_command_time_end();
+	m_commandTracer.set_current_time_coi_notify_command_time_end();
 
 	misc_data miscData;
 	m_miscDatahandler.readMiscData(&miscData);
@@ -95,13 +162,28 @@ void ExecutionCommand::fireCallBack(void* arg)
 	{
 		m_lastError = miscData.errCode;
 	}
-	// if profiling available
-	if (m_pCmd->profiling)
-	{
-		// TODO - read the profiling data from miscData convert the data to host time profiling and send the data to framework
-	}
-	// Notify runtime that  the command completed
-	notifyCommandStatusChanged(CL_COMPLETE);
+
+    if (m_pCmd->profiling)
+    {
+        assert(m_cmdRunningTime > 0 && m_cmdCompletionTime > 0);
+        
+        cl_ulong overhead = m_pCommandList->getOverheadData()->execution_overhead;
+        
+    	assert(overhead != PerformanceDataStore::NOT_MEASURED);
+
+        if (PerformanceDataStore::NOT_MEASURED != overhead)
+        {
+            cl_ulong time = m_cmdCompletionTime - m_cmdRunningTime;
+            time = (time <= overhead) ? 1 : time - overhead;
+            m_cmdRunningTime = m_cmdCompletionTime - time;
+        }
+    }
+
+    m_commandTracer.set_opencl_running_time_start( m_cmdRunningTime );
+    m_commandTracer.set_opencl_running_time_end( m_cmdCompletionTime );
+    
+	notifyCommandStatusChanged(CL_RUNNING, m_cmdRunningTime);
+	notifyCommandStatusChanged(CL_COMPLETE, m_cmdCompletionTime);
 	// Delete this Command object
 	delete this;
 }

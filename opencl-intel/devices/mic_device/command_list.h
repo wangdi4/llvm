@@ -35,6 +35,8 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
+class PerformanceDataStore;
+
 /* An abstract class with represent command list.
    The implementation is NOT completely thread safe. (commandListExecute is not thread safe, it assume that the R.T. send one series of commands in a time) */
 class CommandList
@@ -51,8 +53,14 @@ public:
 	   outCommandList - out parameter which include the new CommandList object if succeeded.
 	   It can fail if COIPipelineCreate create fails.
 	   Return CL_DEV_SUCCESS if succeeded. */
-    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN props, cl_dev_subdevice_id subDeviceId, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
-		                                            IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList);
+    static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN      props, 
+                                              cl_dev_subdevice_id           subDeviceId, 
+                                              NotificationPort*             pNotificationPort, 
+                                              DeviceServiceCommunication*   pDeviceServiceComm,
+		                                      IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
+		                                      ProgramService*               pProgramService, 
+		                                      PerformanceDataStore*         pOverheadData,
+		                                      CommandList**                 outCommandList);
 
     /* Do nothing because the COIPipeline send the command as it enter to it. (Flush is redundant) */
 	cl_dev_err_code flushCommandList() { return CL_DEV_SUCCESS; };
@@ -84,9 +92,23 @@ public:
 	COIPROCESS getDeviceProcess() const
 						{ return m_pDeviceServiceComm->getDeviceProcessHandle(); };
 
+    /* Run service function on a queue pipeline */
+    bool runQueueServiceFunction(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION id,
+                                 size_t input_data_size, void* input_data,
+                                 size_t output_data_size, void* output_data,
+                                 unsigned int numBuffers, const COIBUFFER* buffers, 
+                                 const COI_ACCESS_FLAGS* bufferAccessFlags ) const 
+                                 
+                        { return m_pDeviceServiceComm->runServiceFunction( id, 
+                                                                           input_data_size,  input_data, 
+                                                                           output_data_size, output_data,
+                                                                           numBuffers, buffers, bufferAccessFlags, m_pipe ); };
+
 	NotificationPort* getNotificationPort() { return m_pNotificationPort; };
 
 	ProgramService* getProgramService() { return m_pProgramService; };
+
+    PerformanceDataStore* getOverheadData() { return m_pOverhead_data; };
 
 	/* In case of inOrder command list set:
 	       If threre is valid barrier and the previous command is not NDRange or 'isExecutionTask' == false than return the last barrier and set 'numDependencies' to 1.
@@ -110,11 +132,16 @@ public:
 protected:
 
 	/* It is protected constructor because We want that the client will create CommandList only by the factory method */
-	CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId);
+	CommandList(NotificationPort*           pNotificationPort, 
+	            DeviceServiceCommunication* pDeviceServiceComm, 
+	            IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
+	            ProgramService*             pProgramService, 
+	            PerformanceDataStore*       pOverheadData,
+	            cl_dev_subdevice_id subDeviceId);
 
 	// the last dependency barrier COIBarrier.
 	COIEVENT          m_lastDependentBarrier;
-	bool                m_validBarrier;
+	bool              m_validBarrier;
 
 private:
 
@@ -158,6 +185,8 @@ private:
 	static fnCommandCreate_t*         m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 	// Sub device ID
 	cl_dev_subdevice_id				  m_subDeviceId;
+    // per device overhead storage
+    PerformanceDataStore*             m_pOverhead_data;
 
 #ifdef _DEBUG
 	AtomicCounter					  m_numOfConcurrentExecutions;
@@ -173,7 +202,12 @@ class InOrderCommandList : public CommandList
 
 public:
 
-    InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId);
+    InOrderCommandList(NotificationPort*            pNotificationPort, 
+                       DeviceServiceCommunication*  pDeviceServiceComm, 
+                       IOCLFrameworkCallbacks*      pFrameworkCallBacks, 
+                       ProgramService*              pProgramService, 
+                       PerformanceDataStore*        pOverheadData,
+                       cl_dev_subdevice_id          subDeviceId);
 	
 	virtual ~InOrderCommandList();
 	
@@ -199,8 +233,13 @@ class OutOfOrderCommandList : public CommandList
 
 public:
 
-    OutOfOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId)
-		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, subDeviceId) {};
+    OutOfOrderCommandList(NotificationPort*             pNotificationPort, 
+                          DeviceServiceCommunication*   pDeviceServiceComm, 
+                          IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
+                          ProgramService*               pProgramService, 
+                          PerformanceDataStore*         pOverheadData,
+                          cl_dev_subdevice_id           subDeviceId)
+		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, pOverheadData, subDeviceId) {};
 	
 	virtual ~OutOfOrderCommandList() {};
 	

@@ -26,6 +26,7 @@
 
 #include <source/COIEvent_source.h>
 #include <source/COIPipeline_source.h>
+#include <source/COIProcess_source.h>
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -49,6 +50,8 @@ public:
     virtual cl_dev_err_code execute() = 0;
 
 	virtual void fireCallBack(void* arg);
+
+	virtual void eventProfilingCall(COI_NOTIFICATIONS& type);
 
 protected:
 
@@ -91,6 +94,12 @@ protected:
 
 	// Synchronization handler for the command according to the queue type.
 	CommandSynchHandler* m_pCommandSynchHandler;
+
+	// Save the start running time of the command
+	cl_ulong m_cmdRunningTime;
+
+	// Save the completion time of the command
+	cl_ulong m_cmdCompletionTime;
 
 	// Command tracer
 	CommandTracer m_commandTracer;

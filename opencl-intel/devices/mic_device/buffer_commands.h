@@ -180,6 +180,10 @@ private:
 
 class BufferCommands : public Command
 {
+public:
+
+	void eventProfilingCall(COI_NOTIFICATIONS& type);
+
 protected:
 
 	// struct that define the copy info in order to calculate the offsets

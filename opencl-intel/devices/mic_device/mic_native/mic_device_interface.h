@@ -372,5 +372,17 @@ enum OPTIONAL_DISPATCH_BUFFERS
 	AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS
 };
 
+//
+// Device utility function
+//
+enum UTILITY_FUNCTION_TYPE
+{
+    UTILITY_MEASURE_OVERHEAD = 0
+};
+
+struct utility_function_options {
+  UTILITY_FUNCTION_TYPE request;
+};
+
 }}}
 

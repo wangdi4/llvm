@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <execinfo.h>
 
 using namespace Intel::OpenCL::MICDevice;
 
@@ -54,6 +55,19 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
 
     if ((NULL == exec_wrapper) || (false == exec_wrapper->m_bInside_JIT))
     {
+
+		fprintf(stderr,"\nBACKTRACE:\n");
+		void *frames[16];
+		int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
+		if (n > 0) {
+			// Flush needed since we must write symbols to a raw fd
+			fflush(stderr);
+			backtrace_symbols_fd(frames, n, 2);
+		}
+
+		fprintf(stderr,"\n******************\n\n");
+		fflush(stderr);
+
         // exception occured outside of JIT
         throw std::runtime_error( strsignal(signum) ); //sys_siglist[signum] );
     }

@@ -54,11 +54,19 @@ public:
 
 	TRACE_COMMAND_TIMER(unsigned_long_long, command_host_time_end, 1, command_host_time_start);
 
-	TRACE_COMMAND_TIMER(unsigned_long_long, coi_execute_command_time_start, 1, command_host_time_end);
+	TRACE_COMMAND_TIMER(unsigned_long_long, coi_enqueue_command_time_start, 1, command_host_time_end);
 
-	TRACE_COMMAND_TIMER(unsigned_long_long, coi_execute_command_time_end, 1, coi_execute_command_time_start);
+	TRACE_COMMAND_TIMER(unsigned_long_long, coi_notify_command_time_end, 1, coi_enqueue_command_time_start);
 
-	TRACE_COMMAND_COUNTER(unsigned_int, num_of_buffer_operations, 1, coi_execute_command_time_end);
+	TRACE_COMMAND_TIMER(unsigned_long_long, coi_execution_time_start, 1, coi_notify_command_time_end);
+
+	TRACE_COMMAND_TIMER(unsigned_long_long, coi_execution_time_end, 1, coi_execution_time_start);
+
+	TRACE_COMMAND_SIMPLE(unsigned_long_long, opencl_running_time_start, 1, coi_execution_time_end);
+
+	TRACE_COMMAND_SIMPLE(unsigned_long_long, opencl_running_time_end, 1, opencl_running_time_start);
+
+	TRACE_COMMAND_COUNTER(unsigned_int, num_of_buffer_operations, 1, opencl_running_time_end);
 
 	TRACE_COMMAND_COUNTER(unsigned_long_long, buffer_operation_overall_size, 1, num_of_buffer_operations);
 
@@ -104,8 +112,12 @@ private:
 		init_build_deserialize_time_end();
 		init_command_host_time_start();
 		init_command_host_time_end();
-		init_coi_execute_command_time_start();
-		init_coi_execute_command_time_end();
+		init_coi_enqueue_command_time_start();
+		init_coi_notify_command_time_end();
+		init_coi_execution_time_start();
+		init_coi_execution_time_end();
+        init_opencl_running_time_start();
+        init_opencl_running_time_end();
 		init_num_of_buffer_operations();
 		init_buffer_operation_overall_size();
 		init_cmd_run_in_device_time_start();

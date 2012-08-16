@@ -29,8 +29,14 @@ CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_
 };
 
 
-CommandList::CommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId) :
-m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId)
+CommandList::CommandList(NotificationPort* pNotificationPort, 
+                         DeviceServiceCommunication* pDeviceServiceComm, 
+                         IOCLFrameworkCallbacks* pFrameworkCallBacks, 
+                         ProgramService* pProgramService, 
+                         PerformanceDataStore* pOverheadData,
+                         cl_dev_subdevice_id subDeviceId) :
+m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), 
+m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId), m_pOverhead_data(pOverheadData)
 {
 	m_refCounter.exchange(1);
 #ifdef _DEBUG
@@ -52,19 +58,29 @@ CommandList::~CommandList()
 	}
 }
 
-cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN props, cl_dev_subdevice_id subDeviceId, NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm,
-												IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, CommandList** outCommandList)
+cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        props, 
+                                                cl_dev_subdevice_id             subDeviceId, 
+                                                NotificationPort*               pNotificationPort, 
+                                                DeviceServiceCommunication*     pDeviceServiceComm,
+												IOCLFrameworkCallbacks*         pFrameworkCallBacks, 
+												ProgramService*                 pProgramService, 
+												PerformanceDataStore*           pOverheadData,
+												CommandList**                   outCommandList)
 {
     cl_dev_err_code result = CL_DEV_SUCCESS;
     CommandList* tCommandList = NULL;
 	// If out of order command list
 	if (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) )
 	{
-	    tCommandList = new OutOfOrderCommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, subDeviceId);
+	    tCommandList = new OutOfOrderCommandList(pNotificationPort, pDeviceServiceComm, 
+                                                 pFrameworkCallBacks, pProgramService, 
+                                                 pOverheadData, subDeviceId);
 	}
 	else  // In order command list
 	{
-	    tCommandList = new InOrderCommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, subDeviceId);
+	    tCommandList = new InOrderCommandList(pNotificationPort, pDeviceServiceComm, 
+                                              pFrameworkCallBacks, pProgramService, 
+                                              pOverheadData, subDeviceId);
 	}
 	if (NULL == tCommandList)
 	{
@@ -229,8 +245,14 @@ cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication:
 
 
 
-InOrderCommandList::InOrderCommandList(NotificationPort* pNotificationPort, DeviceServiceCommunication* pDeviceServiceComm, IOCLFrameworkCallbacks* pFrameworkCallBacks, ProgramService* pProgramService, cl_dev_subdevice_id subDeviceId) :
-    CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, subDeviceId), m_lastCommandWasNDRange(false)
+InOrderCommandList::InOrderCommandList( NotificationPort*           pNotificationPort, 
+                                        DeviceServiceCommunication* pDeviceServiceComm, 
+                                        IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
+                                        ProgramService*             pProgramService, 
+                                        PerformanceDataStore*       pOverheadData,
+                                        cl_dev_subdevice_id         subDeviceId) :
+    CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, pOverheadData, subDeviceId), 
+    m_lastCommandWasNDRange(false)
 {
 }
 
