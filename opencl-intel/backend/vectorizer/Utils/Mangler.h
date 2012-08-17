@@ -67,6 +67,13 @@ public:
   /// @return True if mask-related function name
   static bool isMaskTest(const std::string& name);
 
+  /// @brief Get mangled name for transpose function
+  /// @param isLoad True if this is load and transpose, false otherwise
+  /// @param origVecType Vector type in the original instruction
+  /// @param packetWidth Packetization width
+  /// @return name
+  static std::string getTransposeBuiltinName(bool isLoad, VectorType * origVecType, unsigned int packetWidth);
+
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name
   /// @return the builtin name with a fake builtin name

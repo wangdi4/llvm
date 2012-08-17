@@ -95,7 +95,6 @@ private:
   /// @param I instruction to work on
   void duplicateNonPacketizableInst(Instruction *I);
 
-
   /*! \name Instruction Packetization Functions
    *  \{ */
   /// @brief Packetize an instruction
@@ -118,8 +117,10 @@ private:
   /// @brief obtain the extract users of vector value into extracts vector.
   /// @param vectorValue the vector to obtain extract users
   /// @param extracts - container to fill.
+  /// @param allUsersExtract - true if all users are extract instructions.
   bool obtainExtracts(Value  *vectorValue,
-                      SmallVectorImpl<ExtractElementInst *> &extracts);
+                      SmallVectorImpl<ExtractElementInst *> &extracts, 
+                      bool &allUsersExtract);
 
   ///@brief creates the transpose shuffle sequence for 4x4 matirx
   ///@param IN input vectors
@@ -172,6 +173,44 @@ private:
   Instruction* widenScatterGatherOp(MemoryOperation &MemOp);
   /*! \} */
 
+  // Transpose functions
+
+  /// @brief Get mangled name for transpose function
+  /// @param isLoad True if this is load and transpose, false otherwise
+  /// @param origVecType Vector type in the original instruction
+  /// @return transpose function to be called
+  Function* getTransposeFunc(bool isLoad, VectorType * origVecType);
+
+  /// @brief Creates load and transpose sequence
+  /// @param I Load instruction
+  /// @param loadPtrVal The pointer address which is being loaded
+  /// @param loadType The type of the value being loaded
+  void createLoadTranspose(Instruction* I, Value* loadPtrVal, Type* loadType);
+
+  /// @brief Creates transpose and store sequence
+  /// @param I Store instruction
+  /// @param storePtrVal The pointer address which we are going to store
+  /// @param storeType The type of the value being stored
+  void createTransposeStore(Instruction* I, Value* storePtrVal, Type* storeType);
+  
+  /// @brief Checks whether transpose is possible
+  /// @param addr The address which is being loaded from/stored to as part of the transpose
+  /// @param origVal The original value that was loaded/stored and needs to be transposed
+  /// @param isLoad True if this is load and transpose, false otherwise
+  /// @return True if this value can be transposed, False otherwise
+  bool canTransposeMemory(Value* addr, Value* origVal, bool isLoad);
+
+  /// @brief Obtains the extracts that may need to be transposed
+  /// @param LI The load instruction which may need to perfrom load and transpose
+  void obtainLoadTranspose(LoadInst* LI);
+
+  /// @brief Obtains the inserts that may need to be transposed
+  /// @param SI The store instruction which may need to perfrom transpose and store
+  void obtainTransposeStore(StoreInst* SI);
+
+  /// @brief Obtains information about extracts and inserts that will need to be transposed
+  void obtainTranspose();
+
   // Utility functions
 
   /// @brief checks whether IEI is the start vector assembly sequence to bo scattered
@@ -179,9 +218,10 @@ private:
   /// @param InsertEltSequence will hold the entire insert sequence according to index of inserted element
   /// @param AOSVectorWidth will hold the width of the assembled vector
   /// @param lastInChain will hold the last instruction in the def-use chain
+  /// @param obtainStoreTrans true if we obtain the insert sequence for transpose and store operation
   /// @return true iff IEI is the start vector assembly sequence to bo scattered
-  bool isScatter(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
-              unsigned &AOSVectorWidth, Instruction *& lastInChain);
+  bool obtainInsertElts(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
+              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool obtainTransStore = false);
 
   /// @brief generets shuffle sequeces that perform transpose and breakdown to scattered vectors
   /// @param loc location to put shuffle instructions
@@ -350,6 +390,9 @@ private:
 
   /// @brief Per each value - map to vectorized and multi-scalar counterparts
   DenseMap<Value *, VCMEntry *> m_VCM;
+
+  DenseMap<Instruction *, SmallVector<ExtractElementInst *, 16> > m_loadTranspMap;
+  DenseMap<Instruction *, SmallVector<InsertElementInst *, 16> > m_storeTranspMap;
 
   /// @brief An array of available VCMEntry's
   VCMEntry * m_VCMAllocationArray;

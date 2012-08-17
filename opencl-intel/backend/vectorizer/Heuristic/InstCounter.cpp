@@ -13,6 +13,18 @@ const float WeightedInstCounter::RATIO_MULTIPLIER = 1;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
+// Costs for transpose functions
+WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
+   { "load_transpose_float4x8", 60 },
+   { "transpose_store_float4x8", 60 },
+   { "load_transpose_char4x4", 10 },
+   { "transpose_store_char4x4", 10 },
+
+   // The line below must be the last line in the DB,
+   // serving as a terminator.
+   { 0, 0 }
+};
+
 static const bool enableDebugPrints = false;
 static raw_ostream &dbgPrint() {
     static raw_null_ostream devNull;
@@ -29,6 +41,25 @@ bool WeightedInstCounter::hasAVX() const {
 
 bool WeightedInstCounter::hasAVX2() const {
   return m_cpuid.HasAVX2();
+}
+
+     
+WeightedInstCounter::WeightedInstCounter(bool preVec = true, bool sanityOnly = false, 
+                              Intel::CPUId cpuId = Intel::CPUId()): 
+                              FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),  
+                              m_sanityOnly(sanityOnly), 
+                              m_desiredWidth(1), m_totalWeight(0) {        
+  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeDominatorTreePass(*PassRegistry::getPassRegistry());
+  initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
+  initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
+
+  int i = 0;
+  while (CostDB[i].name) {
+    const FuncCostEntry* e = &CostDB[i];       
+    m_transCosts[e->name] = e->cost;
+    i++;
+  }
 }
 
 bool WeightedInstCounter::runOnFunction(Function &F) {  
@@ -134,6 +165,31 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   return false;
 }
 
+// This allows a consistent comparison between scalar and vector types.
+// Under normal conditions, a pointer comparison always occures, which
+// is consistent for a single run, but not between runs.
+struct TypeComp {
+  bool operator() (Type* Left, Type* Right) const {    
+    if (Left->getNumElements() != Right->getNumElements())
+      return (Left->getNumElements() < Right->getNumElements());
+
+    if (Left->getScalarSizeInBits() != Right->getScalarSizeInBits())
+      return (Left->getScalarSizeInBits() < Right->getScalarSizeInBits());
+  
+    Type* ScalarLeft = Left->getScalarType();
+    Type* ScalarRight = Right->getScalarType();
+
+    if (ScalarLeft->isIntegerTy() && !ScalarRight->isIntegerTy())
+      return true;
+    
+    if (!ScalarLeft->isIntegerTy() && ScalarRight->isIntegerTy())
+      return false;
+
+    //Fallback to a pointer comparison for other types.
+    return Left < Right;
+  }
+};
+
 Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int> &IterMap,
                                            DenseMap<BasicBlock*, float> &ProbMap) const
 {
@@ -160,11 +216,17 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
 
   // Find the maximum. The map is expected to be small, just iterate over it.
   // Use i32 by default... if there are no binops at all. Should be pretty rare.
+  // In case there are several values with equal maximum keys, use a comparator
+  // to choose the maximum.
+  // This is needed because otherwise the choice depends on the order of iteration
+  // which, in turn, depends on the values of the Type pointers, which change
+  // from run to run. This makes the choice inconsistent between runs.
   Type* DominantType = Type::getInt32Ty(F.getContext());
   int MaxCount = 0;
   for (DenseMap<Type*, float>::iterator I = countMap.begin(), 
        E = countMap.end(); I != E; ++I) {
-    if (I->second > MaxCount) {
+    if ((I->second > MaxCount) || 
+        (I->second == MaxCount && TypeComp()(I->first, DominantType))) {
       MaxCount = I->second;
       DominantType = I->first;
     }
@@ -222,9 +284,18 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
         (Name.startswith(Mangler::name_allOne)))
       return DEFAULT_WEIGHT;
 
+    // See if we can find the function in the function cost table
+    return getFuncCost(Name);
+}
 
-    // Otherwise, it's a normal call.
+int WeightedInstCounter::getFuncCost(const std::string& name) 
+{
+  if (m_transCosts.find(name) != m_transCosts.end()) {
+    return m_transCosts[name];
+  } else {
+    // Function is not in the table, return default call weight.
     return CALL_WEIGHT;
+  }    
 }
 
 int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
@@ -285,7 +356,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return estimateCall(called);
     
   // GEP and PHI nodes are free
-  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I))
+  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I))
     return 0;
 
   // Shuffles/extracts/inserts are mostly representative

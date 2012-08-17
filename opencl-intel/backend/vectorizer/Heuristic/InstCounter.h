@@ -9,6 +9,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/StringMap.h"
 #include "RuntimeServices.h"
 #include "TargetArch.h"
 
@@ -19,16 +20,8 @@ namespace intel {
   class WeightedInstCounter : public FunctionPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-      WeightedInstCounter(bool preVec = true, bool sanityOnly = false, 
-                          Intel::CPUId cpuId = Intel::CPUId()): 
-                              FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),  
-                              m_sanityOnly(sanityOnly), 
-                              m_desiredWidth(1), m_totalWeight(0) {        
-      initializeLoopInfoPass(*PassRegistry::getPassRegistry());
-      initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-      initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
-      initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
-    }
+      WeightedInstCounter(bool preVec, bool sanityOnly, 
+                          Intel::CPUId cpuId);
 
     // Provides name of pass
     virtual const char *getPassName() const {
@@ -119,6 +112,8 @@ namespace intel {
       return (x + y - 1) / y;
     }
 
+    int getFuncCost(const std::string& name);
+
     // Used to identify MIC/AVS support
     Intel::CPUId m_cpuid;
 
@@ -137,6 +132,16 @@ namespace intel {
 
     // Total weight of all instructions
     float m_totalWeight;
+    
+    typedef struct FuncCostEntry {
+      const char *name;
+      int cost;
+    } FuncCostEntry;
+
+    static FuncCostEntry CostDB[];
+
+    // A map of costs for the load/store transpose functions
+    StringMap<int> m_transCosts;
 
     // MAGIC NUMBERS
     // Guess for the number of iterations for loops for which 

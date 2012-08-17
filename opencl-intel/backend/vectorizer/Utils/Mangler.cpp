@@ -171,3 +171,29 @@ std::string Mangler::demangle_fake_builtin(const std::string& name) {
   return name.substr(start);
 }
 
+std::string Mangler::getTransposeBuiltinName(bool isLoad, VectorType * origVecType, unsigned int packetWidth) {
+
+  // Determine load or store
+  std::string baseFuncName;
+  if (isLoad) {
+    baseFuncName = "load_transpose_";
+  } else { // isStore
+    baseFuncName = "transpose_store_";
+  }
+
+  // Determine vector element type
+  std::string typeName;
+  if (origVecType->getScalarSizeInBits() == 8) {
+    typeName = "char";
+  } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isIntegerTy()) {
+    typeName = "int";
+  } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isFloatTy()) {
+    typeName = "float";
+  }
+
+  std::stringstream funcName;
+  funcName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
+
+  return funcName.str();
+}
+

@@ -5,6 +5,8 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/IRBuilder.h"
+
 #include "Packetizer.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
@@ -102,6 +104,8 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_deferredResMap.clear();
   m_deferredResOrder.clear();
   releaseAllVCMEntries();
+  m_loadTranspMap.clear();
+  m_storeTranspMap.clear();
 
   V_STAT(
   V_PRINT(vectorizer_stat, "Packetizer Statistics on function "<<F.getName()<<":\n");
@@ -117,6 +121,8 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   )
+
+  obtainTranspose();
 
   // Iterate over all the instructions. Always hold the iterator at the instruction
   // following the one being packetized (so the iterator will "skip" any instructions
@@ -192,6 +198,101 @@ bool PacketizeFunction::runOnFunction(Function &F)
   return true;
 }
 
+bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isLoad) {
+  
+  // There is no point to transpose uniform value.
+  if (m_depAnalysis->whichDepend(origVal) == WIAnalysis::UNIFORM) return false;
+
+  // Currently we only support only we support transpose with consecutive load/store
+  if ( m_depAnalysis->whichDepend(addr) != WIAnalysis::PTR_CONSECUTIVE) return false;
+
+  VectorType* origVecType = dyn_cast<VectorType>(origVal->getType());
+  // We do not transpose scalars
+  if (!origVecType) return false;
+
+  // Find (or create) declaration for newly called function
+  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, origVecType, m_packetWidth);
+  Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
+  // No proper transpose function for this load and packet width
+  if (!transposeFuncRT) return false;
+
+  return true;
+}
+
+void PacketizeFunction::obtainLoadTranspose(LoadInst* LI) {
+  Value* loadAdd = LI->getPointerOperand();
+  Value* loadVal = LI;
+
+  if (!canTransposeMemory(loadAdd, loadVal, true)) return;
+
+  // Check if the only users of the load instructions are extracts that can be replaced by load + transpose
+  SmallVector<ExtractElementInst *, 16> extracts;
+  bool allUserExtracts = false;
+  bool canObtainExtracts = obtainExtracts(LI, extracts, allUserExtracts);
+
+  // We cannot load + transpose in case there are other users
+  if (!canObtainExtracts || !allUserExtracts) return;
+
+  for (unsigned i = 0; i < extracts.size(); ++i) {
+    if (extracts[i]) { // There is extract of elemnet i from the vector
+      // No need to packetize orginal extract, it will be handled in the load + transpose
+      m_removedInsts.insert(extracts[i]);
+    }
+  }
+  // When we'll try to packetize the LoadInst we will check if we can do load + transpose
+  m_loadTranspMap[LI] = extracts;
+}
+
+void PacketizeFunction::obtainTransposeStore(StoreInst* SI) {
+  Value* storeAdd = SI->getPointerOperand();
+  Value* storeVal = SI->getValueOperand();
+
+  if (!canTransposeMemory(storeAdd, storeVal, false)) return;
+    
+  // Find the first insert of the insert sequence ending with the store instruction
+  InsertElementInst *IEI = dyn_cast<InsertElementInst>(storeVal);
+  InsertElementInst *prevIEI = IEI;
+  if (!prevIEI) return; // The origin of the store is not from inserts
+  while (IEI) {
+    prevIEI = IEI;
+    IEI = dyn_cast<InsertElementInst>(IEI->getOperand(0));
+  } 
+
+  // Check if the inserts sequence can be replaced by transpose + store
+  SmallVector<InsertElementInst *, MAX_INPUT_VECTOR_WIDTH> inserts;
+  inserts.assign(MAX_INPUT_VECTOR_WIDTH, NULL);
+  unsigned int n;
+  Instruction* insertToBeStored;
+  bool canObtaindInserts = obtainInsertElts(prevIEI, &inserts[0], n, insertToBeStored, true) ;
+
+  // We cannot transpose + store in case we do not have the insert sequence
+  // or if there are some other users except the store instruction
+  if (!canObtaindInserts || (insertToBeStored->getNumUses() != 1)) return;
+    
+  inserts.resize(n);
+  for (unsigned i = 0; i < inserts.size(); ++i) {
+    if (inserts[i]) { // There is insert of elemnet in place i in the vector
+      // No need to packetize orginal insert, it will be handled in the transpose + store
+      m_removedInsts.insert(inserts[i]);
+    }
+  }
+  // When we'll try to packetize the StoreInst we will check if we can do transpose + store
+  m_storeTranspMap[SI] = inserts;
+}
+
+void PacketizeFunction::obtainTranspose() {
+  
+  // Go over all instructions and identify possible load + transpose, tranpose + store
+  for (inst_iterator vI = inst_begin(m_currFunc), vE = inst_end(m_currFunc); vI != vE; ++vI) {
+    Instruction *I = &*vI;
+
+    if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
+      obtainLoadTranspose(LI);
+    } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
+      obtainTransposeStore(SI);    
+    }
+  }
+}
 
 void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
 {
@@ -1214,17 +1315,18 @@ bool PacketizeFunction::SpreadVectorParam(CallInst* CI, Value *scalarParam,
   return true;
 }
 
-bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
-              unsigned &AOSVectorWidth, Instruction *& lastInChain) {
-  V_ASSERT(IEI && "IEI is NULL");			  
+bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
+              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool obtainTransStore) {
+  V_ASSERT(IEI && "IEI is NULL");        
   Value *assembledVector = IEI->getOperand(0);
   // assembly of vectors should start with undef
   if (!isa<UndefValue>(assembledVector)) return false;
 
   VectorType *vType = dyn_cast<VectorType>(IEI->getType());
   V_ASSERT(vType && "InsertElement should be a vector");
-  // currently we only support 32 bit transposes
-  if (vType->getElementType()->getScalarSizeInBits() != 32) return false;
+  // currently supports 32 bit vectors or char4
+  if (vType->getScalarSizeInBits() != 32 && 
+      (vType->getNumElements() != 4 || vType->getScalarSizeInBits() != 8) ) return false;
   AOSVectorWidth = vType->getNumElements();
   // currently we support only cases where AOSVectorWidth <= m_packetWidth
   if (AOSVectorWidth > m_packetWidth) return false;
@@ -1242,12 +1344,19 @@ bool PacketizeFunction::isScatter(InsertElementInst *IEI, InsertElementInst** In
     unsigned idx = CI->getZExtValue();
     if (idx >= AOSVectorWidth) return false;
     indicesPresent[idx] = true;
-	// checks that the value entered is in vector form 
-	// TODO:: this check misses DRL entries!!!!!!!!!!
-	Value *insertedValue = IEI->getOperand(1);
-    if (!m_VCM.count(insertedValue)) return false;
-	VCMEntry * foundEntry = m_VCM[insertedValue];
-    if (foundEntry->vectorValue == NULL) return false;
+  
+    if (!obtainTransStore) {
+      // We would like to create transpose sequence only if the inputs
+      // are already in SoA, since otherwise we will have to gather the SoA
+      // inputs of the transpose. In case we are scanning for transpose+store
+      // we don't have the information about future packetized instructions,
+      // so we avoid this check and therefore we always transpose+store.
+      // TODO:: need to find better solution for this case and for DRL entries.
+      Value *insertedValue = IEI->getOperand(1);
+      if (!m_VCM.count(insertedValue)) return false;
+      VCMEntry * foundEntry = m_VCM[insertedValue];
+      if (foundEntry->vectorValue == NULL) return false;
+    }
     // saves original value
     InsertEltSequence[idx] = IEI;
     // must have one InsertElementUse (except for the last)
@@ -1377,13 +1486,20 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   InsertElementInst *InsertEltSequence [MAX_PACKET_WIDTH];
   unsigned AOSVectorWidth;
   Instruction *lastInChain;
-  bool canTranspose = isScatter(IEI, InsertEltSequence, AOSVectorWidth, lastInChain);
+  bool canTranspose = obtainInsertElts(IEI, InsertEltSequence, AOSVectorWidth, lastInChain);
   if (!canTranspose) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" can't be transposed\n");
     V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(IEI);
   }
-  
+
+  // Currently obtainInsertElts include char4, but we do not support reg->reg transpose for this type
+  if (IEI->getType()->getScalarType()->getScalarSizeInBits() != 32 ) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" getScalarSizeInBits() != 32\n");
+    V_STAT(m_cannotHandleCtr++;)
+    return duplicateNonPacketizableInst(IEI);
+  }
+    
   // obtaining vector inputs to perform transpose over
   Value *vectorizedInputs [MAX_PACKET_WIDTH];
   for (unsigned i=0; i<AOSVectorWidth; ++i)
@@ -1406,13 +1522,15 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 
 
 bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
-                             SmallVectorImpl<ExtractElementInst *> &extracts) {
+                             SmallVectorImpl<ExtractElementInst *> &extracts,
+                             bool &allUsersExtract) {
   VectorType *VT = dyn_cast<VectorType>(vectorValue->getType());
   if (!VT) return false;
   unsigned inputVectorWidth = VT->getNumElements();
   if (inputVectorWidth < 2) return false;
 
   extracts.assign(inputVectorWidth, NULL);
+  allUsersExtract = true;
   for (Value::use_iterator useIt = vectorValue->use_begin(), 
        useE = vectorValue->use_end(); useIt != useE; ++useIt) {
     if (ExtractElementInst *EEUser = dyn_cast<ExtractElementInst>(*useIt)) {
@@ -1422,7 +1540,9 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
       unsigned ind = constInd->getZExtValue();
       if (ind >= inputVectorWidth || extracts[ind]) return false;
       extracts[ind] = EEUser;
-    } 
+    } else {
+      allUsersExtract = false;
+    }
   }
   return true;
 }
@@ -1523,7 +1643,8 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 
   SmallVector<ExtractElementInst *, 16> extracts;
   Value *vectorValue = EI->getVectorOperand();
-  if (!obtainExtracts(vectorValue, extracts)) {
+  bool allUserExtract;
+  if (!obtainExtracts(vectorValue, extracts, allUserExtract)) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" index should be a constant, and the vector width is 2 or more\n");
     V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(EI);
@@ -1658,8 +1779,143 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI)
   return duplicateNonPacketizableInst(AI);
 }
 
+Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecType) {
+  
+  // Get transpose function name
+  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, origVecType, m_packetWidth);
+  
+  // Get function from RT module
+  Function* loadTransposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
+  V_ASSERT(loadTransposeFuncRT && "Transpose function should exist!");
+
+  // Find (or create) declaration for newly called function
+  Constant* loadTransposeFunc = m_currFunc->getParent()->getOrInsertFunction(
+    loadTransposeFuncRT->getNameStr(), loadTransposeFuncRT->getFunctionType(), loadTransposeFuncRT->getAttributes());
+  V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
+  Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc);
+  V_ASSERT(transposeFunc && "Function type mismatch, caused a constant expression cast!");
+
+  return transposeFunc;
+}
+
+void PacketizeFunction::createLoadTranspose(Instruction* I, Value* loadPtrVal, Type* loadType) {
+  
+  V_ASSERT(isa<VectorType>(loadType) && "loadType is not a vector");
+  VectorType* origVecType = cast<VectorType>(loadType);
+  unsigned int numDestVectors = origVecType->getNumElements();
+  unsigned int numDestVectElems = m_packetWidth;
+  Type* destVecType = VectorType::get(origVecType->getElementType(), numDestVectElems);
+
+  // Obtain load address
+  Value* inAddr[MAX_PACKET_WIDTH];
+  obtainMultiScalarValues(inAddr, loadPtrVal , I);
+  Value* pLoadAddr = inAddr[0];
+
+  // Creates: 
+  // entry:
+  // %xOut = alloca ...
+  // %yOut = alloca ...
+  // ...
+  // bitcast pLoadAddr
+  // call load_transpose(pLoadAddr, xOut, yOut,...)
+  // %xVec = load %xOut
+  // %yVec = load %yOut
+  // ...
+  // xOut, yOut, ... - destination vectors of transpose matrix, vectorized values of the extracts
+
+  // Create transpose function arguments
+  IRBuilder<> Builder(I);
+  SmallVector<Value *, 8> funcArgs;
+  // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
+  pLoadAddr = Builder.CreateBitCast(pLoadAddr, origVecType->getPointerTo());
+  funcArgs.push_back(pLoadAddr);
+
+  Builder.SetInsertPoint(m_currFunc->getEntryBlock().begin());
+  for (unsigned int i = 0; i < numDestVectors; ++i) {
+    // Create the destination vectors that will contain the transposed matrix
+    AllocaInst*  alloca = Builder.CreateAlloca(destVecType);
+    // Set alignment of funtion arguments, size in bytes of the destination vector
+    alloca->setAlignment((destVecType->getScalarSizeInBits() / 32) * numDestVectElems);
+    funcArgs.push_back(alloca);
+  }
+
+  // Create function call with prepared arguments
+  Builder.SetInsertPoint(I);
+  Function* transposeFunc = getTransposeFunc(true, origVecType);
+  CallInst* Call = Builder.CreateCall(transposeFunc, ArrayRef<Value*>(funcArgs));
+  VectorizerUtils::SetDebugLocBy(Call, I);
+
+  // Create loads from the destination vectors that now contain the transposed matrix 
+  SmallVector<Instruction *, 16> SOA;
+  for (unsigned int i = 0; i < numDestVectors; ++i) {
+    // First funcArg is pLoadAddr, only then we have our destination vectors
+    SOA.push_back(Builder.CreateLoad(funcArgs[i + 1]));
+  }
+
+  // Map original extracts to their SOA version obtained from the transpose
+  SmallVector<ExtractElementInst *, 16>& extracts = m_loadTranspMap[I];
+  for (unsigned int i = 0, e = extracts.size(); i < e; ++i) {
+      ExtractElementInst *curEI = extracts[i];
+      if (curEI) {
+        createVCMEntryWithVectorValue(curEI, SOA[i]);  
+      }
+  }
+  
+  // Mark original AoS load as instruction to remove
+  m_removedInsts.insert(I);
+}
+
+void PacketizeFunction::createTransposeStore(Instruction* I, Value* storePtrVal, Type* storeType) {
+
+  V_ASSERT(isa<VectorType>(storeType) && "storeType is not a vector");
+  VectorType *origVecType = cast<VectorType>(storeType);
+  unsigned int numOrigVectors = origVecType->getNumElements();
+
+  // Obtain store address
+  Value *inAddr[MAX_PACKET_WIDTH];
+  obtainMultiScalarValues(inAddr, storePtrVal, I);
+  Value *pStoreAddr = inAddr[0];
+
+  // Obtain the vctorized version of the values need to be transposed and stored
+  SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
+  SmallVector<Value *, MAX_PACKET_WIDTH> vectorizedInputs;
+  vectorizedInputs.assign(numOrigVectors, NULL);
+  for (unsigned int i = 0; i < numOrigVectors; ++i) {
+    obtainVectorizedValue(&vectorizedInputs[i], inserts[i]->getOperand(1), I);
+  }
+
+  // Creates: 
+  // bitcasr pStoreAddr
+  // call load_transpose(pStoreAddr, xIn, yIn,...)
+  // xIn, yIn, ... - source vectors of matrixto be transposed, vectorized values of the inserts
+
+  IRBuilder<> Builder(I);
+
+  // Create transpose function arguments
+  SmallVector<Value*, 8> funcArgs;
+  pStoreAddr = Builder.CreateBitCast(pStoreAddr, origVecType->getPointerTo());
+  funcArgs.push_back(pStoreAddr);
+  for (unsigned int i = 0; i < numOrigVectors; ++i) {
+    funcArgs.push_back(vectorizedInputs[i]);
+  }
+
+  // Create function call with prepared arguments
+  Function* transposeFunc = getTransposeFunc(false, origVecType);
+  CallInst* Call = Builder.CreateCall(transposeFunc, ArrayRef<Value*>(funcArgs));
+  VectorizerUtils::SetDebugLocBy(Call, I);
+
+  // Mark original AoS store as instruction to remove
+  m_removedInsts.insert(I);
+}
 
 void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
+  
+  // Check if we can create load + transpose
+  if (m_loadTranspMap.count(LI)) {
+    createLoadTranspose(LI, LI->getPointerOperand(), LI->getType());
+    return;
+  }
+  
   MemoryOperation MO;
   MO.Mask = 0;
   MO.Ptr = LI->getPointerOperand();
@@ -1672,6 +1928,13 @@ void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
 }
 
 void PacketizeFunction::packetizeInstruction(StoreInst *SI) {
+
+  // Check if we can create transpose + store
+  if (m_storeTranspMap.count(SI)) {
+    createTransposeStore(SI, SI->getPointerOperand(), SI->getValueOperand()->getType());
+    return;
+  }
+
   MemoryOperation MO;
   MO.Mask = 0;
   MO.Ptr = SI->getPointerOperand();

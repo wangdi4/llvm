@@ -467,6 +467,7 @@ list (APPEND OCL_SOURCE_FILES
   math_functions.cpp
   misc_functions.cpp
   relational_functions.cpp
+  transpose_functions.cpp
   vload_vstore_functions.cpp
   )
 
