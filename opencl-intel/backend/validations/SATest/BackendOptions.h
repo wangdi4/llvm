@@ -21,8 +21,13 @@ File Name:  BackendOptions.h
 #include "OpenCLRunConfiguration.h"
 #include "Exception.h"
 
+#if defined(INCLUDE_MIC_DEVICE)
+#include "MICNative/common.h"
+#endif
+
 #include "cl_dev_backend_api.h"
 #include <string.h>
+#include <stdio.h>
 #include <assert.h>
 
 namespace Validation
@@ -409,6 +414,15 @@ public:
             if(*pSize < m_targetDescSize) return false;
             memcpy(Value, m_pTargetDesc, m_targetDescSize);
             return true;
+#if defined(INCLUDE_MIC_DEVICE)
+        case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
+            if (isMIC())
+            {
+                *(void**)Value = (void*)(&m_printer);
+                return true;
+            }
+            else return CPUBackendOptions::GetValue(optionId, Value, pSize);
+#endif
         default:
             return CPUBackendOptions::GetValue(optionId, Value, pSize);
         }
@@ -436,6 +450,9 @@ private:
 private:
     size_t m_targetDescSize;
     char*  m_pTargetDesc;
+#if defined(INCLUDE_MIC_DEVICE)
+    MICBackendPrintfFiller m_printer;
+#endif
 };
 
 /**

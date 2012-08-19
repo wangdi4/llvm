@@ -21,6 +21,9 @@ File Name:  common.h
 
 #include "cl_device_api.h"
 #include "cl_types.h"
+#include "cl_dev_backend_api.h"
+#include <string.h>
+#include <stdio.h>
 
 // Enum of directives
 enum DIRECTIVE_ID
@@ -186,5 +189,16 @@ enum OPTIONAL_DISPATCH_BUFFERS
 // Padding Parameters
 const size_t    PaddingSize = 4096;       // Must be a multiple of 64 to avoid alignment issues.
 const uint8_t   PaddingVal = 0xcc;
+
+class MICBackendPrintfFiller : public ICLDevBackendBufferPrinter
+{
+public:
+    int  Print(void* id, const char* buf ) 
+    {
+        printf(buf);
+        fflush(0);
+        return strlen(buf);
+    }
+};
 
 #endif // SATEST_NATIVE_COMMON_H

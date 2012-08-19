@@ -20,10 +20,7 @@ File Name:  OpenCLMICNative.cpp
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
 #include <common/COIMacros_common.h>                
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include "cl_dev_backend_api.h"
 #include "mic_dev_limits.h"
 #include "WGContext.h"
 #include "common.h"
@@ -57,6 +54,10 @@ File Name:  OpenCLMICNative.cpp
 
 ICLDevBackendSerializationService *serializer = NULL;
 ICLDevBackendExecutionService *executor = NULL;
+
+// Forward declaration
+class MICNativeBackendOptions;
+MICNativeBackendOptions *pBackendOptions = NULL;
 
 // execution memory allocator required by Device Backend
 class MICNativeBackendExecMemoryAllocator : public ICLDevBackendJITAllocator
@@ -112,13 +113,6 @@ void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 
     free(pMem);
 }
-
-// kernel printf filler required by Device Backend
-class MICNativeBackendPrintfFiller //: public ICLDevBackendPrintf
-{
-public:
-    void  print( const char* buf ) {}
-};
 
 // class required by Device Backend to specify options
 class MICNativeBackendOptions : public ICLDevBackendOptions
@@ -186,7 +180,9 @@ public:
             case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
                 *(void**)Value = (void*)(&m_allocator);
                 return false;
-
+            case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
+                *(void**)Value = (void*)(&m_printer);
+                return true;
             default:
                 return false;
         }
@@ -223,8 +219,8 @@ public:
     }
 
 private:
-    MICNativeBackendExecMemoryAllocator m_allocator;
-    MICNativeBackendPrintfFiller        m_printf;
+    MICNativeBackendExecMemoryAllocator  m_allocator;
+    MICBackendPrintfFiller        m_printer;
 
     Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string    m_cpu;
@@ -256,6 +252,10 @@ int main(int argc, char** argv)
             serializer->Release();
             serializer = NULL;
         }
+        if (pBackendOptions) {
+            delete pBackendOptions;
+            pBackendOptions = NULL;
+        }
         return -1;
     }
 
@@ -285,6 +285,10 @@ int main(int argc, char** argv)
     {
         // serializer can't be NULL pointer here! Return error value.
         return -1;
+    }
+    if (pBackendOptions) {
+        delete pBackendOptions;
+        pBackendOptions = NULL;
     }
     TerminateDeviceBackend();
     return 0;
@@ -320,7 +324,6 @@ void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validat
 
     CHECK_RESULT(context.GetExecutable()->RestoreThreadState());
 }
-
 
 COINATIVELIBEXPORT
 void executeKernels(uint32_t         in_BufferCount,
@@ -410,7 +413,6 @@ void executeKernels(uint32_t         in_BufferCount,
             }
             if (directives[j].id == PRINTF)
             {
-                // TODO: implement
             }
         }
 
@@ -526,9 +528,8 @@ void initDevice(
     uint16_t         in_ReturnValueLength)
 {
     assert( 1 == in_BufferCount && "SINK: initDevice() should receive 1 buffer" );
-    MICNativeBackendOptions options;
-    options.DeSerializeOptions((const char *)in_ppBufferPointers[0], in_pBufferLengths[0]);
-
+    pBackendOptions = new MICNativeBackendOptions();
+    pBackendOptions->DeSerializeOptions((const char *)in_ppBufferPointers[0], in_pBufferLengths[0]);
     // Return value is assumed to be the 32-bit signed integer value.
     assert(in_ReturnValueLength == 4);
     int32_t* retVal = reinterpret_cast<int32_t*>(in_pReturnValue);
@@ -547,31 +548,35 @@ void initDevice(
     if (NULL == be_factory)
     {
         TerminateDeviceBackend();
+        delete pBackendOptions;
         printf("GetDeviceBackendFactory failed\n"); fflush(0);
         *retVal = -1;
         return;
     }
 
-    err = be_factory->GetExecutionService( &options, &executor );
+    err = be_factory->GetExecutionService( pBackendOptions, &executor );
     if (CL_DEV_FAILED( err ))
     {
         TerminateDeviceBackend();
+        delete pBackendOptions;
         printf("GetExecutionService failed\n"); fflush(0);
         *retVal = -1;
         return;
     }
 
-    err = be_factory->GetSerializationService( &options, &serializer );
+    err = be_factory->GetSerializationService( pBackendOptions, &serializer );
 
     if (CL_DEV_FAILED( err ))
     {
         TerminateDeviceBackend();
+        delete pBackendOptions;
         printf("GetSerializationService failed\n"); fflush(0);
         executor->Release();
         executor = NULL;
         *retVal = -1;
         return;
     }
+
     *retVal = 0;
 }
 
