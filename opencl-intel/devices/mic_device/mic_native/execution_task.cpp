@@ -503,6 +503,12 @@ void TBBNonBlockingTaskHandler::RunTask()
 
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+    inline unsigned long long _RDTSC(void)
+	{
+		 unsigned int a, d;
+		 __asm__ __volatile__("rdtsc" : "=a" (a), "=d" (d));
+		 return (((unsigned long long)a) | (((unsigned long long)d) << 32));
+	};
 
 #ifdef ENABLE_MIC_TRACER
 	struct TaskLoopBodyTrace {
@@ -545,6 +551,14 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			size_t uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
+#ifdef ENABLE_MIC_TBB_TRACER
+            TaskInterface::PerfData& perf_data = task->m_perf_data[uiWorkerId];
+            if (0 == perf_data.start_time)
+            {
+                perf_data.start_time = _RDTSC();
+            }
+#endif // ENABLE_MIC_TBB_TRACER
+
 			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
 			{
 				*result = false;
@@ -555,12 +569,21 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			bool tResult = true;
             HWExceptionsJitWrapper hw_wrapper;            
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
-					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId) );
+			{
+#ifdef ENABLE_MIC_TBB_TRACER                
+                perf_data.append( (unsigned int)k );
+#endif // ENABLE_MIC_TBB_TRACER
+                tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId) );
+			}
 			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
 			if (false == tResult)
 			{
 				*result = false;
 			}
+
+#ifdef ENABLE_MIC_TBB_TRACER                
+            perf_data.end_time = _RDTSC();
+#endif // ENABLE_MIC_TBB_TRACER
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
 #endif
@@ -647,6 +670,9 @@ m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL), m_pCom
 {
 	// Nullify the ICLDevBackendExecutable_* array.
 	memset((ICLDevBackendExecutable_**)m_contextExecutableArr, 0, sizeof(ICLDevBackendExecutable_*) * MIC_NATIVE_MAX_WORKER_THREADS);
+#ifdef ENABLE_MIC_TBB_TRACER
+    PerfDataInit();
+#endif // ENABLE_MIC_TBB_TRACER
 }
 
 NDRangeTask::~NDRangeTask()
@@ -655,6 +681,27 @@ NDRangeTask::~NDRangeTask()
 	{
 		delete [] m_pMemBuffSizes;
 	}
+
+#ifdef ENABLE_MIC_TBB_TRACER
+    char buffer[10240];
+
+    for (int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
+    {
+        PerfData& data = m_perf_data[i];
+        char* last = buffer;
+        last[0] = '\0';
+        
+        for (unsigned int idx=0; idx<data.processed_indices_current; ++idx)
+        {
+            sprintf(last, " %d", data.processed_indices[idx]);
+            last += strlen(last);
+        }
+        printf("MIC_TBB_TRACER: NDRANGE %05d THREAD %03d: attach=%ld detach=%ld indices:%s\n", (int)(size_t)m_commandIdentifier, i, data.start_time, data.end_time, buffer);
+        fflush(stdout);
+    }
+    
+    PerfDataFini();
+#endif // ENABLE_MIC_TBB_TRACER
 }
 
 cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)

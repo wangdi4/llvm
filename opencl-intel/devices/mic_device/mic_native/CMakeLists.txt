@@ -212,6 +212,14 @@ if ( ENABLE_MIC_TRACER )
                     )
 endif ( ENABLE_MIC_TRACER )
 
+option( ENABLE_MIC_TBB_TRACER OFF )
+if ( ENABLE_MIC_TBB_TRACER )
+    list( APPEND MIC_FLAGS
+                -DENABLE_MIC_TBB_TRACER
+                    )
+endif( ENABLE_MIC_TBB_TRACER )
+
+
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     set( TBB_LIBS_TO_LINK tbb_debug )
 else (${CMAKE_BUILD_TYPE} STREQUAL Debug)

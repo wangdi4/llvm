@@ -208,6 +208,72 @@ public:
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() = 0;
+
+#ifdef ENABLE_MIC_TBB_TRACER
+    struct PerfData 
+    {
+        unsigned long long start_time;
+        unsigned long long end_time;
+        unsigned int*      processed_indices;
+        unsigned int       processed_indices_limit;
+        unsigned int       processed_indices_current;
+
+        void construct() 
+        {
+            start_time = 0;
+            end_time = 0;
+            processed_indices = NULL;
+            processed_indices_limit = 0;
+            processed_indices_current = 0;
+        }
+
+        void destruct()
+        {
+            if (NULL != processed_indices)
+            {
+                free (processed_indices);
+                construct();
+            }
+        }
+
+        static const unsigned int INDICES_DELTA = 64;
+
+        void resize() 
+        {
+            processed_indices_limit += INDICES_DELTA;
+            processed_indices = (unsigned int*)realloc(processed_indices, sizeof(unsigned int)*processed_indices_limit);
+            assert( NULL != processed_indices );
+        }
+
+        void append( unsigned int k)
+        {
+            if (processed_indices_current >= processed_indices_limit)
+            {
+                resize();
+            }
+            processed_indices[processed_indices_current] = k;
+            ++processed_indices_current;
+        }
+    };
+    PerfData m_perf_data[MIC_NATIVE_MAX_WORKER_THREADS];
+
+    void PerfDataInit()
+    {
+        for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
+        {
+            m_perf_data[i].construct();
+        }
+    }
+
+    void PerfDataFini()
+    {
+        for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
+        {
+            m_perf_data[i].destruct();
+        }
+    }
+#endif // ENABLE_MIC_TBB_TRACER
+    
 };
 
 class TBBTaskInterface
