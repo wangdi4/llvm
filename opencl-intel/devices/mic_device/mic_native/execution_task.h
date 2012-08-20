@@ -238,21 +238,52 @@ public:
 
         static const unsigned int INDICES_DELTA = 64;
 
-        void resize() 
+        void resize( unsigned int n_coords ) 
         {
             processed_indices_limit += INDICES_DELTA;
-            processed_indices = (unsigned int*)realloc(processed_indices, sizeof(unsigned int)*processed_indices_limit);
+            processed_indices = (unsigned int*)realloc(processed_indices, n_coords*sizeof(unsigned int)*processed_indices_limit);
             assert( NULL != processed_indices );
         }
 
-        void append( unsigned int k)
+        void append( unsigned int n_coords, unsigned int col, unsigned int raw = 0, unsigned int page = 0 )
         {
             if (processed_indices_current >= processed_indices_limit)
             {
-                resize();
+                resize(n_coords);
             }
-            processed_indices[processed_indices_current] = k;
+            switch (n_coords)
+            {
+                default:
+                    break;
+                case 3:
+                    processed_indices[processed_indices_current*n_coords+2] = page;
+                case 2:
+                    processed_indices[processed_indices_current*n_coords+1] = raw;
+                case 1:
+                    processed_indices[processed_indices_current*n_coords+0] = col;
+                    break;
+                 
+            }
             ++processed_indices_current;
+        }
+
+        void dump( char* buffer, unsigned int n_coords, unsigned int index )
+        {
+            switch (n_coords)
+            {
+                default:
+                    break;
+
+                case 1:
+                    sprintf(buffer, " %d", processed_indices[index*n_coords+0]);
+                    break;
+                case 2:
+                    sprintf(buffer, " %d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1]);
+                    break;
+                case 3:
+                    sprintf(buffer, " %d:%d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1], processed_indices[index*n_coords+2]);
+                    break;                 
+            }
         }
     };
     PerfData m_perf_data[MIC_NATIVE_MAX_WORKER_THREADS];
