@@ -94,8 +94,10 @@ protected:
 
 char BIImport::ID = 0;
 
-ModulePass *createBuiltInImportPass(Module* pRTModule) {
-  return new BIImport(pRTModule);
+extern "C" {
+    void *createBuiltInImportPass(Module* pRTModule) {
+      return new BIImport(pRTModule);
+    }
 }
 
 /// \brief First find all "root" functions that are only declared in destination module and defined in builtins module,

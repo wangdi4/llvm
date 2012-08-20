@@ -56,11 +56,11 @@ extern "C" void* destroyOpenclRuntimeSupport();
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
+extern "C" void* createBuiltInImportPass(llvm::Module* pRTModule);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 llvm::ModulePass *createRelaxedPass();
-llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
@@ -340,7 +340,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions, runtimeModules));
 
   if(pRtlModule != NULL)
-    m_modulePasses.add(createBuiltInImportPass(pRtlModule)); // Inline BI function
+    m_modulePasses.add((ModulePass*)createBuiltInImportPass(pRtlModule)); // Inline BI function
 
   //funcPassMgr->add(new intel::SelectLower());
 

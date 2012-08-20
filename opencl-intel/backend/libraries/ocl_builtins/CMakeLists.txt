@@ -249,9 +249,9 @@ endfunction( compile_ocl )
 #   FILES             - input files list
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT ENABLE_PRECOMPILE OUTPUT_DIR)
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR)
 
-  if (${ARGC} LESS 9)
+  if (${ARGC} LESS 10)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
   endif ()
 
@@ -264,21 +264,28 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
-  # link OpenCL library (adding also BI IR for vectorizer)
-  add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-    COMMENT "OCL Linking ${TARGET_NAME}${OCL_OUTPUT_EXTENSION}"
-    COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
-    DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
-    VERBATIM
-    )
   if(${USE_OPT})
-    add_custom_command(OUTPUT ${TARGET_NAME}
-      COMMENT "Opt optimizing ${TARGET_NAME}"
-      COMMAND ${LLVM_OPT} ${TARGET_NAME} ${LLVM_IMAGES_OPT_PARAMS} -o ${TARGET_NAME}
-      DEPENDS ${LLVM_OPT} ${TARGET_NAME}
+  # link OpenCL library (adding also BI IR for vectorizer)
+    add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
+      COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
       )
-  endif(${USE_OPT})
+    add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
+      COMMAND ${LLVM_OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      DEPENDS ${LLVM_OPT} ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      VERBATIM
+      )
+  else()
+    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMENT "OCL Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
+      VERBATIM
+      )
+  endif()
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
@@ -412,10 +419,10 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
   endif( OCL_TABLEGEN_FILE )
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${ARCH} ${PROC}  FALSE FALSE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
-  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )

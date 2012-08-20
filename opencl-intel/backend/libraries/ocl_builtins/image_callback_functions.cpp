@@ -154,185 +154,6 @@ ALIGN16 const int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 -
 ALIGN16 const int f4minNorm[] = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
 ALIGN16 const int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
-/// Currently we can't get rid of built-in module loading if built-in functions are used.
-/// So built-ins implementation is copy-pasted to images module. In future 
-/// This hack should be removed and limited set of built-ins that is required for
-/// Images module will be linked.
-////////////// built-ins implementation
-
-ALIGN16 const int x8000[] = {0x8000, 0x8000, 0x8000, 0x8000};
-ALIGN16 const int x7fff[] = {0x7fff, 0x7fff, 0x7fff, 0x7fff};
-ALIGN16 const int x0200[] = {0x0200, 0x0200, 0x0200, 0x0200};
-ALIGN16 const int x7c00[] = {0x7c00, 0x7c00, 0x7c00, 0x7c00};
-ALIGN16 const int x7fffffff[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
-ALIGN16 const int x477ff000[] = {0x477ff000, 0x477ff000, 0x477ff000, 0x477ff000};
-ALIGN16 const int x33000000[] = {0x33000000, 0x33000000, 0x33000000, 0x33000000};
-ALIGN16 const int x33c00000[] = {0x33c00000, 0x33c00000, 0x33c00000, 0x33c00000};
-ALIGN16 const int x01000000[] = {0x01000000, 0x01000000, 0x01000000, 0x01000000};
-ALIGN16 const int x46000000[] = {0x46000000, 0x46000000, 0x46000000, 0x46000000};
-ALIGN16 const int x07800000[] = {0x07800000, 0x07800000, 0x07800000, 0x07800000};
-ALIGN16 const int x7f800000[] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
-ALIGN16 const int x38800000[] = {0x38800000, 0x38800000, 0x38800000, 0x38800000};
-ALIGN16 const int ones[] = {1, 1, 1, 1};
-ALIGN16 const char _4x32to4x16[] = {0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1};
-
-float4 float2half_rte(float4 param)
-{
-    //cl_uint sign = (u.u >> 16) & 0x8000;
-    _8i16 temp = (_8i16)_mm_srli_epi32((__m128i)param, 0x10);
-    _8i16 signs = (_8i16)_mm_and_si128((__m128i)temp,(__m128i) *((_4i32 *)x8000));
-    float4 absParam = (float4)_mm_and_si128((__m128i)param,(__m128i) *((_4i32 *)x7fffffff));
-
-    //Nan
-    //if( x != x ) 
-    _8i16 eq0 = (_8i16)_mm_cmpneq_ps(absParam, absParam);
-    _8i16 eq = (_8i16)_mm_and_si128((__m128i)absParam,(__m128i) eq0);
-    //u.u >>= (24-11);
-    eq = (_8i16) _mm_srli_epi32((__m128i)eq, 0x0d);
-    //u.u &= 0x7fff;
-    eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) *((_4i32 *)x7fff));
-    //u.u |= 0x0200;   -- silence the NaN
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) *((_4i32 *)x0200));
-    //return u.u | sign;
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) signs);
-    eq = (_8i16) _mm_and_si128((__m128i)eq,(__m128i) eq0);
-    _8i16 dflt = eq0;
-
-    // overflow
-    //if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
-    //return 0x7c00 | sign;
-
-    float4 eq1 = _mm_cmpge_ps(absParam, *((float4 *)x477ff000));
-    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7c00));
-    eq0 = (_8i16) _mm_or_si128((__m128i)signs,(__m128i) eq0);
-    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-    // underflow
-    //	if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
-    // return sign
-    eq1 = _mm_cmple_ps(absParam, *((float4 *)x33000000));
-    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) signs);
-    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-
-    // very small
-    //	if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
-    // return sign | 1;
-    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x33c00000));
-    eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) *((_4i32 *)ones)));
-    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-    // half denormal         
-    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-    //	x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
-    //  return sign | x;
-    eq1 = _mm_cmplt_ps(absParam, *((float4 *)x38800000));
-    float4 eq2 = _mm_mul_ps(absParam, *((float4 *)x01000000));  //x
-    eq0 = (_8i16) _mm_and_si128((__m128i)eq1, _mm_or_si128((__m128i)signs,(__m128i) (_8i16)eq2));
-    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (_8i16) _mm_or_si128((__m128i)eq1,(__m128i) dflt);
-
-    // u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
-    // u.u &= 0x7f800000;
-    // x += u.f;
-    // u.f = x - u.f;
-    // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
-    // return (u.u >> (24-11)) | sign;
-
-    eq1 = _mm_mul_ps(param, *((float4 *)x46000000));  
-    eq0 = (_8i16) _mm_and_si128((__m128i)eq1,(__m128i) *((_4i32 *)x7f800000)); //u
-    eq1 = _mm_add_ps( (float4)eq0 ,absParam); //x
-    eq1 = _mm_sub_ps(eq1, (float4)eq0); //u
-    eq1 = _mm_mul_ps(eq1, *((float4 *)x07800000));  
-    eq0 = (_8i16) _mm_srli_epi32((__m128i)eq1, 0x0d);
-    eq0 = (_8i16) _mm_or_si128((__m128i)eq0,(__m128i) signs);
-    eq0 = (_8i16) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (_8i16) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-
-    eq1 = _mm_castsi128_ps(_mm_shuffle_epi8((__m128i)eq, *((__m128i *)_4x32to4x16)));
-
-    return eq1;
-}
-
-float4 float2half(float4 param)
-{
-    return float2half_rte(param);
-}
-
-void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, half* ptr)
-{
-    ptr = ptr + (offset*4);
-    data = float2half(data);
-    *((float2 *)ptr) = data.lo;
-}
-
-void __attribute__((overloadable)) vstore_half2(float2 data_val, size_t offset, half* ptr)
-{
-    float4 data = {0.f, 0.f, 0.f, 0.f};
-    data.lo = data_val;
-    ptr = ptr + (offset*4);
-    data = float2half(data);
-    /// Use short as it has the same size as half
-    *((short2 *)ptr) = ((short4)data.lo).lo;
-}
-
-void __attribute__((overloadable)) vstore_half(float data_val, size_t offset, half* ptr)
-{
-    float4 data = {0.f, 0.f, 0.f, 0.f};
-    data.x = data_val;
-    ptr = ptr + (offset*4);
-    data = float2half(data);
-    /// Use short as it has the same size as half
-    *((short *)ptr) = ((short4)data.lo).x;
-}
-
-float4  __attribute__((overloadable)) fabs(float4 p)
-{
-    p = _mm_and_ps(p, *(__m128*)mth_signMask);
-    return p;
-}
-
-#ifdef __SSE4_1__
-float4  __attribute__((overloadable)) floor(float4 x)
-{
-    return _mm_floor_ps(x);
-}
-
-float4  __attribute__((overloadable)) rint(float4 x)
-{
-    return _mm_round_ps((__m128)x, _MM_ROUND_NEAREST);
-}
-#else
-// Required for Atom POC on Win8/Android
-/*
-float4 __attribute__((overloadable)) convert_float4(char4);
-float4 __attribute__((overloadable)) convert_float4(uchar4);
-float4 __attribute__((overloadable)) convert_float4(short4);
-float4 __attribute__((overloadable)) convert_float4(ushort4);
-float4 __attribute__((overloadable)) convert_float4(int4);
-float4 __attribute__((overloadable)) convert_float4(uint4);
-*/
-float4 __ocl_svml_v8_floorf4(float4);
-float4 __ocl_svml_v8_rintf4(float4);
-
-float4  __attribute__((overloadable)) floor(float4 x)
-{
-    return __ocl_svml_v8_floorf4(x);
-}
-
-float4  __attribute__((overloadable)) rint(float4 x)
-{
-    return __ocl_svml_v8_rintf4(x);
-}
-#endif
-
 // Auxiliary routines
 __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 {
@@ -344,138 +165,6 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 
     return _mm_cvtps_epi32(f4Val);
 }
-
-#ifdef __SSE4_1__
-int4    __attribute__((overloadable)) min_int(int4 x, int4 y)
-{
-    return (int4) _mm_min_epi32((__m128i)x ,(__m128i) y);  
-}
-
-int4    __attribute__((overloadable)) max_int(int4 x, int4 y)
-{
-    return (int4) _mm_max_epi32((__m128i)x ,(__m128i) y);
-}
-
-uint4   __attribute__((overloadable)) min_int(uint4 x, uint4 y)
-{
-    return (uint4) _mm_min_epu32((__m128i)x, (__m128i) y);
-}
-
-uint4   __attribute__((overloadable)) max_int(uint4 x, uint4 y)
-{
-    return (uint4) _mm_max_epu32((__m128i)x, (__m128i) y);
-}
-#else
-// Required for Atom POC Win8/Android
-int4    __attribute__((overloadable)) min_int(int4 x, int4 y)
-{
-    ALIGN16 int _y[4];
-    ALIGN16 int _x[4];
-    ALIGN16 int r[4];
-    _mm_store_si128((__m128i*)_x, (__m128i) x);
-    _mm_store_si128((__m128i*)_y, (__m128i) y);
-    for(int i=0;i<4;++i)
-    {
-        r[i] = _x[i]<_y[i] ? _x[i] : _y[i];
-    }
-
-    return (int4) _mm_load_si128((__m128i*)r);
-}
-
-int4    __attribute__((overloadable)) max_int(int4 x, int4 y)
-{
-    ALIGN16 int _y[4];
-    ALIGN16 int _x[4];
-    ALIGN16 int r[4];
-    _mm_store_si128((__m128i*)_x, (__m128i) x);
-    _mm_store_si128((__m128i*)_y, (__m128i) y);
-    for(int i=0;i<4;++i)
-    {
-        r[i] = _x[i]>_y[i] ? _x[i] : _y[i];
-    }
-
-    return (int4) _mm_load_si128((__m128i*)r);
-}
-
-uint4   __attribute__((overloadable)) min_int(uint4 x, uint4 y)
-{
-    ALIGN16 unsigned int _y[4];
-    ALIGN16 unsigned int _x[4];
-    ALIGN16 unsigned int r[4];
-    _mm_store_si128((__m128i*)_x, (__m128i) x);
-    _mm_store_si128((__m128i*)_y, (__m128i) y);
-    for(int i=0;i<4;++i)
-    {
-        r[i] = _x[i]<_y[i] ? _x[i] : _y[i];
-    }
-
-    return (uint4) _mm_load_si128((__m128i*)r);
-}
-
-uint4   __attribute__((overloadable)) max_int(uint4 x, uint4 y)
-{
-    ALIGN16 unsigned int _y[4];
-    ALIGN16 unsigned int _x[4];
-    ALIGN16 unsigned int r[4];
-    _mm_store_si128((__m128i*)_x, (__m128i) x);
-    _mm_store_si128((__m128i*)_y, (__m128i) y);
-    for(int i=0;i<4;++i)
-    {
-        r[i] = _x[i]>_y[i] ? _x[i] : _y[i];
-    }
-
-    return (uint4) _mm_load_si128((__m128i*)r);
-}
-
-#endif
-
-float4 Half4ToFloat4(_8i16 xmm0)
-{
-    //_4i32 _mm_setzero_si128() = (_4i32)_mm_setzero_si128();
-    _4i32 xmm1 = (_4i32)_mm_and_si128((__m128i)xmm0,(__m128i) *((_4i32*)Fvec8Float16ExponentMask));
-    xmm1 = (_4i32) _mm_unpacklo_epi16((__m128i)xmm1, (__m128i)_mm_setzero_si128()); // xmm1 = exponents as DWORDS
-    _4i32 xmm2 = (_4i32)_mm_and_si128((__m128i)xmm0,(__m128i) *((_4i32*)Fvec8Float16MantissaMask));
-    xmm2 = (_4i32) _mm_unpacklo_epi16((__m128i)xmm2, (__m128i)_mm_setzero_si128()); // xmm2 = mantissas as DWORDS
-    xmm0 = (_8i16) _mm_and_si128((__m128i)xmm0,(__m128i) *((_4i32 * )Fvec8Float16SignMask)); 
-    _4i32 xmm6 = (_4i32)_mm_unpacklo_epi16((__m128i)_mm_setzero_si128(), (__m128i)xmm0); // xmm6 = sign mask as DWORDS
-
-    // We need to handle the case where the number is NaN or INF
-    // If the float16 is one of these, then we create an all '1' exponent for the 32bit float and store it in xmm6 for later use
-    xmm0 = (_8i16) _mm_cmpeq_epi32((__m128i)xmm1,(__m128i) *((_4i32 *)Fvec4Float16NaNExpMask)); // xmm0.any dword = 0xFFFFFFFF if exponent is all '1'
-    _4i32 xmm4 = (_4i32)_mm_cmpgt_epi32((__m128i)xmm2, (__m128i)_mm_setzero_si128()); // xmm4.any dword = 0xFFFFFFFF if mantissa > 0
-    xmm4 = (_4i32) _mm_and_si128((__m128i)xmm4,(__m128i) xmm0); // xmm4.any dword = 0xFFFFFFFF if NAN
-    xmm4 = (_4i32) _mm_and_si128((__m128i)xmm4,(__m128i) *((_4i32 * )Fvec4Float32NanMask)); // silence the SNaNs
-    xmm0 = (_8i16) _mm_and_si128((__m128i)xmm0, (__m128i)*((_4i32 * )Fvec4Float32ExponentMask)); // // xmm0 = If float16 has all '1' exp, then convert to 32 bit float all '1' exp, otherwise 0
-    xmm0 = (_8i16) _mm_or_si128((__m128i)xmm0,(__m128i) xmm4); 
-
-    _4i32 xmm3 = (_4i32)_mm_cmpeq_epi32((__m128i)xmm1, (__m128i)_mm_setzero_si128()); // xmm3.any dword = 0xFFFFFFFF if exp is zero
-    int normals = _mm_movemask_epi8((__m128i)xmm3);
-    if(normals == 0)  
-    {
-        xmm1 = (_4i32) _mm_add_epi32((__m128i)xmm1,(__m128i) *((_4i32 * )Fvec4Float16ExpBiasDifference));// xmm1 = exponents converted to float32 bias
-        xmm1 = (_4i32) _mm_or_si128((__m128i)xmm1,(__m128i) xmm2); // xmm1 = exponent + mantissa
-        xmm1 = (_4i32) _mm_slli_epi32((__m128i)xmm1, 13);
-        xmm1 = (_4i32) _mm_or_si128((__m128i)xmm1,(__m128i) xmm6);  // xmm1 = signed number
-        float4 res = (float4)_mm_or_si128((__m128i)xmm1,(__m128i) xmm0);
-        return res;  // If the original number was NaN or INF, then xmm6 has all '1' for exp. xmm0 will hold a float32 that is NaN or INF 
-    }
-
-    xmm3 = (_4i32) _mm_andnot_si128((__m128i)xmm3,(__m128i) *((_4i32 * )FVec4Float16Implicit1Mask));
-    xmm2 = (_4i32) _mm_or_si128((__m128i)xmm2,(__m128i) xmm3); // add implicit 1 to the mantissa
-    xmm1 = (_4i32) _mm_max_epi16((__m128i)xmm1, (__m128i)*((_4i32 * )Fvec4Float16ExpMin)); // xmm1 = max(exp, 1)
-
-    // we can do the comparison on words since we know that the high word of each dword is 0
-    xmm1 = (_4i32) _mm_slli_epi32((__m128i)xmm1, 13);
-    xmm1 = (_4i32) _mm_add_epi32((__m128i)xmm1,(__m128i) *((_4i32 * )Fvec4Float16BiasDiffDenorm));  // add the bias difference to xmm1
-    xmm1 = (_4i32) _mm_or_si128((__m128i)xmm1,(__m128i) xmm6); // Combine with the sign mask
-
-    float4 xmm5 = _mm_cvtepi32_ps((__m128i)xmm2);  // Convert mantissa to float
-    xmm5 = _mm_mul_ps(xmm5, _mm_castsi128_ps((__m128i)xmm1));
-
-    xmm5 = _mm_or_ps((__m128)xmm5, _mm_castsi128_ps((__m128i)xmm0));// If the original number was NaN or INF, then xmm6 has all '1' for exp. xmm0 will hold a float32 that is NaN or INF 
-    return xmm5;
-}
-
 
 /************************Float coordinate translations*************************************/
 
@@ -535,7 +224,7 @@ int4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_NEAREST(image
     mcoord = (__m128)_mm_sub_ps((__m128)mcoord, (__m128)coord);
     mcoord=fabs(mcoord);
     int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
-    urcoord=min_int(urcoord,upper);
+    urcoord=min(urcoord,upper);
     return urcoord;
 }
 
@@ -601,7 +290,7 @@ float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEARE
     mcoord = _mm_sub_ps(mcoord, coord);
     mcoord = _mm_abs_ps(mcoord);
     int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
-    *square0=min_int(urcoord,upper);
+    *square0=min(urcoord,upper);
     return float4AllZeros;
 }
 
@@ -674,8 +363,8 @@ float4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_LINEAR(imag
     int4 sq0 = ProjectNearest(urcoord - halfhalfhalfzero);
     int4 sq1 = sq0 + oneOneOneZero;
     int4 lower = (int4)(0,0,0,0);
-    *square0 = max_int(lower, sq0);
-    *square1 = min_int(sq1, upper);
+    *square0 = max(lower, sq0);
+    *square1 = min(sq1, upper);
 
     return frac(urcoord-halfhalfhalfzero);
 }
@@ -765,7 +454,7 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 
 void __attribute__((overloadable)) write_sample_RGBA_UINT8(void* pixel, uint4 color)
 {
-    color = min_int(color, (uint4)(UCHAR_MAX));
+    color = min(color, (uint4)(UCHAR_MAX));
     *(char4*)pixel = trunc_v4i32_v4i8(*((int4*)&color));
 }
 
@@ -773,7 +462,7 @@ void __attribute__((overloadable)) write_sample_RG_UINT8(void* pixel, uint4 colo
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = (__m128i)min_int((int4)i4Val, (int4)i4uint8Max);
+    i4Val = (__m128i)min((int4)i4Val, (int4)i4uint8Max);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
@@ -783,7 +472,7 @@ void __attribute__((overloadable)) write_sample_R_UINT8(void* pixel, uint4 color
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = (__m128i)min_int((int4)i4Val, (int4)i4uint8Max);
+    i4Val = (__m128i)min((int4)i4Val, (int4)i4uint8Max);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
@@ -798,7 +487,7 @@ uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT16(void* pPixel)
 
 void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 color)
 {
-    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
+    __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
@@ -811,7 +500,7 @@ void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 c
 
 void __attribute__((overloadable)) write_sample_RG_UINT16(void* pixel, uint4 color)
 {
-    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
+    __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
@@ -820,7 +509,7 @@ void __attribute__((overloadable)) write_sample_RG_UINT16(void* pixel, uint4 col
 
 void __attribute__((overloadable)) write_sample_R_UINT16(void* pixel, uint4 color)
 {
-    __m128i i4Val = (__m128i)min_int(color, i4uint16Max);
+    __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
@@ -866,8 +555,8 @@ int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel)
 
 void __attribute__((overloadable)) write_sample_RGBA_INT8(void* pixel, int4 color)
 {
-    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    __m128i i4Val = (__m128i)max(color, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
@@ -875,8 +564,8 @@ void __attribute__((overloadable)) write_sample_RGBA_INT8(void* pixel, int4 colo
 
 void __attribute__((overloadable)) write_sample_R_INT8(void* pixel, int4 color)
 {
-    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    __m128i i4Val = (__m128i)max(color, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
@@ -884,8 +573,8 @@ void __attribute__((overloadable)) write_sample_R_INT8(void* pixel, int4 color)
 
 void __attribute__((overloadable)) write_sample_RG_INT8(void* pixel, int4 color)
 {
-    __m128i i4Val = (__m128i)max_int(color, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    __m128i i4Val = (__m128i)max(color, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
@@ -905,8 +594,8 @@ int4 __attribute__((overloadable)) load_pixel_RGBA_INT16(void* pPixel)
 void __attribute__((overloadable)) write_sample_RGBA_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     // Shrink to 8bit
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     _mm_storel_epi64((__m128i*)pixel, i4Val);
@@ -915,8 +604,8 @@ void __attribute__((overloadable)) write_sample_RGBA_INT16(void* pixel, int4 col
 void __attribute__((overloadable)) write_sample_RG_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     // i4Val already contains valid short value
     (*(short*)pixel)=((int4)i4Val).x;
     ((short*)pixel)[1]=((int4)i4Val).y;
@@ -925,8 +614,8 @@ void __attribute__((overloadable)) write_sample_RG_INT16(void* pixel, int4 color
 void __attribute__((overloadable)) write_sample_R_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max_int((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min_int((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
+    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
     // i4Val already contains valid short value
     (*(short*)pixel)=((int4)i4Val).x;
 }
@@ -1095,7 +784,7 @@ void __attribute__((overloadable)) write_sample_RGBA_FLOAT(void* pixel, float4 c
 
 float4 __attribute__((overloadable)) load_pixel_RGBA_HALF_FLOAT(void* pPixel)
 {
-    return (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)pPixel));
+    return (float4)vloada_half4(0, (half*)pPixel);
 }
 
 void __attribute__((overloadable)) write_sample_RGBA_HALF_FLOAT(void* pixel, float4 color)
@@ -1171,7 +860,7 @@ float __attribute__((overloadable)) load_value_LUMINANCE_HALF_FLOAT(void* pPixel
 {
     half4 pix;
     pix.x = *(half*)pPixel;
-    float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
+    float4 val = vloada_half4(0, (half*)pPixel);
     return val.x;
 }
 
@@ -1209,7 +898,7 @@ float __attribute__((overloadable)) load_value_INTENSITY_HALF_FLOAT(void* pPixel
 {
     half4 pix;
     pix.x = *(half*)pPixel;
-    float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
+    float4 val = vloada_half4(0, (half*)pPixel);
     return val.x;
 }
 
@@ -1744,7 +1433,7 @@ float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 {
     half4 pix;
     pix.x = *(half*)pPixel;
-    float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
+    float4 val = vloada_half4(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.w = val.x;
@@ -1763,7 +1452,7 @@ float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 {
     half4 pix;
     pix.x = *(half*)pPixel;
-    float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
+    float4 val = vloada_half4(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = val.x;
@@ -1782,7 +1471,7 @@ float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
 {
     half4 pix;
     pix.lo = *(half2*)pPixel;
-    float4 val = (float4)Half4ToFloat4((short8)_mm_loadl_epi64((__m128i*)(&pix)));
+    float4 val = vloada_half4(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.lo = val.lo;
@@ -2062,8 +1751,8 @@ int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
     __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
     // Prepare mask for compare mask extraction
     int iMask=((image_aux_data*)image)->dimmask;
-    int4 iCoord = max_int(coord, int4MinusOnes);
-    iCoord = min_int(iCoord, (int4)i4up);
+    int4 iCoord = max(coord, int4MinusOnes);
+    iCoord = min(iCoord, (int4)i4up);
     __m128i isUp=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)i4up);
     __m128i isLo=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)int4MinusOnes);
     int iBorder=(_mm_movemask_epi8(isUp) | _mm_movemask_epi8(isLo)) & iMask;
@@ -2075,8 +1764,8 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     int4 lower = (int4)(0, 0, 0, 0);
     
-    int4 correctCoord=min_int(coord, upper);
-    correctCoord=max_int(correctCoord,lower);
+    int4 correctCoord=min(coord, upper);
+    correctCoord=max(correctCoord,lower);
     return correctCoord;
 
 }
