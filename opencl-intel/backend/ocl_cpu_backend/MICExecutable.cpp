@@ -26,20 +26,18 @@ MICExecutable::MICExecutable(const Binary* pBin):
 {}
 
 // Prepares current thread for the executable execution
-cl_dev_err_code MICExecutable::PrepareThread() 
+cl_dev_err_code MICExecutable::PrepareThread()
 {
-    // TODO: check if KNF Support something ?!
-    //m_uiMXCSRstate = _mm_getcsr(); 
-    //unsigned int uiNewFlags = (m_uiMXCSRstate & ~m_uiCSRMask) | m_uiCSRFlags;
-    //_mm_setcsr( uiNewFlags);
+    m_uiMXCSRstate = _mm_getcsr();
+    unsigned int uiNewFlags = (m_uiMXCSRstate & ~m_uiCSRMask) | m_uiCSRFlags;
+    _mm_setcsr( uiNewFlags);
     return CL_DEV_SUCCESS;
 }
 
 // Restores Thread state as it was before the execution
-cl_dev_err_code MICExecutable::RestoreThreadState() 
-{  
-    // TODO: check if KNF Support something ?!
-    //_mm_setcsr( m_uiMXCSRstate);
+cl_dev_err_code MICExecutable::RestoreThreadState()
+{
+    _mm_setcsr( m_uiMXCSRstate);
     return CL_DEV_SUCCESS;
 }
 
