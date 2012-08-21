@@ -35,8 +35,8 @@ namespace Validation {
     /// reports all errors/warnings/mismatched intervals
     class IComparisonResults {
     public:
-    
-    	virtual ~IComparisonResults() {}
+
+        virtual ~IComparisonResults() {}
         /// @brief Adds mismatch information
         /// @param  [in]  index                 Indexes of mismatched value in containers(BufferContainer index, Buffer index, Vector index, element index)
         /// @param  [in]  bufferDesc            Description of the buffer containing the mismatched element
@@ -303,17 +303,22 @@ namespace Validation {
 
             TypeVal GetTypeVal() const
             {
-                TypeVal ret;
+                TypeVal ret = UNSPECIFIED_TYPE;
                 if("BufferDesc" == GetDesc()->GetName())
                 {
                     const BufferDesc* pBufDesc = static_cast<const BufferDesc*>(GetDesc());
                     const TypeDesc typeDesc = pBufDesc->GetElementDescription();
                     const TypeVal typeVal = typeDesc.GetType();
-                    
+
                     if(typeDesc.IsAggregate())
                     {   // aggregate type
                         if(typeVal == TVECTOR || typeVal == TARRAY){
                             ret = typeDesc.GetSubTypeDesc(0).GetType();
+                        }
+                        else if (typeVal == TSTRUCT)
+                        {
+                            //std::cout << "Mismatches in struct data type is not supported yet.";
+                            ret = TSTRUCT;
                         }
                         else
                         {
@@ -428,8 +433,11 @@ namespace Validation {
                 case TULONG:
                     res = ComputeDiff<int64_t>(ref, act);
                     break;
+                case TSTRUCT:
+                    res = -1; // TODO: Implement!!!
+                    break;
                 default:
-                    throw Exception::IllegalFunctionCall("Can't add mismatch for type");
+                    throw Exception::IllegalFunctionCall("Can't add mismatch for type: "+TypeValWrapper(ty).ToString());
                     break;
                 }
                 return (res < 0) ? -res : res;
