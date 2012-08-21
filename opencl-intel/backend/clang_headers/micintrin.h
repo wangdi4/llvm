@@ -5197,72 +5197,20 @@ _mm_spflt_64(unsigned long r1)
   return __builtin_ia32_spfltq(r1);
 }
 
-/*
- * Prefetch an L1 cache line.
- *
- *    This is very similar to the existing IA-32 prefetch instruction,
- *    VPREFETCHh, as described in IA-32 Intel r. Architecture Software
- *    Developer's Manual: Volume 2. If the line selected is already present
- *    in the cache hierarchy at a level closer to the processor, no data
- *    movement occurs. Prefetches from uncacheable or WC memory are ignored.
- *    In contrast with the existing prefetch instruction, this instruction
- *    uses disp8*64 addressing. Displacements that would normally be 8 bits
- *    according to the ModR/M byte are still 8 bits but scaled by 64 so that
- *    they have cache-line granularity. This instruction is a hint and may be
- *    speculative, and may be dropped or specify invalid addresses without
- *    causing problems. The 'hint' contains a set of hint bits that modify
- *    the prefetching behavior:
- *  _MM_PFHINT_EX: make line Exclusive in the L1 cache (unless it's already
- *               Exclusive or Modified in the L1 cache).
- *  _MM_PFHINT_MISS: stop picking instructions on this thread until the memory
- *               operand is known to be in the L1 cache. If, on any given
- *               clock, all threads are non-runnable, then any that are
- *               non-runnable due to the execution of prefetch with misshint
- *               will be treated as runnable threads.
- *  _MM_PFHINT_NT: load data into the L1 nontemporal cache rather than
- *               the L1 temporal cache. For Larrabee, this will be implemented
- *               by loading the data in the #TIDth way and making the data
- *               MRU. Data should still be cached normally in the L2 and
- *               higher caches.
- *    Any kind of interruption will turn off the misshint state; see DELAY
- *    for a detailed discussion of this mechanism.
- */
-#if 0
-__inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_vprefetch1(const void *m, const size_t hint)
-{
-  __builtin_ia32_vprefetch1(m, hint);
-}
-#endif
+/* constants for use with _mm_prefetch */
+#define _MM_HINT_T0     1 // Cache = L1, Non-Temporal = False, Exclusive = False
+#define _MM_HINT_T1     2 // Cache = L2, Non-Temporal = False, Exclusive = False
+#define _MM_HINT_T2     3 // Cache = L2, Non-Temporal = True,  Exclusive = False
+#define _MM_HINT_NTA    0 // Cache = L1, Non-Temporal = True,  Exclusive = False
+#define _MM_HINT_ENTA   4 // Cache = L1, Non-Temporal = True,  Exclusive = True
+#define _MM_HINT_ET0    5 // Cache = L1, Non-Temporal = False, Exclusive = True
+#define _MM_HINT_ET1    6 // Cache = L2, Non-Temporal = False, Exclusive = True
+#define _MM_HINT_ET2    7 // Cache = L2, Non-Temporal = True,  Exclusive = True
 
-/*
- * Prefetch an L2 cache line.
- *
- *    This is very similar to the existing IA-32 prefetch instruction,
- *    VPREFETCHh, as described in IA-32 Intel r. Architecture Software
- *    Developer's Manual: Volume 2. If the line selected is already present
- *    in the cache hierarchy at a level closer to the processor, no data
- *    movement occurs. Prefetches from uncacheable or WC memory are ignored.
- *    In contrast with the existing prefetch instruction, this instruction
- *    uses disp8*64 addressing. Displacements that would normally be 8 bits
- *    according to the ModR/M byte are still 8 bits but are scaled by 64 so
- *    that they have cache-line granularity. This instruction is a hint and
- *    may be speculative, and may be dropped or specify invalid addresses
- *    without causing problems.
- *    The 'hint' contains a pair of hint bits that modify the prefetching
- *    behavior:
- *  _MM_PFHINT_EX: make line Exclusive in the L2 cache (unless it's already
- *               Exclusive or Modified in the L2 cache).
- *  _MM_PFHINT_NT: load data into the L2 nontemporal cache rather than the L2
- *               temporal cache. For Larrabee, this will be implemented by
- *               loading the data in the #TIDth way and making the data MRU.
- *               Data should still be cached normally in the L3 and higher
- *               caches.
- */
 __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_vprefetch2(const void *m, const size_t hint)
+_mm_prefetch(const void *m, const size_t hint)
 {
-  __builtin_ia32_vprefetch2(m, hint);
+  __builtin_ia32_prefetch(m, hint);
 }
 
 #if 0

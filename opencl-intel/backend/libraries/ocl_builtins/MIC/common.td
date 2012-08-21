@@ -4,7 +4,7 @@
 OclBuiltinImpl _lprefetch = OclBuiltinImpl<lprefetch, [v1i8], 0, [{
     size_t totalLines = (($Arg1VarName * $Arg2VarName) + MIC_DEV_DCU_LINE_SIZE - 1) / MIC_DEV_DCU_LINE_SIZE;
     for(size_t i = 0; i < totalLines; ++i) {
-      _mm_vprefetch2($Arg0VarName, _MM_HINT_NONE);
+      _mm_prefetch($Arg0VarName, _MM_HINT_T1);
       $Arg0VarName += MIC_DEV_DCU_LINE_SIZE;
     }
     return ;
