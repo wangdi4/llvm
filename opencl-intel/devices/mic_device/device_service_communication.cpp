@@ -15,10 +15,15 @@
 #include <source/COIBuffer_source.h>
 
 #include <libgen.h>
+#include <string.h>
 #include <assert.h>
+
+using namespace std;
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::Utils;
+
+extern char **environ;
 
 extern bool gSafeReleaseOfCoiObjects;
 
@@ -44,17 +49,6 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 #endif
 };
 
-const char* const DeviceServiceCommunication::m_vtune_env_vars_names[ENV_VAR_COUNT] = 
-{
-	"INTEL_MRTE_HOST_NAME",
-	"INTEL_JIT_PROFILER64",
-	"INTEL_MRTE_DATA_DIR",
-	"USERAPICOLLECTOR_LOG_DIR",
-	"INTEL_ITTNOTIFY_CONFIG",
-	"INTEL_MRTE_PROFILER_MODE",
-	"INTEL_LIBITTNOTIFY64",
-	"INTEL_ITTNOTIFY_GROUPS", 
-};
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config) 
     : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false), m_config(config)
@@ -258,41 +252,21 @@ bool DeviceServiceCommunication::runServiceFunction(
 }
 
 
-bool DeviceServiceCommunication::getVTuneEnvVars(char** ppAditionalEnvs, const unsigned int size, unsigned int* retCount)
+void DeviceServiceCommunication::getVTuneEnvVars(vector<char*>& additionalEnvVars)
 {
-	assert(size >= ENV_VAR_COUNT + 1);
-	if (size < ENV_VAR_COUNT + 1)
+	unsigned int count = 0;
+	string tStr;
+	string hostPrefix = "__OCL_MIC_INTEL_";
+	string stripPrefix = "__OCL_MIC_";
+	while(environ[count] != NULL)
 	{
-		return false;
-	}
-	const unsigned int elementMaxSize = 256 + MAX_PATH;
-	unsigned int index = 0;
-	for (unsigned int i = 0; (i < size - 1) && (i < ENV_VAR_COUNT) ; i++)
-	{
-		char* tEnvValue = getenv(m_vtune_env_vars_names[i]);
-		if (NULL != tEnvValue)
+		tStr = environ[count];
+		if ((string::npos != tStr.find(hostPrefix)) && (tStr.size() > hostPrefix.size()))
 		{
-			assert(elementMaxSize - 1 > strlen(m_vtune_env_vars_names[i]) + 1 + strlen(tEnvValue));
-			if (elementMaxSize - 1 <= strlen(m_vtune_env_vars_names[i]) + 1 + strlen(tEnvValue))
-			{
-				for (unsigned int j = 0; j < index; j++)
-				{
-					delete ppAditionalEnvs[j];
-				}
-				return false;
-			}
-			ppAditionalEnvs[index] = new char[elementMaxSize];
-			assert(ppAditionalEnvs);
-			memset(ppAditionalEnvs[index], 0, elementMaxSize);
-			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, m_vtune_env_vars_names[i]);
-			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, "=");
-			STRCAT_S(ppAditionalEnvs[index], elementMaxSize, tEnvValue);
-			index ++;
+			additionalEnvVars.push_back(environ[count] + stripPrefix.size());
 		}
+		count ++;
 	}
-	ppAditionalEnvs[index] = NULL;
-	*retCount = index;
-	return true;
 }
 
 
@@ -343,40 +317,26 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         }
         mic_device_options.min_work_groups_number   = MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_worker_threads );
 
-		char** ppAditionalEnvs = NULL;
-		unsigned int additionEnvCount = 0;
+		vector<char*> additionalEnvVars;
 		// If USE VTUNE need to send some env variables to sink side
 		if (mic_device_options.use_vtune)
 		{
-			// The + 1 is because the last element must be NULL.
-			const unsigned int size = ENV_VAR_COUNT + 1;
-			ppAditionalEnvs = new char*[size];
-			bool result = pDevServiceComm->getVTuneEnvVars(ppAditionalEnvs, size, &additionEnvCount);
-			if (false == result)
+			pDevServiceComm->getVTuneEnvVars(additionalEnvVars);
+			if (additionalEnvVars.size() > 0)
 			{
-				delete ppAditionalEnvs;
-				ppAditionalEnvs = NULL;
+				additionalEnvVars.push_back(NULL);
 			}
 		}
 
     	// create a process on device and run it's main() function
 		result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
-										 0, NULL,							    // argc, argv
-										 false, (const char**)ppAditionalEnvs,	// duplicate env, additional env vars
-										 MIC_DEV_IO_PROXY_TO_HOST, NULL,	    // I/O proxy required + host root
-                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,  // reserve inital buffer space
-										 nativeDirName,						    // a path to locate dynamic libraries dependencies for the sink application
+										 0, NULL,																				// argc, argv
+										 false, additionalEnvVars.size() == 0 ? NULL : (const char**)&(additionalEnvVars[0]),	// duplicate env, additional env vars
+										 MIC_DEV_IO_PROXY_TO_HOST, NULL,														// I/O proxy required + host root
+                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,													// reserve inital buffer space
+										 nativeDirName,																			// a path to locate dynamic libraries dependencies for the sink application
 										 &pDevServiceComm->m_process);
 		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
-		// Release the additional env variable array
-		if (ppAditionalEnvs)
-		{
-			for (unsigned int i = 0; i < additionEnvCount; i++)
-			{
-				delete ppAditionalEnvs[i];
-			}
-			delete ppAditionalEnvs;
-		}
 		if (COI_SUCCESS != result)
 		{
 			break;
