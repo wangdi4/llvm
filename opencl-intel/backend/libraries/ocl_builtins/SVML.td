@@ -41,7 +41,7 @@ def svml_hypot      : OclBuiltin<"__ocl_svml_$Target_hypot$SVMLSuffix",      (ou
 def svml_ilogb      : OclBuiltin<"__ocl_svml_$Target_ilogb$SVMLSuffix",      (outs i32gentype:$ret), (ins gentype:$x), [], []>;
 def svml_ldexp      : OclBuiltin<"__ocl_svml_$Target_ldexp$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$k), [], []>;
 def svml_lgamma     : OclBuiltin<"__ocl_svml_$Target_lgamma$SVMLSuffix",     (outs gentype:$ret), (ins gentype:$x), [], []>;
-def svml_lgamma_r   : OclBuiltin<"__ocl_svml_$Target_lgamma_r$SVMLSuffix",   (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>;
+def svml_lgamma_r   : OclBuiltin<"__ocl_svml_$Target_lgammar$SVMLSuffix",    (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>;
 def svml_log        : OclBuiltin<"__ocl_svml_$Target_log$SVMLSuffix",        (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_log2       : OclBuiltin<"__ocl_svml_$Target_log2$SVMLSuffix",       (outs gentype:$ret), (ins gentype:$x), [], []>;
 def svml_log10      : OclBuiltin<"__ocl_svml_$Target_log10$SVMLSuffix",      (outs gentype:$ret), (ins gentype:$x), [], []>;

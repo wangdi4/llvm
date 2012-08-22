@@ -189,7 +189,7 @@ OclBuiltinImpl lgamma_svml = OclBuiltinImpl<lgamma, lgamma.Types, 0, [{
 
 // lgamma_r
 code lgamma_r_svml = [{
-    return __ocl_svml_$Target_lgamma_r$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+    return __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, lgamma_r_pas.Types, 0, lgamma_r_svml>;
 OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, lgamma_r_las.Types, 0, lgamma_r_svml>;

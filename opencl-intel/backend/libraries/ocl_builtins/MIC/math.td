@@ -346,7 +346,7 @@ OclBuiltinImpl workaround_remquo_las = OclBuiltinImpl<remquo_las, [v1f32, v2f32,
 code workaround_lgamma_r = [{
     float16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_lgamma_r$SVMLSuffix($Arg0VarName, pf);
+    $Arg0NoASType res = __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
