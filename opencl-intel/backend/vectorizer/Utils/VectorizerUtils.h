@@ -96,6 +96,13 @@ public:
   /// @param y type 2
   static bool isOpaquePtrPair(Type *x, Type *y);
 
+  /// @brief convert given type (of pointer to arrays of scalar/vector)
+  ///        to type (of pointer to arrays of vector/scalar).
+  /// @param type original type 
+  /// @param width if 0 convert original type to scalar type,
+  ///        otherwise packetize original type according to width.
+  static Type* convertSoaAllocaType(Type *type, unsigned int width);
+
 private:
 
   /// @brief Generate type-conversion and place in given location

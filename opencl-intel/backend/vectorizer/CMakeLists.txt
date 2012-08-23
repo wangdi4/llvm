@@ -11,6 +11,7 @@ include_directories(BEFORE "VolcanoWrapper")
 include_directories(BEFORE "AppleWrapper")
 include_directories(BEFORE "PreVectorization")
 include_directories(BEFORE "LoopHandler")
+include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "IRPrinter")
 include_directories(BEFORE "Heuristic")
 include_directories(../arch_headers)
@@ -56,6 +57,7 @@ add_llvm_library( LLVMVectorizer
   LoopHandler/CLWGBoundDecoder.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
+  SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   IRPrinter/IRPrinter.cpp
   Heuristic/InstCounter.cpp
   ${headers}

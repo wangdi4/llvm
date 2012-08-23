@@ -11,6 +11,7 @@
 #include "llvm/Support/InstIterator.h"
 
 #include "RuntimeServices.h"
+#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 
 #include <set>
@@ -93,6 +94,7 @@ private:
     WIDependancy calculate_dep(const PHINode* inst);
     WIDependancy calculate_dep(const TerminatorInst* inst);
     WIDependancy calculate_dep(const SelectInst* inst);
+    WIDependancy calculate_dep(const AllocaInst* inst);
     WIDependancy calculate_dep(const CastInst* inst);
     WIDependancy calculate_dep(const VAArgInst* inst);
     /*! \} */
@@ -115,9 +117,12 @@ private:
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       // Analysis pass preserve all
       AU.setPreservesAll();
+      AU.addRequired<SoaAllocaAnalysis>();
     }
 
 private:
+    // @brief pointer to Soa alloca analysis performed for this function
+    SoaAllocaAnalysis *m_soaAllocaAnalysis;
     /// Stores an updated list of all dependencies
     DenseMap<const Value*, WIDependancy> m_deps;
     /// Runtime services pointer

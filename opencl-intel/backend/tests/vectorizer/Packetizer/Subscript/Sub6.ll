@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
-;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> %idxprom2, <4 x i8> zeroinitializer, i32 32, i1 false)
+;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> [[NAME1:%idxprom[0-9]*]], <4 x i8> zeroinitializer, i32 32, i1 false)
 ;CHECK: ret void
 
 define void @kernel(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
@@ -21,7 +21,7 @@ entry:
 }
 
 ;CHECK: kernel2
-;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> %idxprom2, <4 x i8> zeroinitializer, i32 14, i1 false)
+;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> [[NAME2:%idxprom[0-9]*]], <4 x i8> zeroinitializer, i32 14, i1 false)
 ;CHECK: ret void
 
 define void @kernel2(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
@@ -36,7 +36,7 @@ entry:
 }
 
 ;CHECK: kernel_int
-;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> %idxprom3, <4 x i8> zeroinitializer, i32 32, i1 true)
+;CHECK: @"internal.scatter.v4i8[i64].m1"(i1 true, i8* %stripAS, <4 x i64> [[NAME3:%idxprom[0-9]*]], <4 x i8> zeroinitializer, i32 32, i1 true)
 ;CHECK: ret void
 
 define void @kernel_int(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {

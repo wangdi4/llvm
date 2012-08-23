@@ -20,6 +20,7 @@
 #include "llvm/Constants.h"
 
 #include "RuntimeServices.h"
+#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
@@ -45,6 +46,7 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
+    AU.addRequired<SoaAllocaAnalysis>();
   }
 
   virtual bool runOnFunction(Function &F);
@@ -74,6 +76,10 @@ private:
   void scalarizeInstruction(InsertElementInst *II);
   void scalarizeInstruction(ShuffleVectorInst *SI);
   void scalarizeInstruction(CallInst *CI);
+  void scalarizeInstruction(AllocaInst *CI);
+  void scalarizeInstruction(GetElementPtrInst *CI);
+  void scalarizeInstruction(LoadInst *CI);
+  void scalarizeInstruction(StoreInst *CI);
 
 
 /// @brief this function handles cases when call instruction that should be
@@ -179,6 +185,9 @@ private:
 
   /// @brief release all allocations of SCM entries
   void releaseAllSCMEntries();
+
+  // @brief pointer to Soa alloca analysis performed for this function
+  SoaAllocaAnalysis *m_soaAllocaAnalysis;
 
   /// @brief An array of available SCMEntry's
   SCMEntry *m_SCMAllocationArray;

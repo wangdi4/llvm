@@ -545,6 +545,43 @@ unsigned int VectorizerUtils::getLOG(uint64_t number) {
   return getBSR(number);
 }
 
+Type* VectorizerUtils::convertSoaAllocaType(Type *type, unsigned int width) {
+
+  bool isPointer = type->isPointerTy();
+  if (isPointer) {
+    type = cast<PointerType>(type)->getElementType();
+  }
+
+  std::vector<unsigned int> arraySizes;
+  while (ArrayType *arrayType = dyn_cast<ArrayType>(type)) {
+    arraySizes.push_back(arrayType->getNumElements());
+    type = arrayType->getElementType();
+  }
+
+  if (width == 0) {
+    // Need to scalarize type (assuming original is vector type)
+    VectorType* vType = dyn_cast<VectorType>(type);
+    V_ASSERT(vType && "Base type is not a vector!");
+    // Get scalar type of the base original vector type
+    type = vType->getElementType();
+  } else {
+    // Need to vectorize type (assuming original is not vector type)
+    V_ASSERT(!type->isVectorTy() && "Base type is not a scalar!");
+    // Create vector type of the alloca base original type
+    type = VectorType::get(type, width);
+  }
+
+  // Re-create the array types of the original alloca upon the new type.
+  for (int i=arraySizes.size()-1; i>=0; --i) {
+    type = ArrayType::get(type, arraySizes[i]);
+  }
+
+  if (isPointer) {
+    type = type->getPointerTo();
+  }
+  return type;
+}
+
 // rooting a sequence like this:
 // %v0 = insertelement <4 x type> undef, type %scalar.0, i32 0 
 // %v1 = insertelement <4 x type> %v0,   type %scalar.1, i32 1

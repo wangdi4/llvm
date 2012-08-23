@@ -84,6 +84,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
                                                 bool UnitAtATime,
                                                 bool UnrollLoops,
                                                 bool SimplifyLibCalls,
+                                                bool allowAllocaModificationOpt,
                                                 bool isDBG) {
     if (OptimizationLevel == 0) {
       return;
@@ -134,9 +135,11 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*,
     PM->add(createScalarReplAggregatesPass(256));  // Break up aggregate allocas
     PM->add(createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(createInstructionSimplifierPass());
-    if (OptimizationLevel > 1)
-      PM->add(createGVNPass());                 // Remove redundancies
-    PM->add(createMemCpyOptPass());             // Remove memcpy / form memset
+    if (allowAllocaModificationOpt){
+      if (OptimizationLevel > 1)
+        PM->add(createGVNPass());                 // Remove redundancies
+      PM->add(createMemCpyOptPass());             // Remove memcpy / form memset
+    }
     PM->add(createSCCPPass());                  // Constant prop with SCCP
 
     // Run instcombine after redundancy elimination to exploit opportunities
@@ -227,6 +230,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if (!pConfig->GetLibraryModule())
     has_bar = hasBarriers(pModule);
 
+  bool allowAllocaModificationOpt = true;
+  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().IsMIC()) {
+    allowAllocaModificationOpt = false;
+  }
   // When running the standard optimization passes, do not change the loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for barriers.
   createStandardVolcanoModulePasses(
@@ -236,6 +243,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       true,
       true,
       false,
+      allowAllocaModificationOpt,
       debugType != None);
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());

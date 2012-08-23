@@ -291,15 +291,16 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
     m_deferredResOrder.push_back(origValue);
   }
 
+  
   // Create the dummy values and place them in VCMEntry
-  Type * vectorType = VectorType::get(origValue->getType(), m_packetWidth);
-  Type * ptrType = PointerType::get(vectorType, 0);
-  V_PRINT(packetizer, 
-      "\t\tCreate Dummy Vector value/s (of type " << *vectorType << ")\n");
-  Constant * subExpr = ConstantExpr::getIntToPtr(
-    ConstantInt::get(Type::getInt32Ty(context()),APInt(32, 0xdeadbeef)), ptrType);
+  Type* origType = origValue->getType();
+  Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
+    VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth) :
+    VectorType::get(origType, m_packetWidth);
+  V_PRINT(packetizer, "\t\tCreate Dummy Vector value/s (of type " << *dummyType << ")\n");
+  Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 
-  dummyEntry->vectorValue = new LoadInst(subExpr);
+  dummyEntry->vectorValue = new LoadInst(dummyPtr);
   *vectorVal = dummyEntry->vectorValue;
 
   // Insert into deferred resolution map/list
@@ -331,15 +332,15 @@ void PacketizeFunction::createDummyMultiScalarVals(Value *origValue, Value *mult
   }
 
   // Create the dummy values and place them in VCMEntry
-  Type * ptrType = PointerType::get(origValue->getType(), 0);
-  V_PRINT(packetizer, 
-      "\t\tCreate Dummy value/s (of type " << *(origValue->getType()) << ")\n");
-  Constant * subExpr = ConstantExpr::getIntToPtr(
-    ConstantInt::get(Type::getInt32Ty(context()),APInt(32, 0xdeadbeef)), ptrType);
+  Type* origType = origValue->getType();
+  Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
+    VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth) : origType;
+  V_PRINT(packetizer, "\t\tCreate Dummy value/s (of type " << *dummyType << ")\n");
+  Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 
   for (unsigned i = 0; i < m_packetWidth; i++)
   {
-    dummyEntry->multiScalarValues[i] = new LoadInst(subExpr);
+    dummyEntry->multiScalarValues[i] = new LoadInst(dummyPtr);
     multiScalarVals[i] = dummyEntry->multiScalarValues[i];
   }
 

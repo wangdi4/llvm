@@ -6,6 +6,7 @@
  *********************************************************************************************/
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Intrinsics.h"
 
 #include "Packetizer.h"
 #include "Mangler.h"
@@ -95,6 +96,10 @@ bool PacketizeFunction::runOnFunction(Function &F)
   // Obtain WIAnalysis of the function
   m_depAnalysis = &getAnalysis<WIAnalysis>();
   V_ASSERT(m_depAnalysis && "Unable to get pass");
+
+    // Obtain SoaAllocaAnalysis of the function
+  m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
+  V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // Prepare data structures for packetizing a new function (may still have
   // data left from previous function vectorization)
@@ -412,49 +417,124 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
 void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 {
   V_PRINT(packetizer, "\t\tNon-Packetizable Instruction\n");
-  Instruction *duplicateInsts[MAX_PACKET_WIDTH];
+  Instruction *duplicateInsts[MAX_PACKET_WIDTH] = {NULL};
 
-  // Create cloned instructions
-  for (unsigned i = 0; i < m_packetWidth; i++) {
-    duplicateInsts[i] = I->clone();
-  }
+  // Clone instruction
+  cloneNonPacketizableInst(I, &duplicateInsts[0]);
 
   // Replace operands in duplicates
   unsigned numOperands = I->getNumOperands();
 
   // Iterate over all operands and replace them
-  for (unsigned op = 0; op < numOperands; op++)
-  {
+  for (unsigned op = 0; op < numOperands; op++) {
     Value * multiOperands[MAX_PACKET_WIDTH];
     obtainMultiScalarValues(multiOperands, I->getOperand(op), I);
-    if (isa<CallInst>(I))
-    {
-      for (unsigned i = 0; i < m_packetWidth; i++)
-      {
+
+    if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+      // Need to fix Load/Store instruction pointer operand
+      fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
+    }
+    // Set scalar operand into cloned scalar instruction
+    if (isa<CallInst>(I)) {
+      for (unsigned i = 0; i < m_packetWidth; i++) {
+        V_ASSERT(dyn_cast<CallInst>(duplicateInsts[i])->getArgOperand(op)->getType() == multiOperands[i]->getType() &&
+          "original operand type is different than new operand type");
         dyn_cast<CallInst>(duplicateInsts[i])->setArgOperand(op, multiOperands[i]);
       }
     }
-    else
-    {
-      for (unsigned i = 0; i < m_packetWidth; i++)
-      {
+    else {
+      for (unsigned i = 0; i < m_packetWidth; i++) {
+        V_ASSERT(duplicateInsts[i]->getOperand(op)->getType() == multiOperands[i]->getType() &&
+          "original operand type is different than new operand type");
         duplicateInsts[i]->setOperand(op, multiOperands[i]);
       }
     }
   }
   // Add new value/s to VCM
   createVCMEntryWithMultiScalarValues(I, duplicateInsts);
-  std::string instName = I->getName();
   // Add new instructions into function
-  for (unsigned duplicates = 0; duplicates < m_packetWidth; duplicates++)
-  {
+  for (unsigned duplicates = 0; duplicates < m_packetWidth; duplicates++) {
     duplicateInsts[duplicates]->insertBefore(I);
   }
   // Remove original instruction
   m_removedInsts.insert(I);
 }
 
+void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **duplicateInsts) {
+  duplicateInsts[0] = NULL;
+  // Check if need special handling for clone
+  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+    // In case of GEP/Bitcast instructions that are related to SOA-alloca
+    // clone instruction does not work as packetize pointer type is different
+    // from scalar pointer type, thus need to create new instruction
+    if(GetElementPtrInst *pGEP = dyn_cast<GetElementPtrInst>(I)) {
+      SmallVector<Value*, 8> Idx;
+      Value * multiPtrOperand[MAX_PACKET_WIDTH];
+      for (unsigned int i = 0; i < pGEP->getNumOperands(); ++i) {
+        if (i == pGEP->getPointerOperandIndex()) {
+          obtainMultiScalarValues(multiPtrOperand, pGEP->getOperand(i), pGEP);
+        } else {
+          Idx.push_back(pGEP->getOperand(i));
+        }
+      }
+      for (unsigned i = 0; i < m_packetWidth; i++) {
+        duplicateInsts[i] = GetElementPtrInst::Create(multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
+      }
+    }
+    else if (BitCastInst *pBC = dyn_cast<BitCastInst>(I)) {
+      Value * multiPtrOperand[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(multiPtrOperand, pBC->getOperand(0), pBC);
+      for (unsigned i = 0; i < m_packetWidth; i++) {
+        duplicateInsts[i] = new BitCastInst(multiPtrOperand[i], pBC->getType(), pBC->getName());
+      }
+    }
+  }
 
+  if (!duplicateInsts[0]) {
+    // Create cloned instructions
+    for (unsigned i = 0; i < m_packetWidth; i++) {
+      duplicateInsts[i] = I->clone();
+    }
+  }
+}
+
+void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned int op, Value **multiOperands) {
+  unsigned int ptrOpIndex = -1;
+  // If (un)masked load/store instruction is related to SOA-alloca then need to fix pointer
+  // address according to each lane by adding the lane number (0, packetWidth) to it!
+  // The following code locate the place of the pointer address in the instruction operands.
+  if (LoadInst *inst = dyn_cast<LoadInst>(I)) {
+    ptrOpIndex = inst->getPointerOperandIndex();
+  }
+  else if (StoreInst *inst = dyn_cast<StoreInst>(I)) {
+    ptrOpIndex = inst->getPointerOperandIndex();
+  }
+  else if (CallInst *inst = dyn_cast<CallInst>(I)) {
+    // It can be a masked load/store instruction!
+    std::string origFuncName = inst->getName();
+    if (Mangler::isMangledStore(origFuncName)) {
+      ptrOpIndex = 1;
+    }
+    else if (Mangler::isMangledLoad(origFuncName)) {
+      ptrOpIndex = 2;
+    }
+  }
+
+  if (ptrOpIndex ==  op) {
+    // This is a the pointer of (un)masked load/store instruction that is derived from SOA-alloca
+    for (unsigned int i = 0; i < m_packetWidth; ++i) {
+      Type *ptrType = multiOperands[i]->getType();
+      V_ASSERT(ptrType->isPointerTy() && "operand in pointer index is not a pointer!");
+      Type *vecType = cast<PointerType>(ptrType)->getElementType();
+      V_ASSERT(vecType->isVectorTy() && "Pointer derived from SOA-alloca is not a pointer to a vector!");
+      // Convert address from pointer of vector type to pointer of scalar type
+      // Then increase the address with lane-id (using GEP instruction)
+      multiOperands[i] = BitCastInst::CreatePointerCast(multiOperands[i], vecType->getScalarType()->getPointerTo(), "bitcast2Scalar", I);
+      Constant *laneVal = ConstantInt::get(Type::getInt32Ty(I->getContext()), i);
+      multiOperands[i] = GetElementPtrInst::Create(multiOperands[i], laneVal, "GEP[Lane]", I);
+    }
+  }
+}
 
 void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWrap)
 {
@@ -608,7 +688,33 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   Type *IndexTy = MO.Index->getType();
   obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
- 
+
+  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) {
+    // This is load/store from SOA-alloca instruction,
+    // need to fix the index and the base:
+    //   newBase = Bitcast(Base, scalar type)
+    //   newIndex = (index * packetWidth) + lane-id
+    Type *indexType = MO.Index->getType();
+    V_ASSERT(indexType->isVectorTy() && "index of scatter/gather is not a vector!");
+    indexType = cast<VectorType>(indexType)->getElementType();
+    Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
+    vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+    std::vector<Constant *> laneVec;
+    for (unsigned int i=0; i < m_packetWidth; ++i) {
+      laneVec.push_back(ConstantInt::get(indexType, i));
+    }
+    Constant *laneVal = ConstantVector::get(laneVec);
+    MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
+    MO.Index = BinaryOperator::CreateNUWAdd(MO.Index, laneVal, "addLanePacked", MO.Orig);
+
+    Type *baseType = MO.Base->getType();
+    V_ASSERT(baseType->isPointerTy() && "base of scatter/gather is not a pointer!");
+    baseType = cast<PointerType>(baseType)->getElementType();
+    V_ASSERT(baseType->isVectorTy() && "base of scatter/gather is not a pointer to a vector!");
+    baseType = cast<VectorType>(baseType)->getElementType();
+    MO.Base = BitCastInst::CreatePointerCast(MO.Base, baseType->getPointerTo(), "bitcast2Scalar", MO.Orig);
+  }
+
   if (MO.Data)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
@@ -640,8 +746,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   bool is_gather = (MO.Data == NULL);
   std::string name = Mangler::getGatherScatterInternalName(is_gather, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter caller instruction
-  Module *pModule = MO.Orig->getParent()->getParent()->getParent();
-  Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, RetTy, args, MO.Orig);
+  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
 
   return newCaller;
 }
@@ -652,22 +757,22 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   Value *inAddr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(inAddr, MO.Ptr , MO.Orig);
 
-  PointerType *inPtr = dyn_cast<PointerType>(inAddr[0]->getType());
+  V_ASSERT((MO.Ptr->getType() == inAddr[0]->getType() ||
+    m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) &&
+    "scalar pointer should be same as original pointer");
+  PointerType *inPtr = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(inPtr && "unexpected non-pointer argument");
 
   // BitCast the "scalar" pointer to a "vector" pointer
   Type *elementType = inPtr->getElementType();
   Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
-  PointerType *vectorInPtr = PointerType::get(vectorElementType, 
-    inPtr->getAddressSpace());
-  Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr,
-    "ptrTypeCast", MO.Orig);
+  PointerType *vectorInPtr = PointerType::get(vectorElementType, inPtr->getAddressSpace());
+  Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr, "ptrTypeCast", MO.Orig);
 
 
   if (!MO.Data) {
     // Create a "vectorized" load
-    return new LoadInst(bitCastPtr, MO.Orig->getName(), false, 
-      MO.Alignment, MO.Orig);
+    return new LoadInst(bitCastPtr, MO.Orig->getName(), false, MO.Alignment, MO.Orig);
   } else {
     Value *vData;
     obtainVectorizedValue(&vData, MO.Data, MO.Orig);
@@ -696,15 +801,17 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   // Set the pointer (Consecutive). It must pointer to a vector data type.
   Value *SclrPtr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(SclrPtr, MO.Ptr, MO.Orig);
-  MO.Ptr = SclrPtr[0];
   // Widen the load
   // BitCast the "scalar" pointer to a "vector" pointer
+  V_ASSERT((MO.Ptr->getType() == SclrPtr[0]->getType() ||
+    m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) &&
+    "scalar pointer should be same as original pointer");
   PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(PtrTy && "Pointer must be of pointer type");
   Type *ElemType = PtrTy->getElementType();
   Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
   PointerType *VecTy = PointerType::get(VecElemTy, PtrTy->getAddressSpace());
-  MO.Ptr = new BitCastInst(MO.Ptr, VecTy, "ptrTypeCast",MO.Orig);
+  Value *bitCastPtr = new BitCastInst(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
 
   // If this is a store
   if (MO.Data) {
@@ -712,21 +819,15 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   }
   
   // Implement the function call
-  std::vector<Value*> args;
-  std::vector<Type *> types;
+  SmallVector<Value*, 8> args;
   
   args.push_back(MO.Mask);
   if (MO.Data) args.push_back(MO.Data);
-  args.push_back(MO.Ptr);
-  types.push_back(MO.Mask->getType());
-  if (MO.Data) types.push_back(MO.Data->getType());
-  types.push_back(MO.Ptr->getType());
+  args.push_back(bitCastPtr);
 
-  Type *DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
+  Type *DT = cast<PointerType>(bitCastPtr->getType())->getElementType();
   if (MO.Data) DT = Type::getVoidTy(DT->getContext());
-  FunctionType *intr = FunctionType::get(DT, types, false);
-  Constant* new_f = m_currFunc->getParent()->getOrInsertFunction(name, intr);
-  return CallInst::Create(new_f, ArrayRef<Value*>(args), "", MO.Orig);
+  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args, MO.Orig);
 }
 
 
@@ -789,7 +890,10 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
   if (Gep && Gep->getNumIndices() == 1) {
     Base = Gep->getOperand(0);
     // and the base is uniform
-    if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM) {
+    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
+    if (depBase == WIAnalysis::UNIFORM ||
+        (depBase == WIAnalysis::PTR_CONSECUTIVE &&
+        m_soaAllocaAnalysis->isSoaAllocaScalarRelated(Base))) {
       Index = Gep->getOperand(1);
       MO.IndexIsSigned = true;
       MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
@@ -939,6 +1043,13 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     return packetizeMemoryOperand(MO);
   }
 
+  if (CI->getCalledFunction()->isIntrinsic() &&
+      CI->getCalledFunction()->getIntrinsicID() == Intrinsic::memset &&
+      m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI)) {
+    packetizedMemsetSoaAllocaDerivedInst(CI);
+    return;
+  }
+
   // First remove any name-mangling (for example, masking), from the function name
   if (isMangled) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
@@ -1035,6 +1146,33 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   m_removedInsts.insert(CI);
 }
 
+void PacketizeFunction::packetizedMemsetSoaAllocaDerivedInst(CallInst *CI) {
+  // If we reach here we assume the called function is llvm.memset
+  // need to fix the operands: size and alignment by multiply them with m_packetWidth.
+  const unsigned int sizeIndex = 2;
+  const unsigned int alignmentIndex = 3;
+  unsigned int numOperands = CI->getNumOperands();
+  // Iterate over all operands and replace them
+  for (unsigned op = 0; op < numOperands; ++op) {
+    if (op == sizeIndex) {
+      ConstantInt *size = dyn_cast<ConstantInt>(CI->getOperand(sizeIndex));
+      V_ASSERT(size && "Operand size of memset is not a constant integer!");
+      CI->setArgOperand(sizeIndex, ConstantInt::get(size->getType(), size->getZExtValue() * m_packetWidth));
+    }
+    else if (op == alignmentIndex) {
+      ConstantInt *alignment = dyn_cast<ConstantInt>(CI->getOperand(alignmentIndex));
+      V_ASSERT(alignment && "Operand alignment of memset is not a constant integer!");
+      CI->setArgOperand(alignmentIndex, ConstantInt::get(alignment->getType(), alignment->getZExtValue() * m_packetWidth));
+    }
+    else {
+      Value *multiOperands[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(multiOperands, CI->getOperand(op), CI);
+      V_ASSERT(CI->getOperand(op)->getType() == multiOperands[0]->getType() &&
+        "original operand type is different than new operand type");
+      CI->setArgOperand(op, multiOperands[0]);
+    }
+  }
+}
 
 bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
          bool isMangled, bool isMaskedFunctionCall, std::vector<Value *>& newArgs) {
@@ -1652,10 +1790,22 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 
   unsigned inputVectorWidth = EI->getVectorOperandType()->getNumElements();
   
+  Instruction *location = dyn_cast<Instruction>(vectorValue);
+  if (location) {
+    if (!location->getParent()->getTerminator()) {
+      V_ASSERT(false && "Terminator should exist at this point!");
+      return duplicateNonPacketizableInst(EI);
+    }
+    location = ++BasicBlock::iterator(location);
+  } else {
+    // If vector value is not an instruction, it must be global value
+    // insert shuffles at function beginning.
+    location = m_currFunc->getEntryBlock().begin();
+  }
   // Obtain the packetized version of the vector input (actually multiple vectors)
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> inputOperands;
   inputOperands.assign(MAX_INPUT_VECTOR_WIDTH, NULL);
-  obtainMultiScalarValues(&(inputOperands[0]), vectorValue, EI);
+  obtainMultiScalarValues(&(inputOperands[0]), vectorValue, location);
   V_ASSERT(inputOperands[0]->getType() == vectorValue->getType() && "input type error");
 
   // Make the transpose optimization only while arch vector is 4,
@@ -1689,7 +1839,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     for (unsigned i = 0; i < m_packetWidth; i++)
     {
       Instruction *extend = new ShuffleVectorInst(inputOperands[i],
-        undefVect, vectExtend , "extend_vec", EI);
+        undefVect, vectExtend , "extend_vec", location);
       generatedShuffles.push_back(extend);
       inputOperands[i] = extend;
     }
@@ -1704,10 +1854,10 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
         V_STAT(m_cannotHandleCtr++;)
         return duplicateNonPacketizableInst(EI);
     }
-    obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, EI);
+    obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, location);
   } else {
     V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8");
-    obtainTranspVals32bitV4(inputOperands, SOA, generatedShuffles, EI);
+    obtainTranspVals32bitV4(inputOperands, SOA, generatedShuffles, location);
   }
   VectorizerUtils::SetDebugLocBy(generatedShuffles, EI);
 
@@ -1771,10 +1921,30 @@ void PacketizeFunction::packetizeInstruction(SelectInst *SI)
 }
 
 
-void PacketizeFunction::packetizeInstruction(AllocaInst *AI)
-{
+void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
   V_PRINT(packetizer, "\t\tAlloca Instruction\n");
   V_ASSERT(AI && "instruction type dynamic cast failed");
+
+  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(AI)) {
+    // AllocaInst is supported as SOA-alloca, handle it.
+    Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), m_packetWidth);
+    unsigned int alignment = AI->getAlignment() * m_packetWidth;
+
+    AllocaInst* newAlloca = new AllocaInst(allocaType, 0, alignment, "PackedAlloca", AI);
+
+    Instruction *duplicateInsts[MAX_PACKET_WIDTH];
+    // Set the new SOA-alloca instruction as scalar multi instructions
+    for (unsigned i = 0; i < m_packetWidth; i++) {
+      duplicateInsts[i] = newAlloca;
+    }
+    createVCMEntryWithMultiScalarValues(AI, duplicateInsts);
+
+    // Remove original instruction
+    m_removedInsts.insert(AI);
+    return;
+  }
+
+  // AllocaInst is supported vectorizing, duplicate original alloca.
   V_STAT(m_allocaCtr++;)
   return duplicateNonPacketizableInst(AI);
 }

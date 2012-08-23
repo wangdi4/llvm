@@ -10,9 +10,6 @@
 ; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -scalarize -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline  -scalarize -verify %s -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
-
 
 
 ; ModuleID = 'encoun_and_scalar.cl'
@@ -45,10 +42,10 @@ define void @encountered_not_scal_variable(<4 x i8>* nocapture %in1, <4 x i8>* n
 declare i32 @get_global_id(i32)
 
 declare <4 x i8> @_Z5rhaddU8__vector4hS_(<4 x i8>, <4 x i8>)
-;CHECK: [[NAME1:%scalar]] = extractelement 
-;CHECK: [[NAME2:%scalar[1-9]+]] = extractelement 
-;CHECK: [[NAME3:%scalar[1-9]+]] = extractelement 
-;CHECK: [[NAME4:%scalar[1-9]+]] = extractelement 
+;CHECK: [[NAME1:%scalar[0-9]*]] = extractelement 
+;CHECK: [[NAME2:%scalar[0-9]+]] = extractelement 
+;CHECK: [[NAME3:%scalar[0-9]+]] = extractelement 
+;CHECK: [[NAME4:%scalar[0-9]+]] = extractelement 
 
 ;CHECK:  {{.*}} mul i8 [[NAME1]]
 ;CHECK:  {{.*}} mul i8 [[NAME2]]

@@ -15,6 +15,7 @@
 
 #include "RuntimeServices.h"
 #include "WIAnalysis.h"
+#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
@@ -83,6 +84,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
     AU.addRequired<WIAnalysis>();
+    AU.addRequired<SoaAllocaAnalysis>();
   }
 
 private:
@@ -95,6 +97,17 @@ private:
   /// @param I instruction to work on
   void duplicateNonPacketizableInst(Instruction *I);
 
+  /// @brief Clone instructions which cannot be packetize.
+  /// @param I instruction to clone
+  /// @param duplicateInsts output cloned instruction in this buffer
+  void cloneNonPacketizableInst(Instruction *I, Instruction **duplicateInsts);
+
+  /// @brief Fix operand of load/store instructions derived from SOA-Alloca instruction.
+  /// @param I instruction to fix its operand
+  /// @param op index of operand to fix
+  /// @param multiOperands input/output operands to fix
+  void fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned int op, Value **multiOperands);
+
   /*! \name Instruction Packetization Functions
    *  \{ */
   /// @brief Packetize an instruction
@@ -103,6 +116,7 @@ private:
   void packetizeInstruction(CastInst *CI);
   void packetizeInstruction(CmpInst *CI);
   void packetizeInstruction(CallInst *CI);
+  void packetizedMemsetSoaAllocaDerivedInst(CallInst *CI);
   void packetizeInstruction(InsertElementInst *IEI);
   void packetizeInstruction(ExtractElementInst *EI);
   void packetizeInstruction(SelectInst *SI);
@@ -384,6 +398,9 @@ private:
 
   // @brief pointer to work-item analysis performed for this function
   WIAnalysis *m_depAnalysis;
+
+  // @brief pointer to Soa alloca analysis performed for this function
+  SoaAllocaAnalysis *m_soaAllocaAnalysis;
 
   // Contains all the removed instructions. After packetizing completes, they are removed.
   SmallPtrSet<Instruction *, ESTIMATED_INST_NUM> m_removedInsts;

@@ -8,8 +8,8 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
-;CHECK: @"internal.gather.v4i8[i32].m4"(<4 x i1> %_to_46, i8* %stripAS, <4 x i32> %5, i32 32, i1 true)
-;CHECK: @"internal.scatter.v4i8[i32].m4"(<4 x i1> %_to_46, i8* %stripAS10, <4 x i32> %5, <4 x i8> %12, i32 32, i1 true)
+;CHECK: @"internal.gather.v4i8[i32].m4"(<4 x i1> [[NAME1:%_to_[0-9]*]], i8* [[NAME2:%stripAS[0-9]*]], <4 x i32> %5, i32 32, i1 true)
+;CHECK: @"internal.scatter.v4i8[i32].m4"(<4 x i1> [[NAME1]], i8* [[NAME3:%stripAS[0-9]*]], <4 x i32> %5, <4 x i8> %12, i32 32, i1 true)
 ;CHECK: ret void
 
 define void @kernel(i8* nocapture %A, i64 %k) nounwind {

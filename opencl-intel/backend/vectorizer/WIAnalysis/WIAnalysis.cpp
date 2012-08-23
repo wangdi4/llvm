@@ -70,6 +70,10 @@ bool WIAnalysis::runOnFunction(Function &F) {
     return false;
   }
 
+  // Obtain SoaAllocaAnalysis of the function
+  m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
+  V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
+
   m_deps.clear();
   m_changed1.clear();
   m_changed2.clear();
@@ -215,7 +219,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
   else if (isa<StoreInst>(inst))                                              dep = calculate_dep_simple(inst);
   else if (const TerminatorInst *TI = dyn_cast<TerminatorInst>(inst))         dep = calculate_dep(TI);
   else if (const SelectInst *SI = dyn_cast<SelectInst>(inst))                 dep = calculate_dep(SI);
-  else if (isa<AllocaInst>(inst))                                             dep = WIAnalysis::RANDOM;
+  else if (const AllocaInst *AI = dyn_cast<AllocaInst>(inst))                 dep = calculate_dep(AI);
   else if (const CastInst *CI = dyn_cast<CastInst>(inst))                     dep = calculate_dep(CI);
   else if (isa<ExtractValueInst>(inst))                                       dep = calculate_dep_simple(inst);
   else if (isa<LoadInst>(inst))                                               dep = calculate_dep_simple(inst);
@@ -412,23 +416,29 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst) {
-  // running over the pointer and all indices argumets except for the last 
+  // running over the all indices argumets except for the last 
   // here we assume the pointer is the first operand
   unsigned num = inst->getNumIndices();
-  for (unsigned i=0; i < inst->getNumIndices(); ++i) {
+  for (unsigned i=1; i < inst->getNumIndices(); ++i) {
     const Value* op = inst->getOperand(i);
     WIAnalysis::WIDependancy dep = getDependency(op);
     if (dep != WIAnalysis::UNIFORM) {
       return WIAnalysis::RANDOM;
     }
   }
+  const Value* opPtr = inst->getOperand(0);
+  WIAnalysis::WIDependancy depPtr = getDependency(opPtr);
+
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  if (WIAnalysis::UNIFORM == lastIndDep)
-    return WIAnalysis::UNIFORM;
-  if (WIAnalysis::CONSECUTIVE == lastIndDep)
+  if (WIAnalysis::UNIFORM == lastIndDep) {
+    return depPtr;
+  }
+  if (WIAnalysis::CONSECUTIVE == lastIndDep &&
+      WIAnalysis::UNIFORM == depPtr) {
     return WIAnalysis::PTR_CONSECUTIVE;
+  }
   return WIAnalysis::RANDOM;
 }
 
@@ -493,7 +503,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const SelectInst* inst) {
     Value* op2 = inst->getOperand(2);
     WIAnalysis::WIDependancy dep1 =getDependency(op1);
     WIAnalysis::WIDependancy dep2 =getDependency(op2);
-    // Incase of constant scalar select we can choose according to the mask.
+    // In case of constant scalar select we can choose according to the mask.
     if (ConstantInt *C = dyn_cast<ConstantInt>(op0)) {
       uint64_t val = C->getZExtValue();
       if (val) return dep1;
@@ -504,8 +514,16 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const SelectInst* inst) {
     // propagate to Load/Store instructions.
     return select_conversion[dep1][dep2];
   }
-  // Incase the mask is non-uniform the select outcome can be a combination
+  // In case the mask is non-uniform the select outcome can be a combination
   // so we don't know nothing about it.
+  return WIAnalysis::RANDOM;
+}
+
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const AllocaInst* inst) {
+  // Check if alloca instruction can be converted to SOA-alloca
+  if( m_soaAllocaAnalysis->isSoaAllocaScalarRelated(inst) ) {
+    return WIAnalysis::PTR_CONSECUTIVE;
+  }
   return WIAnalysis::RANDOM;
 }
 
