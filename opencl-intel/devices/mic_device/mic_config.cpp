@@ -26,6 +26,8 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+bool MICDeviceConfig::config_already_printed = false;
+
 MICDeviceConfig::MICDeviceConfig()
 {
 	m_pConfigFile = NULL;
@@ -37,6 +39,16 @@ MICDeviceConfig::~MICDeviceConfig()
 cl_err_code MICDeviceConfig::Initialize(std::string filename)
 {
 	m_pConfigFile = new ConfigFile(filename);
+    
+    if (!config_already_printed)
+    {
+        config_already_printed = true;
+        if ((NULL != m_pConfigFile) && Device_PrintConfig())
+        {
+            PrintConfiguration();
+        }
+
+    }
 	return CL_SUCCESS;
 }
 void MICDeviceConfig::Release()

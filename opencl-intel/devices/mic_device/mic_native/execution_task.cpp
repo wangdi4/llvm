@@ -129,8 +129,19 @@ void init_commands_queue(uint32_t         in_BufferCount,
 				         void*            in_pReturnValue,
 				         uint16_t         in_ReturnValueLength)
 {
+    assert( sizeof(INIT_QUEUE_ON_DEVICE_STRUCT) == in_MiscDataLength );
+    assert( NULL != in_pMiscData );
+
     ThreadPool* pool = ThreadPool::getInstance();
 	pool->registerMasterThread();
+
+    INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
+
+    assert( NULL == QueueOnDevice::getCurrentQueue() );
+
+    QueueOnDevice* pQueue = new QueueOnDevice( data->is_in_order_queue );
+    pool->setGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY, pQueue);
+
     pool->wakeup_all();
 }
 
@@ -144,7 +155,16 @@ void release_commands_queue(uint32_t         in_BufferCount,
 					        void*            in_pReturnValue,
 					        uint16_t         in_ReturnValueLength)
 {
-	ThreadPool::getInstance()->unregisterMasterThread();
+	ThreadPool* pool = ThreadPool::getInstance();
+
+    QueueOnDevice* pQueue = QueueOnDevice::getCurrentQueue();
+    assert(NULL != pQueue);
+    
+    delete pQueue;
+    pool->setGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY, NULL);
+
+    pool->unregisterMasterThread();
+
 }
 
 
@@ -224,7 +244,7 @@ void execute_command(uint32_t					in_BufferCount,
 	tMiscData->init();	
 
 	// DO NOT delete this object, It will delete itself after kernel execution
-	TaskHandler* taskHandler = TaskHandler::TaskFactory(taskType, tDispatcherData, tMiscData);
+	TaskHandler* taskHandler = TaskHandler::TaskFactory(taskType, QueueOnDevice::getCurrentQueue(), tDispatcherData, tMiscData);
 	if (NULL == taskHandler)
 	{
 		NATIVE_PRINTF("TaskHandler::TaskFactory() Failed\n");
@@ -267,9 +287,13 @@ TaskHandler::~TaskHandler()
 }
 
 
-TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* dispatcherData, misc_data* miscData)
+TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevice* queue,
+                                      dispatcher_data* dispatcherData, misc_data* miscData)
 {
 	TaskContainerInterface* pTaskContainer = NULL;
+
+    assert( (NULL == queue) || (queue->isInOrder() == dispatcherData->isInOrderQueue) );
+    
 	// If In order
 	if (dispatcherData->isInOrderQueue)
 	{
@@ -344,6 +368,7 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, dispatcher_data* disp
 	assert(pTaskContainer->getMyTask());
 	// Set "TaskInterface" in this "TaskHandler" object.
 	taskHandler->setTaskInterface(pTaskContainer->getMyTask());
+    taskHandler->setQueue(queue);
 
 	// Set arrival time to device for the tracer
 	taskHandler->m_commandTracer.set_current_time_cmd_run_in_device_time_start();
@@ -746,6 +771,9 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 	m_pCommandTracer = &(pTaskHandler->m_commandTracer);
 	// Set total buffers size and num of buffers for the tracer.
 	m_pCommandTracer->add_delta_num_of_buffer_sent_to_device((pTaskHandler->m_lockBufferCount));
+
+    m_pQueue = pTaskHandler->m_queue;
+    
 	unsigned long long bufSize = 0;
 	for (unsigned int i = 0; i < pTaskHandler->m_lockBufferCount; i++)
 	{
@@ -1076,6 +1104,276 @@ m_taskHandler(pTaskHandler), m_dim(dim), m_region(region)
 {
 }
 
+class SubTaskLoopBody1D : public tbb::task
+{
+public:
+    SubTaskLoopBody1D( size_t start_col, size_t past_last_col, unsigned int col_grain, 
+         const Intel::OpenCL::MICDeviceNative::TaskLoopBody1D& t) :
+        m_start_col(start_col), m_past_last_col(past_last_col), 
+        m_col_grain(col_grain), m_t(t) {};
+
+    tbb::task* execute()
+    {
+        tbb::parallel_for(tbb::blocked_range<int>(m_start_col, (int)m_past_last_col, m_col_grain
+                                                    ), m_t, tbb::auto_partitioner());
+        return NULL;
+    }
+
+private:
+    size_t m_start_col;
+    size_t m_past_last_col;
+    unsigned int  m_col_grain;
+    Intel::OpenCL::MICDeviceNative::TaskLoopBody1D m_t;
+};
+
+class SubTaskLoopBody2D : public tbb::task
+{
+public:
+    SubTaskLoopBody2D(   size_t start_raw, size_t past_last_raw, unsigned int raw_grain,
+                         size_t start_col, size_t past_last_col, unsigned int col_grain,
+                         const Intel::OpenCL::MICDeviceNative::TaskLoopBody2D& t) :
+        m_start_raw(start_raw), m_past_last_raw(past_last_raw), m_raw_grain(raw_grain),
+        m_start_col(start_col), m_past_last_col(past_last_col), m_col_grain(col_grain),
+        m_t(t) {};
+
+    tbb::task* execute()
+    {
+        tbb::parallel_for(tbb::blocked_range2d<int>(m_start_raw, (int)m_past_last_raw, m_raw_grain,
+                                                    m_start_col, (int)m_past_last_col, m_col_grain
+                                                    ), m_t, tbb::auto_partitioner());
+        return NULL;
+    }
+
+private:
+    size_t m_start_raw;
+    size_t m_past_last_raw;
+    unsigned int  m_raw_grain;
+
+    size_t m_start_col;
+    size_t m_past_last_col;
+    unsigned int  m_col_grain;
+    Intel::OpenCL::MICDeviceNative::TaskLoopBody2D m_t;
+};
+
+class SubTaskLoopBody3D : public tbb::task
+{
+public:
+    SubTaskLoopBody3D(   size_t start_page,size_t past_last_page, unsigned int page_grain,
+                         size_t start_raw, size_t past_last_raw,  unsigned int raw_grain,
+                         size_t start_col, size_t past_last_col,  unsigned int col_grain,
+                         const Intel::OpenCL::MICDeviceNative::TaskLoopBody3D& t) :
+        m_start_page(start_page),m_past_last_page(past_last_page), m_page_grain(page_grain),
+        m_start_raw(start_raw), m_past_last_raw(past_last_raw), m_raw_grain(raw_grain),
+        m_start_col(start_col), m_past_last_col(past_last_col), m_col_grain(col_grain),
+        m_t(t) {};
+
+    tbb::task* execute()
+    {
+        tbb::parallel_for(tbb::blocked_range3d<int>(m_start_page,(int)m_past_last_page,m_page_grain,
+                                                    m_start_raw, (int)m_past_last_raw, m_raw_grain,
+                                                    m_start_col, (int)m_past_last_col, m_col_grain
+                                                    ), m_t, tbb::auto_partitioner());
+        return NULL;
+    }
+
+private:
+    size_t m_start_page;
+    size_t m_past_last_page;
+    unsigned int  m_page_grain;
+    
+    size_t m_start_raw;
+    size_t m_past_last_raw;
+    unsigned int  m_raw_grain;
+
+    size_t m_start_col;
+    size_t m_past_last_col;
+    unsigned int  m_col_grain;
+
+    Intel::OpenCL::MICDeviceNative::TaskLoopBody3D m_t;
+};
+
+
+template< typename block_range >
+void split_ranges( unsigned int number_of_slots, const block_range& input, list<block_range>& output )
+{
+    list<block_range>     list1,    list2;
+    list<block_range>     *list_in, *list_out;
+    
+    list_in   = &list1;
+    list_out  = &list2;
+    list_in->push_back( input );
+
+    while ((list_in->size() > 0) && 
+           ((output.size() + list_in->size()) < number_of_slots))
+    {
+        while (list_in->size() > 0)
+        {
+            block_range orig = list_in->front();
+            list_in->pop_front();
+    
+            if (orig.is_divisible())
+            {
+                block_range  left_part( orig, tbb::split() );
+                list_out->push_back( orig );
+                list_out->push_back( left_part );
+            }
+            else
+            {
+                output.push_back( orig );
+            }
+        }
+
+        list<block_range>* tmp_list = list_in;
+        list_in = list_out;
+        list_out = tmp_list;
+        
+    }
+
+    output.insert( output.end(), list_in->begin(), list_in->end() );
+}
+
+class SlotAffinityAssignmentStruct
+{
+public:
+    SlotAffinityAssignmentStruct(unsigned int slots) : m_aff(2), m_slots(slots) 
+    {
+        if (m_aff > m_slots)
+        {
+            m_aff = m_slots;
+        }
+    };
+
+    operator unsigned int() { return m_aff; };
+
+    void update() 
+    {
+        // if more than slots - lock affinity
+        if (m_aff > 0)
+        {
+            ++m_aff;
+            if (m_aff > m_slots)
+            {
+                m_aff = 1;
+            }
+        }        
+    }
+    
+private:
+    unsigned int m_aff;
+    const unsigned int m_slots;
+};
+
+static
+void split_tasks( unsigned int number_of_slots, const tbb::blocked_range<int>& range, 
+                  const Intel::OpenCL::MICDeviceNative::TaskLoopBody1D& task, 
+                  tbb::task_list& tasks )
+{
+    size_t group_size = range.size() / number_of_slots;
+    if (0 == group_size)
+    {
+        group_size = 1;
+    }
+    
+    size_t                       start = 0;
+    SlotAffinityAssignmentStruct aff(number_of_slots);
+    
+    while (start < range.size())
+    {
+        size_t end = start + group_size;
+        if (end > range.size())
+        {
+            group_size = 1;
+            end = start+group_size;
+        }
+
+        tbb::task* t = new(tbb::task::allocate_root()) SubTaskLoopBody1D( start, end, (unsigned int)range.grainsize(), task );
+        t->set_affinity( aff );
+        tasks.push_back(*t);
+
+        // update slot affinity
+        aff.update();            
+        start = end;
+    }
+}
+
+static
+void split_tasks( unsigned int number_of_slots, const tbb::blocked_range2d<int>& range, 
+                  const Intel::OpenCL::MICDeviceNative::TaskLoopBody2D& task, 
+                  tbb::task_list& tasks )
+{
+    typedef tbb::blocked_range2d<int> my_range_type;
+    typedef list<my_range_type>       my_range_list_type;
+    
+    my_range_type   internal_range( range.rows().begin(), range.rows().end(), 1,
+                                    range.cols().begin(), range.cols().end(), 1 );
+                                                
+        
+    my_range_list_type list_of_ranges;
+    
+    split_ranges( number_of_slots, internal_range, list_of_ranges );
+
+    SlotAffinityAssignmentStruct aff(number_of_slots);
+    
+    my_range_list_type::iterator it     = list_of_ranges.begin();
+    my_range_list_type::iterator it_end = list_of_ranges.end();
+
+    for(; it != it_end; ++it)
+    {
+        my_range_type& r = *it;
+        
+        tbb::task* t = new(tbb::task::allocate_root()) SubTaskLoopBody2D( 
+                                                (size_t)r.rows().begin(), (size_t)r.rows().end(), (unsigned int)range.rows().grainsize(),
+                                                (size_t)r.cols().begin(), (size_t)r.cols().end(), (unsigned int)range.cols().grainsize(),
+                                                task );
+
+        t->set_affinity( aff );
+        tasks.push_back(*t);
+
+        // update slot affinity
+        aff.update();                    
+    }
+}
+
+static
+void split_tasks( unsigned int number_of_slots, const tbb::blocked_range3d<int>& range, 
+                  const Intel::OpenCL::MICDeviceNative::TaskLoopBody3D& task, 
+                  tbb::task_list& tasks )
+{
+    typedef tbb::blocked_range3d<int> my_range_type;
+    typedef list<my_range_type>       my_range_list_type;
+    
+    my_range_type   internal_range( range.pages().begin(),range.pages().end(),1,
+                                    range.rows().begin(), range.rows().end(), 1,
+                                    range.cols().begin(), range.cols().end(), 1 );
+                                                
+        
+    my_range_list_type list_of_ranges;
+    
+    split_ranges( number_of_slots, internal_range, list_of_ranges );
+
+    SlotAffinityAssignmentStruct aff(number_of_slots);
+    
+    my_range_list_type::iterator it     = list_of_ranges.begin();
+    my_range_list_type::iterator it_end = list_of_ranges.end();
+
+    for(; it != it_end; ++it)
+    {
+        my_range_type& r = *it;
+        
+        tbb::task* t = new(tbb::task::allocate_root()) SubTaskLoopBody3D( 
+                                                (size_t)r.pages().begin(), (size_t)r.pages().end(), (unsigned int)range.pages().grainsize(),
+                                                (size_t)r.rows().begin(),  (size_t)r.rows().end(),  (unsigned int)range.rows().grainsize(),
+                                                (size_t)r.cols().begin(),  (size_t)r.cols().end(),  (unsigned int)range.cols().grainsize(),
+                                                task );
+
+        t->set_affinity( aff );
+        tasks.push_back(*t);
+
+        // update slot affinity
+        aff.update();                    
+    }
+}
+
 tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 {
 	assert(m_pTbbNDRangeTask);
@@ -1091,31 +1389,100 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 	// Set execution start for tracer
 	m_pTbbNDRangeTask->getCommandTracerPtr()->set_current_time_tbb_exe_in_device_time_start();
 
+    tbb::affinity_partitioner* ap = m_pTbbNDRangeTask->getQueue()->getAffinityPartitioner();
+    mic_TBB_scheduler use_scheduler = gMicExecEnvOptions.tbb_scheduler;
+
+    if ((NULL == ap) && (mic_TBB_affinity == use_scheduler))
+    {
+        use_scheduler = mic_TBB_auto;
+    }
+
 	bool result = true;
 
+    tbb::task_list task_list;
+    
 	if (1 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+        
+        switch (gMicExecEnvOptions.tbb_scheduler)
+        {
+            case mic_TBB_openmp:
+                split_tasks( gMicExecEnvOptions.num_of_worker_threads, 
+                             tbb::blocked_range<int>(0, (int)m_region[0], grainSize), 
+                             TaskLoopBody1D(m_pTbbNDRangeTask, &result), task_list );
+                break;
+                
+            case mic_TBB_affinity:
+                tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask, &result), *ap );
+                break;
+
+            default:
+                tbb::parallel_for(tbb::blocked_range<int>(0, (int)m_region[0], grainSize), TaskLoopBody1D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+                break;
+        }
 	}
 	else if (2 == m_dim)
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
 		assert(m_region[1] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize,
-													0, (int)m_region[0], grainSize),
-													TaskLoopBody2D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+
+        switch (gMicExecEnvOptions.tbb_scheduler)
+        {
+            case mic_TBB_openmp:
+                split_tasks( gMicExecEnvOptions.num_of_worker_threads, 
+                             tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize, 0, (int)m_region[0], grainSize), 
+                             TaskLoopBody2D(m_pTbbNDRangeTask, &result), task_list );
+                break;
+                
+            case mic_TBB_affinity:
+                tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize,
+                                                            0, (int)m_region[0], grainSize),
+                                                            TaskLoopBody2D(m_pTbbNDRangeTask, &result), *ap );
+                break;
+        
+            default:
+                tbb::parallel_for(tbb::blocked_range2d<int>(0, (int)m_region[1], grainSize,
+                                                            0, (int)m_region[0], grainSize),
+                                                            TaskLoopBody2D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+                break;
+        }
+
 	}
 	else
 	{
 		assert(m_region[0] <= CL_MAX_INT32);
 		assert(m_region[1] <= CL_MAX_INT32);
 		assert(m_region[2] <= CL_MAX_INT32);
-		tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize,
-													0, (int)m_region[1], grainSize,
-													0, (int)m_region[0], grainSize),
-													TaskLoopBody3D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+
+        switch (gMicExecEnvOptions.tbb_scheduler)
+        {
+            case mic_TBB_openmp:
+                split_tasks( gMicExecEnvOptions.num_of_worker_threads, 
+                             tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize, 0, (int)m_region[1], grainSize, 0, (int)m_region[0], grainSize), 
+                             TaskLoopBody3D(m_pTbbNDRangeTask, &result), task_list );
+                break;
+                
+            case mic_TBB_affinity:
+                tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize,
+                                                            0, (int)m_region[1], grainSize,
+                                                            0, (int)m_region[0], grainSize),
+                                                            TaskLoopBody3D(m_pTbbNDRangeTask, &result), *ap );
+                break;
+        
+            default:
+                tbb::parallel_for(tbb::blocked_range3d<int>(0, (int)m_region[2], grainSize,
+                                                            0, (int)m_region[1], grainSize,
+                                                            0, (int)m_region[0], grainSize),
+                                                            TaskLoopBody3D(m_pTbbNDRangeTask, &result), tbb::auto_partitioner());
+                break;
+        }
 	}
+
+    if (!task_list.empty())
+    {
+        tbb::task::spawn_root_and_wait(task_list);
+    }
 
 	if (false == result)
 	{
@@ -1134,11 +1501,13 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 
 
 GENERIC_TLS_STRUCT::fnConstructorTls* GENERIC_TLS_STRUCT::constructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::constructTlsEntry		// NDRange task general TLS creator.
+	&NDRangeTask::constructTlsEntry,		// NDRange task general TLS creator.
+	&QueueOnDevice::QueueTlsConstructor     // Queue on device
 };
 
 GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::destructTlsEntry		// NDRange task general TLS destructor.
+	&NDRangeTask::destructTlsEntry,		   // NDRange task general TLS destructor.
+    &QueueOnDevice::QueueTlsDestructor     // Queue on device
 };
 
 
@@ -1431,6 +1800,7 @@ bool TBBThreadPool::init()
 
 void TBBThreadPool::release()
 {
+    m_workers_trapper.release();
 	// DO NOTHING.
 }
 
@@ -1553,28 +1923,68 @@ void TBBThreadPool::initializeReserveAffinityThreadIds()
 	}
 }
 
-struct TBBThreadPool::WorkersWakeup
+tbb::task* TBBThreadPool::TrapperTask::execute () 
 {
-    AtomicCounterNative& counter;
-    
-    WorkersWakeup( AtomicCounterNative& workers_left ) : counter(workers_left) {};
-
-    void operator()(const tbb::blocked_range<int>& r) const 
+    --(m_owner.startup_workers_left);
+    while (0 != m_owner.startup_workers_left)
     {
-        --counter;
-        while (0 != counter)
-        {
-            hw_pause();
-        } 
+        hw_pause();
+    }  
+    m_owner.my_root->wait_for_all();
+    --(m_owner.shutdown_workers_left);
+    return NULL;
+}
+
+TBBThreadPool::TrapWorkers::TrapWorkers() : 
+    my_root(NULL), 
+    my_context(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+    m_workers_count(0)
+{
+}
+
+void TBBThreadPool::TrapWorkers::release()
+{
+    if (NULL == my_root)
+    {
+        return;
     }
-};
+    
+    shutdown_workers_left = m_workers_count;
+    my_root->decrement_ref_count();
+    while (0 != shutdown_workers_left)
+    {
+        hw_pause();
+    } 
+    tbb::task::destroy(*my_root);
+    my_root = NULL;
+}
+
+void TBBThreadPool::TrapWorkers::fire()
+{
+    m_workers_count = gMicExecEnvOptions.num_of_worker_threads-1;
+    
+    my_root = new ( tbb::task::allocate_root(my_context) ) tbb::empty_task;
+    my_root->set_ref_count(2);
+    startup_workers_left = m_workers_count;
+
+    for ( unsigned int i = 0; i < m_workers_count; ++i )
+	{
+        tbb::task::spawn( *new(tbb::task::allocate_root()) TrapperTask(*this) );
+	}
+
+    while (0 != startup_workers_left)
+    {
+        hw_pause();
+    }     
+
+    if (false == gMicExecEnvOptions.trap_workers)
+    {
+        release();
+    }
+}
 
 void TBBThreadPool::startup_all_workers()
 {
-    AtomicCounterNative workers_left(gMicExecEnvOptions.num_of_worker_threads);
-
-    tbb::parallel_for(tbb::blocked_range<int>(0, int(gMicExecEnvOptions.num_of_worker_threads), 1), 
-                      WorkersWakeup(workers_left), 
-                      tbb::auto_partitioner());
+    m_workers_trapper.fire();
 }
 

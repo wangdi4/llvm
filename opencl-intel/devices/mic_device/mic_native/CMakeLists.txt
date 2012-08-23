@@ -181,7 +181,7 @@ set( MIC_FLAGS  -Werror
                 -sox
             )
 
-set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG )
+set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG -DDEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 
 # inlcude path

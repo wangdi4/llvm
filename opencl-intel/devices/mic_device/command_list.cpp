@@ -207,7 +207,11 @@ cl_dev_err_code CommandList::createPipeline()
 
 cl_dev_err_code CommandList::initCommandListOnDevice()
 {
-	return runBlockingFuncOnDevice(DeviceServiceCommunication::INIT_COMMANDS_QUEUE);
+    INIT_QUEUE_ON_DEVICE_STRUCT data;
+    data.is_in_order_queue = isInOrderCommandList();
+    
+	return runBlockingFuncOnDevice(DeviceServiceCommunication::INIT_COMMANDS_QUEUE,
+                                   &data, sizeof(data));
 }
 
 cl_dev_err_code CommandList::releaseCommandListOnDevice()
@@ -215,31 +219,29 @@ cl_dev_err_code CommandList::releaseCommandListOnDevice()
 	return runBlockingFuncOnDevice(DeviceServiceCommunication::RELEASE_COMMANDS_QUEUE);
 }
 
-cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func)
+cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func,
+                                                     void* in_data, size_t in_data_size )
 {
-	COIRESULT   result = COI_SUCCESS;
-    COIEVENT  barrier;
-	assert(m_pipe);
+    assert( ((NULL != in_data) && (0 != in_data_size)) || ((NULL == in_data) && (0 == in_data_size)) );
+
+    if (NULL == in_data)
+    {
+        in_data_size = 0;
+    }
+    else if (0 == in_data_size)
+    {
+        in_data = NULL;
+    }
+
+    
+    
 	// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
-	result = COIPipelineRunFunction(m_pipe, m_pDeviceServiceComm->getDeviceFunction(func),
-                                    0, NULL, NULL,
-                                    0, NULL,                    // dependecies
-                                    NULL, 0,
-                                    NULL, 0,
-                                    &barrier);
-	assert(COI_SUCCESS == result);
-    if (result != COI_SUCCESS)
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-    // Wait until the function execution completed on the sink side.
-    result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
-	assert(COI_SUCCESS == result);
-    if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-    return CL_DEV_SUCCESS;
+    bool ok = runQueueServiceFunction( func,
+                                       in_data_size, in_data,
+                                       0, NULL,
+                                       0, NULL,NULL );
+
+    return (ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
 

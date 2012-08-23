@@ -62,6 +62,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	}
 
 class TaskInterface;
+class QueueOnDevice;
 
 /* TaskHandler is an abstract class that manage the execution of a task. */
 class TaskHandler
@@ -79,7 +80,7 @@ public:
 
 	/* Factory for TaskHandler object (In order or Out of order).
 	   DO NOT delete this object, 'FinishTask' metod will delete this object. */
-	static TaskHandler* TaskFactory(TASK_TYPES type, dispatcher_data* dispatcherData, misc_data* miscData);
+	static TaskHandler* TaskFactory(TASK_TYPES type, QueueOnDevice* queue, dispatcher_data* dispatcherData, misc_data* miscData);
 
 	/* Initializing the task */
 	virtual void InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) = 0;
@@ -114,6 +115,7 @@ protected:
 
 	// a pointer to TaskInterface
 	TaskInterface* m_task;
+	QueueOnDevice* m_queue;
 
 	// Command tracer
 	CommandTracer m_commandTracer;
@@ -122,6 +124,7 @@ private:
 
 	// Setter for the TaskInterface pointer.
 	void setTaskInterface(TaskInterface* task) { m_task = task; }
+	void setQueue(QueueOnDevice* queue) { m_queue = queue; }
 };
 
 
@@ -343,6 +346,7 @@ public:
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() { return m_pCommandTracer; };
+	virtual QueueOnDevice* getQueue() { return m_pQueue; };
 
 protected:
 
@@ -353,6 +357,8 @@ protected:
 	// uniqueue identifier for this task (command)
 	cl_dev_cmd_id m_commandIdentifier;
 
+    QueueOnDevice*        m_pQueue;
+    
 	ICLDevBackendKernel_* m_kernel;
 	ICLDevBackendBinary_* m_pBinary;
 	ProgramMemoryManager* m_progamExecutableMemoryManager;
@@ -468,6 +474,7 @@ struct GENERIC_TLS_STRUCT
 	enum GENERIC_TLS_ENTRIES_INDEXES
 	{
 		NDRANGE_TLS_ENTRY = 0,
+        QUEUE_TLS_ENTRY,
 
 		//All the records must be before
 		NUM_OF_GENERIC_TLS_ENTRIES
@@ -625,6 +632,38 @@ private:
 /* Class TBBThreadPool inherits from ThreadPool and from tbb::task_scheduler_observer. */ 
 class TBBThreadPool : public ThreadPool, public tbb::task_scheduler_observer
 {
+private:
+
+    class TrapWorkers;
+    class TrapperTask : public tbb::task 
+    {
+    private:
+        TrapWorkers& m_owner;
+    
+    public:
+        TrapperTask( TrapWorkers& o ) : m_owner(o) {};
+    
+        tbb::task* execute ();
+    };
+    
+    class  TrapWorkers
+    {
+    public:
+        TrapWorkers();
+
+        void fire();
+        void release();
+        
+    private:
+        tbb::task *my_root;
+        tbb::task_group_context my_context;
+        AtomicCounterNative startup_workers_left;
+        AtomicCounterNative shutdown_workers_left;
+        unsigned int m_workers_count;
+
+        friend class TrapperTask;
+    };
+    
 public:
 
 	TBBThreadPool() {};
@@ -675,9 +714,31 @@ private:
 
 	// Run over all the general tls destructors.
 	void releaseGeneralTls();
-
     struct WorkersWakeup;
+    TrapWorkers m_workers_trapper;
 };
 
+//
+// Queue - saved in COI thread TLS
+//
+class QueueOnDevice
+{
+public:
+    QueueOnDevice( bool is_in_order ) : m_is_in_order(is_in_order) {};
+
+    bool isInOrder() const { return m_is_in_order; };
+
+    tbb::affinity_partitioner* getAffinityPartitioner() { return (m_is_in_order) ? &m_affinity_partitioner : NULL; };
+
+    static bool QueueTlsConstructor(void** outEntry) { *outEntry = NULL; return true; };
+    static void QueueTlsDestructor(void* outEntry) { if (NULL != outEntry) delete (QueueOnDevice*)outEntry; };
+
+    static QueueOnDevice* getCurrentQueue() { 
+            return (QueueOnDevice*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY)); };
+    
+private:
+    bool                        m_is_in_order;
+    tbb::affinity_partitioner   m_affinity_partitioner;
+};
 
 }}}

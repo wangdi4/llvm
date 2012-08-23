@@ -1,7 +1,11 @@
 
 #pragma once
 
-#define NATIVE_PRINTF(...)   { printf( "SINK: " __VA_ARGS__); fflush(0); }
+#ifdef DEBUG
+    #define NATIVE_PRINTF(...)   { printf( "SINK: " __VA_ARGS__); fflush(0); }
+#else
+    #define NATIVE_PRINTF(...)
+#endif
 
 // KNC/KNF do not support pause instruction
 //#define hw_pause()           { asm volatile ("pause"); }

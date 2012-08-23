@@ -169,7 +169,8 @@ public:
     static size_t CalculateOffset(cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize);
     static SMemMapParamsList* GetCoiMapParams( cl_dev_cmd_param_map* pMapParams ) { return (SMemMapParamsList*)pMapParams->map_handle; };
 
-    bool Use_2M_Pages( size_t size ) const { return (m_2M_BufferMinSize > 0) && (size >= m_2M_BufferMinSize); };
+    bool Use_2M_Pages_Enabled( void ) const { return (m_2M_BufferMinSize > 0); };
+    bool Use_2M_Pages( size_t size ) const { return Use_2M_Pages_Enabled() && (size >= m_2M_BufferMinSize); };
     bool ImmediateTransferForced( void ) const { return m_force_immediate_transfer; };
 
 private:

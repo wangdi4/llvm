@@ -99,10 +99,13 @@ public:
                                  unsigned int numBuffers, const COIBUFFER* buffers, 
                                  const COI_ACCESS_FLAGS* bufferAccessFlags ) const 
                                  
-                        { return m_pDeviceServiceComm->runServiceFunction( id, 
+                        {   
+                            assert(m_pipe);
+                            return m_pDeviceServiceComm->runServiceFunction( id, 
                                                                            input_data_size,  input_data, 
                                                                            output_data_size, output_data,
-                                                                           numBuffers, buffers, bufferAccessFlags, m_pipe ); };
+                                                                           numBuffers, buffers, bufferAccessFlags, m_pipe ); 
+                        };
 
 	NotificationPort* getNotificationPort() { return m_pNotificationPort; };
 
@@ -158,9 +161,10 @@ private:
 	cl_dev_err_code releaseCommandListOnDevice();
 
 	/* Run function on device and wait for completion.
-	   Run it without buffers or misc data.
+	   Run it without buffers data.
 	   Run "func" on device side. */
-	cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func);
+	cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func,
+	                                        void* in_data = NULL, size_t in_data_size = 0 );
 
 	/* Factory for Command objects.
 	   The client responsability is to delete the return object.

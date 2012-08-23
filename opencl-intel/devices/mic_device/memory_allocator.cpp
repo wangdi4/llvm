@@ -369,8 +369,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // exhausted, while another - not.
     // try both in an order of required precedence 
     uint32_t flags[2] = {0, 0}; 
-    // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
-    flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = 0; // COI_OPTIMIZE_HUGE_PAGE_SIZE;
+    flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = (m_Allocator.Use_2M_Pages_Enabled()) ? COI_OPTIMIZE_HUGE_PAGE_SIZE : 0;
 
     COIRESULT coi_err;
     
@@ -704,10 +703,6 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
-    // BUGBUG:  COI still have many problems with sub-buffers - temporary disable
-//    assert( false && "Sub-buffers on MIC are still not supported" );
-    
-//    return CL_DEV_ERROR_FAIL; // CL_DEV_SUCCESS;
       return CL_DEV_SUCCESS;
 }
 

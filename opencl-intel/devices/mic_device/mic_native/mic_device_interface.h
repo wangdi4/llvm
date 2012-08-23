@@ -72,6 +72,10 @@ struct COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
 #define COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT_SIZE( number_of_kernels ) \
     ( sizeof(COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT) + sizeof(COPY_PROGRAM_TO_DEVICE_KERNEL_INFO)*((number_of_kernels) - 1))
 
+struct INIT_QUEUE_ON_DEVICE_STRUCT
+{
+    bool is_in_order_queue;
+};
 
 // Enum of directives
 enum DIRECTIVE_ID
@@ -348,17 +352,26 @@ struct misc_data
 
 #define MIC_CPU_ARCH_STR_SIZE 64
 
+enum mic_TBB_scheduler 
+{
+    mic_TBB_auto = 0,
+    mic_TBB_affinity,
+    mic_TBB_openmp
+};
+
 struct mic_exec_env_options {
-	bool stop_at_load;
-    bool use_affinity;
-    bool ignore_core_0;
-    bool ignore_last_core;
-	bool kernel_safe_mode;
-	bool use_vtune;
-	uint32_t num_of_worker_threads;
-	uint32_t num_of_cores;
-    uint32_t use_TBB_grain_size;
-    uint32_t min_work_groups_number; // recommended amount of workgroups per NDRange
+	bool                stop_at_load;
+    bool                use_affinity;
+    bool                ignore_core_0;
+    bool                ignore_last_core;
+	bool                kernel_safe_mode;
+	bool                use_vtune;
+    bool                trap_workers;
+	uint32_t            num_of_worker_threads;
+	uint32_t            num_of_cores;
+    uint32_t            use_TBB_grain_size;
+    uint32_t            min_work_groups_number; // recommended amount of workgroups per NDRange
+    mic_TBB_scheduler   tbb_scheduler;
 	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 
