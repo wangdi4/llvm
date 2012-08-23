@@ -285,7 +285,7 @@ OclBuiltinImpl rootn_svml_v8 = OclBuiltinImpl<rootn, [v8f32], 0, [{
 code workaround_modf = [{
     float16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, pf);
+    $Arg0Type res = __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
@@ -297,7 +297,7 @@ OclBuiltinImpl workaround_modf_las = OclBuiltinImpl<modf_las, [v1f32, v2f32, v3f
 code workaround_fract = [{
     float16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, pf);
+    $Arg0Type res = __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
@@ -309,7 +309,7 @@ OclBuiltinImpl workaround_fract_las = OclBuiltinImpl<fract_las, [v1f32, v2f32, v
 code workaround_sincos = [{
     float16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_sincos$SVMLSuffix($Arg0VarName, pf);
+    $Arg0Type res = __ocl_svml_$Target_sincos$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
@@ -322,7 +322,7 @@ OclBuiltinImpl workaround_sincos_las = OclBuiltinImpl<sincos_las, [v1f32, v2f32,
 code workaround_frexp = [{
     float16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, pf);
+    $Arg0Type res = __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
@@ -331,22 +331,21 @@ OclBuiltinImpl workaround_frexp_gas = OclBuiltinImpl<frexp_gas, [v1f32, v2f32, v
 OclBuiltinImpl workaround_frexp_las = OclBuiltinImpl<frexp_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_frexp>;
 
 // remquo
+// We can't call svml function because of bug in SVML library v2.0 and v2.1.
 code workaround_remquo = [{
-    float16 f;
-    $Arg2NoASType pf = ($Arg2NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, pf);
-    *$Arg2VarName = *pf;
-    return res;
+    $Arg0Type res = __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
+    *$Arg2VarName = convert_$Arg0i32gentype(division($Arg0VarName, $Arg1VarName)) & ($Arg0i32gentype)0x7f;
+    return __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
 }];
-OclBuiltinImpl workaround_remquo_pas = OclBuiltinImpl<remquo_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_remquo>;
-OclBuiltinImpl workaround_remquo_gas = OclBuiltinImpl<remquo_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_remquo>;
-OclBuiltinImpl workaround_remquo_las = OclBuiltinImpl<remquo_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_remquo>;
+OclBuiltinImpl workaround_remquo_pas = OclBuiltinImpl<remquo_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, workaround_remquo>;
+OclBuiltinImpl workaround_remquo_gas = OclBuiltinImpl<remquo_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, workaround_remquo>;
+OclBuiltinImpl workaround_remquo_las = OclBuiltinImpl<remquo_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, workaround_remquo>;
 
 // lgamma_r
 code workaround_lgamma_r = [{
-    float16 f;
+    int16 f;
     $Arg1NoASType pf = ($Arg1NoASType)(&f);
-    $Arg0NoASType res = __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, pf);
+    $Arg0Type res = __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, pf);
     *$Arg1VarName = *pf;
     return res;
 }];
