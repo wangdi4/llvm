@@ -222,7 +222,7 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
   // which, in turn, depends on the values of the Type pointers, which change
   // from run to run. This makes the choice inconsistent between runs.
   Type* DominantType = Type::getInt32Ty(F.getContext());
-  int MaxCount = 0;
+  float MaxCount = 0;
   for (DenseMap<Type*, float>::iterator I = countMap.begin(), 
        E = countMap.end(); I != E; ++I) {
     if ((I->second > MaxCount) || 
