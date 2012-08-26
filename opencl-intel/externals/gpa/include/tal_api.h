@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2010).  All rights reserved.
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -10,7 +10,7 @@
 ** OTHER WARRANTY.  Intel disclaims all liability, including liability for
 ** infringement of any proprietary rights, relating to use of the code. No license,
 ** express or implied, by estoppel or otherwise, to any intellectual property
-** rights is gran ted herein.
+** rights is granted herein.
 **
 **+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
@@ -21,9 +21,7 @@
 #endif //!defined(TAL_H_WITH_API)
 
 #ifndef TAL_API_H
-
-#if defined(TAL_API_ONE_TIME)
-
+#define TAL_API_H
 
 /************************************************************************/
 /************************************************************************/
@@ -42,6 +40,7 @@
 /** \defgroup Counters Software and Hardware Counters */
 /** \defgroup EventsAndMarkers Events and Markers */
 /** \defgroup Parameters Parameters */
+/** \defgroup Triggers Triggers */
 /** \defgroup Misc Advanced Control APIs */
 /** \defgroup Optimization Optimizing and Managing Overhead */
 /************************************************************************/
@@ -76,11 +75,12 @@
  ** toplevel functions. We have also added a "detailed" level of logging so that you
  ** can dynamically obtain/opt-out of detailed logging information from the application.
  ** \code
+ **  DWORD WINAPI mythread(LPVOID);
  **  // Define some logging categories for our code.
  **  // Logging categories can be added to specific TAL API calls to allow them
  **  // to be turned on and off at runtime and/or compile time.
  **  #define DETAILED_INFO TAL_LOG_CAT_2
- **  void main(int argc, char* argv) {
+ **  void main(int, char* argv[]) {
  **    // Automatically creates a task in TAL called main()
  **    TAL_SCOPED_TASK();
  ** 
@@ -93,7 +93,7 @@
  **    // TAL to capture the DETAILED_INFO category of data. This can be 
  **    // done at compile time using TAL_COMPILED_IN_CATEGORIES or at runtime
  **    // using the GUI.
- **    TAL_Param(DETAILED_INFO, "ExeName", argv[0]);
+ **    TAL_ParamStr(TAL_LOG_LEVEL_1, DETAILED_INFO, "ExeName", argv[0]);
  **   
  **    // Now we'll create a thread just to show off multi-threaded tracing in TAL
  **    {
@@ -101,20 +101,20 @@
  **      TAL_SCOPED_TASK_NAMED("CreateThread");
  **      ::CreateThread(NULL, 0, mythread, 0, 0, NULL);
  **    }
- **    while(true) {
+ **    for(;;) {
  **       Sleep(30);
  **    }
  **  }
- **  DWORD void mythread(LPVOID) {
+ **  DWORD WINAPI mythread(LPVOID) {
  **    // Set the name of this thread so it shows  up in the GUI as something we expect
  **    TAL_SetThreadName("mythread");
  **    
- **    while(true) {
+ **    for(;;) {
  **      // Issue some basic tasks between sleeps. These will accumulate in the per thread trace buffer.
  **      // This time, we're using explicit beginning and ending of tasks, just to show how it works.
  **      TAL_BeginNamedTask("mythread_iteration");
- **      usleep(150);
- **      TAL_EndNamedTask();
+ **      Sleep(150);
+ **      TAL_EndTask();
  **    }
  **  }
  ** \endcode
@@ -256,7 +256,7 @@
  **     static TAL_STRING_HANDLE h = TAL_GetStringHandle("foo");
  **     TAL_BeginNamedTaskH(h);
  **     ...
- **     TAL_EndNamedTask();
+ **     TAL_EndTask();
  **  }
  **  \endcode
  **
@@ -285,7 +285,7 @@
  **
  ** If you are curious about the overhead of TAL calls, run the TAL_PerformanceTest() function.
  ** This will run a simple set of benchmarks on your system using the TAL APIs, and report back their estimated
- ** cost. Typically, individual TAL calls costs about 40 clocks on out-of-order cores.
+ ** cost. Typically, each individual TAL call costs about 40 clocks on out-of-order cores.
  ** 
  ** \section MinimizingFileSize Minimize File Size
  ** The key challenge for instrumenting high-performance code is keeping our bandwidth 
@@ -476,9 +476,9 @@
  **   TAL_EndTask();
  ** }
  ** void Main() {
- **    A();
+ **    BeginFrame();
  **    DoWork();
- **    B();
+ **    EndFrame();
  ** }
  ** \endcode
  ** 
@@ -506,6 +506,9 @@
  ** The first example will consume 28 bytes per instance. The string-handle optimized version will
  ** consume 16 bytes.
  ** 
+ ** It is possible to relate tasks to one another or to virutal tasks using the \ref Relations API.
+ ** For information on using this API, and the associated "WithID" variants of TAL_BeginTask/TAL_BeginNamedTask,
+ ** please read the \ref Relations section.
  **/
 
 /** \addtogroup BeginTask
@@ -635,7 +638,7 @@
  **       // Notice how the virtual task is begun and ended IMMEDIATELY.
  **       // This is becasue the real work will be done in child tasks
  **       // Since this is the case, the actual time spent between the Begin and EndVirtualTask
- **       // is not relevant for profiling. For <b>this specific reason</b> we will make it 
+ **       // is not relevant for profiling. For *this specific reason*, we will make it 
  **       // a virtual task.
  **       TAL_BeginNamedVirtualTaskWithID("RenderPass", rtID);
  **       TAL_Param2i("Size", sLastRP->Width, sLastRP->Height); // Virtual tasks can have parameters, just like tasks
@@ -644,7 +647,7 @@
  ** #endif
  **    // Now, create a task for the drawing thread's work.
  **    // Notice that we create this AFTER the virtual task.
- **    // This is <b>mandatory</b> because we are about to add a reference to the virtual task.
+ **    // This is *mandatory* because we are about to add a reference to the virtual task.
  **    // You cannot do this until the TAL_CreateID call for the task has been issued.
  **    TAL_BeginTask("DrawIndexedPrimtive");
  **
@@ -726,7 +729,7 @@
  ** to create edges of certain types between nodes, say a "Parent" edge from X to Y to signify 
  ** that Y is the parent task of X.
  **
- ** To create these connections between tasks or vtasks, at least one fo them will need an identifier. This identifier
+ ** To create these connections between tasks or vtasks, at least one of them will need an identifier. This identifier
  ** allows you to refer to the task instance before, or after, it has actually run.
  ** We call these identifiers TAL_IDs. A TAL_ID is a 136 bit struct consisting of a 8-bit ID namespace, followed by 2 64 bit quantiites.
  ** To conveniently fill in such a struct, use the TAL_MakeID(TAL_BYTE namespace, TAL_UINT64 id_hi, TAL_UINT64 id_lo) API, which will pack the struct and return it.
@@ -737,132 +740,271 @@
  ** subsystem. To protect yourself against this happening, call TAL_RegisterIDNamespace once you've chosen a namespace value. This will
  ** let TAL warn you if you have a namespace colission.
  **
- ** <b>Intel reserves ID_NAMESPACEs 128-255 for software libraries it ships.</b>By allocating your namespaces in the 0-127 range, you will
+ ** <b>Intel reserves ID_NAMESPACEs 128-255 for software libraries it ships.</b> By allocating your namespaces in the 0-127 range, you will
  ** avoid namespace-to-namespace collissions with Intel-provided software.
  ** 
  ** There are absolutely no constraints on the id_lo and id_hi integers, so long as you can guarantee that in combination they are unique to your
  ** task and your task alone. Sometimes this is easy --- when you have a pointer, e.g. Task*, then TAL_MakeID(ns,taskPtr,0) will suffice.
  ** Sometimes, however, you will need to combine a few integers to guarantee uniqueness. For example, a parallel_for will
- ** often decompose into a "work unit," which itself is several tasks. In this case, the ID of a task is the workunit pointer AND the task's
+ ** often decompose into a "work unit," which itself is several tasks. In this case, the ID of a task is the work unit pointer AND the task's
  ** offset within the work unit.
  **
  ** Summarizing, to tie two tasks X and Y together, you follow the following steps:
  ** -# Tell TAL that the identifiers for X and Y exist using TAL_CreateID. Any use of X in other API calls may not happen until X is created. The same applies to Y.
  ** -# Now, in any order, you may:
- **   -# Create a task X with with that identifier. This can be done using the WithID variant of the
+ **   -# Create a task X with that identifier. This can be done using the WithID variant of the
  **    task API, e.g. TAL_BeginNamedTaskWithID() API.
  **   -# Within Y, add a relation to X using TAL_AddRelationToCurrent()
  ** -# When X and all its related tasks are guaranteed to be complete, tell TAL that X is no longer in use by calling the TAL_RetireID() API.
  **
- ** To see this in action, lets work through the "how long is this draw call" scenario.
- ** We begin with the actual draw call task:
+ ** To see this in action, lets work through a parallel-for implementation, and the challenge of measuring the total cost
+ ** of the parallel-for. We begin with the actual parallel-for task:
  ** \code
- **    #define DrawCallNS 3
- **    void DrawCall(...) {
- **        // Get a application-specific identifier for this draw call.
- **        int id = RenderThreadState.GetCurrentDrawCallID();
- **
+ **    #define ParForNS 3
+ **    void ParallelFor(int base, int count, void(*doWork)(int index)) {
  **        // Tell TAL about this space of identifiers ("namespace") --- this allows 
  **        // you to use the full bit range of the int id without colliding with anyone else's identifiers.
  **        static bool ns_registered = false;
  **        if(ns_registered == false) {
  **          ns_registered = true;
- **          TAL_RegisterIDNamespace((TAL_ID_NAMESPACE)DrawCallNS,"DrawCallNamespace");
+ **          TAL_RegisterIdNamespace((TAL_ID_NAMESPACE)ParForNS,"ParallelForNamespace");
  **        }
  **
- **        // Tell TAL that this ID exists. Without calling this, all references to this ID are 
+ **        // Get a unique identifier for this specific parallel-for call
+ **        static int sParallelForCounter = 0;
+ **        int id = sParallelForCounter++;
+ **
+ **        // Tell TAL that this ID exists. Without calling this, all references to this ID  
  **        // are invalid.
- **        TAL_CreateID(TAL_MakeID(DrawCallNS, id, 0));
+ **        TAL_CreateID(TAL_MakeID(ParForNS, id, 0));
  **
  **        // Now, begin the actual task and associate it with an ID
- **        TAL_BeginNamedTaskWithID("DrawCall", TAL_MakeID(DrawCallNS, id, 0));
- **        ...
+ **        TAL_BeginNamedTaskWithID("ParallelFor", TAL_MakeID(ParForNS, id, 0));
+ ** 
+ **        // this numTasksOutstanding will be used to decide whether the parallel for has completed
+ **        int numTasksOutstanding = 0;
+ ** 
+ **        // now do the actual ParallelFor work: kick off the child tasks...
+ **        int countPerTask = count / GetNumWorkerThreads();
+ **        int curBase = 0;
+ **        int remaining = count;
+ **        while(remaining > 0) {
+ **           int curCount = MIN(remaining, countPerTask);
+ **           if(curCount == 0) continue; // out of work
+ **           AtomicIncrement(&numTasksOutstanding); // add a task to the parallel for status
+ **           EnqueueTask(ParallelFor_DoWork, &numTasksOutstanding, id, doWork, curBase, curCount);
+ **           curBase += curCount; remaining -= curCount;
+ **        }
+ **        // our parallel-fork kickoff has completed, but the parallel-for work hasn't
+ **        // we will make a subtask to measure how long we wait for completion
+ **        TAL_BeginNamedTask("WaitForCompletion");
+ **        while(numTasksOutstanding > 0)
+ **           YieldTimeslice();
  **        TAL_EndTask();
+ **
+ **        // The parallel for, including all its child work, is complete. We can end the root parallel-for task
+ **        TAL_EndTask();
+ **
+ **        // Now, we MUST retire the TAL_ID that was used for this parallel for
+ **        // Tells TAL that the lifetime of this ID (and the tasks it relate to) have ended
+ **        // We can retire here because all the child tasks are known to be done, due to the wait loop above.
+ **        TAL_RetireID(TAL_MakeID(ParForNS, id, 0));
  **    }
  ** \endcode
  ** 
- ** Once we have created the master draw call task, we are ready to instrument all of the 
- ** tasks that perform work on behalf of this draw call. In our example, we have two functions that
- ** need instrumenting:
+ ** In addition to instrumenting the master parallel-for task, we need instrument the worker task:
  ** \code
- **   void DrawCall_VertexShade(...) {
- **       TAL_BeginNamedTask("DrawCall_VertexShade");
- **       int id = RenderThreadState.GetCurrentDrawCallID();
- **       TAL_AddRelationThis(TAL_RELATION_IS_CHILD_OF, TAL_MakeID(DrawCallNS, id, 0));
- **       TAL_EndTask();
- **   }
- **   void DrawCall_FragmentShade(...) {
- **       TAL_BeginNamedTask("DrawCall_FragmentShade");
- **       int id = RenderThreadState.GetCurrentDrawCallID();
- **       TAL_AddRelationThis(TAL_RELATION_IS_CHILD_OF, TAL_MakeID(DrawCallNS, id, 0));
- **       TAL_EndTask();
- **   }
- ** \endcode
+ **   void ParallelFor_DoWork(int* numTasksOutstanding, int parallelForID, void (*doWork)(int index), int base, int count) {
+ **       // make a task for this worker task. It does not need an ID itself.
+ **       TAL_BeginNamedTask("ParallelFor");
+ ** 
+ **       // mark this task as a child of the parent parallelFor task created earlier
+ **       TAL_AddRelationThis(TAL_RELATION_IS_CHILD_OF, TAL_MakeID(ParForNS, parallelForID, 0));
  **
- ** At this point, we have established a relationship between the draw call tasks and its worker tasks.
- ** We have one critical step that still needs to be done: telling TAL that the ID is no longer in use. Without this last step,
- ** <b>TAL will be unable to parse the relations.</b>
- ** In our case, we will tell TAL that the draw call is done at the frame end handler:
- ** \code
- **   void FrameEnd() {
- **       for(int i = 0; i < RenderThreadState.GetCompletedDrawCalls().size(); ++i) {
- **            int id = RenderThreadState.GetCompletedDrawCalls()[i].id;
- **            TAL_RetireID(TAL_MakeID(DrawCallNS, id, 0));
+ **       // do the work for this actual task...
+ **       for(int i = base; i < count; ++i) {
+ **          doWork(i);
  **       }
+ **
+ **       // The parallel for implementation above needs to know when all worker tasks have completed their work
+ **       AtomicDecrement(numTasksOutstanding);
+ **
+ **       // we're done, mark us as done
+ **       TAL_EndTask();
  **   }
  ** \endcode
  ** 
  ** All relationships in TAL are symmetric, in the sense that where there is a relation indicating
  ** a relationship X from Task A to Task B, there will be another implied relationship Y that goes from
  ** B to A. For example, if you define a TAL_RELATION_IS_CHILD_OF relationship from A to B, there will be an implied
- ** TAL_RELATION_IS_PARENT_OF relationship from B to A. These implied relationships appear in the Platform View .
+ ** TAL_RELATION_IS_PARENT_OF relationship from B to A. These implied relationships appear in the Platform View.
  ** 
- ** In the API, you only have to specify one direction of the relationship to establish the pair;
- ** which of the two values you pick is up to you --- sometimes it is more convenient to establish the relationship
- ** in one direction than the other. In the example above, we added the child relation edge in the child tasks. Sometimes, it is more
- ** convenient to add the relation in the parent task. In that case, you can simply reverse the relation and
- ** IDs and get the same result, as shown here:
+ ** In the previous exampe, we suppose our task system's EnqueueTask function returned a pointer, eg <code>Task* EnqueueTask(...)</code>.
+ ** Rather than having to add the AddRelation
+ ** call to the child task, we could reverse the direction of the relationships around, creating IDs for each 
+ ** of the child tasks and establishing relationships up-front when we enqueue them. The result is the same in the GUI, but
+ ** for some codebases, the resulting instrumentation might be simpler to maintain:
  ** \code
- **    void ParentTask(Task* t) {
- **        TAL_BeginNamedTask("ParentTask");
- **        Task* child = new Task(ChildTask);
- **        TAL_CreateID(TAL_MakeID(TASK_NS,t,0))
- **        TAL_AddRelationThis(TAL_RELATION_IS_PARENT_OF, TAL_MakeID(TASK_NS,t,0));
+ **    #define ParForNS 3
+ **    void ParallelFor(int base, int count, void(*doWork)(int index)) {
+ **        // Tell TAL about this space of identifiers ("namespace") --- this allows 
+ **        // you to use the full bit range of the int id without colliding with anyone else's identifiers.
+ **        static bool ns_registered = false;
+ **        if(ns_registered == false) {
+ **          ns_registered = true;
+ **          TAL_RegisterIdNamespace((TAL_ID_NAMESPACE)ParForNS,"ParallelForNamespace");
+ **        }
+ **
+ **        // Now, begin the root parallel for task. We won't need to give this an ID
+ **        // because we will be giving the child tasks IDs instead.
+ **        TAL_BeginNamedTask("ParallelFor");
+ ** 
+ **        // now do the actual ParallelFor work: kick off the child tasks...
+ **        int countPerTask = count / GetNumWorkerThreads();
+ **        int curBase = 0;
+ **        int remaining = count;
+ **        std::vector<Task*> childTasks;
+ **        while(remaining > 0) {
+ **           int curCount = MIN(remaining, countPerTask);
+ **           if(curCount == 0) continue; // out of work
+ **           AtomicIncrement(&numTasksOutstanding); // add a task to the parallel for status
+ **           Task* childTask = EnqueueTask(ParallelFor_DoWork, doWork, curBase, curCount);
+ ** 
+ **           // remember all the child tasks
+ **           childTasks.push_back(task);
+ ** 
+ **           // Create the ID for the child task. This tells TAL that somethign with the given ID exists,
+ **           // so that it can begin looking for the matching TAL_BeginTask call.
+ **           TAL_ID childID = TAL_MakeID(ParForNS, (TAL_UINT64)childTask, 0);
+ **           TAL_CreateID(childID);
+ **            
+ **           // Now, say that the current task is the parent of this child ID
+ **           // This allows us to create the relationship even before the child task has run.
+ **           TAL_AddRelationThis(TAL_RELATION_IS_PARENT_OF, childID);
+ **
+ **           // final bit of for loop logic
+ **           curBase += curCount; remaining -= curCount;
+ **        }
+ **        // our parallel-fork kickoff has completed, but the parallel-for work hasn't
+ **        // we will make a subtask to measure how long we wait for completion
+ **        TAL_BeginNamedTask("WaitForCompletion");
+ **        WaitForMultipleTasks(childTasks.begin(),childTasks.end()-childTasks.beign(),INFINITE);
  **        TAL_EndTask();
- **    }
- **    void ChildTask(Task* t) {
- **        TAL_BeginNamedTaskWithID("ChildTask", TAL_MakeID(TASK_NS,t,0));
+ **
+ **        // The parallel for, including all its child work, is complete. We can end the root parallel-for task
  **        TAL_EndTask();
- **        TAL_RetireID(t);
+ **
+ **        // Now, we MUST retire all the TAL_IDs that we used for the parallel for
+ **        // Here, we retire all the child IDs
+ **        for(size_t i = 0; i < childTasks.size(); ++i)
+ **          TAL_RetireID(TAL_MakeID(ParForNS, (TAL_UINT64)childTasks[i], 0));
  **    }
  ** \endcode
- ** 
- ** The most difficult part about using TAL Relations is creating and retiring IDs.
- ** It is usually pretty easy to create an ID --- usually you just create them when you create the task.
- ** The hard part is finding a good place in your code to call the retire function.
- ** This is pretty easily done when you have a specific class corresponding to the parent task --- in those cases,
- ** just move your ID calls to the constructor/destructor, for example:
+ ** Because we are using the task system's built-in Task* handle, we can simplify the worker task:
  ** \code
- ** class RenderPass {
- ** public:
- **    RenderPass() {
- **       TAL_CreateID(TAL_MakeID(TAL_RENDERPASS_NS, this, 0));
- **    }
- **    ~RenderPass() {
- **       TAL_RetireID(TAL_MakeID(TAL_RENDERPASS_NS, this, 0));
- **    }
- ** }
+ **   void ParallelFor_DoWork(void (*doWork)(int index), int base, int count) {
+ **       Task* curTask = GetExecutingTask();
+ **       
+ **       // make a task for this worker task. We will bind it to the ID that was created for us earlier.
+ **       TAL_BeginNamedTaskWithID("ParallelFor", TAL_MakeID(ParForNS, (TAL_UINT64)curTask, 0));
+ ** 
+ **       // do the work for this actual task...
+ **       for(int i = base; i < count; ++i) {
+ **          doWork(i);
+ **       }
+ **
+ **       // mark this task as done
+ **       TAL_EndTask();
+ **   }
  ** \endcode
- ** Unfortunately, such a clear mapping is not always the case, so you may have to get clever. The Platform View  
- ** tries very hard to be forgiving of you if you don't call TAL_RetireID, but no guarantees are made.
  **
- ** A key lesson to learn from this is that you can help TAL (and your programmers in general!) by making this sort
- ** of information readily available in your codebase from the beginning. Too often, we see task schedulers that discard this
- ** information as soon as possible for the sake of a few hundred cycles of savings. In our experience, this savings is not worth it.
- ** <b>Clearly defined and clearly traceable task and subtask lifetimes pay for themselves in programmer productivity,</b> especially
- ** when considered over the lifetime of a large application.
+ ** The most difficult part about using TAL Relations is retiring IDs at the right moment. In TAL, you may not
+ ** retire an ID until all tasks that might reference that ID have also completed. In the example earlier, the ID could be 
+ ** retired in the same function because the root ParallelFor function blocked on completion of all its child tasks.  
+ ** 
+ ** However, imagine we made a variant on the previous example called AsyncParallelFor, which returned
+ ** immediately upon being called, even when child tasks were still outstanding.
+ ** In this case, we cannot retire the IDs at the end of the initial task, because there may be tasks still running
+ ** that will reference that ID. Such references, after the ID is retired, are considered invalid and ignored by TAL.
+ ** The correct behavior is to wait until the LAST worker task completes before retiring the ID. The 
+ ** following code sample demonstrates this type of asynchronous scenario:
+ ** \code
+ **    void AsyncParallelFor(int base, int count, void(*doWork)(int index)) {
+ **        // Tell TAL about this space of identifiers ("namespace") --- this allows 
+ **        // you to use the full bit range of the int id without colliding with anyone else's identifiers.
+ **        static bool ns_registered = false;
+ **        if(ns_registered == false) {
+ **          ns_registered = true;
+ **          TAL_RegisterIdNamespace((TAL_ID_NAMESPACE)ParForNS,"ParallelForNamespace");
+ **        }
  **
- ** TAL supports a variety of different types of relationships between tasks. For the
+ **        // Get a unique identifier for this specific parallel-for call
+ **        static int sParallelForCounter = 0;
+ **        int id = sParallelForCounter++;
+ **
+ **        // Tell TAL that this ID exists. Without calling this, all references to this ID  
+ **        // are invalid.
+ **        TAL_CreateID(TAL_MakeID(ParForNS, id, 0));
+ **
+ **        // Now, begin the actual task and associate it with an ID
+ **        TAL_BeginNamedTaskWithID("ParallelFor", TAL_MakeID(ParForNS, id, 0));
+ ** 
+ **        // this numTasksOutstanding will be used to decide whether the parallel for has completed
+ **        // We will heap allocate this value instead of using the stask, because we will be
+ **        // returning immediately after enqueuing work, instead of waiting for all child tasks to complete.
+ **        int* numTasksOutstanding = new int();
+ **        *numTasksOutstanding = 0; // init it to zero
+ ** 
+ **        // now do the actual ParallelFor work: kick off the child tasks...
+ **        int countPerTask = count / GetNumWorkerThreads();
+ **        int curBase = 0;
+ **        int remaining = count;
+ **        while(remaining > 0) {
+ **           int curCount = MIN(remaining, countPerTask);
+ **           if(curCount == 0) continue; // out of work
+ **           AtomicIncrement(numTasksOutstanding); // add a task to the parallel for status
+ **           EnqueueTask(ParallelFor_DoWork, numTasksOutstanding, id, doWork, curBase, curCount);
+ **           curBase += curCount; remaining -= curCount;
+ **        }
+ **        // In the synchronous parallel for, we would waited here,
+ **        // for the tasks to complete. In our case, we can't do that, we must return.
+ **        // So, we will have to retire the ID after all outstanding work has completed.
+ **        // All we will do here is end the root parallel-for task.
+ **        TAL_EndTask();
+ **    }
+ **    void ParallelFor_DoWork(int* numTasksOutstanding, int parallelForID, void (*doWork)(int index), int base, int count) {
+ **       // make a task for this worker task. It does not need an ID itself.
+ **       TAL_BeginNamedTask("ParallelFor");
+ ** 
+ **       // mark this task as a child of the parent parallelFor task created earlier
+ **       TAL_AddRelationThis(TAL_RELATION_IS_CHILD_OF, TAL_MakeID(ParForNS, parallelForID, 0));
+ **
+ **       // do the work for this actual task...
+ **       for(int i = base; i < count; ++i) {
+ **          doWork(i);
+ **       }
+ **
+ **       // The parallel for implementation above needs to know when all worker tasks have completed their work
+ **       int prevValue = AtomicDecrement(numTasksOutstanding);
+ **
+ **       // if we were the last task to complete, we will retire the ID
+ **       // this is the case when prevValue from the decrement is 1
+ **       bool retireID = prevValue == 1;
+ **
+ **       // we're done, mark us as done
+ **       TAL_EndTask();
+ **       
+ **       // We retire the ID here, OUTSIDE the TAL_EndTask. This is important because
+ **       // the ID must be retired when no tasks are running that reference that ID. Since this
+ **       // task references the ID, we must TAL_EndTask it before retiring.
+ **       if(retireID) {
+ **         TAL_RetireID(TAL_MakeID(ParForNS, parallelForID, 0));
+ **       }
+ **   }
+ ** \endcode
+ ** 
+ ** TAL supports a variety of other types of relationships between tasks, including task-to-task dependencies, tasks that
+ ** are continuations of one-another, and more. For the
  ** full list of supported relations, please see the documentation on the \ref _TAL_RELATION enumeration.
  **/
 
@@ -901,7 +1043,7 @@
  ** just that task. In contrast, if you have all ProcessTriangleArray tasks selected, the value of the "TrianglesSubmitted"
  ** counter will be reported as the sum of the values passed to TAL_AddCounter for the "TrianglesSubmitted" counter.
  **
- ** In the example above, you will notice that we call TAL_IncCounter within a tight inner loop, yet comment it with "warning, 
+ ** In the example above, we call TAL_IncCounter within a tight inner loop, yet comment it with "warning, 
  ** slow." When you have a tight loop like this, you will get much better performance and much smaller file size
  ** by \b hoisting the counter out of the loop, as follows:
  ** \code
@@ -926,7 +1068,7 @@
  **    TAL_BeginNamedTask("main");
  **    a();
  **    b();
- **    TAL_EndNamedTask();
+ **    TAL_EndTask();
  ** }
  ** void a() {
  **   TAL_IncCounter("MyCounter");
@@ -947,7 +1089,7 @@
  ** \section HwCounters Hardware counters
  ** <b>This capability is not available on Windows platforms at this time.</b>
  ** Unlike traditional sampling-based tools, TAL will not sample hardware counters in your program automatically. Rather, 
- ** you need to you to instrument your functions of interest with TAL_SampleHardwareCounters API. Instrumenting
+ ** you need to instrument your functions of interest with TAL_SampleHardwareCounters API. Instrumenting
  ** your code by hand may sound annoying since it requires more up-front investment, but there are several
  ** benefits to the approach over the automatic method to be aware of:
  ** -# Lower overhead. The sampling approach takes a hardware interrupt 
@@ -1053,8 +1195,8 @@
  ** Deciding whether to use a parameter or a counter, at least for integers, can sometimes be subjective. The best way 
  ** to decide is to ask yourself, <b>Is the quantity meaningful when aggregated?</b> In the exampe above,
  ** we would use a counter for "NumberOfPixelsBlended," but a parameter for "BlendChannelMask" or "FrameNumber."
- ** This is because "Average Pixels Blended" and "Total Pixels Blended make sense from an analysis point of view: they heave meaningful
- ** numbers when totaled or averaged. In contrast, "Average blend channel mask," or "average frame number" do not make sense.
+ ** This is because "AveragePixelsBlended" and "TotalPixelsBlended" make sense from an analysis point of view: they heave meaningful
+ ** numbers when totaled or averaged. In contrast, "AverageBlendChannelMask" or "AverageFrameNumber" do not make sense.
  **
  ** While parameters are extraordinarily helpful for profiling, it is important to balance
  ** that with their performance cost. The API calls themselves are not large, but each parameter call creates about 20 bytes
@@ -1066,7 +1208,7 @@
  **    example, most blending tasks can trace their origin back to a Drawing task, where the original state was specified. In 
  **    that case, we would put the blend state in the drawing task, then just tie the individual blending tasks back to that
  **    base call using TAL's Relations API, giving an order of magnitude of savings in terms of overall performance.
- ** -# <b>Log levels/categories</b> Classify your parameters into different categories and levels of verbosity. For example, 
+ ** -# <b>Log levels/categories:</b> Classify your parameters into different categories and levels of verbosity. For example, 
  **    we might say that we only need the number of pixels blended at all times everything else "only when doing detailed 
  **    analysis." To implement this in TAL, we would move the bulk of the parameters to TAL_LOG_LEVEL_2. Then, we could enable 
  **    or disable that function at runtime, or even compile time if we desired.
@@ -1089,8 +1231,8 @@
         #define TAL_SetLogLevel(t)
         #define TAL_SetLogCategory(t)
         #define TAL_GetFileVersion()        (0)
-        #define TAL_SetTaskColor(f,r,g,b)
-        #define TAL_SetNamedTaskColor(n,r,g,b)
+        #define TAL_SetTaskColor(...)
+        #define TAL_SetNamedTaskColor(...)
         #define TAL_SetThreadName(n)
         #define TAL_SetTraceName(handle,n)
 		#define TAL_SetThreadNameByTid(x, y)
@@ -1119,13 +1261,9 @@
         const TAL_ID talid = {0,0,0};
         #define TAL_MakeID(n,h,l) (talid)
 
-    #else // TAL_DISABLE
+		#define TAL_Vasprintf(...) (0)
 
-#if TAL_COMPILER == TAL_COMPILER_MSVC || TAL_COMPILER == TAL_COMPILER_ICC
-        #pragma warning(push)
-        #pragma warning(disable: 4996) // warning C4996: 'function': was declared deprecated
-        #pragma warning(disable: 4127) //warning C4127: conditional expression is constant
-#endif
+    #else // TAL_DISABLE
 
         /************************************************************************/
 #ifndef TAL_DOXYGEN
@@ -1138,7 +1276,7 @@
             p__talctl(TALCTL_SET_TRACE_NAME, &params, sizeof(params), NULL, NULL);
         }
 		TAL_INLINE void TAL_CALL TAL_ThreadCleanup(void) { }
-#endif
+#endif //TAL_DOXYGEN
         /************************************************************************/
 
         /************************************************************************/
@@ -1146,8 +1284,8 @@
          ** Get the thread-specific trace handle for the calling thread.
          **
          ** Get the thread-specific trace handle for the calling thread.
-         ** The return value of this funtion is the thread-specific buffer into which all TAL APIs
-         ** are serialized. Typically, you do not have to call this funciton: TAL_BeginNamedTask("MyTask"), for example, willl
+         ** The return value of this function is the thread-specific buffer into which all TAL APIs
+         ** are serialized. Typically, you do not have to call this funciton: TAL_BeginNamedTask("MyTask"), for example, will
          ** automatically call TAL_GetThreadTrace() for you.
          **
          ** One way to reduce TAL overhead, however, is to re-use the TAL_GetThreadTrace() pointer across multiple TAL calls.
@@ -1164,8 +1302,8 @@
          ** depending on your platform and operating system.
          **
          ** The return value of TAL_GetThreadTrace will never change across the lifetime of your thread. As a result, you can
-         ** take the TAL_GetThreadTrace() value and store into your own data strucutre, if you desire. However, <b>TAL_GetThreadTrace() 
-         ** will return a different pointer for every thread,</b> so if you do save the TAL_TRACE* pointer somewhere, make sure
+         ** take the TAL_GetThreadTrace() value and store into your own data structure, if you desire. However, <b>TAL_GetThreadTrace() 
+         ** will return a pointer specific to the calling thread,</b> so if you do save the TAL_TRACE* pointer somewhere, make sure
          ** to store it in a thread-specific way.
          **
          ** The following are valid ways to save TAL_TRACE:
@@ -1182,7 +1320,7 @@
          **           int cmd = GetCommand();
          **           TAL_BeginNamedTask(t, "ProcessCommand");
          **           ProcessCommand(cmd);
-         **           TAL_EndNamedtask(t);
+         **           TAL_EndTask(t);
          **       }
          **    }
          **    __declspec(thread) TAL_TRACE* gtTrace = NULL;
@@ -1215,8 +1353,12 @@
             return trace;
         }
 
-#ifndef TAL_DOXYGEN
-        // For now, this function is for internal use only.
+        /************************************************************************/
+        /** \ingroup Basics
+         ** Get the TAL_PROCESS handle for the current process.
+         **
+         ** Get the TAL_PROCESS handle for the current process.
+         **/
         TAL_INLINE TAL_PROCESS* TAL_GetCurrentProcessHandle(void)
         {
             TAL_PROCESS* process;
@@ -1224,8 +1366,6 @@
             p__talctl(TALCTL_GET_CURRENT_PROCESS_HANDLE, NULL, 0, &process, &resultSize);
             return process;
         }
-#endif
-
 
         /************************************************************************/
         /** Return true if we would log data at the given lvl and category
@@ -1279,6 +1419,20 @@
             p__TAL_Flush(trace);
         }
 
+
+		/************************************************************************/
+        /** \ingroup Basics
+         ** Send all flushed, unsent traces to the capture tool (or file). 
+         **
+         ** Send all flushed, unsent traces from all threads to the capture tool (or file).  
+         **/
+        TAL_INLINE void TAL_CALL TAL_SendTracesEx(
+            TAL_BOOL in_bFlushAllTraces     /**< If true, this will flush the traces in all threads before sending. */
+			)
+        {
+            p__talctl(TALCTL_SEND_TRACES_EX, &in_bFlushAllTraces, sizeof(in_bFlushAllTraces), NULL, NULL);
+        }
+
         /************************************************************************/
         /** \ingroup Basics
          ** Send all traced data to the capture tool (or file). 
@@ -1290,24 +1444,14 @@
          ** If you want to send data at lower overhead and are confident that your
          ** data is already buffered (via TAL_Flush), then use TAL_SendTracesEx(false).
          **/
-#ifndef TAL_DOXYGEN
-        #define TAL_SendTraces() TAL_SendTracesEx(TAL_TRUE)
-#else //special version for doxygen...
-        TAL_INLINE void TAL_CALL TAL_SendTraces() {}
-#endif
+        TAL_INLINE void TAL_CALL TAL_SendTraces() 
+		{
+			TAL_SendTracesEx(TAL_TRUE);
+		}
 
-        /************************************************************************/
-        /** \ingroup Basics
-         ** Send all flushed, unsent traces to the capture tool (or file). 
-         **
-         ** Send all flushed, unsent traces from all threads to the capture tool (or file).  
-         **/
-        TAL_INLINE void TAL_CALL TAL_SendTracesEx(
-            TAL_BOOL in_bFlushAllTraces     /**< If true, this will flush the traces in all threads before sending. */
-        )
-        {
-            p__talctl(TALCTL_SEND_TRACES_EX, &in_bFlushAllTraces, sizeof(in_bFlushAllTraces), NULL, NULL);
-        }
+
+
+
 
         /************************************************************************/
         /** \ingroup Misc
@@ -1383,7 +1527,7 @@
         /** \ingroup Basics
         ** Determine whether the TAL Collector is currently capturing.
         ** Determine whether the TAL Collector is currently capturing. Depending on
-        ** the capturing mode (TAL_SetCaptureMode), there may or may not be
+        ** the capturing mode, there may or may not be
         ** a connection to a file or network when TAL_IsCapturing returns true.
         **/
         TAL_INLINE TAL_BOOL TAL_CALL TAL_IsCapturing(void)
@@ -1397,7 +1541,7 @@
 
         /************************************************************************/
 #ifndef TAL_DOXYGEN // hide deprecated functions
-        TAL_INLINE void TAL_CALL TAL_SetCaptureMode(TAL_CAPTURE_MODE mode, TAL_UINT32 param) 
+        TAL_INLINE void TAL_CALL TAL_SetCaptureMode(TAL_UINT32 mode, TAL_UINT32 param) 
         {
             TAL_UNUSED(mode);
             TAL_UNUSED(param);
@@ -1465,10 +1609,8 @@
 #endif // ndef TAL_DOXYGEN
 
 /************************************************************************/
-#ifndef TAL_DOXYGEN
-        /** \ingroup Misc
-        ** TODO
-        **/
+#ifndef TAL_DOXYGEN // hide deprecated functions
+       
         TAL_INLINE TAL_BOOL TAL_CALL TAL_RegisterDistiller(const char* in_Name, TAL_DistillerFn in_pDistillerFunc)
         {
             TAL_BOOL result = TAL_FALSE;
@@ -1480,9 +1622,6 @@
             return result;
         }
 
-        /** \ingroup Misc
-        ** TODO
-        **/
         TAL_INLINE TAL_BOOL TAL_CALL TAL_UnregisterDistiller(const char* in_Name)
         {
             TAL_BOOL result = TAL_FALSE;
@@ -1492,10 +1631,7 @@
             p__talctl(TALCTL_UNREGISTER_DISTILLER, &params, sizeof(params), &result, &resultSize);
             return result;
         }
-#endif // ndef TAL_DOXYGEN
 
-
-#ifndef TAL_DOXYGEN // hide deprecated functions
         TAL_INLINE TAL_STRING_HANDLE TAL_CALL TAL_AddStringToPool(const char* str)
         {
             TAL_STRING_HANDLE result = (TAL_STRING_HANDLE)-1;
@@ -1507,13 +1643,23 @@
 
         /************************************************************************/
         /** \ingroup Basics
-        ** Add a string to TAL's string pool and return its handle. 
-        ** Add a string to TAL's string pool and return its handle. You can use the pooled 
-        ** string handle to refer to the string in various TAL functions to reduce your trace 
-        ** buffer sizes.
+        ** Get the handle for a given string in TAL's string pool (after first adding the string to the pool if it 
+        ** doesn't already exist).
+        ** Look up the handle for a given string in TAL's string pool; if it doesn't exist in the pool, add it and
+        ** return its handle. You can use the pooled string handle to refer to the string in various TAL functions 
+        ** to reduce your trace buffer sizes.
         **
-        ** This function is thread-safe; it makes use of locking, so try to use it
-        ** at startup rather than heavily during normal operation.
+        ** These string handles are used as efficient substitutes for string literals in various TAL APIs,
+        ** such as TAL_BeginNamedTaskH, TAL_ParamH, and TAL_SampleCounterH, to name just a few. Although there is 
+        ** no physical limit to the length of the strings, excessively long strings may not get displayed correctly
+        ** within the TaskAnalyzer GUI.
+        **
+        ** The built-in instrumentation within the TAL collector uses strings prefixed with "TAL_" and "TAL ". To avoid
+        ** colliding with these strings, make sure you don't use these prefixes.
+        **
+        ** This function is thread-safe; it makes use of thread synchronization to protect data shared
+        ** among multiple threads. So try to use it only during your application's init time, rather than during 
+        ** its normal operation.
         **/
         TAL_INLINE TAL_STRING_HANDLE TAL_CALL TAL_GetStringHandle(const char* str/**< The string to look up */)
         {
@@ -1525,19 +1671,21 @@
 
 		/************************************************************************/
 		/** \ingroup Counters
-        ** Set counter sample semantics for a particular hardware counter.
-        ** Tells TAL what semantics to apply when interpreting a hardware counter sample
+        ** Set counter sample semantics for a particular sampled counter.
+        ** Tells TAL what semantics to apply when interpreting a counter sample
 		** of the provided name. The TAL_COUNTER_SAMPLE_TYPE enumeration provides
-		** details on the different semantics, but by way of example, this is typically
-		** used to say that a given sample is coupled to a core-specific hardware counter.
+		** details on the different semantics. For example, you would use TAL_COUNTER_SAMPLE_TYPE_CORE 
+		** to say that a given sample is coupled to a core-specific hardware counter.
 		** In this case, the counter samples will be specially interpreted by TAL so that
 		** the multiple threads affected by this sample do not over-count the sampled data.
 		** 
-		** This function is thread-safe; it makes use of locking, so try to use it
-		** at startup rather than heavily during program operation.
+        ** All sampled counters will default to the TAL_COUNTER_SAMPLE_TYPE_SOFTWARE type
+        ** unless you specify otherwise.
+        **
+		** This function is thread-safe; it makes use of thread synchronization to protect data shared
+        ** among multiple threads. So try to use it only during your application's init time, rather than during 
+        ** its normal operation.
 		**
-		** If you call this function multiple times during a capture,
-		** the last-set sample type will be applied THROUGHOUT the actual capture.
 		**/
 		TAL_INLINE void TAL_CALL TAL_SetCounterSampleType(const char* str, TAL_COUNTER_SAMPLE_TYPE sample_type)
         {
@@ -1758,19 +1906,56 @@
             p__talctl(TALCTL_SET_NAMED_TASK_COLOR, &params, sizeof(params), NULL, NULL);
         }
 
+        /************************************************************************/
         /** \ingroup Misc 
-        Redirects all console output of the TAL runtime to a specified logging function.
-
-        Redirects all console output of the TAL runtime to a specified logging function.
+         ** Redirects all status output of the TAL runtime to a specified logging function.
+         ** Redirects all status output of the TAL runtime to a specified logging function. By default, this output
+         ** will be sent to standard out.
+         ** \param in_pProc Function pointer that will be called for every log output made by TAL
          **/
-        TAL_INLINE void TAL_CALL TAL_SetLogFunction( TAL_LogProc in_pProc)
+        TAL_INLINE void TAL_CALL TAL_SetLogFunction( TAL_LogProc in_pProc )
         {
             p__talctl(TALCTL_SET_LOG_FUNCTION, &in_pProc, sizeof(in_pProc), NULL, NULL);
         }
 
-#if TAL_COMPILER == TAL_COMPILER_MSVC || TAL_COMPILER == TAL_COMPILER_ICC
-        #pragma warning(pop)
-#endif
+        /************************************************************************/
+        /** \ingroup Triggers 
+         ** Evaluates the trigger conditions using the given name and value,
+         ** and takes the associated action(s) of the trigger condition(s) that are satisfied.
+         **
+         ** Evaluates the trigger conditions applying to the given name, substituting the given 
+         ** for the name in the trigger condition expression. If the expression evaluates to TRUE
+         ** when TAL_TestTriggerConditionsH is called, the TAL runtime takes the action(s) 
+         ** associated with the satisfied trigger condition(s). There are two possible trigger
+         ** actions: CAPTURE_START and CAPTURE_STOP.
+         **
+         ** For example, if the CAPTURE_START trigger is specified as follows:
+         **
+         ** \code  CAPTURE_START Frame > 5   \endcode
+         **
+         ** then TAL_TestTriggerConditionsH(<i>hFrame</i>, <i>nFrame</i>) with <i>hFrame</i> being 
+         ** the string handle for "Frame" and <i>nFrame</i> > 5, will cause capturing to start.
+         **
+         ** Trigger conditions are specified in TAL settings (in tal.conf or taserver.conf). See
+         ** the default tal.conf file for complete information on formatting trigger conditions.
+         **
+         ** NOTE: On LRB machines, if TAL_TestTriggerConditionsH() is called from code running on the
+         ** host, capturing will start/stop both on the host and on LRB. But if TAL_TestTriggerConditionsH() 
+         ** is called from code running on LRB, capturing will start/stop only on LRB. Thus, LRB-side
+         ** triggers apply only when capturing to a LRB file (i.e. where the /lrb/tal.conf file contains
+         ** 
+         ** \code  OUTPUT file /lrb/mytrace.gpa_trace  \endcode
+         **
+         ** \param in_Name  The handle for the name appearing in the trigger conditions to be tested.
+         ** \param in_Value The value to substitute for the name when testing the trigger conditions.
+         **/
+        TAL_INLINE void TAL_CALL TAL_TestTriggerConditionsH( TAL_STRING_HANDLE in_NameHandle, int in_Value )
+        {
+            TALCTL_TEST_TRIGGER_CONDITIONS_PARAMS params;
+            params.nameHandle = in_NameHandle;
+            params.value = in_Value;
+            p__talctl(TALCTL_TEST_TRIGGER_CONDITIONS, &params, sizeof(params), NULL, NULL);
+        }
 
         /************************************************************************/
         /**\ingroup Relations
@@ -1815,1092 +2000,19 @@
         </ul>
         
         **/
-        TAL_INLINE void TAL_CALL TAL_PerformanceTest(void)
+        TAL_INLINE void TAL_CALL TAL_PerformanceTest(TAL_BOOL in_bPrint)
         {
-            p__talctl(TALCTL_PERFORMANCE_TEST, NULL, 0, NULL, NULL);
+            p__talctl(TALCTL_PERFORMANCE_TEST, &in_bPrint, sizeof(in_bPrint), NULL, NULL);
         }
 
+        #ifdef __cplusplus
+        extern "C" 
+        #endif // __cplusplus
+        #if !defined(TAL_KERNEL) && !defined(TAL_DOXYGEN)
+            char* TAL_Vasprintf( const char* fmt, TAL_VA_LIST ap);
+        #endif
+
     #endif // TAL_DISABLE
-#endif // TAL_API_ONE_TIME
-
-#if TAL_COMPILER == TAL_COMPILER_MSVC || TAL_COMPILER == TAL_COMPILER_ICC
-#pragma warning(push)
-#pragma warning(disable: 4996)
-#pragma warning(disable: 4127) //warning C4127: conditional expression is constan
-#pragma warning(disable: 4204) //warning C4204: nonstandard extension used: non-constant aggregate initializer
-#endif
-
-
-
-/**@ingroup BeginTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginTask)(
-    TAL_FUNCTION_ARGS_ 
-    void (*fn)(void)            /**< Pointer to the task function */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_TASK(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, fn);
-}
-
-/**@ingroup BeginTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginTaskEx)(
-    TAL_FUNCTION_ARGS_ 
-    void (*fn)(void),           /**< Pointer to the task function */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_TASK_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, fn,ts);
-}
-
-/**@ingroup BeginTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginTaskWithID)(
-    TAL_FUNCTION_ARGS_ 
-    void (*fn)(void),           /**< Pointer to the task function */
-    TAL_ID id               /**< The ID associated with the task */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_TASK_WITH_ID(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, fn, id.ns, id.hi, id.lo);
-}
-
-/**@ingroup BeginTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginTaskWithIDEx)(
-    TAL_FUNCTION_ARGS_ 
-    void (*fn)(void),           /**< Pointer to the task function */
-    TAL_ID id,              /**< The ID associated with the task */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_TASK_WITH_ID_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, fn, id.ns, id.hi, id.lo, ts);
-}
-
-/************************************************************************/
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTask)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name       /**< Task name */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name        /**< Task name, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */ 
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT , name);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskEx)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Task name */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT , name,ts);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskHEx)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Task name, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */ 
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_H_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT , name,ts);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskWithID)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Task name */
-    TAL_ID id               /**< The ID associated with the task */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_WITH_ID(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT , name, id.ns, id.hi, id.lo);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskHWithID)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Task name, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */ 
-    TAL_ID id               /**< The ID associated with the task */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_H_WITH_ID(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, id.ns, id.hi, id.lo);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskWithIDEx)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Task name */
-    TAL_ID id,              /**< The ID associated with the task */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_WITH_ID_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, id.ns, id.hi, id.lo, ts);
-}
-
-/**@ingroup BeginNamedTask */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedTaskHWithIDEx)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Task name, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */ 
-    TAL_ID id,              /**< The ID associated with the task */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_TASK_H_WITH_ID_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, id.ns, id.hi, id.lo, ts);
-}
-
-/************************************************************************/
-/**@ingroup EndTask */
-TAL_INLINE void TAL_FUNCTION(TAL_EndTask)(
-    TAL_FUNCTION_ARGS 
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_END_TASK(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT );
-}
-
-/**@ingroup EndTask */
-TAL_INLINE void TAL_FUNCTION(TAL_EndTaskEx)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_END_TASK_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, ts);
-}
-
-
-/************************************************************************/
-/**@ingroup VirtualTasks 
- ** Begins a virtual task.
- ** 
- ** This function begins a virtual task. End the virtual task with TAL_EndVirtualTask.
- ** 
- ** Virtual tasks help define logical groups of work in your application that don't themselves have a logical toplevel task.
- ** A virtual task has all of the basic behaviors of a regular TAL task --- you can add parameters and counters to it, relate it to other tasks with the TAL relations API, and so on.
- ** The unique property of virtual tasks is that they themselves do not consume execution resources on the machine being measured. 
- ** Because of this, a virtual task has no meaning without child tasks, which you can add with the TAL_AddRelation or TAL_AddRelationThis APIs. 
- ** 
- ** An example of a virtual task is a "rendering pass" in graphics --- logically, this consists of the work for a number of draw calls, yet nowhere in the execution of the system will you see a task running that is the "rendering pass."
- ** 
- */
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedVirtualTaskWithID)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Virtual task name */
-    TAL_ID id               /**< The ID associated with the virtual task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_VIRTUAL_TASK_WITH_ID(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, id.ns, id.hi, id.lo);
-}
-
-/**@ingroup VirtualTasks 
-** Begins a virtual task.
-** 
-** This function begins a virtual task that is named using a TAL_STRING_HANDLE. End the virtual task with TAL_EndVirtualTask.
-** 
-** For more information, see TAL_BeginNamedVirtualTaskWithID or \ref VirtualTasks.
-*/
-TAL_INLINE void TAL_FUNCTION(TAL_BeginNamedVirtualTaskHWithID)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Virtual task name, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */     
-    TAL_ID id               /**< The ID associated with the virtual task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_BEGIN_NAMED_VIRTUAL_TASK_H_WITH_ID(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, id.ns, id.hi, id.lo);
-}
-
-/**@ingroup VirtualTasks
-** This function ends a virtual task.
-**
-** This function ends a virtual task. Please see the virtual tasks section of the documentation for information
-** on how to use this API.
-**/
-TAL_INLINE void TAL_FUNCTION(TAL_EndVirtualTask)(
-    TAL_FUNCTION_ARGS 
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_END_VIRTUAL_TASK(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT );
-}
-
-/************************************************************************/
-/************************************************************************/
-
-/************************************************************************/
-#ifndef TAL_DOXYGEN
-TAL_INLINE void TAL_FUNCTION(TAL_AddTaskRelation)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_RELATION relation,  /**< Relationship type */
-    TAL_ID this_task_id,    /**< ID of the source task */
-    TAL_ID that_task_id     /**< ID of the target task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_RELATION(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  relation, this_task_id.ns, this_task_id.hi, this_task_id.lo, 
-        that_task_id.ns, that_task_id.hi, that_task_id.lo);
-}
-#endif
-/************************************************************************/
-#ifndef TAL_DOXYGEN
-TAL_INLINE void TAL_FUNCTION(TAL_AddTaskRelations)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_RELATION relation,     /**< Relationship type */
-    TAL_ID this_task_id,       /**< ID of the source task */
-    TAL_UINT32 n_those_tasks,  /**< Number of target tasks */
-    TAL_ID* those_task_ids     /**< Array of target task IDs */
-)
-{
-    TAL_UINT32 i =0;
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    for(i = 0; i < n_those_tasks; ++i) {
-        TAL_ID* that_task_id = &those_task_ids[i];
-        TAL_PUSH_ADD_RELATION(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  relation, this_task_id.ns, this_task_id.hi, this_task_id.lo, 
-            that_task_id->ns, that_task_id->hi, that_task_id->lo);
-    }
-}
-#endif
-    
-/************************************************************************/
-/** \ingroup Relations
-** Creates a relationship between two tasks or virtual tasks.
-** 
-** This API is used to form a relationship between two tasks or virtual tasks.
-** 
-** To understand which "direction" the relationship is formed in, read the call
-** out loud. E.g.
-** \code
-**    TAL_AddRelation(this_id, TAL_RELATION_IS_CHILD_OF, that_id);
-** \endcode
-** This can be read as "this_id is a child of that_id."
-**
-** For detailed code examples on using TAL_AddRelation, see the relations section.
-** 
-** When using this API, both IDs must have been previously created with TAL_CreateID.
-** The ID can be created on any thread, so long as chronologicaly, the TAL_AddRelation follows
-** the TAL_CreateID calls.
-** 
-** The actual tasks or vtasks assigned to the relationship <i>need not</i> to have
-** been traced at the time that TAL_AddRelation has been called. For example, the sequence
-** such as below is completely valid:
-** \code
-**    // Creates IDs... nothing has run yet
-**    TAL_ID this_id = TAL_MakeID(0, this_task_ptr, 0);
-**    TAL_CreateID(this_id);
-**    TAL_ID that_id = TAL_MakeID(0, that_task_ptr, 0);
-**    TAL_CreateID(that_id);
-**
-**    // Create relationships --- nothing has run, still.
-**    TAL_AddRelation(this_id, TAL_RELATION_IS_PARENT_OF, that_id);
-**
-**    // Begin "that" task. The relationship created above is valid
-**    // even though it was created prior to the "that" task having been traced.
-**    TAL_BeginNamedTaskWithID(that_task_ptr->name);
-**    that_task_ptr->run();
-**    TAL_EndTask();
-** \endcode
-**
-** For a TAL_AddRelation call to work, both IDs used in the must be retired using TAL_RetireID once
-** <b>all</b> work related to the ID has been completed. This includes any tasks that use the ID, or TAL_AddRelation calls
-** that might use the ID. If the TAL_RetireID call does not occur, none of the relations created against that ID will be processed.
-**
-**/
-TAL_INLINE void TAL_FUNCTION(TAL_AddRelation)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID this_task_id,    /**< ID of the source task */
-    TAL_RELATION relation,  /**< Relationship type */
-    TAL_ID that_task_id     /**< ID of the target task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_RELATION(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  relation, this_task_id.ns, this_task_id.hi, this_task_id.lo, 
-        that_task_id.ns, that_task_id.hi, that_task_id.lo);
-}
-
-#ifndef TAL_DOXYGEN
-TAL_INLINE void TAL_FUNCTION(TAL_AddRelationToCurrent)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_RELATION relation,  /**< Relationship type */
-    TAL_ID that_task_id     /**< ID of the target task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_RELATION_TO_CURRENT(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  relation, that_task_id.ns, that_task_id.hi, that_task_id.lo);
-}
-#endif
-
-/************************************************************************/
-/**\ingroup Relations
- ** Specify a relationship between the current task and another task.
- ** Specify a relationship between the current task and another task.
- ** Thus, e.g. TAL_AddRelationThis(TAL_RELATION_IS_CHILD_OF, that_id) will
- ** make the current task a child of that_id.
- ** 
- ** When using TAL_AddRelationThis, please keep the following things in mind:
- ** <ul>
- ** <li>Before calling TAL_AddRelationThis, make sure that the "that_id" has been created using the TAL_CreateID API.
- ** If you have not created it, then the relationship will not be successfully formed.</li>
- ** <li>It is not necessary for "that_id" to have executed [e.g. be used in a TAL_BeginTask or TAL_BeginVTask call 
- ** when you call TAL_AddRelationThis. You can, for example, use TAL_AddRelationThis to create a relationship between
- ** the currently executing task and a just-enqueued task that hasn't yet executed, <b>as long as you TAL_CreateID</b> the child ID
- ** beforehand.</li>
- ** <li>After creating IDs and forming a relationship using TAL_AddRelationThis, make sure to retire the ID using TAL_RetireID.
- ** If the ID is not retired, or it is retired before all tasks using the ID have completed, the relationship will not be formed successfully. See TAL_RetireID for more information.</li>
- ** </ul>
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_AddRelationThis)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_RELATION relation,  /**< Relationship type */
-    TAL_ID that_id          /**< ID of the target */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_RELATION_THIS(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, relation, that_id.ns, that_id.hi, that_id.lo);
-}
-
-/************************************************************************/
-/** Specify a relationship between one and a number of tasks.
- ** @ingroup Relations
- ** This function specifies a relationship between one and a number of tasks.
- ** This simplifies the case where a single task creates a large number of child tasks.
- ** For example, instead of:
- ** \code
- **   TAL_ID child_tasks[32];
- **   GetChildTaskIDS(child_tasks);
- **   for(int i = 0; i < 32; ++i)
- **      TAL_AddRelation(this_id, TAL_RELATION_IS_PARENT_OF, child_tasks[i]);
- ** \endcode
- ** The TAL_AddRelations API replaces this with:
- ** \code
- **   TAL_ID child_tasks[32];
- **   GetChildTaskIDS(child_tasks);
- **   TAL_AddRelations(this_id, TAL_RELATION_IS_PARENT_OF, 32, child_tasks);
- ** \endcode
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_AddRelations)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID this_task_id,     /**< ID of the source task */
-    TAL_RELATION relation,   /**< Relationship type */
-    TAL_UINT32 n_those_tasks,/**< Number of target tasks */
-    TAL_ID* those_task_ids   /**< Array of target task IDs */
-)
-{
-    TAL_UINT32 i =0;
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    for(i = 0; i < n_those_tasks; ++i) {
-        TAL_ID* that_task_id = &those_task_ids[i];
-        TAL_PUSH_ADD_RELATION(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  relation, this_task_id.ns, this_task_id.hi, this_task_id.lo,
-            that_task_id->ns, that_task_id->hi, that_task_id->lo);
-    }
-}
-
-/************************************************************************/
-#ifndef TAL_DOXYGEN
-TAL_INLINE void TAL_FUNCTION(TAL_TaskCreated)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID id               /**< ID to be associated with the task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ID_CREATED(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo,  0);
-}
-#endif
-
-/************************************************************************/
-/** Capture the creation of an ID. This makes it possible to identify
- ** a task or a vtask, and thus establish relationships with it, 
- ** before its execution. It is possible to mark this ID as globally
- ** visible, in which case other processes can use this ID to form
- ** relationships. Local IDs cannot be accessed outside the process
- ** they are created in. In either case, only the creator process can
- ** retire an ID.
-**@ingroup Relations
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_CreateIDEx)(
-	TAL_FUNCTION_ARGS_
-	TAL_ID id,				/**< ID to be given to a task or virtual task */
-	TAL_BOOL global			/**< Global visibility of the ID */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ID_CREATED(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo, global);
-}
-
-/************************************************************************/
-/** Capture the creation of an ID. This makes it possible to identify
- ** a task or a vtask, and thus establish relationships with it, 
- ** before its execution. IDs created by this function are implicitly 
- ** local.
-**@ingroup Relations
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_CreateID)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID id               /**< ID to be given to a task or virtual task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ID_CREATED(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo, 0);
-}
-
-/************************************************************************/
-#ifndef TAL_DOXYGEN
-/** Feature not yet implemented.
-**@ingroup Relations
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_TaskStolen)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID id               /**< ID to be associated with the task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_TASK_STOLEN(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo);
-}
-#endif
-
-/************************************************************************/
-#ifndef TAL_DOXYGEN
-TAL_INLINE void TAL_FUNCTION(TAL_TaskDeleted)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID id               /**< ID to be associated with the task */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ID_RETIRED(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo);
-}
-#endif
-/************************************************************************/
-/**@ingroup Relations
- **Retires an ID, allowing TAL to complete its processing of all relations used against that ID.
- ** 
- ** In TAL, the TAL_CreateID and TAL_RetireID APIs instruct TAL that an object of some sort exists
- ** during that period of time. During that interval, you may trace tasks that use that ID (e.g. TAL_BeginNamedTaskWithID), 
- ** or form relationships between tasks using TAL_AddRelation or TAL_AddRelationThis.
- **
- ** However, you must retire the ID before TAL can successfully process all the commands you have issued against a particular ID.
- ** 
- ** Thus, a common sequence used in TAL is:
- ** <ul>
- ** <li>Create an ID</li>
- ** <li>Create tasks that use the ID</li>
- ** <li>Connect those tasks to their parent tasks using TAL_AddRelation API</li>
- ** <li>When <b>all</b> the work relating to that ID has completed, retire the ID with TAL_RetireID.
- ** </ul>
- **
- ** If you do not retire an ID, TAL will not process any relations associated with it. Similarly, if you retire it too early,
- ** and calls use the ID after it was retired, TAL will not process those "orphaned" calls.
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_RetireID)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_ID id               /**< ID to be retired */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ID_RETIRED(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, id.ns, id.hi, id.lo);
-}
-
-/************************************************************************/
-/************************************************************************/
-
-/************************************************************************/
-/** Increment a relative counter by 1. 
- ** @ingroup Counters
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_IncCounter)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name        /**< Name of the counter */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_COUNTER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1);
-}
-
-/** @ingroup Counters */
-TAL_INLINE void TAL_FUNCTION(TAL_IncCounterH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name  /**< Name of the counter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_COUNTER_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1);
-}
-
-/************************************************************************/
-/** Decrement a relative counter by 1.
- ** @ingroup Counters
- **/
-TAL_INLINE void TAL_FUNCTION(TAL_DecCounter)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name        /**< Name of the counter */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_SUB_COUNTER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1);
-}
-/** @ingroup Counters */
-TAL_INLINE void TAL_FUNCTION(TAL_DecCounterH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name  /**< Name of the counter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_SUB_COUNTER_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1);
-}
-
-/************************************************************************/
-/** Record that software has added a value to a relative counter. For cases where instrumenting
- ** every single increment is infeasible for performance reasons, consider using an absolute 
- ** counter and using the TAL_SampleCounter API to sample its value.
- ** @ingroup Counters 
- **/
-TAL_INLINE void            TAL_FUNCTION(TAL_AddCounter)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the counter */
-    TAL_INT64 val           /**< Amount to be added */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_ADD_COUNTER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, val);
-}
-
-/** @ingroup Counters */
-TAL_INLINE void            TAL_FUNCTION(TAL_AddCounterH)(
-	TAL_FUNCTION_ARGS_ 
-	TAL_STRING_HANDLE name, /**< Name of the counter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */ 
-    TAL_INT64 val           /**< Amount to be added */
-    )
-{
-	TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-	TAL_PUSH_ADD_COUNTER_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, val);
-}
-
-/************************************************************************/
-/** \ingroup Counters
-** Store the current value of a software counter to the trace. The Platform View will
-** help you compare sequences of samples to understand how this counter is changing
-** over time.
-**/
-TAL_INLINE void            TAL_FUNCTION(TAL_SampleCounter)(
-	TAL_FUNCTION_ARGS_
-	const char* name,       /**< Name of the counter */
-	TAL_INT64 val           /**< Amount to be sampled */
-	)
-{
-	TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-	TAL_PUSH_SAMPLE_COUNTER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, val);
-}
-
-/** \ingroup Counters */
-TAL_INLINE void            TAL_FUNCTION(TAL_SampleCounterH)(
-	TAL_FUNCTION_ARGS_ 
-	TAL_STRING_HANDLE name, /**< Name of the counter, represented by the TAL_STRING_HANDLE returned from TAL_SampleStringToPool. For performance reasons, passing 0xFFFFFFFF as a handle causes the GUI to ignore this command completely. */ 
-	TAL_INT64 val           /**< Counter to be Sampled */
-	)
-{
-	TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-	TAL_PUSH_SAMPLE_COUNTER_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, val);
-}
-
-/************************************************************************/
-/** \ingroup Counters
-** Sample the currently configured hardware performance counters and store them in the trace.
-** The Platform View will help you analyze multiple such samples to understand the counter's trend over time.
-** 
-** <b>This feature is not not supported on Windows at this time.</b> On unsupported OSes, this API will perform no work whatsoever.
-**/
-TAL_INLINE void            TAL_FUNCTION(TAL_SampleHardwareCounters)(
-	TAL_FUNCTION_ARGS 
-	)
-{
-#if TAL_PLATFORM == TAL_PLATFORM_LRB
-	TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-	TAL_PUSH_SAMPLE_HW_COUNTERS_32x4(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT);
-#else // TAL_PLATFORM
-    UNUSED_TAL_FUNCTION_ARGS
-#endif // TAL_PLATFORM
-}
-
-
-/************************************************************************/
-/** Subtract an amount from a relative counter.
- ** @ingroup Counters 
- **/
-TAL_INLINE void            TAL_FUNCTION(TAL_SubCounter)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the counter */
-    TAL_INT64 val           /**< Amount to be subtracted */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_SUB_COUNTER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  name, val);
-}
-/** @ingroup Counters */
-TAL_INLINE void            TAL_FUNCTION(TAL_SubCounterH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the counter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_INT64 val           /**< Amount to be subtracted */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_SUB_COUNTER_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT,  name, val);
-}
-
-
-
-/************************************************************************/
-/************************************************************************/
-
-/** @ingroup EventsAndMarkers */
-TAL_INLINE void            TAL_FUNCTION(TAL_Marker)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name        /**< Name of the marker */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_MARKER(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name);
-}
-
-/** @ingroup EventsAndMarkers */
-TAL_INLINE void            TAL_FUNCTION(TAL_MarkerEx)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the marker */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_MARKER_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,ts);
-}
-
-
-/************************************************************************/
-
-/** @ingroup EventsAndMarkers */
-TAL_INLINE void            TAL_FUNCTION(TAL_Event)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name        /**< Name of the event */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_EVENT(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name);
-}
-
-/** @ingroup EventsAndMarkers */
-TAL_INLINE void            TAL_FUNCTION(TAL_EventEx)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the event */
-    TAL_UINT64 ts           /**< Time stamp in TAL_ticks (see TAL_GetTimestampFreq()) */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_EVENT_EX(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,ts);
-}
-
-
-
-/************************************************************************/
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Parami)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_INT32 value         /**< Parameter value */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &value);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param2i)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_INT32 value1,       /**< 1st parameter value */
-    TAL_INT32 value2        /**< 2nd parameter value */
-)
-{
-    TAL_TRACE* handle = NULL;
-    TAL_INT32 val[2];
-
-    val[0] = value1;
-    val[1] = value2;
-    handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,2,val);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Paramiv)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_UINT32 nelems,      /**< Number of integer elemements in parameter */
-    TAL_INT32* values       /**< Pointer to parameter values */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-
-TAL_INLINE void            TAL_FUNCTION(TAL_Param64i)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_INT64 value         /**< Parameter value */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I64V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &value);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param64iv)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_UINT32 nelems,      /**< Number of integer elemements in parameter */
-    TAL_INT64* values       /**< Pointer to parameter values */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I64V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-TAL_INLINE void            TAL_FUNCTION(TAL_Paramp)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    void* value         /**< Parameter value */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-#ifdef TAL_64
-    TAL_UINT64 v = (TAL_UINT64)value;
-    TAL_PUSH_PARAM_I64V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &v);
-#else // TAL_32
-    TAL_UINT32 v = (TAL_UINT32)value;
-    TAL_PUSH_PARAM_I32V(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &v);
-#endif // TAL_32
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Paramf)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    float value             /**< Parameter value */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,1,&value);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param2f)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    float value1,           /**< 1st parameter value */
-    float value2            /**< 2nd parameter value */
-)
-{
-    TAL_TRACE* handle =  NULL;
-    float val[2];
-    
-    val[0] = value1;
-    val[1] = value2;
-    handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,2,val);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param3f)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    float value1,           /**< 1st parameter value */
-    float value2,           /**< 2nd parameter value */
-    float value3            /**< 3rd parameter value */
-)
-{
-    TAL_TRACE* handle =  NULL;
-    float val[3];
-
-    val[0] = value1;
-    val[1] = value2;
-    val[2] = value3;
-    handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,3,val);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param4f)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    float value1,           /**< 1st parameter value */
-    float value2,           /**< 2nd parameter value */
-    float value3,           /**< 3rd parameter value */
-    float value4            /**< 4th parameter value */
-)
-{
-    TAL_TRACE* handle =  NULL;
-    float val[4];
-
-    val[0] = value1;
-    val[1] = value2;
-    val[2] = value3;
-    val[3] = value4;
-    handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,4,val);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Paramfv)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    TAL_UINT32 nelems,      /**< Number of float elemements in parameter */
-    float* values           /**< Pointer to parameter values */
-)
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamStr)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    const char* value       /**< Parameter value */
-)
-{
-    // Do check here to avoid va_arg parsing for TAL_Param (uses PUSH_PARAM_S as well)
-    if (TAL_IS_LOGGABLE(TAL_FUNCTION_ARG_TRACE, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT))
-    {
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_S(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,value);
-}
-}
-
-/************************************************************************/
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamiH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_INT32 value         /**< Parameter value */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &value);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param2iH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_INT32 value1,       /**< 1st parameter value */
-    TAL_INT32 value2        /**< 2nd parameter value */
-    )
-{
-    int val[2] = {value1, value2};
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,2,val);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamivH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_UINT32 nelems,      /**< Number of integer elemements in parameter */
-    TAL_INT32* values       /**< Pointer to parameter values */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I32V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-
-TAL_INLINE void            TAL_FUNCTION(TAL_Param64iH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_INT64 value         /**< Parameter value */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I64V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &value);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param64ivH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_UINT32 nelems,      /**< Number of integer elemements in parameter */
-    TAL_INT64* values       /**< Pointer to parameter values */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_I64V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-TAL_INLINE void            TAL_FUNCTION(TAL_ParampH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    void* value         /**< Parameter value */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-#ifdef TAL_64
-    TAL_UINT64 v = (TAL_UINT64)value;
-    TAL_PUSH_PARAM_I64V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &v);
-#else // TAL_32
-    TAL_UINT32 v = (TAL_UINT32)value;
-    TAL_PUSH_PARAM_I32V_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name, 1, &v);
-#endif // TAL_32
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamfH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    float value             /**< Parameter value */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,1,&value);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param2fH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    float value1,           /**< 1st parameter value */
-    float value2            /**< 2nd parameter value */
-    )
-{
-    float val[2] = {value1,value2};
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,2,val);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param3fH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    float value1,           /**< 1st parameter value */
-    float value2,           /**< 2nd parameter value */
-    float value3            /**< 3rd parameter value */
-    )
-{
-    float val[3] = {value1,value2,value3};
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,3,val);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param4fH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    float value1,           /**< 1st parameter value */
-    float value2,           /**< 2nd parameter value */
-    float value3,           /**< 3rd parameter value */
-    float value4            /**< 4th parameter value */
-    )
-{
-    float val[4] = {value1,value2,value3,value4};
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,4,val);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamfvH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    TAL_UINT32 nelems,      /**< Number of float elemements in parameter */
-    float* values           /**< Pointer to parameter values */
-    )
-{
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_FV_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,nelems,values);
-}
-
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamStrH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    const char* value       /**< Parameter value */
-    )
-{
-    // Do check here to avoid va_arg parsing for TAL_ParamH (uses PUSH_PARAM_S_H as well)
-    if (TAL_IS_LOGGABLE(TAL_FUNCTION_ARG_TRACE, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT))
-    {
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    TAL_PUSH_PARAM_S_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,value);
-}
-}
-
-#ifdef __cplusplus
-extern "C" 
-#endif // __cplusplus
-#if !defined(TAL_KERNEL) && !defined(TAL_DOXYGEN)
-char* TAL_Vasprintf( const char* fmt, TAL_VA_LIST ap);
-#endif
-
-#ifndef TAL_KERNEL
-/** @ingroup Parameters */
-TAL_INLINE void            TAL_FUNCTION(TAL_Param)(
-    TAL_FUNCTION_ARGS_ 
-    const char* name,       /**< Name of the parameter */
-    const char* fmt,        /**< printf format specifier for parameter value */
-    ...
-)
-{
-    if (TAL_IS_LOGGABLE(TAL_FUNCTION_ARG_TRACE, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT))
-    {
-    char* val = NULL;
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-        TAL_VA_LIST ap;
-        TAL_VA_START(ap,fmt);
-    val = TAL_Vasprintf(fmt,ap);
-        TAL_VA_END(ap);
-    TAL_PUSH_PARAM_S(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,val);
-    free(val);
-}
-}
-#endif //ndef KERNEL
-
-#ifndef TAL_KERNEL
-/** @ingroup Parameter */
-TAL_INLINE void            TAL_FUNCTION(TAL_ParamH)(
-    TAL_FUNCTION_ARGS_ 
-    TAL_STRING_HANDLE name, /**< Name of the parameter, represented by the TAL_STRING_HANDLE returned from TAL_GetStringHandle */
-    const char* fmt,        /**< printf format specifier for parameter value */
-    ...
-    )
-{
-    if (TAL_IS_LOGGABLE(TAL_FUNCTION_ARG_TRACE, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT))
-    {
-    char* val = NULL;
-    TAL_TRACE* handle = TAL_FUNCTION_ARG_TRACE;
-    va_list ap;
-    va_start(ap,fmt);
-    val = TAL_Vasprintf(fmt,ap);
-    va_end(ap);
-    TAL_PUSH_PARAM_S_H(handle, TAL_FUNCTION_ARG_LVL, TAL_FUNCTION_ARG_CAT, name,val);
-    free(val);
-}
-}
-#endif // ndef TAL_KERNEL
-#if TAL_COMPILER == TAL_COMPILER_MSVC || TAL_COMPILER == TAL_COMPILER_ICC
-#pragma warning(pop)
-#endif
-
 #endif // TAL_API_H
 
 /* ************************************************************************* **

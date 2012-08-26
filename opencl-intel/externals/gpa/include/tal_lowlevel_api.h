@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2010).  All rights reserved.
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -18,7 +18,7 @@
 #ifndef TAL_DOXYGEN
 #ifdef TAL_DISABLE
 
-#define TAL_ProcessCreate(adapter_id, pid, name, clockFreq, fn, fnData) (0)
+#define TAL_ProcessCreate(adapter_id, pid, name, clockFreqZ, fn, fnData) (0)
 #define TAL_ProcessAddModule(process, module)
 #define TAL_AllocTraceBuffer(process, tid) (0)
 #define TAL_FreeTraceBuffer(trace)
@@ -33,15 +33,15 @@ extern "C" {
 #endif //  __cplusplus
 /** \ingroup Misc
  **/
-TAL_INLINE TAL_PROCESS*	TAL_ProcessCreate(TAL_UINT32 adapter_id, TAL_UINT64 pid, const char* name, TAL_UINT64 clockFreq, TAL_GetProcessClockbaseFn fn, void* fnData)
+TAL_INLINE TAL_PROCESS*	TAL_ProcessCreate(TAL_UINT32 adapter_id, TAL_UINT64 pid, const char* name, TAL_UINT64 clockFreqZ, TAL_GetProcessClockbaseFn fn, void* fnData)
 {
-    TAL_PROCESS* process = TAL_NULL;
+    TAL_PROCESS* process = NULL;
     TAL_UINT32 resultSize = sizeof(process);
     TALCTL_PROCESS_CREATE_PARAMS params;
     params.adapter_id = adapter_id;
     params.pid = pid;
     params.name = name;
-    params.clockFreq = clockFreq;
+    params.clockFreq = clockFreqZ;
     params.getClockBaseFunc = fn;
     params.getClockBaseFuncData = fnData;
     p__talctl(TALCTL_PROCESS_CREATE, &params, sizeof(params), &process, &resultSize);
@@ -51,7 +51,7 @@ TAL_INLINE TAL_PROCESS*	TAL_ProcessCreate(TAL_UINT32 adapter_id, TAL_UINT64 pid,
 
 TAL_INLINE TAL_TRACE*      TAL_AllocTraceBuffer(TAL_PROCESS* process, TAL_UINT64 tid)
 {
-    TAL_TRACE* trace = TAL_NULL;
+    TAL_TRACE* trace = NULL;
     TAL_UINT32 resultSize = sizeof(trace);
     TALCTL_ALLOC_TRACE_BUFFER_PARAMS params;
     params.process = process;
@@ -62,7 +62,12 @@ TAL_INLINE TAL_TRACE*      TAL_AllocTraceBuffer(TAL_PROCESS* process, TAL_UINT64
 
 TAL_INLINE void            TAL_FreeTraceBuffer(TAL_TRACE* trace)
 {
-    p__talctl(TALCTL_FREE_TRACE_BUFFER, &trace, sizeof(trace), TAL_NULL, TAL_NULL);
+    p__talctl(TALCTL_FREE_TRACE_BUFFER, &trace, sizeof(trace), NULL, NULL);
+}
+
+TAL_INLINE void            TAL_SetClockBase()
+{
+    p__talctl(TALCTL_SET_CLOCK_BASE, NULL, 0, NULL, NULL);
 }
 
 #ifdef __cplusplus

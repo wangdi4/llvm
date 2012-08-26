@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2008).
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -11,9 +11,6 @@
 ** infringement of any proprietary rights, relating to use of the code. No license,
 ** express or implied, by estoppel or otherwise, to any intellectual property
 ** rights is granted herein.
-**
-** Description: 
-**              
 **
 **+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 #ifndef TAL_DISASSEMBLER_H

@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2010).  All rights reserved.
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -13,8 +13,8 @@
 ** rights is granted herein.
 **
 **+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-#ifndef __tal_H__
-#define __tal_H__
+#ifndef __TALX_H__
+#define __TALX_H__
 #include <stdarg.h>
 #ifdef __cplusplus
 
@@ -42,24 +42,24 @@
     #define TALX_TRACE_NAMED_WITH_PMU(lvl, cat, nm)  
 
 
-	#define TAL_SCOPED_TASK(nm)           
-	#define TAL_SCOPED_TASK_FN(nm)           
-    #define TAL_SCOPED_TASK_NAMED(nm)           
-	#define TAL_SCOPED_TASK_WITH_ID(nm, id)           
-	#define TAL_SCOPED_TASK_FN_WITH_ID(nm, id)           
-    #define TAL_SCOPED_TASK_NAMED_WITH_ID(nm, id)           
-	#define TAL_SCOPED_TASK_WITH_RELATION(nm, rel, id)           
-	#define TAL_SCOPED_TASK_FN_WITH_RELATION(nm, rel, id)           
-    #define TAL_SCOPED_TASK_NAMED_WITH_RELATION(nm, rel, id)           
-	#define TAL_SCOPED_TASK_FILTERED(lvl, cat, nm, rel, id)           
-	#define TAL_SCOPED_TASK_FN_FILTERED(lvl, cat, nm)           
-    #define TAL_SCOPED_TASK_NAMED_FILTERED(lvl, cat, nm)           
-	#define TAL_SCOPED_TASK_WITH_ID_FILTERED(lvl, cat, nm, id)           
-	#define TAL_SCOPED_TASK_FN_WITH_ID_FILTERED(lvl, cat, nm, id)           
-    #define TAL_SCOPED_TASK_NAMED_WITH_ID_FILTERED(lvl, cat, nm, id)           
-	#define TAL_SCOPED_TASK_WITH_RELATION_FILTERED(lvl, cat, nm, rel, id)           
-	#define TAL_SCOPED_TASK_FN_WITH_RELATION_FILTERED(lvl, cat, nm, rel, id)           
-    #define TAL_SCOPED_TASK_NAMED_WITH_RELATION_FILTERED(lvl, cat, nm, rel, id)           
+	#define TAL_SCOPED_TASK()
+	#define TAL_SCOPED_TASK_FN(fn)
+    #define TAL_SCOPED_TASK_NAMED(nm)
+	#define TAL_SCOPED_TASK_WITH_ID(id)
+	#define TAL_SCOPED_TASK_FN_WITH_ID(fn, id)
+    #define TAL_SCOPED_TASK_NAMED_WITH_ID(nm, id)
+	#define TAL_SCOPED_TASK_WITH_RELATION(rel, id)
+	#define TAL_SCOPED_TASK_FN_WITH_RELATION(fn, rel, id)
+    #define TAL_SCOPED_TASK_NAMED_WITH_RELATION(nm, rel, id)
+	#define TAL_SCOPED_TASK_FILTERED(lvl, cat)
+	#define TAL_SCOPED_TASK_FN_FILTERED(lvl, cat, nm)
+    #define TAL_SCOPED_TASK_NAMED_FILTERED(lvl, cat, nm)
+	#define TAL_SCOPED_TASK_WITH_ID_FILTERED(lvl, cat, id)
+	#define TAL_SCOPED_TASK_FN_WITH_ID_FILTERED(lvl, cat, fn, id)
+    #define TAL_SCOPED_TASK_NAMED_WITH_ID_FILTERED(lvl, cat, nm, id)
+	#define TAL_SCOPED_TASK_WITH_RELATION_FILTERED(lvl, cat, rel, id)
+	#define TAL_SCOPED_TASK_FN_WITH_RELATION_FILTERED(lvl, cat, fn, rel, id)
+    #define TAL_SCOPED_TASK_NAMED_WITH_RELATION_FILTERED(lvl, cat, nm, rel, id)
 
 
 
@@ -143,7 +143,7 @@
             :lvl(in_lvl), cat(in_cat)
         {
             pTrace = TAL_GetThreadTrace();
-			TAL_BeginNamedTaskWithID(pTrace, in_lvl, in_cat, in_handle, in_ThisId);
+			TAL_BeginNamedTaskHWithID(pTrace, in_lvl, in_cat, in_handle, in_ThisId);
 			TAL_SamplePmus<SAMPLE_PMU>(pTrace, in_lvl, in_cat);
         };
 
@@ -198,8 +198,9 @@
      ** - Fully automatic, TAL_SCOPED_TASK, using the __FUNCTION__ preprocessor macro for the task name
      ** - By function pointer, TAL_SCOPED_TASK_FN, using a passed-in function pointer
      ** - By string, TAL_SCOPED_TASK_NAMED, using a passed-in const char*
-     ** Using a trick with static member variables, the versions NAMED and FN variants
-     ** of this macro automatically use string pools to keep the cost of the tracing function low.
+     **
+     ** The TAL_SCOPED_TASK and TAL_SCOPED_TASK_NAMED macros
+     ** automatically use string pools to keep the cost of the tracing function low.
      **
      ** These same macros are available in a TAL_SCOPED_TASK_WITH_PMU family of variants.
      ** Available across the automatic, string and function pointer base variants, the
@@ -387,7 +388,7 @@
     ** \param cat One or a combination of the TAL_LOG_CATEGORIES values determining the logging categories for which this function provides data.
 	** \param id TAL_ID to associate with this task
     **/
-    #define TAL_SCOPED_TASK_WITH_ID_FILTERED(id)                     static TAL_STRING_HANDLE __tal_scoped_task_string_handle = TAL_GetStringHandle(__FUNCTION__); \
+    #define TAL_SCOPED_TASK_WITH_ID_FILTERED(lvl, cat, id)          static TAL_STRING_HANDLE __tal_scoped_task_string_handle = TAL_GetStringHandle(__FUNCTION__); \
                                                      TAL_ScopedTask<false> __tal_scoped_task(lvl, cat, __tal_scoped_task_string_handle, id)
 
     /** \ingroup TALX
@@ -482,7 +483,7 @@
 #pragma warning(pop)
 
 #endif // __cplusplus
-#endif __tal_H__
+#endif // __TALX_H__
 
 /* ************************************************************************* **
 ** ************************************************************************* **

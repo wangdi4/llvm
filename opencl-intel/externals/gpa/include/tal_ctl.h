@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2008).
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -11,9 +11,6 @@
 ** infringement of any proprietary rights, relating to use of the code. No license,
 ** express or implied, by estoppel or otherwise, to any intellectual property
 ** rights is granted herein.
-**
-** File Name: talctl.h
-** Purpose:   
 **
 **+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 #ifndef __TALCTL_H__
@@ -71,6 +68,11 @@ typedef enum
     TALCTL_MALLOC                       = 0X28,
     TALCTL_FREE                         = 0x29,
     TALCTL_GET_NEXT_TALX_ID             = 0X2A,
+    TALCTL_GET_PUSHERS                  = 0X2B,
+	TALCTL_SET_STRING_HANDLE            = 0X2C,
+    TALCTL_TEST_TRIGGER_CONDITIONS      = 0x2D,
+	TALCTL_SHUTDOWN		                = 0X2E,
+    TALCTL_SET_CLOCK_BASE               = 0x2F,
 
     TALCTL_CODE_MAX
 } TALCTL_CODE;
@@ -98,6 +100,7 @@ typedef struct
     TAL_UINT64 pid;
     const char* name;
     TAL_UINT64 clockFreq;
+    TAL_UINT64 clockBase;
     TAL_GetProcessClockbaseFn getClockBaseFunc;
     void* getClockBaseFuncData;
 } TALCTL_PROCESS_CREATE_PARAMS;
@@ -179,6 +182,19 @@ typedef struct
     const char* string;
 } TALCTL_GET_STRING_HANDLE_EX_PARAMS;
 
+typedef struct  
+{
+    TAL_PROCESS* process;
+	TAL_STRING_HANDLE id;
+    const char* string;
+} TALCTL_SET_STRING_HANDLE_PARAMS;
+
+typedef struct  
+{
+    TAL_STRING_HANDLE nameHandle;
+    int value;
+} TALCTL_TEST_TRIGGER_CONDITIONS_PARAMS;
+
 #pragma pack(pop)
 
 #if !defined(TAL_MIN)
@@ -204,6 +220,10 @@ typedef TAL_BOOL TAL_CALL TALCTL_FUNC(TALCTL_CODE code, const void* input, TAL_U
 typedef TAL_BOOL TAL_CALL TALVALIDATETALVERSION_FUNC(const TAL_VERSION*);
 typedef TAL_TRACE* TAL_CALL TALGETTHREADTRACE_FUNC(void);
 typedef void TAL_CALL TALFLUSH_FUNC(TAL_TRACE*);
+// DJH TODO: Resolve whether these entry points can remain as part of the TAL api, or should we find another
+//           that doesn't expose them (TALCTL codes?)    UNRESOLVED DEC-2010
+typedef void TAL_CALL TALCAPTURESTACKBACKTRACE_FUNC(TAL_TRACE*, TAL_UINT32, TAL_UINT64);
+typedef void TAL_CALL TALREADPMUCOUNTERS_FUNC(TAL_TRACE*);
 
 // implementations from tal.lib
 #ifdef __cplusplus
@@ -213,6 +233,10 @@ extern TALCTL_FUNC *p__talctl;
 extern TALVALIDATETALVERSION_FUNC *p__talValidateTalVersion;
 extern TALGETTHREADTRACE_FUNC* p__TAL_GetThreadTrace;
 extern TALFLUSH_FUNC* p__TAL_Flush;
+// DJH TODO: Resolve whether these entry points can remain as part of the TAL api, or should we find another
+//           that doesn't expose them (TALCTL codes?)    UNRESOLVED DEC-2010
+extern TALCAPTURESTACKBACKTRACE_FUNC* p__TAL_CaptureStackBackTrace;
+extern TALREADPMUCOUNTERS_FUNC* p__TAL_ReadPMUCounters;
 
 #ifdef __cplusplus
 }

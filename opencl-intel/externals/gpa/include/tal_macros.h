@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2010).  All rights reserved.
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -17,7 +17,7 @@
 #define TAL_MACROS_H
 
 #include "tal_types.h"
-#include "tal_helpers.h"
+#include "tal_rdtsc.h"
 #include "tal_structs.h"
 #include "tal_opcodes.h"
 
@@ -26,9 +26,19 @@
 #endif // TAL_COMPILER == TAL_COMPILER_MSVC || TAL_COMPILER == TAL_COMPILER_ICC
 
 #define TAL_RESERVE(tr, numDWords) \
-    if((tr)->cur + numDWords > (tr)->end){ \
-		(tr)->pfnFlush((TAL_TRACE*)tr);\
+    if((tr)->TalTrace_cur + numDWords > (tr)->TalTrace_end){ \
+		(tr)->TalTrace_pfnFlush((TAL_TRACE*)tr);\
     }
+
+#define TAL_RESERVE_CMDP(cmdP, numDWords) \
+    if((cmdP)->TalTrace_cur + numDWords > (cmdP)->TalTrace_end){ \
+		(cmdP)->CmdPool_pfnFlush((TAL_TRACE*)tr);\
+    }
+
+#define TAL_REMAIN_DWORDS(tr) ((tr)->TalTrace_end - (tr)->TalTrace_cur)
+#define TAL_REMAIN_BYTES(tr) (TAL_REMAIN_DWORDS(tr) << 2)
+#define TAL_REMAIN_WORDS(tr) (TAL_REMAIN_DWORDS(tr) << 1)
+
 
 #define TAL_COMMAND_OPCODE_SHIFT 21
 #define TAL_COMMAND_OPCODE_MASK 0x3FF
@@ -47,7 +57,17 @@
 #define TAL_GET_NUMDWORDS(cmd) (((cmd) >> TAL_COMMAND_NUMDWORDS_SHIFT) & TAL_COMMAND_NUMDWORDS_MASK)
 #define TAL_GET_ARGA(cmd) (((cmd) >> TAL_COMMAND_ARGA_SHIFT) & TAL_COMMAND_ARGA_MASK)
 #define TAL_GET_ARGB(cmd) (((cmd) >> TAL_COMMAND_ARGB_SHIFT) & TAL_COMMAND_ARGB_MASK)
+
+#define TAL_SET_ARGA(cmd, v) (((cmd) & ~(TAL_COMMAND_ARGA_MASK<< TAL_COMMAND_ARGA_SHIFT))  | (((v) & TAL_COMMAND_ARGA_MASK) << TAL_COMMAND_ARGA_SHIFT))
+#define TAL_SET_ARGB(cmd, v) (((cmd) & ~(TAL_COMMAND_ARGB_MASK<< TAL_COMMAND_ARGB_SHIFT))  | (((v) & TAL_COMMAND_ARGB_MASK) << TAL_COMMAND_ARGB_SHIFT))
+#define TAL_SET_NUMDWORDS(cmd, v) ((cmd & ~(TAL_COMMAND_NUMDWORDS_MASK<<TAL_COMMAND_NUMDWORDS_SHIFT)) | (((v)& TAL_COMMAND_NUMDWORDS_MASK) <<TAL_COMMAND_NUMDWORDS_SHIFT) )
+
 #define TAL_IS_ESCAPE_COMMAND(cmd,escape_opcode) ((TAL_GET_OPCODE(cmd) == TAL_OPCODE_ESCAPE) && (TAL_GET_ARGA(cmd) == (escape_opcode)))
+#define TAL_SET_NUMDWORDS(cmd, v) ((cmd & ~(TAL_COMMAND_NUMDWORDS_MASK<<TAL_COMMAND_NUMDWORDS_SHIFT)) | (((v)& TAL_COMMAND_NUMDWORDS_MASK) <<TAL_COMMAND_NUMDWORDS_SHIFT) )
+
+#define TAL_BYTES_TO_DWORDS(x) (((TAL_UINT32)x)>>2)
+#define TAL_PRESTORE_BLOB(s) ((s % 4) ? ((s >> 2) + 1) : (s >> 2))
+
 
 // Pushing helpers
 #if defined(TAL_DISABLE)
@@ -61,20 +81,22 @@
 	#define TAL_COMMIT(trace,numDWords) trace;
 	#define TAL_PUSH_COMMAND(tra, opcode, numDWords, argA, argB) tra; opcode; numDWords; argA; argB;
 	#define TAL_IS_LOGGABLE(tra, lvl, cat) ((lvl) != (lvl) && (cat) != (cat))
+	#define TAL_ROUND_TO_DWORDS(len) (0)
+	#define TAL_DWORDS_TO_BYTES(len) (0)
 #else // !defined(TAL_DISABLE)
 
 	#define TAL_STORE_FLT(cur,dwordOffset,value) ((float*)&(cur)[dwordOffset])[0] = value;
 	#define TAL_STORE_U32(cur,dwordOffset,value) (cur)[dwordOffset] = value;
 	#if TAL_PLATFORM == TAL_PLATFORM_WINDOWS
-	#define TAL_STORE_U64(cur,dwordOffset,value) ((TAL_UINT64*)&(cur)[dwordOffset])[0] = value;
-	#elif TAL_PLATFORM == TAL_PLATFORM_LRB
-	#define TAL_STORE_U64(cur, dwordOffset, value) \
-	{\
-		TAL_UINT64 __value = (value); \
-		((TAL_UINT32*)&(cur)[dwordOffset])[0] = __value; \
-		((TAL_UINT32*)&(cur)[dwordOffset])[1] = (__value >> 32);\
-	}
-	#else // TAL_PLATFORM != TAL_PLATFORM_WINDOWS && TAL_PLATFORM != TAL_PLATFORM_LRB
+		#define TAL_STORE_U64(cur,dwordOffset,value) ((TAL_UINT64*)&(cur)[dwordOffset])[0] = value;
+	#elif TAL_PLATFORM == TAL_PLATFORM_NIX
+		#define TAL_STORE_U64(cur, dwordOffset, value) \
+		{\
+			TAL_UINT64 __value = (value); \
+			((TAL_UINT32*)&(cur)[dwordOffset])[0] = __value; \
+			((TAL_UINT32*)&(cur)[dwordOffset])[1] = (__value >> 32);\
+		}
+	#else // TAL_PLATFORM 
 		#error "Not defined for current platform"
 	#endif // TAL_PLATFORM == TAL_PLATFORM_WINDOWS
 
@@ -85,13 +107,47 @@
 	#endif // TAL_ bits
 	#define TAL_PRESTORE_STR(str) (((TAL_UINT32)strlen(str) >> 2) + 1)
 	#define TAL_STORE_STR(cur,dwordOffset,str) strcpy((char*)&(cur[dwordOffset]),str);
-	#define TAL_COMMIT(trace,numDWords) ((trace)->cur += (1+(numDWords)));
+	#define TAL_COMMIT(trace,numDWords) ((trace)->TalTrace_cur += (1+(numDWords)));
 
-	#define TAL_SET_CUR(var, tra) TAL_UINT32* var = (tra)->cur;
+    #define TAL_PRESTORE_STR_EX(cnt) (((TAL_UINT32)cnt >> 2) + 1)
+    #define TAL_STORE_STR_A(cur,dwordOffset,remain,str) strcpy_s((char*)&(cur[dwordOffset]),remain,(const char*)str);
+    #define TAL_STORE_STR_A_EX(cur,dwordOffset,remain,str,count) memcpy_s((void*)&(cur[dwordOffset]),remain,(const void*)str,count*sizeof(char));    
+    #define TAL_STORE_STR_W(cur,dwordOffset,remain,str) wcscpy_s((wchar_t*)&(cur[dwordOffset]),remain,(const wchar_t*)str);
+    #define TAL_STORE_STR_W_EX(cur,dwordOffset,remain,str,count) memcpy_s((void*)&(cur[dwordOffset]),remain,(const void*)str,count*sizeof(wchar_t));
+
+	#if TAL_PLATFORM == TAL_PLATFORM_WINDOWS
+		#define TAL_STORE_I64(cur,dwordOffset,value) ((TAL_INT64*)&(cur)[dwordOffset])[0] = value;
+	#elif TAL_PLATFORM == TAL_PLATFORM_NIX
+		#define TAL_STORE_I64(cur, dwordOffset, value) \
+		{\
+			TAL_INT64 __value = (value); \
+			((TAL_INT32*)&(cur)[dwordOffset])[0] = __value; \
+			((TAL_INT32*)&(cur)[dwordOffset])[1] = (__value >> 32);\
+		}
+	#else // TAL_PLATFORM 
+		#error "Not defined for current platform"
+	#endif // TAL_PLATFORM == TAL_PLATFORM_WINDOWS
+
+    #define TAL_STORE_I32(cur,dwordOffset,value) ((TAL_INT32*)&(cur)[dwordOffset])[0] = value;
+    #define TAL_STORE_DBL(cur,dwordOffset,value) ((double*)&(cur)[dwordOffset])[0] = value;
+    #define TAL_STORE_I16(cur,dwordOffset,value) ((TAL_INT16*)&(cur)[dwordOffset])[0] = value;
+    #define TAL_STORE_U16(cur,dwordOffset,value) ((TAL_UINT16*)&(cur)[dwordOffset])[0] = value;
+    #define TAL_STORE_I16_EX(cur,dwordOffset,remain,data,count) memcpy_s((void*)&(cur[dwordOffset]),remain,(const void*)data,count*sizeof(TAL_INT16));
+    #define TAL_STORE_U16_EX(cur,dwordOffset,remain,data,count) memcpy_s((void*)&(cur[dwordOffset]),remain,(const void*)data,count*sizeof(TAL_UINT16));
+    #define TAL_STORE_UDT(cur,dwordOffset,remain,data,size) memcpy_s((void*)&(cur[dwordOffset]),remain,(const void*)data,size);
+    
+	#define TAL_SET_CUR(var, tra) TAL_UINT32* var = (tra)->TalTrace_cur;
 	#define TAL_PUSH_COMMAND(tra, opcode, numDWords, argA, argB) \
 		TAL_RESERVE(tra, 1+(numDWords));\
-		TAL_STORE_U32((tra)->cur, 0, TAL_COMMAND(opcode, numDWords, argA, argB)); 
+		TAL_STORE_U32((tra)->TalTrace_cur, 0, TAL_COMMAND(opcode, numDWords, argA, argB)); 
 
+	#define TAL_PUSH_CMDP(cmdP, opcode, numDWords, argA, argB) \
+		TAL_RESERVE_CMDP(cmdP, 1+(numDWords));\
+		TAL_STORE_U32((cmdP)->TalTrace_cur, 0, TAL_COMMAND(opcode, numDWords, argA, argB)); 
+
+
+	#define TAL_ROUND_BYTES_TO_DWORDS(len) ((((TAL_UINT32)(len)) >> 2) + 1)
+	#define TAL_DWORDS_TO_BYTES(len) ((((TAL_UINT32)(len)) << 2))
 
 	#if TAL_PLATFORM != TAL_PLATFORM_NIX
 		#define TAL_IS_COMPILED_IN(lvl, cat) (( ((TAL_UINT32)lvl) <= (TAL_MAX_COMPILED_IN_LOG_LEVEL)) && ((cat) & (TAL_COMPILED_IN_CATEGORIES)))
@@ -104,13 +160,26 @@
 #endif //TAL_DISABLE
 
 
+#define TAL_PUSH_ANNOTE_TID_PARENT_PID(tra, lvl, cat, tid, parentNameId) \
+{\
+    if(TAL_IS_LOGGABLE(tra, lvl, cat)) {\
+        TAL_CONST TAL_UINT32 nDWords = 2+2; TAL_UNUSED(nDWords);\
+        { \
+		TAL_PUSH_COMMAND(tra, TAL_ANNOTE_TID_PARENT_PID, nDWords, 0, 0); \
+        {TAL_SET_CUR(cur, (tra));\
+        TAL_STORE_U64(cur, 1, tid);\
+        TAL_STORE_U64(cur, 3, parentNameId);\
+        TAL_COMMIT   (tra, nDWords); }}\
+    }\
+}
 
-#define TAL_PUSH_ANNOTE_PID_NAME(tra, lvl, cat, pid, processName) \
+
+#define TAL_PUSH_ANNOTE_PID_NAME(tra, lvl, cat, pid, processName, otherProc) \
 {\
     if(TAL_IS_LOGGABLE(tra, lvl, cat)) {\
         TAL_CONST TAL_UINT32 nDWords = 2+TAL_PRESTORE_STR(processName); TAL_UNUSED(nDWords);\
 		{ \
-		TAL_PUSH_COMMAND(tra, TAL_ANNOTE_PID_NAME, nDWords, 0, 0); \
+		TAL_PUSH_COMMAND(tra, TAL_ANNOTE_PID_NAME, nDWords, otherProc, 0); \
         {TAL_SET_CUR(cur, (tra));\
         TAL_STORE_U64(cur, 1, pid);\
         TAL_STORE_STR(cur, 3, processName);\
@@ -530,6 +599,21 @@
     } \
 }
 
+#define TAL_PUSH_ANNOTE_PSEUDO_PROCESS(tra, lvl, cat, real_pid, fake_pid) \
+{\
+    if(TAL_IS_LOGGABLE(tra, lvl, cat)) \
+    {\
+        TAL_CONST TAL_UINT32 nDWords = 4; TAL_UNUSED(nDWords);\
+        TAL_PUSH_COMMAND(tra, TAL_ANNOTE_PSEUDO_PROCESS, nDWords, 0, 0);	\
+        {\
+            TAL_SET_CUR(cur, (tra));\
+            TAL_STORE_U64(cur, 1, real_pid);	\
+            TAL_STORE_U64(cur, 3, fake_pid);	\
+            TAL_COMMIT	 (tra, nDWords);\
+        }\
+    }\
+}
+
 // FIXME Optimize by removing 2nd stlen
 #define TAL_PUSH_ANNOTE_VERSION(tra, lvl, cat, version) \
 { \
@@ -538,6 +622,7 @@
         TAL_COMMIT(tra, 0); \
     }\
 }
+
 #define TAL_PUSH_ANNOTE_BUILD_VERSION(tra, lvl, cat, talversion, captureversion) \
 { \
     if(TAL_IS_LOGGABLE(tra, lvl, cat)) {\
@@ -604,7 +689,7 @@
 #define TAL_PUSH_ANNOTE_COUNTER_SAMPLE_TYPE(tra, lvl, cat, name, sample_type) \
 { \
 	if(TAL_IS_LOGGABLE(tra, lvl, cat)) {\
-	TAL_CONST TAL_UINT32 nDWordsForName = TAL_PRESTORE_STR(name); nDWordsForName; \
+	TAL_CONST TAL_UINT32 nDWordsForName = TAL_PRESTORE_STR(name); TAL_UNUSED(nDWordsForName); \
 		{ TAL_CONST TAL_UINT32 nDWords = nDWordsForName+1; TAL_UNUSED(nDWords); \
 		TAL_PUSH_COMMAND(tra, TAL_ANNOTE_COUNTER_SAMPLE_TYPE, nDWords, 0, 0); \
 		{TAL_SET_CUR(cur, (tra));\
@@ -902,13 +987,91 @@
 	}\
 }
 
+#define TAL_PUSH_STACK_TRACEV(tra, lvl, cat, nelems, valptr) \
+{\
+	if(TAL_IS_LOGGABLE(tra, lvl, cat))\
+	{\
+		TAL_CONST TAL_UINT32 nDWords = 1+(2*nelems);  TAL_UNUSED(nDWords);\
+		{\
+			TAL_PUSH_COMMAND(tra, TAL_OPCODE_STACK_TRACEV, nDWords, 0, 0);\
+			{\
+				TAL_UINT32 i = 0; \
+				TAL_SET_CUR(cur, (tra));\
+				TAL_STORE_U32(cur, 1, nelems);\
+				for(i = 0; i < nelems; ++i)\
+				{\
+		            TAL_STORE_U64(cur, 2+(2*i), (valptr)[i]);\
+				}\
+		        TAL_COMMIT(tra, nDWords);\
+			}\
+		}\
+	}\
+}
+
+#define TAL_PUSH_PMU_COUNTERS(tra, lvl, cat, ir, llc_references, llc_misses, unhalted_core_cycles)\
+{\
+	if(TAL_IS_LOGGABLE(tra, lvl, cat))\
+	{\
+		TAL_CONST TAL_UINT32 nDWords = 8; TAL_UNUSED(nDWords);\
+		{\
+			TAL_PUSH_COMMAND(tra, TAL_OPCODE_PMU_COUNTERS, nDWords, 0, 0); \
+			{\
+				TAL_SET_CUR(cur, (tra));\
+				TAL_STORE_U64(cur, 1, ir);\
+				TAL_STORE_U64(cur, 3, llc_references);\
+				TAL_STORE_U64(cur, 5, llc_misses);\
+				TAL_STORE_U64(cur, 7, unhalted_core_cycles);\
+			}\
+			TAL_COMMIT(tra, nDWords);\
+		}\
+	}\
+}\
+
+#ifdef TAL_DISABLE
+
+#define TAL_ReadHardwareCounter32(ctr) 0xFFFFFFFF
+
+#define TAL_PUSH_SAMPLE_HW_COUNTERS_32x4(tra, lvl, cat) \
+{\
+    TAL_UNUSED(tra);\
+    TAL_UNUSED(lvl);\
+    TAL_UNUSED(cat);\
+}
+
+
+#else
+
+#ifndef TAL_DOXYGEN
+TAL_INLINE TAL_UINT32 TAL_ReadHardwareCounter32(int counter) {
+#if TAL_PLATFORM == TAL_PLATFORM_LARRYSIM
+#warning not supported
+    counter;
+	return 0xFFFFFFFF;
+#elif TAL_PLATFORM == TAL_PLATFORM_WINDOWS
+    counter;
+	return 0xFFFFFFFF;
+#elif TAL_PLATFORM == TAL_PLATFORM_NIX
+	#if defined(TAL_FEATURE_LARRABEE)
+		TAL_UINT32 result;
+		__asm {
+			mov ecx, counter;
+			rdpmc;
+			mov result, eax;
+		}
+		return result;
+	#else // !defined(TAL_FEATURE_LARRABEE)
+		(void)counter;
+		return 0xFFFFFFFF;
+	#endif // !defined(TAL_FEATURE_LARRABEE)
+#endif //TAL_PLATFORM
+}
+#endif // ndef TAL_DOXYGEN
+
 #define TAL_PUSH_SAMPLE_HW_COUNTERS_32x4(tra, lvl, cat) \
 {\
 	if(TAL_IS_LOGGABLE(tra, lvl, cat)) {\
-	TAL_UINT64 ts;\
 	TAL_UINT32 c;\
-	TAL_CONST TAL_UINT32 nDWords = 4;\
-	ts = TAL_GetCurrentTime(); ts;\
+	TAL_UINT64 ts = TAL_GetCurrentTime(); TAL_UNUSED(ts);\
     if((tra)->hwPerfCounterHandles[0] != 0xFFFFFFFF) {\
         c = TAL_ReadHardwareCounter32(0);\
         TAL_PUSH_SAMPLE_COUNTER_EX_H(tra, lvl, cat, (tra)->hwPerfCounterHandles[0],c,ts);\
@@ -927,6 +1090,61 @@
     }\
     }\
 }
+
+#endif // TAL_DISABLE
+
+
+
+#if 0 // LEW_IPC
+inline  getCurrentClientContextSwitch(IgpaIPCClient* ctxClient, (TAL_UINT32*) &pCtxBuffer, (TAL_UINT32*) &pCtxBufferEnd)
+{
+	if(NULL == pCtxBuffer)
+	{
+		pIPCBlockData = pIPCClientContextSwitch->GetBlockForWriting();
+		pIPCBuffer = (TAL_UINT32*)pIPCBlockData;
+		pIPCBufferEnd = &pIPCBuffer[pIPCClientContextSwitch->GetBlockSize() / 4];
+
+
+		if(pCtxBuffer)
+		{
+			*pIPCBuffer++ = TAL_ESCAPE_COMMAND(TAL_ESCAPE_OPCODE_CONTEXT_SWITCH_DATA,0);
+			*pIPCBuffer++ = 0; // will be replaced by payload size
+			*pIPCBuffer++ = TAL_COMMAND(TAL_ANNOTE_TRACE_BUFFER_FLUSH_TIME2, 4, 0, 0);
+			*(TAL_UINT64*)(pIPCBuffer) = 0; // will be replaced @ flush
+			pIPCBuffer += 2;
+			*(TAL_UINT64*)(pIPCBuffer) = talGetPID();
+			pIPCBuffer += 2;
+		}
+	}
+}
+			if(pIPCBuffer)
+			{
+		        TAL_UINT32* pTids = (TAL_UINT32*) pEvent->UserData;
+
+				TAL_STORE_U32(pIPCBuffer, 0, TAL_COMMAND(TAL_OPCODE_CONTEXT_SWITCH_V2, (nDwords-1), 0, 0));  // Opcode
+				TAL_STORE_U64(pIPCBuffer, 1, (TAL_UINT64) pEvent->EventHeader.TimeStamp.QuadPart);  // Timestamp
+				//TAL_STORE_U64(pCur, 1, TAL_GetCurrentTime());  // Timestamp
+				TAL_STORE_U32(pIPCBuffer, 3, pTids[0]);   // new tid
+				TAL_STORE_U32(pIPCBuffer, 4, (TAL_UINT32) pEvent->BufferContext.ProcessorNumber); // cpu
+
+				pIPCBuffer += nDwords;
+
+				// if next one won't fit then full, so return the block ("flush")
+				if(pIPCBuffer + nDwords > pIPCBufferEnd)
+				{
+					int bufSizeBytes = 4 * (int)(pIPCBuffer-(TAL_UINT32*)pIPCBlockData);
+
+					pIPCBuffer = (TAL_UINT32*)pIPCBlockData;		// <-- @ escape
+					pIPCBuffer++;									// <-- @ payload size
+					*pIPCBuffer++ = bufSizeBytes - 8;				// <-- @ 
+					pIPCBuffer++;									// <-- @ time size, skipped
+			        *(TAL_UINT64*)(pIPCBuffer) = TAL_GetCurrentTime(); // replace flush time with correct value
+
+					pIPCClientContextSwitch->ReturnBlock(pIPCBlockData, bufSizeBytes);
+					pIPCBuffer = NULL;
+				}
+			}
+#endif LEW_IPC
 
 #endif // !defined(TAL_MACROS_H)
 

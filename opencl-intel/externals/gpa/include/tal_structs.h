@@ -1,6 +1,6 @@
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 **
-** Copyright (c) Intel Corporation (2010).  All rights reserved.
+** Copyright (c) 2010, Intel Corporation. All rights reserved.
 **
 ** INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS LICENSED
 ** ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
@@ -15,9 +15,20 @@
 **+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 #if (!defined( TAL_STRUCTS_H)) || defined(INHIBIT_MANAGED_DECL)
 #define TAL_STRUCTS_H
+#include "../common/managed_decl.h"
 
 #include "tal_types.h"
 
+#ifdef _MANAGED
+	#ifndef INHIBIT_MANAGED_DECL
+		#if defined(__TALTRACE_H__)
+			namespace GT {
+				namespace Tal {
+		#else // !__TALTRACE_H__
+				namespace libTaskalyzer {
+		#endif	// !__TALTRACE_H__		
+	#endif //INHIBIT_MANAGED_DECL
+#endif //_MANAGED
 
 #ifndef TAL_DOXYGEN
 typedef struct _TAL_VERSION
@@ -63,14 +74,14 @@ typedef struct _TAL_VERSION
  **   }
  ** \endcode
  ** To capture these relationships in TAL, use the IS_DEPENDENT_ON relation. Specifically, the WriteToDisk
- ** task has an TAL_RELATION_IS_DEPENDENT_ON relation to the FillInBuffer task. Or, if you want to look at it the other way, the
- ** FillInBuffer task has an TAL_RELATION_IS_PREDECESSOR_TO (the inverse of dependency) to the WriteToDisk task.
+ ** task has a TAL_RELATION_IS_DEPENDENT_ON relation to the FillInBuffer task. Or, if you want to look at it the other way, the
+ ** FillInBuffer task has a TAL_RELATION_IS_PREDECESSOR_TO (the inverse of IS_DEPENDENT_ON) relation to the WriteToDisk task.
  **
- ** In a continuation programming model, people decompose a long-running parent task into some initial work plus additional
+ ** In a continuation programming model, a developer can decompose a long-running parent task into some initial work plus additional
  ** work to be done later. From a task scheduling point of view, the usual meaning of the continuation is that the original task is not complete
- ** until the continuation task has also completed. To model this type of relationship between tasks, use the TAL_RELATION_IS_CONTINUATION_OF and TAL_RELATION_IS_PREDECESSOR_TO
- ** values. For a continuation-driven pair of tasks such as "BeginFrame()->EndFrame()," BeginFrame has the continuation to EndFrame, while EndFrame has a predecessor relation
- ** to beginframe.
+ ** until the continuation task has also completed. To model this type of relationship between tasks, use the TAL_RELATION_IS_CONTINUATION_OF and TAL_RELATION_IS_CONTINUED_BY
+ ** values. For a continuation-driven pair of tasks such as "BeginFrame()->EndFrame()," BeginFrame has the TAL_RELATION_IS_CONTINUED_BY relation to EndFrame, 
+ ** while EndFrame has the TAL_RELATION_IS_CONTINUATION_OF relation to Beginframe.
  **
  ** A final relation in TAL is the "sibling" relation, which is used to represent a group of tightly related tasks. The tasks
  ** of a parallel_for are siblings of one-another, for instance, since they are all operating on logically-related parts of the same work unit.
@@ -84,7 +95,7 @@ typedef struct _TAL_VERSION
  **
  ** Please see \ref Relations for more details on using the relations API.
  **/
-typedef enum _TAL_RELATION
+BEGIN_ENUM_DECL(TAL_RELATION)
 { /* must be leq 0xFF to not overflow arg1 */ /* keep this sync'd with taskalyzer_opcodes.cpp */
 #ifndef TAL_DOXYGEN
     TAL_RELATION_DEPENDENCY     = 0x1, // "that" must complete before "this" can execute
@@ -96,15 +107,15 @@ typedef enum _TAL_RELATION
     TAL_RELATION_OUT_DEPENDENCY = 0x7, // opposite of dependency
 #endif
 
-    TAL_RELATION_IS_DEPENDENT_ON    = 0x8, // "that" must complete before "this" can execute
-    TAL_RELATION_IS_SIBLING_OF      = 0x9, // "that" and "this" are part of the same logical group of tasks. Example: tasks within the same parallel-for group are siblings of one another.
-    TAL_RELATION_IS_PARENT_OF       = 0xA, // "that" is the logical parent task of "this" task. The two tasks may not be on same thread.
-    TAL_RELATION_IS_CONTINUATION_OF = 0xB, // a continuation in sense that the "that" task assumes all dependencies of the continued task ("this")
-    TAL_RELATION_IS_CHILD_OF        = 0xC, // "that" is the logical child task created by "this" task.  The two tasks may not be on same thread.
-    TAL_RELATION_IS_CONTINUED_BY    = 0xD, // inverse of continuation.
-    TAL_RELATION_IS_PREDECESSOR_TO  = 0xE, // inverse of dependency
+    TAL_RELATION_IS_DEPENDENT_ON    = 0x8, /**< "This" task cannot start before "that" task completes.\ Inverse of TAL_RELATION_IS_PREDECESSOR_TO. */
+    TAL_RELATION_IS_SIBLING_OF      = 0x9, /**< "This" task and "that" task are part of the same logical group.\ Example: tasks within the same parallel-for group are siblings of one another.\ Inverse of itself. */
+    TAL_RELATION_IS_PARENT_OF       = 0xA, /**< "This" task is the logical parent that creates "that" task.\ The two tasks need not be on the same thread.\ Inverse of TAL_RELATION_IS_CHILD_OF. */
+    TAL_RELATION_IS_CONTINUATION_OF = 0xB, /**< "This" task continues "that" task and assumes all dependencies of "that" task.\ Inverse of TAL_RELATION_IS_CONTINUED_BY. */
+    TAL_RELATION_IS_CHILD_OF        = 0xC, /**< "This" task is the logical child created by "that" task.\ The two tasks need not be on the same thread.\ Inverse of TAL_RELATION_IS_PARENT_OF. */
+    TAL_RELATION_IS_CONTINUED_BY    = 0xD, /**< "This" task is continued by "that" task, and "that" task assumes all dependencies of "this" task.\ Inverse of TAL_RELATION_IS_CONTINUATION_OF. */
+    TAL_RELATION_IS_PREDECESSOR_TO  = 0xE  /**< "This" task must complete before "that" task can start.\ Inverse of TAL_RELATION_IS_DEPENDENT_ON. */
 }
-TAL_RELATION;
+END_ENUM_DECL(TAL_RELATION)
 
 #ifndef TAL_DOXYGEN
 typedef struct _TAL_ID
@@ -139,32 +150,38 @@ typedef struct _TAL_ESCAPE
 #endif // ndef(TAL_DOXYGEN)
 
 #ifndef TAL_DOXYGEN
-typedef enum _TAL_ESCAPE_OPCODE
+BEGIN_ENUM_DECL(TAL_ESCAPE_OPCODE)  /* must be leq 0xFF to not overflow arg1 */
 {
     TAL_ESCAPE_OPCODE_THREAD_DATA = 0x01,
     TAL_ESCAPE_OPCODE_CAPTURE_PROGRESS = 0x02, // payload is bytes-worth of progress
     TAL_ESCAPE_OPCODE_COMMAND = 0x03, // Command Packet from server to tal or from tal to sub tal. ArgB will be one of TAL_ESCAPE_COMMAND_OPCODE
     TAL_ESCAPE_OPCODE_MIN_TIME_FENCE = 0x04, // Notifies that all data on all traces have been sent up to this time.
-	TAL_ESCAPE_OPCODE_DEPRICATED = 0x05,
+	TAL_ESCAPE_OPCODE_DEPRECATED = 0x05,
 
     TAL_ESCAPE_OPCODE_THREAD_DATA_Z = 0x06, // same as TAL_ESCAPE_OPCODE_THREAD_DATA but the data is zlib encoded.
     TAL_ESCAPE_OPCODE_TRACE_METADATA = 0x07,    // Extra data generated by systems other than the TAL collector
 
     TAL_ESCAPE_OPCODE_PROCESS_DATA = 0x08,
+    TAL_ESCAPE_OPCODE_SYMBOL_DICTIONARY = 0x09, // Stack address symbol dictionary
+	TAL_ESCAPE_OPCODE_CONTEXT_SWITCH_DATA = 0x0A,   // ETW context switch data
+    TAL_ESCAPE_OPCODE_SCREEN_IMAGE = 0x10, // dib image
+    TAL_ESCAPE_OPCODE_GFX_DATA = 0x11, // graphics data: dx resources, etc.
+	TAL_ESCAPE_OPCODE_PROCESS_DATA_ETW = 0x12, // not actually stored in file, but used during capture
+	TAL_ESCAPE_OPCODE_MEDIA_DATA = 0x13, // MPA/Media data
 
     TAL_ESCAPE_OPCODE_FILEVERSION = 0xFE,
     TAL_ESCAPE_OPCODE_EOF       = 0xFF
 }
-TAL_ESCAPE_OPCODE;
+END_ENUM_DECL(TAL_ESCAPE_OPCODE)
 
-typedef enum _TAL_ESCAPE_COMMAND_OPCODE
+BEGIN_ENUM_DECL(TAL_ESCAPE_COMMAND_OPCODE) // Must be leq 7 to not overflow argb
 {
 	TAL_ESCAPE_COMMAND_CONNECT  = 0x01, //  Sent from Tal Collector to command stream when it is connected
 	TAL_ESCAPE_COMMAND_EXTENDED = 0x07 // This command is always followed by a 32 bit value that is the actual command to be processed.
 }
-TAL_ESCAPE_COMMAND_OPCODE;
+END_ENUM_DECL(TAL_ESCAPE_COMMAND_OPCODE)
 
-typedef enum _TAL_ESCAPE_COMMANDEX_OPCODE
+BEGIN_ENUM_DECL(TAL_ESCAPE_COMMANDEX_OPCODE)
 {
 	// ---------------------------------------------------------------------------
 	// These are commands from the server to the capture library
@@ -174,6 +191,8 @@ typedef enum _TAL_ESCAPE_COMMANDEX_OPCODE
     TAL_ESCAPE_COMMANDEX_SERVER_CONNECT_COMPLETE = 0x03, // No payload, sent after initial connect command dump is done.
     TAL_ESCAPE_COMMANDEX_SERVER_DISCONNECT = 0x04, // No payload - indicates the server is going away.
     TAL_ESCAPE_COMMANDEX_SERVER_PERF_TEST = 0x05, // No payload - runs the perf test on the collector.
+    TAL_ESCAPE_COMMANDEX_SERVER_RECONNECT = 0x06,
+    TAL_ESCAPE_COMMANDEX_SERVER_CONNECT_ESTABLISHED = 0x07, // No payload, sent after initial connect command dump is done.
 
 	// Add new server commands here
 
@@ -187,21 +206,31 @@ typedef enum _TAL_ESCAPE_COMMANDEX_OPCODE
     TAL_ESCAPE_COMMANDEX_CAPLIB_SET_CAPTURE_ACK = 0x1004, // Sent from Tal to command stream when it receives the TAL_ESCAPE_COMMAND_SET_CAPTURE
     TAL_ESCAPE_COMMANDEX_CAPLIB_DESCRIBE_CATEGORY_MASK = 0x1005,
     TAL_ESCAPE_COMMANDEX_CAPLIB_SETTING_VALUE = 0x1006, // setting "name\0value\0"
-	TAL_ESCAPE_COMMANDEX_CAPLIB_CONNECT_2 = 0x1007, //  Sent from Tal to command stream when it is connected
-	TAL_ESCAPE_COMMANDEX_CAPLIB_SET_APP_DEFAULT = 0x1008, // payload, app name and setting string
+    TAL_ESCAPE_COMMANDEX_CAPLIB_CONNECT_2 = 0x1007, //  Sent from Tal to command stream when it is connected
+    TAL_ESCAPE_COMMANDEX_CAPLIB_SET_APP_DEFAULT = 0x1008, // payload, app name and setting string
+    TAL_ESCAPE_COMMANDEX_CAPLIB_SET_DOMAIN_NAME = 0x1009, // send to monitor list of available domains; csv-delimited
+    TAL_ESCAPE_COMMANDEX_CAPLIB_TRIGGER_PAUSED_PID = 0x100A, // send to monitor list of available domains; csv-delimited
+    TAL_ESCAPE_COMMANDEX_CAPLIB_SAT_COMPLETE = 0x100B, // send to monitor list of available domains; csv-delimited
+	TAL_ESCAPE_COMMANDEX_CAPLIB_LOG_FRAME = 0x100C, // sent from Tal to monitor log when trigger works
+    TAL_ESCAPE_COMMANDEX_CAPLIB_CAPTURE_COMPLETE = 0x100D, // send to monitor message about capture complete
+    TAL_ESCAPE_COMMANDEX_CAPLIB_CONNECT_COMPLETE = 0x100E, // send to monitor message after all default settings sent
+    TAL_ESCAPE_COMMANDEX_CAPLIB_DEVICE_DESTROY_EVENT = 0x1011, // send to monitor notification that primary device was destroyed
+    TAL_ESCAPE_COMMANDEX_CAPLIB_TRIGGER_EVENT = 0x1012, // send to monitor notification that installed from TAL trigger happened
+    TAL_ESCAPE_COMMANDEX_CAPLIB_OVERRIDE_CHANGE_EVENT = 0x1013, // send information about available state overrides to monitor
+    TAL_ESCAPE_COMMANDEX_CAPLIB_APIINFO_CHANGE_EVENT = 0x1014, // send API information to monitor
 
 	// Add new capture library commands here
 
 
 	TAL_ESCAPE_COMMANDEX_END = 0xFFFFFFFF
 }
-TAL_ESCAPE_COMMANDEX_OPCODE;
+END_ENUM_DECL(TAL_ESCAPE_COMMANDEX_OPCODE)
 
-typedef enum _TAL_ESCAPE_TRACE_METADATA_OPCODE
+BEGIN_ENUM_DECL(TAL_ESCAPE_TRACE_METADATA_OPCODE) // Must be leq 7 to not overflow argb
 {
     TAL_ESCAPE_TRACE_METADATA_SYMBOL_TABLE = 0x00  // payload: {pid(UINT64) {fnptr(UINT64) TALSYM_LOOKUP}+}
 }
-TAL_ESCAPE_TRACE_METADATA_OPCODE;
+END_ENUM_DECL(TAL_ESCAPE_TRACE_METADATA_OPCODE)
 
 #endif // ndef(TAL_DOXYGEN)
 
@@ -216,36 +245,38 @@ typedef struct _TAL_ESCAPE_COMMAND
 
 
 #ifndef TAL_DOXYGEN
-typedef enum _TAL_FILE_VERSION
+BEGIN_ENUM_DECL(TAL_FILE_VERSION)
 {
     TAL_FILE_VERSION_UNKNOWN = -1,
     TAL_FILE_VERSION_0 = 0,         // look for delimiter opcode to separate different raw traces
     TAL_FILE_VERSION_5_NET  = 5,   // different raw traces are encoded as TAL_ESCAPE_COMMAND(TAL_ESCAPE_OPCODE_THREAD_DATA). Delimiters present but can be ignored.
     TAL_FILE_VERSION_5_FILE = 51,   // different raw traces are encoded as TAL_ESCAPE_COMMAND(TAL_ESCAPE_OPCODE_THREAD_DATA). Delimiters present but can be ignored.
     TAL_FILE_VERSION_6 = 6,         // file is series of TAL_ESCAPE_COMMANDs. First escape is TAL_FILE_VERSION w/ 4 byte payload is this enum. Raw traces are encoded as TAL_ESCAPE_COMMAND(TAL_ESCAPE_OPCODE_THREAD_DATA).
-    TAL_FILE_VERSION_7 = 7         // Version 6 with First connect info into new TAL_ESCAPE_OPCODE_PROCESS_DATA escape.
-
+    TAL_FILE_VERSION_7 = 7,         // Version 6 with First connect info into new TAL_ESCAPE_OPCODE_PROCESS_DATA escape.
+    TAL_FILE_VERSION_8 = 8,         // Version 7 with Environment params in process data, and screen image escapes. 
+    TAL_FILE_VERSION_9 = 9,         // Version 8 with ANNOTE_TID_PARENT_PID & param (ArgA) in ANNOTE_PID_NAME. 
+    TAL_FILE_VERSION_10 = 10        // Changes to support the IPC transport.
 }
-TAL_FILE_VERSION;
+END_ENUM_DECL(TAL_FILE_VERSION) // if you add more formats versions, update Disassembler.cpp and update TAL_FILEVERSION_NUMERIC
 #endif // ndef(TAL_DOXYGEN)
 
 /** \enum _TAL_COUNTER_SAMPLE_TYPE
  ** The semantics associated with a particular counter.
- ** The TAL_SampleCounter API allows you to manually sample countesr. In almost all use cases, your counter samples will
+ ** The TAL_SampleCounter API allows you to manually sample counters. In almost all use cases, your counter samples will
  ** be of software concepts --- e.g. "how much memory was used," or "number of bytes in the ringbuffer." However, in some rare cases,
  ** the samples you take will be specific to a particular hardware-level concept, for example a core or a chip package. In these
  ** cases, you can ues the TAL_SetCounterSampleType API to tell TAL the semantics of your sample; doing so will alter the way that
- ** the TAL GUi analyzes the samples, ensuring that you get the right analysis for your data.
+ ** the TAL GUI analyzes the samples, ensuring that you get the right analysis for your data.
  ** See \ref Counters for more information.
  **/
-typedef enum _TAL_COUNTER_SAMPLE_TYPE
+BEGIN_ENUM_DECL(TAL_COUNTER_SAMPLE_TYPE)  /* must be leq 0xFF to not overflow arg1 */
 {
-    TAL_COUNTER_SAMPLE_TYPE_SOFTWARE,  // the sample is a software-level concept and does not require disambiguation across running threads. This is the default counter sample type.
-    TAL_COUNTER_SAMPLE_TYPE_HW_THREAD, // the sample is a hardware-thread specific sample, e.g. "l2 cache misses by this thread."
-    TAL_COUNTER_SAMPLE_TYPE_CORE,      // the sample is a core-specific sample, e.g. "l2 cache misses by this core."
-    TAL_COUNTER_SAMPLE_TYPE_PACKAGE    // the sample is a package-specific sample, e.g. "GDDR pages read."
+    TAL_COUNTER_SAMPLE_TYPE_SOFTWARE,  /**< The sample is a software-level concept and does not require disambiguation across running threads. */
+    TAL_COUNTER_SAMPLE_TYPE_HW_THREAD, /**< The sample is a hardware-thread specific sample, e.g.\ "l2 cache misses by this thread." */
+    TAL_COUNTER_SAMPLE_TYPE_CORE,      /**< The sample is a core-specific sample, e.g.\ "l2 cache misses by this core." */
+    TAL_COUNTER_SAMPLE_TYPE_PACKAGE    /**< The sample is a package-specific sample, e.g.\ "GDDR pages read." */
 }
-TAL_COUNTER_SAMPLE_TYPE;
+END_ENUM_DECL(TAL_COUNTER_SAMPLE_TYPE) // if you add more formats versions, update Disassembler.cpp and update TAL_FILEVERSION_NUMERIC
 /** \enum _TAL_LOG_LEVEL
  ** An enumeration describing TAL's supported logging levels.
  ** This enumeration defines a set of "logging levels" that can be used to control
@@ -262,9 +293,9 @@ TAL_COUNTER_SAMPLE_TYPE;
  **
  ** TAL's logging level is 1 by default.
  **/
-typedef enum _TAL_LOG_LEVEL
+BEGIN_ENUM_DECL(TAL_LOG_LEVEL)
 {
-    TAL_LOG_LEVEL_0 = 0,
+    TAL_LOG_LEVEL_OFF = 0,
     TAL_LOG_LEVEL_1 = 1, //  Targeted at < 5% overhead
     TAL_LOG_LEVEL_2 = 2,
     TAL_LOG_LEVEL_3 = 3,
@@ -278,16 +309,16 @@ typedef enum _TAL_LOG_LEVEL
 
     TAL_LOG_LEVEL_MAX = 0xFF
 }
-TAL_LOG_LEVEL;
-#define TAL_LOG_LEVEL_OFF TAL_LOG_LEVEL_0
+END_ENUM_DECL(TAL_LOG_LEVEL)
 
+#define TAL_STACK_DEPTH_MAX 256  // Default is 10
 
 /* TAL Log categories */
 /************************************************************************/
 #ifndef TAL_DOXYGEN // special version of TAL_LOG_CAT_xx for doxygen
 #define TAL_LOG_CAT_NONE 0x0000000000000000ull
 
-#define TAL_LOG_CAT_N(n) ((TAL_UINT64)(1 << (n-1)))
+#define TAL_LOG_CAT_N(n) (((TAL_UINT64)1) << (n-1))
 #define TAL_LOG_CAT_1    TAL_LOG_CAT_N(1)
 #define TAL_LOG_CAT_2    TAL_LOG_CAT_N(2)
 #define TAL_LOG_CAT_3    TAL_LOG_CAT_N(3)
@@ -354,10 +385,15 @@ TAL_LOG_LEVEL;
 #define TAL_LOG_CAT_62 TAL_LOG_CAT_N(62)
 #define TAL_LOG_CAT_63 TAL_LOG_CAT_N(63)
 */
-#define TAL_LOG_CAT_TAL         0x0001000000000000ull
-#define TAL_LOG_CAT_DX          0x0002000000000000ull
-#define TAL_LOG_CAT_RESERVED    0xFFFF000000000000ull
-#define TAL_LOG_CAT_ALL         0xFFFFFFFFFFFFFFFFull
+#define TAL_LOG_CAT_TAL          0x0001000000000000ull
+//#define TAL_LOG_CAT_DX           0x0002000000000000ull
+#define TAL_LOG_CAT_DX_FRAMES    0x0002000000000000ull // dx device/swapchain presents
+#define TAL_LOG_CAT_DX_ERGS      0x0004000000000000ull // dx device draw calls, buffer locks/maps
+#define TAL_LOG_CAT_DX_MISC      0x0008000000000000ull // dx other...
+#define TAL_LOG_CAT_RESERVED     0xFFFF000000000000ull // 
+#define TAL_LOG_CAT_ALL          0xFFFFFFFFFFFFFFFFull
+
+#define TAL_LOG_CAT_COUNT       64
 
 #else // TAL_DOXYGEN
 /** Logging categories, used for masking off specific TAL calls by the category of data they obtain.
@@ -415,6 +451,7 @@ typedef enum _TAL_LOG_CATEGORY
     /* 48 thru 62 are reserved for future use */
     TAL_LOG_CAT_TAL =0x0001000000000000,
     TAL_LOG_CAT_DX = 0x0002000000000000,
+//  TAL_LOG_CAT_51 = 0x0008000000000000, // TBB    
     TAL_LOG_CAT_ALL =0xFFFFFFFFFFFFFFFF
 } TAL_LOG_CATEGORY;
 #endif
@@ -433,8 +470,26 @@ typedef enum _TAL_LOG_CATEGORY
     #define TAL_COMPILED_IN_CATEGORIES TAL_LOG_CAT_ALL
 #endif // TAL_COMPILED_IN_CATEGORIES
 
+#ifdef _MANAGED
+    #ifndef INHIBIT_MANAGED_DECL
+		#if defined(__TALTRACE_H__)
+				} // namespace GT {
+			} //	namespace Tal {
+		#else // !__TALTRACE_H__
+			}
+		#endif	// !__TALTRACE_H__	
+    #endif //INHIBIT_MANAGED_DECL
+#endif //_MANAGED
 
 
+#ifdef _MANAGED
+    #ifndef INHIBIT_MANAGED_DECL
+        #define INHIBIT_MANAGED_DECL
+        #include "public\tal_structs.h"
+        #undef INHIBIT_MANAGED_DECL
+    #endif //INHIBIT_MANAGED_DECL
+#endif //_MANAGED
+#undef __MANAGED_DECL_H__
 
 #endif // TAL_STRUCTS_H
 
