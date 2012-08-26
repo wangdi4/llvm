@@ -89,7 +89,7 @@ void checkMigrateObj(OpenCLDescriptor ocl_descriptor, cl_int device){
 
 	// check that the kernel is not runing
 	clGetEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status,NULL);
-	ASSERT_EQ(CL_SUBMITTED,event_status);
+	ASSERT_EQ(CL_SUBMITTED,event_status) << "event status is not CL_SUBMITTED";
 
 	//activate the user event
 	setUserEventStatus(user_event,CL_COMPLETE);
@@ -98,8 +98,8 @@ void checkMigrateObj(OpenCLDescriptor ocl_descriptor, cl_int device){
 	sleepMS(1000);
 
 	//check that the kernel was excuted
-	clGetEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status,NULL);
-	ASSERT_EQ(CL_COMPLETE,event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
+	ASSERT_EQ(CL_COMPLETE,event_status) << "event status is not CL_COMPLETE";
 }
 
 

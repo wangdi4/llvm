@@ -78,7 +78,7 @@ void checkCompilationFail(OpenCLDescriptor ocl_descriptor,cl_int device1, cl_int
 
 	// run kernel on device2, should fail
 	cl_uint ret = clEnqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
-	ASSERT_EQ(CL_INVALID_PROGRAM_EXECUTABLE,ret);
+	ASSERT_EQ(CL_INVALID_PROGRAM_EXECUTABLE,ret) << "return value was not CL_INVALID_PROGRAM_EXECUTABLE" ;
 }
 //|	TEST: CRT12_VR268_270.CompileForCPUOnCPU_vr268 (TC-1)
 //|

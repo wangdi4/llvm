@@ -73,6 +73,38 @@ __kernel void read_write_image1D_int4(read_only image1d_t input, write_only imag
 	}
 	write_imagef(output,coord,input_element);
 }
+
+
+__kernel void read_write_image1D_buffer_int4(read_only image1d_buffer_t input, write_only image1d_buffer_t output)
+{
+
+	int coord = 0;
+	const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
+	int4 input_element = read_imagei( input, coord );
+	if(input_element.x == 0){
+		input_element.x = 1;
+	}else{
+		input_element.x = 0;
+	}
+	if(input_element.y == 0){
+		input_element.y = 1;
+	}else{
+		input_element.y = 0;
+	}
+	if(input_element.z == 0){
+		input_element.z = 1;
+	}else{
+		input_element.z = 0;
+	}
+	if(input_element.w == 0){
+		input_element.w = 1;
+	}else{
+		input_element.w = 0;
+	}
+	write_imagei(output,coord,input_element);
+}
+
+
 __kernel void read_write_image2D_int4(read_only image2d_t input, write_only image2d_t output)
 {
 
@@ -140,6 +172,15 @@ __kernel void write_image1D_int4(write_only image1d_t input)
 	write_imagei(input,coord,value);		
 }
 
+
+__kernel void write_image1D_buffer_int4(write_only image1d_buffer_t input)
+{
+
+	int coord = 0;
+	int4 value = (int4)(1,1,1,1);
+	write_imagei(input,coord,value);		
+}
+
 __kernel void write_image1D_int4_CPU(write_only image1d_array_t input)
 {
 
@@ -178,6 +219,23 @@ __kernel void change_1_to_2_image1D_int4(read_only image1d_t input, write_only i
 	int coord = 0;
 	const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 	int4 input_element = read_imagei(input, samplerNearest, coord );
+	
+	int4 value = 1;
+	
+	if( value.x == input_element.x && value.y == input_element.y &&
+		value.z == input_element.z && value.w == input_element.w){ 
+		int4 value = 2;
+		write_imagei(output,coord,value);		
+	}
+}
+
+
+__kernel void change_1_to_2_image1D_buffer_int4(read_only image1d_buffer_t input, write_only image1d_buffer_t output)
+{	
+	
+	int coord = 0;
+	const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
+	int4 input_element = read_imagei(input, coord );
 	
 	int4 value = 1;
 	

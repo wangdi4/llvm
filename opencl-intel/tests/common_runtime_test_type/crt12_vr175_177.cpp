@@ -67,24 +67,23 @@ void checkSupportedFormats(cl_mem_object_type mem_type, OpenCLDescriptor ocl_des
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
 
 	//query for supported formats
-	clGetSupportedImageFormats(ocl_descriptor.context,mem_type|CL_MEM_USE_HOST_PTR,CL_MEM_OBJECT_IMAGE1D,100,image_formats_array,&number_of_suported_formats);
+	ASSERT_NO_FATAL_FAILURE(getSupportedImageFormats(ocl_descriptor.context,mem_type|CL_MEM_USE_HOST_PTR,CL_MEM_OBJECT_IMAGE1D,100,image_formats_array,&number_of_suported_formats));
 
 	//check that all the formats are supported. 
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT16, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_HALF_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_R, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_R, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_INTENSITY, CL_FLOAT, number_of_suported_formats, image_formats_array));
-	ASSERT_TRUE(isFormatInList(CL_LUMINANCE, CL_FLOAT, number_of_suported_formats, image_formats_array));
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNORM_INT8 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT16, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNORM_INT16 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT8, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_SIGNED_INT8 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT16, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_SIGNED_INT16 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_SIGNED_INT32 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT8, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNSIGNED_INT8 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT16, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNSIGNED_INT16 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNSIGNED_INT32, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNSIGNED_INT32 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_HALF_FLOAT, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_HALF_FLOAT was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_FLOAT, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_FLOAT was not returned";
+	ASSERT_TRUE(isFormatInList(CL_RGBA, CL_UNORM_INT8, number_of_suported_formats, image_formats_array)) << "format CL_RGBA, CL_UNORM_INT8 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_R, CL_SIGNED_INT32, number_of_suported_formats, image_formats_array)) << "format CL_R, CL_SIGNED_INT32 was not returned";
+	ASSERT_TRUE(isFormatInList(CL_INTENSITY, CL_FLOAT, number_of_suported_formats, image_formats_array)) << "format CL_INTENSITY, CL_FLOAT was not returned";
+	ASSERT_TRUE(isFormatInList(CL_LUMINANCE, CL_FLOAT, number_of_suported_formats, image_formats_array)) << "format CL_LUMINANCE, CL_FLOAT was not returned";
 }
 
 

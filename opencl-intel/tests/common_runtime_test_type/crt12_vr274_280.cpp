@@ -147,7 +147,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForCPU_vr280){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//enqueue kernel on GPU
-	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
+	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL)) << "clEnqueueNDRangeKernel should not succed";
 
 }
 
@@ -266,6 +266,6 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPUCPU_vr282){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//enqueue kernel on CPU
-	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
+	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL)) << "clEnqueueNDRangeKernel should not succed";;
 
 }

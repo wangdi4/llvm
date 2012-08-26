@@ -72,10 +72,7 @@ public:
 		{
 			for(int i =0 ; i < subdevices_size ; i++){
 				clReleaseDevice(subdevices[i]);
-				printf("\n Realsed subdevice %d",i);
 			}
-			delete[] subdevices;
-			subdevices = NULL;
 		}
 		subdevices_size = 0;
 	}

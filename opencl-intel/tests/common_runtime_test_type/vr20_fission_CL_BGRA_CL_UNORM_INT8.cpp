@@ -39,8 +39,16 @@ TYPED_TEST_CASE(Fission_VR20_BGRA_CL_UNORM_INT8, Fission_VR20_BGRA_CL_UNORM_INT8
 static const char* d2KernelName = "read_write_image2D_float4";
 static const char* d3KernelName = "read_write_image3D_float4";
 
+TYPED_TEST(Fission_VR20_BGRA_CL_UNORM_INT8, DISABLED_Image2DReadWriteUseHostPtrCPUGPU_bug)
+{
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
+	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+}
+
 TYPED_TEST(Fission_VR20_BGRA_CL_UNORM_INT8, Image2DReadWriteUseHostPtrCPUGPU)
 {
+	//ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
 	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }

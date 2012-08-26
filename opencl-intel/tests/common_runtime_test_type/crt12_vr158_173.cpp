@@ -1,4 +1,4 @@
-// WARRANTY DISCLAIMER
+// WARRANTY DISCLAIMER// WARRANTY DISCLAIMER
 // 
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -76,7 +76,7 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	//create image
 	//create buffer (if needed)
 	if(0 == desc.buffer){
-	ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,&image_format,&desc,image_array.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,&image_format,&desc,image_array.dynamic_array));
 	
 	}else{
 		ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0],ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),output_array.dynamic_array));
@@ -96,13 +96,14 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[1],1,sizeof(cl_mem),&image));
 
 	// enqueue kernel on fisrt device 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device_type], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device_type], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,
+		&ocl_descriptor.events[0]));
 
 	// enqueue kernel on second device 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device_type], ocl_descriptor.kernels[1], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device_type], ocl_descriptor.kernels[1], work_dim, 0, &global_work_size, &local_work_size,1,&ocl_descriptor.events[0],NULL));
 	
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[first_device_type]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[second_device_type]));
 
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
@@ -110,7 +111,7 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	
 	for(int j = 0; j < 4 ; j++){
-		ASSERT_EQ(2,output_array.dynamic_array[0].s[j]);
+		ASSERT_EQ(2,output_array.dynamic_array[0].s[j])  << "array was not changed as expected";
 	}
 }
 
@@ -207,10 +208,10 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageBufferVisibility1D_VR153){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
-		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 	for(int i = 2; i < 4 ; i++){
-		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 }
 
@@ -310,10 +311,10 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility1D_VR154){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
-		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 	for(int i = 2; i < 4 ; i++){
-		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 }
 
@@ -410,10 +411,10 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility2D_VR155){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
-		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 	for(int i = 2; i < 4 ; i++){
-		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 }
 
@@ -513,10 +514,10 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility2D_VR156){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
-		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 	for(int i = 2; i < 4 ; i++){
-		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 }
 
@@ -613,10 +614,10 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility3D_VR157){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
-		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 	for(int i = 2; i < 4 ; i++){
-		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]);
+		ASSERT_EQ(1,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
 	}
 }
 
@@ -721,7 +722,7 @@ TEST_F(CRT12_VR158_173, WriteImage1D_VR158){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
-			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]);
+			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]) << "image was not copyed properly";
 		}
 	}
 	
@@ -803,7 +804,7 @@ TEST_F(CRT12_VR158_173, WriteImage2D_VR159){
 	ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,&image_format,&desc,image_array.dynamic_array));
 
 	//create event
-	createUserEvent(&user_event,ocl_descriptor.context);
+	ASSERT_NO_FATAL_FAILURE(createUserEvent(&user_event,ocl_descriptor.context));
 	//create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.out_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),output_array.dynamic_array));
 	
@@ -827,7 +828,7 @@ TEST_F(CRT12_VR158_173, WriteImage2D_VR159){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
-			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]);
+			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]) << "image was not copyed properly";
 		}
 	}
 
@@ -939,7 +940,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction1D_VR160){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
-			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]);
+			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]) << "image was not copyed properly";
 		}
 	}
 
@@ -1052,7 +1053,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction2D_VR161){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
-			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]);
+			ASSERT_EQ(1,output_array.dynamic_array[i].s[j]) << "image was not copyed properly";
 		}
 	}
 
@@ -1097,7 +1098,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dCPUGPU_VR162){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 	size_t origin[] = {0,0,0}; 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4"));
 
 }
 
@@ -1139,7 +1140,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dBufferCPUGPU_VR163){
 	desc.num_samples = 0;
 	desc.buffer = (cl_mem)1; //this mean that a new buffer will be initialized
 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_buffer_int4","change_1_to_2_image1D_buffer_int4"));
 
 }
 
@@ -1183,7 +1184,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dArrayCPUGPU_VR164){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4"));
 
 }
 
@@ -1226,7 +1227,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dCPUGPU_VR165){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4"));
 
 }
 
@@ -1269,7 +1270,7 @@ TEST_F(CRT12_VR158_173, CheckChange2darrayCPUGPU_VR166){
 	desc.num_samples = 0;
 	desc.buffer = 0; 
 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4"));
 
 }
 
@@ -1313,7 +1314,7 @@ TEST_F(CRT12_VR158_173, DISABLED_CheckChange3dCPUGPU_VR167){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4"));
 
 }
 
@@ -1356,7 +1357,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dGPUCPU_VR168){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 	size_t origin[] = {0,0,0}; 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4"));
 
 }
 
@@ -1398,7 +1399,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dBufferGPUCPU_VR169){
 	desc.num_samples = 0;
 	desc.buffer = (cl_mem)1; //this mean that a new buffer will be initialized
 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_buffer_int4","change_1_to_2_image1D_buffer_int4"));
 
 }
 
@@ -1442,7 +1443,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dArrayGPUCPU_VR170){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4"));
 
 }
 
@@ -1485,7 +1486,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dGPUCPU_VR171){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4"));
 
 }
 
@@ -1528,7 +1529,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dArrayGPUCPU_VR172){
 	desc.num_samples = 0;
 	desc.buffer = 0; 
 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4"));
 
 }
 
@@ -1571,7 +1572,7 @@ TEST_F(CRT12_VR158_173, DISABLED_CheckChange3dGPUCPU_VR173){
 	desc.num_samples = 0;
 	desc.buffer = 0;
 
-	CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4");
+	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4"));
 
 }
 

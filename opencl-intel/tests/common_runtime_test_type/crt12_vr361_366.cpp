@@ -84,7 +84,7 @@ void testEnqueueMarkerWithWaitList(OpenCLDescriptor ocl_descriptor,cl_int marker
 	sleepMS(1000);
 
 	// check that the kernel is not running
-	getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
 	if(CL_QUEUED != event_status){ //this was not made with ASSERT becouse of some wierd problem with gtest
 	FAIL() << "event status isnt set to CL_QUEUED as expected";
 	}
@@ -93,16 +93,16 @@ void testEnqueueMarkerWithWaitList(OpenCLDescriptor ocl_descriptor,cl_int marker
 	ASSERT_NO_FATAL_FAILURE(setUserEventStatus(user_event,CL_COMPLETE));
 
 	// wait
-	clFinish(ocl_descriptor.queues[0]);
-	clFinish(ocl_descriptor.queues[1]);
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 
 	//check that the kernel was excuted
-	getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
 	ASSERT_EQ(CL_COMPLETE,event_status)  << "event status isnt set to CL_COMPLETE as expected" ;
 	
-	clReleaseEvent(user_event);
-	clReleaseEvent(marker_event);
-	clReleaseEvent(kernel_event);
+	ASSERT_NO_FATAL_FAILURE(releaseEvent(user_event));
+	ASSERT_NO_FATAL_FAILURE(releaseEvent(marker_event));
+	ASSERT_NO_FATAL_FAILURE(releaseEvent(kernel_event));
 }
 
 
@@ -207,18 +207,18 @@ void enqueueBarrierWithWaitListCPU(OpenCLDescriptor ocl_descriptor, cl_int barri
 	sleepMS(1000);
 
 	// check that the kernel is not running
-	getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
 	ASSERT_EQ(CL_QUEUED,event_status) << "event status isnt set to CL_QUEUED as expected";
 
 	//activate the user event
 	setUserEventStatus(user_event,CL_COMPLETE);
 
 	// wait
-	clFinish(ocl_descriptor.queues[0]);
-	clFinish(ocl_descriptor.queues[1]);
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 
 	//check that the kernel was executed
-	getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
 	ASSERT_EQ(CL_COMPLETE,event_status) << "event status isnt set to CL_COMPLETE as expected" ;
 }
 //|	TEST: CRT12_VR_361_366.EnqueueBarrierWithWaitListCPU_vr366 (TC-1)

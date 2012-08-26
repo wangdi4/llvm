@@ -101,35 +101,35 @@ TEST_F(CRT12_VR_124_127, DISABLED_FillBufferSynchronized_vr124 ){ //I think ther
 	sleepMS(500);
 
 	//check that the kernel was not executed
-	clGetEventInfo(read_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status,NULL);
-	ASSERT_EQ(CL_QUEUED,event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(read_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
+	ASSERT_EQ(CL_QUEUED,event_status) << "device status does not set to CL_QUEUED" ;
 
 	//activate the user event
-	setUserEventStatus(user_event,CL_COMPLETE);
+	ASSERT_NO_FATAL_FAILURE(setUserEventStatus(user_event,CL_COMPLETE));
 	
 	// wait
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 
 	//check that the kernel was executed
-	clGetEventInfo(read_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status,NULL);
-	ASSERT_EQ(CL_COMPLETE,event_status);
+	ASSERT_NO_FATAL_FAILURE(getEventInfo(read_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
+	ASSERT_EQ(CL_QUEUED,event_status) << "device status does not set to CL_COMPLETE";
 
 	for(int i = 0; i < 2; i++){
 		printf("%d",buffer1.dynamic_array[i]);
 		printf("%d",buffer2.dynamic_array[i]);
 	}
 	//check that output is as predicted
-	ASSERT_TRUE(buffer1.dynamic_array[0]==1);
-	ASSERT_TRUE(buffer1.dynamic_array[1]==2);
-	ASSERT_TRUE(buffer2.dynamic_array[0]==1);
-	ASSERT_TRUE(buffer2.dynamic_array[1]==2);
+	ASSERT_TRUE(buffer1.dynamic_array[0]==1) << "buffer was not filled properly";
+	ASSERT_TRUE(buffer1.dynamic_array[1]==2) << "buffer was not filled properly";
+	ASSERT_TRUE(buffer2.dynamic_array[0]==1) << "buffer was not filled properly";
+	ASSERT_TRUE(buffer2.dynamic_array[1]==2) << "buffer was not filled properly";
 	
-	releaseEvent(user_event);
-	releaseEvent(read_event);
+	ASSERT_NO_FATAL_FAILURE(releaseEvent(user_event));
+	ASSERT_NO_FATAL_FAILURE(releaseEvent(read_event));
 	for(int i = 0 ; i < 2 ; i++)
 	{
-		releaseEvent(event_list[i]);
+		ASSERT_NO_FATAL_FAILURE(releaseEvent(event_list[i]));
 	}
 }
 
@@ -185,18 +185,18 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer1.dynamic_array[0]);
+	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
 
 	//set arguments for kernel
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue and run kernel on CPU 
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
-	clFinish(ocl_descriptor.queues[1]);
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer2.dynamic_array[0]);
+	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
 
@@ -258,7 +258,7 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer3.dynamic_array[0]);
+	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
 
 	//set arguments for GPU
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
@@ -268,7 +268,7 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer3.dynamic_array[0]);
+	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
 }
 
 
@@ -323,17 +323,17 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer1.dynamic_array[0]);
+	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
 
 	//set arguments for GPU
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue and run kernel on GPU 
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
-	clFinish(ocl_descriptor.queues[1]);
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer2.dynamic_array[0]);
+	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
 
@@ -397,7 +397,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer1.dynamic_array[0]);
+	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
 
 	//initialize parameters for GPU
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&ocl_descriptor.in_common_sub_buffer,ocl_descriptor.buffers[1],CL_MEM_READ_WRITE,CL_BUFFER_CREATE_TYPE_REGION,&region));
@@ -412,7 +412,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 
 	//read from GPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer2.dynamic_array[0]);
+	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
 
@@ -474,7 +474,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer1.dynamic_array[0]);
+	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
 
 	//initialize parameters for GPU
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&ocl_descriptor.in_common_sub_buffer,ocl_descriptor.buffers[1],CL_MEM_READ_ONLY,CL_BUFFER_CREATE_TYPE_REGION,&region));
@@ -489,7 +489,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
 
 	//read from GPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer2.dynamic_array[0]);
+	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
 
@@ -549,7 +549,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
 
 	//validate result
-	ASSERT_EQ(num,buffer1.dynamic_array[0]);
+	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
 
 	//initialize parameters for GPU
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&ocl_descriptor.in_common_sub_buffer,ocl_descriptor.buffers[1],CL_MEM_WRITE_ONLY,CL_BUFFER_CREATE_TYPE_REGION,&region));
@@ -563,5 +563,5 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 
 	//read from GPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
-	ASSERT_EQ(num,buffer2.dynamic_array[0]);
+	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }

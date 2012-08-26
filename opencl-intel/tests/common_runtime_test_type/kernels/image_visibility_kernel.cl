@@ -30,6 +30,18 @@ __kernel void copy_image1D_float(read_only image1d_t input, write_only image1d_t
 	
 }
 
+
+__kernel void copy_image1D_buffer(read_only image1d_buffer_t input, write_only image1d_t output){
+	int coord = 0;
+	const sampler_t samplerNearest = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST | CLK_ADDRESS_CLAMP;
+	write_imagei(output,coord,read_imagei( input,coord ));
+	
+}
+__kernel void copy_image1D_buffer_float(read_only image1d_buffer_t input, write_only image1d_t output){
+	int coord = 0;
+	write_imagef(output,coord,read_imagef( input, coord ));
+	
+}
 __kernel void copy_image2D(read_only image2d_t input, write_only image2d_t output){
 	int2 coord = (int2)(0,0);
 
