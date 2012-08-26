@@ -48,7 +48,6 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 #string(TOLOWER  ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
 #set( DEBUG_RELEASE ${CMAKE_BUILD_TYPE} )
 string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
-file( GLOB COI_LIBS ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib/*.so* )
 
 FIND_SOURCES( ${IGNORE_SOURCES} )
 CALCULATE_TARGET_SOURCES()
@@ -80,14 +79,18 @@ endif (WIN32)
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
+if (NOT WIN32)
+	get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
+	set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
+endif (NOT WIN32)
+
+
 add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd cl_sys_utils)
 
 install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
-
-install(FILES ${COI_LIBS} DESTINATION bin)
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils

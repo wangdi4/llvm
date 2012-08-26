@@ -53,7 +53,7 @@ endif (NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
     if (KNC_CARD)
-        set( COI_DIR                ${BACKEND_ROOT_DIR}/../externals/coi/knc)
+        set( COI_DIR               /opt/intel/mic/coi )
         add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
     endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
@@ -183,10 +183,10 @@ target_link_libraries(SATest OCLBuilder)
 if (INCLUDE_MIC_DEVICE)
 set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
 target_link_libraries(SATest coi_host dynamic_load)
-# Copy libcoi_host.so and libcoi_host.so.0 to the bin directory, so no need
-# adding ${COI_DIR}/host-linux-release/lib to the LD_LIBRARY_PATH directory.
-install(FILES ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION bin)
-install(FILES ${COI_DIR}/host-linux-release/lib/libcoi_host.so.0 DESTINATION bin)
+
+get_target_property( CURR_RPATH SATest INSTALL_RPATH )
+set_target_properties( SATest PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
+
 endif (INCLUDE_MIC_DEVICE)
 
 set (LLVM_LIBS
