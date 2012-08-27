@@ -333,6 +333,8 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(options.get(), spExecutionService.getOutPtr());
     if ( CL_DEV_FAILED(ret) )
     {
+        if ( CL_DEV_NOT_SUPPORTED == ret )
+            throw Exception::TestRunnerException("Can't create execution service for current device. Try build back-end with SDE support.\n");
         throw Exception::TestRunnerException("Create execution service failed\n");
     }
     DEBUG(llvm::dbgs() << "Get execution service finished.\n");

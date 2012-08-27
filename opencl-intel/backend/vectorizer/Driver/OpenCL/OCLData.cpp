@@ -1361,7 +1361,7 @@ VFH::hashEntry OCLEntryDB[] = {
   {{"_Z22convert_double_sat_rtpd","_Z23convert_double2_sat_rtpDv2_d","_Z23convert_double4_sat_rtpDv4_d","_Z23convert_double8_sat_rtpDv8_d","_Z24convert_double16_sat_rtpDv16_d","_Z23convert_double3_sat_rtpDv3_d"},1,1},
   {{"_Z18convert_double_rtnd","_Z19convert_double2_rtnDv2_d","_Z19convert_double4_rtnDv4_d","_Z19convert_double8_rtnDv8_d","_Z20convert_double16_rtnDv16_d","_Z19convert_double3_rtnDv3_d"},1,1},
   {{"_Z22convert_double_sat_rtnd","_Z23convert_double2_sat_rtnDv2_d","_Z23convert_double4_sat_rtnDv4_d","_Z23convert_double8_sat_rtnDv8_d","_Z24convert_double16_sat_rtnDv16_d","_Z23convert_double3_sat_rtnDv3_d"},1,1},
-  
+
   {{"_Z5crossDv3_dS_","_","_Z10soa_cross3Dv4_dS_S_S_S_S_PS_S0_S0_","_Z10soa_cross3Dv8_dS_S_S_S_S_PS_S0_S0_","_Z10soa_cross3Dv16_dS_S_S_S_S_PS_S0_S0_","_"},0,1},
   {{"_Z5crossDv4_dS_","_","_Z10soa_cross4Dv4_dS_S_S_S_S_S_S_PS_S0_S0_S0_","_Z10soa_cross4Dv8_dS_S_S_S_S_S_S_PS_S0_S0_S0_","_Z10soa_cross4Dv16_dS_S_S_S_S_S_S_PS_S0_S0_S0_","_"},0,1},
   {{"_Z5crossDv3_fS_","_","_Z10soa_cross3Dv4_fS_S_S_S_S_PS_S0_S0_","_Z10soa_cross3Dv8_fS_S_S_S_S_PS_S0_S0_","_Z10soa_cross3Dv16_fS_S_S_S_S_PS_S0_S0_","_"},0,1},
@@ -1461,10 +1461,17 @@ VFH::hashEntry OCLEntryDB[] = {
   {{"_Z3allDv4_l","_","_Z7soa_allDv4_lS_S_S_","_Z7soa_allDv8_lS_S_S_","_Z7soa_allDv16_lS_S_S_","_"},0,1},
   {{"_Z3allDv8_l","_","_Z7soa_allDv4_lS_S_S_S_S_S_S_","_Z7soa_allDv8_lS_S_S_S_S_S_S_","_Z7soa_allDv16_lS_S_S_S_S_S_S_","_"},0,1},
   {{"_Z3allDv16_l","_","_Z7soa_allDv4_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_","_Z7soa_allDv8_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_","_Z7soa_allDv16_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_","_"},0,1},
-  
+
   // wrappers
   {{"allOne","allOne_v2","allOne_v4","allOne_v8","allOne_v16","_"},0,1},
-  {{"allZero","allZero_v2","allZero_v4","allZero_v8","allZero_v16","_"},0,1}, 
+  {{"allZero","allZero_v2","allZero_v4","allZero_v8","allZero_v16","_"},0,1},
+
+  // division workaround
+  {{"_Z8divisiondd","_Z8divisionDv2_dS_","_Z8divisionDv4_dS_","_Z8divisionDv8_dS_","_Z8divisionDv16_dS_","_Z8divisionDv3_dS_"},1,1},
+
+  // End of the table.
+  // MUST BE THE LAST ENTRY. ALL ENTRIES AFTER {{0,},0,0} WILL BE IGNORED!
   {{0,},0,0}
+
 };
 } // namespace

@@ -88,6 +88,7 @@ public:
      * @returns 
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+     *  CL_DEV_NOT_SUPPORTED in case of requesting ACCELERATOR (e.g. MIC) execution service on the host.
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetExecutionService(

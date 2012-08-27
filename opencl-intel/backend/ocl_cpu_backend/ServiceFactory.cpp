@@ -173,7 +173,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         #else 
             *ppBackendExecutionService = NULL;
             //assert(false && "Execution Service Not Implemented for MIC Device on Host Lib");
-            return CL_DEV_ERROR_FAIL;
+            return CL_DEV_NOT_SUPPORTED;
         #endif
         }
         //if(CPU_MODE == mode)
