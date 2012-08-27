@@ -2836,7 +2836,8 @@ void * ExecutionModule::EnqueueMapImage(
         return NULL;
     } 
     MapImageCommand* pMapImageCmd = new MapImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
-    // Must set device Id before init for image resource allocation.
+
+	// Must set device Id before init for image resource allocation.
 	if (NULL == pMapImageCmd)
 	{
 		*pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
@@ -2844,6 +2845,7 @@ void * ExecutionModule::EnqueueMapImage(
 	}
 
 	*pErrcodeRet = pMapImageCmd->Init();
+
     if(CL_FAILED(*pErrcodeRet))
     {
 		delete pMapImageCmd;
@@ -2856,7 +2858,8 @@ void * ExecutionModule::EnqueueMapImage(
     *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(*pErrcodeRet))
     {
-        // command done has already been called, so it has already been deleted.
+		pMapImageCmd->CommandDone();
+        delete pMapImageCmd;
         return NULL;
     }
 
