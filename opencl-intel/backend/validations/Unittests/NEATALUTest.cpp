@@ -280,6 +280,16 @@ TYPED_TEST(NEATAluTyped, AddSubMul)
         tmp = NEATALU::mul<TypeParam>(zeroNeg, nInf);
         EXPECT_TRUE(tmp.IsNaN<TypeParam>());
     }
+
+    // regression test for mul
+    // 0x3fd6b851e0000000 (0.35499998927116394) * 0x402274b015871a94 (9.2279059150144249) = 0x400a350e77ae6467 (3.2759065008254313)
+    if(sizeof(TypeParam) == sizeof(double)) {        
+        union { uint64_t u; double f; } a,b,c;
+        a.u = 0x3fd6b851e0000000;
+        b.u = 0x402274b015871a94;
+        c.f = a.f * b.f;
+        EXPECT_TRUE(c.u == 0x400a350e77ae6467);
+    }    
 }
 
 

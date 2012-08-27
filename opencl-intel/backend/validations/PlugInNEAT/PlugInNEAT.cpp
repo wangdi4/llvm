@@ -1153,7 +1153,6 @@ void NEATPlugIn::visitReturnInst( ReturnInst &I )
 {
   // handle only post instruction execution
   HANDLE_EVENT(PRE_INST);
-  // TODO: implement the case if float value is returned.
   NEATExecutionContext &SF = m_NECStack.back();
   const Type *RetTy = Type::getVoidTy(I.getContext());
   NEATGenericValue Result;
@@ -1161,9 +1160,15 @@ void NEATPlugIn::visitReturnInst( ReturnInst &I )
   // Save away the return value... (if we are not 'ret void')
   if (I.getNumOperands()) {
     RetTy  = I.getReturnValue()->getType();
-    Result = getOperandValue(I.getReturnValue(), SF);
+    // we can get I.getReturnValue()->getType() only if I.getNumOperands() is true,
+    // if I.getNumOperands() is false, I.getReturnValue()->getType() is empty
+    if (m_NTD.IsNEATSupported(RetTy)) {
+        Result = getOperandValue(I.getReturnValue(), SF);
+    }
   }
 
+  // if return value is not NEAT supported, make popStackAndReturnValueToCaller to pop
+  // the current stack frame, but ignore result
   popStackAndReturnValueToCaller(RetTy, Result);
 }
 
@@ -1990,7 +1995,7 @@ void NEATPlugIn::popStackAndReturnValueToCaller( const Type *RetTy, NEATGenericV
     if (RetTy && !RetTy->isVoidTy()) {
       DEBUG(dbgs() << "OpenCL kernel returns non-void result!\n");
     }
-  } else {
+  } else if(m_NTD.IsNEATSupported(RetTy)) {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
     ExecutionContext &CallingSF = (*m_pECStack)[m_pECStack->size()-2];

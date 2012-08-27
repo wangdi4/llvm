@@ -37,7 +37,7 @@ namespace Validation
     #define M_PI_4 (M_PI/4)
 #endif
 
-    void SetPrecisionBits(void);
+    uint16_t SetPrecisionBits(void);
 
     class RefALU
     {

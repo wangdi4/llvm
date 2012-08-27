@@ -195,6 +195,8 @@ namespace Validation
         NEATALU();
 
     private:
+        /// FPU control word
+        static const uint16_t fcw16; 
         /// @brief Goes through input vector vec and for each
         /// element of vector it calls NEATValueFunction f, that works with pair of NEAT values.
         /// @param [in]     val    NEATValue to take as first parameter of NEATValueFunction
@@ -960,12 +962,12 @@ public:
         SuperT vals[4];
 
         // calculating all the possible combinations
-        vals[0] = RefALU::mul((SuperT)*a.GetMin<T>(), (SuperT)*b.GetMax<T>());
-        vals[1] = RefALU::mul((SuperT)*a.GetMin<T>(), (SuperT)*b.GetMin<T>());
-        vals[2] = RefALU::mul((SuperT)*a.GetMax<T>(), (SuperT)*b.GetMin<T>());
-        vals[3] = RefALU::mul((SuperT)*a.GetMax<T>(), (SuperT)*b.GetMax<T>());
+        vals[0] = (SuperT)RefALU::mul(*a.GetMin<T>(), *b.GetMax<T>());
+        vals[1] = (SuperT)RefALU::mul(*a.GetMin<T>(), *b.GetMin<T>());
+        vals[2] = (SuperT)RefALU::mul(*a.GetMax<T>(), *b.GetMin<T>());
+        vals[3] = (SuperT)RefALU::mul(*a.GetMax<T>(), *b.GetMax<T>());
 
-        return ComputeResult(vals, 4, NEATALU::ADD_ERROR);
+        return ComputeResult(vals, 4, NEATALU::MUL_ERROR);
     }
 
     /// @brief Divides two neat values

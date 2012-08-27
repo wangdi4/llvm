@@ -27,8 +27,8 @@ namespace Validation
 
     // it sets precision bits for FPU to keep operating with
     // 64-bit mantissa, otherwise the mantissa is adjusted to 52-bits
-    void SetPrecisionBits(void) {
-        uint16_t fcw16;
+    uint16_t SetPrecisionBits(void) {
+        uint16_t fcw16 = 0;
 #if defined(_WIN32)  
         __asm {
             fstcw fcw16
@@ -45,8 +45,9 @@ namespace Validation
                   "fldcw %0"
                   :
                   :"m"(fcw16)
-                  :"ax" );  
-#endif		
+                  :"ax" );
+#endif
+        return fcw16;
     }
 
     template<>
