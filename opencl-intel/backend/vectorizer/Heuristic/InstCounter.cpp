@@ -44,10 +44,9 @@ bool WeightedInstCounter::hasAVX2() const {
 }
 
      
-WeightedInstCounter::WeightedInstCounter(bool preVec = true, bool sanityOnly = false, 
+WeightedInstCounter::WeightedInstCounter(bool preVec = true, 
                               Intel::CPUId cpuId = Intel::CPUId()): 
                               FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),  
-                              m_sanityOnly(sanityOnly), 
                               m_desiredWidth(1), m_totalWeight(0) {        
   initializeLoopInfoPass(*PassRegistry::getPassRegistry());
   initializeDominatorTreePass(*PassRegistry::getPassRegistry());
@@ -71,12 +70,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // with for MIC to 16, and finish.
   // This used to also contain a "are we allowed to vectorize" check
   // but that was moved elsewhere.
-  if (m_sanityOnly)
-  {
-    if (isMic())
-      m_desiredWidth = 16;
-    else
-      m_desiredWidth = 1;
+  if (isMic()) {
+    m_desiredWidth = 16;
     return false;
   }
 
@@ -989,9 +984,9 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 }
 
 extern "C" {
-  FunctionPass* createWeightedInstCounter(bool preVec = true, bool sanityOnly = false, 
+  FunctionPass* createWeightedInstCounter(bool preVec = true, 
                                           Intel::CPUId cpuId = Intel::CPUId()) {
-    return new intel::WeightedInstCounter(preVec, sanityOnly, cpuId);
+    return new intel::WeightedInstCounter(preVec, cpuId);
   }
 }
 

@@ -20,8 +20,7 @@ namespace intel {
   class WeightedInstCounter : public FunctionPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-      WeightedInstCounter(bool preVec, bool sanityOnly, 
-                          Intel::CPUId cpuId);
+      WeightedInstCounter(bool preVec, Intel::CPUId cpuId);
 
     // Provides name of pass
     virtual const char *getPassName() const {
@@ -122,10 +121,6 @@ namespace intel {
     // things differently
     bool m_preVec;
     
-    // Whether only sanity should run, instead of
-    // actually counting.
-    bool m_sanityOnly;
-
     // Outputs:
     // Desired vectorization width
     int m_desiredWidth;
