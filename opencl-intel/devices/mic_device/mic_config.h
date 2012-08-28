@@ -87,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_TbbTrapWorkers()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, false); }
 		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
 		// Device safe mode setup
-		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, false); }
+		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, true); }
 
     private:
 
