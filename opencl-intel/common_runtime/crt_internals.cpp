@@ -311,7 +311,7 @@ m_context_handle(context_handle)
         {
             m_DeviceToContext[outDevices[j]] = ctx;
         }
-        m_contexts[ctx] = &(OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0])->m_origDispatchTable);
+        m_contexts[ctx] = (OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0])->m_origDispatchTable);
 
         if( outDevices )
         {
@@ -449,7 +449,7 @@ cl_int CrtContext::Release()
     SHARED_CTX_DISPATCH::iterator itr = m_contexts.begin();
     for( ;itr != m_contexts.end(); itr++ )
     {
-        errCode = itr->second->clReleaseContext(itr->first);
+        errCode = itr->second.clReleaseContext(itr->first);
         if( CL_SUCCESS != errCode )
         {
             return errCode;
@@ -464,7 +464,7 @@ cl_int CrtContext::GetReferenceCount(cl_uint* refCountParam)
     cl_uint refCount = 0;
 
     SHARED_CTX_DISPATCH::iterator itr = m_contexts.begin();
-    errCode = itr->second->clGetContextInfo(
+    errCode = itr->second.clGetContextInfo(
         itr->first,
         CL_CONTEXT_REFERENCE_COUNT,
         sizeof(cl_uint),
@@ -568,10 +568,16 @@ cl_int CrtMemObject::Release()
         // Already released previously
         return CL_SUCCESS;
     }
-    while( ( IsValidImageFormat( itr_first->second ) != CL_TRUE ) ||
-           ( IsValidMemObjSize( itr_first->second ) != CL_TRUE ) )
+    while( ( itr_first != m_ContextToMemObj.end() ) && 
+           ( ( IsValidImageFormat( itr_first->second ) != CL_TRUE ) ||
+             ( IsValidMemObjSize( itr_first->second ) != CL_TRUE ) ) )
     {
         itr_first++;
+    }
+    if( itr_first == m_ContextToMemObj.end() )
+    {
+        // Already released previously
+        return CL_SUCCESS;
     }
     itr_first->second->dispatch->clRetainMemObject( itr_first->second );
 
@@ -1128,7 +1134,7 @@ CrtImage::CrtImage(
     CrtContext*             ctx):
 CrtMemObject(flags,NULL,ctx)
 {
-
+    m_imageDesc.crtBuffer = NULL;
 }
 
 CrtImage::CrtImage(
@@ -1228,6 +1234,18 @@ m_dimCount(0)
                                              &m_imageDesc.desc.image_row_pitch,
                                              &m_imageDesc.desc.image_slice_pitch );
 
+        if( RetVal != CL_SUCCESS )
+        {
+            if( RetVal == CL_IMAGE_FORMAT_NOT_SUPPORTED )
+            {
+                m_imageDesc.desc.image_row_pitch = m_imageDesc.desc.image_width * GetImageElementSize( &m_imageFormat );
+                m_imageDesc.desc.image_slice_pitch  = m_imageDesc.desc.image_row_pitch * m_imageDesc.desc.image_height;                
+            }
+            else
+            {
+                assert( 0 && "clGetImageParamsINTEL has failed with non-expected error" );
+            }
+        }
         // <<<<<<   GMM Query Bug Workaround when arraysize == 1
         m_imageDesc.desc.image_array_size = previousArraySize;
         // >>>>>>   GMM Query Bug Workaround when arraysize == 1

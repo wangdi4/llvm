@@ -43,7 +43,7 @@ class CrtObject;
 struct CrtSampler;
 class SyncManager;
 typedef std::map<cl_device_id, cl_context>          DEV_CTX_MAP;
-typedef std::map<cl_context, KHRicdVendorDispatch*> SHARED_CTX_DISPATCH;
+typedef std::map<cl_context, KHRicdVendorDispatch> SHARED_CTX_DISPATCH;
 typedef std::map<cl_context, cl_mem>                CTX_MEM_MAP;
 typedef std::map<cl_context, cl_program>            CTX_PGM_MAP;
 typedef std::map<cl_context, cl_kernel>             CTX_KRN_MAP;

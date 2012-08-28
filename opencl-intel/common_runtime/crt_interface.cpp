@@ -736,13 +736,7 @@ cl_int CL_API_CALL clGetContextInfo(
         }
     }
     else
-    {
-
-        if (!param_value_size_ret && !param_value)
-        {
-            return CL_INVALID_VALUE;
-        }
-
+    {       
         // Shared Platform Contxt
         CrtContext* ctx = (CrtContext*)(ctxInfo->m_object);
 
@@ -813,11 +807,13 @@ cl_int CL_API_CALL clGetContextInfo(
                 break;
             }
         }
+
         if( param_value_size_ret )
         {
             *param_value_size_ret = pValueSize;
         }
-        if (param_value && param_value_size < pValueSize)
+
+        if( param_value && param_value_size < pValueSize )
         {
             return CL_INVALID_VALUE;
         }
@@ -3013,11 +3009,12 @@ cl_int CL_API_CALL clBuildProgram(
     const char *          options ,
     prog_logging_fn       pfn_notify ,
     void *                user_data )
-{
-    cl_int errCode = CL_SUCCESS;
-    std::vector<CrtProgram*>    in_programs;
-    cl_device_id* deviceList = NULL;
-    std::string optReflect;
+{    
+    std::vector<CrtProgram*>        in_programs;    
+    std::string                     optReflect;
+    cl_int errCode                  = CL_SUCCESS;
+    cl_device_id* deviceList        = NULL;
+    CrtBuildCallBackData* crtData   = NULL;
 
     CrtProgram* crtProg = reinterpret_cast<CrtProgram*>(((_cl_program_crt*)program)->object);
 
@@ -3034,19 +3031,19 @@ cl_int CL_API_CALL clBuildProgram(
     if( optReflect.find("-cl-kernel-arg-info") == std::string::npos )
     {
         optReflect.append(" -cl-kernel-arg-info");
-    }
-
-    CrtBuildCallBackData* crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
-    if (NULL == crtData)
-    {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
-    }
+    }    
 
     if( ( ( num_devices > 0 ) && ( device_list == NULL ) ) ||
         ( ( num_devices == 0 ) && ( device_list != NULL ) ) )
     {
         errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }
+
+    crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
+    if (NULL == crtData)
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
@@ -3164,11 +3161,14 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     prog_logging_fn       pfn_notify,
     void *                user_data,
     cl_int *              errcode_ret)
-{
-    cl_int errCode = CL_SUCCESS;
-    std::vector<CrtProgram*> in_programs;
-    SHARED_CTX_DISPATCH::iterator itr;
-    cl_device_id* deviceList = NULL;
+{    
+    std::vector<CrtProgram*>            in_programs;
+    SHARED_CTX_DISPATCH::iterator       itr;
+    cl_int errCode                      = CL_SUCCESS;
+    cl_device_id* deviceList            = NULL;
+    CrtBuildCallBackData* crtData       = NULL;
+    _cl_program_crt* program            = NULL;
+    CrtProgram* crtProg                 = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
@@ -3191,16 +3191,15 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         goto FINISH;
 
     }
-
     // Create program object to be returned
-    CrtProgram* crtProg = new CrtProgram(crtCtx);
+    crtProg = new CrtProgram(crtCtx);
     if( !crtProg )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
-    _cl_program_crt* program = new _cl_program_crt;
+    program = new _cl_program_crt;
     if( program == NULL )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
@@ -3209,7 +3208,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     crtProg->m_program_handle = ( cl_program ) program;
     program->object = (void *) crtProg;
 
-    CrtBuildCallBackData* crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
+    crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
     if (NULL == crtData)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
@@ -3265,7 +3264,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
             continue;
         }
 
-        cl_program devPro = itr->second->clLinkProgram(
+        cl_program devPro = itr->second.clLinkProgram(
             itr->first,
             matchDevices,
             outDevices,
@@ -3359,18 +3358,19 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     const char **         header_include_names,
     prog_logging_fn       pfn_notify,
     void *                user_data)
-{
-    cl_int errCode = CL_SUCCESS;
-    std::vector<CrtProgram*>    in_programs;
-    std::string optReflect;
+{    
+    std::vector<CrtProgram*>        in_programs;
+    std::string                     optReflect;
+    cl_int errCode                  = CL_SUCCESS;
+    CrtBuildCallBackData* crtData   = NULL;
+    cl_device_id* deviceList        = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
         errCode = CL_INVALID_DEVICE;
         goto FINISH;
     }
-
-    cl_device_id* deviceList = NULL;
+    
     CrtProgram* crtProg = reinterpret_cast<CrtProgram*>(((_cl_program_crt*)program)->object);
 
     // Add kernel reflection to build options
@@ -3391,7 +3391,7 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
         goto FINISH;
     }
 
-    CrtBuildCallBackData* crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
+    crtData = new CrtBuildCallBackData( program, pfn_notify, user_data );
     if (NULL == crtData)
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
@@ -4045,6 +4045,7 @@ cl_int CL_API_CALL updateAddedDevicesInfo(
         devInfo->m_devType  = parentDevInfo->m_devType;
         // This is a sub-device
         devInfo->m_isRootDevice = false;
+        devInfo->m_origDispatchTable = parentDevInfo->m_origDispatchTable;
         // Patch new created device IDs. some platforms don't use the same table
         // for all handles (gpu), so we need to call Patch for each new created handle
         OCLCRT::crt_ocl_module.PatchClDeviceID(dev, NULL);
@@ -4072,9 +4073,9 @@ cl_int CL_API_CALL updateAddedDevicesInfo(
 cl_int CL_API_CALL clCreateSubDevices(
     cl_device_id                                device,
     const cl_device_partition_property*         properties,
-    cl_uint                                     num_entries,
+    cl_uint                                     num_devices,
     cl_device_id*                               out_devices,
-    cl_uint*                                    num_devices)
+    cl_uint*                                    num_devices_ret)
 {
     cl_int errCode = CL_SUCCESS;
 
@@ -4084,16 +4085,22 @@ cl_int CL_API_CALL clCreateSubDevices(
         return CL_INVALID_DEVICE;
     }
 
+    cl_uint tmp_num_devices_ret;
     errCode = parentDevInfo->m_origDispatchTable.clCreateSubDevices(
                 device,
                 properties,
-                num_entries,
+                num_devices,
                 out_devices,
-                num_devices);
+                &tmp_num_devices_ret);
 
     if ((CL_SUCCESS == errCode) && (NULL != out_devices))
     {
-        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, *num_devices );
+        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, tmp_num_devices_ret );        
+    }
+
+    if( num_devices_ret )
+    {
+        *num_devices_ret = tmp_num_devices_ret;
     }
     return errCode;
 }
@@ -4103,9 +4110,9 @@ cl_int CL_API_CALL clCreateSubDevices(
 cl_int CL_API_CALL clCreateSubDevicesEXT(
     cl_device_id                                device,
     const cl_device_partition_property_ext*     properties,
-    cl_uint                                     num_entries,
+    cl_uint                                     num_devices,
     cl_device_id*                               out_devices,
-    cl_uint*                                    num_devices)
+    cl_uint*                                    num_devices_ret)
 {
     cl_int errCode = CL_SUCCESS;
 
@@ -4115,16 +4122,22 @@ cl_int CL_API_CALL clCreateSubDevicesEXT(
         return CL_INVALID_DEVICE;
     }
 
+    cl_uint tmp_num_devices_ret;
     errCode = parentDevInfo->m_origDispatchTable.clCreateSubDevicesEXT(
                 device,
                 properties,
-                num_entries,
+                num_devices,
                 out_devices,
-                num_devices);
+                &tmp_num_devices_ret);
 
     if( ( CL_SUCCESS == errCode ) && ( out_devices ) )
     {
-        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, *num_devices );
+        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, tmp_num_devices_ret );
+    }
+
+    if( num_devices_ret )
+    {
+        *num_devices_ret = tmp_num_devices_ret;
     }
     return errCode;
 }
@@ -4646,7 +4659,7 @@ cl_event CL_API_CALL clCreateUserEvent(
         itr != crtContext->m_contexts.end();
         itr++)
     {
-        cl_event eventDEV = itr->second->clCreateUserEvent(itr->first, &errCode);
+        cl_event eventDEV = itr->second.clCreateUserEvent(itr->first, &errCode);
         if (CL_SUCCESS != errCode)
         {
             goto FINISH;
@@ -4816,6 +4829,14 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
     if (!crtKernel)
     {
         errCode = CL_INVALID_KERNEL;
+        goto FINISH;
+    }
+
+    if( crtKernel->m_programCRT->m_buildContexts.end() == ( std::find( crtKernel->m_programCRT->m_buildContexts.begin(), 
+                                                                       crtKernel->m_programCRT->m_buildContexts.end(),
+                                                                       targetContext ) ) )
+    {        
+        errCode = CL_INVALID_PROGRAM_EXECUTABLE;
         goto FINISH;
     }
 
@@ -7154,10 +7175,11 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    if( ( NULL == mem_objects ) && (0  == num_objects ) )
+    if( ( NULL == mem_objects ) || (0  == num_objects ) )
     {
-        return CL_SUCCESS;
+        return CL_INVALID_VALUE;;
     }
+
     if( ( ( mem_objects == NULL ) && (num_objects > 0 ) ) &&
         ( ( mem_objects != NULL ) && (num_objects == 0 ) ) )
     {
@@ -8320,7 +8342,7 @@ CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )clEnqueueReleaseDX9ObjectsINTEL);
     }
-    if ( !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
+    if( funcname && !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
     {
         return ( ( void* )clCreatePerfCountersCommandQueueINTEL);
     }
