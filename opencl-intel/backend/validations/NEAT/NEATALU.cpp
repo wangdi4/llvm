@@ -96,10 +96,9 @@ namespace Validation
       return NEATALU::ComputeResult<double>(val, RES_COUNT, ulps);
   }
 
-  // division for doubles has zero ulps performs in long doubles with no extending the
-  // output interval by using x*1/x operation, just to have division only
-  // TODO: check if using compilator option -Qdiv allows to avoid expanding inoutput interval
-  // CSSD100013313 submitted
+  // division for doubles has zero ulps and performs in doubles with no extending the
+  // output interval by using x*1/x operation, just to have division only as it is
+  // done in conformance
   template <>
   NEATValue NEATALU::InternalDiv<double> ( const NEATValue& a, const NEATValue& b, double ulps)
   {
@@ -128,12 +127,12 @@ namespace Validation
 
       const int RES_COUNT = 4;
       long double val[RES_COUNT];
- 
-      val[0] = RefALU::div((long double)*a.GetMin<double>(),(long double)*b.GetMin<double>());
-      val[1] = RefALU::div((long double)*a.GetMin<double>(),(long double)*b.GetMax<double>());
-      val[2] = RefALU::div((long double)*a.GetMax<double>(),(long double)*b.GetMin<double>());
-      val[3] = RefALU::div((long double)*a.GetMax<double>(),(long double)*b.GetMax<double>());
- 
+
+      val[0] = (long double)RefALU::div(*a.GetMin<double>(),*b.GetMin<double>());
+      val[1] = (long double)RefALU::div(*a.GetMin<double>(),*b.GetMax<double>());
+      val[2] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMin<double>());
+      val[3] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMax<double>());
+
       return NEATALU::ComputeResult<long double>(val, RES_COUNT, ulps);
   }
 

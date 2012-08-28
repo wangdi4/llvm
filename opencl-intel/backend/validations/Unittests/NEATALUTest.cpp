@@ -280,18 +280,24 @@ TYPED_TEST(NEATAluTyped, AddSubMul)
         tmp = NEATALU::mul<TypeParam>(zeroNeg, nInf);
         EXPECT_TRUE(tmp.IsNaN<TypeParam>());
     }
-
-    // regression test for mul
-    // 0x3fd6b851e0000000 (0.35499998927116394) * 0x402274b015871a94 (9.2279059150144249) = 0x400a350e77ae6467 (3.2759065008254313)
-    if(sizeof(TypeParam) == sizeof(double)) {        
-        union { uint64_t u; double f; } a,b,c;
-        a.u = 0x3fd6b851e0000000;
-        b.u = 0x402274b015871a94;
-        c.f = a.f * b.f;
-        EXPECT_TRUE(c.u == 0x400a350e77ae6467);
-    }    
 }
 
+TEST(NEATAlu, mulRegression)
+{
+    // regression test for mul
+    // 0x3fd6b851e0000000 (0.35499998927116394) * 0x402274b015871a94 (9.2279059150144249) = 0x400a350e77ae6467 (3.2759065008254313)
+    union { double f; uint64_t u;} a1, b1, c1;
+    a1.u = 0x3fd6b851e0000000; // 0.35499998927116394
+    b1.u = 0x402274b015871a94; // 9.2279059150144249
+    NEATValue a = NEATValue(a1.f);
+    NEATValue b = NEATValue(b1.f);
+    NEATValue res = NEATALU::mul<double>(a,b);
+    EXPECT_TRUE(res.IsAcc());
+    if(res.IsAcc()) {
+        c1.f = *res.GetAcc<double>();
+        EXPECT_TRUE(c1.u == 0x400a350e77ae6467); // 3.2759065008254313
+    }
+}
 
 TYPED_TEST(NEATAluTyped, fmod)
 {
@@ -1629,7 +1635,7 @@ public:
     typedef typename superT<T>::type sT;
     typedef NEATValue (*NEATFuncP)(const NEATValue&, const NEATValue&);
     typedef NEATVector (*NEATFuncVecP)(const NEATVector&, const NEATVector&);
-    typedef sT (*RefFuncP) (const sT&, const sT&);
+    typedef T (*RefFuncP) (const T&, const T&);
 
     NEATDivTest()
     {
@@ -1723,14 +1729,15 @@ public:
                 NEATValue bAcc = NEATValue(Arg2Min[idx]);
                 // NEAT division for two accurate values
                 NEATValue accRes = NEATFunc(aAcc,bAcc);
-                sT refRes = RefFunc(sT(Arg1Min[idx]), sT(Arg2Min[idx])); 
+                sT refRes = sT(RefFunc(Arg1Min[idx], Arg2Min[idx])); 
                 EXPECT_TRUE(TestAccExpanded<sT>(refRes, accRes, ulps));
 
                 // Now test intervals as input
                 // Calc expected result
                 const uint32_t RES_COUNT = 4;
-                sT allResults[RES_COUNT] = { RefFunc(sT(Arg1Min[idx]), sT(Arg2Min[idx])), RefFunc(sT(Arg1Max[idx]), sT(Arg2Min[idx])),
-                RefFunc(sT(Arg1Min[idx]), sT(Arg2Max[idx])), RefFunc(sT(Arg1Max[idx]), sT(Arg2Max[idx]))};
+                sT allResults[RES_COUNT] = { sT(RefFunc(Arg1Min[idx], Arg2Min[idx])), sT(RefFunc(Arg1Max[idx], Arg2Min[idx])),
+                sT(RefFunc(Arg1Min[idx], Arg2Max[idx])), sT(RefFunc(Arg1Max[idx], Arg2Max[idx]))};
+
                 minRef[i] = FindMin(allResults, RES_COUNT);
                 maxRef[i] = FindMax(allResults, RES_COUNT);
     
@@ -1789,7 +1796,8 @@ TYPED_TEST(NEATDivTestRun, div)
     typedef typename superT<TypeP>::type sT;
     typedef NEATValue (*NEATFuncP)(const NEATValue&, const NEATValue&);
     typedef NEATVector (*NEATFuncVecP)(const NEATVector&, const NEATVector&);
-    typedef sT (*RefFuncP) (const sT&, const sT&);
+    // we use the same precision reference for div
+    typedef TypeP (*RefFuncP) (const TypeP&, const TypeP&);
 
     /// If your test doesn't currently support doubles, use SkipDoubleTest
     if (SkipDoubleTest<TypeP>()){
@@ -1800,11 +1808,27 @@ TYPED_TEST(NEATDivTestRun, div)
 
     NEATFuncP NEATFunc = &NEATALU::div<TypeP>;
     NEATFuncVecP NEATFuncVec = &NEATALU::div<TypeP>;
-    RefFuncP RefFunc = &RefALU::div<sT>;
+    RefFuncP RefFunc = &RefALU::div<TypeP>;
 
     NEATDivTest<TypeP> divTest;
 
     divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, divError);
+}
+
+TEST(NEATAlu, divRegression)
+{
+    // regression test for double precision division
+    union { double f; uint64_t u;} a1, b1, c1;
+    a1.u = 0x3ff0000000000000; // 1.0
+    b1.u = 0x40175d2fb723fd61; // 5.8410023322788627
+    NEATValue a = NEATValue(a1.f);
+    NEATValue b = NEATValue(b1.f);
+    NEATValue res = NEATALU::div<double>(a,b);
+    EXPECT_TRUE(res.IsAcc());
+    if(res.IsAcc()) {
+        c1.f = *res.GetAcc<double>();
+        EXPECT_TRUE(c1.u == 0x3fc5e9fefcff2b5b); // 0.17120349267346566
+    }
 }
 
 TYPED_TEST(NEATDivTestRun, half_divide)
@@ -1814,7 +1838,7 @@ TYPED_TEST(NEATDivTestRun, half_divide)
     typedef typename superT<TypeP>::type sT;
     typedef NEATValue (*NEATFuncP)(const NEATValue&, const NEATValue&);
     typedef NEATVector (*NEATFuncVecP)(const NEATVector&, const NEATVector&);
-    typedef sT (*RefFuncP) (const sT&, const sT&);
+    typedef TypeP (*RefFuncP) (const TypeP&, const TypeP&);
 
     /// If your test doesn't currently support doubles, use SkipDoubleTest
     if (SkipDoubleTest<TypeP>()){
@@ -1823,7 +1847,8 @@ TYPED_TEST(NEATDivTestRun, half_divide)
 
     NEATFuncP NEATFunc = &NEATALU::half_divide<TypeP>;
     NEATFuncVecP NEATFuncVec = &NEATALU::half_divide<TypeP>;
-    RefFuncP RefFunc = &RefALU::div<sT>;
+    // we use the same precision reference for half_div
+    RefFuncP RefFunc = &RefALU::div<TypeP>;
 
     NEATDivTest<TypeP> divTest;
 
