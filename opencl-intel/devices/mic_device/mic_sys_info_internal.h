@@ -22,7 +22,7 @@
 #define FUNC_VALUE( id,  value )             { id,     1,          0,            MICSysInfo::VALUE_FUNCTION, 0,                  &MICSysInfo::value, #id }
 
 
-#define MIC_STRING                      "GenuineIntel Many Interated Cores Acceleration Card"
+#define MIC_STRING                      "Genuine Intel Many Integrated Cores Acceleration Card"
 #define VENDOR_STRING                   "Intel(R) Corporation"
 #define VENDOR_ID                       0x8086
 #define MIC_DRIVER_VERSION_STRING       "1.2"
