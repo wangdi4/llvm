@@ -229,6 +229,7 @@ set_target_properties( ProfilingInfoPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME
 set_target_properties( RelaxedPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
 set_target_properties( ResolveWICall PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
 set_target_properties( ShiftZeroUpperBits PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
+set_target_properties( ShuffleCallToInst PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
 set_target_properties( UndefExternalFuncs PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
 set_target_properties( OclRecorder PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 

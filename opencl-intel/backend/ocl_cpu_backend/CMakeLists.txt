@@ -467,21 +467,7 @@ endif (WIN32)
 
 set( JITPROFLIB jitprofiling)
 
-target_link_libraries (${TARGET_NAME}
-    dynamic_load 
-
-    # Utils lib
-    OclUtils
-
-    # LLVM LIBS
-    ${LLVM_LIBS}
-
-    # Internal libs
-    ${JITPROFLIB}
-
-    OclPluginManager
-    
-    # Backend passes
+set( BACKEND_PASSES
     AddImplicitArgs
     BuiltInFuncImport
     DebugInfoPass
@@ -495,7 +481,26 @@ target_link_libraries (${TARGET_NAME}
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
+    ShuffleCallToInst
     UndefExternalFuncs
+)
+
+target_link_libraries (${TARGET_NAME}
+    dynamic_load
+
+    # Utils lib
+    OclUtils
+
+    # LLVM LIBS
+    ${LLVM_LIBS}
+
+    # Internal libs
+    ${JITPROFLIB}
+
+    OclPluginManager
+
+    # Backend passes
+    ${BACKEND_PASSES}
 )
 
 add_dependencies(${TARGET_NAME}
@@ -508,22 +513,9 @@ add_dependencies(${TARGET_NAME}
     dynamic_load
 
     OclPluginManager
-    
+
     # Backend passes
-    AddImplicitArgs
-    BuiltInFuncImport
-    DebugInfoPass
-    InstToFuncCall 
-    LocalBuffers
-    ModuleCleanup
-    PrepareKernelArgs
-    PreventDivCrashes
-    PrintIRPass
-    ProfilingInfoPass
-    RelaxedPass
-    ResolveWICall
-    ShiftZeroUpperBits
-    UndefExternalFunctions
+    ${BACKEND_PASSES}
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )

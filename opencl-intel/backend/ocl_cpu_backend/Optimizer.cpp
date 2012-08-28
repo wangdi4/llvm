@@ -55,6 +55,7 @@ extern "C" void* createOpenclRuntimeSupport(const Module *runtimeModule);
 extern "C" void* destroyOpenclRuntimeSupport();
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
+extern "C" llvm::Pass *createShuffleCallToInstPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
 extern "C" void* createBuiltInImportPass(llvm::Module* pRTModule);
 
@@ -216,6 +217,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
+
+  m_modulePasses.add(createShuffleCallToInstPass());
 
   unsigned int uiOptLevel;
   if (pConfig->GetDisableOpt() || debugType != None) {
