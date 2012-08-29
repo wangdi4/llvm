@@ -804,9 +804,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-	// TODO: reolace (NULL == num_devices ? NULL : &tNumDevices) with &tNumDevices after fixing issue in common runtime that expect
-	// that if num_devices is null than the creation should fail!
-    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, (NULL == num_devices ? NULL : &tNumDevices), sizes);
+    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, &tNumDevices, sizes);
     if (ret != CL_SUCCESS)
     {
 		if (bNeedToCreateDevice)
