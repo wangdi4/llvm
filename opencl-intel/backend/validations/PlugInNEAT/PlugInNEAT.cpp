@@ -2909,6 +2909,39 @@ void NEATPlugIn::execute_signbit(Function *F,
     RELATIONAL_ONE_ARG(signbit)
 }
 
+void NEATPlugIn::execute_bitselect(Function *F,
+                                   const std::map<Value *, NEATGenericValue> &ArgVals,
+                                   NEATGenericValue& Result,
+                                   const OCLBuiltinParser::ArgVector& ArgList)
+{
+    Function::arg_iterator Fit = F->arg_begin();
+    Value *arg0 = Fit++;
+    const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
+    Value *arg1 = Fit++;
+    const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
+    Value *arg2 = Fit++;
+    const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
+
+    // only floating point type values or vectors are supoorted.
+    // in case of integer or boolean or other type input data just do nothing
+    const Type *Ty = arg0->getType();
+    if(Ty->isFloatTy())  {
+        Result.NEATVal = NEAT_WRAP::bitselect_f (ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+    }
+    else if(Ty->isDoubleTy()) {
+        Result.NEATVal = NEAT_WRAP::bitselect_d (ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
+    }
+    else if(Ty->isVectorTy()) {
+        const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();
+        if(TyElem->isFloatTy())  {
+            Result.NEATVec = NEAT_WRAP::bitselect_f (ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+        }
+       else if(TyElem->isDoubleTy()) {
+           Result.NEATVec = NEAT_WRAP::bitselect_d (ValArg0.NEATVec, ValArg1.NEATVec, ValArg2.NEATVec);
+       }
+    }
+}
+
 void NEATPlugIn::execute_select(Function *F,
                                const std::map<Value *, NEATGenericValue> &ArgVals,
                                NEATGenericValue& Result,
@@ -2925,6 +2958,9 @@ void NEATPlugIn::execute_select(Function *F,
     const Type *Ty0 = arg0->getType();
     const Type *Ty1 = arg1->getType();
 
+    // only floating point type values or vectors are supoorted.
+    // in case of integer or boolean or other type input data just do nothing
+    // both input values or vectors should have the same type (and size for vectors)
     if (Ty0->isFloatTy() && Ty1->isFloatTy()) {
         int64_t intVal = int64_t(c.IntVal.getSExtValue());
         Result.NEATVal = NEAT_WRAP::select_f(a.NEATVal, b.NEATVal, intVal);
@@ -2935,26 +2971,26 @@ void NEATPlugIn::execute_select(Function *F,
         const Type *ETy0 = cast<VectorType>(Ty0)->getElementType();
         const Type *ETy1 = cast<VectorType>(Ty1)->getElementType();
 
-        if (a.NEATVec.GetSize() != b.NEATVec.GetSize() || a.NEATVec.GetSize() != size_t(c.AggregateVal.size()) ||
-           (a.NEATVec.GetSize() != cast<VectorType>(Ty0)->getNumElements()) ||
-           (b.NEATVec.GetSize() != cast<VectorType>(Ty1)->getNumElements()) )
-            throw Exception::NEATTrackFailure("[NEATPlugIn::execute_select]: wrong vector size.");
+        if ((ETy0->isFloatTy() && ETy1->isFloatTy()) ||
+            (ETy0->isDoubleTy() && ETy1->isDoubleTy()) ) {
+            if (a.NEATVec.GetSize() != b.NEATVec.GetSize() || a.NEATVec.GetSize() != size_t(c.AggregateVal.size()) ||
+               (a.NEATVec.GetSize() != cast<VectorType>(Ty0)->getNumElements()) ||
+               (b.NEATVec.GetSize() != cast<VectorType>(Ty1)->getNumElements()) )
+                throw Exception::NEATTrackFailure("[NEATPlugIn::execute_select]: wrong vector size.");
 
-        std::vector<int64_t> condVec;
-        for (uint32_t i = 0; i < uint32_t(c.AggregateVal.size()); ++i) {
-            int64_t intVal = int64_t(c.AggregateVal[i].IntVal.getSExtValue());
-            condVec.push_back(intVal);
+            std::vector<int64_t> condVec;
+            for (uint32_t i = 0; i < uint32_t(c.AggregateVal.size()); ++i) {
+                int64_t intVal = int64_t(c.AggregateVal[i].IntVal.getSExtValue());
+                condVec.push_back(intVal);
+            }
+
+            if (ETy0->isFloatTy() && ETy1->isFloatTy()) {
+                Result.NEATVec = NEAT_WRAP::select_f(a.NEATVec, b.NEATVec, condVec);
+            } else if (ETy0->isDoubleTy() && ETy1->isDoubleTy()) {
+                Result.NEATVec = NEAT_WRAP::select_d(a.NEATVec, b.NEATVec, condVec);
+            }
         }
-
-        if (ETy0->isFloatTy() && ETy1->isFloatTy()) {
-            Result.NEATVec = NEAT_WRAP::select_f(a.NEATVec, b.NEATVec, condVec);
-        } else if (ETy0->isDoubleTy() && ETy1->isDoubleTy()) {
-            Result.NEATVec = NEAT_WRAP::select_d(a.NEATVec, b.NEATVec, condVec);
-        } else 
-            throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_select]: Not valid data type for built-in");
-    } else
-        throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_select]: Not valid data type for built-in");
-
+    }
 }
 
 void NEATPlugIn::execute_ilogb(Function *F,
@@ -3895,7 +3931,7 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
     HANDLE_BI_EXECUTE(182, ISordered)
     HANDLE_BI_EXECUTE(183, ISunordered)
     HANDLE_BI_EXECUTE(184, signbit)
-    HANDLE_BI_THREEARG(185, bitselect)
+    HANDLE_BI_EXECUTE(185, bitselect)
     HANDLE_BI_EXECUTE(186, select) // built-in, not instruction
 
     return false;

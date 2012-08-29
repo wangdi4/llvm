@@ -306,6 +306,7 @@ namespace llvm {
         DECLARE_EXECUTE(smoothstep);
         DECLARE_EXECUTE(step);
         DECLARE_EXECUTE(clamp);
+        DECLARE_EXECUTE(bitselect);
         DECLARE_EXECUTE(select); // built-in, not instruction
         DECLARE_EXECUTE(cross);
 
