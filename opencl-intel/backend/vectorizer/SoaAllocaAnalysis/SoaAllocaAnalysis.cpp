@@ -79,17 +79,11 @@ namespace intel {
   }
 
   bool SoaAllocaAnalysis::isSoaAllocaScalarRelated(const Value* val) {
-    if (isSoaAllocaRelated(val)) {
-      return (0 == m_allocaSOA[val]);
-    }
-    return false;
+    return (isSoaAllocaRelated(val) && 0 == m_allocaSOA[val]);
   }
 
   bool SoaAllocaAnalysis::isSoaAllocaVectorRelated(const Value* val) {
-    if (isSoaAllocaRelated(val)) {
-      return (0 != m_allocaSOA[val]);
-    }
-    return false;
+    return (isSoaAllocaRelated(val) && 0 != m_allocaSOA[val]);
   }
 
   bool SoaAllocaAnalysis::isSoaAllocaRelatedPointer(const Value* val) {
@@ -198,7 +192,7 @@ namespace intel {
       //It is not a call to memset, so it is not supported.
       return false;
     }
-    V_ASSERT(CI->getNumArgOperands() == 5 && "llvm.memset function does not take 5 arguments!");
+    //V_ASSERT(CI->getNumArgOperands() == 5 && "llvm.memset function does not take 5 arguments!");
     V_ASSERT(CI->getType()->isVoidTy() && "llvm.memset function does not return void!");
     // Need to check that value to set is constant (cannot support non-uniform set value to SOA-Alloca)
     if(!isa<Constant>(CI->getArgOperand(1))) {

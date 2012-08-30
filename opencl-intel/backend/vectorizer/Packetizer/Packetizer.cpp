@@ -16,7 +16,7 @@ static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
   cl::desc("force packetization size"));
 
-static cl::opt<bool>
+cl::opt<bool>
 EnableScatterGatherSubscript("subscript", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations"));
 
@@ -511,11 +511,11 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
   }
   else if (CallInst *inst = dyn_cast<CallInst>(I)) {
     // It can be a masked load/store instruction!
-    std::string origFuncName = inst->getName();
-    if (Mangler::isMangledStore(origFuncName)) {
+    std::string origFuncName = inst->getCalledFunction()->getNameStr();
+    if (Mangler::isMangledLoad(origFuncName)) {
       ptrOpIndex = 1;
     }
-    else if (Mangler::isMangledLoad(origFuncName)) {
+    else if (Mangler::isMangledStore(origFuncName)) {
       ptrOpIndex = 2;
     }
   }

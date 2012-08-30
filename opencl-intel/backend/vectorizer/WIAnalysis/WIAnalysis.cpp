@@ -419,7 +419,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   // running over the all indices argumets except for the last 
   // here we assume the pointer is the first operand
   unsigned num = inst->getNumIndices();
-  for (unsigned i=1; i < inst->getNumIndices(); ++i) {
+  for (unsigned i=1; i < num; ++i) {
     const Value* op = inst->getOperand(i);
     WIAnalysis::WIDependancy dep = getDependency(op);
     if (dep != WIAnalysis::UNIFORM) {
@@ -432,13 +432,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  if (WIAnalysis::UNIFORM == lastIndDep) {
-    return depPtr;
-  }
-  if (WIAnalysis::CONSECUTIVE == lastIndDep &&
-      WIAnalysis::UNIFORM == depPtr) {
-    return WIAnalysis::PTR_CONSECUTIVE;
-  }
+  if (WIAnalysis::UNIFORM == depPtr && WIAnalysis::UNIFORM == lastIndDep)  return WIAnalysis::UNIFORM;
+  if ((WIAnalysis::UNIFORM == depPtr && WIAnalysis::CONSECUTIVE == lastIndDep) ||
+      (WIAnalysis::PTR_CONSECUTIVE == depPtr && WIAnalysis::UNIFORM == lastIndDep)) return WIAnalysis::PTR_CONSECUTIVE;
   return WIAnalysis::RANDOM;
 }
 

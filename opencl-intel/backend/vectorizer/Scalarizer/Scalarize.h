@@ -36,7 +36,7 @@ namespace intel {
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  ScalarizeFunction();
+  ScalarizeFunction(bool supportScatterGather = false);
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass
@@ -98,7 +98,10 @@ private:
   void handleScalarRetVector(CallInst* callerInst);
   /*! \} */
 
-
+  ///@brief Check if worth scalarize Load/Store with given vector type
+  ///@param type vector type of Load/Store (can be NULL)
+  ///@return true if Load/Store worth scalarize, false otherwise
+  bool isScalarizableLoadStoreType(VectorType *type);
 
   /*! \name Scalarizarion Utility Functions
    *  \{ */
@@ -245,6 +248,8 @@ private:
   Value *createFakeInsertElt(Value *vec, Constant *indConst, Value *val, 
                              Instruction *loc);
 
+  /// @brief flag to enable scatter/gather to/from memory.
+  bool UseScatterGather;
 
 };
 

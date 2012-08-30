@@ -5,17 +5,21 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "Scalarize.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Constants.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 
+extern cl::opt<bool>
+EnableScatterGatherSubscript;
 
 namespace intel {
 
 
-ScalarizeFunction::ScalarizeFunction() : FunctionPass(ID)
+ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
+  UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
   m_rtServices = RuntimeServices::get();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
@@ -905,6 +909,43 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     m_removedInsts.insert(LI);
     return;
   }
+
+  VectorType *dataType = dyn_cast<VectorType>(LI->getType());
+  if (isScalarizableLoadStoreType(dataType)) {
+    // Prepare empty SCM entry for the instruction
+    SCMEntry *newEntry = getSCMEntry(LI);
+
+    // Get additional info from instruction
+    unsigned numElements = dataType->getNumElements();
+    V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
+
+    // Obtain scalarized arguments
+    GetElementPtrInst *operand = dyn_cast<GetElementPtrInst>(LI->getOperand(0));
+    if (!operand || operand->getNumIndices() != 1) {
+        return recoverNonScalarizableInst(LI);
+    }
+    // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
+    Value *operandBase = BitCastInst::CreatePointerCast(operand->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", LI);
+    Type * indexType = operand->getOperand(1)->getType();
+    // Generate new (scalar) instructions
+    Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
+    Constant *elementNumVal = ConstantInt::get(indexType, numElements);
+    for (unsigned dup = 0; dup < numElements; dup++)
+    {
+      Constant *laneVal = ConstantInt::get(indexType, dup);
+      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_lane", LI);
+      Value *pIndex = BinaryOperator::CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s", LI);
+      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", LI);
+      newScalarizedInsts[dup] = new LoadInst(pGEP, LI->getName(), LI);
+    }
+
+    // Add new value/s to SCM
+    updateSCMEntryWithValues(newEntry, newScalarizedInsts, LI, true);
+
+    // Remove original instruction
+    m_removedInsts.insert(LI);
+    return;
+  }
   return recoverNonScalarizableInst(LI);
 }
 
@@ -930,6 +971,42 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
       newScalarizedInsts[dup] = new StoreInst(operand0[dup], operand1[dup], SI);
+    }
+
+    // Remove original instruction
+    m_removedInsts.insert(SI);
+    return;
+  }
+
+  int indexPtr = SI->getPointerOperandIndex();
+  int indexData = 1-indexPtr;
+  VectorType *dataType = dyn_cast<VectorType>(SI->getOperand(indexData)->getType());
+  if (isScalarizableLoadStoreType(dataType)) {
+    // Get additional info from instruction
+    unsigned numElements = dataType->getNumElements();
+    V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
+
+    // Obtain scalarized arguments
+    GetElementPtrInst *operand1 = dyn_cast<GetElementPtrInst>(SI->getOperand(indexPtr));
+    if (!operand1 || operand1->getNumIndices() != 1) {
+        return recoverNonScalarizableInst(SI);
+    }
+    Value *operand0[MAX_INPUT_VECTOR_WIDTH];
+    bool opIsConst;
+    obtainScalarizedValues(operand0, &opIsConst, SI->getOperand(indexData), SI);
+  
+    // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
+    Value *operandBase = BitCastInst::CreatePointerCast(operand1->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", SI);
+    Type * indexType = operand1->getOperand(1)->getType();
+    // Generate new (scalar) instructions
+    Constant *elementNumVal = ConstantInt::get(indexType, numElements);
+    for (unsigned dup = 0; dup < numElements; dup++)
+    {
+      Constant *laneVal = ConstantInt::get(indexType, dup);
+      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_s", SI);
+      Value *pIndex = BinaryOperator::CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s", SI);
+      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", SI);
+      new StoreInst(operand0[dup], pGEP, SI);
     }
 
     // Remove original instruction
@@ -1383,6 +1460,13 @@ void ScalarizeFunction::resolveDeferredInstructions()
   m_DRL.clear();
 }
 
+bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
+  // Scalarize Load/Store worth doing only if:
+  //  1. Gather/Scatter are supported
+  //  2. Load/Store type is a vector
+  //  3. Not vector type with 16 elements
+  return (UseScatterGather && (NULL != type) && (type->getNumElements() < 16));
+}
 
 } // Namespace
 
@@ -1390,8 +1474,8 @@ void ScalarizeFunction::resolveDeferredInstructions()
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createScalarizerPass() {
-    return new intel::ScalarizeFunction();
+  FunctionPass* createScalarizerPass(bool scatterGather = false) {
+    return new intel::ScalarizeFunction(scatterGather);
   }
 }
 

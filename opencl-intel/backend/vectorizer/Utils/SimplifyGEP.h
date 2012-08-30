@@ -57,12 +57,22 @@ namespace intel {
     virtual bool runOnFunction(Function &F);
 
   private:
+    /// @brief Fix PhiNodes with GEP entries
+    /// @param F Function to transform
+    /// @return True if changed
+    virtual bool FixPhiNodeGEP(Function &F);
+
+    /// @brief Fix GEP with multi indices
+    /// @param F Function to transform
+    /// @return True if changed
+    virtual bool FixMultiIndicesGEP(Function &F);
+
     /// @brief Check if given GEP instruction is simplifiable
     /// @param pGEP GEP instruction
     /// @return True if GEP instruction can be simplified, False otherwise
     bool SimplifiableGep(GetElementPtrInst *pGEP);
 
-    /// @brief Check if given GEP instruction is unfirom after being simplified
+    /// @brief Check if given GEP instruction is uniform after being simplified
     /// @param pGEP GEP instruction
     /// @return True if GEP instruction can be simplified to uniform GEP, False otherwise
     bool IsUniformSimplifiableGep(GetElementPtrInst *pGEP);
@@ -71,6 +81,12 @@ namespace intel {
     /// @param pGEP GEP instruction
     /// @return True if GEP instruction can be simplified to GEP with i32 index, False otherwise
     bool IsIndexTypeSimplifiableGep(GetElementPtrInst *pGEP);
+
+    /// @brief Check if given PhiNode instruction is simplifiable
+    /// @param pPhiNode PhiNode instruction
+    /// @return negative number if PhiNode not is not simplifiable, otherwise
+    //    0 or 1 according to the PhiNode incoming entry that contains the iterator instruction.
+    int SimplifiablePhiNode(PHINode *pPhiNode);
 
   private:
     /// @brief pointer to work-item analysis performed for this function

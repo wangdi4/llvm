@@ -35,7 +35,7 @@ using namespace llvm;
 
 char intel::VectorizerCore::ID = 0;
 
-extern "C" FunctionPass* createScalarizerPass();
+extern "C" FunctionPass* createScalarizerPass(bool);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
@@ -53,6 +53,10 @@ extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
   if (CpuId.IsMIC()) return createMICResolverPass();
   return createX86ResolverPass();
+}
+
+static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
+  return createScalarizerPass(CpuId.IsMIC());
 }
 
 static FunctionPass* createPacketizer(const Intel::CPUId& CpuId) {
@@ -140,7 +144,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
       preCounter = (WeightedInstCounter*)createWeightedInstCounter(true, m_pConfig->GetCpuId());
       fpm1.add(preCounter);
     }
-    fpm1.add(createScalarizerPass());
+    fpm1.add(createScalarizer(m_pConfig->GetCpuId()));
 
     // Register mergereturn
     FunctionPass *mergeReturn = new UnifyFunctionExitNodes();
@@ -211,9 +215,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(widDepPass);
     }
 
-    // Register simplifyGEP
-    FunctionPass *simplifyGEP = createSimplifyGEPPass();
-    fpm2.add(simplifyGEP);
+    if (m_pConfig->GetCpuId().IsMIC()) {
+      // Register simplifyGEP only for MIC
+      FunctionPass *simplifyGEP = createSimplifyGEPPass();
+      fpm2.add(simplifyGEP);
+    }
 
     // Register packetize
     FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId());
