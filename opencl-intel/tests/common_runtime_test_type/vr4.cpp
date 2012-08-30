@@ -306,7 +306,7 @@ TEST_F(VR4, CPUCreateSubDevices){
 	cl_device_id sub_device_array[10];
 	cl_uint num_of_sub_devices;
 
-	//get GPU device
+	//get CPU device
 	ASSERT_NO_FATAL_FAILURE(getCPUDevice(ocl_descriptor.platforms, ocl_descriptor.devices));
 	
 	//create subdevices

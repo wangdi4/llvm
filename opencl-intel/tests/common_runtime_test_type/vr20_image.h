@@ -118,6 +118,11 @@ void test2DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 	}
 	// wait for reads to complete
 	ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
+	
+	//release events
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
 
 	// validate that correct values were read by both CPU and GPU
 	for(int i=0; i<2; ++i)
@@ -244,11 +249,20 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 	// wait for reads to complete
 	ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
 
+	//release events
+	for(int i = 0 ; i< 2; i++){
+		releaseEvent(device_done_event[i]);
+	}
+
 	// validate that correct values were read by both CPU and GPU
 	for(int i=0; i<2; ++i)
 	{
 		ASSERT_NO_FATAL_FAILURE(((0==i)?cpu_array:gpu_array).compareArray(general_input_array.dynamic_array,arraySize));
 	}
+
+	//an array for each event. needed to safely release all the allocated events
+	int j= 0;
+	cl_event event_list[4];
 
 	for(int i=0; i<2; ++i)
 	{
@@ -257,11 +271,13 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 			CL_FALSE, origin, region, row_pitch, slice_pitch, 
 			((0==i)?cpu_input_array.dynamic_array:gpu_input_array.dynamic_array), 
 			0, NULL, &device_done_event[i]));
+			event_list[j++] = device_done_event[i];
 
 		ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[1-i], ocl_descriptor.in_common_buffer, 
 			CL_FALSE, origin, region, row_pitch, slice_pitch, 
 			((0==i)?cpu_array.dynamic_array:gpu_array.dynamic_array), 
 			1, &device_done_event[i], &device_done_event[1-i]));
+			event_list[j++] = device_done_event[1-i];
 
 		// wait for write and read to complete
 		ASSERT_NO_FATAL_FAILURE(waitForEvents(2, device_done_event));
@@ -269,8 +285,10 @@ void test3DReadWriteCommands(OpenCLDescriptor& ocl_descriptor, cl_image_format i
 	}
 
 
-	for(int i = 0 ; i< 2; i++){
-		releaseEvent(device_done_event[i]);
+	
+	//release events
+	for(int i = 0 ; i< j; i++){
+		releaseEvent(event_list[i]);
 	}
 }
 
