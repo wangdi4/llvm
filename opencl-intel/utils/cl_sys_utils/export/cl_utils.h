@@ -119,7 +119,7 @@ std::string TrimString (const std::string& sSource, const char *chars = " \t");
 				Note: can not overload stringfy because most of the object are merely a typedefs
 * Arguments:	a variable to convert into string
 * Return value:	string
-* Author:		Nitzan Dori
+* Author:		Nitzan Dori, additional by Oren Sarid August 2012
 * Date:			May 2012
 **************************************************************************************************/
 const string channelOrderToString(const cl_channel_order& co);
@@ -135,6 +135,8 @@ const string memCacheTypeToString(const cl_device_mem_cache_type& memType);
 const string localMemTypeToString(const cl_device_local_mem_type& memType);
 const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap);
 const string commandTypeToString(const cl_command_type& type);
+const string addressQualifierToString(const cl_kernel_arg_address_qualifier& AddressQualifer);
+const string accessQualifierToString(const cl_kernel_arg_access_qualifier& AccessQualifier);
 
 /**************************************************************************************************
 * Function: 	XXXFromString
@@ -149,6 +151,8 @@ cl_channel_order GetChannelOrderFromString(const std::string& Order);
 cl_channel_type GetChannelTypeFromString(const std::string& Type);
 cl_mem_object_type GetImageTypeFromString(const std::string& Type);
 cl_mem_flags GetMemFlagsFromString(const std::string& Order);
+cl_kernel_arg_address_qualifier GetAddressQualifierFromString(const std::string& AddressQualifier);
+cl_kernel_arg_access_qualifier GetAccessQualifierFromString(const std::string& AccessQualifier);
 
 /**************************************************************************************************
 * Function: 	clIsNumaAvailable

@@ -488,6 +488,45 @@ const string commandTypeToString(const cl_command_type& type)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// addressQualifierToString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+const string addressQualifierToString(const cl_kernel_arg_address_qualifier& AddressQualifer)  {
+    switch (AddressQualifer)
+    {
+    case CL_KERNEL_ARG_ADDRESS_GLOBAL:
+        return "__global";
+    case CL_KERNEL_ARG_ADDRESS_LOCAL:
+        return "__local";
+    case CL_KERNEL_ARG_ADDRESS_CONSTANT:
+        return "__const";
+    case CL_KERNEL_ARG_ADDRESS_PRIVATE:
+    default:
+        return "__private";
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// accessQualifierToString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+const string accessQualifierToString (const cl_kernel_arg_access_qualifier& AccessQualifier)
+{
+    switch (AccessQualifier)
+    {
+    case CL_KERNEL_ARG_ACCESS_READ_ONLY:
+        return "READ_ONLY";
+    case CL_KERNEL_ARG_ACCESS_WRITE_ONLY:
+        return "WRITE_ONLY";
+    case CL_KERNEL_ARG_ACCESS_READ_WRITE:
+        return "READ_WRITE";
+    case CL_KERNEL_ARG_ACCESS_NONE:
+        return "NONE";
+    }
+    string Error("Failed to get a string from access qualifier ");
+    Error += stringify<unsigned int>((unsigned int)AccessQualifier);
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 // GetAddressingModeFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_addressing_mode GetAddressingModeFromString(const std::string& Mode)
@@ -708,14 +747,12 @@ cl_mem_object_type GetImageTypeFromString(const string& Type)
 cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
 {
     cl_mem_flags Flags(0);
-    cout << "Getting mem flags from '" << FlagsStr << "'" << endl;
     char_separator<char> Separators(", ");
     tokenizer<char_separator<char> > tokens(FlagsStr, Separators);
     for (tokenizer<char_separator<char> >::iterator iToken = tokens.begin();
         iToken != tokens.end();
         ++iToken)
     {
-        cout << "Current mem flag token is '" << *iToken << "'" << endl;
         if (*iToken == "CL_MEM_ALLOC_HOST_PTR")
         {
             Flags |= CL_MEM_ALLOC_HOST_PTR;
@@ -760,6 +797,58 @@ cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
         }
     }
     return Flags;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// GetAddressQualifierFromString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_kernel_arg_address_qualifier GetAddressQualifierFromString(const std::string& AddressQualifier)
+{
+    if (AddressQualifier == "__global")
+    {
+        return CL_KERNEL_ARG_ADDRESS_GLOBAL;
+    }
+    else if (AddressQualifier == "__local")
+    {
+        return CL_KERNEL_ARG_ADDRESS_LOCAL;
+    }
+    else if (AddressQualifier == "__const")
+    {
+        return CL_KERNEL_ARG_ADDRESS_CONSTANT;
+    }
+    else if (AddressQualifier == "__private")
+    {
+        return CL_KERNEL_ARG_ADDRESS_PRIVATE;
+    }
+    string Error("Failed to get an address qualifier from ");
+    Error += AddressQualifier;
+    throw Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// GetAccessQualifierFromString
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_kernel_arg_access_qualifier GetAccessQualifierFromString(const std::string& AccessQualifier)
+{
+    if (AccessQualifier == "READ_ONLY")
+    {
+        return CL_KERNEL_ARG_ACCESS_READ_ONLY;
+    }
+    else if (AccessQualifier == "WRITE_ONLY")
+    {
+        return CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+    }
+    else if (AccessQualifier == "READ_WRITE")
+    {
+        return CL_KERNEL_ARG_ACCESS_READ_WRITE;
+    }
+    else if (AccessQualifier == "NONE")
+    {
+        return CL_KERNEL_ARG_ACCESS_NONE;
+    }
+    string Error("Failed to get an address qualifier from ");
+    Error += AccessQualifier;
+    throw Error;
 }
 
 void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
