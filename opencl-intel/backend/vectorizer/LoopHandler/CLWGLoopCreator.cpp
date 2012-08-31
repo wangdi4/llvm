@@ -358,10 +358,10 @@ void CLWGLoopCreator::getLoopsBoundaries() {
   m_loopSizes.clear();
   m_initGIDs.clear();
   for (unsigned dim = 0; dim < m_numDim; ++dim) {
-    unsigned lowerInd = CLWGBoundDecoder::getInitGIDIndex(dim);
+    unsigned lowerInd = CLWGBoundDecoder::getIndexOfInitGIDAtDim(dim);
     Value *initGID =
         ExtractValueInst::Create(m_EECall, lowerInd, "", m_newEntry);
-    unsigned loopSizeInd = CLWGBoundDecoder::getSizeIndex(dim);
+    unsigned loopSizeInd = CLWGBoundDecoder::getIndexOfSizeAtDim(dim);
     Value *loopSize =  
         ExtractValueInst::Create(m_EECall, loopSizeInd, "", m_newEntry);
     m_initGIDs.push_back(initGID);

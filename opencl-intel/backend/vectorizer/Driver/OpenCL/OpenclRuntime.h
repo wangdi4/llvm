@@ -69,49 +69,44 @@ public:
   /// @param inp_name Function name to look for
   virtual bool isSyncFunc(const std::string &func_name) const;
 
-  /// @brief Check if function is a known uniform function such as get_group_size
-  /// @param inp_name Function name to look for
-  virtual bool isKnownUniformFunc(std::string &func_name) const;
-
   /// @brief returns true if the function has no side effects
   ///  this means it can be safely vectorized regardless if it is being masked
   /// @param func_name Function name to check
   /// @return true if function has no side effects
-  virtual bool hasNoSideEffect(std::string &func_name) const;
+  virtual bool hasNoSideEffect(const std::string &func_name) const;
 
   /// @brief returns true the is a special function that needs resolving used
   ///  by OCLSpecialCaseResolver
   /// @param funcName Function name to check
-  virtual bool needSpecialCaseResolving(std::string &funcName) const;
+  virtual bool needSpecialCaseResolving(const std::string &funcName) const;
 
   /// @brief returns true the function needs to be replaced with fake function
   ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano   
   /// @param funcName Function name to check
-  virtual bool needPreVectorizationFakeFunction(std::string &funcName) const;
+  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
 
   /// @brief returns true the function is a scalar select builtin used by
   ///  OCLBuiltinPreVectorizationPass - currently disabled in Volcano
   /// @param funcName Function name to check
-  virtual bool isScalarSelect(std::string &funcName) const;
+  virtual bool isScalarSelect(const std::string &funcName) const;
 
   /// @brief returns true the function is writeImage which need scalarizing of
   ///  input used by OCLBuiltinPreVectorizationPass - currently disabled in
   ///  Volcano
   /// @param funcName Function name to check
-  virtual bool isWriteImage(std::string &funcName) const;
+  virtual bool isWriteImage(const std::string &funcName) const;
 
   /// @brief returns true the function is dot product that should be inlined
   ///  used OCLBuiltinPreVectorizationPass - works only for Volcano
   /// @param funcName Function name to check
   /// @return the width of the input parameters incase of dot, 0 otherwise
-  virtual unsigned isInlineDot(std::string &funcName) const; 
+  virtual unsigned isInlineDot(const std::string &funcName) const; 
 
   /// @brief returns true if the function is a masked version that support 
   ///  i1 vector as first parameter
   /// @param func_name Function name to check
   /// @return true if function is masked version
-  virtual bool isMaskedFunctionCall(std::string &func_name) const;
-
+  virtual bool isMaskedFunctionCall(const std::string &func_name) const;
 
   virtual unsigned getNumJitDimensions() const;
 
@@ -119,9 +114,39 @@ public:
   virtual const char *getBaseGIDName() const;
 
   /// @brief returns true iff this name of atomic built-in.
-  virtual bool isAtomicBuiltin(std::string &func_name) const;
+  virtual bool isAtomicBuiltin(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is safe to speculative execute, and hence 
+  ///        can be hoisted even if it is under control flow
+  /// @param func_name name of the function.
+  virtual bool isSafeToSpeculativeExecute(const std::string &func_name) const;
 
 protected:
+
+  /// @brief returns true if func_name is synchronization function with side effects.
+  /// @param func_name name of the function.
+  virtual bool isSyncWithSideEfffect(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is synchronization function with no side effects.
+  /// @param func_name name of the function.
+  virtual bool isSyncWithNoSideEfffect(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is a descriptor of image built-in.
+  /// @param func_name name of the function.
+  virtual bool isImageDescBuiltin(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is a known expensive call.
+  /// @param func_name name of the function.
+  virtual bool isExpensiveCall(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is a work item built-in.
+  /// @param func_name name of the function.
+  virtual bool isWorkItemBuiltin(const std::string &func_name) const;
+
+  /// @brief returns true if func_name is a safe llvm initrinsic.
+  /// @param func_name name of the function.
+  virtual bool isSafeLLVMIntrinsic(const std::string &func_name) const;
+
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 

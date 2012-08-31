@@ -49,6 +49,7 @@ extern "C" void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned
 extern "C" llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<Function*> *optimizerFunctions,
                                                        llvm::SmallVectorImpl<int> *optimizerWidths);
 extern "C" llvm::ModulePass* createCLWGLoopBoundariesPass();
+extern "C" llvm::Pass* createCLBuiltinLICMPass();
 extern "C" Pass* createLoopStridedCodeMotionPass();
 
 extern "C" void* createOpenclRuntimeSupport(const Module *runtimeModule);
@@ -320,6 +321,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     
     // After adding loops run loop optimizations.
     if( debugType == None ) {
+      m_modulePasses.add(createCLBuiltinLICMPass());
       m_modulePasses.add(createLICMPass());
       m_modulePasses.add(createLoopStridedCodeMotionPass());
     }

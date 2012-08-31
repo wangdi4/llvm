@@ -8,6 +8,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "AppleOCLRuntime.h"
+#include "EnvAdapt.h"
 #include "Mangler.h"
 #include "Logger.h"
 #include "SpecialCaseFuncs.h"
@@ -46,6 +47,25 @@ const char *appleScalarSelect[] = {
 
 
 const char *APPLE_WRITE_IMG_NAME = "__write_imagef_2d";
+const char *APPLE_READ_IMG_NAME = "_Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f";
+
+// On volcano sets the __i386 manually
+#if VOLCANO_ENV 
+//#define __i386 1
+#endif 
+
+#if defined(__i386)
+const char *APPLE_STREAM_READ_IMG_NAME = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_jPDv4_fS3_S3_S3_";
+#else
+const char *APPLE_STREAM_READ_IMG_NAME = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_mPDv4_fS3_S3_S3_";
+#endif
+
+#if defined(__i386)
+const char *APPLE_STREAM_WRITE_IMG_NAME = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tjjjPKDv4_fS2_S2_S2_";
+#else
+const char *APPLE_STREAM_WRITE_IMG_NAME = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_";
+#endif
+
 
 
 AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
@@ -56,6 +76,14 @@ AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
     m_needPreVectorizationSet.insert(*preVecPtr);
     ++preVecPtr;
   }
+
+  std::string fakeReadImgName = Mangler::getFakeBuiltinName(APPLE_READ_IMG_NAME);
+  funcEntry readImgFuncEntry= findBuiltinFunction(fakeReadImgName);
+  m_readImageEntry = readImgFuncEntry.first;
+
+  std::string fakeWriteImgName = Mangler::getFakeBuiltinName(APPLE_WRITE_IMG_NAME);
+  funcEntry writeImgFuncEntry= findBuiltinFunction(fakeWriteImgName);
+  m_writeImageEntry = writeImgFuncEntry.first;
 }
 
 unsigned AppleOpenclRuntime::getNumJitDimensions() const {
@@ -66,49 +94,53 @@ const char *AppleOpenclRuntime::getBaseGIDName() const {
   return GET_GID_NAME;
 }
 
-bool AppleOpenclRuntime::needPreVectorizationFakeFunction(std::string &funcName) const{
+bool AppleOpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
   if(m_needPreVectorizationSet.count(funcName)) return true;
   return false;
 }
 
-bool AppleOpenclRuntime::hasNoSideEffect(std::string &func_name) const {
-  Function *func = findInRuntimeModule(func_name);
-  // if function is not in runtime module we dont want to say anything about it
-  if (!func) return false;
-  // if function says it does not access memory than it has no side effects
-  if (func->doesNotAccessMemory()) return true;
-  // if function has no pointers arguments than it is also known not to have side effects
-  bool hasNoPointerArg = true;
-  const FunctionType *fType = func->getFunctionType();
-  unsigned nParams = fType->getNumParams();
-  for (unsigned i=0; i<nParams && hasNoPointerArg; ++i)
-  {
-    hasNoPointerArg &= !(fType->getParamType(i)->isPointerTy());
-  }
-  if (hasNoPointerArg) return true;
-  // possible side effects
-  return false;
-}
-
-bool AppleOpenclRuntime::isWriteImage(std::string &funcName) const{
+bool AppleOpenclRuntime::isWriteImage(const std::string &funcName) const{
   // check that function has select builtin prefix
   if (funcName.compare(APPLE_WRITE_IMG_NAME) != 0) return false;
   return true;
 }
 
-bool AppleOpenclRuntime::isFakeWriteImage(std::string &funcName) const{
+bool AppleOpenclRuntime::isFakeWriteImage(const std::string &funcName) const{
   if (Mangler::isFakeBuiltin(funcName) ) {
-	std::string resolvedName = Mangler::demangle_fake_builtin(funcName);
-	if (resolvedName.compare(APPLE_WRITE_IMG_NAME) == 0) 
+    std::string resolvedName = Mangler::demangle_fake_builtin(funcName);
+    if (resolvedName.compare(APPLE_WRITE_IMG_NAME) == 0) 
       return true;
   }
   return false;
 }
 
-unsigned AppleOpenclRuntime::isInlineDot(std::string &funcName) const{
+unsigned AppleOpenclRuntime::isInlineDot(const std::string &funcName) const{
   return 0;
 }
 
+bool AppleOpenclRuntime::isTransposedReadImg(const std::string &func_name) const {
+  // check only the soa entries of read_image
+  for (unsigned i=1; i<6; ++i) {
+    if (func_name.compare(m_readImageEntry->funcs[i]) == 0) return true;
+  }
+  return false;
+}
+
+Function *AppleOpenclRuntime::getWriteStream() const {
+  return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME);
+}
+
+bool AppleOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
+  // check only the soa entries of write_image
+  for (unsigned i=1; i<6; ++i) {
+    if (func_name.compare(m_writeImageEntry->funcs[i]) == 0) return true;
+  }
+  return false;
+}
+
+Function *AppleOpenclRuntime::getReadStream() const {
+  return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME);
+}
 
 } // Namespace
 
@@ -125,8 +157,8 @@ extern "C" {
   }
 
   void* destroyAppleOpenclRuntimeSupport() {
-	  delete intel::RuntimeServices::get();
-	  intel::RuntimeServices::set(0);
-	  return 0;
+    delete intel::RuntimeServices::get();
+    intel::RuntimeServices::set(0);
+    return 0;
   }
 }

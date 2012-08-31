@@ -386,13 +386,16 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
   }
 
-  // Do not consider functions such as get_global_id as 'random'
-  bool KnownUniform = m_rtServices->isKnownUniformFunc(scalarFuncName);
+  // Check with the runtime whether we can say that the ouput of the call 
+  // is uniform in case all it's operands are unifrom.
+  // Note that for openCL the runtime will say it is true for: get_gloabl_id,
+  // get_local_id, since on dimension 0 the isTIDGenerator should answer true,
+  // and we will say the value is Consecutive. So in here we cover dimensions 1,2
+  // which are uniform.
+  bool UniformByOps = m_rtServices->hasNoSideEffect(scalarFuncName);
 
   // Look for the function in the builtin functions hash
-  const RuntimeServices::funcEntry foundFunction =
-    m_rtServices->findBuiltinFunction(scalarFuncName);
-  if (!foundFunction.first && !MaskedMemOp && !isTidGen && !KnownUniform) {
+  if (!MaskedMemOp && !isTidGen && !UniformByOps) {
     return WIAnalysis::RANDOM;
   }
 

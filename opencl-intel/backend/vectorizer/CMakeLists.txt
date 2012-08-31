@@ -57,7 +57,9 @@ add_llvm_library( LLVMVectorizer
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/CLWGBoundDecoder.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
+  LoopHandler/CLStreamSampler.cpp
   LoopHandler/LoopWIAnalysis.cpp
+  LoopHandler/CLBuiltinLICM.cpp
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   IRPrinter/IRPrinter.cpp
   Heuristic/InstCounter.cpp

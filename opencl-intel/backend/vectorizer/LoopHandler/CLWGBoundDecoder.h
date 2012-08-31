@@ -21,13 +21,13 @@ public:
   ///       work group boundaries array.
   ///@param dim - dimension to query.
   ///@retruns as above.
-  static unsigned getInitGIDIndex(unsigned dim);
+  static unsigned getIndexOfInitGIDAtDim(unsigned dim);
 
   ///@brief returns the initial loop size index for dimension dim in the
   ///       work group boundaries array.
   ///@param dim - dimension to query.
   ///@retruns as above.
-  static unsigned getSizeIndex(unsigned dim);
+  static unsigned getIndexOfSizeAtDim(unsigned dim);
 
   ///@brief returns the unoform early exit index for dimension dim in the
   ///       work group boundaries array.

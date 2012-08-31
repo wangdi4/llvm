@@ -36,20 +36,20 @@ void DXRuntime::setPacketizationWidth(unsigned width) {
   m_packetizationWidth = width;
 }
 
-bool DXRuntime::isKnownUniformFunc(std::string &func_name) const {
-  return false;
-}
-
 bool DXRuntime::isSyncFunc(const std::string &func_name) const {
   // TODO: ComputeShader is defined with SYNC() function
   return false;
 }
 
-bool DXRuntime::hasNoSideEffect(std::string &func_name) const{
+bool DXRuntime::hasNoSideEffect(const std::string &func_name) const{
   return true;
 }
 
-bool DXRuntime::isMaskedFunctionCall(std::string &func_name) const{
+bool DXRuntime::isExpensiveCall(const std::string &func_name) const{
+  return false;
+}
+
+bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const{
   return func_name.find("dx_soa") == 0;
 }
 

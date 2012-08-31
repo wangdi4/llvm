@@ -397,9 +397,9 @@ Constant *LoopWIAnalysis::getConstStride(Value *v) {
 }
 
 bool LoopWIAnalysis::isUniform(Value *v) {
-  DenseMap<Value*, ValDependancy>::iterator it = m_deps.find(v);
-  if (it != m_deps.end()) return it->second == LoopWIAnalysis::UNIFORM;
-  return false;
+  // Uniform values might not be calculated on the analysis 
+  // pre-processing stage, so check the dependency on the fly.
+  return getDependency(v) == LoopWIAnalysis::UNIFORM;
 }
 
 bool LoopWIAnalysis::isStrided(Value *v) {

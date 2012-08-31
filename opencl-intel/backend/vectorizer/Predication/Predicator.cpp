@@ -503,7 +503,6 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
     //Get type name
     std::string desc = call->getCalledFunction()->getName();
-    if (m_rtServices->hasNoSideEffect(desc)) return NULL;
     Function* func =
       createPredicatedFunction(call, pred, Mangler::mangle(desc));
 
@@ -636,7 +635,8 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
       }
       else if (CallInst *CI = dyn_cast<CallInst>(it)) {
         std::string funcname = CI->getCalledFunction()->getNameStr();
-        if (funcname != "llvm.dbg.declare" && funcname != "llvm.dbg.value") {
+        if (!m_rtServices->hasNoSideEffect(funcname) ||
+            m_rtServices->isExpensiveCall(funcname))  {
           m_toPredicate.push_back(it);
         }
       }

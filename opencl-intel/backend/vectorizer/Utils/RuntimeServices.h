@@ -62,10 +62,6 @@ public:
   /// @param inp_name Function name to look for
   virtual bool isSyncFunc(const std::string &func_name) const = 0;
 
-  /// @brief Check if function is a known uniform function such as get_group_size
-  /// @param inp_name Function name to look for
-  virtual bool isKnownUniformFunc(std::string &func_name) const = 0;
-
   /// @brief Check if the shading language is ordered
   ///  OpenCL is ordered, DX is not because all items must
   ///  be randomly ordered.
@@ -84,13 +80,17 @@ public:
   ///  this means it can be safely vectorized regardless if it is being masked
   /// @param func_name Function name to check
   /// @return true if function has no side effects
-  virtual bool hasNoSideEffect(std::string &func_name) const = 0;
+  virtual bool hasNoSideEffect(const std::string &func_name) const = 0;
+
+  /// @brief returns true if func_name is a known expensive call.
+  /// @param func_name name of the function.
+  virtual bool isExpensiveCall(const std::string &func_name) const = 0;
 
   /// @brief returns true if the function is a masked version that support
   ///  i1 vector as first parameter
   /// @param func_name Function name to check
   /// @return true if function is masked version
-  virtual bool isMaskedFunctionCall(std::string &func_name) const = 0;
+  virtual bool isMaskedFunctionCall(const std::string &func_name) const = 0;
 
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 

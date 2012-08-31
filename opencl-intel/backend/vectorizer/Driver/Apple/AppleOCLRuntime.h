@@ -33,36 +33,41 @@ public:
   ///   used by OCLBuiltinPreVectorizationPass
   /// @param funcName Function name to check
   /// @return true if builin needs special case resolving
-  virtual bool needPreVectorizationFakeFunction(std::string &funcName) const;
+  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
 
   /// @brief returns true the function is writeImage which need scalarizing of 
   ///  input used by OCLBuiltinPreVectorizationPass
   /// @param funcName Function name to check
-  virtual bool isWriteImage(std::string &funcName) const;
+  virtual bool isWriteImage(const std::string &funcName) const;
 
   /// @brief returns true the function is fake writeImage which produced in
   /// Pre-Scalarization used AppleWiDepPrePacketizationPass - unique to apple
   /// @param funcName Function name to check
-  virtual bool isFakeWriteImage(std::string &funcName) const;
+  virtual bool isFakeWriteImage(const std::string &funcName) const;
 
   /// @brief returns true the function is dot product that should be inlined
   ///  used OCLBuiltinPreVectorizationPass - disabled for Apple
   /// @param funcName Function name to check
   /// @return the width of the input parameters incase of dot, 0 otherwise
-  virtual unsigned isInlineDot(std::string &funcName) const;
-
-  /// @brief returns true if the function has no side effects
-  ///  this means it can be safely vectorized regardless if it is being masked 
-  /// @param func_name Function name to check
-  /// @return true if function has no side effects
-  virtual bool hasNoSideEffect(std::string &func_name) const;
-
+  virtual unsigned isInlineDot(const std::string &funcName) const;
 
   /// @brief retruns number of Jit dimensions.
   virtual unsigned getNumJitDimensions() const;
 
   // @brief retrun name of builtin to retrieve base global id for this work group.
   virtual const char *getBaseGIDName() const;
+
+  /// @brief returns true iff this is name of transposed_read_image.
+  bool isTransposedReadImg(const std::string &func_name) const;
+
+  /// @brief returns true iff this is name of transposed_write_image.
+  bool isTransposedWriteImg(const std::string &func_name) const;
+
+  /// @brief returns the read stream function from the runtime module.
+  Function *getReadStream() const;
+
+  /// @brief returns the write stream function from the runtime module.
+  Function *getWriteStream() const;
 
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
@@ -77,6 +82,10 @@ private:
 
   
   AppleOpenclRuntime(); // Do not implement
+
+  const hashEntry *m_readImageEntry;
+
+  const hashEntry *m_writeImageEntry;
 };
 
 

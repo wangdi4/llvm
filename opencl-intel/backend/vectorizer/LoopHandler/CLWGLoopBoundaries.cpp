@@ -690,10 +690,10 @@ void CLWGLoopBoundaries::createWGLoopBoundariesFunction() {
   // Insert Boundaries into the array return value.
   Value *retVal = UndefValue::get(BoundFunc->getReturnType());
   for (unsigned dim = 0; dim < m_numDim; ++dim) {
-    unsigned loopSizeInd = CLWGBoundDecoder::getSizeIndex(dim);
+    unsigned loopSizeInd = CLWGBoundDecoder::getIndexOfSizeAtDim(dim);
     retVal = 
         InsertValueInst::Create(retVal, m_loopSizes[dim], loopSizeInd, "", BB);
-    unsigned lowerInd = CLWGBoundDecoder::getInitGIDIndex(dim);
+    unsigned lowerInd = CLWGBoundDecoder::getIndexOfInitGIDAtDim(dim);
     retVal = 
         InsertValueInst::Create(retVal, m_lowerBounds[dim], lowerInd, "", BB);
   }

@@ -125,35 +125,51 @@ void OpenclRuntime::setPacketizationWidth(unsigned width) {
 }
 
 bool OpenclRuntime::isSyncFunc(const std::string &func_name) const {
-  if (0 == func_name.compare("barrier")) return true;
-  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
-  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
-  if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
-  if (0 == func_name.compare("mem_fence")) return true;
-  if (0 == func_name.compare("read_mem_fence")) return true;
-  if (0 == func_name.compare("write_mem_fence")) return true;
-  return false;
+  return isSyncWithNoSideEfffect(func_name) || isSyncWithSideEfffect(func_name);
 }
 
-bool OpenclRuntime::isKnownUniformFunc(std::string &func_name) const {
-  if (0 == func_name.compare("get_base_global_id.")) return true;
-  if (0 == func_name.compare("get_local_size")) return true;
-  if (0 == func_name.compare("get_global_size")) return true;
-  if (0 == func_name.compare("get_group_id")) return true;
-  if (0 == func_name.compare("get_num_groups")) return true;
-  if (0 == func_name.compare("get_work_dim")) return true;
-  if (0 == func_name.compare("get_global_offset")) return true;
-  if (0 == func_name.compare("barrier")) return true;
-  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
-  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
-  if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
-  if (0 == func_name.compare("mem_fence")) return true;
-  if (0 == func_name.compare("read_mem_fence")) return true;
-  if (0 == func_name.compare("write_mem_fence")) return true;
-  return false;
+bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
+  // Work item builtins and llvm intrinsics are not in runtime module so check
+  // them first.
+  if (isWorkItemBuiltin(func_name))  return true;
+  if (isSafeLLVMIntrinsic(func_name)) return true;
+  
+  // If it is not a built-in, don't know if it has side effect.
+  Function *funcRT = findInRuntimeModule(func_name);
+  if (!funcRT) return false;
+
+  // Special case built-ins that access memory but has no side effects.
+  if (isSyncWithNoSideEfffect(func_name)) return true;
+  if (isImageDescBuiltin(func_name)) return true;
+  
+  // All built-ins that does not access memory and does not throw 
+  // have no side effects.
+  return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
 }
 
-bool OpenclRuntime::hasNoSideEffect(std::string &func_name) const {
+bool OpenclRuntime::isSafeToSpeculativeExecute(const std::string &func_name) const {
+  // Work item builtins are not in runtime module so check them first.
+  if (isWorkItemBuiltin(func_name)) return true;
+  
+  // Can not say anything on non - builtin function.
+  Function *funcRT = findInRuntimeModule(func_name);
+  if (!funcRT) return false;
+  
+  // Special case built-ins that access memory but can be speculatively executed.
+  if (isImageDescBuiltin(func_name)) return true;
+  
+  // All built-ins that does not access memory and does not throw 
+  // can be speculatively executed.
+  return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
+}
+
+bool OpenclRuntime::isExpensiveCall(const std::string &func_name) const {
+   if (0 == func_name.find("_Z12read_image")) return true;
+   if (0 == func_name.find("_Z13write_image")) return true;
+   return false;
+}
+
+bool OpenclRuntime::isWorkItemBuiltin(const std::string &func_name) const {
   if (0 == func_name.compare("get_global_id")) return true;
   if (0 == func_name.compare("get_local_id")) return true;
   if (0 == func_name.compare("get_base_global_id.")) return true;
@@ -163,37 +179,63 @@ bool OpenclRuntime::hasNoSideEffect(std::string &func_name) const {
   if (0 == func_name.compare("get_num_groups")) return true;
   if (0 == func_name.compare("get_work_dim")) return true;
   if (0 == func_name.compare("get_global_offset")) return true;
+  return false;
+}
+
+bool OpenclRuntime::isSyncWithSideEfffect(const std::string &func_name) const {
+  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
+  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
+  if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
+  return false;
+}
+
+bool OpenclRuntime::isSyncWithNoSideEfffect(const std::string &func_name) const {
   if (0 == func_name.compare("barrier")) return true;
   if (0 == func_name.compare("mem_fence")) return true;
   if (0 == func_name.compare("read_mem_fence")) return true;
   if (0 == func_name.compare("write_mem_fence")) return true;
-  const RuntimeServices::funcEntry foundFunction = m_vfh.findFunctionInHash(func_name);
-  if (foundFunction.first) return true;
   return false;
 }
 
-bool OpenclRuntime::needSpecialCaseResolving(std::string &funcName) const{
+bool OpenclRuntime::isImageDescBuiltin(const std::string &func_name) const {
+  if (0 == func_name.find("_Z16get_image_height")) return true;
+  if (0 == func_name.find("_Z15get_image_width")) return true;
+  if (0 == func_name.find("_Z15get_image_depth")) return true;
+  if (0 == func_name.find("_Z27get_image_channel")) return true;
+  if (0 == func_name.find("_Z13get_image_dim_")) return true;
+  return false;
+}
+
+bool OpenclRuntime::isSafeLLVMIntrinsic(const std::string &func_name) const {
+  if (0 == func_name.compare("llvm.var.annotation")) return true;
+  if (0 == func_name.compare("llvm.dbg.declare")) return true;
+  if (0 == func_name.compare("llvm.dbg.value")) return true;
+  return false;
+}
+
+
+bool OpenclRuntime::needSpecialCaseResolving(const std::string &funcName) const{
   return Mangler::isFakeBuiltin(funcName);
 }
 
-bool OpenclRuntime::needPreVectorizationFakeFunction(std::string &funcName) const{
+bool OpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
   return false;
 }
 
-bool OpenclRuntime::isScalarSelect(std::string &funcName) const{
+bool OpenclRuntime::isScalarSelect(const std::string &funcName) const{
   if (m_scalarSelectSet.count(funcName)) return true;
   return false;
 }
 
-bool OpenclRuntime::isMaskedFunctionCall(std::string &func_name) const{
+bool OpenclRuntime::isMaskedFunctionCall(const std::string &func_name) const{
   return false;
 }
 
-bool OpenclRuntime::isWriteImage(std::string &funcName) const{
+bool OpenclRuntime::isWriteImage(const std::string &funcName) const{
   return false;
 }
 
-unsigned OpenclRuntime::isInlineDot(std::string &funcName) const{
+unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{
   std::map<std::string, unsigned>::const_iterator it = m_dotOpWidth.find(funcName);
   if (it != m_dotOpWidth.end()) {
 	return it->second;
@@ -201,7 +243,7 @@ unsigned OpenclRuntime::isInlineDot(std::string &funcName) const{
   return 0;
 }
 
-bool OpenclRuntime::isAtomicBuiltin(std::string &func_name) const {
+bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
   Function *bltn = findInRuntimeModule(func_name);
   if (!bltn) return false;
   return (func_name.find("atom") != std::string::npos);

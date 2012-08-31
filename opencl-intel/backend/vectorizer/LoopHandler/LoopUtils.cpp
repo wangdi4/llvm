@@ -84,7 +84,7 @@ void LoopUtils::GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
   }
 }
 
-void LoopUtils::getAlwaysExecuteOnceBlocks(Loop * L, DominatorTree *DT,
+void LoopUtils::getBlocksExecutedExactlyOnce(Loop * L, DominatorTree *DT,
                            SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce) {
   assert(DT && "NULL dominator tree");
   alwaysExecuteOnce.clear();

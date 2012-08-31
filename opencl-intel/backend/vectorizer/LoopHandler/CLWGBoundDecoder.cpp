@@ -27,11 +27,11 @@ unsigned CLWGBoundDecoder::getNumWGBoundArrayEntries(unsigned numDim) {
   return 2*numDim + 1;
 }
 
-unsigned CLWGBoundDecoder::getInitGIDIndex(unsigned dim) {
+unsigned CLWGBoundDecoder::getIndexOfInitGIDAtDim(unsigned dim) {
   return dim*2 + 1;
 }
 
-unsigned CLWGBoundDecoder::getSizeIndex(unsigned dim) {
+unsigned CLWGBoundDecoder::getIndexOfSizeAtDim(unsigned dim) {
   return dim*2 + 2;
 }
 

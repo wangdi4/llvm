@@ -70,7 +70,7 @@ public:
   ///@pararm L - loop to process.
   ///@param DT - dominator tree t use.
   ///@param alwaysExecuteOnce - vector to fill.
-  static void getAlwaysExecuteOnceBlocks(Loop * L, DominatorTree *DT,
+  static void getBlocksExecutedExactlyOnce(Loop * L, DominatorTree *DT,
                              SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce);
 
   ///@brief fills the users function through call instructions of roots
