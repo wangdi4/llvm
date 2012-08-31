@@ -96,8 +96,6 @@ ALIGN16 int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 23), ((127 - 15 
 ALIGN16 int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
 
 float HalfToFloat( half param );
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 Half4ToFloat4(_8i16 xmm0);
 float8 Half8ToFloat8(_8i16 xmm0);
 
@@ -108,8 +106,6 @@ float HalfToFloat( half param )
 	x.s0 = param;
 	return Half4ToFloat4(as_short8(x)).s0;
 }
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 Half4ToFloat4(_8i16 xmm0)
 {
 	return _mm_cvtph_ps(*(__m128i*)&xmm0);
@@ -163,8 +159,6 @@ float HalfToFloat( half param )
 	return res;	
 }
 
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 Half4ToFloat4(_8i16 xmm0)
 {
 	_4i32 xmm7 = (_4i32)_mm_setzero_si128();
@@ -314,8 +308,6 @@ PROTO_OCL_FLOAT2HALF8(_rtn, _MM_FROUND_TO_NEG_INF)
 PROTO_OCL_FLOAT2HALF8(_rtp, _MM_FROUND_TO_POS_INF)
 
 #else // defined(__AVX2__)
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 _ocl_float2half_rte(float4 param)
 {
     //cl_uint sign = (u.u >> 16) & 0x8000;
@@ -738,8 +730,6 @@ PROTO_OCL_FLOAT2HALF8_ASHALF4(_rtp)
 
 #endif // defined(__AVX2__)
 
-/// !!! This function is copy-pasted to images module.
-/// In case of any changes they should also be applied to image_callback_functions.cpp
 float4 _ocl_float2half(float4 param)
 {
     return _ocl_float2half_rte(param);
@@ -1155,8 +1145,6 @@ float4 _ocl_double4ToHalf4(double4 param)
 			((short*)ptr)[2] = (short)_mm_extract_epi16( (__m128i)f4, 2);\
 		}\
 	}\
-	/* !!! This function is copy-pasted to images module
-	In case of any changes they should also be done in image_callback_functions.cpp */\
 	void __attribute__((overloadable))  vstore##A##_half4##RMODE(float4 data, size_t offset, ADR half *ptr)\
 	{\
 		ptr = ptr + (offset*4);\
