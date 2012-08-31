@@ -18,6 +18,7 @@
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
+#include "llvm/Target/TargetData.h"
 
 #include "RuntimeServices.h"
 #include "SoaAllocaAnalysis.h"
@@ -250,6 +251,9 @@ private:
 
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
+
+  /// @brief This holds TargetData of processed module
+  TargetData *m_pTD;
 
 };
 
