@@ -1,0 +1,14 @@
+set(TARGET_NAME PreventDivCrashes)
+
+set(PREVENTDIVCRASHES_INCLUDE_FILES
+    PreventDivCrashes.h
+)
+
+set(PREVENTDIVCRASHES_SOURCE_FILES
+    PreventDivCrashes.cpp
+)
+
+add_library(${TARGET_NAME}
+    ${PREVENTDIVCRASHES_INCLUDE_FILES}
+    ${PREVENTDIVCRASHES_SOURCE_FILES}
+)

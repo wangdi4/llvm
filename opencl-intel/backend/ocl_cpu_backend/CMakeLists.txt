@@ -1,9 +1,7 @@
-set(TARGET_NAME OclCpuBackEnd)
-
-project(${TARGET_NAME})
-
 cmake_minimum_required(VERSION 2.8.4)
 
+set(TARGET_NAME OclCpuBackEnd)
+project(${TARGET_NAME})
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
     # 32 bit
@@ -14,19 +12,6 @@ else( CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-# The directory 'cl_api' below is used by OCL BE only when compiling outside of OCL SDK, otherwise OCL SDK overrides that setting
-set(OCL_CPU_BACKEND_IMPORT_DIRS
-  ${BACKEND_ROOT_DIR}/../cl_api
-  ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
-  ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
-  ${OCL_CPU_BACKEND_DIR}
-  ${OCL_CPU_BACKEND_DIR}/../arch_headers
-  ${OCL_CPU_BACKEND_DIR}/../vectorizer/VolcanoWrapper
-  ${OCL_CPU_BACKEND_DIR}/../ocl_mic_executor
-  ${OCL_CPU_BACKEND_DIR}/../plugin_manager
-  ${OCL_CPU_BACKEND_DIR}/../external/vtune/include
-)
-set(OCL_CPU_BACKEND_EXPORT_DIR ${OCL_CPU_BACKEND_DIR}/export)
 # the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
 option(OCL_BACKEND_STAND_ALONE "CBackend Enabled" ON)
 
@@ -34,7 +19,6 @@ option(OCL_BACKEND_STAND_ALONE "CBackend Enabled" ON)
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-
 #
 # Usage
 #     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
@@ -154,61 +138,13 @@ set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 
 endif (WIN32)
 
-
-#
-# Usage
-#     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
-#
-# Creates ADD_TO_SOURCES_LIST_VAR that should be added to the source files list
-#
-macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
-
-    if (${ARGC} GREATER  1)
-        foreach( FILE ${ARGN} )
-            get_filename_component( FILE_NAME ${FILE} NAME_WE )
-            set( BIN_DIR  ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
-            set( OBJ_FILE ${BIN_DIR}/${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-            set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
-
-            if (CMAKE_ASM_OUTPUT_NAME_FLAG)
-                                set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-                        endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
-
-            add_custom_command(OUTPUT ${OBJ_FILE}
-                               COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-                               COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                                       ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                                                             ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
-                                                             ${OBJ_OUTPUT_NAME_FLAG}
-                                                             ${SRC_FILE}
-                               MAIN_DEPENDENCY ${SRC_FILE}
-                               VERBATIM
-                               )
-
-            list(APPEND OBJ_FILES ${OBJ_FILE})
-            list(APPEND SRC_FILES ${SRC_FILE})
-        endforeach( FILE )
-    endif (${ARGC} GREATER 1)
-
-    if (DEFINED OBJ_FILES)
-        set (${ADD_TO_SOURCES_LIST_VAR} ${SRC_FILES} ${OBJ_FILES})
-        set_source_files_properties( ${OBJ_FILES} PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE )
-    endif(DEFINED OBJ_FILES)
-
-endmacro( CREATE_ASM_RULES )
-
-# Create utils project & OCL passes
-add_subdirectory(utils)
-add_subdirectory(passes)
-
 # Create target project
-
 set (OCL_CPU_BACKEND_INCLUDE_FILES
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
     CPUDeviceBackendFactory.h
     MICDeviceBackendFactory.h
-    ${OCL_CPU_BACKEND_EXPORT_DIR}/plugin_interface.h
+    ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     TargetDescription.h
     Logger.h
     Compiler.h
@@ -228,7 +164,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ProgramBuilder.h
     CPUProgramBuilder.h
     MICProgramBuilder.h
-    Optimizer.h
     BuiltinModuleManager.h
     BuiltinModule.h
     CPUBuiltinLibrary.h
@@ -285,7 +220,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     MICCompiler.cpp
     CPUProgramBuilder.cpp
     MICProgramBuilder.cpp
-    Optimizer.cpp
     BuiltinModuleManager.cpp
     BuiltinModule.cpp
     CPUBuiltinLibrary.cpp
@@ -330,17 +264,13 @@ endif()
 if (WIN32)
     # Resources
     set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
-    #SVML call wrapper is specific for Win64 calling conventions
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        list (APPEND OCL_CPU_BACKEND_SOURCE_FILES WrapSvml.cpp)
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 else (WIN32)
     set (OCL_CPU_BACKEND_RESOURCE_FILES)
 endif (WIN32)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
-        set (ASM_SOURCES kernel_execute_64.asm svml_thunk.asm)
+        set (ASM_SOURCES kernel_execute_64.asm)
     else (WIN32)
         set (ASM_SOURCES linux64_utils.s)
     endif (WIN32)
@@ -348,14 +278,22 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
-include_directories(${OCL_CPU_BACKEND_IMPORT_DIRS}
-    ${OCL_CPU_BACKEND_EXPORT_DIR}
-    ..
-    ../plugin_manager
-    ../dynamic_lib
-    utils
-    passes/InstToFuncCall
-    passes/PrintIRPass
+include_directories(
+    ${BACKEND_ROOT_DIR}
+    ${OCL_CPU_BACKEND_DIR}
+    ${OCL_CPU_BACKEND_DIR}/export
+    ${BACKEND_ROOT_DIR}/../cl_api
+    ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
+    ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
+    ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}/vectorizer/VolcanoWrapper
+    ${BACKEND_ROOT_DIR}/ocl_mic_executor
+    ${BACKEND_ROOT_DIR}/plugin_manager
+    ${BACKEND_ROOT_DIR}/external/vtune/include
+    ${BACKEND_ROOT_DIR}/optimizer
+    ${BACKEND_ROOT_DIR}/plugin_manager
+    ${BACKEND_ROOT_DIR}/dynamic_lib
+    ${BACKEND_ROOT_DIR}/utils
 )
 
 # Add additional lib directories
@@ -458,13 +396,6 @@ if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
       )
 endif ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
 
-# Link with appropriate libs
-if (WIN32)
-    set( SOCKETLIB ws2_32 )
-else (WIN32)
-    set( SOCKETLIB "" )
-endif (WIN32)
-
 set( JITPROFLIB jitprofiling)
 
 set( BACKEND_PASSES
@@ -473,6 +404,7 @@ set( BACKEND_PASSES
     DebugInfoPass
     InstToFuncCall
     LocalBuffers
+    LocalBuffAnalysis
     ModuleCleanup
     PrepareKernelArgs
     PreventDivCrashes
@@ -485,37 +417,50 @@ set( BACKEND_PASSES
     UndefExternalFuncs
 )
 
-target_link_libraries (${TARGET_NAME}
-    dynamic_load
+if (WIN32)
+    #SVML call wrapper is specific for Win64 calling conventions
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        list (APPEND BACKEND_PASSES WrapSvmlPass)
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif (WIN32)
 
+target_link_libraries (${TARGET_NAME}
     # Utils lib
+    OclPluginManager
+    OclOptimizer
     OclUtils
+
+    # internal passes
+    ${BACKEND_PASSES}
+
+    name_mangle    
+    dynamic_load
+    
+    # Internal libs
+    ${JITPROFLIB}
 
     # LLVM LIBS
     ${LLVM_LIBS}
 
-    # Internal libs
-    ${JITPROFLIB}
-
-    OclPluginManager
-
-    # Backend passes
-    ${BACKEND_PASSES}
-)
+    )
 
 add_dependencies(${TARGET_NAME}
     # Utils lib
+    OclPluginManager
+    OclOptimizer
     OclUtils
 
-    # LLVM PROJECTS
-    ${LLVM_LIBS}
-  
-    dynamic_load
-
-    OclPluginManager
-
-    # Backend passes
+    # internal passes
     ${BACKEND_PASSES}
+
+    name_mangle    
+    dynamic_load
+    
+    # Internal libs
+    ${JITPROFLIB}
+
+    # LLVM LIBS
+    ${LLVM_LIBS}
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
@@ -534,7 +479,7 @@ if (WIN32)
         set_target_properties(${TARGET_NAME} PROPERTIES
                                 LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
                                 LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-								)
+                             )
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.

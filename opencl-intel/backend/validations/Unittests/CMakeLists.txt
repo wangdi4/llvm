@@ -243,6 +243,7 @@ SET(PLUGIN_NEAT_LIBS PlugInNEAT OCLBuiltins)
 set(UNIT_TEST_LIBS
   gtest
   gtest_main
+  LLVMAsmParser
   LLVMSupport # gtest needs it for raw_ostream.
 )
   

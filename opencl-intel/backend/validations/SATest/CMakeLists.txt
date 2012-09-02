@@ -80,7 +80,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
     ${VALIDATIONS_ROOT}/../ocl_cpu_backend
     ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
-    ${BACKEND_ROOT_DIR}/ocl_cpu_backend/utils
+    ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter

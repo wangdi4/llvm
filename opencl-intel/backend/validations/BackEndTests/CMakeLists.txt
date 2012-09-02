@@ -5,7 +5,7 @@ set(TARGET_NAME BackEndTests)
 
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 include_directories(${BACKEND_ROOT_DIR}/../cl_api)
-include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/utils)
+include_directories(${BACKEND_ROOT_DIR}/utils)
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend)
 include_directories(${BACKEND_ROOT_DIR}/validations/Common)      #for auto-pointer template
 include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)             #for DLL loading

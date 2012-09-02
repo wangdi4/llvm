@@ -130,10 +130,6 @@ public:
 
         m_sample.Start();
 
-        if( m_config->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
-        {
-            GenINT3();
-        }
         DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
         cl_dev_err_code ret = m_pContext->Execute(groupId, NULL, NULL);
@@ -143,10 +139,6 @@ public:
         }
 
         DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y << ", " << z << " group.\n");
-        if( m_config->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
-        {
-            GenINT3();
-        }
 
         m_sample.Stop();
 
@@ -459,6 +451,11 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
         spContext->ResetSampling();
     }
 
+    if( pRunConfig->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
+    {
+        GenINT3();
+    }
+
     if (pRunConfig->GetValue<bool>(RC_COMMON_RUN_SINGLE_WG, false))
     {
         spContext->ExecuteWorkGroup(0, 0, 0);
@@ -497,6 +494,11 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
         default:
             throw Exception::TestRunnerException("Wrong number of dimensions while running the kernel\n");
         }
+    }
+
+    if( pRunConfig->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
+    {
+        GenINT3();
     }
 
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )

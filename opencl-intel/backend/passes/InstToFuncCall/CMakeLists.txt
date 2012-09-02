@@ -1,0 +1,14 @@
+set(TARGET_NAME InstToFuncCall)
+
+set(INSTTOFUNCCALL_INCLUDE_FILES
+    InstToFuncCall.h
+)
+
+set(INSTTOFUNCCALL_SOURCE_FILES
+    InstToFuncCall.cpp
+)
+
+add_library(${TARGET_NAME}
+    ${INSTTOFUNCCALL_INCLUDE_FILES}
+    ${INSTTOFUNCCALL_SOURCE_FILES}
+)

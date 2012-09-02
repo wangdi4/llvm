@@ -1,0 +1,14 @@
+set(TARGET_NAME UndefExternalFuncs)
+
+set(UNDEFEXTERNALFUNCS_INCLUDE_FILES
+    UndefExternalFuncs.h
+)
+
+set(UNDEFEXTERNALFUNCS_SOURCE_FILES
+    UndefExternalFuncs.cpp
+)
+
+add_library(${TARGET_NAME}
+    ${UNDEFEXTERNALFUNCS_INCLUDE_FILES}
+    ${UNDEFEXTERNALFUNCS_SOURCE_FILES}
+)

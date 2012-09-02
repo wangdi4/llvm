@@ -15,9 +15,11 @@ string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
 
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
+elseif (APPLE)
+    include( cmake_utils/CMake_apple_tools.cmake )
 else ()
     include( cmake_utils/CMake_linux_tools.cmake )
-endif (WIN32)
+endif ()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
@@ -26,8 +28,8 @@ add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 #
 # Project defs
 #
-
 project(OCL)
+
 #
 # Project variables:
 #  OCL_SOURCE_DIR    - points to the top src directory
@@ -82,6 +84,13 @@ if (WIN32)
     set(IMPLIB_SUFFIX .lib)
 	set(IMPLIB_STATIC_SUFFIX .lib)
 	set(DLL_SUFIX .dll)
+elseif (APPLE)
+    set(OS Mac)
+    set(IMPLIB_SUBDIR bin)
+    set(IMPLIB_PREFIX lib)
+    set(IMPLIB_SUFFIX .so)
+	set(IMPLIB_STATIC_SUFFIX .a)
+	set(DLL_SUFIX .so)
 else ()
     set(OS Lin)
     set(IMPLIB_SUBDIR bin)
@@ -89,7 +98,7 @@ else ()
     set(IMPLIB_SUFFIX .so)
 	set(IMPLIB_STATIC_SUFFIX .a)
 	set(DLL_SUFIX .so)
-endif( WIN32)
+endif( )
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(ADDR 32)
@@ -116,32 +125,37 @@ set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
 set( EXTERNAL_FOLDER_NAME       External )
 
-# externals
-add_subdirectory(externals)
+if (APPLE)
+	add_subdirectory( backend )
+else(APPLE)
+	# externals
+	add_subdirectory(externals)
 
-add_subdirectory( cl_api )
-add_subdirectory( utils )
+	add_subdirectory( cl_api )
+	add_subdirectory( utils )
 
-# Backend + LLVM + Clang
-add_subdirectory( backend )
+	# Backend + LLVM + Clang
+	add_subdirectory( backend )
 
-#devices
-add_subdirectory( devices )
+	#devices
+	add_subdirectory( devices )
 
-#FE compilers
-add_subdirectory( fe_compilers )
+	#FE compilers
+	add_subdirectory( fe_compilers )
 
-# Framework
-add_subdirectory( framework )
+	# Framework
+	add_subdirectory( framework )
 
-# Common Runime
-option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
-if (WIN32 AND INCLUDE_CMRT)
-	message ("Adding Common Runtime sources...")
-	add_subdirectory ( common_runtime )
-endif(WIN32 AND INCLUDE_CMRT)
-#tools
-add_subdirectory ( tools )
+	# Common Runime
+	option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
+	if (WIN32 AND INCLUDE_CMRT)
+    	message ("Adding Common Runtime sources...")
+    	add_subdirectory ( common_runtime )
+	endif(WIN32 AND INCLUDE_CMRT)
+	#tools
+	add_subdirectory ( tools )
 
-#validation
-add_subdirectory( tests )
+	#validation
+	add_subdirectory( tests )
+endif(APPLE) 
+
