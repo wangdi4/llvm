@@ -978,7 +978,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     m_data_valid(NULL != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
 	m_raw_data_size(0), m_heap(heap), m_parent(NULL), m_refCount(1)
 {
-    if (pclImageFormat)
+    if (NULL != pclImageFormat)
     {
         m_format       = *pclImageFormat;
     }
@@ -1021,7 +1021,10 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 			assert( !m_used_by_DMA );
 #endif
 		}
-		else if ( (m_user_flags & CL_MEM_USE_HOST_PTR) && IS_ALIGNED_ON(m_pHostPtr, m_alignment) )
+		else if ( (m_user_flags & CL_MEM_USE_HOST_PTR) &&
+				  (((NULL == pclImageFormat) && IS_ALIGNED_ON(m_pHostPtr, m_alignment)) ||			// For buffers check device aligment
+				   ((NULL != pclImageFormat) && IS_ALIGNED_ON(m_pHostPtr, m_element_size)) )		// For images shall be aligned to element size
+				 )
 		{
 			// pointers may be the same ONLY if m_pHostPtr is aligned.
 			m_ptr = m_pHostPtr;
