@@ -40,15 +40,14 @@ std::string& CrtConfig::getPlatformLibName(cl_uint index)
 {
     return m_libraryNames[index];
 }
-crt_err_code CrtConfig::Init()
-{
-    m_libraryNames.push_back("intelocl.dll");
 
+crt_err_code CrtConfig::Init()
+{    
+    m_libraryNames.push_back("intelocl.dll");
 #if defined(_WIN64)
     m_libraryNames.push_back("igdrcl64.dll");
 #else
     m_libraryNames.push_back("igdrcl32.dll");
-#endif
-
+#endif    
     return CRT_SUCCESS;
 }

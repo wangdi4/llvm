@@ -1973,6 +1973,7 @@ m_options("")
 
 CrtProgram::~CrtProgram()
 {
+    m_buildContexts.clear();
     m_contextCRT->DecPendencyCnt();
 }
 
@@ -2100,8 +2101,7 @@ cl_int CrtProgram::Release()
         {
             errCode = ctxErrCode;
         }
-    }
-    m_buildContexts.clear();
+    }    
     return errCode;
 }
 
