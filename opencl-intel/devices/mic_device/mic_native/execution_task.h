@@ -214,99 +214,64 @@ public:
 	virtual CommandTracer* getCommandTracerPtr() = 0;
 
 #ifdef ENABLE_MIC_TBB_TRACER
-    struct PerfData 
+    class PerfData 
     {
+    public:
+        void construct();
+        void destruct();
+
+        void work_group_start();
+        void work_group_end();
+        
+        void append_data_item( unsigned int n_coords, unsigned int col, unsigned int raw = 0, unsigned int page = 0 );
+        void dump_data_item( char* buffer, unsigned int n_coords, unsigned int index );
+        
+        static void global_init();
+
+        static void setHwInfoForPhysProcessor( unsigned int physical_processor_id, unsigned int  core_id, unsigned int  thread_id_on_core );
+        static bool getHwInfoForPhysProcessor( unsigned int physical_processor_id, unsigned int& core_id, unsigned int& thread_id_on_core );
+        
+        static void thread_affinitize( unsigned int physical_processor_id );
+        static void dump_thread_attach( unsigned int worker_id );
+        static void dump_thread_detach( unsigned int worker_id );
+
+    private:
         unsigned long long start_time;
         unsigned long long end_time;
+        unsigned long long search_time;
         unsigned int*      processed_indices;
         unsigned int       processed_indices_limit;
         unsigned int       processed_indices_current;
 
-        void construct() 
+        
+        static const unsigned int INDICES_DELTA  = 64;
+
+        static pthread_key_t g_phys_processor_id_tls_key;
+
+        // map from HW thread ID to HW core ID
+        struct hw_info 
         {
-            start_time = 0;
-            end_time = 0;
-            processed_indices = NULL;
-            processed_indices_limit = 0;
-            processed_indices_current = 0;
-        }
+            hw_info() : core_id(0), thread_on_core_id(0) {};
+            hw_info( unsigned int core, unsigned int thread_on_core) :
+                core_id(core), thread_on_core_id(thread_on_core) {};
+                
+            unsigned char core_id;
+            unsigned char thread_on_core_id;
+        };
 
-        void destruct()
-        {
-            if (NULL != processed_indices)
-            {
-                free (processed_indices);
-                construct();
-            }
-        }
+        typedef map<unsigned int, hw_info> MapHwThreadToInfo;
+        static MapHwThreadToInfo           m_HwThreadToHwInfo;
+        
+        void resize( unsigned int n_coords ); 
 
-        static const unsigned int INDICES_DELTA = 64;
+        friend class TaskInterface;
 
-        void resize( unsigned int n_coords ) 
-        {
-            processed_indices_limit += INDICES_DELTA;
-            processed_indices = (unsigned int*)realloc(processed_indices, n_coords*sizeof(unsigned int)*processed_indices_limit);
-            assert( NULL != processed_indices );
-        }
-
-        void append( unsigned int n_coords, unsigned int col, unsigned int raw = 0, unsigned int page = 0 )
-        {
-            if (processed_indices_current >= processed_indices_limit)
-            {
-                resize(n_coords);
-            }
-            switch (n_coords)
-            {
-                default:
-                    break;
-                case 3:
-                    processed_indices[processed_indices_current*n_coords+2] = page;
-                case 2:
-                    processed_indices[processed_indices_current*n_coords+1] = raw;
-                case 1:
-                    processed_indices[processed_indices_current*n_coords+0] = col;
-                    break;
-                 
-            }
-            ++processed_indices_current;
-        }
-
-        void dump( char* buffer, unsigned int n_coords, unsigned int index )
-        {
-            switch (n_coords)
-            {
-                default:
-                    break;
-
-                case 1:
-                    sprintf(buffer, " %d", processed_indices[index*n_coords+0]);
-                    break;
-                case 2:
-                    sprintf(buffer, " %d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1]);
-                    break;
-                case 3:
-                    sprintf(buffer, " %d:%d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1], processed_indices[index*n_coords+2]);
-                    break;                 
-            }
-        }
     };
+
     PerfData m_perf_data[MIC_NATIVE_MAX_WORKER_THREADS];
 
-    void PerfDataInit()
-    {
-        for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
-        {
-            m_perf_data[i].construct();
-        }
-    }
-
-    void PerfDataFini()
-    {
-        for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
-        {
-            m_perf_data[i].destruct();
-        }
-    }
+    void PerfDataInit();
+    void PerfDataFini( unsigned int command_id, unsigned int dims, size_t cols, size_t raws, size_t pages );
 #endif // ENABLE_MIC_TBB_TRACER
     
 };
@@ -456,8 +421,6 @@ TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(BlockingNDRangeTask, BlockingTa
 // Define the class NonBlockingNDRangeTask.
 TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(NonBlockingNDRangeTask, TBBNonBlockingTaskHandler, TBBNDRangeTask);
 
-
-
 /* A singleton class that provide API for thread pool services */
 class ThreadPool
 {
@@ -542,7 +505,7 @@ private:
 	// map from OS thread ID to HW thread ID.
 	map<pthread_t, unsigned int> m_osThreadToHwThread;
 
-	// Lock keeper for m_reserveHwThreadsIDs.
+	// Lock keeper for m_reserveHwThreadsIDs
 	pthread_mutex_t m_reserveHwThreadsLock;
 
 	// The singleton thread pool
@@ -646,10 +609,19 @@ public:
 
     tbb::affinity_partitioner* getAffinityPartitioner() { return (m_is_in_order) ? &m_affinity_partitioner : NULL; };
 
-    static QueueOnDevice* getCurrentQueue() {
+    static QueueOnDevice* getCurrentQueue() 
+        {
 			TlsAccessor tlsAccessor;
 			QueueTls queueTls(&tlsAccessor);
-            return (QueueOnDevice*)(queueTls.getTls(QueueTls::QUEUE_TLS_ENTRY)); };
+            return (QueueOnDevice*)(queueTls.getTls(QueueTls::QUEUE_TLS_ENTRY)); 
+        };
+    
+    static void setCurrentQueue( QueueOnDevice* queue ) 
+        {
+			TlsAccessor tlsAccessor;
+			QueueTls queueTls(&tlsAccessor);
+            queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, queue); 
+        };
     
 private:
     bool                        m_is_in_order;
@@ -657,3 +629,4 @@ private:
 };
 
 }}}
+

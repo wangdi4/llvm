@@ -29,18 +29,24 @@ my $global_raws 				= 5;
 my $global_pages				= 6;
 
 
-my %threads; # $thread_id->hash (ndrange_id->array(start time, end time, delay, duration, items))
+my %threads; # $thread_id->hash (ndrange_id->array(core id, thread on core id, start time, end time, delay, duration, work search time, items))
 
-# 0 - start time
-# 1 - end time
-# 2 - delay
-# 3 - duration
-# 4 - items processed (space-separated string)
-my $thread_start_time      = 0;
-my $thread_end_time        = 1;
-my $thread_start_delay     = 2;
-my $thread_duration        = 3;
-my $thread_items_processed = 4;
+# 0 - core id
+# 1 - thread on the core id
+# 2 - start time
+# 3 - end time
+# 4 - delay
+# 5 - duration
+# 6 - work search time
+# 7 - items processed (space-separated string)
+my $thread_core_id         = 0;
+my $thread_hw_thread_id    = 1;
+my $thread_start_time      = 2;
+my $thread_end_time        = 3;
+my $thread_start_delay     = 4;
+my $thread_duration        = 5;
+my $thread_work_search_time= 6;
+my $thread_items_processed = 7;
 
 my @ndrange_order;
 my @threads_order;
@@ -48,10 +54,34 @@ my @threads_order;
 sub parse_input
 {
 	my %tmp_ndranges; # ndrange_id -> (coords, cols, raws, pages)
+	my %tmp_thread_to_core; # thread_id -> (core id, hw thread id)
 	
 	while (<>)
 	{
 	   chomp();
+
+	   if (!/^MIC_TBB_TRACER: /)
+	   {
+	        next; # continue to the next iteration
+	   }
+
+	   if (/^MIC_TBB_TRACER: THREAD/)
+	   {
+	       if (($thread_id, $core_id, $hw_thread_id) = /^MIC_TBB_TRACER: THREAD\s+(\d+)\s+ATTACH_TO\s+HW_CORE=(\d+)\s+HW_THREAD_ON_CORE=(\d+)\s*$/)
+	       {
+	       		$thread_id += 0;
+	       		$core_id += 0;
+	       		$hw_thread_id += 0;
+	       		@{$tmp_thread_to_core{$thread_id}} = ($core_id, $hw_thread_id);
+	       }
+	       elsif (($thread_id) = /^MIC_TBB_TRACER: THREAD\s+(\d+)\s+DETACH\s*$/)
+	       {
+	       		$thread_id += 0;
+	       		delete $tmp_thread_to_core{$thread_id};
+	       }
+	       next; # continue to the next iteration
+	   }
+	   
 	   if (!/^MIC_TBB_TRACER: NDRANGE/)
 	   {
 	        next; # continue to the next iteration
@@ -69,11 +99,12 @@ sub parse_input
 	   	   next; # continue to the next iteration
 	   }
 	   
-	   ($ndrange_id, $thread_id, $attach, $detach, $items) = /^MIC_TBB_TRACER:\s+NDRANGE\s+(\d+)\s+THREAD\s+(\d+):\s*attach=(\d+)\s+detach=(\d+)\s+indices:\s*(.*)$/;
+	   ($ndrange_id, $thread_id, $attach, $detach, $search, $items) = /^MIC_TBB_TRACER:\s+NDRANGE\s+(\d+)\s+THREAD\s+(\d+):\s*attach=(\d+)\s+detach=(\d+)\s+search=(\d+)\s+indices:\s*(.*)$/;
 	   $ndrange_id += 0;
 	   $thread_id += 0;
 	   $attach += 0;
 	   $detach += 0;
+	   $search += 0;
 
 	   if (! exists $tmp_ndranges{$ndrange_id})
 	   {
@@ -82,8 +113,12 @@ sub parse_input
 	   $threads{$thread_id}{$ndrange_id}[$thread_start_time] 		= $attach;
 	   if (0 != $attach)
 	   {
+			$threads{$thread_id}{$ndrange_id}[$thread_core_id] 		    = $tmp_thread_to_core{$thread_id}[0];
+			$threads{$thread_id}{$ndrange_id}[$thread_hw_thread_id] 	= $tmp_thread_to_core{$thread_id}[1];
+
 			$threads{$thread_id}{$ndrange_id}[$thread_end_time] 		= $detach;
 	   		$threads{$thread_id}{$ndrange_id}[$thread_duration] 		= ($detach - $attach);
+	   		$threads{$thread_id}{$ndrange_id}[$thread_work_search_time]	= $search;
 	   		$threads{$thread_id}{$ndrange_id}[$thread_items_processed] 	= $items;
 	   }
 	}   
@@ -171,6 +206,20 @@ sub print_global_table
 	{
 	    $ranges = $threads{$thread};
 
+		print "Thread HW Core,$thread";
+        foreach $cmd (@ndrange_order)
+        {
+            print ",$ranges->{$cmd}[$thread_core_id]";
+        }
+        print "\n";
+
+		print "Thread HW Thread,$thread";
+        foreach $cmd (@ndrange_order)
+        {
+            print ",$ranges->{$cmd}[$thread_hw_thread_id]";
+        }
+        print "\n";
+
 		print "Thread delay,$thread";
         foreach $cmd (@ndrange_order)
         {
@@ -182,6 +231,13 @@ sub print_global_table
         foreach $cmd (@ndrange_order)
         {
             print ",$ranges->{$cmd}[$thread_duration]";
+        }
+        print "\n";
+
+		print "Thread stealing time,$thread";
+        foreach $cmd (@ndrange_order)
+        {
+            print ",$ranges->{$cmd}[$thread_work_search_time]";
         }
         print "\n";
 	}
@@ -236,7 +292,7 @@ sub print_specific_table
 	my ($required_ndrange) = @_;
 
 	print "NDRange #$required_ndrange,coordinates=$ndranges{$required_ndrange}[$global_coordinates],columns=$ndranges{$required_ndrange}[$global_columns],raws=$ndranges{$required_ndrange}[$global_raws],pages=$ndranges{$required_ndrange}[$global_pages]\n";
-	print "Thread,Delay,Duration,Items,Sequential Groups,Average Group,Max Group,Min Group, Groups\n";
+	print "Thread,HW Core,HW Thread,Delay,Duration,Stealing,Items,Sequential Groups,Average Group,Max Group,Min Group, Groups\n";
 
 	#print threads
 	foreach $trd (@threads_order)
@@ -287,7 +343,9 @@ sub print_specific_table
 
 				$items_string = $items_string . "(" . join(" ", @{$grp}) . ")  ";
 	    	}
-	    	my $string = "$trd,$threads{$trd}{$required_ndrange}[$thread_start_delay],$threads{$trd}{$required_ndrange}[$thread_duration],";
+	    	my $string = "$trd,$threads{$trd}{$required_ndrange}[$thread_core_id],$threads{$trd}{$required_ndrange}[$thread_hw_thread_id],";
+	    	$string = $string . "$threads{$trd}{$required_ndrange}[$thread_start_delay],$threads{$trd}{$required_ndrange}[$thread_duration],";
+	    	$string = $string . "$threads{$trd}{$required_ndrange}[$thread_work_search_time],";
 			$string = $string . "$items_count,$groups_count," . sprintf("%.2f",$items_count/$groups_count) . ",$max,$min";
 			$string = $string .",'$items_string";
 	        print "$string\n";

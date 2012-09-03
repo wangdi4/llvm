@@ -16,7 +16,7 @@
 #include <map>
 #include <fstream>
 #include <assert.h>
- 
+
 using namespace Intel::OpenCL::MICDeviceNative;
 
 extern DeviceTracer gTracer;
@@ -140,9 +140,7 @@ void init_commands_queue(uint32_t         in_BufferCount,
     assert( NULL == QueueOnDevice::getCurrentQueue() );
 
     QueueOnDevice* pQueue = new QueueOnDevice( data->is_in_order_queue );
-	TlsAccessor tlsAccessor;
-	QueueTls queueTls(&tlsAccessor);
-	queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, pQueue);
+    QueueOnDevice::setCurrentQueue( pQueue );
 
     pool->wakeup_all();
 }
@@ -162,10 +160,8 @@ void release_commands_queue(uint32_t         in_BufferCount,
     QueueOnDevice* pQueue = QueueOnDevice::getCurrentQueue();
     assert(NULL != pQueue);
     
+    QueueOnDevice::setCurrentQueue( NULL );
     delete pQueue;
-	TlsAccessor tlsAccessor;
-	QueueTls queueTls(&tlsAccessor);
-	queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, NULL);
 
     pool->unregisterMasterThread();
 
@@ -583,10 +579,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 #ifdef ENABLE_MIC_TBB_TRACER
             TaskInterface::PerfData& perf_data = task->m_perf_data[uiWorkerId];
-            if (0 == perf_data.start_time)
-            {
-                perf_data.start_time = _RDTSC();
-            }
+            perf_data.work_group_start();
 #endif // ENABLE_MIC_TBB_TRACER
 
 			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
@@ -601,7 +594,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 			{
 #ifdef ENABLE_MIC_TBB_TRACER                
-                perf_data.append( 1, (unsigned int)k );
+                perf_data.append_data_item( 1, (unsigned int)k );
 #endif // ENABLE_MIC_TBB_TRACER
                 tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, 0, 0, uiWorkerId) );
 			}
@@ -612,7 +605,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			}
 
 #ifdef ENABLE_MIC_TBB_TRACER                
-            perf_data.end_time = _RDTSC();
+            perf_data.work_group_end();
 #endif // ENABLE_MIC_TBB_TRACER
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
@@ -636,10 +629,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 #ifdef ENABLE_MIC_TBB_TRACER
             TaskInterface::PerfData& perf_data = task->m_perf_data[uiWorkerId];
-            if (0 == perf_data.start_time)
-            {
-                perf_data.start_time = _RDTSC();
-            }
+            perf_data.work_group_start();
 #endif // ENABLE_MIC_TBB_TRACER
 
 			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
@@ -655,7 +645,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 				{
 #ifdef ENABLE_MIC_TBB_TRACER                
-                    perf_data.append( 2, (unsigned int)k, (unsigned int)j );
+                    perf_data.append_data_item( 2, (unsigned int)k, (unsigned int)j );
 #endif // ENABLE_MIC_TBB_TRACER
 					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, j, 0, uiWorkerId) );
 				}
@@ -665,7 +655,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				*result = false;
 			}
 #ifdef ENABLE_MIC_TBB_TRACER                
-            perf_data.end_time = _RDTSC();
+            perf_data.work_group_end();
 #endif // ENABLE_MIC_TBB_TRACER
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
@@ -689,10 +679,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 #ifdef ENABLE_MIC_TBB_TRACER
             TaskInterface::PerfData& perf_data = task->m_perf_data[uiWorkerId];
-            if (0 == perf_data.start_time)
-            {
-                perf_data.start_time = _RDTSC();
-            }
+            perf_data.work_group_start();
 #endif // ENABLE_MIC_TBB_TRACER
 			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
 			{
@@ -708,7 +695,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 					{
 #ifdef ENABLE_MIC_TBB_TRACER                
-                        perf_data.append( 3, (unsigned int)k, (unsigned int)j, (unsigned int)i );
+                        perf_data.append_data_item( 3, (unsigned int)k, (unsigned int)j, (unsigned int)i );
 #endif // ENABLE_MIC_TBB_TRACER
 						tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, j, i, uiWorkerId) );
 					}
@@ -718,7 +705,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 				*result = false;
 			}
 #ifdef ENABLE_MIC_TBB_TRACER                
-            perf_data.end_time = _RDTSC();
+            perf_data.work_group_end();
 #endif // ENABLE_MIC_TBB_TRACER
 #ifdef ENABLE_MIC_TRACER
 			tTrace.finish();
@@ -746,28 +733,7 @@ NDRangeTask::~NDRangeTask()
 	}
 
 #ifdef ENABLE_MIC_TBB_TRACER
-    char buffer[10240];
-    FILE* const tbb_trace_stream=stderr;
-
-    fprintf(tbb_trace_stream, "MIC_TBB_TRACER: NDRANGE %05d COORDINATES %d: COLS=%ld RAWS=%ld PAGES=%ld\n", (int)(size_t)m_commandIdentifier, (int)m_dim, m_region[0], m_region[1], m_region[2]);
-    fflush(tbb_trace_stream);
-
-    for (int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
-    {
-        PerfData& data = m_perf_data[i];
-        char* last = buffer;
-        last[0] = '\0';
-        
-        for (unsigned int idx=0; idx<data.processed_indices_current; ++idx)
-        {
-            data.dump( last, m_dim, idx );
-            last += strlen(last);
-        }
-        fprintf(tbb_trace_stream, "MIC_TBB_TRACER: NDRANGE %05d THREAD %03d: attach=%ld detach=%ld indices: %s\n", (int)(size_t)m_commandIdentifier, i, data.start_time, data.end_time, buffer);
-        fflush(tbb_trace_stream);
-    }
-    
-    PerfDataFini();
+    PerfDataFini((unsigned int)(size_t)m_commandIdentifier, (unsigned int)m_dim, m_region[0], m_region[1], m_region[2]);
 #endif // ENABLE_MIC_TBB_TRACER
 }
 
@@ -1563,10 +1529,16 @@ bool ThreadPool::initializeAffinityThreads()
 				vector<unsigned int> tVec;
 				tVec.push_back(processorID);
 				coreToThreadsMap.insert( pair<unsigned int, vector<unsigned int> >(coreID, tVec) );
+#ifdef ENABLE_MIC_TBB_TRACER
+                TaskInterface::PerfData::setHwInfoForPhysProcessor( processorID, coreID , 0 );
+#endif // ENABLE_MIC_TBB_TRACER
 			}
 			else
 			{
 				it->second.push_back(processorID);
+#ifdef ENABLE_MIC_TBB_TRACER
+                TaskInterface::PerfData::setHwInfoForPhysProcessor( processorID, coreID , (unsigned int)(it->second.size() - 1) );
+#endif // ENABLE_MIC_TBB_TRACER
 			}
 			coreID = -1;
 			processorID = -1;
@@ -1575,7 +1547,7 @@ bool ThreadPool::initializeAffinityThreads()
 	}
 	ifs.close();
 
-	it = coreToThreadsMap.begin();
+	it     = coreToThreadsMap.begin();
 	if (coreToThreadsMap.end() != it)
 	{
 		unsigned int numOfCores = ((gMicExecEnvOptions.num_of_cores > 0) && (gMicExecEnvOptions.num_of_cores < coreToThreadsMap.size())) ? gMicExecEnvOptions.num_of_cores : coreToThreadsMap.size();
@@ -1588,20 +1560,20 @@ bool ThreadPool::initializeAffinityThreads()
 		{
 			unsigned int currRegisterCores = 0;
 			for (it = coreToThreadsMap.begin(); ((it != coreToThreadsMap.end()) && (currRegisterCores < numOfCores)); it++)
-			{
+            {
 				if (((gMicExecEnvOptions.ignore_core_0) && (firstCoreID == it->first)) ||
 					((gMicExecEnvOptions.ignore_last_core) && (lastCoreID == it->first)))
-				{
-					continue;
-				}
+                {
+                    continue;
+                }
 				assert(i < it->second.size());
 				if (i >= it->second.size())
-				{
-					return false;
-				}
+                {
+                  return false;
+                }
 				m_orderHwThreadsIds.push_back(it->second[i]);
 				currRegisterCores ++;
-			}
+            }
 		}
 	}
 
@@ -1669,6 +1641,11 @@ bool ThreadPool::setAffinityForCurrentThread(unsigned int hwThreadId)
 		printf("WorkerThread SetThreadAffinityMask error: %d\n", errno);
 		return false;
 	}
+
+#ifdef ENABLE_MIC_TBB_TRACER
+    TaskInterface::PerfData::thread_affinitize( hwThreadId );
+#endif // ENABLE_MIC_TBB_TRACER
+    
 	return true;
 }
 
@@ -1710,6 +1687,10 @@ void ThreadPool::wakeup_all()
 bool TBBThreadPool::init()
 {
 	assert(m_numOfWorkers == 0);
+
+#ifdef ENABLE_MIC_TBB_TRACER
+    TaskInterface::PerfData::global_init();
+#endif // ENABLE_MIC_TBB_TRACER
 
 	// Initialize a order list of HW threads numbers for affinity.
 	if (false == initializeAffinityThreads())
@@ -1753,6 +1734,9 @@ void TBBThreadPool::registerMasterThread(bool affinitize)
 	{
 		setAffinityFromReservedIDs();
 	}
+#ifdef ENABLE_MIC_TBB_TRACER
+    TaskInterface::PerfData::dump_thread_attach( 0 );
+#endif // ENABLE_MIC_TBB_TRACER
 }
 
 void TBBThreadPool::unregisterMasterThread()
@@ -1791,15 +1775,28 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 	setWorkerID(&tlsAccessor, uiWorkerId);
 
 	// Set WGContext TLS for this thread.
-	WGContext* pWGContext = new WGContext();
-	assert(pWGContext);
 	NDrangeTls ndrangeTls(&tlsAccessor);
-	assert(NULL == ndrangeTls.getTls(NDrangeTls::WG_CONTEXT));
-	ndrangeTls.setTls(NDrangeTls::WG_CONTEXT, pWGContext);
+    if (NULL == ndrangeTls.getTls(NDrangeTls::WG_CONTEXT))
+    {
+        WGContext* pWGContext = new WGContext();
+        assert(pWGContext);
+        ndrangeTls.setTls(NDrangeTls::WG_CONTEXT, pWGContext);
+    }
+	
+#ifdef ENABLE_MIC_TBB_TRACER
+    if (is_worker)
+    {
+        TaskInterface::PerfData::dump_thread_attach( uiWorkerId );
+    }
+#endif // ENABLE_MIC_TBB_TRACER    
 }
 	
 void TBBThreadPool::on_scheduler_exit(bool is_worker)
 {
+#ifdef ENABLE_MIC_TBB_TRACER
+    TaskInterface::PerfData::dump_thread_detach( (is_worker) ? getWorkerID() : 0 );
+#endif // ENABLE_MIC_TBB_TRACER    
+    
 	// In this point We do it only for worker threads. (Muster threads do the same in "unregisterMasterThread()" method).
 	if (is_worker)
 	{
@@ -1913,4 +1910,194 @@ void TBBThreadPool::startup_all_workers()
 {
     m_workers_trapper.fire();
 }
+
+//
+//
+//  TBB thacer
+//
+//
+#ifdef ENABLE_MIC_TBB_TRACER
+
+pthread_key_t                               TaskInterface::PerfData::g_phys_processor_id_tls_key;
+TaskInterface::PerfData::MapHwThreadToInfo  TaskInterface::PerfData::m_HwThreadToHwInfo;
+
+#define MIC_TBB_TRACER_PREFIX               "MIC_TBB_TRACER: "
+#define  MIC_TBB_TRACER_STREAM              stderr
+
+void TaskInterface::PerfData::construct()
+{
+    start_time = 0;
+    end_time = 0;
+    search_time = 0;
+    processed_indices = NULL;
+    processed_indices_limit = 0;
+    processed_indices_current = 0;
+}
+
+void TaskInterface::PerfData::destruct()
+{
+    if (NULL != processed_indices)
+    {
+        free (processed_indices);
+        construct();
+    }
+}
+
+void TaskInterface::PerfData::append_data_item( unsigned int n_coords, unsigned int col, unsigned int raw, unsigned int page )
+{
+    if (processed_indices_current >= processed_indices_limit)
+    {
+        resize(n_coords);
+    }
+    switch (n_coords)
+    {
+        default:
+            break;
+        case 3:
+            processed_indices[processed_indices_current*n_coords+2] = page;
+        case 2:
+            processed_indices[processed_indices_current*n_coords+1] = raw;
+        case 1:
+            processed_indices[processed_indices_current*n_coords+0] = col;
+            break;
+         
+    }
+    ++processed_indices_current;
+}
+
+void TaskInterface::PerfData::dump_data_item( char* buffer, unsigned int n_coords, unsigned int index )
+{
+    switch (n_coords)
+    {
+        default:
+            break;
+
+        case 1:
+            sprintf(buffer, " %d", processed_indices[index*n_coords+0]);
+            break;
+        case 2:
+            sprintf(buffer, " %d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1]);
+            break;
+        case 3:
+            sprintf(buffer, " %d:%d:%d", processed_indices[index*n_coords+0], processed_indices[index*n_coords+1], processed_indices[index*n_coords+2]);
+            break;                 
+    }
+}
+
+void TaskInterface::PerfData::resize( unsigned int n_coords ) 
+{
+    processed_indices_limit += INDICES_DELTA;
+    processed_indices = (unsigned int*)realloc(processed_indices, n_coords*sizeof(unsigned int)*processed_indices_limit);
+    assert( NULL != processed_indices );
+}
+
+void TaskInterface::PerfData::work_group_start()
+{
+    if (0 == start_time)
+    {
+        start_time = _RDTSC();
+    }
+    else
+    {
+        search_time += (_RDTSC() - end_time);
+    }
+}
+
+void TaskInterface::PerfData::work_group_end()
+{
+    end_time = _RDTSC();
+}
+
+void TaskInterface::PerfData::global_init()
+{
+    pthread_key_create( &g_phys_processor_id_tls_key, NULL );
+}
+
+void TaskInterface::PerfData::thread_affinitize( unsigned int physical_processor_id )
+{
+    pthread_setspecific( g_phys_processor_id_tls_key, (void*)(size_t)physical_processor_id );
+}
+
+void TaskInterface::PerfData::setHwInfoForPhysProcessor( unsigned int physical_processor_id, 
+                                                         unsigned int core_id, 
+                                                         unsigned int thread_id_on_core )
+{
+    m_HwThreadToHwInfo[physical_processor_id] = hw_info(core_id, thread_id_on_core);
+}
+
+bool TaskInterface::PerfData::getHwInfoForPhysProcessor( unsigned int processor, 
+                                                         unsigned int& core_id, 
+                                                         unsigned int& thread_id_on_core ) 
+{
+    MapHwThreadToInfo::const_iterator it = m_HwThreadToHwInfo.find(processor);
+    if (m_HwThreadToHwInfo.end() != it)
+    {
+        core_id = it->second.core_id;
+        thread_id_on_core = it->second.thread_on_core_id;
+        return true;
+    }    
+    else
+    {
+        return false;
+    }
+}
+
+void TaskInterface::PerfData::dump_thread_attach( unsigned int worker_id )
+{
+    unsigned int core_id;
+    unsigned int thread_on_core_id;
+    unsigned int hwThreadId = (unsigned int)(size_t)pthread_getspecific( g_phys_processor_id_tls_key );
+
+    if (getHwInfoForPhysProcessor( hwThreadId, core_id, thread_on_core_id ))
+    {
+        fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "THREAD %03d ATTACH_TO HW_CORE=%03d HW_THREAD_ON_CORE=%d\n", worker_id, core_id, thread_on_core_id );
+        fflush(MIC_TBB_TRACER_STREAM);
+    }
+}
+
+void TaskInterface::PerfData::dump_thread_detach( unsigned int worker_id )
+{
+    fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "THREAD %03d DETACH\n", worker_id );
+    fflush(MIC_TBB_TRACER_STREAM);
+    pthread_setspecific( g_phys_processor_id_tls_key, NULL );
+}
+
+void TaskInterface::PerfDataInit()
+{
+    for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
+    {
+        m_perf_data[i].construct();
+    }
+}
+
+void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, size_t cols, size_t raws, size_t pages )
+{
+    
+    char buffer[10240];
+
+    fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "NDRANGE %05d COORDINATES %d: COLS=%ld RAWS=%ld PAGES=%ld\n", 
+                                    command_id, dims, cols, raws, pages);
+    fflush(MIC_TBB_TRACER_STREAM);
+
+    for (int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
+    {
+        PerfData& data = m_perf_data[i];
+        char* last = buffer;
+        last[0] = '\0';
+        
+        for (unsigned int idx=0; idx<data.processed_indices_current; ++idx)
+        {
+            data.dump_data_item( last, dims, idx );
+            last += strlen(last);
+        }
+        fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "NDRANGE %05d THREAD %03d: attach=%ld detach=%ld search=%ld indices: %s\n", 
+                 command_id, i, data.start_time, data.end_time, data.search_time, buffer);
+        fflush(MIC_TBB_TRACER_STREAM);
+
+        data.destruct();
+    }
+}
+
+#endif // ENABLE_MIC_TBB_TRACER
+
 
