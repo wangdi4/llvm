@@ -110,8 +110,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 assert(0 && "Shuffle function of unknown type.");
             }
 
-            // Create the new shuffle instruction
-            ShuffleVectorInst* newShuffleInst = new ShuffleVectorInst(firstVec, secondVec, mask, "newShuffle", shuffleCall);
+            // Convert mask type to vector of i32, shuffflevector mask scalar size is always 32
+            Constant* newMask = NULL;
+            unsigned int maskVecSize = mask->getType()->getNumElements();
+            Type *maskType = VectorType::get(Type::getInt32Ty(shuffleCall->getContext()), maskVecSize);
+
+            // We previously searched for shuffle calls with constant mask only
+            // So we can assume mask is constant here
+            // If mask scalar size is not 32 then Zext or Trunc the mask to get to 32
+            if (mask->getType()->getScalarSizeInBits() < maskType->getScalarSizeInBits()) {
+                newMask = ConstantExpr::getZExt(cast<Constant>(mask), maskType);
+            }
+            else if (mask->getType()->getScalarSizeInBits() > maskType->getScalarSizeInBits()) {
+                newMask = ConstantExpr::getTrunc(cast<Constant>(mask), maskType);
+            }
+            else {
+                newMask = cast<Constant>(mask);
+            }
+
+            // Create the new shufflevector instruction
+            ShuffleVectorInst* newShuffleInst = new ShuffleVectorInst(firstVec, secondVec, newMask, "newShuffle", shuffleCall);
             shuffleCall->replaceAllUsesWith(newShuffleInst);
         }
         return true;
@@ -120,7 +138,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Check if a given called function is shuffle with constant mask
     /// @return SHUFFLE1 or SHUFFLE2 in case of a shuffle function
-    ///         else UNKNOWN
+    ///         else NOT_SHUFFLE
     ShuffleCallToInst::ShuffleType ShuffleCallToInst::isConstShuffle(CallInst* pCall) {
         // Get function name
         std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
