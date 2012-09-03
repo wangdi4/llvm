@@ -60,7 +60,6 @@ int main(int , char**)
     // shutdown
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
-    HWExceptionsWrapper::Final();
 
     NATIVE_PRINTF("main shut down on the  sink\n");
 

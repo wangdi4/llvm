@@ -153,7 +153,7 @@ public:
 	/* In case of InOrder CommandList just return completionBarrier. (Because the COIPipelineRunFunction will register it).
 	   In case of OutOfOrder CommandList it will COIBarrierRegisterUserBarrier on completionBarrier and return NULL. 
 	   (Because We don't want to register the barrier when the COIPipelineRunFunction returns) */
-	virtual COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) = 0;
+	virtual COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier, Command* pCommand) = 0;
 
 	/* In case of InOrder CommandList do nothing.
 	   In case of OutOfOrder CommandList unregister the COIEVENT. */
@@ -180,7 +180,7 @@ public:
 
 	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution);
 
-	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) { return &(completionBarrier.cmdEvent); };
+	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier, Command* pCommand) { return &(completionBarrier.cmdEvent); };
 
 	void unregisterCompletionBarrier(Command::command_event_struct& completionBarrier) { return; };
 };
@@ -199,12 +199,14 @@ public:
 
 	void setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution) { return; };
 
-	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier) 
+	COIEVENT* registerCompletionBarrier(Command::command_event_struct& completionBarrier, Command* pCommand) 
 	{ 
 		// If not register yet
 		if (false == completionBarrier.isRegister)
 		{
+			COINotificationCallbackSetContext(pCommand);
 			COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
+			COINotificationCallbackSetContext(NULL);
 			completionBarrier.isRegister = true;
 		}
 		return NULL;

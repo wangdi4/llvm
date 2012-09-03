@@ -132,15 +132,17 @@ void init_commands_queue(uint32_t         in_BufferCount,
     assert( sizeof(INIT_QUEUE_ON_DEVICE_STRUCT) == in_MiscDataLength );
     assert( NULL != in_pMiscData );
 
-    ThreadPool* pool = ThreadPool::getInstance();
-	pool->registerMasterThread();
+	INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
 
-    INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
+    ThreadPool* pool = ThreadPool::getInstance();
+	pool->registerMasterThread( data->is_in_order_queue );
 
     assert( NULL == QueueOnDevice::getCurrentQueue() );
 
     QueueOnDevice* pQueue = new QueueOnDevice( data->is_in_order_queue );
-    pool->setGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY, pQueue);
+	TlsAccessor tlsAccessor;
+	QueueTls queueTls(&tlsAccessor);
+	queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, pQueue);
 
     pool->wakeup_all();
 }
@@ -161,7 +163,9 @@ void release_commands_queue(uint32_t         in_BufferCount,
     assert(NULL != pQueue);
     
     delete pQueue;
-    pool->setGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY, NULL);
+	TlsAccessor tlsAccessor;
+	QueueTls queueTls(&tlsAccessor);
+	queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, NULL);
 
     pool->unregisterMasterThread();
 
@@ -572,7 +576,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 #ifdef ENABLE_MIC_TRACER
 			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), r.size());
 #endif
-			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
+			TlsAccessor tlsAccessor;
+			size_t uiWorkerId = ThreadPool::getInstance()->getWorkerID(&tlsAccessor);
 			size_t uiNumberOfWorkGroups = r.size();
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
@@ -584,7 +589,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
             }
 #endif // ENABLE_MIC_TBB_TRACER
 
-			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
 			{
 				*result = false;
 				assert(0);
@@ -592,15 +597,15 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			}
 
 			bool tResult = true;
-            HWExceptionsJitWrapper hw_wrapper;            
+            HWExceptionsJitWrapper hw_wrapper(&tlsAccessor);            
 			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
 			{
 #ifdef ENABLE_MIC_TBB_TRACER                
                 perf_data.append( 1, (unsigned int)k );
 #endif // ENABLE_MIC_TBB_TRACER
-                tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, 0, 0, uiWorkerId) );
+                tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, 0, 0, uiWorkerId) );
 			}
-			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(&tlsAccessor, uiWorkerId) );
 			if (false == tResult)
 			{
 				*result = false;
@@ -624,7 +629,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 #ifdef ENABLE_MIC_TRACER
 			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.rows().size())*(r.cols().size()));
 #endif
-			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
+			TlsAccessor tlsAccessor;
+			size_t uiWorkerId = ThreadPool::getInstance()->getWorkerID(&tlsAccessor);
 			size_t uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
@@ -636,7 +642,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
             }
 #endif // ENABLE_MIC_TBB_TRACER
 
-			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
 			{
 				*result = false;
 				assert(0);
@@ -644,16 +650,16 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			}
             
 			bool tResult = true;
-            HWExceptionsJitWrapper hw_wrapper;            
+            HWExceptionsJitWrapper hw_wrapper(&tlsAccessor);            
 			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
 				{
 #ifdef ENABLE_MIC_TBB_TRACER                
                     perf_data.append( 2, (unsigned int)k, (unsigned int)j );
 #endif // ENABLE_MIC_TBB_TRACER
-					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, j, 0, uiWorkerId) );
+					tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, j, 0, uiWorkerId) );
 				}
-			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(&tlsAccessor, uiWorkerId) );
 			if (false == tResult)
 			{
 				*result = false;
@@ -676,7 +682,8 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 #ifdef ENABLE_MIC_TRACER
 			TaskLoopBodyTrace tTrace = TaskLoopBodyTrace(task->getCommandTracerPtr(), (r.pages().size())*(r.rows().size())*(r.cols().size()));
 #endif
-			unsigned int uiWorkerId = ThreadPool::getInstance()->getWorkerID();
+			TlsAccessor tlsAccessor;
+			size_t uiWorkerId = ThreadPool::getInstance()->getWorkerID(&tlsAccessor);
 			size_t uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
             assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
@@ -687,7 +694,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
                 perf_data.start_time = _RDTSC();
             }
 #endif // ENABLE_MIC_TBB_TRACER
-			if (CL_DEV_FAILED(task->attachToThread(uiWorkerId)))
+			if (CL_DEV_FAILED(task->attachToThread(&tlsAccessor, uiWorkerId)))
 			{
 				*result = false;
 				assert(0);
@@ -695,7 +702,7 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 			}
             
 			bool tResult = true;
-            HWExceptionsJitWrapper hw_wrapper;            
+            HWExceptionsJitWrapper hw_wrapper(&tlsAccessor);            
             for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
 				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
 					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
@@ -703,9 +710,9 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 #ifdef ENABLE_MIC_TBB_TRACER                
                         perf_data.append( 3, (unsigned int)k, (unsigned int)j, (unsigned int)i );
 #endif // ENABLE_MIC_TBB_TRACER
-						tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(hw_wrapper, k, j, i, uiWorkerId) );
+						tResult = tResult && CL_DEV_SUCCEEDED( task->executeIteration(&tlsAccessor, hw_wrapper, k, j, i, uiWorkerId) );
 					}
-			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(uiWorkerId) );
+			tResult = tResult && CL_DEV_SUCCEEDED( task->detachFromThread(&tlsAccessor, uiWorkerId) );
 			if (false == tResult)
 			{
 				*result = false;
@@ -960,11 +967,11 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 }
 
 
-cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
+cl_dev_err_code NDRangeTask::attachToThread(TlsAccessor* tlsAccessor, size_t uiWorkerId)
 {
-	ThreadPool* pThreadPool = ThreadPool::getInstance();
+	NDrangeTls ndRangeTls(tlsAccessor);
 	// Get the WGContext instance of this thread
-	WGContext* pCtx = (WGContext*)(pThreadPool->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
 	// If didn't created yet for this thread, create it and store it in its TLS.
 	if (NULL == pCtx)
 	{
@@ -974,7 +981,7 @@ cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 		{
 			return CL_DEV_OUT_OF_MEMORY;
 		}
-		pThreadPool->setGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY, pCtx);
+		ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, pCtx);
 	}
 	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pCtx->GetCmdId())
@@ -1008,11 +1015,11 @@ cl_dev_err_code NDRangeTask::attachToThread(unsigned int uiWorkerId)
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
+cl_dev_err_code	NDRangeTask::detachFromThread(TlsAccessor* tlsAccessor, size_t uiWorkerId)
 {
-	ThreadPool* pThreadPool = ThreadPool::getInstance();
-	// Get the WGContext object of this thread
-	WGContext* pCtx = (WGContext*)(pThreadPool->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	NDrangeTls ndRangeTls(tlsAccessor);
+	// Get the WGContext instance of this thread
+	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
 	assert(pCtx);
 	cl_dev_err_code ret = pCtx->GetExecutable()->RestoreThreadState();
     
@@ -1025,10 +1032,11 @@ cl_dev_err_code	NDRangeTask::detachFromThread(unsigned int uiWorkerId)
 	return ret;
 }
 
-cl_dev_err_code NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+cl_dev_err_code NDRangeTask::executeIteration(TlsAccessor* tlsAccessor, HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, size_t uiWorkerId)
 {
-	// Get the WGContext object of this thread
-	WGContext* pCtx = (WGContext*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	NDrangeTls ndRangeTls(tlsAccessor);
+	// Get the WGContext instance of this thread
+	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
 	assert(pCtx);
 
     ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
@@ -1038,26 +1046,6 @@ cl_dev_err_code NDRangeTask::executeIteration(HWExceptionsJitWrapper& hw_wrapper
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
 	return hw_wrapper.Execute(pExec, groupId, NULL, NULL);
 }
-
-bool NDRangeTask::constructTlsEntry(void** outEntry)
-{
-	WGContext* pContext = new WGContext();
-	if (NULL == pContext)
-	{
-		return false;
-	}
-	*outEntry = pContext;
-	return true;
-}
-
-void NDRangeTask::destructTlsEntry(void* pEntry)
-{
-	if (pEntry)
-	{
-		delete(((WGContext*)pEntry));
-	}
-}
-
 
 
 
@@ -1498,19 +1486,6 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 }
 
 
-
-
-GENERIC_TLS_STRUCT::fnConstructorTls* GENERIC_TLS_STRUCT::constructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::constructTlsEntry,		// NDRange task general TLS creator.
-	&QueueOnDevice::QueueTlsConstructor     // Queue on device
-};
-
-GENERIC_TLS_STRUCT::fnDestructorTls* GENERIC_TLS_STRUCT::destructorTlsArr[GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES] = {
-	&NDRangeTask::destructTlsEntry,		   // NDRange task general TLS destructor.
-    &QueueOnDevice::QueueTlsDestructor     // Queue on device
-};
-
-
 ThreadPool*     ThreadPool::m_singleThreadPool = NULL;
 OclMutexNative  ThreadPool::m_workers_initialization_lock;
 volatile bool   ThreadPool::m_workers_initialized = false;
@@ -1730,63 +1705,15 @@ void ThreadPool::wakeup_all()
     m_workers_initialized = true;
 }
 
-	
 
-
-// TLS objects:
-tbb::enumerable_thread_specific<unsigned int>*                          TBBThreadPool::t_uiWorkerId = NULL;
-tbb::enumerable_thread_specific<tbb::task_scheduler_init*>*             TBBThreadPool::t_pScheduler = NULL;
-tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>*	TBBThreadPool::t_generic = NULL;
 
 bool TBBThreadPool::init()
 {
 	assert(m_numOfWorkers == 0);
 
-	assert(NULL == t_uiWorkerId);
-	assert(NULL == t_pScheduler);
-	assert(NULL == t_generic);
-
 	// Initialize a order list of HW threads numbers for affinity.
 	if (false == initializeAffinityThreads())
 	{
-		return false;
-	}
-
-	// initialize the TLS objects.
-	if (NULL == t_uiWorkerId)
-	{
-		t_uiWorkerId = new tbb::enumerable_thread_specific<unsigned int>;
-	}
-	
-	if (NULL == t_pScheduler)
-	{
-		t_pScheduler = new tbb::enumerable_thread_specific<tbb::task_scheduler_init*>;
-	}
-
-	if (NULL == t_generic)
-	{
-		t_generic = new tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA>;
-	}
-
-	assert(t_uiWorkerId);
-	assert(t_pScheduler);
-	assert(t_generic);
-
-	// In case of allocation failure.
-	if ((NULL == t_uiWorkerId) || (NULL == t_pScheduler) || (NULL == t_generic))
-	{
-		if (t_uiWorkerId)
-		{
-			delete t_uiWorkerId;
-		}
-		if (t_pScheduler)
-		{
-			delete t_pScheduler;
-		}
-		if (t_generic)
-		{
-			delete t_generic;
-		}
 		return false;
 	}
 
@@ -1804,21 +1731,23 @@ void TBBThreadPool::release()
 	// DO NOTHING.
 }
 
-unsigned int TBBThreadPool::getWorkerID()
+size_t TBBThreadPool::getWorkerID(TlsAccessor* pTlsAccessor)
 {
+	TbbTls tls(pTlsAccessor);
 	bool alreadyHad = false;
-	unsigned int& ret = t_uiWorkerId->local(alreadyHad);
+	size_t ret = (size_t)tls.getTls(TbbTls::WORKER_ID, alreadyHad);
 	return alreadyHad ? ret : INVALID_WORKER_ID;
 }
 
 void TBBThreadPool::registerMasterThread(bool affinitize)
 {
-	tbb::task_scheduler_init* pScheduler = getScheduler();
+	TlsAccessor tlsAccessor;
+	tbb::task_scheduler_init* pScheduler = getScheduler(&tlsAccessor);
 	// If the scheduler didn't set yet and I'm not a worker (I'm muster thread)
-	if ( (NULL == pScheduler) && (!isWorkerScheduler()) )
+	if ( (NULL == pScheduler) && (!isWorkerScheduler(&tlsAccessor)) )
 	{
 		// TBB can create more thread than req.
-		setScheduler(new tbb::task_scheduler_init(m_numOfWorkers));
+		setScheduler(&tlsAccessor, new tbb::task_scheduler_init(m_numOfWorkers));
 	}
 	if (affinitize)
 	{
@@ -1828,55 +1757,45 @@ void TBBThreadPool::registerMasterThread(bool affinitize)
 
 void TBBThreadPool::unregisterMasterThread()
 {
-	tbb::task_scheduler_init* pScheduler = getScheduler();
+	TlsAccessor tlsAccessor;
+	tbb::task_scheduler_init* pScheduler = getScheduler(&tlsAccessor);
 	if (pScheduler)
 	{
 		delete pScheduler;
-		setScheduler(NULL);
+		setScheduler(&tlsAccessor, NULL);
 	}
-	// Release my general TLS pointers.
-	releaseGeneralTls();
+	// Release my Context TLS pointers.
+	NDrangeTls ndRangeTls(&tlsAccessor);
+	WGContext* pWGContext = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+	if (pWGContext)
+	{
+		delete pWGContext;
+	}
 	releaseReservedAffinity();
-}
-
-void* TBBThreadPool::getGeneralTls(unsigned int index)
-{
-	assert(index < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES);
-	GENERIC_TLS_STRUCT::GENERIC_TLS_DATA& ret = t_generic->local();
-	return ret.getElementAt(index);
-}
-
-void TBBThreadPool::setGeneralTls(unsigned int index, void* pGeneralTlsObj)
-{
-	assert(index < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES);
-	GENERIC_TLS_STRUCT::GENERIC_TLS_DATA& ret = t_generic->local();
-	ret.setElementAt(index, pGeneralTlsObj);
 }
 
 void TBBThreadPool::on_scheduler_entry(bool is_worker)
 {
 	// uiWorkerId initiate with muster thread ID.
-	unsigned int uiWorkerId = 0;
+	size_t uiWorkerId = 0;
+	TlsAccessor tlsAccessor;
 	// If worker thread and didn't set ID for it yet
-	if ((is_worker) && (INVALID_WORKER_ID == getWorkerID()))
+	if ((is_worker) && (INVALID_WORKER_ID == getWorkerID(&tlsAccessor)))
 	{
 		uiWorkerId = getNextWorkerID();
-		setScheduler((tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
+		setScheduler(&tlsAccessor, (tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
 		// Affinities this thread if needed
 		bool affRes = setAffinityForCurrentThread();
 		assert(affRes);
 	}
-	setWorkerID(uiWorkerId);
-	
-	// Run over all the general Tls constructors, call them and set them on this thread general TLS.
-	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
-	{
-		void* tlsData = NULL;
-		bool result = GENERIC_TLS_STRUCT::constructorTlsArr[i](&tlsData);
-		assert(result);
-		assert(NULL == getGeneralTls(i));
-		setGeneralTls(i, tlsData);
-	}
+	setWorkerID(&tlsAccessor, uiWorkerId);
+
+	// Set WGContext TLS for this thread.
+	WGContext* pWGContext = new WGContext();
+	assert(pWGContext);
+	NDrangeTls ndrangeTls(&tlsAccessor);
+	assert(NULL == ndrangeTls.getTls(NDrangeTls::WG_CONTEXT));
+	ndrangeTls.setTls(NDrangeTls::WG_CONTEXT, pWGContext);
 }
 	
 void TBBThreadPool::on_scheduler_exit(bool is_worker)
@@ -1884,32 +1803,39 @@ void TBBThreadPool::on_scheduler_exit(bool is_worker)
 	// In this point We do it only for worker threads. (Muster threads do the same in "unregisterMasterThread()" method).
 	if (is_worker)
 	{
-		setWorkerID(INVALID_WORKER_ID);
-		setScheduler(NULL);
-		releaseGeneralTls();
-	}
-}
-
-tbb::task_scheduler_init* TBBThreadPool::getScheduler()
-{
-	bool alreadyHad = false;
-	tbb::task_scheduler_init*& ret = t_pScheduler->local(alreadyHad);
-	return alreadyHad ? ret : NULL;
-}
-
-void TBBThreadPool::releaseGeneralTls()
-{
-	// Run over all the general Tls destructors, call them and set the appropriate general TLS to NULL
-	for (unsigned int i = 0; i < GENERIC_TLS_STRUCT::NUM_OF_GENERIC_TLS_ENTRIES; i++)
-	{
-		void* tlsData = getGeneralTls(i);
-		if (tlsData)
+		TlsAccessor tlsAccessor;
+		setWorkerID(&tlsAccessor, INVALID_WORKER_ID);
+		setScheduler(&tlsAccessor, NULL);
+		// Release my Context TLS pointers.
+		NDrangeTls ndRangeTls(&tlsAccessor);
+		WGContext* pWGContext = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+		if (pWGContext)
 		{
-			GENERIC_TLS_STRUCT::destructorTlsArr[i](tlsData);
+			delete pWGContext;
 		}
-		setGeneralTls(i, NULL);
 	}
 }
+
+tbb::task_scheduler_init* TBBThreadPool::getScheduler(TlsAccessor* pTlsAccessor)
+{
+	TbbTls tls(pTlsAccessor);
+	bool alreadyHad = false;
+	void* ret = tls.getTls(TbbTls::SCHEDULER, alreadyHad);
+	return alreadyHad ? (tbb::task_scheduler_init*)ret : NULL;
+}
+
+void TBBThreadPool::setScheduler(TlsAccessor* pTlsAccessor, tbb::task_scheduler_init* init) 
+{
+	TbbTls tls(pTlsAccessor);
+	tls.setTls(TbbTls::SCHEDULER, init);
+};
+
+void TBBThreadPool::setWorkerID(TlsAccessor* pTlsAccessor, size_t id)
+{
+	TbbTls tls(pTlsAccessor);
+
+	tls.setTls(TbbTls::WORKER_ID, (void*)id);
+};
 
 void TBBThreadPool::initializeReserveAffinityThreadIds()
 {

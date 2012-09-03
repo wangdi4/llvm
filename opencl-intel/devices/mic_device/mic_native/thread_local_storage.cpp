@@ -18,8 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "pragmas.h"
-
 #include "thread_local_storage.h"
 #include <pthread.h>
 #include <assert.h>
@@ -66,103 +64,41 @@ void TlsAccessor::tls_finalize( void )
     }
 }
 
-inline
-void TlsAccessor::thread_attach_int( void )
-{
-     m_pTls_struct = (TlsStruct*)pthread_getspecific( g_tls_key );
-}
-
-TlsAccessor::TlsAccessor( ThreadAttachMode mode ) : m_pTls_struct(NULL), m_mode(mode)
+TlsAccessor::TlsAccessor()
 {
     assert( true == g_init_done && "SINK: TlsAccessor::TlsAccessor: tls_initialize() was not called" );
 
-    if (AUTO == mode)
-    {
-        thread_attach_int();
-    }
+	m_pTls_struct = (TlsStruct*)pthread_getspecific( g_tls_key );
+	if (NULL == m_pTls_struct)
+	{
+		m_pTls_struct = new TlsStruct;
+		memset(m_pTls_struct->data, 0, sizeof(m_pTls_struct->data));
+		memset(m_pTls_struct->alreadyHad, 0, sizeof(m_pTls_struct->alreadyHad));
+
+		int err = pthread_setspecific( g_tls_key, m_pTls_struct );
+
+		assert( 0 == err && "SINK: TlsAccessor::getTlsStructInt cannot pthread_setspecific()" );
+
+		if (err)
+		{
+			NATIVE_PRINTF("TlsAccessor::getTlsStructInt: pthread_setspecific() returned error %d\n", err);
+		}
+	}
 }
 
-void TlsAccessor::thread_attach( void )
+
+ProgramServiceTls::ProgramServiceTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::PROGRAM_SERVICE) 
 {
-    assert( MANUAL == m_mode && "SINK: TlsAccessor::thread_attach should be called only in MANUAL mode" );
-    thread_attach_int();
 }
 
-void TlsAccessor::thread_detach( void )
+NDrangeTls::NDrangeTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::NDRANGE) 
 {
-    assert( MANUAL == m_mode && "SINK: TlsAccessor::thread_detach should be called only in MANUAL mode" );
-    m_pTls_struct = NULL;
 }
 
-//
-// TlsContainer
-//
-inline
-void TlsContainer::thread_attach_int( void )
+TbbTls::TbbTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::TBB) 
 {
-    assert( NULL == m_pTls_struct && "SINK: TlsContainer::thread_attach_int attaching already attached thread");
-
-    // member of accessor
-    m_pTls_struct = &m_Tls_struct;
-
-    m_previous_tls_value = pthread_getspecific( g_tls_key );
-    int err = pthread_setspecific( g_tls_key, &m_Tls_struct );
-
-    assert( 0 == err && "SINK: TlsContainer::thread_attach_int cannot pthread_setspecific()" );
-
-    if (err)
-    {
-        NATIVE_PRINTF("TlsContainer::thread_attach_int: pthread_setspecific() returned error %d\n", err);
-    }
 }
 
-inline
-void TlsContainer::thread_detach_int( void )
+QueueTls::QueueTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::QUEUE) 
 {
-    assert( NULL != m_pTls_struct && "SINK: TlsContainer::thread_detach_int detaching already detached thread");
-
-    // member of accessor
-    m_pTls_struct = NULL;
-
-    int err = pthread_setspecific( g_tls_key, m_previous_tls_value );
-
-    assert( 0 == err && "SINK: TlsContainer::thread_detach_int cannot pthread_setspecific()" );
-
-    if (err)
-    {
-        NATIVE_PRINTF("TlsContainer::thread_detach_int: pthread_setspecific() returned error %d\n", err);
-    }
 }
-
-TlsContainer::TlsContainer( ThreadAttachMode mode ) : TlsAccessor(0, mode)
-{
-    memset( &m_Tls_struct, 0, sizeof(m_Tls_struct) );
-
-    assert( true == g_init_done && "SINK: TlsContainer::TlsContainer: tls_initialize() was not called" );
-
-    if (MANUAL == mode)
-    {
-        thread_attach_int();
-    }
-}
-
-TlsContainer::~TlsContainer()
-{
-    if (NULL != m_pTls_struct) // still attached
-    {
-        thread_detach_int();
-    }
-}
-
-void TlsContainer::thread_attach( void )
-{
-    assert( MANUAL == m_mode && "SINK: TlsContainer::thread_attach should be called only in MANUAL mode" );
-    thread_attach_int();
-}
-
-void TlsContainer::thread_detach( void )
-{
-    assert( MANUAL == m_mode && "SINK: TlsContainer::thread_detach should be called only in MANUAL mode" );
-    thread_detach_int();
-}
-

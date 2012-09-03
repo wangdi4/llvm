@@ -96,8 +96,9 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_t alignment)
 {
-    TlsAccessor tls;
-    ProgramMemoryManager* mem = tls.get_program_memory_manager();
+    TlsAccessor tlsAccessor;
+	ProgramServiceTls tls(&tlsAccessor);
+    ProgramMemoryManager* mem = (ProgramMemoryManager*)tls.getTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER);
 
     assert( NULL != mem && "SINK: Execution memory allocator called while TLS is not set" );
 
@@ -122,8 +123,9 @@ void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_
 
 void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 {
-    TlsAccessor tls;
-    ProgramMemoryManager* mem = tls.get_program_memory_manager();
+    TlsAccessor tlsAccessor;
+	ProgramServiceTls tls(&tlsAccessor);
+    ProgramMemoryManager* mem = (ProgramMemoryManager*)tls.getTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER);
 
     assert( NULL != mem && "SINK: Execution memory de-allocator called while TLS is not set" );
 
@@ -335,8 +337,9 @@ void ProgramService::add_program(
     }
 
     // setup TLS with execution memory allocator
-    TlsContainer tls;
-    tls.set_program_memory_manager( prog_entry->exec_memory_manager );
+	TlsAccessor tlsAccessor;
+	ProgramServiceTls tls(&tlsAccessor);
+    tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
 
     // 2. Deserialize program
     cl_dev_err_code be_err = GetSerializationService()->DeSerializeProgram( &(prog_entry->pProgram) , prog_blob, prog_blob_size );
@@ -436,8 +439,9 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
     if (prog_entry->pProgram)
     {
         // setup TLS with execution memory allocator
-        TlsContainer tls;
-        tls.set_program_memory_manager( prog_entry->exec_memory_manager );
+		TlsAccessor tlsAccessor;
+		ProgramServiceTls tls(&tlsAccessor);
+		tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
 
         GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
     }

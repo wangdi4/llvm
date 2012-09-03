@@ -1,6 +1,7 @@
 #include "native_printf.h"
 #include "execution_task.h"
 #include "wg_context.h"
+#include "thread_local_storage.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -16,7 +17,9 @@ int PrintfHandle::print(const char* buffer)
 
 int MICNativeBackendPrintfFiller::Print(void* id, const char* buffer)
 {
-	WGContext* pCtx = (WGContext*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::NDRANGE_TLS_ENTRY));
+	TlsAccessor tlsAccessor;
+	NDrangeTls ndRangeTls(&tlsAccessor);
+	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
 	assert(pCtx);
 	if (NULL == pCtx)
 	{

@@ -33,6 +33,7 @@
 #include "mic_tracer.h"
 #include "hw_exceptions_handler.h"
 #include "native_printf.h"
+#include "thread_local_storage.h"
 
 #include "cl_dev_backend_api.h"
 
@@ -200,14 +201,14 @@ public:
 
 	/* Is called when the task is going to be called for the first time within specific thread. uiWorkerId specifies the worker thread id.
 	   Returns CL_DEV_SUCCESS, if attach process succeeded. */
-	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId) = 0;
+	virtual cl_dev_err_code attachToThread(TlsAccessor* tlsAccessor, size_t uiWorkerId) = 0;
 
 	/* Is called when the task will not be executed by the specific thread uiWorkerId specifies the worker thread id.
 	   Returns CL_DEV_SUCCESS, if detach process succeeded. */
-	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) = 0;
+	virtual cl_dev_err_code	detachFromThread(TlsAccessor* tlsAccessor, size_t uiWorkerId) = 0;
 
 	// The function is called with different 'inx' parameters for each iteration number
-	virtual cl_dev_err_code executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) = 0;
+	virtual cl_dev_err_code executeIteration(TlsAccessor* tlsAccessor, HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, size_t uiWorkerId = (size_t)-1) = 0;
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() = 0;
@@ -332,17 +333,11 @@ public:
 
 	virtual void finish(TaskHandler* pTaskHandler);
 
-	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId);
+	virtual cl_dev_err_code attachToThread(TlsAccessor* tlsAccessor, size_t uiWorkerId);
 
-	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId);
+	virtual cl_dev_err_code	detachFromThread(TlsAccessor* tlsAccessor, size_t uiWorkerId);
 
-	virtual cl_dev_err_code executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1);
-
-	/* Static function which create and init the NDRange TLS object. */
-	static bool constructTlsEntry(void** outEntry);
-
-	/* Static function which detroy the NDRange TLS object. */
-	static void destructTlsEntry(void* pEntry);
+	virtual cl_dev_err_code executeIteration(TlsAccessor* tlsAccessor, HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, size_t uiWorkerId = (size_t)-1);
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() { return m_pCommandTracer; };
@@ -461,66 +456,6 @@ TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(BlockingNDRangeTask, BlockingTa
 // Define the class NonBlockingNDRangeTask.
 TASK_HANDLER_AND_TASK_INTERFACE_CLASS_DEFINITION(NonBlockingNDRangeTask, TBBNonBlockingTaskHandler, TBBNDRangeTask);
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/* GENERIC_TLS_STRUCT define the following:
-    - Enumeration of general TLS entries types.
-	- Struct that include array of general TLS data.
-	- Array of constructor and destructor functions for each type. */
-struct GENERIC_TLS_STRUCT
-{
-	virtual ~GENERIC_TLS_STRUCT() {};
-	/* Each thread include generic void*[NUM_OF_GENERIC_TLS_ENTRIES] TLS. the following enum define the index of specific data in the array. */
-	enum GENERIC_TLS_ENTRIES_INDEXES
-	{
-		NDRANGE_TLS_ENTRY = 0,
-        QUEUE_TLS_ENTRY,
-
-		//All the records must be before
-		NUM_OF_GENERIC_TLS_ENTRIES
-	};
-
-	/* Each thread include generic void*[NUM_OF_GENERIC_TLS_ENTRIES] TLS */
-	struct GENERIC_TLS_DATA
-	{
-	public:
-
-		GENERIC_TLS_DATA()
-		{
-			// Nullify the data content
-			memset(data, 0, sizeof(void*) * NUM_OF_GENERIC_TLS_ENTRIES);
-		}
-
-		virtual ~GENERIC_TLS_DATA() {};
-
-		void* getElementAt(unsigned int index)
-		{
-			assert(index < NUM_OF_GENERIC_TLS_ENTRIES);
-			return data[index];
-		}
-
-		void setElementAt(unsigned int index, void* ptr)
-		{
-			assert(index < NUM_OF_GENERIC_TLS_ENTRIES);
-			data[index] = ptr;
-		}
-
-	private:
-
-		void* data[NUM_OF_GENERIC_TLS_ENTRIES];
-	};
-
-	typedef bool fnConstructorTls(void** outEntry);
-	typedef void fnDestructorTls(void* pEntry);
-	
-	// Array to func pointer that create each general Tls data. (According to the index)
-	static fnConstructorTls* constructorTlsArr[NUM_OF_GENERIC_TLS_ENTRIES];
-	// Array to func pointer that destroy each general Tls data. (According to the index)
-	static fnDestructorTls* destructorTlsArr[NUM_OF_GENERIC_TLS_ENTRIES];
-};
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 /* A singleton class that provide API for thread pool services */
@@ -536,9 +471,7 @@ public:
 	   Assume that it calls before closing the process - it is NOT thread safe function. */
 	static void releaseSingletonInstance();
 
-	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).
-	   Create the TLS structs.
-	   Do not delete those TLS structs - Because a worker thread can use its TLS data after this object destructor. - Memory leak. */
+	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).*/
 	virtual bool init() = 0;
 
 	virtual void release() = 0;
@@ -547,19 +480,13 @@ public:
     virtual void wakeup_all();
 
 	/* Return current thread worker ID (worker ID of muster thread is always 0 and for worker thread >= 1). */
-	virtual unsigned int getWorkerID() = 0;
+	virtual size_t getWorkerID(TlsAccessor* pTlsAccessor) = 0;
 
 	/* Register muster thread to thread pool. */
 	virtual void registerMasterThread(bool affinitize = true) = 0;
 
 	/* Unregister muster thread from thread pool. */
 	virtual void unregisterMasterThread() = 0;
-
-	/* Return the pointer located at general tls in location index. */
-	virtual void* getGeneralTls(unsigned int index) = 0;
-
-	/* Set the pointer located at general tls in location index to be pGeneralTlsObj. */
-	virtual void setGeneralTls(unsigned int index, void* pGeneralTlsObj) = 0;
 
 protected:
 
@@ -674,15 +601,11 @@ public:
 
 	virtual void release();
 
-	virtual unsigned int getWorkerID();
+	virtual size_t getWorkerID(TlsAccessor* pTlsAccessor);
 
 	virtual void registerMasterThread(bool affinitize = true);
 
 	virtual void unregisterMasterThread();
-
-	virtual void* getGeneralTls(unsigned int index);
-
-	virtual void setGeneralTls(unsigned int index, void* pGeneralTlsObj);
 
 	/* The task scheduler invokes this method on each thread that starts participating in task scheduling, if observing is enabled. */
 	virtual void on_scheduler_entry(bool is_worker);
@@ -699,21 +622,14 @@ protected:
     
 private:
 
-	// Do not delete those TLS structures Because a worker thread can use its TLS data after this object destructor. - Memory leak
-	static tbb::enumerable_thread_specific<unsigned int>                         *t_uiWorkerId;
-	static tbb::enumerable_thread_specific<tbb::task_scheduler_init*>            *t_pScheduler;
-	static tbb::enumerable_thread_specific<GENERIC_TLS_STRUCT::GENERIC_TLS_DATA> *t_generic;
+	tbb::task_scheduler_init* getScheduler(TlsAccessor* pTlsAccessor);
 
-	tbb::task_scheduler_init* getScheduler();
+	void setScheduler(TlsAccessor* pTlsAccessor, tbb::task_scheduler_init* init);
 
-	void setScheduler(tbb::task_scheduler_init* init) {	t_pScheduler->local() = init; };
-
-	void setWorkerID(unsigned int id) { t_uiWorkerId->local() = id; };
+	void setWorkerID(TlsAccessor* pTlsAccessor, size_t id);
 	
-	bool isWorkerScheduler() { return (INVALID_SCHEDULER_ID == (cl_ulong)getScheduler()); };
+	bool isWorkerScheduler(TlsAccessor* pTlsAccessor) { return (INVALID_SCHEDULER_ID == (cl_ulong)getScheduler(pTlsAccessor)); };
 
-	// Run over all the general tls destructors.
-	void releaseGeneralTls();
     struct WorkersWakeup;
     TrapWorkers m_workers_trapper;
 };
@@ -730,11 +646,10 @@ public:
 
     tbb::affinity_partitioner* getAffinityPartitioner() { return (m_is_in_order) ? &m_affinity_partitioner : NULL; };
 
-    static bool QueueTlsConstructor(void** outEntry) { *outEntry = NULL; return true; };
-    static void QueueTlsDestructor(void* outEntry) { if (NULL != outEntry) delete (QueueOnDevice*)outEntry; };
-
-    static QueueOnDevice* getCurrentQueue() { 
-            return (QueueOnDevice*)(ThreadPool::getInstance()->getGeneralTls(GENERIC_TLS_STRUCT::QUEUE_TLS_ENTRY)); };
+    static QueueOnDevice* getCurrentQueue() {
+			TlsAccessor tlsAccessor;
+			QueueTls queueTls(&tlsAccessor);
+            return (QueueOnDevice*)(queueTls.getTls(QueueTls::QUEUE_TLS_ENTRY)); };
     
 private:
     bool                        m_is_in_order;

@@ -50,13 +50,13 @@ public:
 	virtual void finish(TaskHandler* pTaskHandler);
 
 	/* Do nothing. */
-	virtual cl_dev_err_code attachToThread(unsigned int uiWorkerId) { return CL_DEV_SUCCESS; };
+	virtual cl_dev_err_code attachToThread(TlsAccessor* tlsAccessor, size_t uiWorkerId) { return CL_DEV_SUCCESS; };
 
 	/* Do nothing. */
-	virtual cl_dev_err_code	detachFromThread(unsigned int uiWorkerId) { return CL_DEV_SUCCESS; };
+	virtual cl_dev_err_code	detachFromThread(TlsAccessor* tlsAccessor, size_t uiWorkerId) { return CL_DEV_SUCCESS; };
 
 	/* Do nothing. */
-	virtual cl_dev_err_code executeIteration(HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, unsigned int uiWorkerId = (unsigned int)-1) { return CL_DEV_SUCCESS; };
+	virtual cl_dev_err_code executeIteration(TlsAccessor* tlsAccessor, HWExceptionsJitWrapper& hw_jit_wrapper, size_t x, size_t y, size_t z, size_t uiWorkerId = (size_t)-1) { return CL_DEV_SUCCESS; };
 
 	/* Return CommandTracer */
 	virtual CommandTracer* getCommandTracerPtr() {return m_pCommandTracer; };

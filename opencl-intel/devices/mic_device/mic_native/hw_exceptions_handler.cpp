@@ -42,16 +42,16 @@ using namespace Intel::OpenCL::MICDevice;
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 	extern mic_exec_env_options gMicExecEnvOptions;
 
-static pthread_key_t g_hw_exception_handling_key;
-
 using namespace Intel::OpenCL::UtilsNative;
 
 void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *context)
 {
-    psiginfo(siginfo, "*** MIC DEVICE HW EXCEPTION ***");fflush(stderr);
+    psiginfo(siginfo, "*** OPENCL MIC DEVICE HW EXCEPTION ***");fflush(stderr);
     //psignal( signum, " ");
 
-    HWExceptionsWrapper* exec_wrapper = (HWExceptionsWrapper*)pthread_getspecific( g_hw_exception_handling_key );
+	TlsAccessor tlsAccessor;
+	NDrangeTls ndRangeTls(&tlsAccessor);
+    HWExceptionsWrapper* exec_wrapper = (HWExceptionsWrapper*)ndRangeTls.getTls( NDrangeTls::HW_EXCEPTION );
 
     if ((NULL == exec_wrapper) || (false == exec_wrapper->m_bInside_JIT))
     {
@@ -83,15 +83,6 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
 
 void HWExceptionsWrapper::Init( void )
 {   
-    int err = pthread_key_create( &g_hw_exception_handling_key, NULL );
-    assert( 0 == err && "SINK: HWExceptionsWrapper::Init cannot pthread_key_create()" );
-  
-    if (err)
-    {
-        NATIVE_PRINTF("HWExceptionsWrapper::Init: pthread_key_create() returned error %d\n", err);
-        return;
-    }
-
     //
     // Setup Linux signal handlers
     //
@@ -117,32 +108,15 @@ void HWExceptionsWrapper::Init( void )
     }
 }
 
-void HWExceptionsWrapper::Final( void )
-{
-    int err = pthread_key_delete( g_hw_exception_handling_key );
-    assert( 0 == err && "SINK: HWExceptionsWrapper::Final cannot pthread_key_create()" );
-
-    if (err)
-    {
-        NATIVE_PRINTF("HWExceptionsWrapper::Final: pthread_key_create() returned error %d\n", err);
-    }
-}
-
-HWExceptionsWrapper::HWExceptionsWrapper() : m_bInside_JIT(false)
+HWExceptionsWrapper::HWExceptionsWrapper(TlsAccessor* tlsAccessor) : m_pTlsAccessor(tlsAccessor), m_bInside_JIT(false)
 {
 	if (!gMicExecEnvOptions.kernel_safe_mode)
 	{
 		return;
 	}
 
-    int err = pthread_setspecific( g_hw_exception_handling_key, this );
-
-    assert( 0 == err && "SINK: HWExceptionsWrapper::Execute cannot pthread_setspecific(setjump_buffer)" );
-
-    if (err)
-    {
-        NATIVE_PRINTF("HWExceptionsWrapper::Execute: pthread_setspecific(setjump_buffer) returned error %d\n", err);
-    }
+	NDrangeTls ndRangeTls(m_pTlsAccessor);
+    ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, this );
 }
 
 HWExceptionsWrapper::~HWExceptionsWrapper()
@@ -152,15 +126,8 @@ HWExceptionsWrapper::~HWExceptionsWrapper()
 		return;
 	}
 
-    int err = pthread_setspecific( g_hw_exception_handling_key, NULL );
-
-    assert( 0 == err && "SINK: HWExceptionsWrapper::Execute cannot pthread_setspecific(NULL)" );
-
-    if (err)
-    {
-        NATIVE_PRINTF("HWExceptionsWrapper::Execute: pthread_setspecific(NULL) returned error %d\n", err);
-    }    
-
+    NDrangeTls ndRangeTls(m_pTlsAccessor);
+    ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
 }
 
 cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code, 

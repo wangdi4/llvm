@@ -137,7 +137,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 												  numDependecies, barrier,
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier));
+												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this));
 		COINotificationCallbackSetContext(NULL);
 		if (result != COI_SUCCESS)
 		{
@@ -443,7 +443,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		}
 
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier);
+		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
 		{
@@ -615,7 +615,7 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 
 		fillMemObjDispatcherData.postExeDirectivesCount = 0;
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier);
+		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == fillMemObjDispatcherData.isInOrderQueue)
 		{

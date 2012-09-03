@@ -20,27 +20,83 @@
 
 ///////////////////////////////////////////////////////////
 //
-// Defines 2 classes:
-//
-//   TlsContainer - contains local storage for current thread.
-//                  installs new values at constructor and
-//                  restores old values at destructor
-//
-//   TlsAccessor  - reads values from TlsContainer installed in the
-//                  current thread.
-//
 ///////////////////////////////////////////////////////////
 #pragma once
 
 #include <stdlib.h>
-
-namespace Intel { namespace OpenCL { namespace MICDeviceNative {
-    class ProgramMemoryManager;
-}}}
-
-using namespace Intel::OpenCL::MICDeviceNative;
+#include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace UtilsNative {
+
+	class TlsAccessor;
+	
+	struct TlsGeneralAccessor
+	{
+	public:
+		void* getTls(unsigned int index);
+		void* getTls(unsigned int index, bool& alreadyHad);
+		void  setTls(unsigned int index, void* value);
+	protected:
+		TlsGeneralAccessor(TlsAccessor* tlsAccessor, unsigned int startIndex) : m_pTlsAccessor(tlsAccessor), m_startIndex(startIndex) {};
+	private:
+		TlsAccessor* m_pTlsAccessor;
+		unsigned int m_startIndex;
+	};
+
+
+	struct ProgramServiceTls : TlsGeneralAccessor
+	{
+	public:
+		ProgramServiceTls(TlsAccessor* tlsAccessor);
+
+		enum
+		{
+			PROGRAM_MEMORY_MANAGER = 0,
+
+			NUM_TLS_TYPES
+		};
+	};
+
+	struct NDrangeTls : TlsGeneralAccessor
+	{
+	public:
+		NDrangeTls(TlsAccessor* tlsAccessor);
+
+		enum
+		{
+			WG_CONTEXT = 0,
+			HW_EXCEPTION,
+
+			NUM_TLS_TYPES
+		};
+	};
+
+	struct TbbTls : TlsGeneralAccessor
+	{
+	public:
+		TbbTls(TlsAccessor* tlsAccessor);
+
+		enum
+		{
+			WORKER_ID = 0,
+			SCHEDULER,
+
+			NUM_TLS_TYPES
+		};
+	};
+
+	struct QueueTls : TlsGeneralAccessor
+	{
+	public:
+		QueueTls(TlsAccessor* tlsAccessor);
+
+		enum
+		{
+			QUEUE_TLS_ENTRY = 0,
+
+			NUM_TLS_TYPES
+		};
+	};
 
     //
     //   TlsAccessor  - reads values from TlsContainer installed in the
@@ -48,69 +104,84 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
     //
     class TlsAccessor
     {
+		friend class TlsGeneralAccessor;
+		friend class ProgramServiceTls;
+		friend class NDrangeTls;
+		friend class TbbTls;
+		friend class QueueTls;
+
         public:
             // must be call at startup and shutdown
             static void tls_initialize( void );
             static void tls_finalize( void );
 
-            // working mode
-            enum ThreadAttachMode {
-                AUTO = 0,   // attach to thread at constructor, detach at destructor
-                MANUAL      // use thread_attach/thread_detach functions
-            };
+            TlsAccessor();
 
-            TlsAccessor( ThreadAttachMode mode = AUTO );
-            virtual ~TlsAccessor() {};
+		private:
 
-            // should be called ONLY in AUTO mode
-            virtual void thread_attach( void );
-            virtual void thread_detach( void );
+		enum 
+		{
+			PROGRAM_SERVICE = 0,
+			NDRANGE = PROGRAM_SERVICE + ProgramServiceTls::NUM_TLS_TYPES,
+			TBB = NDRANGE + NDrangeTls::NUM_TLS_TYPES,
+			QUEUE = TBB + TbbTls::NUM_TLS_TYPES,
 
-            ProgramMemoryManager* get_program_memory_manager( void ) const
-                { return m_pTls_struct ? m_pTls_struct->prog_manager : NULL; };
+			NUM_OF_TLS_OBJECTS = QUEUE + QueueTls::NUM_TLS_TYPES
+		};
 
-        protected:
-            struct TlsStruct {
-                ProgramMemoryManager* prog_manager;
-            };
+		struct TlsStruct
+		{
+			void* data[NUM_OF_TLS_OBJECTS];
+			bool  alreadyHad[NUM_OF_TLS_OBJECTS];
+		};
 
-            TlsStruct*          m_pTls_struct;
-            ThreadAttachMode    m_mode;
+		TlsStruct*			m_pTls_struct;
 
-            // constructor to be used by Container
-            TlsAccessor( int, ThreadAttachMode mode = AUTO ) :
-                    m_pTls_struct(NULL), m_mode(mode) {};
+		void* getTlsValue(unsigned int index);
 
-        private:
-            void thread_attach_int( void );
+		void* getTlsValue(unsigned int index, bool& alreadyHad);
+
+		void setTlsValue(unsigned int index, void* value);
     };
 
-    //
-    //   TlsContainer - contains local storage for current thread.
-    //                  installs new values at constructor and
-    //                  restores old values at destructor
-    //
-    class TlsContainer : public TlsAccessor
-    {
-        public:
-            TlsContainer( ThreadAttachMode mode = AUTO );
-            virtual ~TlsContainer();
 
-            // should be called ONLY in AUTO mode
-            virtual void thread_attach( void );
-            virtual void thread_detach( void );
+inline void* TlsAccessor::getTlsValue(unsigned int index) 
+{
+	assert(index >= 0 && index < TlsAccessor::NUM_OF_TLS_OBJECTS);
+	assert(m_pTls_struct);
+	return m_pTls_struct->data[index];
+};
 
-            void set_program_memory_manager( ProgramMemoryManager* p )
-                { m_Tls_struct.prog_manager = p; };
+inline void* TlsAccessor::getTlsValue(unsigned int index, bool& alreadyHad)
+{
+	assert(index >= 0 && index < TlsAccessor::NUM_OF_TLS_OBJECTS);
+	assert(m_pTls_struct);
+	alreadyHad = m_pTls_struct->alreadyHad[index];
+	return m_pTls_struct->data[index];
+}
 
-        private:
-            TlsStruct       m_Tls_struct;
-            void*           m_previous_tls_value;
+inline void TlsAccessor::setTlsValue(unsigned int index, void* value)
+{
+	assert(index >= 0 && index < TlsAccessor::NUM_OF_TLS_OBJECTS);
+	assert(m_pTls_struct);
+	m_pTls_struct->data[index] = value;
+	m_pTls_struct->alreadyHad[index] = true;
+}
 
-        private:
-            void thread_attach_int( void );
-            void thread_detach_int( void );
-    };
+
+inline void* TlsGeneralAccessor::getTls(unsigned int index)
+{
+	return m_pTlsAccessor->getTlsValue(m_startIndex + index);
+}
+
+inline void* TlsGeneralAccessor::getTls(unsigned int index, bool& alreadyHad)
+{
+	return m_pTlsAccessor->getTlsValue(m_startIndex + index, alreadyHad);
+}
+
+inline void TlsGeneralAccessor::setTls(unsigned int index, void* value)
+{
+	m_pTlsAccessor->setTlsValue(m_startIndex + index, value);
+}
 
 }}}
-

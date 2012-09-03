@@ -28,6 +28,7 @@
 #pragma once
 
 #include "cl_dev_backend_api.h"
+#include "thread_local_storage.h"
 #include <setjmp.h> 
 #include <signal.h>
 
@@ -37,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
     {
     public:
         // object is required only for JIT wrapping
-        HWExceptionsWrapper();
+        HWExceptionsWrapper(TlsAccessor* tlsAccessor);
         ~HWExceptionsWrapper();
         
         // wrap JIT code execution
@@ -49,9 +50,9 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
         // setup global HW exception handling in a process
         // Convert all exceptions into std::runtime_error C++ exceptions
         static void Init( void );
-        static void Final( void );
 
     private:
+		TlsAccessor* m_pTlsAccessor;
         sigjmp_buf setjump_buffer;
         bool       m_bInside_JIT;
 
