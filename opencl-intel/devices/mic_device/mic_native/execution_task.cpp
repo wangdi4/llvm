@@ -1529,16 +1529,10 @@ bool ThreadPool::initializeAffinityThreads()
 				vector<unsigned int> tVec;
 				tVec.push_back(processorID);
 				coreToThreadsMap.insert( pair<unsigned int, vector<unsigned int> >(coreID, tVec) );
-#ifdef ENABLE_MIC_TBB_TRACER
-                TaskInterface::PerfData::setHwInfoForPhysProcessor( processorID, coreID , 0 );
-#endif // ENABLE_MIC_TBB_TRACER
 			}
 			else
 			{
 				it->second.push_back(processorID);
-#ifdef ENABLE_MIC_TBB_TRACER
-                TaskInterface::PerfData::setHwInfoForPhysProcessor( processorID, coreID , (unsigned int)(it->second.size() - 1) );
-#endif // ENABLE_MIC_TBB_TRACER
 			}
 			coreID = -1;
 			processorID = -1;
@@ -1634,7 +1628,7 @@ bool ThreadPool::setAffinityForCurrentThread(unsigned int hwThreadId)
 
 	// CPU_SET sets only the bit corresponding to cpu.
 	CPU_SET(hwThreadId, &affinityMask);
-	
+
 	if (0 != sched_setaffinity( 0, sizeof(cpu_set_t), &affinityMask))
 	{
 		//Report Error
@@ -1642,10 +1636,6 @@ bool ThreadPool::setAffinityForCurrentThread(unsigned int hwThreadId)
 		return false;
 	}
 
-#ifdef ENABLE_MIC_TBB_TRACER
-    TaskInterface::PerfData::thread_affinitize( hwThreadId );
-#endif // ENABLE_MIC_TBB_TRACER
-    
 	return true;
 }
 
@@ -1687,7 +1677,6 @@ void ThreadPool::wakeup_all()
 bool TBBThreadPool::init()
 {
 	assert(m_numOfWorkers == 0);
-
 #ifdef ENABLE_MIC_TBB_TRACER
     TaskInterface::PerfData::global_init();
 #endif // ENABLE_MIC_TBB_TRACER
@@ -1734,9 +1723,6 @@ void TBBThreadPool::registerMasterThread(bool affinitize)
 	{
 		setAffinityFromReservedIDs();
 	}
-#ifdef ENABLE_MIC_TBB_TRACER
-    TaskInterface::PerfData::dump_thread_attach( 0 );
-#endif // ENABLE_MIC_TBB_TRACER
 }
 
 void TBBThreadPool::unregisterMasterThread()
@@ -1782,21 +1768,10 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
         assert(pWGContext);
         ndrangeTls.setTls(NDrangeTls::WG_CONTEXT, pWGContext);
     }
-	
-#ifdef ENABLE_MIC_TBB_TRACER
-    if (is_worker)
-    {
-        TaskInterface::PerfData::dump_thread_attach( uiWorkerId );
-    }
-#endif // ENABLE_MIC_TBB_TRACER    
 }
 	
 void TBBThreadPool::on_scheduler_exit(bool is_worker)
 {
-#ifdef ENABLE_MIC_TBB_TRACER
-    TaskInterface::PerfData::dump_thread_detach( (is_worker) ? getWorkerID() : 0 );
-#endif // ENABLE_MIC_TBB_TRACER    
-    
 	// In this point We do it only for worker threads. (Muster threads do the same in "unregisterMasterThread()" method).
 	if (is_worker)
 	{
@@ -1919,12 +1894,12 @@ void TBBThreadPool::startup_all_workers()
 #ifdef ENABLE_MIC_TBB_TRACER
 
 pthread_key_t                               TaskInterface::PerfData::g_phys_processor_id_tls_key;
-TaskInterface::PerfData::MapHwThreadToInfo  TaskInterface::PerfData::m_HwThreadToHwInfo;
 
 #define MIC_TBB_TRACER_PREFIX               "MIC_TBB_TRACER: "
-#define  MIC_TBB_TRACER_STREAM              stderr
+#define MIC_TBB_TRACER_STREAM               stderr
+#define MIC_TBB_TRACER_THREADS_PER_CORE     4
 
-void TaskInterface::PerfData::construct()
+void TaskInterface::PerfData::construct(unsigned int worker_id)
 {
     start_time = 0;
     end_time = 0;
@@ -1932,6 +1907,8 @@ void TaskInterface::PerfData::construct()
     processed_indices = NULL;
     processed_indices_limit = 0;
     processed_indices_current = 0;
+
+    m_worker_id = worker_id;
 }
 
 void TaskInterface::PerfData::destruct()
@@ -1939,7 +1916,7 @@ void TaskInterface::PerfData::destruct()
     if (NULL != processed_indices)
     {
         free (processed_indices);
-        construct();
+        construct(m_worker_id);
     }
 }
 
@@ -1993,6 +1970,11 @@ void TaskInterface::PerfData::resize( unsigned int n_coords )
 
 void TaskInterface::PerfData::work_group_start()
 {
+    if (!is_thread_recorded())
+    {
+        dump_thread_attach();
+    }
+    
     if (0 == start_time)
     {
         start_time = _RDTSC();
@@ -2013,60 +1995,38 @@ void TaskInterface::PerfData::global_init()
     pthread_key_create( &g_phys_processor_id_tls_key, NULL );
 }
 
-void TaskInterface::PerfData::thread_affinitize( unsigned int physical_processor_id )
-{
-    pthread_setspecific( g_phys_processor_id_tls_key, (void*)(size_t)physical_processor_id );
-}
-
-void TaskInterface::PerfData::setHwInfoForPhysProcessor( unsigned int physical_processor_id, 
-                                                         unsigned int core_id, 
-                                                         unsigned int thread_id_on_core )
-{
-    m_HwThreadToHwInfo[physical_processor_id] = hw_info(core_id, thread_id_on_core);
-}
-
-bool TaskInterface::PerfData::getHwInfoForPhysProcessor( unsigned int processor, 
+void TaskInterface::PerfData::getHwInfoForPhysProcessor( unsigned int processor, 
                                                          unsigned int& core_id, 
                                                          unsigned int& thread_id_on_core ) 
 {
-    MapHwThreadToInfo::const_iterator it = m_HwThreadToHwInfo.find(processor);
-    if (m_HwThreadToHwInfo.end() != it)
-    {
-        core_id = it->second.core_id;
-        thread_id_on_core = it->second.thread_on_core_id;
-        return true;
-    }    
-    else
-    {
-        return false;
-    }
+    core_id = processor / MIC_TBB_TRACER_THREADS_PER_CORE;
+    thread_id_on_core = processor % MIC_TBB_TRACER_THREADS_PER_CORE;
 }
 
-void TaskInterface::PerfData::dump_thread_attach( unsigned int worker_id )
+void TaskInterface::PerfData::dump_thread_attach()
 {
     unsigned int core_id;
     unsigned int thread_on_core_id;
-    unsigned int hwThreadId = (unsigned int)(size_t)pthread_getspecific( g_phys_processor_id_tls_key );
+    unsigned int hwThreadId = hw_cpu_idx();
 
-    if (getHwInfoForPhysProcessor( hwThreadId, core_id, thread_on_core_id ))
-    {
-        fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "THREAD %03d ATTACH_TO HW_CORE=%03d HW_THREAD_ON_CORE=%d\n", worker_id, core_id, thread_on_core_id );
-        fflush(MIC_TBB_TRACER_STREAM);
-    }
+    getHwInfoForPhysProcessor( hwThreadId, core_id, thread_on_core_id );
+
+    fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "THREAD %03d ATTACH_TO HW_CORE=%03d HW_THREAD_ON_CORE=%d\n", m_worker_id, core_id, thread_on_core_id );
+    fflush(MIC_TBB_TRACER_STREAM);
+
+    pthread_setspecific( g_phys_processor_id_tls_key, (void*)1 );
 }
 
-void TaskInterface::PerfData::dump_thread_detach( unsigned int worker_id )
+bool TaskInterface::PerfData::is_thread_recorded()
 {
-    fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "THREAD %03d DETACH\n", worker_id );
-    fflush(MIC_TBB_TRACER_STREAM);
-    pthread_setspecific( g_phys_processor_id_tls_key, NULL );
+    return (bool)(size_t)pthread_getspecific( g_phys_processor_id_tls_key );
 }
 
 void TaskInterface::PerfDataInit()
 {
     for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
     {
-        m_perf_data[i].construct();
+        m_perf_data[i].construct(i);
     }
 }
 

@@ -217,24 +217,12 @@ public:
     class PerfData 
     {
     public:
-        void construct();
-        void destruct();
-
         void work_group_start();
         void work_group_end();
         
         void append_data_item( unsigned int n_coords, unsigned int col, unsigned int raw = 0, unsigned int page = 0 );
-        void dump_data_item( char* buffer, unsigned int n_coords, unsigned int index );
         
         static void global_init();
-
-        static void setHwInfoForPhysProcessor( unsigned int physical_processor_id, unsigned int  core_id, unsigned int  thread_id_on_core );
-        static bool getHwInfoForPhysProcessor( unsigned int physical_processor_id, unsigned int& core_id, unsigned int& thread_id_on_core );
-        
-        static void thread_affinitize( unsigned int physical_processor_id );
-        static void dump_thread_attach( unsigned int worker_id );
-        static void dump_thread_detach( unsigned int worker_id );
-
     private:
         unsigned long long start_time;
         unsigned long long end_time;
@@ -242,27 +230,22 @@ public:
         unsigned int*      processed_indices;
         unsigned int       processed_indices_limit;
         unsigned int       processed_indices_current;
-
+        
+        unsigned int       m_worker_id;
         
         static const unsigned int INDICES_DELTA  = 64;
 
         static pthread_key_t g_phys_processor_id_tls_key;
 
-        // map from HW thread ID to HW core ID
-        struct hw_info 
-        {
-            hw_info() : core_id(0), thread_on_core_id(0) {};
-            hw_info( unsigned int core, unsigned int thread_on_core) :
-                core_id(core), thread_on_core_id(thread_on_core) {};
-                
-            unsigned char core_id;
-            unsigned char thread_on_core_id;
-        };
-
-        typedef map<unsigned int, hw_info> MapHwThreadToInfo;
-        static MapHwThreadToInfo           m_HwThreadToHwInfo;
-        
         void resize( unsigned int n_coords ); 
+        void getHwInfoForPhysProcessor( unsigned int physical_processor_id, unsigned int& core_id, unsigned int& thread_id_on_core );
+        bool is_thread_recorded();
+        void dump_thread_attach();
+
+        void construct(unsigned int worker_id);
+        void destruct();
+
+        void dump_data_item( char* buffer, unsigned int n_coords, unsigned int index );
 
         friend class TaskInterface;
 
