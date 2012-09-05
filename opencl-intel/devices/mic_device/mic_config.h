@@ -78,8 +78,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_UseAffinity()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_USE_AFFINITY, true); }
 		unsigned int   Device_NumWorkers()      const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_WORKERS, 0); }
 		unsigned int   Device_NumCores()        const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_CORES, 0); }
-		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, true); }
-		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, false); }
+		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, false); }
+		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
         // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
 		unsigned int   Device_2MB_BufferMinSizeInMB() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, 0); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
