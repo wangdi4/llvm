@@ -1,5 +1,6 @@
 // vim:ts=2:sw=2:et:
 
+// this is GENERIC math implementation
 
 // acos
 OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, acos.Types, 0, [{
@@ -67,9 +68,15 @@ OclBuiltinImpl ceil_svml = OclBuiltinImpl<ceil, ceil.Types, 0, [{
   }]>;
 
 // copysign
-OclBuiltinImpl copysign_svml = OclBuiltinImpl<copysign, copysign.Types, 0, [{
-    return __ocl_svml_$Target_copysign$SVMLSuffix($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, copysign.Types, 0, [{
+    $Arg0Type $ReturnVarName;
+	$Arg0igentype ux = as_$Arg0igentype($Arg0VarName);
+	$Arg0igentype uy = as_$Arg1igentype($Arg1VarName);
+	ux &= $ReturnBaseType_const_signMask;
+	ux |= uy & ~$ReturnBaseType_const_signMask;
+	return as_$Arg0Type(ux);
   }]>;
+
 
 // cos
 OclBuiltinImpl cos_svml = OclBuiltinImpl<cos, cos.Types, 0, [{
@@ -117,13 +124,26 @@ OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, expm1.Types, 0, [{
   }]>;
 
 // fabs
-OclBuiltinImpl fabs_svml = OclBuiltinImpl<fabs, fabs.Types, 0, [{
-    return __ocl_svml_$Target_fabs$SVMLSuffix($Arg0VarName);
+OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, fabs.Types, 0, [{
+	return as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_signMask);
   }]>;
 
-// fdim
-OclBuiltinImpl fdim_svml = OclBuiltinImpl<fdim, fdim.Types, 0, [{
-    return __ocl_svml_$Target_fdim$SVMLSuffix($Arg0VarName, $Arg1VarName);
+// fdim scalar
+// scalar implementation is separate from vector because of select() behaviour
+// In scalar case select uses all bits in mask to check if not zero
+// In vector case select uses most significant bit in mask
+// fdim scalar float promotes to $Native version
+OclBuiltinImpl fdim_impl_v1f32_promote = OclBuiltinImpl<fdim, [v1f32, v1f64], 0, Promote2>;
+
+// fdim vector
+OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, [v2f32, v3f32, v4f32, v8f32, v16f32, 
+													v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
+    const $ReturnType Zero = 0;
+    $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
+    $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
+    $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
+    return select(tmp, NaNasFP, XorYNaN);
   }]>;
 
 // floor
@@ -137,13 +157,19 @@ OclBuiltinImpl fma_svml = OclBuiltinImpl<fma, fma.Types, 0, [{
   }]>;
 
 // fmax
-OclBuiltinImpl fmax_svml = OclBuiltinImpl<fmax, fmax.Types, 0, [{
-    return __ocl_svml_$Target_fmax$SVMLSuffix($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
+	$Arg0igentype nan = isnan($Arg1VarName);
+	$Arg0Type res = max($Arg0VarName, $Arg1VarName);
+	res = select(res, $Arg0VarName, nan);
+	return res;
   }]>;
 
-// fmin
-OclBuiltinImpl fmin_svml = OclBuiltinImpl<fmin, fmin.Types, 0, [{
-    return __ocl_svml_$Target_fmin$SVMLSuffix($Arg0VarName, $Arg1VarName);
+// fmin implementation
+OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
+   	$Arg0igentype nan = isnan($Arg1VarName);
+	$Arg0Type res = min($Arg0VarName, $Arg1VarName);
+	res = select(res, $Arg0VarName, nan);
+	return res;
   }]>;
 
 // fmod
@@ -151,13 +177,61 @@ OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, fmod.Types, 0, [{
     return __ocl_svml_$Target_fmod$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
-// fract
+OclBuiltinImpl intel_movemask_impl = OclBuiltinImpl<intel_movemask, intel_movemask.Types, 0, [{
+    return any($Arg0VarName);
+  }]>;
+
+// fract svml
 code fract_svml = [{
     return __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
-OclBuiltinImpl fract_pas_svml = OclBuiltinImpl<fract_pas, fract_pas.Types, 0, fract_svml>;
-OclBuiltinImpl fract_las_svml = OclBuiltinImpl<fract_las, fract_las.Types, 0, fract_svml>;
-OclBuiltinImpl fract_gas_svml = OclBuiltinImpl<fract_gas, fract_gas.Types, 0, fract_svml>;
+
+// fract float vector
+code fract_impl_f32 = [{
+    const $Arg0Type fractLimit = $ReturnBaseType_const_fractLimit;
+    $ReturnType $ReturnVarName;
+    // check NaN or Inf
+    $Arg0igentype isNaNOrInf = (as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_expMask) == $ReturnBaseType_const_expMask;
+    // check for zero
+    $Arg0igentype isZero = ($Arg0VarName == ($Arg0Type)0.0);
+    // obtain mask with elements zero or Nan or infinity. we need to keep sign
+    $Arg0igentype isZeroNaNInf = isNaNOrInf | isZero;
+
+    // floor(x)
+    *iptr = floor($Arg0VarName);
+    // x - floor(x)
+    $Arg0Type f4x_1 = $Arg0VarName - *iptr;
+    // fmin( x – floor (x), 0x1.fffffep-1f )
+    $ReturnVarName = min(f4x_1, fractLimit);
+
+    // approach with if() instead of unconditional blend
+    if( intel_movemask(isZeroNaNInf) )
+    {
+        // check for NaN
+        $Arg0igentype isNaN = isnan($Arg0VarName );
+        $Arg0igentype isInf = ~isNaN & isNaNOrInf;
+        // make zero with sign
+        $Arg0Type xSignedZero = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ~$ReturnBaseType_const_expMask);
+        // NaN. Put NaN from f4x to res
+        $ReturnVarName = select($ReturnVarName, $Arg0VarName, isNaN);
+        // +/- inf and zero. Put zero with proper sign
+        $ReturnVarName = select($ReturnVarName, xSignedZero, isInf|isZero);
+    }
+    return $ReturnVarName;
+  }];
+
+OclBuiltinImpl fract_pas_v1f32 = OclBuiltinImpl<fract_pas, [v1f32], 0, Promote_fract>;
+OclBuiltinImpl fract_pas_f32 = OclBuiltinImpl<fract_pas, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, fract_impl_f32>;
+OclBuiltinImpl fract_pas_f64 = OclBuiltinImpl<fract_pas, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
+
+OclBuiltinImpl fract_las_v1f32 = OclBuiltinImpl<fract_las, [v1f32], 0, Promote_fract>;
+OclBuiltinImpl fract_las_f32 = OclBuiltinImpl<fract_las, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, fract_impl_f32>;
+OclBuiltinImpl fract_las_f64 = OclBuiltinImpl<fract_las, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
+
+OclBuiltinImpl fract_gas_v1f32 = OclBuiltinImpl<fract_gas, [v1f32], 0, Promote_fract>;
+OclBuiltinImpl fract_gas_f32 = OclBuiltinImpl<fract_gas, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, fract_impl_f32>;
+OclBuiltinImpl fract_gas_f64 = OclBuiltinImpl<fract_gas, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
+
 
 // frexp
 code frexp_svml = [{
@@ -172,8 +246,46 @@ OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, hypot.Types, 0, [{
     return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
-// ilogb
-OclBuiltinImpl ilogb_svml = OclBuiltinImpl<ilogb, ilogb.Types, 0, [{
+// ilogb float. call float2 version
+// if use for scalar version the same code as vector it does not work because 
+// select() BI behaviour on scalar is different than on vector. see fdim example
+OclBuiltinImpl ilogb_impl_v1f32_promote = OclBuiltinImpl<ilogb, [v1f32], 0, Promote1>;
+
+// ilogb vector float
+OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
+    const $Arg0ugentype signMask = $Arg0BaseType_const_signMask;
+    const $Arg0ugentype expMask  = $Arg0BaseType_const_expMask;
+	const $Arg0ugentype StorageI64 = 64;
+	const $Arg0ugentype StorageI127 = $Arg0BaseType_const_expOffset;
+	const $Arg0ugentype p64Storage = 0x5f800000;
+	typedef union{ $Arg0Type f; $Arg0ugentype u; $Arg0igentype i; } f$Suffix_t;
+	f$Suffix_t isDenorm, isZero, isNaNorINF, isNotDenorm;
+	f$Suffix_t xx, res1, res3, factor;
+
+	xx.f = $Arg0VarName;
+	xx.u &= signMask;
+	isZero.i = as_$Arg0igentype(xx.u == 0);
+	res1.u = xx.u & expMask;
+	isNaNorINF.i = as_$Arg0igentype(res1.u == expMask);
+	isDenorm.i = as_$Arg0igentype(res1.u == 0);
+	factor.u = (isDenorm.u & StorageI64) + StorageI127;
+	xx.u &= isDenorm.u;
+	isDenorm.u &= p64Storage;
+	isDenorm.f *= xx.f;
+	isDenorm.u &= expMask;
+	res1.u >>= 23;
+	res3.u = isDenorm.u >> 23;
+	isNotDenorm.i = as_$Arg0igentype(res3.u == 0);
+	res1.u -= factor.u;
+	res3.u -= factor.u;
+	res1.i = select(res3.i, res1.i, isNotDenorm.i);
+	res1.i = select(res1.i, INT_MAX, isNaNorINF.i);
+	res1.i = select(res1.i, INT_MIN, isZero.i);
+	return as_$Arg0igentype(res1.u);
+  }]>;
+
+// ilogb double
+OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],  0, [{
     return __ocl_svml_$Target_ilogb$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -221,18 +333,34 @@ OclBuiltinImpl logb_svml = OclBuiltinImpl<logb, logb.Types, 0, [{
   }]>;
 
 // mad
-OclBuiltinImpl mad_svml = OclBuiltinImpl<mad, mad.Types, 0, [{
-    return __ocl_svml_$Target_mad$SVMLSuffix($Arg0VarName, $Arg1VarName, $Arg2VarName);
+OclBuiltinImpl mad_impl = OclBuiltinImpl<mad, mad.Types, 0, [{
+    return ($Arg0VarName*$Arg1VarName+$Arg2VarName);
   }]>;
 
 // maxmag
-OclBuiltinImpl maxmag_svml = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
-    return __ocl_svml_$Target_maxmag$SVMLSuffix($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
+    $Arg0Type $ReturnVarName;
+	$Arg0Type xabs = fabs($Arg0VarName);
+	$Arg0Type yabs = fabs($Arg1VarName);
+	$Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
+	$Arg0igentype xLTy = xabs < yabs;
+	$Arg0igentype yLTx = yabs < xabs;
+	$ReturnVarName = select(xymax, $Arg1VarName, xLTy);
+	$ReturnVarName = select($ReturnVarName, $Arg0VarName, yLTx);
+	return $ReturnVarName;
   }]>;
-
+  
 // minmag
-OclBuiltinImpl minmag_svml = OclBuiltinImpl<minmag, minmag.Types, 0, [{
-    return __ocl_svml_$Target_minmag$SVMLSuffix($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, minmag.Types, 0, [{
+    $Arg0Type $ReturnVarName;
+	$Arg0Type xabs = fabs($Arg0VarName);
+	$Arg0Type yabs = fabs($Arg1VarName);
+	$Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
+	$Arg0igentype xGTy = xabs > yabs;
+	$Arg0igentype yGTx = yabs > xabs;
+	$ReturnVarName = select(xymin, $Arg1VarName, xGTy);
+	$ReturnVarName = select($ReturnVarName, $Arg0VarName, yGTx);
+	return $ReturnVarName;
   }]>;
 
 // modf
@@ -244,8 +372,8 @@ OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, modf_las.Types, 0, modf_
 OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, modf_gas.Types, 0, modf_svml>;
 
 // nan
-OclBuiltinImpl nan_svml = OclBuiltinImpl<nan, nan.Types, 0, [{
-    return __ocl_svml_$Target_nan$SVMLSuffix($Arg0VarName);
+OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, nan.Types, 0, [{
+    return as_$ReturnType($Arg0VarName | $ReturnBaseType_const_nanStorage);
   }]>;
 
 // nextafter
@@ -356,7 +484,7 @@ OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, trunc.Types, 0, [{
 
 // half_cos
 OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, half_cos.Types, 0, [{
-    return __ocl_svml_$Target_cos$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_cos$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_divide
@@ -366,62 +494,62 @@ OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, half_divide.Types,
 
 // half_exp
 OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, half_exp.Types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_exp$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp2
 OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, half_exp2.Types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_exp2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp10
 OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, half_exp10.Types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_exp10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log
 OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, half_log.Types, 0, [{
-    return __ocl_svml_$Target_log$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_log$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log2
 OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, half_log2.Types, 0, [{
-    return __ocl_svml_$Target_log2$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_log2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log10
 OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, half_log10.Types, 0, [{
-    return __ocl_svml_$Target_log10$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_log10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_powr
 OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, half_powr.Types, 0, [{
-    return __ocl_svml_$Target_powr$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+    return __ocl_svml_$Target_powr$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_recip
 OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
-    return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_inv$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_rsqrt
 OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, half_rsqrt.Types, 0, [{
-    return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_rsqrt$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_sin
 OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, half_sin.Types, 0, [{
-    return __ocl_svml_$Target_sin$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_sin$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_sqrt
 OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
-    return __ocl_svml_$Target_sqrt$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_sqrt$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_tan
 OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, half_tan.Types, 0, [{
-    return __ocl_svml_$Target_tan$SVMLSuffix_native($Arg0VarName);
+    return __ocl_svml_$Target_tan$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // native_cos
@@ -430,7 +558,7 @@ OclBuiltinImpl native_cos_svml = OclBuiltinImpl<native_cos, native_cos.Types, 0,
   }]>;
 
 // native_divide
-OclBuiltinImpl native_divide_svml = OclBuiltinImpl<native_divide, native_divide.Types, 0, [{
+OclBuiltinImpl native_divide_impl = OclBuiltinImpl<native_divide, native_divide.Types, 0, [{
     return __ocl_svml_$Target_div$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
@@ -447,6 +575,18 @@ OclBuiltinImpl native_exp2_svml = OclBuiltinImpl<native_exp2, native_exp2.Types,
 // native_exp10
 OclBuiltinImpl native_exp10_svml = OclBuiltinImpl<native_exp10, native_exp10.Types, 0, [{
     return __ocl_svml_$Target_exp10$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native_fmax implementation
+// beyond OpenCL1.2 spec
+OclBuiltinImpl native_fmax_impl = OclBuiltinImpl<native_fmax, native_fmax.Types, 0, [{
+    return max($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// native_fmin implementation
+// beyond OpenCL1.2 spec
+OclBuiltinImpl native_fmin_impl = OclBuiltinImpl<native_fmin, native_fmin.Types, 0, [{
+    return min($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_log
@@ -475,7 +615,7 @@ OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, native_recip.Typ
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, native_rsqrt.Types, 0, [{
+OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, native_rsqrt.Types, 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -486,7 +626,8 @@ OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, native_sin.Types, 0,
 
 // native_sqrt
 OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, native_sqrt.Types, 0, [{
-    return __ocl_svml_$Target_sqrt$SVMLSuffix_native($Arg0VarName);
+    // SLOW version. assume that SVML call will be even slower
+    return sqrt($Arg0VarName);
   }]>;
 
 // native_tan
@@ -579,9 +720,44 @@ OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, native_expm1.Typ
     return __ocl_svml_$Target_expm1$SVMLSuffix_native($Arg0VarName);
   }]>;
 
+// native_fdim
+// built in beyond OpenCL1.2 spec
+OclBuiltinImpl native_fdim_f32_impl = OclBuiltinImpl<native_fdim, native_fdim.Types, 0, [{
+   	return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, as_$Arg0igentype($Arg0VarName-$Arg1VarName));
+  }]>;
+
+// native_fmod
+// built in beyond OpenCL1.2 spec
+OclBuiltinImpl native_fmod_f32_impl = OclBuiltinImpl<native_fmod, native_fmod.Types, 0, [{
+    $Arg0Type m_trunc = trunc($Arg0VarName / $Arg1VarName);
+	$Arg0Type m_mul = $Arg1VarName * m_trunc;
+	return $Arg0VarName - m_mul;
+  }]>;
+
+// native_fract
+// built in beyond OpenCL1.2 spec
+code native_fract_impl = [{
+    *$Arg1VarName = floor($Arg0VarName);
+	$Arg0Type m_sub  = $Arg0VarName - *$Arg1VarName;
+	return min(m_sub, ($Arg0Type) $ReturnBaseType_const_fractLimit);
+  }];
+
+OclBuiltinImpl native_fract_pas_f32 = OclBuiltinImpl<native_fract_pas, native_fract_pas.Types, 0, native_fract_impl>;
+OclBuiltinImpl native_fract_las_f32 = OclBuiltinImpl<native_fract_las, native_fract_las.Types, 0, native_fract_impl>;
+OclBuiltinImpl native_fract_gas_f32 = OclBuiltinImpl<native_fract_gas, native_fract_gas.Types, 0, native_fract_impl>;
+
 // native_hypot
-OclBuiltinImpl native_hypot_svml = OclBuiltinImpl<native_hypot, native_hypot.Types, 0, [{
-    return __ocl_svml_$Target_hypot$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl native_hypot_impl = OclBuiltinImpl<native_hypot, native_hypot.Types, 0, [{
+    return native_sqrt($Arg0VarName*$Arg0VarName + $Arg1VarName*$Arg1VarName);
+  }]>;
+
+// native_ilogb
+// built in beyond OpenCL1.2 spec
+OclBuiltinImpl native_ilogb_f32_impl = OclBuiltinImpl<native_ilogb, native_ilogb.Types, 0, [{
+    $Arg0igentype tmp = as_$Arg0igentype($Arg0VarName) & $Arg0BaseType_const_expMask;
+    tmp >>= $Arg0BaseType_const_mantissaBits;
+    tmp -= $Arg0BaseType_const_expOffset;
+    return convert_int$Suffix(tmp);
   }]>;
 
 // native_log1p
