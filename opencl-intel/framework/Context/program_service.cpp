@@ -970,7 +970,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
         if (num_input_programs == uiFoundBinaries)
         {
             pbBuildForDevice[devID] = true;
-            break;
+			continue;
         }
 		delete[] szBuildOptions;
         return CL_INVALID_OPERATION;
@@ -1055,7 +1055,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
                     program->SetBuildOptionsInternal(deviceID, options);
                 }  
 
-                break;
+				continue;
             }
         case DEVICE_PROGRAM_BUILD_DONE:
         case DEVICE_PROGRAM_BUILD_FAILED:
