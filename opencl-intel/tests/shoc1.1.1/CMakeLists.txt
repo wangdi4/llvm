@@ -2,7 +2,6 @@
 if (NOT WIN32)
 
 	set (CL_API_HEADERS ${OCL_SOURCE_DIR}/cl_api)
-	set (BUILD_LIB_SO ${CMAKE_CURRENT_BINARY_DIR}/../../framework/icd/libOpenCL.so)
 	add_custom_target( SHOC_1_1_1 ALL
 		COMMAND chmod +x configure
 		
@@ -10,9 +9,7 @@ if (NOT WIN32)
 		COMMAND chmod +x tools/numatest.pl
 		COMMAND chmod +x tools/prettyPrint.pl
 		
-		COMMAND rm -f /tmp/shoc/libOpenCL.so
-		COMMAND ln -s ${BUILD_LIB_SO} /tmp/shoc/libOpenCL.so
-		COMMAND ./configure --with-opencl CPPFLAGS=\"-I${CL_API_HEADERS} -DCL_USE_DEPRECATED_OPENCL_1_1_APIS\"
+		COMMAND ./configure --with-opencl LIBS=\"-L${CMAKE_CURRENT_BINARY_DIR}/../../framework -L${CMAKE_CURRENT_BINARY_DIR}/../../framework/icd\" CPPFLAGS=\"-I${CL_API_HEADERS} -DCL_USE_DEPRECATED_OPENCL_1_1_APIS\"
 		
 		COMMAND chmod +x Makefile
 		COMMAND make
