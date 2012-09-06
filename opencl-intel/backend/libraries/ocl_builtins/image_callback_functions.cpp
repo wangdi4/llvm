@@ -858,10 +858,8 @@ float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT16(void* pPix
 
 float __attribute__((overloadable)) load_value_LUMINANCE_HALF_FLOAT(void* pPixel)
 {
-    half4 pix;
-    pix.x = *(half*)pPixel;
-    float4 val = vloada_half4(0, (half*)pPixel);
-    return val.x;
+    float val = vloada_half(0, (half*)pPixel);
+    return val;
 }
 
 float4 __attribute__((overloadable)) load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel)
@@ -896,10 +894,8 @@ float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT16(void* pPix
 
 float __attribute__((overloadable)) load_value_INTENSITY_HALF_FLOAT(void* pPixel)
 {
-    half4 pix;
-    pix.x = *(half*)pPixel;
-    float4 val = vloada_half4(0, (half*)pPixel);
-    return val.x;
+    float val = vloada_half(0, (half*)pPixel);
+    return val;
 }
 
 float4 __attribute__((overloadable)) load_pixel_INTENSITY_HALF_FLOAT(void* pPixel)
@@ -1431,12 +1427,10 @@ float4 __attribute__((overloadable)) load_pixel_A_FLOAT(void* pPixel)
 // returns a uint4 (0, 0, 0, a)
 float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 {
-    half4 pix;
-    pix.x = *(half*)pPixel;
-    float4 val = vloada_half4(0, (half*)pPixel);
+    float val = vloada_half(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.w = val.x;
+    pixel.w = val;
     return pixel;
 }
 
@@ -1450,12 +1444,10 @@ float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 // returns a uint4 (r, 0, 0, 1.0)
 float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 {
-    half4 pix;
-    pix.x = *(half*)pPixel;
-    float4 val = vloada_half4(0, (half*)pPixel);
+    float val = vloada_half(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.x = val.x;
+    pixel.x = val;
     return pixel;
 }
 
@@ -1469,12 +1461,10 @@ float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 // returns a uint4 (r, g, 0, 1.0)
 float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
 {
-    half4 pix;
-    pix.lo = *(half2*)pPixel;
-    float4 val = vloada_half4(0, (half*)pPixel);
+    float2 val = vloada_half2(0, (half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.lo = val.lo;
+    pixel.lo = val;
     return pixel;
 }
 

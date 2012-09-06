@@ -1037,7 +1037,9 @@ float4 _ocl_double4ToHalf4(double4 param)
 	}\
 	float4 __attribute__((overloadable))  vload##A##_half4(size_t offset,const ADR half *ptr)\
 	{\
-		return Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)(ptr + 4*offset)));\
+		_8i16 tmp;\
+		tmp.lo = *((_4i16 *)(ptr + 4*offset));\
+		return Half4ToFloat4(tmp);\
 	}\
 	float3 __attribute__((overloadable))  vload##A##_half3(size_t offset,const ADR half *ptr)\
 	{\
