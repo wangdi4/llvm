@@ -21,12 +21,11 @@ File Name:  ImplicitArgsUtils.h
 
 #include "ImplicitArgProperties.h"
 #include "ImplicitArgument.h"
-#include "Binary.h"
-#include "Executable.h"
-
-#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+  class CallbackContext;
+  struct sWorkInfo;
 
   /// @brief  ImplicitArgsUtils class used to provide helper utilies for handling
   ///         implicit arguments.
@@ -34,36 +33,37 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   class ImplicitArgsUtils {
   
   public:
-
-     /// @brief Initialized the implicit arguments properties
-     static void init();
-
-     /// @brief Terminates what has been initialized by init() if neede
-     static void terminate();
+    enum IMPLICIT_ARGS {
+      IA_SLM_BUFFER,
+      IA_WORK_GROUP_INFO,
+      IA_WORK_GROUP_ID,
+      IA_GLOBAL_BASE_ID,
+      IA_CALLBACK_CONTEXT,
+      IA_LOCAL_ID_BUFFER,
+      IA_LOOP_ITER_COUNT,
+      IA_BARRIER_BUFFER,
+      IA_CURRENT_WORK_ITEM,
+      IA_NUMBER
+    };
+    static const unsigned int m_numberOfImplicitArgs = IA_NUMBER;
 
     /// @brief Returns the implicit arguments properties
     /// @returns The implicit arguments properties
-    static unsigned int getNumArgs() {  return m_implicitArgProps.size(); }
+    //static unsigned int getNumArgs() {  return m_numberOfImplicitArgs; }
     
-    /// @brief Returns the implicit arguments properties
-    /// @returns The implicit arguments properties
-    static const std::vector<ImplicitArgProperties>& getImplicitArgProps() 
-                          { return m_implicitArgProps; }
+    /// @brief Returns the implicit argument properties of given argument index
+    /// @param arg     The implicit argument index
+    /// @returns The implicit argument properties
+    static const ImplicitArgProperties& getImplicitArgProps(unsigned int arg);
     
+    /// @brief Constructor
+    ImplicitArgsUtils() {}
+    /// @brief Destructor
+    ~ImplicitArgsUtils() {}
+
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
-    /// @param implicitArgs   Implicit arguments pointing to offsets in the buffer that
-    ///                       will allow setting the arguments' values directly to the right 
-    ///                       places in the buffer
-    static void createImplicitArgs(char* pDest, std::vector<ImplicitArgument>& /* OUT */  implicitArgs);
-    
-    /// @brief Sets values of implicit arguments for arguments that have same
-    ///        values per binary
-    /// @param implicitArgument     The implicit arguments arguments
-    /// @param pBinary              The binary
-    static void setImplicitArgsPerBinary(
-                         std::vector<ImplicitArgument>& implicitArgument, 
-                         const Binary* pBinary);
+    void createImplicitArgs(char* pDest);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per executable
@@ -72,29 +72,34 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pLocalMemoryBuffers  The local memory buffers, will be used to set the pLocalMem arg
     /// @param pWGStackFrame        The work group stack frame, used to set the local IDs and the special buffer
     /// @param uiWICount            The work item count, uset to set the number of iterations
-    static void setImplicitArgsPerExecutable(
-                         std::vector<ImplicitArgument>& implicitArgument, 
-                         const Executable* pExecutable, 
-                         void* *pLocalMemoryBuffers, 
-                         void* pWGStackFrame, 
-                         unsigned int uiWICount);
+    void setImplicitArgsPerExecutable(
+                         void* pLocalMemoryBuffer,
+                         const sWorkInfo* pWorkInfo,
+                         const size_t* pGlobalBaseId,
+                         const CallbackContext* pCallBackContext, 
+                         bool bJitCreateWIids,
+                         unsigned int packetWidth,
+                         size_t* pWIids,
+                         const size_t iterCounter,
+                         char* pBarrierBuffer,
+                         size_t* pCurrWI);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per work group
-    /// @param implicitArgument     The implicit arguments arguments
     /// @param pParams              The arguments values array
-    static void setImplicitArgsPerWG(
-                         std::vector<ImplicitArgument>& implicitArgument, 
-                         void* pParams);
+    void setImplicitArgsPerWG(const void* pParams);
   
   private:
-     
-     /// @brief Initialized the work item local IDs
-     static void initWILocalIds(const Executable* pExecutable, size_t* pWIids);
+    /// @brief Initialized the work item local IDs
+    /// @param implicitArgument     The implicit arguments arguments
+    void initWILocalIds(const sWorkInfo* pWorkInfo, const unsigned int packetWidth, size_t* pWIids);
   
-  private:
-    // TODO : make it small vector?
-    static std::vector<ImplicitArgProperties> m_implicitArgProps;    
+
+    /// static list of implicit argument properties 
+    static ImplicitArgProperties m_implicitArgProps[m_numberOfImplicitArgs];
+
+    /// list of implicit arguments
+    ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
