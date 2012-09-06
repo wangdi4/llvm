@@ -73,7 +73,7 @@ namespace intel {
       unsigned int iterEntry = worklist[iter].second;
       unsigned int initEntry = 1-iterEntry;
 
-      V_ASSERT((cast<PointerType>(pPhiNode->getType())->getElementType()->isFloatTy() ||
+      V_ASSERT((cast<PointerType>(pPhiNode->getType())->getElementType()->isFloatingPointTy() ||
         cast<PointerType>(pPhiNode->getType())->getElementType()->isIntegerTy()) &&
         "PhiNode type is not primitive!");
 
