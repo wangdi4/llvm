@@ -186,13 +186,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ++callIt;
     }
     
-    std::vector<ImplicitArgProperties> implicitArgProps = ImplicitArgsUtils::getImplicitArgProps();
     // Handle implicit arguments
-    for(std::vector<ImplicitArgProperties>::const_iterator implicitArgIterator = implicitArgProps.begin(), e = implicitArgProps.end(); 
-        implicitArgIterator != e; ++implicitArgIterator) {
-        
-      ImplicitArgProperties implicitArgProps = *implicitArgIterator;
-      size_t alignment = implicitArgProps.getAlignment();
+    for(unsigned int i=0; i< ImplicitArgsUtils::m_numberOfImplicitArgs; ++i) {
+      const ImplicitArgProperties& implicitArgProp = ImplicitArgsUtils::getImplicitArgProps(i);
+
+      size_t alignment = implicitArgProp.m_alignment;
       
       // assuming pBuffer is aligned at maximum alignment
       currOffset = TypeAlignment::align(alignment, currOffset);
@@ -211,7 +209,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       params.push_back(pLoad);
       
       // Advance the pArgsBuffer offset based on the size
-      currOffset += implicitArgProps.getSize();
+      currOffset += implicitArgProp.m_size;
       ++callIt;
     }
     

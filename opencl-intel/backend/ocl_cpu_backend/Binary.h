@@ -15,18 +15,19 @@ Copyright (c) Intel Corporation (2010).
 File Name:  Binary.h
 
 \*****************************************************************************/
-#pragma once
 
-#include <assert.h>
-#include <string>
-#include <vector>
-#include <map>
+#ifndef __BINARY_H__
+#define __BINARY_H__
+
 #include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
 #include "ExplicitLocalMemArgument.h"
 #include "TypeAlignment.h"
 #include "IAbstractBackendFactory.h"
 #include "TargetArch.h"
+#include "ExecutionContext.h"
+
+#include <vector>
 
 namespace llvm {
     class Module;
@@ -39,15 +40,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class KernelProperties;
 class IKernelJITContainer;
 class Executable;
-
-struct sWorkInfo
-{
-    unsigned int    uiWorkDim;
-    size_t          GlobalOffset[MAX_WORK_DIM];
-    size_t          GlobalSize[MAX_WORK_DIM];
-    size_t          LocalSize[MAX_WORK_DIM];
-    size_t          WGNumber[MAX_WORK_DIM];
-};
 
 class Binary: public ICLDevBackendBinary_
 {
@@ -115,7 +107,6 @@ private:
 private:
     // TODO : add getter instead?
     friend class Executable;
-    friend class ImplicitArgsUtils;
 
     // for printer service - not owned by this class
     ICLDevBackendBufferPrinter* m_pPrinter;
@@ -141,4 +132,6 @@ private:
 
 
 
-}}}
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+#endif // __BINARY_H__

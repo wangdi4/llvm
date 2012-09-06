@@ -20,6 +20,7 @@ File Name:  ExplicitGlobalMemArgument.h
 #define __EXPLICIT_GLOBAL_MEM_ARGUMENT_H__
 
 #include "ExplicitArgument.h"
+#include "cl_types.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -37,17 +38,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Overriding implementation
     /// @brief Sets the value of this argument
     /// @param pValueSrc       The src from which to copy the value 
-    virtual void setValue(char* pValue) {
+    virtual void setValue(const char* pValue) {
       // The src is a mem descriptor and we need to extract the pointer to memory
       //if it is an image, we suppose the imageAuxData instead
       void* pGlobalData = NULL;
-	  if ( NULL != pValue && (NULL != (*(cl_mem_obj_descriptor**)pValue)))
-	  {
-		  if ((*(cl_mem_obj_descriptor**)pValue)->memObjType != CL_MEM_OBJECT_BUFFER)
-			pGlobalData = (*(cl_mem_obj_descriptor**)pValue)->imageAuxData;
-		  else
-			pGlobalData = (*(cl_mem_obj_descriptor**)pValue)->pData;
-	  }
+      cl_mem_obj_descriptor* pMemObj =  !pValue ? NULL : (*(cl_mem_obj_descriptor**)pValue);
+      if ( NULL != pMemObj )
+      {
+        if (pMemObj->memObjType == CL_MEM_OBJECT_BUFFER)
+          pGlobalData = pMemObj->pData;
+        else
+          pGlobalData = pMemObj->imageAuxData;
+      }
       ExplicitArgument::setValue(reinterpret_cast<char *>(&pGlobalData));
     }
   };

@@ -25,7 +25,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  IArgument interface class descibes the functionality needed
   ///         to be implemented by arguments classes
-  /// @Author Marina Yatsina
   class IArgument {
   
   public:
@@ -45,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     /// @brief Sets the value of this argument
     /// @param pValue       The src from which to copy the value
-    virtual void setValue(char* pValue) = 0;
+    virtual void setValue(const char* pValue) = 0;
   
   };
 

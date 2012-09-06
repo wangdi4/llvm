@@ -17,12 +17,11 @@ File Name:  builtin_functions.cpp
 \*****************************************************************************/
 
 
-#include "Executable.h"
+#include "ExecutionContext.h"
 #include "cpu_dev_limits.h"
 
-#include <cassert>
+#include <assert.h>
 #include <string>
-#include <string.h>
 #include <map>
 #include <algorithm>
 
@@ -69,15 +68,15 @@ extern "C" LLVM_BACKEND_API void mic_dbg_print(const char* fmt, ...)
 }
 
 typedef size_t event_t;
-extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, Executable* pExec);
+extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, CallbackContext* pContext);
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                                size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, Executable* pExec)
+                                size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
   
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -95,7 +94,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   size_t  uiBytesToCopy = numElem*elemSize;
@@ -109,11 +108,11 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                              size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, Executable* pExec)
+                              size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
 
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -131,7 +130,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   size_t  uiBytesToCopy = numElem*elemSize;
@@ -149,13 +148,13 @@ extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
 }
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, Executable* pExec);
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, Executable* pExec);
+extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, CallbackContext* pContext);
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, CallbackContext* pContext);
 
 // New functions for 1.1
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, Executable* pExec) ;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, CallbackContext* pContext) ;
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, Executable* pExec);
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, CallbackContext* pContext);
 
 void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& functionsTable)
 {

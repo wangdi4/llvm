@@ -16,7 +16,6 @@ File Name:  Binary.cpp
 
 \*****************************************************************************/
 
-#include "cl_types.h"
 #include "Binary.h"
 #include "KernelProperties.h"
 #include "Kernel.h"    //TEMPORARY
@@ -27,6 +26,7 @@ File Name:  Binary.cpp
 #include "ExplicitLocalMemArgument.h"
 #include "ExplicitGlobalMemArgument.h"
 
+#include <assert.h>
 #include <string.h>
 #include <memory>
 
@@ -113,9 +113,9 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
         assert( !( 1 != m_uiVectorWidth && 1 == m_uiWGSize) && "vectorized with WGsize = 1!" );
     }
     
-    unsigned int uiWGSizeLocal = m_uiWGSize / m_uiVectorWidth;
+    m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
     m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN( 
-                            uiWGSizeLocal * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
+                            m_uiWGSize * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
 
 }
 
@@ -259,10 +259,8 @@ cl_dev_err_code Binary::CreateExecutable(void* IN *pMemoryBuffers,
                                          size_t IN stBufferCount, 
                                          ICLDevBackendExecutable_* OUT *pExec)
 {
-    unsigned int uiWGSizeLocal = m_uiWGSize;
     assert(pExec);
 
-    uiWGSizeLocal = uiWGSizeLocal / m_uiVectorWidth;
     Executable* pExecutable =  m_pBackendFactory->CreateExecutable(this); 
 
     // Initial the context to be start of the stack frame
@@ -272,7 +270,7 @@ cl_dev_err_code Binary::CreateExecutable(void* IN *pMemoryBuffers,
     }
 
     // The last buffer is the stack region
-    cl_dev_err_code res = pExecutable->Init(pMemoryBuffers, pMemoryBuffers[stBufferCount-1], uiWGSizeLocal);
+    cl_dev_err_code res = pExecutable->Init(pMemoryBuffers, pMemoryBuffers[stBufferCount-1], m_uiWGSize);
     *pExec = pExecutable;
 
     return res;

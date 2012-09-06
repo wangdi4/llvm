@@ -32,7 +32,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
-#include <cassert>
+#include <assert.h>
 #include <cctype>
 #include <climits>
 #include <limits>
@@ -759,7 +759,7 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
     return rc < 0 ? rc : output.output_count();
 }
 
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, DeviceBackend::Executable* pExec)
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, DeviceBackend::CallbackContext* pContext)
 {
     StringOutputAccumulator output(outstr, size);
     return printFormatCommon(output, format, args);

@@ -152,7 +152,6 @@ extern "C"
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
             DefaultJITMemoryManager::Init();
-            ImplicitArgsUtils::init();
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
             //
@@ -187,7 +186,6 @@ extern "C"
             return;
         }
 
-        ImplicitArgsUtils::terminate();
         DefaultJITMemoryManager::Terminate();
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();

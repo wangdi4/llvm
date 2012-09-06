@@ -16,10 +16,12 @@ File Name:  shared_builtin_functions.cpp
 
 \*****************************************************************************/
 
-#include "Executable.h"
+#include "ExecutionContext.h"
+#include "ICLDevBackendServiceFactory.h"
 #include "cpu_dev_limits.h"
 
-#include <string.h>
+#include <algorithm>
+#include <assert.h>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE
    #if defined(_WIN32)
@@ -60,31 +62,31 @@ using namespace Intel::OpenCL::DeviceBackend;
 *****************************************************************************************************************************/
 
 typedef size_t event_t;
-extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, Executable* pExec)
+extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
 
   bool bBarrier = false;
   for (int i=0; i<num_events; ++i)
   {
-    bBarrier |= pExec->ResetAsyncCopy(event_list[i]);
+    bBarrier |= pContext->ResetAsyncCopy(event_list[i]);
   }
 
   if ( bBarrier )
   {
     assert( false && "lwait_group_events needs to call a barrier!" );
-    //lbarrier(0, pExec);
+    //lbarrier(0, pContext);
   }
 }
 
 // New functions for 1.1
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,
-                                size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                                size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,
-                                size_t elemSize, Executable* pExec)
+                                size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
 
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -102,7 +104,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_c
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   switch (elemSize)
@@ -146,11 +148,11 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_c
 }
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,
-                              size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                              size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,
-                              size_t elemSize, Executable* pExec)
+                              size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
 
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -168,7 +170,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_c
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   switch (elemSize)

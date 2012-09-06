@@ -48,14 +48,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     void setBufferPtr(char* pParmasBase, void* bufferPtr) { 
       setValuePtr(pParmasBase + m_offset);
       *((void**)m_pValue) = bufferPtr; 
-      }
+    }
       
     /// @brief Ovveriding implementation - there is no logic to this function anymore
     //         don't want to set value if m_pValue points to NULL
     ///        setBufferPtr replace this functionality
     /// @brief Sets the value of this argument
     /// @param pValue       The src from which to copy the value 
-    virtual void setValue(char* pValue) {}
+    virtual void setValue(const char* pValue) {}
     
     /// @brief Returns the local buffer's size aligned to MAX_ALIGNMENT
     /// @returns  local buffer's size aligned to MAX_ALIGNMENT
@@ -70,8 +70,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   private:
     /// @brief Sets implict argument's value destination pointer
     /// @param pValue       Implict argument's value destination pointer
-    void setValuePtr(char* pValue) 
-              { m_pValue = TypeAlignment::align(m_alignment, pValue); }
+    void setValuePtr(char* pValue) {
+      m_pValue = TypeAlignment::align(m_alignment, pValue); 
+    }
     
   private:
     /// @brief local buffer's size aligned to MAX_ALIGNMENT

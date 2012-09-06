@@ -157,8 +157,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
     //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
     newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
-    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
+    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
     newArgsVec.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
@@ -195,11 +195,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     DestI->setName("pBaseGlbId");
     Argument *pBaseGlbId = DestI;
     ++DestI;
-    DestI->setName("pLocalIds");
-    Argument *pLocalId = DestI;
-    ++DestI;
     DestI->setName("contextpointer");
     Argument *pctx = DestI;
+    ++DestI;
+    DestI->setName("pLocalIds");
+    Argument *pLocalId = DestI;
     ++DestI;
     DestI->setName("iterCount");
     Argument *pIterCount = DestI;
@@ -243,8 +243,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         pCallArgs[1] = pWorkDim;
         pCallArgs[2] = pWGId;
         pCallArgs[3] = pBaseGlbId;
-        pCallArgs[4] = pLocalId;
-        pCallArgs[5] = pctx;
+        pCallArgs[4] = pctx;
+        pCallArgs[5] = pLocalId;
         pCallArgs[6] = pIterCount;
         pCallArgs[7] = pSpecialBuf;
         pCallArgs[8] = pCurrWI;

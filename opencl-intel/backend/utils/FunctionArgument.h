@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pValue           Implict argument's value destination pointer
     /// @param size             Implict argument's size
     /// @param alignment        Implict argument's alignment
-    FunctionArgument(char* pValue, size_t size, size_t alignment);
+    FunctionArgument(const char* pValue, size_t size, size_t alignment);
     
     /// @brief Interface implementation
     /// @brief Returns the size of this argument
@@ -41,18 +41,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Interface implementation
     /// @brief Returns the alignment of this argument
     /// @returns  The alignment of this argument
-    virtual size_t getAlignment() const { return m_alignment; };
+    virtual size_t getAlignment() const { return m_alignment; }
     
     /// @brief Interface implementation
     /// @brief  Returns the size with alignments needed to be done 
     ///         to destination pointer of this argument
     /// @returns  The aligned size of this argument
-    virtual size_t getAlignedSize() const { return m_alignedSize; };
+    virtual size_t getAlignedSize() const { return m_alignedSize; }
     
     /// @brief Interface implementation
     /// @brief Sets the value of this argument
     /// @param pValue       The src from which to copy the value 
-    virtual void setValue(char* pValue);
+    virtual void setValue(const char* pValue);
+
+    /// @brief Gets the value of this argument
+    /// @return The pointer to the value 
+    virtual void* getValue() { return *((void**)m_pValue); }
     
   protected:
     

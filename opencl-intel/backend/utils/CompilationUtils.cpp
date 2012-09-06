@@ -107,13 +107,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       ++DestI;
       
-      if ( NULL != ppLocalId ) {
-          *ppLocalId = DestI;
+      if ( NULL != ppCtx ) {
+          *ppCtx = DestI;
       }
       ++DestI;
       
-      if ( NULL != ppCtx ) {
-          *ppCtx = DestI;
+      if ( NULL != ppLocalId ) {
+          *ppLocalId = DestI;
       }
       ++DestI;
 

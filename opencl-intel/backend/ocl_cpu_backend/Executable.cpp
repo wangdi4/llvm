@@ -16,18 +16,16 @@ File Name:  Executable.cpp
 
 \*****************************************************************************/
 
-#include "Binary.h"
 #include "Executable.h"
-#include "ImplicitArgsUtils.h"
+#include "Binary.h"
+#include "TypeAlignment.h"
 #include "cl_device_api.h"
 #include "cl_types.h"
-#include "TypeAlignment.h"
 
 #include <string.h>
-#include <stdlib.h>
-#include <cassert>
+#include <algorithm>
+#include <assert.h>
 
-#include <pmmintrin.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -53,7 +51,9 @@ Executable::Executable(const Binary* pBin) :
   m_pBinary(pBin), m_pParameters(NULL), m_stParamSize(0),
   m_uiCSRMask(0), m_uiCSRFlags(0) {    
   
-  m_DAZ    = pBin->GetDAZ();
+  m_DAZ = pBin->GetDAZ();
+  // Initialize callback context with device buffer printer from binary
+  m_callbackContext.SetDevicePrinter(m_pBinary->GetDevicePrinter());
 }
 
 Executable::~Executable() {
@@ -65,7 +65,7 @@ void Executable::Release()
 }
 
 // Initialize context to with specific number of WorkItems 
-cl_dev_err_code Executable::Init( void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount) {
+cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount) {
 
   //Initialize Kernel parameters
   m_stParamSize = m_pBinary->GetKernelParametersSize();
@@ -83,8 +83,33 @@ cl_dev_err_code Executable::Init( void* *pLocalMemoryBuffers, void* pWGStackFram
   }
 
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
-  ImplicitArgsUtils::createImplicitArgs(pWIParams, m_implicitArgs);
-  ImplicitArgsUtils::setImplicitArgsPerExecutable(m_implicitArgs, this, pLocalMemoryBuffers, pWGStackFrame, uiWICount); 
+  m_implicitArgsUtils.createImplicitArgs(pWIParams);
+  // Set implicit local buffer pointer
+  void* pLocalMemoryBuffer;
+  if ( m_pBinary->GetImplicitLocalMemoryBufferSize() ) {
+    // Is the next buffer after explicit locals
+    pLocalMemoryBuffer = pLocalMemoryBuffers[m_pBinary->m_kernelLocalMem.size()];
+  } else {
+    //Initialize an easily identifiable junk address to catch uninitialized memory accesses
+    pLocalMemoryBuffer = (void *)0x000DEAD0;
+  }
+  memset(&m_GlobalId[0], 0, sizeof(m_GlobalId));
+  size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize());
+  assert( (m_pBinary->m_bJitCreateWIids || uiWICount > 0) && "uiWICount is zero!" );
+  char* pBarrierBuffer = ((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize() + m_pBinary->GetLocalWIidsSize();
+  // Set implicit arguments per executable
+  m_implicitArgsUtils.setImplicitArgsPerExecutable(
+            pLocalMemoryBuffer,
+            &m_pBinary->m_WorkInfo,
+            &m_GlobalId[0],
+            &m_callbackContext,
+            m_pBinary->m_bJitCreateWIids,
+            m_pBinary->m_uiVectorWidth,
+            pWIids,
+            uiWICount-1,
+            pBarrierBuffer,
+            &m_CurrWI);
+
 
   // Set CSR flags
   m_uiCSRMask |= _MM_FLUSH_ZERO_MASK;
@@ -123,24 +148,11 @@ cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
                                    const size_t* IN pLocalOffset, 
                                    const size_t* IN pItemsToProcess) {
 
-
-  ImplicitArgsUtils::setImplicitArgsPerWG(m_implicitArgs, const_cast<void *>(reinterpret_cast<const void *>(pGroupId)));
+  // Set implicit arguments per work-group
+  m_implicitArgsUtils.setImplicitArgsPerWG(reinterpret_cast<const void *>(pGroupId));
   
   // clear set checking if async_wg_copy built-ins were executed 
-  m_bIsFirst.clear();
-
-  m_GlobalId[0] = pGroupId[0]*m_pBinary->m_WorkInfo.LocalSize[0] +
-    m_pBinary->m_WorkInfo.GlobalOffset[0];
-
-  if (m_pBinary->m_WorkInfo.uiWorkDim > 1 ) {
-    m_GlobalId[1] = pGroupId[1]*m_pBinary->m_WorkInfo.LocalSize[1] +
-      m_pBinary->m_WorkInfo.GlobalOffset[1];
-  }
-
-  if (m_pBinary->m_WorkInfo.uiWorkDim > 2 ) {
-    m_GlobalId[2] = pGroupId[2]*m_pBinary->m_WorkInfo.LocalSize[2] +
-      m_pBinary->m_WorkInfo.GlobalOffset[2];
-  }
+  m_callbackContext.Reset();
 
   assert( (m_stParamSize < (1 << 12)) && "Parameters on stack size is more than 4K!" );
 #if defined(ENABLE_SDE)
@@ -155,9 +167,3 @@ cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
   
   return CL_DEV_SUCCESS;
 }
-
-ICLDevBackendBufferPrinter* Executable::GetDevicePrinter() 
-{ 
-    return m_pBinary->GetDevicePrinter(); 
-}
-

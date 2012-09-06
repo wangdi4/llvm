@@ -25,19 +25,20 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
-#include "Binary.h"
-#include "Executable.h"
+#include "ExecutionContext.h"
 #include "exceptions.h"
-#include <stdio.h>
 #include "opencl_printf_ext.h"
 #include "cl_dev_backend_api.h"
+
+#include <stdlib.h>
+#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL;
 
 int printFormatCommon(OutputAccumulator& output, const char* format, const char* args);
 
-extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, DeviceBackend::Executable* pExec)
+extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, DeviceBackend::CallbackContext* pContext)
 {
     char lastChar;
     StringOutputAccumulator out_counter(&lastChar, 1);
@@ -58,10 +59,10 @@ extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args
         return retVal;
     }
 
-    if (NULL !=  pExec->GetDevicePrinter())
+    if (NULL !=  pContext->GetDevicePrinter())
     {
         // send the output buffer to the runtime
-        retVal = pExec->GetDevicePrinter()->Print(pExec, buf);
+        retVal = pContext->GetDevicePrinter()->Print(pContext, buf);
     }
     else
     {

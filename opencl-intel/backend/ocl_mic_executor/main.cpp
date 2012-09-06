@@ -34,7 +34,6 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
         MICDeviceServiceFactory::Init();
         MICDeviceBackendFactory::Init();
         DefaultJITMemoryManager::Init();
-        ImplicitArgsUtils::init();
     }
     catch( std::bad_alloc& )
     {
@@ -45,7 +44,6 @@ extern "C" cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBacken
 
 extern "C" void TerminateDeviceBackend()
 {
-    ImplicitArgsUtils::terminate();
     DefaultJITMemoryManager::Terminate();
     MICDeviceBackendFactory::Terminate();
     MICDeviceServiceFactory::Terminate();

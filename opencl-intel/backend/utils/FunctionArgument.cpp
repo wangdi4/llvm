@@ -17,14 +17,14 @@ File Name:  FunctionArgument.cpp
 \*****************************************************************************/
 
 #include "FunctionArgument.h"
-
 #include "TypeAlignment.h"
 
 #include <cstring>
+#include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-FunctionArgument::FunctionArgument(char* pValue, size_t size, size_t alignment)
+FunctionArgument::FunctionArgument(const char* pValue, size_t size, size_t alignment)
   : 
     m_size(size), 
     m_alignment(alignment) {
@@ -36,12 +36,13 @@ FunctionArgument::FunctionArgument(char* pValue, size_t size, size_t alignment)
     m_alignedSize += m_size;              // Add size
 }
     
-void FunctionArgument::setValue(char* pValue) {
+void FunctionArgument::setValue(const char* pValue) {
   
     // TODO : assert pointers not null?
     // Copy value from given src to dest
     std::copy(pValue, pValue+m_size, m_pValue);
     //memcpy(m_pValue, pValue, m_size);
 }
+
     
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

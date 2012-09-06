@@ -17,8 +17,8 @@ File Name:  builtin_functions.cpp
 \*****************************************************************************/
 
 
-#include "Binary.h"
-#include "Executable.h"
+#include "ExecutionContext.h"
+#include "ICLDevBackendServiceFactory.h"
 #include "cpu_dev_limits.h"
 #include "SystemInfo.h"
 #include "llvm/ADT/StringRef.h"
@@ -26,7 +26,6 @@ File Name:  builtin_functions.cpp
 #include "llvm/Support/DataTypes.h"
 
 #include <stdio.h>
-#include <setjmp.h>
 
 #ifdef _WIN32
   #include <smmintrin.h>
@@ -36,9 +35,9 @@ File Name:  builtin_functions.cpp
   #endif
 #endif
 
-#include <cassert>
+#include <assert.h>
 #include <stdarg.h>
-#include <string.h>
+#include <string>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE
    #if defined(_WIN32)
@@ -87,15 +86,15 @@ extern "C" LLVM_BACKEND_API void cpu_dbg_print(const char* fmt, ...)
 }
 
 typedef size_t event_t;
-extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, Executable* pExec);
+extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, CallbackContext* pContext);
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                                size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, Executable* pExec)
+                                size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
   
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -113,7 +112,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   size_t  uiBytesToCopy = numElem*elemSize;
@@ -143,11 +142,11 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, Executable* pExec) LLVM_BACKEND_NOINLINE_POST;
+                              size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, Executable* pExec)
+                              size_t elemSize, CallbackContext* pContext)
 {
-  assert(pExec && "Invalid context pointer");
+  assert(pContext && "Invalid context pointer");
 
   // make event ID as instruction address in caller function that
   // will be executed after built-in returns
@@ -165,7 +164,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy
   }
 
   // Check if copy is required for this invokation of BI
-  if ( !pExec->SetAndCheckAsyncCopy(int_event) )
+  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
     return event;
 
   size_t  uiBytesToCopy = numElem*elemSize;
@@ -208,14 +207,14 @@ extern "C" LLVM_BACKEND_API unsigned long long cpu_get_time_counter()
 
 // New functions for 1.1
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, Executable* pExec) ;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, CallbackContext* pContext) ;
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, Executable* pExec);
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, CallbackContext* pContext);
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, Executable* pExec);
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, Executable* pExec);
+extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, CallbackContext* pContext);
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, CallbackContext* pContext);
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_local(void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_global(void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoint(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;

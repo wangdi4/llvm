@@ -4,6 +4,7 @@ set (OCL_UTILS_INCLUDE_FILES
     CompilationUtils.h
     CPUDetect.h
     exceptions.h
+    ExecutionContext.h
     ExplicitArgument.h
     ExplicitLocalMemArgument.h
     ExplicitGlobalMemArgument.h

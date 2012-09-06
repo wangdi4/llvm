@@ -23,51 +23,17 @@ File Name:  ImplicitArgProperties.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  /// @brief  ImplicitArgProperties class used to describe each implicit argument
-  /// @Author Marina Yatsina
-
-  class ImplicitArgProperties
-  {
-    public:
+  /// @brief  ImplicitArgProperties struct used to describe each implicit argument
+  struct ImplicitArgProperties {
+    /// @brief Implicit argument's name
+    std::string m_name;
       
-      /// @brief  Constructor, use this constructor this if the arguments size
-      ///         and alignment are the same
-      /// @param name        The implicit argument name
-      /// @param size        The implicit argument size
-      ImplicitArgProperties(const std::string& name, size_t size)
-       : m_name(name), m_size(size), m_alignment(size) { }
-       
-      /// @brief  Constructor, use this constructor this if the arguments size
-      ///         and alignment are NOT the same
-      /// @param name        The implicit argument name
-      /// @param size        The implicit argument size
-      /// @param alignment   The implicit argument alignment
-      ImplicitArgProperties(const std::string& name, size_t size, size_t alignment)
-       : m_name(name), m_size(size), m_alignment(alignment) { }
-
-      /// @brief Getter
-      /// @returns The implicit argument's name
-      std::string getName() const { return m_name; }
+    /// @brief Implicit argument's size
+    size_t m_size; 
       
-      /// @brief Getter
-      /// @returns The implicit argument's size
-      size_t getSize() const { return m_size; }
-      
-      /// @brief Getter
-      /// @returns The implicit argument's alignment
-      size_t getAlignment()const { return m_alignment; }
-      
-    private:
-      /// @brief Implicit argument's name
-      std::string m_name;
-      
-      /// @brief Implicit argument's size
-      size_t m_size; 
-      
-      /// @brief Implicit argument's alignment
-      size_t m_alignment; 
+    /// @brief Implicit argument's alignment
+    size_t m_alignment; 
   };
-
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

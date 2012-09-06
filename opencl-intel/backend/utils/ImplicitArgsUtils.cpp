@@ -17,149 +17,113 @@ File Name:  ImplicitArgsUtils.cpp
 \*****************************************************************************/
 
 #include "ImplicitArgsUtils.h"
+#include "ExecutionContext.h"
 #include "cpu_dev_limits.h"
-#include "cl_device_api.h"
 
-#include <cstring>
-
+#include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Initialize the implicit arguments properties
-std::vector<ImplicitArgProperties> ImplicitArgsUtils::m_implicitArgProps;
+ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs] = {
+  {"pLocalMem",       sizeof(void*),  sizeof(void*)},
+  {"pWorkDim",        sizeof(void*),  sizeof(void*)},
+  {"pWGId",           sizeof(void*),  sizeof(void*)},
+  {"BaseGlbId",       sizeof(void*),  sizeof(void*)},
+  {"contextpointer",  sizeof(void*),  sizeof(void*)},
+  {"pLocalIds",       sizeof(void*),  sizeof(void*)},
+  {"iterCount",       sizeof(size_t), sizeof(size_t)},
+  {"pSpecialBuf",     sizeof(void*),  sizeof(void*)},
+  {"pCurrWI",         sizeof(void*),  sizeof(void*)}
+};
 
-void ImplicitArgsUtils::init() {
-  
-  // We're making sure m_implicitArgProps is empty, because in some systems (Windows)
-  // when we unload the DLL and then load it again, during the unload the OS 
-  // might only decrease the DLL's reference count and not unload it immediately,
-  // therefore, the static variable m_implicitArgProps might not be destroyed,
-  // it could exists and already be initialized by the previous DLL load.
-  // If we won't make sure it's empty, then m_implicitArgProps will be initialized twice
-  // and have too many elements
-  if (!m_implicitArgProps.empty()) {
-	m_implicitArgProps.clear();
-  }
-  // Initialize m_implicitArgProps
-  // Add argument name, size, alignment (if different from size)
-  m_implicitArgProps.push_back(ImplicitArgProperties("pLocalMem",       sizeof(void*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("pWorkDim",        sizeof(sWorkInfo*),       0));
-  m_implicitArgProps.push_back(ImplicitArgProperties("pWGId",           sizeof(size_t*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("BaseGlbId",       sizeof(void*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("pLocalIds",       sizeof(void*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("contextpointer",  sizeof(void*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("iterCount",       sizeof(size_t)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("pSpecialBuf",     sizeof(void*)));
-  m_implicitArgProps.push_back(ImplicitArgProperties("pCurrWI",         sizeof(unsigned int*)));
+const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int arg) {
+  assert(arg < m_numberOfImplicitArgs && "arg is bigger than implicit args number");
+  return m_implicitArgProps[arg]; 
 }
 
-void ImplicitArgsUtils::terminate() {
-	// m_implicitArgProps is a constant pre-defined data.
-	// We want it to exist throughout the Program life cycle.
-	// We do not do m_implicitArgProps.clear() here because on some systems (Linux RH)
-	// the static variables are destroyed before ImplicitArgsUtils::terminate()
-	// is called and it causes the system to try to release the same memory twice
-	// which causes a crash.
-}
-
-void ImplicitArgsUtils::createImplicitArgs(char* pDest, std::vector<ImplicitArgument>& /* OUT */ implicitArgs) {
+void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // Start from the beginning of the given dest buffer
   char* pArgValueDest = pDest;
   
   // go over all implicit arguments' properties
-  for(std::vector<ImplicitArgProperties>::const_iterator implicitArgIterator = m_implicitArgProps.begin(), 
-        e = m_implicitArgProps.end(); 
-          implicitArgIterator != e; ++implicitArgIterator) {
-        
+  for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
     // Create implicit argument pointing at the right place in the dest buffer
-    ImplicitArgument arg(pArgValueDest, *implicitArgIterator);
-    
-    implicitArgs.push_back(arg);
-    
+    ImplicitArgument arg(pArgValueDest, m_implicitArgProps[i]);
+    m_implicitArgs[i] = arg;
     // Advance the dest buffer according to argument's size and alignment
     pArgValueDest += arg.getAlignedSize();
   }
 }
 
-void ImplicitArgsUtils::setImplicitArgsPerBinary(
-                         std::vector<ImplicitArgument>& implicitArgument, 
-                         const Binary* pBinary) {
-}
-
 void ImplicitArgsUtils::setImplicitArgsPerExecutable(
-                         std::vector<ImplicitArgument>& implicitArgument, 
-                         const Executable* pExecutable, 
-                         void* *pLocalMemoryBuffers, 
-                         void* pWGStackFrame, 
-                         unsigned int uiWICount) {
+                         void* pLocalMemoryBuffer,
+                         const sWorkInfo* pWorkInfo,
+                         const size_t* pGlobalBaseId,
+                         const CallbackContext* pCallBackContext, 
+                         bool bJitCreateWIids,
+                         unsigned int packetWidth,
+                         size_t* pWIids,
+                         const size_t iterCounter,
+                         char* pBarrierBuffer,
+                         size_t* pCurrWI) {
   
-   // TODO : remove hard coded numbers, map implicit arg and index
-   // TODO : refactor this code - try to get rid of pWGStackFrame
-   
-  void* pLocalMemArg;
   // Set implicit local buffer pointer
-  if ( pExecutable->m_pBinary->GetImplicitLocalMemoryBufferSize() ) {
-    // Is the next buffer after explicit locals
-    pLocalMemArg = pLocalMemoryBuffers[pExecutable->m_pBinary->m_kernelLocalMem.size()];
-  } else {
-    //Initialize an easily identifiable junk address to catch uninitialized memory accesses
-    pLocalMemArg = (void *)0x000DEAD0;
-  }
-  implicitArgument[0].setValue(reinterpret_cast<char *>(&pLocalMemArg));
+  m_implicitArgs[IA_SLM_BUFFER].setValue(reinterpret_cast<const char *>(&pLocalMemoryBuffer));
 
   // Set Work Dimension Info pointer
-  const sWorkInfo* pWorkInfo = &(pExecutable->m_pBinary->m_WorkInfo);
-  implicitArgument[1].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pWorkInfo)));
+  m_implicitArgs[IA_WORK_GROUP_INFO].setValue(reinterpret_cast<const char *>(&pWorkInfo));
 
   // Leave space for WorkGroup id
   // WorkGroup id should be initialized per WorkGroup and not per Executable
-  // implicitArgument[2]
+  // m_implicitArgs[IA_WORK_GROUP_ID]
 
   // Set Global id to (0,0,0,0)
-  memset(const_cast<char *>(reinterpret_cast<const char*>(&(pExecutable->m_GlobalId[0]))), 0, CPU_MAX_WI_DIM_POW_OF_2 * sizeof(size_t));
-  const size_t* pGlobalId = &(pExecutable->m_GlobalId[0]);
-  implicitArgument[3].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pGlobalId)));
+  m_implicitArgs[IA_GLOBAL_BASE_ID].setValue(reinterpret_cast<const char *>(&pGlobalBaseId));
 
   // Setup Context pointer
-  implicitArgument[5].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pExecutable)));
+  m_implicitArgs[IA_CALLBACK_CONTEXT].setValue(reinterpret_cast<const char *>(&pCallBackContext));
 
   // Initialize Barrier WI ids variables only if jit is not creating the ids.
-  if (!pExecutable->m_pBinary->m_bJitCreateWIids) {
+  if (!bJitCreateWIids) {
     // Initialize and Set Local ids
-    size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + pExecutable->m_pBinary->GetAlignedKernelParametersSize());
-    initWILocalIds(pExecutable, pWIids);
-    implicitArgument[4].setValue(reinterpret_cast<char *>(&pWIids));
+    initWILocalIds(pWorkInfo, packetWidth, pWIids);
+    m_implicitArgs[IA_LOCAL_ID_BUFFER].setValue(reinterpret_cast<const char *>(&pWIids));
 
     // Setup iterCount
-    assert( uiWICount > 0 && "uiWICount is zero!" );
-    size_t iterCounter = uiWICount - 1;
-    implicitArgument[6].setValue(reinterpret_cast<char *>(&iterCounter)); /*set iter count*/;
+    m_implicitArgs[IA_LOOP_ITER_COUNT].setValue(reinterpret_cast<const char *>(&iterCounter)); /*set iter count*/;
 
-    char* pPrivateBuffer  = ((char*)pWGStackFrame) + 
-    pExecutable->m_pBinary->GetAlignedKernelParametersSize() + pExecutable->m_pBinary->GetLocalWIidsSize();
     // Setup pPrivateBuffer 
-    implicitArgument[7].setValue(reinterpret_cast<char *>(&pPrivateBuffer)) ; /*set pSB*/;
+    m_implicitArgs[IA_BARRIER_BUFFER].setValue(reinterpret_cast<const char *>(&pBarrierBuffer)) ; /*set pSB*/;
 
     // Setup pCurrWI
-    const unsigned int * pCurrWI = &(pExecutable->m_CurrWI);
-    implicitArgument[8].setValue(const_cast<char *>(reinterpret_cast<const char *>(&pCurrWI))) /*set pCurrWI*/;
+    m_implicitArgs[IA_CURRENT_WORK_ITEM].setValue(reinterpret_cast<const char *>(&pCurrWI)) /*set pCurrWI*/;
   }
 }
 
-void ImplicitArgsUtils::setImplicitArgsPerWG(std::vector<ImplicitArgument>& implicitArgument, void* pParams) {
-  
-  // TODO : remove hard coded numbers, map implicitarg and index
-  implicitArgument[2].setValue(reinterpret_cast<char *>(&pParams));
+void ImplicitArgsUtils::setImplicitArgsPerWG(const void* pParams) {
+  m_implicitArgs[IA_WORK_GROUP_ID].setValue(reinterpret_cast<const char *>(&pParams));
+
+  const sWorkInfo* pWorkInfo = (const sWorkInfo*)m_implicitArgs[IA_WORK_GROUP_INFO].getValue();
+  size_t* pGlobalBaseId = (size_t*)m_implicitArgs[IA_GLOBAL_BASE_ID].getValue();
+  size_t* pGroupId = (size_t*)pParams;
+  pGlobalBaseId[0] = pGroupId[0]*pWorkInfo->LocalSize[0] + pWorkInfo->GlobalOffset[0];
+
+  if (pWorkInfo->uiWorkDim > 1 ) {
+    pGlobalBaseId[1] = pGroupId[1]*pWorkInfo->LocalSize[1] + pWorkInfo->GlobalOffset[1];
+  }
+
+  if (pWorkInfo->uiWorkDim > 2 ) {
+    pGlobalBaseId[2] = pGroupId[2]*pWorkInfo->LocalSize[2] + pWorkInfo->GlobalOffset[2];
+  }
 }
 
-void ImplicitArgsUtils::initWILocalIds(const Executable* pExecutable, size_t* pWIids) {
+void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigned int packetWidth, size_t* pWIids) {
   // Initialize local id buffer
-  const Binary* m_pBinary = pExecutable->m_pBinary;
-  size_t uiVectWidth = m_pBinary->m_uiVectorWidth;
-  switch (m_pBinary->m_WorkInfo.uiWorkDim) {
+  switch (pWorkInfo->uiWorkDim) {
   case 1:
-    for ( size_t i=0, j=0;(i + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0];i+=uiVectWidth, j++ ) {
+    for ( size_t i=0, j=0;(i + packetWidth - 1)<pWorkInfo->LocalSize[0];i+=packetWidth, j++ ) {
       pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+0] = i;
       //Must initialize dimensions y and z to zero for OOB handling
       pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+1] = 0;
@@ -168,9 +132,9 @@ void ImplicitArgsUtils::initWILocalIds(const Executable* pExecutable, size_t* pW
     break;
   case 2:
     {
-      size_t strideVec = m_pBinary->m_WorkInfo.LocalSize[0]/uiVectWidth;
-      for ( size_t y=0; y<m_pBinary->m_WorkInfo.LocalSize[1]; ++y ) {
-        for ( size_t x=0, j=0; (x + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0]; x+=uiVectWidth, j++ ) {
+      size_t strideVec = pWorkInfo->LocalSize[0]/packetWidth;
+      for ( size_t y=0; y<pWorkInfo->LocalSize[1]; ++y ) {
+        for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
           pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
           pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
           //Must initialize dimension z to zero for OOB handling
@@ -181,11 +145,11 @@ void ImplicitArgsUtils::initWILocalIds(const Executable* pExecutable, size_t* pW
     break;
   case 3:
     {
-      size_t strideVec1 = m_pBinary->m_WorkInfo.LocalSize[0]/uiVectWidth;
-      size_t strideVec2 = strideVec1*m_pBinary->m_WorkInfo.LocalSize[1];
-      for ( size_t z=0;z<m_pBinary->m_WorkInfo.LocalSize[2];++z )
-        for ( size_t y=0;y<m_pBinary->m_WorkInfo.LocalSize[1];++y )
-          for ( size_t x=0, j=0; (x + uiVectWidth - 1)<m_pBinary->m_WorkInfo.LocalSize[0]; x+=uiVectWidth, j++ ) {
+      size_t strideVec1 = pWorkInfo->LocalSize[0]/packetWidth;
+      size_t strideVec2 = strideVec1*pWorkInfo->LocalSize[1];
+      for ( size_t z=0;z<pWorkInfo->LocalSize[2];++z )
+        for ( size_t y=0;y<pWorkInfo->LocalSize[1];++y )
+          for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
             pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
             pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
             pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;

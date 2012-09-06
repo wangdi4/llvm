@@ -25,12 +25,12 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
-#include "Binary.h"
-#include "Executable.h"
+#include "ExecutionContext.h"
+#include "ICLDevBackendServiceFactory.h"
 #include "exceptions.h"
+#include "opencl_printf_ext.h"
 #include "llvm/Support/MutexGuard.h"
 #include <stdio.h>
-#include "opencl_printf_ext.h"
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -42,7 +42,7 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
 //
 static llvm::sys::Mutex m_lock;
 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, DeviceBackend::Executable* pExec)
+extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, DeviceBackend::CallbackContext* pContext)
 {
     llvm::MutexGuard locked(m_lock);
     StreamOutputAccumulator output(stdout);

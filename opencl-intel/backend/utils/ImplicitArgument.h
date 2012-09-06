@@ -31,7 +31,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pValue           Implict argument's value destination pointer
     /// @param implicitArgProps Implicit argument properties
     ImplicitArgument(char* pValue, const ImplicitArgProperties& implicitArgProps)
-    : FunctionArgument(pValue, implicitArgProps.getSize(), implicitArgProps.getAlignment()) { }
+    : FunctionArgument(pValue, implicitArgProps.m_size, implicitArgProps.m_alignment) { }
+
+    /// @brief Empty Constructor
+    ImplicitArgument() : FunctionArgument(NULL, 0, 0) {}
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

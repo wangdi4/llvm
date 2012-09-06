@@ -16,15 +16,15 @@ File Name:  Executable.h
 
 \*****************************************************************************/
 
-#pragma once
+#ifndef __EXECUTABLE_H__
+#define __EXECUTABLE_H__
 
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
-#include "ImplicitArgument.h"
-#include <cassert>
-#include <set>
-#include <vector>
+#include "ImplicitArgsUtils.h"
+#include "ExecutionContext.h"
+
 #include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -61,45 +61,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return (const ICLDevBackendBinary_*)m_pBinary;
     }
 
-    // Returns true if copy procedure to be done, false if not
-    bool SetAndCheckAsyncCopy(unsigned int uiKey) {
-        // if uiKey is not in set
-        if(!m_bIsFirst.count(uiKey)) {
-            // add uiKey to set
-            m_bIsFirst.insert(uiKey);
-            // return copy needs to be done
-            return true;
-        }
-        else {
-            // uiKey is in set. No need to do copying
-            return false;
-        }
-    }
-
-    // Returns true if barrier() should be applied to make WI switch
-    // TODO: This function always returns false! Do we really need it?!
-    bool ResetAsyncCopy(unsigned int uiKey) {
-        if(!m_bIsFirst.count(uiKey)) {
-            // repetitive work_group_events() call is treated as no-op 
-            return false;
-        }
-        // erase element from set
-        m_bIsFirst.erase(uiKey);
-        return false;
-    }
-
-    ICLDevBackendBufferPrinter* GetDevicePrinter();
-
   protected:
-    // TODO : add getter instead
-    friend class ImplicitArgsUtils;
-
     const Binary*   m_pBinary;
     ICLDevBackendBufferPrinter* m_pPrinter;
     char*           m_pParameters;
-    std::vector<ImplicitArgument> m_implicitArgs;
     size_t          m_stParamSize;
-    unsigned int    m_CurrWI; // place holder no need to initialize
+    size_t          m_CurrWI; // place holder no need to initialize
     size_t          m_GlobalId[CPU_MAX_WI_DIM_POW_OF_2];
     
     unsigned int    m_uiMXCSRstate;   // Stores thread CSR state
@@ -107,12 +74,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned int    m_uiCSRFlags;     // Flags to be set during execution
     bool            m_DAZ;            // Denormals as Zero flag
 
-    // Set for checking if async_wg_copy built-ins in executed workitem should 
-    // perform copying or it was already done
-    // set stores event numbers (unsigned int) produced by async_wg_copy functions
-    // if event is present in this set it means coping has already been done and
-    // no need to perform copying within executed workgroup
-    std::set<unsigned int> m_bIsFirst;
+    ImplicitArgsUtils m_implicitArgsUtils;
+
+    CallbackContext m_callbackContext;
+
   };
 
-}}}
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+#endif // __EXECUTABLE_H__
