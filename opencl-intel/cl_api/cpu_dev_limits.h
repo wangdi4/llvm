@@ -26,6 +26,8 @@
 */
 #pragma once
 
+#include "cl_device_api.h"
+
 #define CPU_DEV_MAX_WI_SIZE				1024			// Maximum values that could be specified for WI in one dimension
 #define CPU_DEV_LCL_MEM_SIZE			(32*1024)
 #define CPU_DEV_DCU_LINE_SIZE			64

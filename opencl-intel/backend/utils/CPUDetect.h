@@ -16,7 +16,9 @@ File Name:  CPUDetect.h
 
 \*****************************************************************************/
 
-#pragma once
+#ifndef __CPU_DETECT_H__
+#define __CPU_DETECT_H__
+
 #include "TargetArch.h"
 #include "ProcessorDetect.h"
 
@@ -42,5 +44,6 @@ private:
 
 inline CPUDetect * CPUInfoDetect() { return CPUDetect::GetInstance(); }
 
-}}}}
+}}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
+#endif // __CPU_DETECT_H__

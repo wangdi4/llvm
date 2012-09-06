@@ -65,10 +65,10 @@ extern "C" void hw_cpuid( struct CPUID_PARAMS *);
 #if defined(_M_X64) || defined(__LP64__)
 
 #if defined(_M_X64)
-	#pragma pack (1)
-	#define PACKED_STRUCT
+  #pragma pack (1)
+  #define PACKED_STRUCT
 #else
-	#define PACKED_STRUCT __attribute__ ((packed))
+  #define PACKED_STRUCT __attribute__ ((packed))
 #endif
 
 struct XGETBV_PARAMS {
@@ -77,7 +77,7 @@ struct XGETBV_PARAMS {
 } PACKED_STRUCT;
 
 #if defined(_M_X64)
-	#pragma pack ()
+  #pragma pack ()
 #endif
 
 extern "C" void hw_xgetbv( struct XGETBV_PARAMS *);
@@ -112,7 +112,7 @@ CPUDetect::CPUDetect(void)
     if (viCPUInfo[3] & 0x04000000)
     {
         uiCPUFeatures |= CFS_SSE2;
-        CPU = CPU_PENTIUM;		
+        CPU = CPU_PENTIUM;
     }
 
     if (viCPUInfo[2] & 0x00000001)
@@ -129,7 +129,7 @@ CPUDetect::CPUDetect(void)
 
     if (viCPUInfo[2] & 0x00080000)
     {
-        uiCPUFeatures |= CFS_SSE41;				
+        uiCPUFeatures |= CFS_SSE41;
         CPU = CPU_PENRYN;
     }
 

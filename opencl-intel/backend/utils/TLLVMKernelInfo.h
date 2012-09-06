@@ -27,7 +27,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     std::size_t stTotalImplSize;
   };
 
-}}}
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #endif // TLLVM_KERNEL_INFO_H
 

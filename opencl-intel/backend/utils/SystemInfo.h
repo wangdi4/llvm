@@ -16,19 +16,23 @@ File Name:  SystemInfo.h
 
 \*****************************************************************************/
 
-#pragma once
-#include <stdio.h>
+#ifndef __SYSTEM_INFO_H__
+#define __SYSTEM_INFO_H__
+
+#include <cstddef>
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
 class SystemInfo
 {
 public:
-	SystemInfo(void);
-	~SystemInfo(void);
+  SystemInfo(void);
+  ~SystemInfo(void);
 
-	static unsigned long long HostTime();
-	static void GetModuleDirectory(char* szModuleDir, size_t strLen);
+  static unsigned long long HostTime();
+  static void GetModuleDirectory(char* szModuleDir, size_t strLen);
 
 };
 
-}}}}
+}}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
+
+#endif // __SYSTEM_INFO_H__

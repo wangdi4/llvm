@@ -16,18 +16,19 @@ File Name:  exceptions.h
 
 \*****************************************************************************/
 
-#pragma once
+#ifndef __EXCEPTIONS_H__
+#define __EXCEPTIONS_H__
+
 #include <stdexcept>
 #include "cl_device_api.h"
 
 #ifndef LLVM_BACKEND_UNUSED
-	#if defined(_WIN32)
-		#define LLVM_BACKEND_UNUSED
-	#else
-		#define LLVM_BACKEND_UNUSED __attribute__ ((unused))
-	#endif
+  #if defined(_WIN32)
+    #define LLVM_BACKEND_UNUSED
+  #else
+    #define LLVM_BACKEND_UNUSED __attribute__ ((unused))
+  #endif
 #endif
-
 #ifdef _MSC_VER
 #pragma warning (disable : 4985 ) /* disable ceil warnings */ 
 #endif
@@ -51,8 +52,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Excepti
         cl_dev_err_code m_errCode;
     };
 
-
-
 /// macro for convenient definition of device backend exceptions derived from
 /// the base class DeviceBackendExceptionBase
 #define DEFINE_EXCEPTION(__name)\
@@ -63,10 +62,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Excepti
         };\
     }
 
+}}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Exceptions {
 
-
-
-
-
-
-}}}}
+#endif // __EXCEPTIONS_H__

@@ -83,7 +83,7 @@ typedef struct _cl_work_description_type
 	size_t globalWorkOffset[MAX_WORK_DIM];
 	size_t globalWorkSize[MAX_WORK_DIM];
 	size_t localWorkSize[MAX_WORK_DIM];
-    unsigned int minWorkGroupNum;
+  unsigned int minWorkGroupNum;
 } cl_work_description_type;
 
 /*! \enum cl_kernel_arg_type

@@ -18,9 +18,7 @@ File Name:  TypeAlignment.cpp
 
 #include "TypeAlignment.h"
 
-#include "cl_types.h"
-
-#include <cassert>
+#include <assert.h>
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -141,8 +139,9 @@ size_t TypeAlignment::align(size_t alignment, size_t offset) {
   return (offset + alignment - 1) & ~(alignment - 1);
 }
 
-char* TypeAlignment::align(size_t alignment, char* ptr) {
+char* TypeAlignment::align(size_t alignment, const char* ptr) {
   return reinterpret_cast<char *>(align(alignment, reinterpret_cast<size_t>(ptr)));
 }
 
-}}}
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+

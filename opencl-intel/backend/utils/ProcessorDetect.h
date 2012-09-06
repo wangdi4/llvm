@@ -16,7 +16,9 @@ File Name:  ProcessorDetect.h
 
 \*****************************************************************************/
 
-#pragma once
+#ifndef __PROCESSOR_DETECT_H__
+#define __PROCESSOR_DETECT_H__
+
 #include "TargetArch.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
@@ -33,4 +35,6 @@ public:
     virtual ~ProcessorDetect() {};
 };
 
-}}}} // namespace
+}}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
+
+#endif // __PROCESSOR_DETECT_H__

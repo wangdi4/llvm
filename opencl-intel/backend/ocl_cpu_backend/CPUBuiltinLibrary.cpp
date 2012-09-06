@@ -23,6 +23,8 @@ File Name:  MICBuiltinLibrary.cpp
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/DynamicLibrary.h"
 
+#include <stdio.h>
+
 #if defined(_WIN32)
     #include <windows.h>
 #else
