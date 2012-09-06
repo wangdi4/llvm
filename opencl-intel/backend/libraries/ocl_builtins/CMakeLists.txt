@@ -401,7 +401,6 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
   # FIXME: when OCL builtin is autogened for all targets, add
   # OCL_TABLEGEN_FILE as the last parameter and remove the following code
   # fragment.
-
   unset(OCL_TABLEGEN_FILE)
   list(LENGTH ARGN ARGN_LEN)
   if( ARGN_LEN GREATER 0 )
@@ -411,26 +410,8 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
   # intermediate directory for OpenCL compilation/link
   # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
-  
-# generate OCL builtin implementation
-# following commented block is used during tblgen transition. Will be removed
-# before finishing exporting all BI from the previous implementation to tableGen
-# you can do it to specific arch, for example the following implementation, it will use only 
-# on the given arch, 
-#  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-#    # autogen OCL builtin implementation from tablegen file
-#    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
-# list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-#  else( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-#    list (APPEND OCL_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/math_functions.cpp)
-# list (APPEND HEADER_FILES		${CL_BUILTIN_SOURCE_DIR}/cl_math_declaration.h 	)
-#  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-	
-  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) )
-	tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
-	list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
- endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9)  )	
-	
+
+  # generate OCL builtin implementation
   if( OCL_TABLEGEN_FILE )
     # autogen OCL builtin implementation from tablegen file
     tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_TABLEGEN_FILE} -gen-ocl-bi)
@@ -490,12 +471,12 @@ list (APPEND OCL_SOURCE_FILES
   geometry_functions.cpp
   image_functions.cpp
   integer_functions.cpp
+  math_functions.cpp
   misc_functions.cpp
   relational_functions.cpp
   transpose_functions.cpp
   vload_vstore_functions.cpp
   )
-
 
 if( MIC_TARGET )
   if( NOT AUTOGEN_OCL_BUILTIN )
@@ -521,6 +502,7 @@ list (APPEND HEADER_FILES
   cl_geom_declaration.h
   cl_image_declaration.h
   cl_integer_declaration.h
+  cl_math_declaration.h
   cl_relational_declaration.h
   mic_defines.h
   mic_intrinsic_common_vars.h

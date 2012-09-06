@@ -323,7 +323,9 @@ _1i32  __attribute__((overloadable)) isnan(float f)
 
 _4i32  __attribute__((overloadable)) isnan(float4 x)
 {
-    return (_4i32)_mm_cmpneq_ps(x, x);
+	__m128i mask = _mm_cmpgt_epi32(_mm_and_si128(_mm_castps_si128(x), *((__m128i*)fnan_max)), *((__m128i*)fnan_min));
+	mask = _mm_andnot_si128(_mm_cmpgt_epi32(_mm_castps_si128(x), *((__m128i*)fnan_max)), mask);
+	return (_4i32)mask;
 }
 #if defined (__AVX__)
 _8i32  __attribute__((overloadable)) isnan(float8 x)

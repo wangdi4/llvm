@@ -8,6 +8,56 @@ include "SVML.td"
 
 class Generic : TargetImpl {
 
+  code Prolog = [{
+  #include <intrin.h>
+  #include "generic-builtin-defines.h"
+  }];
+  code Epilog = [{}];
+
+  code Expand1 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+
+  code Expand2 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+
+  code Expand3 = [{
+    $ReturnType $ReturnVarName;
+    $ReturnVarName$ExpandLoPattern = $ExpandLoFunc($Arg0VarName$ExpandLoPattern, $Arg1VarName$ExpandLoPattern, $Arg2VarName$ExpandLoPattern);
+    $ReturnVarName$ExpandHiPattern = $ExpandHiFunc($Arg0VarName$ExpandHiPattern, $Arg1VarName$ExpandHiPattern, $Arg2VarName$ExpandHiPattern);
+    return $ReturnVarName;
+  }];
+
+  // The following code implements the builtin variants with scalar parameters.
+  // The implementation will prompt these scalar parameters into vector ones
+  // and call the corresponding builtins with all vector parameters.
+  //
+
+  // fmax_s
+  OclBuiltinImpl fmax_s_generic = OclBuiltinImpl<fmax_s, fmax_s.Types, 0, [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }]>;
+
+  // fmin_s
+  OclBuiltinImpl fmin_s_generic = OclBuiltinImpl<fmin_s, fmin_s.Types, 0, [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }]>;
+
+  // ldexp_s
+  OclBuiltinImpl ldexp_s_generic = OclBuiltinImpl<ldexp_s, ldexp_s.Types, 0, [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }]>;
+
   // clamp_s
   OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, clamp_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
@@ -46,9 +96,7 @@ class Generic : TargetImpl {
     return $Func(vec$Arg0VarName, vec$Arg1VarName, $Arg2VarName);
   }]>;
 
-// shared between CPU and MIC
-include "GENERIC_common.td"
-
+include "GENERIC/math.td"
 include "GENERIC/integer.td"
 include "GENERIC/common.td"
 include "GENERIC/conversion.td"

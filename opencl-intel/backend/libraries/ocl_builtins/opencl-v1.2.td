@@ -88,11 +88,12 @@ def tgamma        : OclBuiltin<"tgamma",    (outs gentype:$ret), (ins gentype:$x
 def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 }
 
+
 // OpenCL 1.2 rev 15, Table 6.9
-// half
-// Spec requires Data type to be ONLY float(f32) (not-double)
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
+// half
 def half_cos      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def half_divide   : OclBuiltin<"half_divide",   (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def half_exp      : OclBuiltin<"half_exp",      (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -107,15 +108,7 @@ def half_rsqrt    : OclBuiltin<"half_rsqrt",    (outs gentype:$ret), (ins gentyp
 def half_sin      : OclBuiltin<"half_sin",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def half_sqrt     : OclBuiltin<"half_sqrt",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentype:$x), [], []>;
-}
-
-// OpenCL 1.2 rev 15, Table 6.9
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
 // native
-// Spec requires Data type to be ONLY float(f32) (not-double)
-// Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
 def native_cos    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_divide : OclBuiltin<"native_divide", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def native_exp    : OclBuiltin<"native_exp",    (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -797,27 +790,12 @@ def soa_all16 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, 
 	 gentype:$x14, gentype:$x15), [], []>;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 // Helper built-ins
 // This function is incroduced to overcome issues with division operation on MIC target.
 // WARNING! Do not use it! Your performance could be harmed.
 // This built-in is expected to be removed at WW35'12.
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1 in {
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def division      : OclBuiltin<"division",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-}
-
-// intel_movemask
-// custom BI used in GENERIC and CPU for fast detecting analyzing mask in if()
-// its behaivour is equal to _mm_movemask() intrinsic from x86
-// example usage fract
-let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64],
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1 in {
-def intel_movemask: OclBuiltin<"intel_movemask", (outs si32gentype:$ret), (ins gentype:$x), [], []>;
 }

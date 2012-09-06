@@ -2,11 +2,7 @@
  **************************************************************************************************/
 // Check only for scalar float type.
 // TODO: uncomment some tests once bug are fixed/ functions are implemented
-// WARNING!!!
-// This test computes ULPs incorrectly. This may lead to failures on native_ functions which are false.
-// ULPs are calculated here by substracting floating point casted to integers. 
-// However the ULPs should be in more complex way as they are calculated in OpenCL conformance. 
-// See /conform1.2/src/test_common/harness/errorHelpers.c
+//       
 
 
 #include "CL/cl.h"
@@ -49,7 +45,7 @@
 #define D_LOG10_ULP 2000
 #define D_POWR_ULP 65000000
 #define D_RECIP_ULP 10
-#define D_RSQRT_ULP 1000000
+#define D_RSQRT_ULP 10
 #define D_SIN_ULP 60000000
 #define D_SQRT_ULP 10 
 #define D_TAN_ULP 5000000

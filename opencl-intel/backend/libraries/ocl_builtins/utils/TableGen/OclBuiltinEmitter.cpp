@@ -195,32 +195,6 @@ OclType::getExpandHiCPattern() const
   return ".hi";
 }
 
-std::string
-OclType::getExpandLoCPatternPtr() const
-{
-  switch (m_VecLength) {
-  // According to specification.
-  // "The suffixes .lo (or .even) and .hi (or .odd) for a 3-component vector type 
-  // operate as if the 3-component vector type is a 4-component vector type 
-  // with the value in the w component
-  // here we use ->s01 for good look of code since it will be used together with $ExpandHiPatternPtr
-    case 3: return "->s01";
-  }
-  return "->lo";
-}
-
-std::string
-OclType::getExpandHiCPatternPtr() const
-{
-  switch (m_VecLength) {
-  // We don't use here ->hi since we don't want garbage 
-  // to get to s3 component of promoted type4 vector. 
-  // Getting garbage ther may lead to performance degradations. Since in case of float we can get there NaNs, denormals, etc  
-  case 3: return "->s2";
-  }
-  return "->hi";
-}
-
 
 /// OclGenType
 OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
@@ -460,16 +434,6 @@ OclBuiltin::getArgumentCType(unsigned i, const std::string& TyName) const
   assert(T && "Invalid type found.");
 
   return T->getCType(this);
-}
-
-std::string
-OclBuiltin::getArgumentBaseCType(unsigned i, const std::string& TyName) const
-{
-  assert(i < m_Inputs.size() && "Argument index is out of bound.");
-  const std::string& GT = m_Inputs[i].first->getGenType(TyName);
-  const OclType* T = m_DB.getOclType(GT);
-  assert(T && "Invalid type found.");
-  return T->getBaseCType();
 }
 
 std::string
@@ -984,11 +948,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       ++dpos;
       if (dpos >= text.size())
         break;
-      // '#' is concatenate mark - exit loop
-      if (text[dpos] == '#')
-          break;
-      // Skip 'alphanum'. 
-    } while (isalnum(text[dpos]) );
+      // Skip 'alphanum'
+    } while (isalnum(text[dpos]));
 
     std::string pat = text.substr(cpos, dpos - cpos);
 
@@ -1032,9 +993,6 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCType(i, OT->getName());
-    } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "BaseType" == pat.substr(5)) {
-      unsigned i = pat[4] - '0';
-      val = OB->getArgumentBaseCType(i, OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VecType" == pat.substr(5)) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
@@ -1065,26 +1023,11 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       val = OT->getExpandLoCPattern();
     } else if ("$ExpandHiPattern" == pat) {
       val = OT->getExpandHiCPattern();
-    } else if ("$ExpandLoPatternPtr" == pat) {
-      val = OT->getExpandLoCPatternPtr();
-    } else if ("$ExpandHiPatternPtr" == pat) {
-      val = OT->getExpandHiCPatternPtr();
-    } else if ("$ExpandLoReturnType" == pat) {
-        val = getOclType(getExpandLoType(OT->getName()))->getCType(OB);
-    } else if ("$ExpandHiReturnType" == pat) {
-        val = getOclType(getExpandHiType(OT->getName()))->getCType(OB);
-    } else if ("$ExpandLoSuffix" == pat) {
-        val = getOclType(getExpandLoType(OT->getName()))->getSuffix();
-    } else if ("$ExpandHiSuffix" == pat) {
-        val = getOclType(getExpandHiType(OT->getName()))->getSuffix();
     } else {
       GENOCL_WARNING("Invalid rewrite pattern: '" << pat << "'\n");
     }
     ret += val;
 
-    // if now is '#' concatenate mark - skip it
-    if (text[dpos] == '#')
-        dpos++;
     cpos = dpos;
     if (dpos >= text.size())
       break;
@@ -1166,8 +1109,7 @@ OclBuiltinDB::getExpandLoType(const std::string& in) const
 
   for (std::map<std::string, OclType*>::const_iterator I = m_TypeMap.begin(), E = m_TypeMap.end(); I != E; ++I) {
     const OclType* T = I->second;
-    if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType() &&
-        T->isPointer() == OT->isPointer())
+    if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType())
       return T->getName();
   }
 
@@ -1191,9 +1133,8 @@ OclBuiltinDB::getExpandHiType(const std::string& in) const
 
   for (std::map<std::string, OclType*>::const_iterator I = m_TypeMap.begin(), E = m_TypeMap.end(); I != E; ++I) {
     const OclType* T = I->second;
-    if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType() &&
-        T->isPointer() == OT->isPointer())
-        return T->getName();
+    if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType())
+      return T->getName();
   }
 
   return "";
