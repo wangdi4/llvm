@@ -61,6 +61,10 @@ public:
 
   std::string getExpandHiCPattern() const;
 
+  std::string getExpandLoCPatternPtr() const;
+
+  std::string getExpandHiCPatternPtr() const;
+
   std::string getCType(const OclBuiltin*, bool = false) const;
 
   std::string getNativeCType(const OclBuiltin*) const;
@@ -144,6 +148,8 @@ public:
   size_t      getNumArguments() const;
 
   std::string getArgumentCType(unsigned, const std::string&) const;
+
+  std::string getArgumentBaseCType(unsigned i, const std::string& TyName) const;
 
   std::string getArgumentCVecType(unsigned, const std::string&, int) const;
 
