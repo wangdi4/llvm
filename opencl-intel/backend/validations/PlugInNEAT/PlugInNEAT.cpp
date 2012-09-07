@@ -1207,7 +1207,11 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
     switch(I.getOpcode()){
     case Instruction::FAdd:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::add, dyn_cast<VectorType>(Ty)->getElementType()) break;
     case Instruction::FSub:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::sub, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FMul:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul, dyn_cast<VectorType>(Ty)->getElementType()) break;
+    // if command line parameter of SATest --fma-neat set on, function mul_fma used to perform multiplication,
+    // if --fma-neat set off, commom mul is used. common mul has correctly rounded result, fma_mul makes resulting
+    // adds 1 ULP to min and max values of resulting interval.
+    case Instruction::FMul:  if(m_bUseFmaNEAT) { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul_fma, dyn_cast<VectorType>(Ty)->getElementType()) }
+                             else { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul, dyn_cast<VectorType>(Ty)->getElementType()) } break;
     case Instruction::FDiv:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::div, dyn_cast<VectorType>(Ty)->getElementType()) break;
     case Instruction::FRem:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::fmod, dyn_cast<VectorType>(Ty)->getElementType()) break;
     default:
@@ -1216,22 +1220,22 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
   }
   else
   {
-#define FLOAT_OPERATOR(OP, TY)                                 \
-  switch (TY->getTypeID())                                            \
-    {                                                                   \
-  case Type::FloatTyID:                                               \
-  Result.NEATVal = OP##_f(Src1.NEATVal, Src2.NEATVal);  \
-  break;                                                      \
-  case Type::DoubleTyID:                                              \
+#define FLOAT_OPERATOR(OP, TY)                         \
+  switch (TY->getTypeID())                             \
+    {                                                  \
+  case Type::FloatTyID:                                \
+  Result.NEATVal = OP##_f(Src1.NEATVal, Src2.NEATVal); \
+  break;                                               \
+  case Type::DoubleTyID:                               \
   Result.NEATVal = OP##_d(Src1.NEATVal, Src2.NEATVal); \
   break;\
-    default:                                                          \
-    throw InvalidArgument("visitBinaryOperator: unsupported type");     \
+    default:                                           \
+    throw InvalidArgument("visitBinaryOperator: unsupported type"); \
   }
     switch(I.getOpcode()){
     case Instruction::FAdd:  FLOAT_OPERATOR(NEAT_WRAP::add, Ty) break;
     case Instruction::FSub:  FLOAT_OPERATOR(NEAT_WRAP::sub, Ty) break;
-    case Instruction::FMul:  FLOAT_OPERATOR(NEAT_WRAP::mul, Ty) break;
+    case Instruction::FMul:  if(m_bUseFmaNEAT) { FLOAT_OPERATOR(NEAT_WRAP::mul_fma, Ty) } else {FLOAT_OPERATOR(NEAT_WRAP::mul, Ty)} break;
     case Instruction::FDiv:  FLOAT_OPERATOR(NEAT_WRAP::div, Ty) break;
     case Instruction::FRem:  FLOAT_OPERATOR(NEAT_WRAP::fmod, Ty) break;
     default:

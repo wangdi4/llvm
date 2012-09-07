@@ -142,8 +142,8 @@ namespace llvm {
     {
     public:
         /// ctor
-        NEATPlugIn () :
-            m_pInterp(NULL), m_pECStack(NULL)
+        NEATPlugIn (bool bUseFmaNEAT) :
+            m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT)
         {
             m_CurEvent = BAD_EVENT;
             m_NECStack.clear();
@@ -344,6 +344,8 @@ namespace llvm {
         std::vector<NEATExecutionContext> m_NECStack;
         /// helper class to count storage bytes of NEAT values
         NEATTargetData m_NTD;
+        /// Use interval for mul in the NEAT if specified
+        bool const m_bUseFmaNEAT;
         /// current event being handled by NEAT
         enum CurEvent {PRE_INST, POST_INST, PRE_FUNC, POST_FUNC, BAD_EVENT} m_CurEvent;
         /// get current event

@@ -53,6 +53,7 @@ namespace Validation
         RC_BR_DUMP_HEURISTIC_IR,
         // Reference runner specific options
         RC_REF_USE_NEAT,
+        RC_REF_USE_FMA_NEAT,
 
         // These are comparator related configurations
         RC_COMP_DETAILED_STAT,
@@ -139,6 +140,7 @@ namespace Validation
         }
     private:
         bool m_useNEAT;
+        bool m_useFmaNEAT;
         bool m_runSingleWG;
         uint32_t m_defaultLocalWGSize;
     };

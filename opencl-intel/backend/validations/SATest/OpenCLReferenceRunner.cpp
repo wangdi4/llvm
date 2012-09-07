@@ -90,14 +90,15 @@ static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
 static ManagedStatic<sys::Mutex> InterpreterLock;
 
-OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
+OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pLLVMContext(NULL),
     m_pModule(NULL),
     m_pRTModule(NULL),
     m_pKernel(NULL),
     m_pExecEngine(NULL),
     m_pNEAT(NULL),
-    m_bUseNEAT(bUseNEAT)
+    m_bUseNEAT(bUseNEAT),
+    m_bUseFmaNEAT(bUseFmaNEAT)
 {
 }
 
@@ -912,7 +913,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT)
         {
             // create NEAT plug in
-            pNEAT = new NEATPlugIn();
+            pNEAT = new NEATPlugIn(m_bUseFmaNEAT);
             InterpreterPluggable *pInterp = static_cast<InterpreterPluggable*>(pExecEngine);
             pInterp->addPlugIn(*pNEAT);
             // set arguments for NEAT

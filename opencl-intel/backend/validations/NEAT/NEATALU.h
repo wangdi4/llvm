@@ -134,6 +134,7 @@ namespace Validation
         static const double NORMALIZE_ERROR; // 2f + 0.5f  error in rsqrt + error in multiply
         static const int FAST_NORMALIZE_ERROR = 8192;
         static const double MIX_ERROR; // 1.5f
+        static const int MUL_FMA_ERROR = 1;
         static const int FABS_ERROR = 0;
         static const int FLOOR_ERROR = 0;
         static const int HYPOT_ERROR = 4;
@@ -968,6 +969,42 @@ public:
         vals[3] = (SuperT)RefALU::mul(*a.GetMax<T>(), *b.GetMax<T>());
 
         return ComputeResult(vals, 4, NEATALU::MUL_ERROR);
+    }
+
+    // backend may generates fma instraction at stage of code generation, so in this case NEATALU
+    // has no information about was fma instruction generated or just common multiplication was used.
+    // in order to provide NEAT support for it, mul_fma function perform performs multiplication in high 
+    // precision and adds 1 ULP to result. the using of mul_fma is turned on by --fma-neat command line
+    // parameter of SATest
+    template <typename T>
+    static NEATValue mul_fma ( const NEATValue& a, const NEATValue& b )
+    {
+        typedef typename superT<T>::type SuperT;
+        // Check if both arguments may have any value
+        if(a.IsAny() && b.IsAny())
+            // Then result is any also
+            return NEATValue(NEATValue::ANY);
+
+        if (a.IsNaN<T>() || b.IsNaN<T>())
+            return NEATValue::NaN<T>();
+
+        // Case when both could be any was tested. Other special statuses lead to unknown result
+        if(CheckAUU(a) || (CheckAUU(b)))
+        {
+            return NEATValue(NEATValue::UNKNOWN);
+        }
+
+        // Assume that compiler is C99 compliant and edge cases will be handled correctly
+
+        SuperT vals[4];
+
+        // calculating all the possible combinations
+        vals[0] = RefALU::mul((SuperT)*a.GetMin<T>(), (SuperT)*b.GetMax<T>());
+        vals[1] = RefALU::mul((SuperT)*a.GetMin<T>(), (SuperT)*b.GetMin<T>());
+        vals[2] = RefALU::mul((SuperT)*a.GetMax<T>(), (SuperT)*b.GetMin<T>());
+        vals[3] = RefALU::mul((SuperT)*a.GetMax<T>(), (SuperT)*b.GetMax<T>());
+
+        return ComputeResult(vals, 4, NEATALU::MUL_FMA_ERROR);
     }
 
     /// @brief Divides two neat values
@@ -3073,6 +3110,12 @@ public:
     static NEATVector mul(const NEATVector& vec1, const NEATVector& vec2)
     {
         return processVector(vec1, vec2, mul<T>);
+    }
+
+    template<typename T>
+    static NEATVector mul_fma(const NEATVector& vec1, const NEATVector& vec2)
+    {
+        return processVector(vec1, vec2, mul_fma<T>);
     }
 
     template<typename T>

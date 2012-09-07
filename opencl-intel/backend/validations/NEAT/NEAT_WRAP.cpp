@@ -73,6 +73,7 @@ namespace Validation
 
     NEAT_TWOARG(add)
     NEAT_TWOARG(mul)
+    NEAT_TWOARG(mul_fma)
     NEAT_TWOARG(div)
     NEAT_TWOARG(native_divide)
     NEAT_TWOARG(half_divide)

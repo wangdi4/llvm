@@ -47,7 +47,7 @@ namespace Validation
     {
     public:
         /// @brief Constructor
-        OpenCLReferenceRunner(bool bUseNEAT);
+        OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT);
 
         /// @brief Destructor
         virtual ~OpenCLReferenceRunner(void);
@@ -194,6 +194,8 @@ namespace Validation
 
         /// Generate the NEAT results if specified
         bool m_bUseNEAT;
+        /// Use interval for mul in the NEAT if specified
+        bool m_bUseFmaNEAT;
 
     };
 }
