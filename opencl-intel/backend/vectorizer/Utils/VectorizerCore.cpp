@@ -150,12 +150,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
     FunctionPass *mergeReturn = new UnifyFunctionExitNodes();
     fpm1.add(mergeReturn);
 
-    // Simplify loops
-    fpm1.add(createLoopSimplifyPass());
-
     // Register phiCanon
     FunctionPass *phiCanon = createPhiCanon();
     fpm1.add(phiCanon);
+
+    // Simplify loops
+    // This must happen after phiCanon since phi canonization can undo
+    // loop simplification by breaking dedicated exit nodes.
+    fpm1.add(createLoopSimplifyPass());
+
     fpm1.add(createDeadCodeEliminationPass());
     // Need to check for vectorization possibly AFTER phi canonization.
     // In theory this shouldn't matter, since we should never introduce anything
