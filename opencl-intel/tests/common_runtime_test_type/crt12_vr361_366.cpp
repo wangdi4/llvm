@@ -85,8 +85,8 @@ void testEnqueueMarkerWithWaitList(OpenCLDescriptor ocl_descriptor,cl_int marker
 
 	// check that the kernel is not running
 	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
-	if(CL_QUEUED != event_status){ //this was not made with ASSERT becouse of some wierd problem with gtest
-	FAIL() << "event status isnt set to CL_QUEUED as expected";
+	if((CL_QUEUED != event_status) && (CL_SUBMITTED != event_status)){ //this was not made with ASSERT becouse of some wierd problem with gtest
+	FAIL() << "event status isnt set to CL_QUEUED or CL_SUBMITTED as expected";
 	}
 	
 	//activate the user event
@@ -208,14 +208,16 @@ void enqueueBarrierWithWaitListCPU(OpenCLDescriptor ocl_descriptor, cl_int barri
 
 	// check that the kernel is not running
 	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
-	ASSERT_EQ(CL_QUEUED,event_status) << "event status isnt set to CL_QUEUED as expected";
+	if((CL_QUEUED != event_status) && (CL_SUBMITTED != event_status)){ //this was not made with ASSERT becouse of some wierd problem with gtest
+	FAIL() << "event status isnt set to CL_QUEUED or CL_SUBMITTED as expected";
+	}
 
 	//activate the user event
 	setUserEventStatus(user_event,CL_COMPLETE);
 
 	// wait
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1-barrier_device]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[barrier_device]));
 
 	//check that the kernel was executed
 	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));

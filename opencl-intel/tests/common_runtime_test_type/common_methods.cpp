@@ -45,7 +45,7 @@
 void fileToBuffer(const char** return_val, const char* sFileName)
 {
 	std::stringstream ss;
-	ss << "validation\\common_runtime_test_type\\" << sFileName;
+	ss << "validation/common_runtime_test_type/" << sFileName;
 	//	try to open file
 	std::ifstream file(ss.str().c_str());
 	//	check if file was opened successfully
@@ -107,7 +107,7 @@ void sleepMS(unsigned milliseconds)
 #ifdef _WIN32
 	Sleep(milliseconds);
 #else
-	sleep(milliseconds);
+	usleep(milliseconds);
 #endif
 }
 

@@ -269,7 +269,10 @@ static void waitOnSingleDevice(OpenCLDescriptor& ocl_descriptor, cl_device_type 
 	//release user events
 //	releaseEvent(user_event);
 	for(int i = 0 ; i <= index; i++){
-		releaseEvent(device_done_event[i]);
+		if (device_done_event[i])
+		{
+			releaseEvent(device_done_event[i]);
+		}
 	}
 }
 

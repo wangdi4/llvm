@@ -1103,7 +1103,7 @@ void linkProgram(cl_context context, cl_uint num_devices, const cl_device_id * d
 	cl_int ret;
 	*output_program = clLinkProgram(context, num_devices, device_list, options, num_input_programs, input_programs, NULL, NULL, &ret);
 	ASSERT_EQ(CL_SUCCESS, ret) << "linkProgram failed";
-	ASSERT_NE(NULL,ret) << "linkProgram returned a NULL program";
+	ASSERT_NE(NULL, (size_t)(void*)(*output_program)) << "linkProgram returned a NULL program";
 }
 //enqueueMarkerWithWaitList - calls and validates clEnqueueMarkerWithWaitList{
 void enqueueMarkerWithWaitList(cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *marker){

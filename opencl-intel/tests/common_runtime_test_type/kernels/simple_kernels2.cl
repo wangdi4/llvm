@@ -70,12 +70,12 @@ __kernel void kernel_19(__global int* input, int input_size)
 }
 
 #if FOR_CPU
-__kernel void kernel_ifdef(__global int* input, int input_size, int input_size2)
+__kernel void kernel_ifdef2(__global int* input, int input_size, int input_size2)
 {
 	input[0] = 0;			
 }
 #else
-__kernel void kernel_ifdef(__global int* input, int input_size)
+__kernel void kernel_ifdef2(__global int* input, int input_size)
 {
 	input[0] = 1;			
 }
