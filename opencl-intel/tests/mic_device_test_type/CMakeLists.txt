@@ -44,6 +44,11 @@ CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
+if (NOT WIN32)
+	get_target_property( CURR_RPATH ${TARGET} INSTALL_RPATH )
+	set_target_properties( ${TARGET} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
+endif (NOT WIN32)
+
 target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} task_executor gtest)
 
 set( CREATE_DIR_NAME bin/validation/mic_device_test_type)
