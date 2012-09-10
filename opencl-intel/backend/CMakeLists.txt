@@ -327,10 +327,12 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
 
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
-
+    
+    # copying MICRegression suite tests to install directory, excluding .svn
+    # files 
     install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
         DESTINATION bin/validation/MICRegression/
-        PATTERN .svn/ EXCLUDE)
+        PATTERN ".svn" EXCLUDE)
 endif(LLVM_BUILD_APPLE_BACKEND)
 
 
