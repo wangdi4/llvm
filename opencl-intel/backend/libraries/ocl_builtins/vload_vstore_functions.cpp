@@ -1050,14 +1050,18 @@ float4 _ocl_double4ToHalf4(double4 param)
 		}\
 		else\
 		{\
-			float4 temp = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)(ptr + 3*offset)));\
+			_8i16 tmp;\
+			tmp.s012 = *((_3i16 *)(ptr + 3*offset));\
+			float4 temp = Half4ToFloat4(tmp);\
 			return temp.s012;\
 		}\
 	}\
 	float2 __attribute__((overloadable))  vload##A##_half2(size_t offset,const ADR half *ptr)\
 	{\
-		float4 temp = Half4ToFloat4((_8i16)_mm_lddqu_si128((__m128i *)(ptr + 2*offset)));\
-		return temp.lo;\
+		_8i16 tmp;\
+		tmp.s01= *((_2i16 *)(ptr + 2*offset));\
+		float4 res = Half4ToFloat4(tmp);\
+		return res.lo;\
 	}\
 	float8 __attribute__((overloadable))  vload##A##_half8(size_t offset,const ADR half *ptr)\
 	{\
