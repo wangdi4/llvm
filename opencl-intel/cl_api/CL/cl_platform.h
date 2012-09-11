@@ -357,20 +357,7 @@ typedef unsigned int cl_GLenum;
         typedef cl_int      __cl_int2       __attribute__((vector_size(8)));
         typedef cl_ulong    __cl_ulong1     __attribute__((vector_size(8)));
         typedef cl_long     __cl_long1      __attribute__((vector_size(8)));
-        #if defined( __INTEL_COMPILER ) && __INTEL_COMPILER < 1200
-            /*
-                Intel Compiler 11.1 issues an error:
-                
-                    CL/cl_platform.h(358): error: invalid attribute for "__cl_float2={float}"
-                    typedef cl_float    __cl_float2     __attribute__((vector_size(8)));
-                                                                       ^
-                Intel Complier 12.0 does not find any errors in this file.
-                This workarounds the problem with icc 11.1.
-            */
-            typedef cl_float    __cl_float2;
-        #else
-            typedef cl_float    __cl_float2     __attribute__((vector_size(8)));
-        #endif
+        typedef cl_float    __cl_float2     __attribute__((vector_size(8)));
     #else
 	    #include <mmintrin.h>
         typedef __m64       __cl_uchar8;
