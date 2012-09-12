@@ -17,7 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-//#include <OpenGL/cl_driver_types.h>
+#include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>
 #include "llvm/CallingConv.h"
@@ -62,6 +62,7 @@
 #include "x86_cvms.h"
 #include <cvms/plugin.h>
 
+#include "Optimizer.h"
 #ifdef CLD_ASSERT
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -837,8 +838,13 @@ static int compileProgram(
       return -4;
 
     // We have at least one kernel.
+
     has_kernel = true;
 
+      Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM,SM,NULL);
+      optimizer.Optimize();
+
+      
     if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) &&
         !debug && !disable_opt) {
       // FIXME: replace with sysctl check for avx when available.

@@ -1,3 +1,5 @@
+set (TARGET_NAME LLVMVectorizer)
+
 file(GLOB_RECURSE headers *.h)
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Utils")
@@ -14,9 +16,12 @@ include_directories(BEFORE "LoopHandler")
 include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "IRPrinter")
 include_directories(BEFORE "Heuristic")
+include_directories(BEFORE "PostDominanceFrontier")
 include_directories(../arch_headers)
 
-add_llvm_library( LLVMVectorizer
+use_rtti( FALSE )
+
+add_library( ${TARGET_NAME}
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
@@ -63,5 +68,13 @@ add_llvm_library( LLVMVectorizer
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   IRPrinter/IRPrinter.cpp
   Heuristic/InstCounter.cpp
+  PostDominanceFrontier/PostDominanceFrontier.cpp
   ${headers}
 )
+
+if( NOT APPLE )
+    add_dependencies( ${TARGET_NAME} 
+                    intrinsics_gen )
+endif( NOT APPLE)
+
+set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )

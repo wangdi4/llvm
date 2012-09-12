@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "RuntimeServices.h"
 #include "TargetArch.h"
+#include "PostDominanceFrontier.h"
 
 
 using namespace llvm;

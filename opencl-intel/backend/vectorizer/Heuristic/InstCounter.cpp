@@ -13,6 +13,8 @@ const float WeightedInstCounter::RATIO_MULTIPLIER = 1;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
+void initializePostDominanceFrontierPass(PassRegistry&);
+
 // Costs for transpose functions
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
    { "load_transpose_float4x8", 60 },
@@ -51,7 +53,7 @@ WeightedInstCounter::WeightedInstCounter(bool preVec = true,
   initializeLoopInfoPass(*PassRegistry::getPassRegistry());
   initializeDominatorTreePass(*PassRegistry::getPassRegistry());
   initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
-  initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
+  llvm::initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
 
   int i = 0;
   while (CostDB[i].name) {
@@ -165,8 +167,18 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 // is consistent for a single run, but not between runs.
 struct TypeComp {
   bool operator() (Type* Left, Type* Right) const {    
-    if (Left->getNumElements() != Right->getNumElements())
-      return (Left->getNumElements() < Right->getNumElements());
+    VectorType *VTypeLeft = dyn_cast<VectorType>(Left);
+    VectorType *VTypeRight= dyn_cast<VectorType>(Right);
+
+    if( NULL != VTypeRight && NULL == VTypeLeft )
+        return true;
+
+    if( NULL == VTypeRight && NULL != VTypeLeft )
+        return false;
+
+    if( NULL != VTypeLeft && NULL != VTypeRight)
+      if (VTypeLeft->getNumElements() != VTypeRight->getNumElements())
+        return (VTypeLeft->getNumElements() < VTypeRight->getNumElements());
 
     if (Left->getScalarSizeInBits() != Right->getScalarSizeInBits())
       return (Left->getScalarSizeInBits() < Right->getScalarSizeInBits());
@@ -255,7 +267,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
         return MEM_OP_WEIGHT;
 
        // This is a vector type, it'll be ugly.
-      int NumElements = MaskType->getNumElements();
+      int NumElements = cast<VectorType>(MaskType)->getNumElements();
       return MEM_OP_WEIGHT * NumElements;
       // TODO: if the vector is really large, still need to multiply...
     }
@@ -524,6 +536,7 @@ void WeightedInstCounter::
   // What we really ant is a control-dependance graph.
   // Luckily, a node is control-dependent exactly on its postdom
   // frontier.
+  
   PostDominanceFrontier* PDF = &getAnalysis<PostDominanceFrontier>();
   PostDominanceFrontier::DomSetMapType ControlDepMap;
 

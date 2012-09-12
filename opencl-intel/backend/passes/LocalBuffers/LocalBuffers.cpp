@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   void getKernelInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
-    LocalBuffers *pKU = dynamic_cast<LocalBuffers*>(pPass);
+    LocalBuffers *pKU = static_cast<LocalBuffers*>(pPass);
 
     infoMap.clear();
     if ( NULL != pKU ) {

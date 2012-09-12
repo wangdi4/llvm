@@ -3,9 +3,11 @@ set(TARGET_NAME OclUtils)
 set (OCL_UTILS_INCLUDE_FILES
     CompilationUtils.h
     CPUDetect.h
+    debuggingservicetype.h
     exceptions.h
     ExecutionContext.h
     ExplicitArgument.h
+    ExecutionContext.h
     ExplicitLocalMemArgument.h
     ExplicitGlobalMemArgument.h
     FunctionArgument.h
@@ -22,6 +24,7 @@ set (OCL_UTILS_INCLUDE_FILES
 set (OCL_UTILS_SOURCE_FILES
     CompilationUtils.cpp
     CPUDetect.cpp
+    debuggingservicetype.cpp
     FunctionArgument.cpp
     ImplicitArgsUtils.cpp
     SystemInfo.cpp
@@ -30,7 +33,6 @@ set (OCL_UTILS_SOURCE_FILES
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
-    ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/arch_headers
 )
 

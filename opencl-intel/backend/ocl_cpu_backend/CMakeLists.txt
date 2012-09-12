@@ -57,10 +57,11 @@ endif(CVCC_ASM_PATH)
 set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
 set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
-set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS} ")
+set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
 
 set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
 set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
+
 
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( ${WARNING_LEVEL} )
@@ -73,25 +74,6 @@ set (ADD_LINKER_FLAGS_RELEASE )
 include(FindThreads)
 set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" )
 
-# C switches
-set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
-set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-# C++ switches
-set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
-set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-# Linker switches - EXE
-set( CMAKE_EXE_LINKER_FLAGS           ${INIT_LINKER_FLAGS})
-set( CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
-# Linker switches - Shared Lib
-set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
-set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #
@@ -119,6 +101,26 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already 
 set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
+# C switches
+set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
+set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
+set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
+
+# C++ switches
+set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
+set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
+set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
+
+# Linker switches - EXE
+set( CMAKE_EXE_LINKER_FLAGS           ${INIT_LINKER_FLAGS})
+set( CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
+set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
+
+# Linker switches - Shared Lib
+set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
+set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
+set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
+
 endif (NOT WIN32)
 
 #
@@ -137,6 +139,9 @@ set( CMAKE_ASM_LINK_FLAG "/nologo")
 set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 
 endif (WIN32)
+
+
+use_rtti(FALSE)
 
 # Create target project
 set (OCL_CPU_BACKEND_INCLUDE_FILES
@@ -188,7 +193,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackManager.h
     ImageCallbackServices.h
     debuggingservicewrapper.h
-    debuggingservicetype.h
     opencl_printf_ext.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
@@ -244,7 +248,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
-    debuggingservicetype.cpp
     ocl_debug_builtins.cpp
   )
 
@@ -330,6 +333,8 @@ endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 set (LLVM_LIBS
     # LLVM libs
+    LLVMVectorizer
+    LLVMBarrier
     LLVMLinker
     LLVMX86AsmParser
     LLVMX86AsmPrinter
@@ -337,6 +342,7 @@ set (LLVM_LIBS
     LLVMX86Disassembler
     LLVMX86Info
     LLVMTransformUtils
+    LLVMAnalysis
     LLVMCore
     LLVMTarget
     LLVMExecutionEngine
@@ -346,15 +352,12 @@ set (LLVM_LIBS
     LLVMBitReader
     LLVMBitWriter
     LLVMSupport
-    LLVMAnalysis
     LLVMAsmPrinter
     LLVMInstCombine
     LLVMipo
     LLVMMC
     LLVMScalarOpts
     LLVMSelectionDAG
-    LLVMVectorizer
-    LLVMBarrier
     LLVMipa
     LLVMX86AsmPrinter
     LLVMMC

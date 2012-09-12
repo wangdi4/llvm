@@ -843,6 +843,7 @@ void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
     // Finally release the object
     assert(m_pBackendCompiler);
 
+#ifdef __INCLUDE_MKL__
 	// Ugly code because BE team decided to remove Release() method from the IDevBEProgram
 	BuiltInProgram* pBIProgram = dynamic_cast<BuiltInProgram*>(pEntry->pProgram);
 	if ( NULL != pBIProgram )
@@ -850,6 +851,7 @@ void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
 		delete pBIProgram;
 	}
 	else
+#endif
 	{
 		m_pBackendCompiler->ReleaseProgram(pEntry->pProgram);
 	}

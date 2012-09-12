@@ -10,7 +10,9 @@ project (${TARGET_NAME})
 
 set(NAME_MANGLE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(unittests)
+if (NOT APPLE)
+    add_subdirectory(unittests)
+endif(NOT APPLE)
 add_subdirectory(antlruntime)
 
 add_custom_command(
@@ -46,9 +48,4 @@ include_directories(
 target_link_libraries(
   ${TARGET_NAME}
   antlr
-)
-
-add_dependencies(
-  ${TARGET_NAME}
-  ParserGeneration
 )

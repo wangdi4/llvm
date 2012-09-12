@@ -1,8 +1,14 @@
-file(GLOB_RECURSE headers *.h)
-include_directories(BEFORE "include")
-include_directories(${BACKEND_ROOT_DIR}/../cl_api ${BACKEND_ROOT_DIR}/ocl_cpu_backend)
+set( TARGET_NAME LLVMBarrier)
 
-add_llvm_library( LLVMBarrier
+file(GLOB_RECURSE headers *.h)
+
+include_directories(BEFORE "include")
+include_directories(
+    ${BACKEND_ROOT_DIR}/../cl_api 
+    ${BACKEND_ROOT_DIR}/utils
+    )
+    
+add_library( ${TARGET_NAME}
   BarrierInFunctionPass.cpp
   BarrierMain.cpp
   BarrierPass.cpp
@@ -17,3 +23,6 @@ add_llvm_library( LLVMBarrier
   WIRelatedValuePass.cpp
   ${headers}
 )
+
+set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+

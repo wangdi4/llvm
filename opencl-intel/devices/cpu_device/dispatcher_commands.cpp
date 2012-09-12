@@ -759,14 +759,16 @@ Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
 cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
 {
+#ifdef __INCLUDE_MKL__
 	// First to check if the requried NDRange is one of the built-in kernels
 	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
-	IBuiltInKernel* pBIKernel;
+	
+    IBuiltInKernel* pBIKernel;
 	if ( NULL != (pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel)) )
 	{
 		return pBIKernel->CreateBIKernelTask(pTD, pCmd, pTask);
 	}
-
+#endif
 	NDRange* pCommand = new NDRange(pTD, pCmd);
 	if (NULL == pCommand)
 	{

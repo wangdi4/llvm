@@ -1,4 +1,6 @@
 # Create the passes seperate projects
+use_rtti( FALSE )
+
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(BuiltInFuncImport)
 add_subdirectory(DebugInfoPass)
