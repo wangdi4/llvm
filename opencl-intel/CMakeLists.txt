@@ -157,5 +157,8 @@ else(APPLE)
 
 	#validation
 	add_subdirectory( tests )
+
+    #workloads
+    add_subdirectory( workloads )
 endif(APPLE) 
 
