@@ -37,7 +37,13 @@
 
 #if defined(__AVX__)
 
-
+/// @brief Receives char4x4 matrix as char16, transposes it and outputs the rows
+///        of the transposed matrix
+/// @param xyzwIn - char4x4 matrix to be transposed
+/// @param xOut   - Row 0 of the transposed matrix
+/// @param yOut   - Row 1 of the transposed matrix
+/// @param zOut   - Row 2 of the transposed matrix
+/// @param wOut   - Row 3 of the transposed matrix
 void load_transpose_char4x4_common(char16 xyzwIn, char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
   
   char16 xyzw = xyzwIn;                                                     // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
@@ -61,6 +67,13 @@ void load_transpose_char4x4(char4* pLoadAdd, char4* xOut, char4* yOut, char4* zO
   load_transpose_char4x4_common(xyzw, xOut, yOut, zOut, wOut);
 }
 
+/// @brief Receives char4x4 matrix as 4 matrix rows, transposes it and outputs the matrix
+///        as a whole using char16
+/// @param xyzw   - This parameter will contain the transposed char4x4 matrix
+/// @param xIn    - Row 0 of the matrix to be transposed
+/// @param yIn    - Row 1 of the matrix to be transposed
+/// @param zIn    - Row 2 of the matrix to be transposed
+/// @param wIn    - Row 3 of the matrix to be transposed
 void transpose_store_char4x4_common(char16* xyzw, char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
 
   char16 x;
@@ -91,6 +104,43 @@ void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, 
   vstore16(xyzw, 0, tmpStoreAdd);  // unaligned store
 }
 
+
+
+
+void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
+                              
+  
+  // TODO : check with Tal if for AVX it's better to do inserts instead of broadcast + blend                              
+  // Broadcast the loaded values, all but the first element in the register which will be moved there
+  int4 xyzw1 = *((int*)pLoadAdd1);
+  int4 xyzw2 = *((int*)pLoadAdd2);
+  int4 xyzw3 = *((int*)pLoadAdd3);
+
+  int4 xyzw;
+  // TODO : Replace this blend built-in with ?: when clang bug will be fixed
+  // There's no blendd in AVX, so we use blendps
+  xyzw.s0 = *((int*)pLoadAdd0);                                  // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw1, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw2, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw3, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+
+  load_transpose_char4x4_common((char16)xyzw, xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
+
+  int4 xyzw;
+  transpose_store_char4x4_common((char16*)&xyzw, xIn, yIn, zIn, wIn);
+
+  *((int*)pStoreAdd0) = xyzw.s0;
+  *((int*)pStoreAdd1) = xyzw.s1;
+  *((int*)pStoreAdd2) = xyzw.s2;
+  *((int*)pStoreAdd3) = xyzw.s3;
+}
+
+
 #endif // defined(__AVX__)
 
 
@@ -100,6 +150,14 @@ void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, 
 
 #if defined(__AVX__)
 
+/// @brief Receives char8x4 matrix as 2 halfs (2 char4x4 matrixes) using 2 char16, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw0In  - Upper part of the char8x4 matrix to be transposed
+/// @param xyzw1In  - Lower part of the char8x4 matrix to be transposed
+/// @param xIn      - Row 0 of the transposed matrix
+/// @param yIn      - Row 1 of the transposed matrix
+/// @param zIn      - Row 2 of the transposed matrix
+/// @param wIn      - Row 3 of the transposed matrix
 void load_transpose_char4x8_common_AVX(char16 xyzw0In, char16 xyzw1In, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
   
   char16 xyzw0 = xyzw0In;
@@ -140,6 +198,14 @@ void load_transpose_char4x8_AVX(char4* pLoadAdd, char8* xOut, char8* yOut, char8
   load_transpose_char4x8_common_AVX(xyzw0, xyzw1, xOut, yOut, zOut, wOut);
 }
 
+/// @brief Receives char4x8 matrix as 4 matrix rows, transposes it and outputs the matrix
+///        2 halfs (2 char4x4 matrixes) using 2 char16, which create one char4x8 matrix
+/// @param xyzw0  - Upper part of the transposed char4x8
+/// @param xyzw1  - Lower part of the transposed char4x8
+/// @param xIn    - Row 0 of the matrix to be transposed
+/// @param yIn    - Row 1 of the matrix to be transposed
+/// @param zIn    - Row 2 of the matrix to be transposed
+/// @param wIn    - Row 3 of the matrix to be transposed
 void transpose_store_char4x8_common_AVX(char16* xyzw0, char16* xyzw1, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char16 x;
@@ -173,6 +239,55 @@ void transpose_store_char4x8_AVX(char4* pStoreAdd, char8 xIn, char8 yIn, char8 z
   vstore16(xyzw1, 1, tmpStoreAdd);
 }
 
+void gather_transpose_char4x8_AVX(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                                  char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
+                                  char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+  
+  // TODO : check with Tal if for AVX it's better to do inserts instead of broadcast + blend
+  // Broadcast the loaded values, all but the first element in the register which will be moved there
+  int4 xyzw1 = *((int*)pLoadAdd1);
+  int4 xyzw2 = *((int*)pLoadAdd2);
+  int4 xyzw3 = *((int*)pLoadAdd3);
+  
+  int4 xyzw5 = *((int*)pLoadAdd5);
+  int4 xyzw6 = *((int*)pLoadAdd6);
+  int4 xyzw7 = *((int*)pLoadAdd7);
+
+  int4 xyzwIn0;
+  int4 xyzwIn1;
+  // TODO : Replace this blend built-in with ?: when clang bug will be fixed
+  // We don't have blendd in AVX, so we use blendps
+  xyzwIn0.s0 = *((int*)pLoadAdd0);                                      // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw1, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw2, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw3, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+
+  xyzwIn1.s0 = *((int*)pLoadAdd4);                                      // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw5, 0x4);   // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw6, 0x2);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw7, 0x1);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+
+  load_transpose_char4x8_common_AVX((char16)xyzwIn0, (char16)xyzwIn1, xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_char4x8_AVX(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                                   char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
+                                   char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+
+  int4 xyzw0;
+  int4 xyzw1;
+  transpose_store_char4x8_common_AVX((char16*)&xyzw0, (char16*)&xyzw1, xIn, yIn, zIn, wIn);
+
+  *((int*)pStoreAdd0) = xyzw0.s0;
+  *((int*)pStoreAdd1) = xyzw0.s1;
+  *((int*)pStoreAdd2) = xyzw0.s2;
+  *((int*)pStoreAdd3) = xyzw0.s3;
+  *((int*)pStoreAdd4) = xyzw1.s0;
+  *((int*)pStoreAdd5) = xyzw1.s1;
+  *((int*)pStoreAdd6) = xyzw1.s2;
+  *((int*)pStoreAdd7) = xyzw1.s3;
+}
+
 #endif // defined(__AVX__)
 
 
@@ -180,8 +295,14 @@ void transpose_store_char4x8_AVX(char4* pStoreAdd, char8 xIn, char8 yIn, char8 z
 
 typedef __v32qi char32;
 
+/// @brief Receives char8x4 matrix as char32, transposes it and outputs the rows
+///        of the transposed matrix
+/// @param xyzwIn - char8x4 matrix to be transposed
+/// @param xOut   - Row 0 of the transposed matrix
+/// @param yOut   - Row 1 of the transposed matrix
+/// @param zOut   - Row 2 of the transposed matrix
+/// @param wOut   - Row 3 of the transposed matrix
 void load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
-
 
   // TODO : Replace this shuffles with shuffle instead of shuffle builtin
   // when shuffle, shuffle2 with const mask passes will be supported in the BE
@@ -224,13 +345,20 @@ void load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut,
 
 void load_transpose_char4x8_AVX2(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 
-    // We load "int8", meaning we load the full matrix in a single load
+  // We load "int8", meaning we load the full matrix in a single load
   int* tmpLoadAdd = (int*)pLoadAdd;
-    char32 xyzw = (char32) vload8(0, tmpLoadAdd);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  char32 xyzw = (char32) vload8(0, tmpLoadAdd);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
 
   load_transpose_char4x8_common_AVX2(xyzw, xOut, yOut, zOut, wOut);
 }
 
+/// @brief Receives char4x8 matrix as 4 matrix rows, transposes it and outputs the matrix
+///        as a whole using char32
+/// @param xyzwOut  - This parameter will contain the transposed char4x8 matrix
+/// @param xIn      - Row 0 of the matrix to be transposed
+/// @param yIn      - Row 1 of the matrix to be transposed
+/// @param zIn      - Row 2 of the matrix to be transposed
+/// @param wIn      - Row 3 of the matrix to be transposed
 void transpose_store_char4x8_common_AVX2(char32* xyzwOut, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char16 x;
@@ -297,6 +425,51 @@ void transpose_store_char4x8_AVX2(char4* pStoreAdd, char8 xIn, char8 yIn, char8 
   vstore8((int8)xyzw, 0, tmpStoreAdd);
 }
 
+
+void gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                                    char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
+                                    char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+
+  // Broadcast the loaded values, all but the first element in the register which will be moved there
+  int8 xyzw1 = *((int*)pLoadAdd1);
+  int8 xyzw2 = *((int*)pLoadAdd2);
+  int8 xyzw3 = *((int*)pLoadAdd3);
+  int8 xyzw4 = *((int*)pLoadAdd4);
+  int8 xyzw5 = *((int*)pLoadAdd5);
+  int8 xyzw6 = *((int*)pLoadAdd6);
+  int8 xyzw7 = *((int*)pLoadAdd7);
+
+  int8 xyzw;
+  // TODO : Replace this blend built-in with ?: when clang bug will be fixed
+  xyzw.s0 = *((int*)pLoadAdd0);                                           // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw1, 0x64);  // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw2, 0x32);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw3, 0x16);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw4, 0x8);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw5, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw6, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw7, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+
+  load_transpose_char4x8_common_AVX2((char32)xyzw, xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_char4x8_AVX2(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                                    char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
+                                    char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+
+  int8 xyzw;
+  transpose_store_char4x8_common_AVX2((char32*)&xyzw, xIn, yIn, zIn, wIn);
+
+  *((int*)pStoreAdd0) = xyzw.s0;
+  *((int*)pStoreAdd1) = xyzw.s1;
+  *((int*)pStoreAdd2) = xyzw.s2;
+  *((int*)pStoreAdd3) = xyzw.s3;
+  *((int*)pStoreAdd4) = xyzw.s4;
+  *((int*)pStoreAdd5) = xyzw.s5;
+  *((int*)pStoreAdd6) = xyzw.s6;
+  *((int*)pStoreAdd7) = xyzw.s7;
+}
+
 #endif // defined(__AVX2__)
 
 #if defined(__AVX__)
@@ -314,6 +487,35 @@ void transpose_store_char4x8(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, 
   transpose_store_char4x8_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
   transpose_store_char4x8_AVX(pStoreAdd, xIn, yIn, zIn, wIn);
+#endif
+}
+
+
+void gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
+                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+#if defined(__AVX2__)
+  gather_transpose_char4x8_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                                pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                                xOut, yOut, zOut, wOut);
+#else // defined(__AVX__)
+  gather_transpose_char4x8_AVX( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                                pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                                xOut, yOut, zOut, wOut);
+#endif
+}
+
+void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
+                               char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+#if defined(__AVX2__)
+  transpose_scatter_char4x8_AVX2( pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                                  pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                                  xIn, yIn, zIn, wIn);
+#else // defined(__AVX__)
+  transpose_scatter_char4x8_AVX(  pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                                  pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                                  xIn, yIn, zIn, wIn);
 #endif
 }
 
@@ -350,46 +552,93 @@ void transpose_int4x4_AVX(int4 xyzw0, int4 xyzw1, int4 xyzw2, int4 xyzw3,
 
 void load_transpose_int4x4_AVX(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
-  // pLoadAdd[0]  = x0 y0 z0 w0 
-  // pLoadAdd[1]  = x1 y1 z1 w1 
-  // pLoadAdd[2]  = x2 y2 z2 w2 
-  // pLoadAdd[3]  = x3 y3 z3 w3 
+  // pLoadAdd[0]  = x0 y0 z0 w0
+  // pLoadAdd[1]  = x1 y1 z1 w1
+  // pLoadAdd[2]  = x2 y2 z2 w2
+  // pLoadAdd[3]  = x3 y3 z3 w3
 
   transpose_int4x4_AVX(pLoadAdd[0], pLoadAdd[1], pLoadAdd[2], pLoadAdd[3],
             xOut, yOut, zOut, wOut);
 
-  // xOut      = x0 x1 x2 x3
-  // yOut      = y0 y1 y2 y3
-  // zOut      = z0 z1 z2 z3
-  // wOut      = w0 w1 w2 w3
+  // xOut         = x0 x1 x2 x3
+  // yOut         = y0 y1 y2 y3
+  // zOut         = z0 z1 z2 z3
+  // wOut         = w0 w1 w2 w3
 }
 
 void transpose_store_int4x4_AVX(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 
-  // xIn      = x0 x1 x2 x3
-  // yIn      = y0 y1 y2 y3
-  // zIn      = z0 z1 z2 z3
-  // wIn      = w0 w1 w2 w3
+  // xIn          = x0 x1 x2 x3
+  // yIn          = y0 y1 y2 y3
+  // zIn          = z0 z1 z2 z3
+  // wIn          = w0 w1 w2 w3
 
   transpose_int4x4_AVX(xIn, yIn, zIn, wIn,
             &(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]));
   
-  // pStoreAdd[0] = x0 y0 z0 w0 
-  // pStoreAdd[1] = x1 y1 z1 w1 
-  // pStoreAdd[2] = x2 y2 z2 w2 
-  // pStoreAdd[3] = x3 y3 z3 w3 
+  // pStoreAdd[0] = x0 y0 z0 w0
+  // pStoreAdd[1] = x1 y1 z1 w1
+  // pStoreAdd[2] = x2 y2 z2 w2
+  // pStoreAdd[3] = x3 y3 z3 w3
 }
+
+
+void gather_transpose_int4x4_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                                 int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+
+  // pLoadAdd0    = x0 y0 z0 w0
+  // pLoadAdd1    = x1 y1 z1 w1
+  // pLoadAdd2    = x2 y2 z2 w2
+  // pLoadAdd3    = x3 y3 z3 w3
+
+  transpose_int4x4_AVX(*pLoadAdd0, *pLoadAdd1, *pLoadAdd2, *pLoadAdd3,
+            xOut, yOut, zOut, wOut);
+
+  // xOut         = x0 x1 x2 x3
+  // yOut         = y0 y1 y2 y3
+  // zOut         = z0 z1 z2 z3
+  // wOut         = w0 w1 w2 w3
+}
+
+void transpose_scatter_int4x4_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                               int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
+
+  // xIn          = x0 x1 x2 x3
+  // yIn          = y0 y1 y2 y3
+  // zIn          = z0 z1 z2 z3
+  // wIn          = w0 w1 w2 w3
+
+  transpose_int4x4_AVX(xIn, yIn, zIn, wIn,
+            pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
+  
+  // pStoreAdd0   = x0 y0 z0 w0
+  // pStoreAdd1   = x1 y1 z1 w1
+  // pStoreAdd2   = x2 y2 z2 w2
+  // pStoreAdd3   = x3 y3 z3 w3
+}
+
 
 #endif // defined(__AVX__)
 
 
 #if defined(__AVX2__)
 
+/// @brief Receives int4x4 matrix as 2 halfs (2 int2x4 matrixes) using 2 int8, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw0In  - Part of the int2x4 matrix to be transposed
+/// @param xyzw1In  - Part of the int2x4 matrix to be transposed
+/// @param xzOut  - Part of the transposed int4x2 matrix.
+///                 In case of isLoad is true xzOut will contain rows 0,2 of the transposed matrix,
+///                 otherwise it will contain rows 0,1.
+/// @param ywOut  - Part of the transposed int4x2 matrix
+///                 In case of isLoad is true ywOut will contain rows 1,3 of the transposed matrix,
+///                 otherwise it will contain rows 2,3.
+/// @param isLoad   - indicates if the origen of the operation is load\store.
 void transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23,
-            int8* xzOut, int8* ywOut) {
-              // TODO: load + permd creates:
+            int8* xzOut, int8* ywOut, bool isLoad) {
+  // TODO: load + permd creates:
   // vmovdqa  (%eax), %ymm1
-  // vmovdqa  32(%eax), %ymm0  
+  // vmovdqa  32(%eax), %ymm0
   // vmovdqa  LCPI20_0, %ymm2
   // vpermd  %ymm1, %ymm2, %ymm1
   // vmovdqa  LCPI20_1, %ymm2
@@ -400,18 +649,52 @@ void transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23,
   // vmovdqa  LCPI20_1, %ymm2
   // vpermd  32(%eax), %ymm2, %ymm2
 
-  xyzw01 = xyzw01.s04152637;                                                    // x0 x1 y0 y1 z0 z1 w0 w1
-  xyzw23 = xyzw23.s15043726;                                                    // y2 y3 x2 x3 w2 w3 z2 z3
+  if (isLoad) {
+    // in this case xyzw01 =                                                       x0 y0 z0 w0 x1 y1 z1 w1
+    // in this case xyzw23 =                                                       x2 y2 z2 w2 x3 y3 z3 w3
+    xyzw01 = xyzw01.s04152637;                                                  // x0 x1 y0 y1 z0 z1 w0 w1
+    xyzw23 = xyzw23.s15043726;                                                  // y2 y3 x2 x3 w2 w3 z2 z3
+  } else { // isStore
+    // in this case xyzw01 =                                                       x0 x1 x2 x3 y0 y1 y2 y3
+    // in this case xyzw23 =                                                       z0 z1 z2 z3 w0 w1 w2 w3
+    xyzw01 = xyzw01.s04261537;                                                  // x0 y0 x2 y2 x1 y1 x3 y3
+    xyzw23 = xyzw23.s26043715;                                                  // z2 w2 z0 w0 z3 w3 z1 w1
+  }
 
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   //int8 cond = {0, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF};
-  //int8 xz = cond ? xyzw01 : xyzw23;               // x0 x1 x2 x3 z0 z1 z2 z3
-  *xzOut = (int8) _mm256_blend_epi32((__m256i)xyzw01, (__m256i)xyzw23, 0xCC);   // x0 x1 x2 x3 z0 z1 z2 z3
+  //int8 xz = cond ? xyzw01 : xyzw23;
+  *xzOut = (int8) _mm256_blend_epi32((__m256i)xyzw01, (__m256i)xyzw23, 0xCC);   // x0 x1 x2 x3 z0 z1 z2 z3 for isLoad
+                                                                                // x0 y0 z0 w0 x1 y1 z1 w1 for isStore
   
   // TODO : Replace this shuffles with shuffle2 instead of shuffle builtin
   // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  *ywOut = __builtin_shufflevector (xyzw01, xyzw23,                             // y0 y1 y2 y3 w0 w1 w2 w3
-          2, 3, 8, 9, 6, 7, 12, 13);
+  *ywOut = __builtin_shufflevector (xyzw01, xyzw23,                             // y0 y1 y2 y3 w0 w1 w2 w3 for isLoad
+          2, 3, 8, 9, 6, 7, 12, 13);                                            // x2 y2 z2 w2 x3 y3 z3 w3 for isStore
+}
+
+/// @brief Receives int4x4 matrix as 2 halfs (2 int2x4 matrixes) using 2 int8, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw0In  - Upper part of the int2x4 matrix to be transposed
+/// @param xyzw1In  - Lower part of the int2x4 matrix to be transposed
+/// @param xOut     - Row 0 of the transposed matrix
+/// @param yOut     - Row 1 of the transposed matrix
+/// @param zOut     - Row 2 of the transposed matrix
+/// @param wOut     - Row 3 of the transposed matrix
+void load_transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+
+                                                                   // xyzw01 = x0 y0 z0 w0 x1 y1 z1 w1
+                                                                   // xyzw23 = x2 y2 z2 w2 x3 y3 z3 w3
+  int8 xz;
+  int8 yw;
+
+  transpose_int4x4_common_AVX2(xyzw01, xyzw23,                              // x0 x1 x2 x3 z0 z1 z2 z3  =  xz
+                &xz, &yw, true);                                            // y0 y1 y2 y3 w0 w1 w2 w3  =  yw
+
+  *xOut = xz.s0123;                                                         // x0 x1 x2 x3
+  *yOut = yw.s0123;                                                         // y0 y1 y2 y3
+  *zOut = xz.s4567;                                                         // z0 z1 z2 z3
+  *wOut = yw.s4567;                                                         // w0 w1 w2 w3
 }
 
 void load_transpose_int4x4_AVX2(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
@@ -421,16 +704,7 @@ void load_transpose_int4x4_AVX2(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zO
   int8 xyzw01 = vload8(0, tmpLoadAdd);                                      // x0 y0 z0 w0 x1 y1 z1 w1
   int8 xyzw23 = vload8(1, tmpLoadAdd);                                      // x2 y2 z2 w2 x3 y3 z3 w3
 
-  int8 xz;
-  int8 yw;
-
-  transpose_int4x4_common_AVX2(xyzw01, xyzw23,                              // x0 x1 x2 x3 z0 z1 z2 z3  =  xz
-                &xz, &yw);                                                  // y0 y1 y2 y3 w0 w1 w2 w3  =  yw
-
-  *xOut = xz.s0123;                                                         // x0 x1 x2 x3
-  *yOut = yw.s0123;                                                         // y0 y1 y2 y3
-  *zOut = xz.s4567;                                                         // z0 z1 z2 z3
-  *wOut = yw.s4567;                                                         // w0 w1 w2 w3
+  load_transpose_int4x4_common_AVX2(xyzw01, xyzw23, xOut, yOut, zOut, wOut);
 }
 
 void transpose_store_int4x4_AVX2(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
@@ -438,23 +712,45 @@ void transpose_store_int4x4_AVX2(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, 
   int8 xy = {xIn, yIn};                                                     // x0 x1 x2 x3 y0 y1 y2 y3
   int8 zw = {zIn, wIn};                                                     // z0 z1 z2 z3 w0 w1 w2 w3
 
-  xy = xy.s04261537;                                                        // x0 y0 x2 y2 x1 y1 x2 y3
-  zw = zw.s26043715;                                                        // z2 w2 z0 w0 z3 w3 z1 w1
+  int8 xyzw01;
+  int8 xyzw23;
 
-  // TODO : Replace this blend built-in with ?: when clang bug will be fixed
-  //int8 cond = {0, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF};
-  //int8 xyzw01 = cond ? xy : zw;                     // x0 y0 z0 w0 x1 y1 z1 w1
-  int8 xyzw01 = (int8) _mm256_blend_epi32((__m256i)xy, (__m256i)zw, 0xCC);  // x0 y0 z0 w0 x1 y1 z1 w1
-
-  // TODO : Replace this shuffle with shuffle2 instead of shuffle builtin
-  // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  int8 xyzw23 = __builtin_shufflevector (xy, zw,                            // x2 y2 z2 w2 x3 y3 z3 w3
-          2, 3, 8, 9, 6, 7, 12, 13);
+  transpose_int4x4_common_AVX2(xy, zw,
+                &xyzw01, &xyzw23, false);
 
   // We store "int8", meaning we store the full matrix in 2 stores
   int* tmpStoreAdd = (int*)pStoreAdd;
   vstore8(xyzw01, 0, tmpStoreAdd);
   vstore8(xyzw23, 1, tmpStoreAdd);
+}
+
+
+
+void gather_transpose_int4x4_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                                  int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+  
+  int8 xyzw01 = {*pLoadAdd0, *pLoadAdd1};                                   // x0 y0 z0 w0 x1 y1 z1 w1
+  int8 xyzw23 = {*pLoadAdd2, *pLoadAdd3};                                   // x2 y2 z2 w2 x3 y3 z3 w3
+
+  load_transpose_int4x4_common_AVX2(xyzw01, xyzw23, xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_int4x4_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                               int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
+
+  int8 xy = {xIn, yIn};                                                     // x0 x1 x2 x3 y0 y1 y2 y3
+  int8 zw = {zIn, wIn};                                                     // z0 z1 z2 z3 w0 w1 w2 w3
+
+  int8 xyzw01;
+  int8 xyzw23;
+
+  transpose_int4x4_common_AVX2(xy, zw,
+                &xyzw01, &xyzw23, false);
+
+  *pStoreAdd0 = xyzw01.s0123;
+  *pStoreAdd1 = xyzw01.s4567;
+  *pStoreAdd2 = xyzw01.s0123;
+  *pStoreAdd3 = xyzw01.s4567;
 }
 
 #endif // defined(__AVX2__)
@@ -474,6 +770,25 @@ void transpose_store_int4x4(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 
   transpose_store_int4x4_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
   transpose_store_int4x4_AVX(pStoreAdd, xIn, yIn, zIn, wIn);
+#endif
+}
+
+
+void gather_transpose_int4x4(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                             int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+#if defined(__AVX2__)
+  gather_transpose_int4x4_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
+#else // defined(__AVX__)
+  gather_transpose_int4x4_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
+#endif
+}
+
+void transpose_scatter_int4x4(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                               int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
+#if defined(__AVX2__)
+  transpose_scatter_int4x4_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
+#else // defined(__AVX__)
+  transpose_scatter_int4x4_AVX(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
 #endif
 }
 
@@ -547,10 +862,83 @@ void transpose_store_int4x8_AVX(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, i
                                                                             // x7 y7 z7 w7
 }
 
+
+
+void gather_transpose_int4x8_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                                 int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
+                                 int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+
+  int4 x0;
+  int4 y0;
+  int4 z0;
+  int4 w0;
+
+  gather_transpose_int4x4_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,   // x0 x1 x2 x3
+                              &x0, &y0, &z0, &w0);                          // y0 y1 y2 y3
+                                                                            // z0 z1 z2 z3
+                                                                            // w0 w1 w2 w3
+
+  int4 x1;
+  int4 y1;
+  int4 z1;
+  int4 w1;
+
+  gather_transpose_int4x4_AVX(pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,   // x4 x5 x6 x7
+                              &x1, &y1, &z1, &w1);                          // y4 y5 y6 y7
+                                                                            // z4 z5 z6 z7
+                                                                            // w4 w5 w6 w7
+
+  // TODO : Replace these shuffle builtins with *xOut = {x0, x1} when clang bug will be fixed
+  *xOut = __builtin_shufflevector (x0, x1,                                  // x0 x1 x2 x3 x4 x5 x6 x7
+          0, 1, 2, 3, 4, 5, 6, 7);
+  *yOut = __builtin_shufflevector (y0, y1,                                  // y0 y1 y2 y3 y4 y5 y6 y7
+          0, 1, 2, 3, 4, 5, 6, 7);
+  *zOut = __builtin_shufflevector (z0, z1,                                  // z0 z1 z2 z3 z4 z5 z6 z7
+          0, 1, 2, 3, 4, 5, 6, 7);
+  *wOut = __builtin_shufflevector (w0, w1,                                  // w0 w1 w2 w3 w4 w5 w6 w7
+          0, 1, 2, 3, 4, 5, 6, 7);
+}
+
+void transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                                  int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
+                                  int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+  int4 x0 = xIn.s0123;
+  int4 y0 = yIn.s0123;
+  int4 z0 = zIn.s0123;
+  int4 w0 = wIn.s0123;
+
+  transpose_scatter_int4x4_AVX(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, 
+                               x0, y0, z0, w0);                             // x0 y0 z0 w0
+                                                                            // x1 y1 z1 w1
+                                                                            // x2 y2 z2 w2
+                                                                            // x3 y3 z3 w3
+
+  int4 x1 = xIn.s4567;
+  int4 y1 = yIn.s4567;
+  int4 z1 = zIn.s4567;
+  int4 w1 = wIn.s4567;
+
+  transpose_scatter_int4x4_AVX(pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7, 
+                               x1, y1, z1, w1);                             // x4 y4 z4 w4
+                                                                            // x5 y5 z5 w5
+                                                                            // x6 y6 z6 w6
+                                                                            // x7 y7 z7 w7
+}
+
 #endif // defined(__AVX__)
 
 #if defined(__AVX2__)
 
+/// @brief Receives int8x4 matrix as 4 double rows (4 int2x4 matrixes) using 4 int8, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw04  - Rows 0,4 of the matrix to be transposed
+/// @param xyzw15  - Rows 1,5 of the matrix to be transposed
+/// @param xyzw26  - Rows 2,6 og the matrix to be transposed
+/// @param xyzw37  - Rows 3,7 matrix to be transposed
+/// @param xOut    - Row 0 of the transposed matrix
+/// @param yOut    - Row 1 of the transposed matrix
+/// @param zOut    - Row 2 of the transposed matrix
+/// @param wOut    - Row 3 of the transposed matrix
 void transpose_int4x8_common_AVX2(int8 xyzw04, int8 xyzw15, int8 xyzw26, int8 xyzw37,
              int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
   
@@ -569,22 +957,26 @@ void transpose_int4x8_common_AVX2(int8 xyzw04, int8 xyzw15, int8 xyzw26, int8 xy
   *wOut = (int8) _mm256_unpackhi_epi32((__m256i)zw0246, (__m256i)zw1357);         // w0 w1 w2 w3 w4 w5 w6 w7
 }
 
-void load_transpose_int4x8_AVX2(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
-  // TODO: creates
+
+
+void gather_transpose_int4x8_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                                  int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
+                                  int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+                                  // TODO: creates
   // vmovaps  48(%eax), %xmm0
   // vmovaps  112(%eax), %xmm1
   // vinsertf128  $1, %xmm1, %ymm0, %ymm0
   // instead of vpinsert from memory and not loading into xmm1
 
-  // TODO : Replace this shuffle with { pLoadAdd[0],  pLoadAdd[4]} instead of shuffle builtin
+  // TODO : Replace this shuffle with { pLoadAdd0,  pLoadAdd4} instead of shuffle builtin
   // when clang bug will be fixed
-  int8 xyzw04 = __builtin_shufflevector (pLoadAdd[0], pLoadAdd[4],          // x0 y0 z0 w0 x4 y4 z4 w4
+  int8 xyzw04 = __builtin_shufflevector (*pLoadAdd0, *pLoadAdd4,            // x0 y0 z0 w0 x4 y4 z4 w4
             0, 1, 2, 3, 4, 5, 6, 7);
-  int8 xyzw15 = __builtin_shufflevector (pLoadAdd[1], pLoadAdd[5],          // x1 y1 z1 w1 x5 y5 z5 w5
+  int8 xyzw15 = __builtin_shufflevector (*pLoadAdd1, *pLoadAdd5,            // x1 y1 z1 w1 x5 y5 z5 w5
+            0, 1, 2, 3, 4, 5, 6, 7); 
+  int8 xyzw26 = __builtin_shufflevector (*pLoadAdd2, *pLoadAdd6,            // x2 y2 z2 w2 x6 y6 z6 w6
             0, 1, 2, 3, 4, 5, 6, 7);
-  int8 xyzw26 = __builtin_shufflevector (pLoadAdd[2], pLoadAdd[6],          // x2 y2 z2 w2 x6 y6 z6 w6
-            0, 1, 2, 3, 4, 5, 6, 7);
-  int8 xyzw37 = __builtin_shufflevector (pLoadAdd[3], pLoadAdd[7],          // x3 y3 z3 w3 x7 y7 z7 w7
+  int8 xyzw37 = __builtin_shufflevector (*pLoadAdd3, *pLoadAdd7,            // x3 y3 z3 w3 x7 y7 z7 w7
             0, 1, 2, 3, 4, 5, 6, 7);
 
   transpose_int4x8_common_AVX2(xyzw04, xyzw15, xyzw26, xyzw37,
@@ -595,8 +987,9 @@ void load_transpose_int4x8_AVX2(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zO
                                                                             // wOut = w0 w1 w2 w3 w4 w5 w6 w7
 }
 
-void transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
-  
+void transpose_scatter_int4x8_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                                   int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
+                                   int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
   int8 xyzw04;
   int8 xyzw15;
   int8 xyzw26;
@@ -615,14 +1008,30 @@ void transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, 
   // vmovapd  %xmm2, 64(%eax)
   // instead of extracting directly to memory
   
-  pStoreAdd[0] = xyzw04.s0123;                                              // x0 y0 z0 w0
-  pStoreAdd[1] = xyzw15.s0123;                                              // x1 y1 z1 w1
-  pStoreAdd[2] = xyzw26.s0123;                                              // x2 y2 z2 w2
-  pStoreAdd[3] = xyzw37.s0123;                                              // x3 y3 z3 w3 
-  pStoreAdd[4] = xyzw04.s4567;                                              // x4 y4 z4 w4
-  pStoreAdd[5] = xyzw15.s4567;                                              // x5 y5 z5 w5
-  pStoreAdd[6] = xyzw26.s4567;                                              // x6 y6 z6 w6
-  pStoreAdd[7] = xyzw37.s4567;                                              // x7 y7 z7 w7
+  *pStoreAdd0 = xyzw04.s0123;                                               // x0 y0 z0 w0
+  *pStoreAdd1 = xyzw15.s0123;                                               // x1 y1 z1 w1
+  *pStoreAdd2 = xyzw26.s0123;                                               // x2 y2 z2 w2
+  *pStoreAdd3 = xyzw37.s0123;                                               // x3 y3 z3 w3
+  *pStoreAdd4 = xyzw04.s4567;                                               // x4 y4 z4 w4
+  *pStoreAdd5 = xyzw15.s4567;                                               // x5 y5 z5 w5
+  *pStoreAdd6 = xyzw26.s4567;                                               // x6 y6 z6 w6
+  *pStoreAdd7 = xyzw37.s4567;                                               // x7 y7 z7 w7
+}
+
+
+
+
+void load_transpose_int4x8_AVX2(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+  gather_transpose_int4x8_AVX2(&(pLoadAdd[0]), &(pLoadAdd[1]), &(pLoadAdd[2]), &(pLoadAdd[3]),
+                               &(pLoadAdd[4]), &(pLoadAdd[5]), &(pLoadAdd[6]), &(pLoadAdd[7]),
+                               xOut, yOut, zOut, wOut);
+}
+
+void transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+
+  transpose_scatter_int4x8_AVX2(&(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]),
+                                &(pStoreAdd[4]), &(pStoreAdd[5]), &(pStoreAdd[6]), &(pStoreAdd[7]),
+                                xIn, yIn, zIn, wIn);
 }
 
 #endif // defined(__AVX2__)
@@ -646,6 +1055,34 @@ void transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 
 #endif
 }
 
+void gather_transpose_int4x8(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                             int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
+                             int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+#if defined(__AVX2__)
+  gather_transpose_int4x8_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                               pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                               xOut, yOut, zOut, wOut);
+#else // defined(__AVX__)
+   gather_transpose_int4x8_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                               pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                               xOut, yOut, zOut, wOut);
+#endif
+}
+
+void transpose_scatter_int4x8(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                              int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
+                              int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+#if defined(__AVX2__)
+  transpose_scatter_int4x8_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                                pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                                xIn, yIn, zIn, wIn);
+#else // defined(__AVX__)
+  transpose_scatter_int4x8_AVX(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                               pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                               xIn, yIn, zIn, wIn);
+#endif
+}
+
 #endif // defined(__AVX__)
 
 
@@ -655,12 +1092,6 @@ void transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 
 
 #if defined(__AVX__)
 
-void transpose_float4x4_AVX(float4 in0, float4 in1, float4 in2, float4 in3,
-            float4* out0, float4* out1, float4* out2, float4* out3) {
-  transpose_int4x4_AVX((int4)in0, (int4)in1, (int4)in2, (int4)in3,
-            (int4*)out0, (int4*)out1, (int4*)out2, (int4*)out3);
-}
-
 void load_transpose_float4x4_AVX(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
   load_transpose_int4x4_AVX((int4*)pLoadAdd, (int4*)xOut, (int4*)yOut, (int4*)zOut, (int4*)wOut);
 }
@@ -669,16 +1100,42 @@ void transpose_store_float4x4_AVX(float4* pStoreAdd, float4 xIn, float4 yIn, flo
   transpose_store_int4x4_AVX((int4*)pStoreAdd, (int4)xIn, (int4)yIn, (int4)zIn, (int4)wIn);
 }
 
+
+
+void gather_transpose_float4x4_AVX(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                              float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+  gather_transpose_int4x4((int4*)pLoadAdd0, (int4*)pLoadAdd1, (int4*)pLoadAdd2, (int4*)pLoadAdd3,
+                          (int4*)xOut, (int4*)yOut, (int4*)zOut, (int4*)wOut);
+}
+
+void transpose_scatter_float4x4_AVX(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                               float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
+  transpose_scatter_int4x4((int4*)pStoreAdd0, (int4*)pStoreAdd1, (int4*)pStoreAdd2, (int4*)pStoreAdd3,
+                           (int4)xIn, (int4)yIn, (int4)zIn, (int4)wIn);
+}
+
 #endif // defined(__AVX__)
 
 
 #if defined(__AVX2__)
+
+/// @brief Receives float4x4 matrix as 2 halfs (2 float2x4 matrixes) using 2 float8, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw0In  - Part of the float2x4 matrix to be transposed
+/// @param xyzw1In  - Part of the float2x4 matrix to be transposed
+/// @param xzOut  - Part of the transposed float4x2 matrix.
+///                 In case of isLoad is true xzOut will contain rows 0,2 of the transposed matrix,
+///                 otherwise it will contain rows 0,1.
+/// @param ywOut  - Part of the transposed int4x2 matrix
+///                 In case of isLoad is true ywOut will contain rows 1,3 of the transposed matrix,
+///                 otherwise it will contain rows 2,3.
+/// @param isLoad   - indicates if the origen of the operation is load\store.
 void transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23,
-            float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+            float8* xz, float8* yw, bool isLoad) {
 
   // TODO: load + permd creates:
   // vmovdqa  (%eax), %ymm1
-  // vmovdqa  32(%eax), %ymm0  
+  // vmovdqa  32(%eax), %ymm0
   // vmovdqa  LCPI20_0, %ymm2
   // vpermd  %ymm1, %ymm2, %ymm1
   // vmovdqa  LCPI20_1, %ymm2
@@ -689,24 +1146,50 @@ void transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23,
   // vmovdqa  LCPI20_1, %ymm2
   // vpermd  32(%eax), %ymm2, %ymm2
 
-  xyzw01 = xyzw01.s04152637;                                                    // x0 x1 y0 y1 z0 z1 w0 w1
-  xyzw23 = xyzw23.s15043726;                                                    // y2 y3 x2 x3 w2 w3 z2 z3
+  if (isLoad) {  
+    // in this case xyzw01 =                                                       x0 y0 z0 w0 x1 y1 z1 w1
+    // in this case xyzw01 =                                                       x2 y2 w2 z2 x3 y3 z3 w3
+    xyzw01 = xyzw01.s04152637;                                                  // x0 x1 y0 y1 z0 z1 w0 w1
+    xyzw23 = xyzw23.s15043726;                                                  // y2 y3 x2 x3 w2 w3 z2 z3
+  } else { // isStore
+    // in this case xyzw01 =                                                       x0 x1 x2 x3 y0 y1 y2 y3
+    // in this case xyzw01 =                                                       z0 z1 z2 z3 w0 w1 w2 w3
+    xyzw01 = xyzw01.s04261537;                                                  // x0 y0 x2 y2 x1 y1 x3 y3
+    xyzw23 = xyzw23.s26043715;                                                  // z2 w2 z0 w0 z3 w3 z1 w1
+  }
 
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   //int8 cond = {0, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF};
-  //int8 xz = cond ? xyzw01 : xyzw23;                                           // x0 x1 x2 x3 z0 z1 z2 z3
-  float8 xz = (float8) _mm256_blend_ps((__m256)xyzw01, (__m256)xyzw23, 0xCC);   // x0 x1 x2 x3 z0 z1 z2 z3
-  
+  //int8 xz = cond ? xyzw01 : xyzw23;
+  *xz = (float8) _mm256_blend_ps((__m256)xyzw01, (__m256)xyzw23, 0xCC);   // x0 x1 x2 x3 z0 z1 z2 z3 for isLoad
+                                                                                // x0 y0 z0 w0 x1 y1 z1 w1 for isStore
+
   // TODO : Replace this shuffles with shuffle2 instead of shuffle builtin
   // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  float8 yw = __builtin_shufflevector ((__v8sf)xyzw01, (__v8sf)xyzw23,          // y0 y1 y2 y3 w0 w1 w2 w3
-          2, 3, 8, 9, 6, 7, 12, 13);
+  *yw = __builtin_shufflevector ((__v8sf)xyzw01, (__v8sf)xyzw23,          // y0 y1 y2 y3 w0 w1 w2 w3 for isLoad
+          2, 3, 8, 9, 6, 7, 12, 13);                                            // x2 y2 z2 w2 x3 y3 z3 w3 for isStore
+}
+
+/// @brief Receives float4x4 matrix as 2 halfs (2 float2x4 matrixes) using 2 float8, 
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param xyzw0In  - Upper part of the int2x4 matrix to be transposed
+/// @param xyzw1In  - Lower part of the int2x4 matrix to be transposed
+/// @param xOut     - Row 0 of the transposed matrix
+/// @param yOut     - Row 1 of the transposed matrix
+/// @param zOut     - Row 2 of the transposed matrix
+/// @param wOut     - Row 3 of the transposed matrix
+void load_transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+
+  float8 xz;
+  float8 yw;
+
+  transpose_float4x4_common_AVX2(xyzw01, xyzw23,
+            &xz, &yw, true);
 
   *xOut = xz.s0123;
   *yOut = yw.s0123;
   *zOut = xz.s4567;
   *wOut = yw.s4567;
-  
 }
 
 void load_transpose_float4x4_AVX2(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
@@ -716,7 +1199,7 @@ void load_transpose_float4x4_AVX2(float4* pLoadAdd, float4* xOut, float4* yOut, 
   float8 xyzw01 = vload8(0, tmpLoadAdd);                                    // x0 y0 z0 w0 x1 y1 z1 w1
   float8 xyzw23 = vload8(1, tmpLoadAdd);                                    // x2 y2 z2 w2 x3 y3 z3 w3
 
-  transpose_float4x4_common_AVX2(xyzw01, xyzw23,
+  load_transpose_float4x4_common_AVX2(xyzw01, xyzw23,
             xOut, yOut, zOut, wOut);
 }
 
@@ -725,23 +1208,44 @@ void transpose_store_float4x4_AVX2(float4* pStoreAdd, float4 xIn, float4 yIn, fl
   float8 xy = {xIn, yIn};                                                   // x0 x1 x2 x3 y0 y1 y2 y3
   float8 zw = {zIn, wIn};                                                   // z0 z1 z2 z3 w0 w1 w2 w3
 
-  xy = xy.s04261537;                                                        // x0 y0 x2 y2 x1 y1 x2 y3
-  zw = zw.s26043715;                                                        // z2 w2 z0 w0 z3 w3 z1 w1
+  float8 xyzw01;
+  float8 xyzw23;
 
-  // TODO : Replace this blend built-in with ?: when clang bug will be fixed
-  //int8 cond = {0, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF};
-  //int8 xyzw01 = cond ? xy : zw;                                           // x0 y0 z0 w0 x1 y1 z1 w1
-  float8 xyzw01 = (float8) _mm256_blend_ps((__m256)xy, (__m256)zw, 0xCC);   // x0 y0 z0 w0 x1 y1 z1 w1
-
-  // TODO : Replace this shuffle with shuffle2 instead of shuffle builtin
-  // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  float8 xyzw23 = __builtin_shufflevector ((__v8sf)xy, (__v8sf)zw,          // x2 y2 z2 w2 x3 y3 z3 w3
-          2, 3, 8, 9, 6, 7, 12, 13);
+  transpose_float4x4_common_AVX2(xy, zw,
+            &xyzw01, &xyzw23, false);
 
   // We store "float8", meaning we store the full matrix in 2 stores
   float* tmpStoreAdd = (float*)pStoreAdd;
   vstore8(xyzw01, 0, tmpStoreAdd);
   vstore8(xyzw23, 1, tmpStoreAdd);
+}
+
+
+void gather_transpose_float4x4_AVX2(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                                    float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+
+  float8 xyzw01 = {*pLoadAdd0, *pLoadAdd1};                                // x0 y0 z0 w0 x1 y1 z1 w1
+  float8 xyzw23 = {*pLoadAdd2, *pLoadAdd3};                                // x2 y2 z2 w2 x3 y3 z3 w3
+
+  load_transpose_float4x4_common_AVX2(xyzw01, xyzw23,
+            xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_float4x4_AVX2(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                               float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
+  float8 xy = {xIn, yIn};                                                   // x0 x1 x2 x3 y0 y1 y2 y3
+  float8 zw = {zIn, wIn};                                                   // z0 z1 z2 z3 w0 w1 w2 w3
+
+  float8 xyzw01;
+  float8 xyzw23;
+
+  transpose_float4x4_common_AVX2(xy, zw,
+            &xyzw01, &xyzw23, false);
+
+  *pStoreAdd0 = xyzw01.s0123;
+  *pStoreAdd1 = xyzw01.s4567;
+  *pStoreAdd2 = xyzw23.s0123;
+  *pStoreAdd3 = xyzw23.s4567;
 }
 
 #endif // defined(__AVX2__)
@@ -761,6 +1265,25 @@ void transpose_store_float4x4(float4* pStoreAdd, float4 xIn, float4 yIn, float4 
   transpose_store_float4x4_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
   transpose_store_float4x4_AVX(pStoreAdd, xIn, yIn, zIn, wIn);
+#endif
+}
+
+
+void gather_transpose_float4x4(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                               float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+#if defined(__AVX2__)
+  gather_transpose_float4x4_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
+#else // defined(__AVX__)
+  gather_transpose_float4x4_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
+#endif
+}
+
+void transpose_scatter_float4x4(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                               float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
+#if defined(__AVX2__)
+  transpose_scatter_float4x4_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
+#else // defined(__AVX__)
+  transpose_scatter_float4x4_AVX(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
 #endif
 }
 
@@ -843,5 +1366,21 @@ void transpose_store_float4x8(float4* pStoreAdd, float8 xIn, float8 yIn, float8 
   transpose_float8x4(xIn, yIn, zIn, wIn,
             &(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]), &(pStoreAdd[4]), &(pStoreAdd[5]), &(pStoreAdd[6]), &(pStoreAdd[7]));
 }
+
+
+void gather_transpose_float4x8(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                               float4* pLoadAdd4, float4* pLoadAdd5, float4* pLoadAdd6, float4* pLoadAdd7,
+                               float8* xOut, float8* yOut, float8* zOut, float8* wOut) {
+  transpose_float4x8(*pLoadAdd0, *pLoadAdd1, *pLoadAdd2, *pLoadAdd3, *pLoadAdd4, *pLoadAdd5, *pLoadAdd6, *pLoadAdd7,
+                xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_float4x8(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                                float4* pStoreAdd4, float4* pStoreAdd5, float4* pStoreAdd6, float4* pStoreAdd7,
+                                float8 xIn, float8 yIn, float8 zIn, float8 wIn) {
+  transpose_float8x4(xIn, yIn, zIn, wIn,
+            pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
+}
+
 
 #endif // defined(__AVX__)
