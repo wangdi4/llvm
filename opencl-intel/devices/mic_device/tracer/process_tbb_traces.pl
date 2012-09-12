@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+use Getopt::Std;
+use File::Basename;
+
 #
 # Process stderr of MIC OpenCL application that was compiled with ENABLE_MIC_TBB_TRACER option.
 # Processing is done in 2 stages:
@@ -243,12 +246,15 @@ sub print_global_table
 	}
 }
 
+# what is the next item to be?
 sub project_next_item
 {
 	my ($cmd, $item) = @_;
 	
 	my ($col,$raw,$page) = split(':', $item);
-	$col += 0;
+	$col  += 0;
+	$raw  += 0;
+	$page += 0;
 
 	my $coords      = $ndranges{$cmd}[$global_coordinates];
 	my $cols_count  = $ndranges{$cmd}[$global_columns];
@@ -259,7 +265,7 @@ sub project_next_item
 
 	# forward column
 	++$col;
-	
+
 	if (($coords > 1) && ($col >= $cols_count))
 	{
 		# forward raw
@@ -287,6 +293,40 @@ sub project_next_item
 	return join(':',@next_item);
 }
 
+#
+# get command id and string with numbers
+# returns an array with pointers to arrays. Each internal array contains list of sequential subset of input numbers 
+#
+sub create_sequential_groups
+{
+	my ($cmd, $items) = @_;
+
+	$items =~ s/^\s+//;
+	$items =~ s/\s+$//;
+	my @items = split(/\s+/, $items);
+
+	my $items_count = $#items + 1;
+
+	# find groups and count them
+	# create array of arrays (groups)
+	my $grp_idx = -1;
+	my $prev_item = "-2";
+	my @groups;
+	foreach $item (@items)
+	{
+		my $projected_item = project_next_item( $cmd, $prev_item );
+		if ($item ne $projected_item)
+		{
+			# new group
+			++$grp_idx;
+		}
+		push( @{$groups[$grp_idx]}, $item );
+		$prev_item = $item;
+	}
+
+	return @groups;
+}
+
 sub print_specific_table
 {
 	my ($required_ndrange) = @_;
@@ -299,29 +339,8 @@ sub print_specific_table
 	{
 	    if (defined( $threads{$trd}{$required_ndrange}[$thread_start_delay] ))
 	    {
-	    	my $items = $threads{$trd}{$required_ndrange}[$thread_items_processed];
-	    	$items =~ s/^\s+//;
-	    	$items =~ s/\s+$//;
-	    	my @items = split(/\s+/, $items);
-
-	    	my $items_count = $#items + 1;
-
-			# find groups and count them
-			# create array of arrays (groups)
-			my $grp_idx = -1;
-			my $prev_item = "-2";
-			my @groups;
-			foreach $item (@items)
-			{
-				my $projected_item = project_next_item( $required_ndrange, $prev_item );
-				if ($item ne $projected_item)
-				{
-					# new group
-					++$grp_idx;
-				}
-				push( @{$groups[$grp_idx]}, $item );
-				$prev_item = $item;
-			}
+	    	my @groups = create_sequential_groups( $required_ndrange, 
+	    										   $threads{$trd}{$required_ndrange}[$thread_items_processed] );
 
 			# calculate number of groups, min, max sizes
 			# create right string
@@ -329,16 +348,20 @@ sub print_specific_table
 			my $max = 0;
 			my $groups_count = $#groups + 1;
 			my $items_string = "";
+			my $items_count = 0;
 	    	foreach $grp (@groups)
 	    	{
-	    		if ($min > ($#{$grp} + 1))
+	    		my $grp_size =  $#{$grp} + 1;
+	    		$items_count += $grp_size;
+	    		
+	    		if ($min > $grp_size)
 	    		{
-	    			$min = ($#{$grp} + 1);
+	    			$min = $grp_size;
 	    		}
 	    			
-	    		if ($max < ($#{$grp} + 1))
+	    		if ($max < $grp_size)
 	    		{
-	    			$max = ($#{$grp} + 1);
+	    			$max = $grp_size;
 	    		}
 
 				$items_string = $items_string . "(" . join(" ", @{$grp}) . ")  ";
@@ -353,51 +376,300 @@ sub print_specific_table
 	}
 }
 
-sub main
+#
+# ------------- Sequentiality ---------------------------------
+#  Assume N is an overall amount of WGs
+#  Assume $warmup_count is a number of sequential WGs to warm cache
+#  Assume T is a number of threads participated
+#
+#  Ideal sequentiality is:
+#  		if (N <= T*$warmup_count) --> 1
+#       else --> (N - T*$warmup_count)
+#
+#  Real sequentiality is:
+#       sum of per-thread warmed runs / ideal sequentiality count
+#
+# ------------- Balancing ---------------------------------
+#
+#  Ideal balance is N/T items per thread. If the number is not integer, it may be +1 also.
+#  Real balance is number of threads with ideal balancing / T = % from the perfect balance.
+#
+# --------------- Return ----------------------------------
+#
+#  Return pair (sequentiality, balance)
+#
+sub calculate_single_sequentiality
 {
-	my $arguments_given = $#ARGV + 1;
-	my $required_ndrange = 0;
+	my ($ndrange_id, $warmup_count) = @_;
 
-	if ($arguments_given == 1)
+	my $command = $ndranges{$ndrange_id};
+
+	my $T = $command->[$global_threads_participated];
+	my $global_warm_count = $T * $warmup_count;
+
+	my $N = $command->[$global_columns] * $command->[$global_raws] * $command->[$global_pages];
+
+	if ($N <= $global_warm_count)
 	{
-		# global table mode
+		return (1,1);
 	}
-	elsif ($arguments_given == 2)
+
+	my $ideal_sequentiality = $N - $global_warm_count;
+	my $ideal_balance_real = $N / $T;
+	my %ideal_balances;
+	$ideal_balances{ int( $ideal_balance_real ) } = 1;
+	if ( $ideal_balance_real != int( $ideal_balance_real ))
 	{
-		#specific table mode
-		$required_ndrange = shift @ARGV;
-		$required_ndrange += 0;	
+		$ideal_balances{ int( $ideal_balance_real ) + 1 } = 1;
+	}
+
+	my $ideal_balances_count = 0;
+	
+	# get real sequentiality
+	my $real_sequentiality = 0;
+	foreach $trd (@threads_order)
+	{
+	    if (defined( $threads{$trd}{$ndrange_id}[$thread_start_delay] ))
+	    {
+	    	my $my_items_done = 0;
+	    	
+	    	my @groups = create_sequential_groups( $ndrange_id, 
+	    										   $threads{$trd}{$ndrange_id}[$thread_items_processed] );
+
+			foreach $grp (@groups)
+			{
+			    my $grp_count = $#{$grp} + 1;
+			    if ($grp_count > $warmup_count)
+			    {
+			    	$real_sequentiality += ($grp_count - $warmup_count);
+			    }
+
+			    $my_items_done += $grp_count;
+			}
+
+			if (1 == $ideal_balances{ $my_items_done })
+			{
+				++$ideal_balances_count;
+			}
+	    }
+	}
+
+	return ($real_sequentiality / $ideal_sequentiality, $ideal_balances_count / $T);
+}
+
+sub print_single_sequentiality
+{
+	my ( $warmup_count, $ndrange_id ) = @_;
+
+	my ( $sequentiality, $balance ) = calculate_single_sequentiality( $ndrange_id, $warmup_count );
+	my $threads = $ndranges{$ndrange_id}[$global_threads_participated];
+
+	printf ("NDRANGE %04d SEQUENTALITY=%5.1f%% BALANCE=%5.1f%% THREADS=%d\n", $ndrange_id, $sequentiality * 100, $balance * 100, $threads );
+}
+
+# calculate average and median
+sub print_global_sequentiality
+{ 
+	my ( $warmup_count ) = @_;
+
+	my @sequentiality;
+	my @balance;
+	my $average_sequentiality = 0;
+	my $average_balance = 0;
+
+	foreach $cmd (@ndrange_order)
+	{
+		my ( $sequentiality, $balance ) = calculate_single_sequentiality( $cmd, $warmup_count );
+		$average_sequentiality += $sequentiality;
+		$average_balance       += $balance;
+
+		push( @sequentiality, $sequentiality );
+		push( @balance,       $balance );
+	}	
+
+	my $n_commands = $#sequentiality + 1;
+	
+	$average_sequentiality /= $n_commands;
+	$average_balance       /= $n_commands;
+
+	@sorted_sequentiality = sort {$a <=> $b} @sequentiality;
+	@sorted_balance       = sort {$a <=> $b} @balance;
+
+	my $median_sequentiality;
+	my $median_balance;
+
+	if (1 == ($n_commands % 2))
+	{
+		my $median_id = $n_commands / 2 + 1;
+		$median_sequentiality = $sorted_sequentiality[ $median_id ];
+		$median_balance       = $sorted_balance[ $median_id ];
 	}
 	else
 	{
+		my $median_left = $n_commands / 2;
+		my $median_right = $median_left + 1;
+
+		$median_sequentiality = ($sorted_sequentiality[ $median_left ] + $sorted_sequentiality[ $median_right ]) / 2;
+		$median_balance       = ($sorted_balance[ $median_left ] + $sorted_balance[ $median_right ]) / 2;
+	}
+
+	printf ("AVERAGE_SEQUENTALITY=%5.1f%% MEDIAN_SEQUENTALITY=%5.1f%% AVERAGE_BALANCE=%5.1f%% MEDIAN_BALANCE=%5.1f%%\n",
+			$average_sequentiality * 100, $median_sequentiality  * 100, 
+			$average_balance  * 100, $median_balance  * 100 );
+}
+
+sub print_all_sequentiality
+{ 
+	my ( $warmup_count ) = @_;
+
+	foreach $cmd (@ndrange_order)
+	{
+	    print_single_sequentiality( $warmup_count, $cmd );
+	}	
+}
+
+sub help
+{
+		my $name = basename($0);
+		
 		# usage message
 	    print "
 Post-process output of MIC_TBB_TRACER.
 
 Usages:
 	1. Create global threads usage table:
-		$0  <log-file>
+		$name  <log-file>
 
 	2. Create specific ndrange usage table:
-		$0  <ndrange-id> <log-file>
+		$name  -c <ndrange-id> <log-file>
+
+	3. Calculate global sequentiality value:
+		$name  -s <cache-warmup-count> <log-file>
+
+	4. Calculate specific ndrange sequentiality value:
+		$name  -c <ndrange-id> -s <cache-warmup-count> <log-file>
+
+	5. Calculate specific ndrange sequentiality value for all ndranges:
+		$name  -c * -s <cache-warmup-count> <log-file>
 
 	<ndrange-id> should be taken from global threads usage table.
-	In both cases pass '-' instead of <log-file> to read stdin.
+	
+	<cache-warmup-count> is a number of sequential WorkGroups that is reqiored to warmup cache.
+
+	specific ndrange sequentiality value - relative number of WGs that use warmed cache. 0..1, 1 - maximum possible.
+	global sequentiality value           - average and median values between all ndranges
+	
+	In all cases pass '-' instead of <log-file> to read stdin.
 	Output is printed to stdout in .csv format.
 
 ";	
-	    return 1;
+}
+
+sub main
+{
+	# defaults
+	$opt_c = -1; # specific command ID to process
+	$opt_s = -1; # the number of WGs required to warm cache
+	
+	my $ok = getopts( 'c:s:' );
+	my $mode = 'global';
+
+	if (!$ok)
+	{
+		print "Wrong options\n";
+		help();
+		return 1;
+	}
+
+	# check that filename exists
+	my $arguments_given = $#ARGV + 1;
+	if ($arguments_given != 1)
+	{
+		print "No filename given\n";
+		help();
+		return 1;
+	}
+
+	# check  options
+	if (-1 != $opt_c)
+	{
+		if ('*' eq $opt_c)
+		{
+			$mode = 'single';
+		}
+		else
+		{
+			if ($opt_c !~ /^[0-9]+$/)
+			{
+				# not a number
+				print "Wrong -c option value: $opt_c\n";
+				help();
+				return 1;
+			}
+			# convert to integer
+			$opt_c += 0;
+			$mode = 'single';
+		}
+	}
+	
+	if (-1 != $opt_s)
+	{
+		if ($opt_s !~ /^[0-9]+$/)
+		{
+			# not a number
+			print "Wrong -s option value: $opt_s\n";
+			help();
+			return 1;
+		}
+		# convert to integer
+		$opt_s += 0;
+		if ('global' eq $mode)
+		{
+			$mode = 'global_sequentiality';
+		}
+		else
+		{
+			$mode = 'single_sequentiality';
+		}
+	}
+
+	if (('*' eq $opt_c) && ('single_sequentiality' ne $mode))
+	{
+		print "Wrong options - -c * may be used only with -s option\n";
+		help();
+		return 1;		
 	}
 
 	parse_input();
 
-	if (0 == $required_ndrange)
+	if ('global' eq $mode)
 	{
 		print_global_table();
 	}
+	elsif ('single' eq $mode)
+	{
+		print_specific_table( $opt_c );
+	}
+	elsif ('global_sequentiality' eq $mode)
+	{
+		print_global_sequentiality( $opt_s );
+	}
+	elsif ('single_sequentiality' eq $mode)
+	{
+		if ('*' eq $opt_c)
+		{
+			print_all_sequentiality( $opt_s );
+		}
+		else
+		{
+			print_single_sequentiality( $opt_s, $opt_c );
+		}
+	}
 	else
 	{
-		print_specific_table( $required_ndrange );
+		# usage message
+	    help();
+	    return 1;
 	}
 
 	return 0;

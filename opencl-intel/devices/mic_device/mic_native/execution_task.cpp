@@ -2030,10 +2030,30 @@ void TaskInterface::PerfDataInit()
     }
 }
 
-void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, size_t cols, size_t raws, size_t pages )
+void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, size_t dim_0, size_t dim_1, size_t dim_2 )
 {
     
     char buffer[10240];
+
+    size_t cols  = 1;
+    size_t raws  = 1;
+    size_t pages = 1;
+
+    if (1 == dims)
+    {
+        cols = dim_0;
+    }
+    else if (2 == dims)
+    {
+        cols = dim_1;
+        raws = dim_0;
+    }
+    else
+    {
+        cols  = dim_2;
+        raws  = dim_1;
+        pages = dim_0;
+    }
 
     fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "NDRANGE %05d COORDINATES %d: COLS=%ld RAWS=%ld PAGES=%ld\n", 
                                     command_id, dims, cols, raws, pages);

@@ -254,7 +254,7 @@ public:
     PerfData m_perf_data[MIC_NATIVE_MAX_WORKER_THREADS];
 
     void PerfDataInit();
-    void PerfDataFini( unsigned int command_id, unsigned int dims, size_t cols, size_t raws, size_t pages );
+    void PerfDataFini( unsigned int command_id, unsigned int dims, size_t dim_0, size_t dim_1, size_t dim_2 );
 #endif // ENABLE_MIC_TBB_TRACER
     
 };
