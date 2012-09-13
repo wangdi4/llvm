@@ -448,7 +448,7 @@ protected:
 
 	/* Affinities the current thread. 
 	   Set affinity only if mic_exec_env_options.use_affinity = true*/
-	bool setAffinityForCurrentThread();
+	bool setAffinityForCurrentThread( unsigned int workerId );
 
 	/* Set affinity for current thread from reserved IDs list (if m_reserveHwThreadsIDs.size() > 0 and didn't affinitized from reserved IDs yet). */
 	bool setAffinityFromReservedIDs();
@@ -461,7 +461,6 @@ protected:
 	unsigned int getNextWorkerID() { unsigned int myID = m_NextWorkerID++;
 									 assert(myID <= MIC_NATIVE_MAX_WORKER_THREADS);
 	                                 return myID; };
-
 	// The amount of worker threads.
 	unsigned int m_numOfWorkers;
 	
@@ -480,10 +479,7 @@ protected:
 
 private:
 
-	bool setAffinityForCurrentThread(unsigned int hwThreadId);
-
-	// The next index in "m_orderHwThreadsIds" for affinity. (If m_nextAffinitiesThreadIndex == m_orderHwThreadsIds.size() ==> set m_nextAffinitiesThreadIndex = 0)
-	AtomicCounterNative m_nextAffinitiesThreadIndex;
+	bool setAffinityForCurrentThreadInt(unsigned int hwThreadId);
 
 	// map from OS thread ID to HW thread ID.
 	map<pthread_t, unsigned int> m_osThreadToHwThread;

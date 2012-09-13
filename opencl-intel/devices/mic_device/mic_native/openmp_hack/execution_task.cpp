@@ -26,8 +26,8 @@
 #define OMP_SCHED omp_sched_guided
 
 //#define KMP_AFFINITY "verbose,granularity=fine,scatter"
-//#define KMP_AFFINITY "granularity=fine,scatter"
-#define KMP_AFFINITY "granularity=fine,compact"
+#define KMP_AFFINITY "granularity=fine,scatter"
+//#define KMP_AFFINITY "granularity=fine,compact"
 
 
 using namespace Intel::OpenCL::MICDeviceNative;
@@ -1396,6 +1396,7 @@ bool TBBThreadPool::init()
 #endif // ENABLE_MIC_TBB_TRACER
 
     setenv("KMP_AFFINITY",KMP_AFFINITY, 1);
+    setenv("OMP_NESTED", "1", 1);
 
 	// Initialize a order list of HW threads numbers for affinity.
 	if (false == initializeAffinityThreads())

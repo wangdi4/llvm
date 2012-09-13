@@ -56,7 +56,7 @@ void foo(char* blob)
 // For testing only
 //////////////////////////////////////////////////////
 
-unsigned int resume_server_execution = 0;
+volatile unsigned int resume_server_execution = 0;
 
 // Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
@@ -1456,7 +1456,7 @@ ThreadPool*     ThreadPool::m_singleThreadPool = NULL;
 OclMutexNative  ThreadPool::m_workers_initialization_lock;
 volatile bool   ThreadPool::m_workers_initialized = false;
 
-ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1), m_nextAffinitiesThreadIndex(0)
+ThreadPool::ThreadPool() : m_numOfWorkers(0), m_NextWorkerID(1)
 {
 	pthread_mutex_init(&m_reserveHwThreadsLock, NULL);
 }
@@ -1593,7 +1593,7 @@ bool ThreadPool::setAffinityFromReservedIDs()
 	{
 		unsigned int threadId = m_reserveHwThreadsIDs.back();
 		m_reserveHwThreadsIDs.pop_back();
-		if (setAffinityForCurrentThread(threadId))
+		if (setAffinityForCurrentThreadInt(threadId))
 		{
 			m_osThreadToHwThread.insert(pair<pthread_t, unsigned int>(tOsThreadId, threadId));
 			result = true;
@@ -1607,20 +1607,18 @@ bool ThreadPool::setAffinityFromReservedIDs()
 	return result;
 }
 
-bool ThreadPool::setAffinityForCurrentThread()
+bool ThreadPool::setAffinityForCurrentThread( unsigned int workerId )
 {
 	if (0 == m_orderHwThreadsIds.size())
 	{
 		return true;
 	}
-	
-	unsigned int index = m_nextAffinitiesThreadIndex++;
-	index = index % m_orderHwThreadsIds.size();
 
-	return setAffinityForCurrentThread(m_orderHwThreadsIds[index]);
+    unsigned int index = workerId % m_orderHwThreadsIds.size();
+	return setAffinityForCurrentThreadInt(m_orderHwThreadsIds[index]);
 }
 
-bool ThreadPool::setAffinityForCurrentThread(unsigned int hwThreadId)
+bool ThreadPool::setAffinityForCurrentThreadInt(unsigned int hwThreadId)
 {
 	cpu_set_t affinityMask;
 	// CPU_ZERO initializes all the bits in the mask to zero.
@@ -1755,7 +1753,7 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 		uiWorkerId = getNextWorkerID();
 		setScheduler(&tlsAccessor, (tbb::task_scheduler_init*)INVALID_SCHEDULER_ID);
 		// Affinities this thread if needed
-		bool affRes = setAffinityForCurrentThread();
+		bool affRes = setAffinityForCurrentThread(uiWorkerId);
 		assert(affRes);
 	}
 	setWorkerID(&tlsAccessor, uiWorkerId);
@@ -1816,8 +1814,7 @@ void TBBThreadPool::initializeReserveAffinityThreadIds()
 	{
 		// reserve the first thread ID for one master thread.
 		m_reserveHwThreadsIDs.push_back(m_orderHwThreadsIds[0]);
-		// remove the reserve ID from the general list. (such that no worker thread will affinities to it)
-		m_orderHwThreadsIds.erase(m_orderHwThreadsIds.begin());
+        // do not remove it from the general list as workers also may affinitize to it.
 	}
 }
 
@@ -2033,7 +2030,10 @@ void TaskInterface::PerfDataInit()
 void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, size_t dim_0, size_t dim_1, size_t dim_2 )
 {
     
-    char buffer[10240];
+    vector<char> buffer;
+
+    size_t buffer_capacity = 10240;
+    buffer.resize( buffer_capacity );
 
     size_t cols  = 1;
     size_t raws  = 1;
@@ -2062,16 +2062,27 @@ void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, si
     for (int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
     {
         PerfData& data = m_perf_data[i];
-        char* last = buffer;
+        char* start = &(buffer[0]); 
+        char* last = start;
         last[0] = '\0';
         
         for (unsigned int idx=0; idx<data.processed_indices_current; ++idx)
         {
+            if ((last - start + 32) > buffer_capacity)
+            {
+                buffer_capacity *= 2;
+                buffer.resize( buffer_capacity );
+
+                char* old_start = start;
+                start = &(buffer[0]); 
+                last = start + (last-old_start);
+            }
+
             data.dump_data_item( last, dims, idx );
             last += strlen(last);
         }
         fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "NDRANGE %05d THREAD %03d: attach=%ld detach=%ld search=%ld indices: %s\n", 
-                 command_id, i, data.start_time, data.end_time, data.search_time, buffer);
+                 command_id, i, data.start_time, data.end_time, data.search_time, start);
         fflush(MIC_TBB_TRACER_STREAM);
 
         data.destruct();

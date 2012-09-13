@@ -116,9 +116,6 @@ sub parse_input
 	   $threads{$thread_id}{$ndrange_id}[$thread_start_time] 		= $attach;
 	   if (0 != $attach)
 	   {
-			$threads{$thread_id}{$ndrange_id}[$thread_core_id] 		    = $tmp_thread_to_core{$thread_id}[0];
-			$threads{$thread_id}{$ndrange_id}[$thread_hw_thread_id] 	= $tmp_thread_to_core{$thread_id}[1];
-
 			$threads{$thread_id}{$ndrange_id}[$thread_end_time] 		= $detach;
 	   		$threads{$thread_id}{$ndrange_id}[$thread_duration] 		= ($detach - $attach);
 	   		$threads{$thread_id}{$ndrange_id}[$thread_work_search_time]	= $search;
@@ -167,6 +164,9 @@ sub parse_input
 	        if (defined ($threads{$trd}{$cmd}[$thread_start_time]) && (0 != $threads{$trd}{$cmd}[$thread_start_time]))
 	        {
 	            $threads{$trd}{$cmd}[$thread_start_delay] = $threads{$trd}{$cmd}[$thread_start_time] - $global_start;
+
+       			$threads{$trd}{$cmd}[$thread_core_id] 		= $tmp_thread_to_core{$trd}[0];
+				$threads{$trd}{$cmd}[$thread_hw_thread_id] 	= $tmp_thread_to_core{$trd}[1];
 	        }
 	    }
 	}
