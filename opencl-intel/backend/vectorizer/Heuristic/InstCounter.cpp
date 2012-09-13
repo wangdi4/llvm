@@ -7,9 +7,6 @@
 #include "LoopUtils.h"
 #include "OpenclRuntime.h"
 
-//TODO: Remove
-//#include "/home/emalul/trunk/DebugElior.h"
-
 namespace intel {
 
 const float WeightedInstCounter::RATIO_MULTIPLIER = 1;
