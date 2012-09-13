@@ -1,0 +1,119 @@
+/****************************************************************************
+  Copyright (c) Intel Corporation (2012,2013).
+
+  INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+  LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+  ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+  PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+  DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+  PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+  including liability for infringement of any proprietary rights, relating to
+  use of the code. No license, express or implied, by estoppels or otherwise,
+  to any intellectual property rights is granted herein.
+
+  File Name: VersionStrategy.h
+\****************************************************************************/
+
+#include <map>
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "Type.h"
+#include "FunctionDescriptor.h"
+#include "utils.h"
+
+#ifndef __VERSION_STRATEGY_H__
+#define __VERSION_STRATEGY_H__
+
+namespace reflection{
+
+typedef std::map<FunctionDescriptor,Type*>  ReturnTypeMap;
+
+struct PairSW : std::pair<std::string, width::V> {
+  PairSW(const std::pair<std::string, width::V>&);
+  bool operator < (const PairSW&)const;
+  private:
+  bool compareWild(const std::string& w , const std::string& s)const;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+//Purpose: VersionStrategy is an interface which returns a name of the function
+//that matches a given orderd pair: (n: <mangled name>, w: <target width>).
+//This is a mechnism aimes to enable functions to be versioned by a custom
+//algorithm.
+///////////////////////////////////////////////////////////////////////////////
+struct VersionStrategy{
+  virtual PairSW operator()(const PairSW&)const = 0;
+  virtual ~VersionStrategy() = 0;
+};
+
+//
+//Factory for the creation of null descriptors
+//
+struct NullDescriptorStrategy: VersionStrategy{
+  PairSW operator()(const PairSW&)const;
+  ~NullDescriptorStrategy();
+};
+
+//
+//AOS to SOA function descriptor conversion
+//
+class SoaDescriptorStrategy: public VersionStrategy, public TypeVisitor{
+private:
+  //type synonyms
+  typedef FunctionDescriptor
+  (SoaDescriptorStrategy::*TransposeStrategy)(const PairSW& sw)const;
+public:
+  SoaDescriptorStrategy();
+  void setTypeMap(const ReturnTypeMap*);
+  ~SoaDescriptorStrategy();
+  
+  //////////////////////////////////////////////////////////////////////////////
+  //Purpose: creates a transposed operator, with respect to the parameters
+  //initialized by the 'init' method.
+  //Return: the transposed function descriptor
+  //////////////////////////////////////////////////////////////////////////////
+  PairSW operator()(const PairSW&)const;
+  void visit(const Type*);
+  void visit(const Vector*);
+  void visit(const Pointer*);
+  void visit(const UserDefinedTy*);
+private:
+
+  FunctionDescriptor scalarReturnTranspose(const PairSW& sw)const;
+  FunctionDescriptor vectorReturnTranspose(const PairSW& sw)const;
+  
+  const ReturnTypeMap* m_pTypeMap;
+  //the transpose strategy (either vector or scalar)
+  TransposeStrategy m_transposeStrategy;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//Hard Coded strategy: the 'junk yard' of builtin versioning.
+//When ever it is hard to apply a rule to the versioning, use this strategy as
+//a way out. Note! it is our goal to keep the builtins under this strategy as
+//thin as possible, since the names are hard-coded, which poses a problem when
+//the mangling algorithm will change.
+////////////////////////////////////////////////////////////////////////////////
+class HardCodedVersionStrategy: public VersionStrategy{
+public:
+  //
+  //Parameters:
+  //  versions- an array with 6 strings, containing names of versions of the
+  //  same function, as follows:
+  // <v1>, <v2>, <v4> <v8>, <v16>, <v3>. Empty entries should be signaled by
+  // reflection::FunctionDescriptor::nullString()
+  void assumeResponsability(const TableRow&);
+
+  PairSW operator()(const PairSW&)const;
+private:
+  //maps each version to the index of its containig row in the table
+  llvm::StringMap<int> m_rowIndex;
+  std::vector<TableRow> m_table;
+};
+
+std::pair<std::string,width::V> fdToPair(const FunctionDescriptor&);
+std::pair<std::string,width::V> nullPair();
+bool isNullPair(const std::pair<std::string,width::V>&);
+
+}
+#endif//__VERSION_STRATEGY_H__

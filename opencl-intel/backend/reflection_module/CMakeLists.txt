@@ -4,6 +4,9 @@ set(TARGET_NAME reflection_module)
 
 project (${TARGET_NAME})
 
+#enables compound initialization literals
+remove_definitions("-pedantic")
+
 add_subdirectory(unittest)
 
 add_custom_command(
@@ -18,13 +21,19 @@ add_custom_command(
 add_library(
   ${TARGET_NAME}
   STATIC
+  BuiltinKeeper.h
   BuiltinKeeper.cpp
+  VersionStrategy.h
+  VersionStrategy.cpp
   BuiltinList.h
+  BuiltinMap.cpp
+  CustomVersionMaping.h
 )
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/llvm/include
+  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
 )
 
 target_link_libraries(

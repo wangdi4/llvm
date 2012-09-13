@@ -1,5 +1,3 @@
-set (TARGET_NAME LLVMVectorizer)
-
 file(GLOB_RECURSE headers *.h)
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Utils")
@@ -18,16 +16,15 @@ include_directories(BEFORE "IRPrinter")
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
 include_directories(../arch_headers)
+include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
+include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
 
-use_rtti( FALSE )
-
-add_library( ${TARGET_NAME}
+add_llvm_library( LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
   Utils/SimplifyGEP.cpp
   Driver/OpenCL/OpenclRuntime.cpp
-  Driver/OpenCL/OCLData.cpp
   Driver/DX/DXRuntime.cpp
   Driver/DX/DXData.cpp
   Driver/DX/DXWrapperParamsCheck.cpp
@@ -72,9 +69,10 @@ add_library( ${TARGET_NAME}
   ${headers}
 )
 
-if( NOT APPLE )
-    add_dependencies( ${TARGET_NAME} 
-                    intrinsics_gen )
-endif( NOT APPLE)
+target_link_libraries(
+  LLVMVectorizer
+  reflection_module
+  name_mangle
+)
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )

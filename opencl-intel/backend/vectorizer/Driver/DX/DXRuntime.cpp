@@ -17,9 +17,10 @@ Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
    return m_runtimeModule->getFunction(Name);
 }
 
-RuntimeServices::funcEntry
+std::auto_ptr<VectorizerFunction>
 DXRuntime::findBuiltinFunction(std::string &inp_name) const {
-    return m_vfh.findFunctionInHash(inp_name);
+  funcEntry fe = m_vfh.findFunctionInHash(inp_name);
+  return std::auto_ptr<VectorizerFunction>(new funcEntry(fe));
 }
 
 bool DXRuntime::orderedWI() const { return false; }

@@ -160,11 +160,11 @@ private:
   int m_transposeCtr[Instruction::OtherOpsEnd];
 
   /// @brief The SCM (scalar conversions map). Per each value - map of its scalar elements
-  typedef struct SCMEntry
+  struct SCMEntry
   {
     Value *scalarValues[MAX_INPUT_VECTOR_WIDTH];
     bool isOriginalVectorRemoved;
-  } SCMEntry;
+  };
   DenseMap<Value*, SCMEntry*> m_SCM;
 
   /// @brief called to create a new SCM entry. If entry already exists - return it instead
