@@ -63,6 +63,8 @@
 #include <cvms/plugin.h>
 
 #include "Optimizer.h"
+#include "VecConfig.h"
+
 #ifdef CLD_ASSERT
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -75,11 +77,19 @@ using namespace llvm;
 __BEGIN_DECLS
 
 int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict, 
-         std::vector<unsigned char> &dylib, std::string &log);
+         std::vector<unsigned char> &dylib, std::string &log)
+{
+  return 1;
+}
 
-int cld_link(Module *M, Module *Runtime);
+int cld_link(Module *M, Module *Runtime)
+{
+  return 1;
+}
 
 __END_DECLS
+
+Intel::CPUId selectCPU();
 
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
@@ -812,10 +822,45 @@ static int compileProgram(
   GlobalVariable *annotation = SM->getGlobalVariable("llvm.global.annotations");
   bool has_kernel_annotation = annotation && annotation->hasInitializer();
   if (!has_kernel_annotation && !link_multiple) {
-    if (log) 
+    if (log)
       *log = strdup("No kernels or only kernel prototypes found when build executable.");
     return -3;
   }
+
+  // Optimize the whole module
+  int vectorWidth = 1;
+
+  if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) && !debug && !disable_opt) {
+    // FIXME: replace with sysctl check for avx when available.
+    vectorWidth = 4;
+    if (getenv("CL_VWIDTH_8"))
+      vectorWidth = 8;
+  }
+
+  CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
+  Intel::CPUId cpuId;
+
+  if( pluginData != NULL)
+    cpuId = pluginData->m_CpuId;
+  else
+    cpuId = selectCPU();
+
+  intel::OptimizerConfig optimizerConfig(cpuId,
+                                         vectorWidth,
+                                         std::vector<int>(),
+                                         std::vector<int>(),
+                                         "",
+                                         debug,
+                                         false,
+                                         disable_opt,
+                                         false, // relaxed_math
+                                         false, // create library only
+                                         false  // produce heuristics IR
+                                         );
+
+  Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);
+  optimizer.Optimize();
+
 
   // Create list of functions we want to export and compile for, the name of
   // wrappers, the set of functions in the kernel, and the list of function
@@ -841,8 +886,6 @@ static int compileProgram(
 
     has_kernel = true;
 
-      Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM,SM,NULL);
-      optimizer.Optimize();
 
       
     if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) &&
@@ -1259,6 +1302,100 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 }
 
 
+struct CPUPluginPrivateData
+{
+  Intel::CPUId cpuId;
+};
+
+
+unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
+{
+  unsigned int  cpuFeatures = CFS_SSE2;
+
+  // Add standard features
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
+  {
+    cpuFeatures |= CFS_SSE41 | CFS_SSE42;
+  }
+
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
+  {
+    cpuFeatures |= CFS_AVX1;
+  }
+
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core-avx2"))
+  {
+    cpuFeatures |= CFS_AVX1;
+    cpuFeatures |= CFS_AVX2;
+    //cpuFeatures |= CFS_FMA;
+  }
+
+  // Add forced features
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+sse41" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= CFS_SSE41;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx2" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= CFS_AVX2;
+    cpuFeatures |= CFS_AVX1;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+fma3" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= CFS_FMA;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= CFS_AVX1;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~(CFS_SSE41 | CFS_SSE42);
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx2" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~CFS_AVX2;
+    cpuFeatures &= ~CFS_FMA;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~CFS_AVX1;
+    cpuFeatures &= ~CFS_AVX2;
+    cpuFeatures &= ~CFS_FMA;
+  }
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma3" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~CFS_FMA;
+  }
+
+  return cpuFeatures;
+
+}
+
+Intel::CPUId selectCPU()
+{
+  Intel::ECPU selectedCpuId = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPU();
+  std::vector< std::string > forcedCpuFeatures;
+
+  if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
+    forcedCpuFeatures.push_back("+avx");
+
+  if (selectedCpuId == Intel::CPU_HASWELL) {
+    forcedCpuFeatures.push_back("+avx2");
+    forcedCpuFeatures.push_back("+f16c");
+    forcedCpuFeatures.push_back("+fma3");
+  }
+
+  unsigned int selectedCpuFeatures = SelectCpuFeatures( selectedCpuId, forcedCpuFeatures );
+  m_CpuId = CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
+}
+
 /// cvmsPluginElementBuild - Plugin interface to CVMS invoked when CVMS has been
 /// asked to compile program source.
 ///
@@ -1277,11 +1414,15 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 ///      This occurs when none of the above conditions are met. 
 cvms_private_service_t *cvmsPluginServiceInitialize(cvms_plugin_service_t service)
 {
-    return NULL;
+  CPUPluginPrivateData privateData = new CPUPluginPrivateData()
+  privateData->m_cpuId = selectCPU();
+  return (cvms_private_service_t *)privateData;
 }
 
 void cvmsPluginServiceTerminate(cvms_plugin_service_t service)
 {
+  if( service.private_service )
+    delete service.private_service;
 }
 
 cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)

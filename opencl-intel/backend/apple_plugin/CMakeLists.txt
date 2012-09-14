@@ -12,9 +12,12 @@ set(TARGET_INCLUDE_FILES
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/utils
+    ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}/vectorizer/VolcanoWrapper
 )
 
 link_directories( "/Users/opencl/Documents/work/llvm/lib")
+link_directories( "/System/Library/Frameworks/OpenCL.framework/Libraries")
 
 add_library(${TARGET_NAME} SHARED 
     ${TARGET_SOURCE_FILES} 
@@ -83,6 +86,7 @@ target_link_libraries(${TARGET_NAME}
     OclOptimizer
     name_mangle
     OclUtils
+    cl2module
   
     # Backend passes
     ${PASSES_LIBS}
