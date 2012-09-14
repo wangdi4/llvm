@@ -8,6 +8,7 @@
 #define __OpenclRuntime_H_
 
 #include "RuntimeServices.h"
+#include "Functions.h"
 #include <map>
 #include <string>
 #include <set>
@@ -16,6 +17,7 @@
 
 namespace intel {
 
+extern VFH::hashEntry OCLEntryDB[];
 extern const char *volacanoScalarSelect[];
 
 /// @brief
@@ -31,6 +33,7 @@ public:
 
   /// @brief Constructor which get arbitraty table as input
   OpenclRuntime(const Module *runtimeModule,
+                VFH::hashEntry *DB = OCLEntryDB,
                 const char **scalarSelects = volacanoScalarSelect);
 
   /// @brief Destructor
@@ -42,8 +45,7 @@ public:
 
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
-  virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
+  virtual funcEntry findBuiltinFunction(std::string &inp_name) const;
 
   /// @brief OpenCL is an ordered programming language. WIAnalysis is needed
   /// @return True
@@ -160,6 +162,10 @@ protected:
   /// @brief hold names of scalar select builtins
   std::set<std::string> m_scalarSelectSet;
 
+  /// @brief Fills the OCL functions DB with DX buildins
+  /// @param s VFH storage
+  void initDB(VFH &s);
+
   /// @brief Pointer to runtime module
   /// (module with implementation of built-in functions)
   const Module *m_runtimeModule;
@@ -167,6 +173,9 @@ protected:
   /// @brief Hold the requested packetization width
   //(currently same one for all funcs)
   unsigned m_packetizationWidth;
+
+  /// @brief Pointer to OpenCL wrappers hash object
+  VFH m_vfh;
 
 private:
 

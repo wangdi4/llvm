@@ -8,11 +8,10 @@
 #define __APPLE_OCL_RUNTIME_H_
 
 #include "OpenclRuntime.h"
-#include "Functions.h"
 
 namespace intel {
 
-extern hashEntry AppleOCLEntryDB[];
+extern VFH::hashEntry AppleOCLEntryDB[];
 
 /// @brief
 ///  Runtime services for Apple Opencl SDK
@@ -29,9 +28,6 @@ public:
   
   /// @brief Destructor
   ~AppleOpenclRuntime() {}
-
-  virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
 
   /// @brief returns true the function needs to be replaced with fake function
   ///   used by OCLBuiltinPreVectorizationPass
@@ -84,14 +80,12 @@ private:
   /// @breif hold names of builtins that require replacement with fake function
   std::set<std::string> m_needPreVectorizationSet;
 
-  /// @brief Pointer to OpenCL wrappers hash object
-  VFH m_vfh;
   
   AppleOpenclRuntime(); // Do not implement
 
-  std::auto_ptr<VectorizerFunction> m_readImageEntry;
+  const hashEntry *m_readImageEntry;
 
-  std::auto_ptr<VectorizerFunction> m_writeImageEntry;
+  const hashEntry *m_writeImageEntry;
 };
 
 

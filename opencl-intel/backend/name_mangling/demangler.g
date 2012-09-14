@@ -5,12 +5,10 @@ header "pre_include_hpp" {
 #include "Type.h"
 #include "antlr/ParserSharedInputState.hpp"
 #include "antlr/TokenBuffer.hpp"
-#include "DemangleLexer.hpp"
 }
 
 header "post_include_hpp"{
 typedef std::stack<reflection::Type*> TypeStack;
-namespace namemangling{class DemangleLexer;}
 }
 
 options {
@@ -36,11 +34,9 @@ options {
 private:
 TypeStack m_stack;
 reflection::TypeCallback* m_cb;
-DemangleLexer* m_pLexer;
 
 public:
-void setCallback(reflection::TypeCallback* cb){m_cb = cb;}
-void setLexer(DemangleLexer* plexer){m_pLexer = plexer;}
+void setCallback(reflection::TypeCallback* cb){m_cb = cb;};
 }
 
 demangle
@@ -60,7 +56,6 @@ type
   | pType = vector_type    {m_stack.push(pType);}
   | pType = pointer_type   {m_stack.push(pType);}
   | pType = dup_type       {m_stack.push(pType);}
-  | pType = user_defined_type {m_stack.push(pType);}
 ;
 
 primitive_type returns [reflection::Type* pType = NULL;]
@@ -118,16 +113,6 @@ dup_type returns [reflection::Type* ret = NULL;]
   }
 ;
 
-user_defined_type returns [reflection::Type* ret = NULL;]
-  :
-  n:NUMBER{
-    unsigned int namelen = atoi(n->getText().c_str());
-    std::string typeName = m_pLexer->readN(namelen);
-    ret = new reflection::UserDefinedTy(typeName);
-  }
-;
-
-
 cv_qualifier returns [std::string s]
   : RESTRICT {s = "restrict";}
   | VOLATILE {s = "volatile";}
@@ -156,28 +141,6 @@ class DemangleLexer extends Lexer;
 
 options{
   k=2;
-}
-
-{
-//  private: unsigned int m_nSkipChars;
-
-  public: std::string readN(unsigned int n){
-    assert(n>0 && "invalid character number");
-    resetText();
-    while(n-->0)
-      consume();
-    std::string ret = getText();
-    resetText();
-    return ret;
-  }
-
-//  public:  int LA(unsigned int i){
-//    while(m_nSkipChars){
-//      inputState->getInput().getChar();
-//      m_nSkipChars--;
-//    }
-//    return CharScanner::LA(i);
-//  }
 }
 
 protected

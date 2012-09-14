@@ -61,12 +61,12 @@ struct MemoryOperation {
 class PacketizeFunction : public FunctionPass {
 
   /// @brief vector conversions map entry
-  struct VCMEntry
+  typedef struct VCMEntry
   {
     Instruction *vectorValue;
     Instruction *multiScalarValues[MAX_PACKET_WIDTH];
     bool isScalarRemoved;
-  };
+  } VCMEntry;
 
 public:
 

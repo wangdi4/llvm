@@ -104,7 +104,7 @@ public:
 
 private: 
   /// struct that contain boundary early exit description.
-  struct TIDDesc{
+  typedef struct TIDDesc{
     Value *m_bound;         //actual bound 
     unsigned m_dim;         //dimesnion of boundary
     bool m_isUpperBound;    //true upper bound, false lower bound 
@@ -117,17 +117,17 @@ private:
       m_bound(bound), m_dim(dim), m_isUpperBound(isUpperBound),
       m_containsVal(containsVal), m_isSigned(isSigned) ,m_isGID(isGID)
     {}
-  };
+  } TIDDesc;
 
   ///@brief struct that contain uniform early exit description.
-  struct UniDesc{
+  typedef struct UniDesc{
     Value *m_cond;    //condition an i1 value
     bool m_exitOnTrue;  //if true exit when condition is set.
 
     UniDesc (Value *cond, bool exitOnTrue) :
     m_cond(cond), m_exitOnTrue(exitOnTrue)
     {}
-  };
+  } UniDesc;
 
   ///@brief helpful shortcuts for structures.
   typedef SmallVector<Value *, 4> VVec;

@@ -122,12 +122,9 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     float Probability = ProbMap.lookup(BB);
 
     // And now, sum up all the instructions
-    for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
+    for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I) 
       m_totalWeight += Probability * TripCount * 
                        getInstructionWeight(I, MemOpCostMap);
-//      Debug(I->getOpcodeName());
-//      Debug(m_totalWeight);
-    }
   }
 
   // Decide what the vectorization width should be.

@@ -6,7 +6,7 @@
 
 namespace intel {
 
-extern hashEntry DXEntryDB[];
+extern VFH::hashEntry DXEntryDB[];
 
 /// @brief Runtime services for DX
 ///  @Author Sion Berkowitz, Nadav Rotem
@@ -29,8 +29,7 @@ public:
 
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
-  virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
+  virtual funcEntry findBuiltinFunction(std::string &inp_name) const;
 
   /// @brief DX is not ordered. WIAnalysis is not needed
   ///  since everything is assumed to be random.

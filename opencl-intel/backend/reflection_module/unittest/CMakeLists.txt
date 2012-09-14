@@ -18,8 +18,6 @@ endif(WIN32)
 include_directories(
   ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/OpenCL
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
   ../
 )
 
@@ -29,16 +27,6 @@ target_link_libraries(
   gtest
   gtest_main
   LLVMSupport
-  LLVMVectorizer
-  LLVMCore
-  LLVMBitReader
-  LLVMAsmParser
-)
-
-#this ll file is used by the unittest 
-file(COPY
-  mybi.ll
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

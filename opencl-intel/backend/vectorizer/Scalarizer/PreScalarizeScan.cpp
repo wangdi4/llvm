@@ -42,14 +42,14 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   Function *vectorFunc = CI->getCalledFunction();
   std::string vectorFuncName = vectorFunc->getName();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const RuntimeServices::funcEntry foundFunction =
     m_rtServices->findBuiltinFunction(vectorFuncName);
   unsigned vectorWidth = 0;
-  if (!foundFunction->isNull())
+  if (foundFunction.first)
   {
-    vectorWidth = foundFunction->getWidth();
+    vectorWidth = foundFunction.second;
   }
-  if (vectorWidth <= 1 || !foundFunction->isScalarizable())
+  if (vectorWidth <= 1 || ! foundFunction.first->isScalarizable)
   {
     V_PRINT(scalarizer, "\t\tFound scalar function, wrapper, or not found in hash\n");
     return false;
@@ -57,8 +57,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   V_ASSERT(vectorWidth > 1 && "Only scalarize vector functions");
 
   // Vector function was found in hash. Now find the function prototype of the scalar function
-  std::string strScalarFname = foundFunction->getVersion(0);
-  const char *scalarFuncName = strScalarFname.c_str();
+  const char *scalarFuncName = foundFunction.first->funcs[0];
   Function *scalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
   if (!scalarFunc)
   {

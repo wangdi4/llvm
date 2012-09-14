@@ -770,14 +770,14 @@ let Types = [v4i8,  v8i8,  v16i8,
     Attrs = [OVERLOADABLE],
 	NeedForwardDecl = 1	in {
 def soa_any1 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
-def soa_any2 : OclBuiltin<"soa_any2", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
-def soa_any3 : OclBuiltin<"soa_any3", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
-def soa_any4 : OclBuiltin<"soa_any4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_any2 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
+def soa_any3 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
+def soa_any4 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
 	gentype:$x2, gentype:$x3), [], []>;
-def soa_any8 : OclBuiltin<"soa_any8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_any8 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
 	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
 	 gentype:$x6, gentype:$x7), [], []>;
-def soa_any16 : OclBuiltin<"soa_any16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
+def soa_any16 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
 	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
 	 gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
 	 gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 

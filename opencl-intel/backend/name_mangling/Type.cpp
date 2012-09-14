@@ -62,13 +62,6 @@ static const char* PrimitiveNames[NUM_TYPES] ={
   "double"
 };
 
-primitives::Primitive primitives::parseType(const std::string& s){
-  for (int i=0 ; i<NUM_TYPES ; ++i)
-    if (0==s.compare(PrimitiveNames[i]))
-      return static_cast<primitives::Primitive>(primitives::BOOL+i);
-  assert(false && "unreachable code: not a valid type");
-  return static_cast<primitives::Primitive>(0);
-}
 #define PrimitiveToString(p) toLower(PrimitiveNames[p-primitives::BOOL])
 
 //
@@ -125,7 +118,6 @@ void Type::accept(TypeVisitor* v)const{
 bool Type::eq(const Type* t)const{
   return m_primitive == t->m_primitive;
 }
-
 //
 //Pointer
 //
@@ -168,7 +160,7 @@ bool Pointer::eq(const Type* t)const{
   return p && (m_primitive == p->m_primitive);
 }
 
-const Type* Pointer::getPointee()const{
+const Type* Pointer::getPoitee()const{
   return m_pType;
 }
 //
@@ -206,35 +198,6 @@ void Vector::accept(TypeVisitor* v)const{
 bool Vector::eq(const Type* t)const{
   const Vector* pVec = dynamic_cast<const Vector*>(t);
   return pVec && (m_len == pVec->m_len) && (m_primitive == pVec->m_primitive);
-}
-
-//
-//UserDefinedTy
-//
-//
-UserDefinedTy::UserDefinedTy(const std::string& name):
-Type(primitives::NONE), m_name(name){
-}
-
-Type* UserDefinedTy::clone()const{
-  return new UserDefinedTy(m_name);
-}
-
-void UserDefinedTy::accept(TypeVisitor* v)const{
-  v->visit(this);
-}
-
-std::string UserDefinedTy::toString()const{
-  return m_name;
-}
-
-primitives::Primitive UserDefinedTy::getPrimitive()const{
-  return primitives::NONE;
-}
-
-bool UserDefinedTy::eq(const Type* t)const{
-  const UserDefinedTy* pTy = dynamic_cast<const UserDefinedTy*>(t);
-  return pTy && (m_name == pTy->m_name);
 }
 
 }//end reflection

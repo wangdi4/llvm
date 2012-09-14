@@ -37,11 +37,7 @@ struct VWidthResolver: TypeVisitor{
   }
 
   void visit(const Pointer* p){
-    p->getPointee()->accept(this);
-  }
-
-  void visit(const UserDefinedTy*){
-    m_width = width::SCALAR;
+    p->getPoitee()->accept(this);
   }
 
   width::V width()const{return m_width;}
@@ -49,16 +45,8 @@ private:
   width::V m_width;
 };
 
-llvm::StringRef FunctionDescriptor::nullString(){
-  return llvm::StringRef("<invalid>");
-}
-
 std::string FunctionDescriptor::toString()const{
   std::stringstream stream;
-  if ( isNull() ){
-    stream << "null descriptor";
-    return stream.str();
-  }
   stream << name << "(";
   size_t paramCount = parameters.size();
   if (paramCount > 0){
@@ -86,10 +74,6 @@ static bool equal(const std::vector<Type*>& l, const std::vector<Type*>& r){
   return true;
 }
 
-//
-//FunctionDescriptor
-//
-
 bool FunctionDescriptor::operator == (const FunctionDescriptor& that)const{
   if (this == &that)
     return true;
@@ -98,44 +82,16 @@ bool FunctionDescriptor::operator == (const FunctionDescriptor& that)const{
   return equal(parameters, that.parameters);
 }
 
-bool FunctionDescriptor::operator < (const FunctionDescriptor& that)const{
-  int strCmp = name.compare(that.name);
-  if( strCmp )
-    return (strCmp < 0);
-  size_t len = parameters.size(), thatLen = that.parameters.size();
-  if (len != thatLen)
-    return len < thatLen;
-  std::vector<Type*>::const_iterator it = parameters.begin(),
-  e = parameters.end(), thatit = that.parameters.begin();
-  while (it != e){
-    int cmp = (*it)->toString().compare((*thatit)->toString());
-    if (cmp)
-      return (cmp < 0);
-    ++thatit;
-    ++it;
-  }
-  return false;
-}
-void FunctionDescriptor::assignAutomaticWidth(){
+width::V FunctionDescriptor::getWidth()const{
   VWidthResolver widthResolver;
-  width::V w = width::SCALAR;
+  width::V ret = width::SCALAR;
   size_t paramCount = parameters.size();
   for (size_t i=0 ; i<paramCount ; ++i){
     parameters[i]->accept(&widthResolver);
-    if (w < widthResolver.width())
-      w = widthResolver.width();
+    if (ret < widthResolver.width())
+      ret = widthResolver.width();
   }
-  width = w;
-}
-
-bool FunctionDescriptor::isNull()const{
-  return (name.empty() && parameters.empty());
-}
-
-FunctionDescriptor FunctionDescriptor::null(){
-  FunctionDescriptor fd;
-  fd.name = "";
-  return fd;
+  return ret;
 }
 
 }

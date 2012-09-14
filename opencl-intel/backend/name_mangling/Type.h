@@ -33,7 +33,7 @@ enum Primitive{
   BOOL=4,
   UCHAR,
   CHAR,
-  USHORT,
+  USHOR,
   SHORT,
   UINT,
   INT,
@@ -41,15 +41,12 @@ enum Primitive{
   LONG,
   HALF,
   FLOAT,
-  DOUBLE,
-  NONE
+  DOUBLE
 };
-//parses the given string into its corresponding nominal value
-Primitive parseType(const std::string&);
 }
 
 //total number of primitive types
-const int NUM_TYPES = 13;
+const int NUM_TYPES = 12;
 
 struct TypeVisitor;
 
@@ -83,7 +80,7 @@ struct Type{
   //
   //Purpose: returns the primitive enumeration of the type
   //
-  virtual primitives::Primitive getPrimitive()const {return m_primitive;}
+  primitives::Primitive getPrimitive()const {return m_primitive;}
   //
   //Purpose: visitor service method. (see TypeVisitor for more details).
   //When overridden in subclasses, preform a 'double dispatch' to the
@@ -119,8 +116,9 @@ struct Pointer: Type{
   Pointer* clone()const;
   //getters/equalizers
   std::string toString()const;
+  bool equals(const Type*)const;
   //return the type the pointer is pointing at
-  const Type* getPointee()const;
+  const Type* getPoitee()const;
   void accept(TypeVisitor*)const;
 protected:
   bool eq(const Type*)const;
@@ -130,6 +128,7 @@ private:
 };
 
 struct Vector: Type{
+  //
   //Parameters:
   //  Type*: the type of each scalar element in the vector.
   //  int  : the length of the vector
@@ -137,6 +136,7 @@ struct Vector: Type{
   std::string toString()const;
   int getLen()const;
   Vector* clone()const;
+  bool equals(Type*)const;
   void accept(TypeVisitor*)const;
 protected:
   bool eq(const Type*)const;
@@ -144,17 +144,6 @@ private:
   Vector(const Vector&);
   //the length of the vector
   int m_len;
-};
-
-struct UserDefinedTy: Type{
-  UserDefinedTy(const std::string&);
-  Type* clone()const;
-  void accept(TypeVisitor*)const;
-  std::string toString()const;
-  primitives::Primitive getPrimitive()const;
-protected:
-  bool eq(const Type*)const;
-  std::string m_name;
 };
 
 //
@@ -190,7 +179,6 @@ struct TypeVisitor{
   virtual void visit(const Type*)   = 0;
   virtual void visit(const Vector*) = 0;
   virtual void visit(const Pointer*)= 0;
-  virtual void visit(const UserDefinedTy*) = 0;
 };
 
 }//namespace mangle

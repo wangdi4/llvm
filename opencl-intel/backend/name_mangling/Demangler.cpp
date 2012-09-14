@@ -22,7 +22,6 @@
 #include "DemangleLexer.hpp"
 #include "DemangleParser.hpp"
 #include "FunctionDescriptor.h"
-
 //
 //A callback delegate (aka functor), to handle the discovery of parameters by
 //the parser (accumulator)
@@ -44,11 +43,11 @@ std::vector<reflection::Type*> m_parameters;
 
 //parsing methods for the raw mangled name
 //
-static bool peelPrefix(std::string& s){
+static std::string peelPrefix(std::string& s){
   if ("_Z" != s.substr(0,2) )
-      return false;
+      throw "invalid prefix";
   s = s.substr(2, s.length()-2);
-  return true;
+  return "_Z";
 }
 
 static std::string peelNameLen(std::string& s){
@@ -68,13 +67,10 @@ static std::string peelNameLen(std::string& s){
 reflection::FunctionDescriptor demangle(const char* rawstring){
   ANTLR_USING_NAMESPACE(antlr)
   ANTLR_USING_NAMESPACE(namemangling)
-  if (!rawstring || reflection::FunctionDescriptor::nullString() == rawstring)
-    return reflection::FunctionDescriptor::null();
   std::stringstream input;
   std::string mangledName(rawstring);
   //making sure it starts with _Z
-  if (false == peelPrefix(mangledName))
-    return reflection::FunctionDescriptor::null();
+  peelPrefix(mangledName);
   std::string nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.c_str());
@@ -84,19 +80,13 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   input << parameters;
   DemangleLexer lexer(input);
   DemangleParser parser(lexer);
-  parser.setLexer(&lexer);
   //
   //setting the callback to parameter discovery
   //
   TypeAccumulator parameterAccumulator;
   parser.setCallback(&parameterAccumulator);
   // Parse the input expression
-  try {
-    parser.demangle();
-  }catch(ANTLRException ex){
-//    assert(false && "antlr exception was caught");
-    return reflection::FunctionDescriptor::null();
-  }
+  parser.demangle();
   reflection::FunctionDescriptor ret;
   ret.name = functionName;
   ret.parameters.insert ( ret.parameters.begin(),
@@ -110,8 +100,7 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
 std::string stripName(const char* rawstring){
   std::string mangledName(rawstring);
   //making sure it starts with _Z
-  if (false == peelPrefix(mangledName))
-    throw "not a valid prefix";
+  peelPrefix(mangledName);
   std::string nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.c_str());

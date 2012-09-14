@@ -22,14 +22,14 @@ namespace intel {
 
   typedef SmallVector<Value *, 16> ArgsVector;
 
-  struct retAttr{
+  typedef struct retAttr{
     bool isArrayOfVec;          // true iff return is array of vectors [n x <m x T>]
     bool isVoid;                // true iff return is void
     unsigned nVals;             // number of vals returned [n x <m x T>]=n \ <m x T>=1 \ void = 0
     ArrayType *arrType;   // if isArrayOfVec the type otherwise NULL
     Type *elType;         // the basic type returned [n x <m x T>]=<m x T> \ <m x T>=<m x T> \ void=NULL
     unsigned vecWidth;          // if isArrayOfVec [n x <m x T>]=m  otherwise 0(unused)
-  };
+  } retAttr;
 
 /// @brief
 /// This class implements reolver for built-ins that were replaced with fake function 

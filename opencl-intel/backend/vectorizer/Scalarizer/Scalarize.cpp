@@ -669,10 +669,8 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
 
   // Find corresponding entry in functions hash (in runtimeServices) 
   std::string funcName = CI->getCalledFunction()->getName();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
-    m_rtServices->findBuiltinFunction(funcName);
-  if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
-    foundFunction->isPacketizable())
+  const RuntimeServices::funcEntry foundFunction = m_rtServices->findBuiltinFunction(funcName);
+  if (foundFunction.first && foundFunction.second == 1 && foundFunction.first->isPacketizable)
   {
     scalarizeInputReturnOfScalarCall(CI);
     return;
@@ -687,11 +685,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   }
 
   // Getting here, the function is a "normal" kind of builtin function.
-  unsigned vectorWidth = foundFunction->getWidth();
-  V_ASSERT(!foundFunction->isNull() && vectorWidth > 1 && "should still have found vector function");
+  unsigned vectorWidth = foundFunction.second;
+  V_ASSERT(foundFunction.first && vectorWidth > 1 && "should still have found vector function");
   // In release mode, just don't scalarize the instruction if the first part
   // of the above assert fails.
-  if (foundFunction->isNull())
+  if (!foundFunction.first)
   {
     recoverNonScalarizableInst(CI);
     return;
@@ -700,8 +698,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_ASSERT(MAX_INPUT_VECTOR_WIDTH >= vectorWidth && "vector size not supported");
 
   // Find scalar function, using hash entry
-  std::string strScalarFuncName = foundFunction->getVersion(0);
-  const char *scalarFuncName = strScalarFuncName.c_str();
+  const char *scalarFuncName = foundFunction.first->funcs[0];
   const Function *LibScalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
   V_ASSERT(NULL != LibScalarFunc && "function hash error");
 
@@ -1037,9 +1034,9 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
   std::string name = CI->getCalledFunction()->getNameStr();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const RuntimeServices::funcEntry foundFunction =
     m_rtServices->findBuiltinFunction(name);
-  V_ASSERT(!foundFunction->isNull() && "Unknown name");
+  V_ASSERT(foundFunction.first && "Unknown name");
   const FunctionType* ScalarFunctionType = 
       CI->getCalledFunction()->getFunctionType();
     
