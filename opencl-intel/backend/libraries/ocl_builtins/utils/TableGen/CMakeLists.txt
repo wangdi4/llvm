@@ -21,6 +21,7 @@ add_tablegen(
   OclBuiltinsHeaderGen.cpp
   TableGen.cpp
   CodeFormatter.cpp
+  ConversionParser.cpp
 )
 
 include_directories(

@@ -215,6 +215,41 @@ TEST(DemangleTest, duplicateParam0){
   ASSERT_TRUE( testDemangle(name) );
 }
 
+//
+//This function might be mistakingly considered as an image function
+//
+TEST(DemangleTest, imageAmbiguity){
+  const char* name = "_Z11mask_vstoretDv16_imPU3AS1i";
+  ::testing::AssertionSuccess() << "demangling " << name << std::endl;
+  reflection::FunctionDescriptor fd = demangle(name);
+  ASSERT_EQ("mask_vstore", fd.name);
+  ASSERT_EQ(4U, fd.parameters.size());
+  ASSERT_EQ("ushort", fd.parameters[0]->toString());
+  ASSERT_EQ("int16", fd.parameters[1]->toString());
+  ASSERT_EQ("ulong", fd.parameters[2]->toString());
+  ASSERT_EQ("__global int *", fd.parameters[3]->toString());
+}
+
+TEST(DemangleTest, imageBuiltin){
+  const char* name = "_Z11read_imagefP10_image2d_tjDv2_f";
+  std::cout << "demangling " << name << std::endl;
+  reflection::FunctionDescriptor fd = demangle(name);
+  ASSERT_EQ("read_imagef", fd.name);
+  ASSERT_EQ(3U, fd.parameters.size());
+  ASSERT_STREQ("_image2d_t *", fd.parameters[0]->toString().c_str());
+  ASSERT_STREQ("uint", fd.parameters[1]->toString().c_str());
+  ASSERT_STREQ("float2", fd.parameters[2]->toString().c_str());
+}
+
+TEST(DemangleTest, duplicatedVector){
+  const char* name = "_Z3maxDv2_iS_";
+  reflection::FunctionDescriptor fd = demangle(name);
+  ASSERT_EQ("max", fd.name);
+  ASSERT_EQ(2U, fd.parameters.size());
+  ASSERT_STREQ("int2", fd.parameters[0]->toString().c_str());
+  ASSERT_STREQ("int2", fd.parameters[1]->toString().c_str());
+}
+
 TEST(MangleTest, _Z17convert_float_satc){
   std::string orig = "_Z17convert_float_satc";
   std::string syntesized = mangle( demangle( orig.c_str() ) );
@@ -227,6 +262,25 @@ TEST(MangleTest, semidup){
   std::string orig = "_Z5fractDv2_fPU3AS1S_";
   std::string actual = mangle( demangle( orig.c_str() ) );
   ASSERT_EQ(orig, actual);
+}
+
+TEST(MangleTest, doubleDup){
+  reflection::FunctionDescriptor fd;
+  reflection::Type primitiveFloat(reflection::primitives::FLOAT);
+  reflection::Vector vectorFloat(&primitiveFloat, 4);
+  reflection::Pointer ptrFloat(&vectorFloat);
+
+  fd.name = "stam";
+  fd.parameters.push_back(&vectorFloat);
+  fd.parameters.push_back(&vectorFloat);
+  fd.parameters.push_back(&ptrFloat);
+  fd.parameters.push_back(&ptrFloat);
+
+  std::string mangled = mangle(fd);
+  ASSERT_STREQ("_Z4stamDv4_fS_PS_S0_", mangled.c_str());
+  const char* soaFunc = "_Z10soa_cross3Dv4_fS_S_S_S_S_PS_S0_S0_" ;
+  fd = demangle(soaFunc);
+  ASSERT_STREQ(soaFunc, mangle(fd).c_str());
 }
 
 TEST(MangleBasic, scalarfloat){

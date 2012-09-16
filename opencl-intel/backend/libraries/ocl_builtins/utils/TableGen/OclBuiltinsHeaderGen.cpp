@@ -18,6 +18,7 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "OclBuiltinsHeaderGen.h"
 #include "OclBuiltinEmitter.h"
 #include "CodeFormatter.h"
+#include "ConversionParser.h"
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/Module.h"
@@ -32,6 +33,7 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include <sstream>
 #include <memory>
 #include <cstdio>
+#include <cctype>
 
 #define XSTR(A) STR(A)
 #define STR(A) #A
@@ -141,7 +143,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     biCounter = 0;
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
       m_formatter << "\"" << getPrototype(typeit->first, typeit->second) <<
-      "\", //" << ++biCounter;
+      "\", //" << biCounter++;
       m_formatter.endl();
     }
     m_formatter.unindent();
@@ -157,6 +159,10 @@ typedef TypedBiList::const_iterator TypedBiIter;
   }
 
 protected:
+  static bool isConversion(const std::string& s){
+    const std::string prefix("convert_");
+    return (s.substr(0, prefix.length()) == prefix);
+  }
   static bool isLess(const TypedBi& leftBi, const TypedBi& rightBi){
     size_t lindex , rindex;
     std::string left = getPrototype(leftBi.first, leftBi.second);
@@ -165,8 +171,14 @@ protected:
     rindex = right.find('(');
     assert(lindex != std::string::npos && "illegal function prototype");
     assert(rindex != std::string::npos && "illegal function prototype");
+    //is it a conversion function (conversion of the same type needs to be
+    //grouped together)
     std::string lname = left.substr(0, lindex);
     std::string rname = right.substr(0, rindex);
+    if (isConversion(lname) && isConversion(rname)){
+      reflection::ConversionDescriptor ldesc(lname), rdesc(rname);
+      return ldesc.compare(rdesc) < 0;
+    }
     return lname.compare(rname) < 0;
   }
 

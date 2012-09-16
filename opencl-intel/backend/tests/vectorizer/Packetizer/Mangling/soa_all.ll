@@ -8,7 +8,7 @@ target triple = "x86_64-pc-win32"
 
 ;CHECK: @run_all
 ;CHECK-NOT: call i32 @_Z3all
-;CHECK: call <16 x i32> @_Z7soa_allDv16_cS_S_S_
+;CHECK: call <16 x i32> @_Z8soa_all4Dv16_cS_S_S_
 ;CHECK-NOT: call i32 @_Z3all
 define void @run_all(<4 x i8> %inp1, <4 x i8> %inp2, <4 x i8> %inp3, <4 x i8> %inp4) nounwind {
 entry:

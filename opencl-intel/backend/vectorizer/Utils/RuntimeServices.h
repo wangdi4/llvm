@@ -10,6 +10,7 @@
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
+#include "VectorizerFunction.h"
 
 #define HASH_BUILTIN_MISSING "_"
 
@@ -39,18 +40,10 @@ public:
   /// @param Name Function name to look for
   virtual Function *findInRuntimeModule(StringRef Name) const = 0;
 
-  /// @brief Structure returned for each function name query
-  typedef struct hashEntry {
-    const char *funcs[6]; // Name of functions, sorted as (1,2,4,8,16,3)
-    unsigned isScalarizable;
-    unsigned isPacketizable;
-  } hashEntry;
-
-  typedef std::pair<const hashEntry*, unsigned> funcEntry;
-
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
-  virtual funcEntry findBuiltinFunction(std::string &inp_name) const = 0;
+  virtual std::auto_ptr<VectorizerFunction>
+  findBuiltinFunction(std::string &inp_name) const = 0;
 
   /// @brief Check if specified instruction is an ID generator
   /// @param inst The instruction

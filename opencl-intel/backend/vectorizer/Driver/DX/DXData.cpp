@@ -2,7 +2,7 @@
 
 namespace intel {
 
-VFH::hashEntry DXEntryDB[] = {
+hashEntry DXEntryDB[] = {
   {{"__acosf","__acosf2","__acosf4","__acosf8","__acosf16","__acosf3"},1,1},
   {{"__acoshf","__acoshf2","__acoshf4","__acoshf8","__acoshf16","__acoshf3"},1,1},
   {{"__acospif","__acospif2","__acospif4","__acospif8","__acospif16","__acospif3"},1,1},

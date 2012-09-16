@@ -1,8 +1,9 @@
 #include "AppleOCLRuntime.h"
+#include "Functions.h"
 
 namespace intel{
 
-VFH::hashEntry AppleOCLEntryDB[] = {
+hashEntry AppleOCLEntryDB[] = {
  {{"_Z9__cl_acosf","_Z9__cl_acosDv2_f","_Z9__cl_acosDv4_f","_Z9__cl_acosDv8_f","_Z9__cl_acosDv16_f","_Z9__cl_acosDv3_f"},1,1},
   {{"_Z10__cl_acoshf","_Z10__cl_acoshDv2_f","_Z10__cl_acoshDv4_f","_Z10__cl_acoshDv8_f","_Z10__cl_acoshDv16_f","_Z10__cl_acoshDv3_f"},1,1},
   {{"_Z6acospif","_Z6acospiDv2_f","_Z6acospiDv4_f","_Z6acospiDv8_f","_Z6acospiDv16_f","_Z6acospiDv3_f"},1,1},

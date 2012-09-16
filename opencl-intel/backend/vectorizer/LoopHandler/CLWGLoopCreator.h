@@ -108,7 +108,7 @@ public:
 private:
   
   ///@brief struct that contains dimesion 0 loop attributes.
-  typedef struct loopBoundaries {
+  struct loopBoundaries {
     Value *m_vectorLoopSize;  // num vector loop iterations.
     Value *m_scalarLoopSize;  // num scalar loop iterations.
     Value *m_maxVector;       // max vector global id 
@@ -119,10 +119,10 @@ private:
                 m_vectorLoopSize(vectorLoopSize),
                 m_scalarLoopSize(scalarLoopSize),
                 m_maxVector(maxVector) {}
-  } loopBoundaries;
+  };
 
   ///@brief struct that represent loop Region in the CFG.
-  typedef struct loopRegion {
+  struct loopRegion {
     BasicBlock *m_preHeader; // Pre header block of the loop.
     BasicBlock *m_exit;      // Exit block of the loop.
 
@@ -130,7 +130,7 @@ private:
     loopRegion (BasicBlock *preHeader, BasicBlock *exit):
                 m_preHeader(preHeader), m_exit(exit)
                {}               
-  } loopRegion;
+  };
 
   ///@brief Helpful shortcuts for structures.
   typedef SmallVector<Value*, 4> VVec;

@@ -18,22 +18,19 @@
 #include "FunctionDescriptor.h"
 #include <string>
 
-//
 //Purpose: converts the given string to function descriptor, that represents
 //the function's prototype.
 //In case of failures, an exception is thrown.
 reflection::FunctionDescriptor demangle(const char* rawstring);
 
-//
-//returns the stripped function name, of the function mangled byu the given
-//string
+//Purpose: returns the stripped function name, of the function mangled byu the
+//given string. If the given string is not the mangled name of a builtin, an
+//exception is thrown.
 std::string stripName(const char* rawstring);
 
-//
 //Purpose: converts the given function descriptor to string that represents
 //the function's prototype.
 //The mangling algorithm is based on Itanium mangling algorithm
 //(http://sourcery.mentor.com/public/cxx-abi/abi.html#mangling), with SPIR
 //extensions.
 std::string mangle(const reflection::FunctionDescriptor&);
-

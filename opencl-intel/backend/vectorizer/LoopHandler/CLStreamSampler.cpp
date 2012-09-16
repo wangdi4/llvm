@@ -19,14 +19,14 @@
   #define MAX_LOOP_SIZE 128
 #endif
 
-#define FLOAT_X_WIDTH__ALIGNMENT 16 
+#define FLOAT_X_WIDTH__ALIGNMENT 16
 char intel::CLStreamSampler::ID = 0;
 
 namespace intel {
 
 
 CLStreamSampler::CLStreamSampler():
-LoopPass(ID), 
+LoopPass(ID),
 m_rtServices(static_cast<AppleOpenclRuntime *>(RuntimeServices::get()))
 {
   initializeDominatorTreePass(*PassRegistry::getPassRegistry());
@@ -76,7 +76,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Replace transposed read_image calls with read_stream call in pre header.
   hoistReadImgCalls();
 
-  // Provided that the loop has exit block (WG loops have exit block),Replace 
+  // Provided that the loop has exit block (WG loops have exit block),Replace
   // transposed write_image calls with write_stream call in exit block
   if (m_exit) sinkWriteImgCalls();
 
@@ -86,7 +86,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
 }
 
 unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
-  // If the Loop has constant trip count return it provided that it 
+  // If the Loop has constant trip count return it provided that it
   // is not too big.
   if (ConstantInt *CI = dyn_cast<ConstantInt>(tripCount)) {
     unsigned tripConst = CI->getZExtValue();
@@ -155,16 +155,16 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (!m_rtServices->isTransposedReadImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
-  const RuntimeServices::funcEntry foundFunction =
-                                m_rtServices->findBuiltinFunction(funcName);
-  assert(foundFunction.first && "should have hash entry");
-  assert(foundFunction.second > 1 && "func should be soa_write_image");
+  std::auto_ptr<VectorizerFunction> foundFunction =
+    m_rtServices->findBuiltinFunction(funcName);
+  assert(!foundFunction->isNull() && "should have hash entry");
+  assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");
   // Currently supports only transposed write.
-  if (!foundFunction.first  || foundFunction.second <= 1) return;
+  if (foundFunction->isNull()  || foundFunction->getWidth() <= 1) return;
 
   TranspReadImgAttr attrs;
   attrs.m_call = readImgCall;
-  attrs.m_width = foundFunction.second;
+  attrs.m_width = foundFunction->getWidth();
   attrs.m_img = readImgCall->getArgOperand(0);
   attrs.m_sampler = readImgCall->getArgOperand(1);
   // Sampler and Image should be invariant.
@@ -175,7 +175,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (attrs.m_width <= 1) return;
 
   // Obtain the coord arguments.
-  VectorType *coordTy = 
+  VectorType *coordTy =
       VectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
   attrs.m_firstCoords.clear();
   for (unsigned i=2; i<4; ++i) {
@@ -205,15 +205,15 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
     // arguments should be an alloca whose users are the call and the load.
     AllocaInst *AI = dyn_cast<AllocaInst>(readImgCall->getArgOperand(i));
     if (!AI || AI->getNumUses() > 2) return;
-    
+
     // In case the pointer has only one user it is the call, meaning this color
     // was not used so we just continue.
     if (AI->hasOneUse()) {
       attrs.m_colors.push_back(NULL);
       continue;
     }
-    
-    // The pointer has 2 users 
+
+    // The pointer has 2 users
     Value *user1 = *(AI->use_begin());
     Value *user2 = *(++(AI->use_begin()));
     LoadInst *load = NULL;
@@ -246,7 +246,7 @@ void CLStreamSampler::hoistReadImgCalls() {
   }
 }
 
-std::pair<Value *, Value *> 
+std::pair<Value *, Value *>
 CLStreamSampler::createStartStride(Value *coord, Instruction *loc) {
   Value *coord0 = ExtractElementInst::Create(coord, m_zero, "coord.0", loc);
   Value *stride = Constant::getNullValue(coord0->getType());
@@ -270,12 +270,12 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
   // Pre-prepare index values for input to stream sampler
   VectorType *float2Ty = VectorType::get(Type::getFloatTy(*m_context), 2);
   UndefValue *undefF2 = UndefValue::get(float2Ty);
-  
+
   // Obtain original  xCoord yCoord and stream size
   Value *xCoord = attr.m_firstCoords[0];
   Value *yCoord = attr.m_firstCoords[1];
   Value *streamSize = getStreamSize(attr.m_width);
- 
+
   Instruction *loc = m_preHeader->getTerminator();
   // Generate start, stride vector
   std::pair<Value *, Value *> xStartStride = createStartStride(xCoord, loc);
@@ -288,7 +288,7 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
   start = InsertElementInst::Create(start, yStart, m_one,"start.1", loc);
   Value *stride = InsertElementInst::Create(undefF2, xStride, m_zero, "stride.0", loc);
   stride = InsertElementInst::Create(stride, yStride , m_one, "stride.1", loc);
-  
+
   // Prepare arguments for calling the stream sampler.
   FunctionType *streamFuncTy = readStreamFunc->getFunctionType();
   SmallVector<Value *, 9> args;
@@ -320,7 +320,7 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
     // Load from the buffer.
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
-    Value *transpValueLoad = new LoadInst(colorPointer, 
+    Value *transpValueLoad = new LoadInst(colorPointer,
                "load.trnsp.val", false, FLOAT_X_WIDTH__ALIGNMENT, attr.m_call);
     LI->replaceAllUsesWith(transpValueLoad);
     LI->eraseFromParent();
@@ -402,24 +402,24 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   if (!calledFunc) return;
   std::string funcName = calledFunc->getNameStr();
   if (!m_rtServices->isTransposedWriteImg(funcName)) return;
-    
+
   // Obtain entry in the builtin hash.
-  const RuntimeServices::funcEntry foundFunction =
+  std::auto_ptr<VectorizerFunction> foundFunction =
                      m_rtServices->findBuiltinFunction(funcName);
-  assert(foundFunction.first && "should have hash entry");
-  assert(foundFunction.second > 1 && "func should be soa_write_image");
+  assert(!foundFunction->isNull() && "should have hash entry");
+  assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");
   // Currently supports only transposed write.
-  if (!foundFunction.first || foundFunction.second <= 1) return;
-  
+  if (!foundFunction->isNull() || foundFunction->getWidth() <= 1) return;
+
   TranspWriteImgAttr attrs;
   attrs.m_call = writeImgCall;
-  attrs.m_width = foundFunction.second;
+  attrs.m_width = foundFunction->getWidth();
   attrs.m_img = writeImgCall->getArgOperand(0);
   // Image should be invariant.
   if (!m_curLoop->isLoopInvariant(attrs.m_img)) return;
 
   // Obtain the colors.
-  VectorType *colorTy = 
+  VectorType *colorTy =
       VectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
   for (unsigned i=3; i<7; ++i) {
     Value *arg = writeImgCall->getArgOperand(i);
@@ -447,7 +447,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   //Obtain y coord.
   attrs.m_yCoord = getStreamWriteYcoord(writeImgCall->getArgOperand(2));
   if (!attrs.m_yCoord) return;
-  
+
   // Success! Store the attributes in the member small vector.
   m_writeImageAttributes.push_back(attrs);
 }
@@ -475,9 +475,9 @@ Value *CLStreamSampler::getStreamWriteYcoord(Value *v) {
   if (!Br) return NULL;
   Value *cond = Br->getCondition();
   if (!m_curLoop->isLoopInvariant(cond)) return NULL;
- 
+
   // Getting here we can repalace the PHI with select.
-  Value *yCoord =   SelectInst::Create(cond, 
+  Value *yCoord =   SelectInst::Create(cond,
                       PN->getIncomingValueForBlock(Br->getSuccessor(0)),
                       PN->getIncomingValueForBlock(Br->getSuccessor(1)),
                       "phi_merge", m_preHeader->getTerminator());
@@ -487,7 +487,7 @@ Value *CLStreamSampler::getStreamWriteYcoord(Value *v) {
 }
 
 
-void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr, 
+void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
                                        Function *writeStreamFunc) {
   // Generate 4 huge Alloca's for storing all the RGBA data...
   SmallVector<Instruction *, 4> colorAllocas;
@@ -496,7 +496,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
 
   // Add store of the colors to the buffers just before the call.
   SmallVector<Value *, 2> indices;
-  indices.push_back(ConstantInt::get(m_indVar->getType(), 0)); 
+  indices.push_back(ConstantInt::get(m_indVar->getType(), 0));
   indices.push_back(m_indVar);
   ArrayRef<Value *> indicesArr = llvm::makeArrayRef(indices);
   for (unsigned i=0; i<4; ++i) {
@@ -548,18 +548,18 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
   Type *arrTy  = ArrayType::get(colorTy, m_tripCountUpperBound);
   SmallVector<Value *, 2> indices(2, m_zero);
   ArrayRef<Value *> indicesArr = llvm::makeArrayRef(indices);
-  
-  Instruction *loc = 
+
+  Instruction *loc =
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
     AllocaInst *AI = new AllocaInst(arrTy, NULL, FLOAT_X_WIDTH__ALIGNMENT,
                                     "stream.read.alloca", loc);
-    Instruction *ptr = 
+    Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);
     if (width != 4) {
       // Workaround : even for transpose 8 stream sampler, the buffers have <4 x float>*
       // type, so we bitcast to the pointer accordingly.
-      PointerType *float4PtrTy = 
+      PointerType *float4PtrTy =
          PointerType::get(VectorType::get(Type::getFloatTy(*m_context), 4), 0);
       ptr = CastInst::CreatePointerCast(ptr, float4PtrTy, "ptr.cast", loc);
     }
@@ -570,7 +570,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
 
 void CLStreamSampler::removeRedundantPHI(PHINode *PN) {
   if (!PN->hasOneUse()) return;
-  
+
   Instruction *user = dyn_cast<Instruction>(*(PN->use_begin()));
   Value *latchVal = PN->getIncomingValueForBlock(m_latch);
   if (!user || user != latchVal || !user->hasOneUse()) return;
@@ -582,7 +582,7 @@ void CLStreamSampler::removeRedundantPHI(PHINode *PN) {
 }
 
 Value *CLStreamSampler::calcFirstIterValIfPossible(Instruction *I) {
-  // Fast path if we already computed the value of I in the 
+  // Fast path if we already computed the value of I in the
   // first iteartion return the computed val;
   if (m_firstIterVal.count(I)) return m_firstIterVal[I];
 
@@ -594,7 +594,7 @@ Value *CLStreamSampler::calcFirstIterValIfPossible(Instruction *I) {
     return initialVal;
   }
 
-  // On general values create a clone and set the operands inside the 
+  // On general values create a clone and set the operands inside the
   // loop to their already computed replicates, this might fail if we had not
   // replicated all operands before.
   Instruction *clone = I->clone();
@@ -633,19 +633,19 @@ Value *CLStreamSampler::obtainInitialStridedVal(Instruction *I) {
 
     // Supports phi node only in the header block.
     if (isa<PHINode>(inst) && !isHeaderPhiStrided(inst)) return NULL;
-    
+
     InstToReplicate.push_back(inst);
     workList.insert(workList.end(), inst->op_begin(), inst->op_end());
   }
-  // Note that in this stage InstToReplicate must contain I since it 
+  // Note that in this stage InstToReplicate must contain I since it
   // was added to the workList, and it is strided value which means
   // it is an instruction inside the loop.
 
-  
-  // Create replicate for all instruction that compute the value 
+
+  // Create replicate for all instruction that compute the value
   // of the first iteration. Here we scan InstToReplicate in
   // reverse order since usually ops are inserted after their user.
-  // In case not all ops were already replicated we change the order 
+  // In case not all ops were already replicated we change the order
   // of the InstToReplicate on the fly.
   while (!InstToReplicate.empty()) {
     int replicateIndex = -1;

@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -662,8 +662,8 @@ _##VEC_WIDTH##i##DATA_SIZE x14, _##VEC_WIDTH##i##DATA_SIZE x15
 #define REL_SOA_OP_any |
 //Template for a single function.
 //Generates a sequence of ORIG_WIDTH ors or ands (depending on FUNC)
-//between all (SOA_WIDTH) vectors. Then to get the high bit into the 
-//low position, an element-wise shift right by DATA-SIZE-1. The cast to 
+//between all (SOA_WIDTH) vectors. Then to get the high bit into the
+//low position, an element-wise shift right by DATA-SIZE-1. The cast to
 //unsigned is neccessary so that a logical (as opposed to an artihmetic)
 //shift is performed.
 //Finally, the return vector must be a vector of i32s, so an appropriate
@@ -672,6 +672,17 @@ _##VEC_WIDTH##i##DATA_SIZE x14, _##VEC_WIDTH##i##DATA_SIZE x15
 //to a zero extend instead of sign extend.
 #define DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, SOA_WIDTH) \
 _##SOA_WIDTH##i32 __attribute__((overloadable)) \
+soa_##FUNC##ORIG_WIDTH(REL_SOA_PARAM##ORIG_WIDTH(DATA_SIZE, SOA_WIDTH))\
+{\
+  _##SOA_WIDTH##i##DATA_SIZE ret;\
+  REL_SOA_MAKE_SEQ##ORIG_WIDTH(ret, REL_SOA_OP_##FUNC)\
+  _1u8 shift = DATA_SIZE - 1;\
+  ret = (_##SOA_WIDTH##i##DATA_SIZE)((_##SOA_WIDTH##u##DATA_SIZE)ret >> shift);\
+  return convert_int##SOA_WIDTH((_##SOA_WIDTH##u##DATA_SIZE)ret);\
+}
+
+#define DEF_REL_SOA_INT1_SCALAR(FUNC, DATA_SIZE, ORIG_WIDTH, SOA_WIDTH) \
+_##SOA_WIDTH##i32 __attribute__((overloadable)) \
 soa_##FUNC(REL_SOA_PARAM##ORIG_WIDTH(DATA_SIZE, SOA_WIDTH))\
 {\
   _##SOA_WIDTH##i##DATA_SIZE ret;\
@@ -679,7 +690,7 @@ soa_##FUNC(REL_SOA_PARAM##ORIG_WIDTH(DATA_SIZE, SOA_WIDTH))\
   _1u8 shift = DATA_SIZE - 1;\
   ret = (_##SOA_WIDTH##i##DATA_SIZE)((_##SOA_WIDTH##u##DATA_SIZE)ret >> shift);\
   return convert_int##SOA_WIDTH((_##SOA_WIDTH##u##DATA_SIZE)ret);\
-} 
+}
 
 //Generate the whole matrix, over 3 parameters:
 //Data type: i8, i16, i32, i64 (only signed types)
@@ -690,8 +701,13 @@ DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 4)\
 DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 8)\
 DEF_REL_SOA_INT1(FUNC, DATA_SIZE, ORIG_WIDTH, 16)
 
+#define DEF_REL_SOA_INT1_FSO_SCALAR(FUNC, DATA_SIZE, ORIG_WIDTH)\
+DEF_REL_SOA_INT1_SCALAR(FUNC, DATA_SIZE, ORIG_WIDTH, 4)\
+DEF_REL_SOA_INT1_SCALAR(FUNC, DATA_SIZE, ORIG_WIDTH, 8)\
+DEF_REL_SOA_INT1_SCALAR(FUNC, DATA_SIZE, ORIG_WIDTH, 16)
+
 #define DEF_REL_SOA_INT1_FS(FUNC, DATA_SIZE)\
-DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 1)\
+DEF_REL_SOA_INT1_FSO_SCALAR(FUNC, DATA_SIZE, 1)\
 DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 2)\
 DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 3)\
 DEF_REL_SOA_INT1_FSO(FUNC, DATA_SIZE, 4)\

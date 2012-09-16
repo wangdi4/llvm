@@ -55,6 +55,8 @@ static const char* primitiveToString(const reflection::Type* t){
   assert(t && "null pointer");
   assert( (t->getPrimitive() >= reflection::primitives::BOOL) &&
   (t->getPrimitive() <= reflection::primitives::DOUBLE) && "invalid primitive type");
+  if (reflection::primitives::NONE == t->getPrimitive())
+    return t->toString().c_str();
   return mangledTypes[t->getPrimitive()-reflection::primitives::BOOL];
 }
 
@@ -106,7 +108,7 @@ public:
       ++it;
     }
     ++m_recursiveCounter;
-    p->getPoitee()->accept(this);
+    p->getPointee()->accept(this);
     m_previous = p;
   }
 
@@ -117,6 +119,16 @@ public:
     }
     m_stream << "Dv" << v->getLen() << "_" << primitiveToString(v);
     m_previous = v;
+  }
+
+  void visit(const reflection::UserDefinedTy* pTy){
+    if ( isDuplicant(pTy) ){
+      m_stream << getAndupdateDuplicant();
+      return;
+    }
+    std::string name = pTy->toString();
+    m_stream << name.size() << name;
+    m_previous = pTy;
   }
 
 private:
@@ -146,6 +158,8 @@ private:
 };
 
 std::string mangle(const reflection::FunctionDescriptor& fd){
+  if (fd.isNull())
+    return reflection::FunctionDescriptor::nullString();
   std::stringstream ret;
   ret << "_Z" << fd.name.length() << fd.name;
   MangleVisitor visitor(ret);

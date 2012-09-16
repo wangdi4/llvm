@@ -12,6 +12,27 @@
 #include <string>
 
 namespace intel {
+  const unsigned NUM_VERSIONS = 6;
+  /// @brief Structure returned for each function name query
+  struct hashEntry {
+    const char* funcs[NUM_VERSIONS]; // Name of functions, sorted as (1,2,4,8,16,3)
+    unsigned isScalarizable;
+    unsigned isPacketizable;
+  };
+
+struct funcEntry : VectorizerFunction{
+  funcEntry(const hashEntry*, unsigned width);
+  funcEntry();
+  unsigned getWidth()const;
+  bool isPacketizable()const;
+  bool isScalarizable()const;
+  std::string getVersion(unsigned)const;
+  bool isNull()const;
+private:
+  int getIndex()const;
+  const hashEntry* m_hashEntry;
+  unsigned m_width;
+};
 
 /// @brief
 ///  Functions mapping for Intel's Opencl builtin functions
@@ -19,8 +40,6 @@ namespace intel {
 class VFH {
 public:
 
-  typedef RuntimeServices::hashEntry hashEntry;
-  typedef RuntimeServices::funcEntry funcEntry;
 
   /// @brief C'tor
   /// @param initializer Database to load

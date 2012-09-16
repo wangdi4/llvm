@@ -11,6 +11,7 @@
 #include "Packetizer.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
+#include "FunctionDescriptor.h"
 
 static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
@@ -1075,29 +1076,35 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   } else {
     // Look for the function in the builtin functions hash
     unsigned vecWidth = 0;
-    const RuntimeServices::funcEntry foundFunction =
+    const std::auto_ptr<VectorizerFunction> foundFunction =
       m_rtServices->findBuiltinFunction(scalarFuncName);
-    if (foundFunction.first) {
-      vecWidth = foundFunction.second;
-    }
+    if (!foundFunction->isNull() && foundFunction->isPacketizable())
+      vecWidth = foundFunction->getWidth();
 
     // If function was not found in hash (or is not scalar), need to duplicate it
-    if (vecWidth != 1) {
-      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function:" <<origFuncName<<"\n");
+    if (vecWidth != 1){
+      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<
+      "): "<<Instruction::getOpcodeName(CI->getOpcode()) <<
+      " Could not find vectorized version for the function:" <<origFuncName<<
+      "\n");
       V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
     }
 
     // Obtain the appropriate vector function.
-    vectorFuncName = foundFunction.first->funcs[LOG_(m_packetWidth)];
-    V_PRINT(packetizer, "\t\t\tWill convert to: "<< vectorFuncName << "\n");
+    std::string strVfuncName = foundFunction->getVersion(LOG_(m_packetWidth));
+    vectorFuncName = strVfuncName.c_str();
+    V_PRINT(packetizer, "\t\t\tWill convert to: " << vectorFuncName << "\n");
     // Get new decl out of module.
     LibFunc = m_rtServices->findInRuntimeModule(vectorFuncName);
- 
     V_ASSERT(LibFunc && "Mismatch between function hash and runtime module");
     // Fallback in case function was not found in runtime module: just duplicate scalar func
     if (!LibFunc) {
-      V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Could not find vectorized version for the function in runtime module:" <<origFuncName<<"\n");
+      V_PRINT(vectorizer_stat,
+      "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<
+      Instruction::getOpcodeName(CI->getOpcode()) <<
+      " Could not find vectorized version for the function in runtime module:"
+      << origFuncName << "\n");
       V_STAT(m_noVectorFuncCtr++;)
       return duplicateNonPacketizableInst(CI);
     }

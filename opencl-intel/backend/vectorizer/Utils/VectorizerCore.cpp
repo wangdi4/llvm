@@ -3,7 +3,7 @@
 * Subject to the terms and conditions of the Master Development License
 * Agreement between Intel and Apple dated August 26, 2005; under the Intel
 * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
-*********************************************************************************************/
+u********************************************************************************************/
 
 #include <iomanip>
 
@@ -31,6 +31,7 @@
 #include "VecConfig.h"
 #include "IRPrinter.h"
 #include "TargetArch.h"
+
 using namespace llvm;
 
 char intel::VectorizerCore::ID = 0;
@@ -105,10 +106,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
     return false;
   }
 
-  
+
   Module *M = F.getParent();
   V_PRINT(VectorizerCore, "\nEntered VectorizerCore Wrapper!\n");
-  
+
   // No runtime services so we can not vectorizer.
   if (!m_runtimeServices)   {
     V_PRINT(VectorizerCore, "Failed to find runtime module. Aborting!\n");
@@ -118,7 +119,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
   bool autoVec =  (m_pConfig->GetTransposeSize() == 0);
   V_ASSERT(m_pConfig->GetTransposeSize() <= MAX_PACKET_WIDTH && "unssupported vector width");
-  
+
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////
   V_PRINT(VectorizerCore, "\nBefore preparations!\n");
@@ -127,7 +128,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     FunctionPassManager fpm1(M);
     TargetData *TD = new TargetData(M);
     fpm1.add(TD);
-    
+
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
 
@@ -184,13 +185,13 @@ bool VectorizerCore::runOnFunction(Function &F) {
       }
     } else {
       // Unsafe to vectorize the function should quit now.
-      m_isFunctionVectorized = false; 
+      m_isFunctionVectorized = false;
       m_packetWidth = 0;
       return true;
     }
 
   }
-  
+
   // Sanity in debug check that packetization with is supported.
   V_ASSERT(m_packetWidth ==4 || m_packetWidth == 8 || m_packetWidth ==16);
   m_runtimeServices->setPacketizationWidth(m_packetWidth);
@@ -203,7 +204,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // Register predicate
     FunctionPass *predicate = createPredicator();
     fpm2.add(predicate);
-    
+
     // Register mem2reg
     FunctionPass *mem2reg = createPromoteMemoryToRegisterPass();
     fpm2.add(mem2reg);
@@ -234,7 +235,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
     if (m_pConfig->GetDumpHeuristicIRFlag())
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
-      
+
     //We only need the "post" run if there's doubt about what to do.
     WeightedInstCounter* postCounter = NULL;
     if (autoVec) {
@@ -253,33 +254,32 @@ bool VectorizerCore::runOnFunction(Function &F) {
       // for stream samplers handling.
       fpm2.add(createInstructionCombiningPass());
     }
-    
+
     fpm2.add(createCFGSimplificationPass());
     fpm2.add(createPromoteMemoryToRegisterPass());
     fpm2.add(createAggressiveDCEPass());
     if (m_pConfig->GetDumpHeuristicIRFlag()) {
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "vec_end"));
     }
-    
+
     fpm2.doInitialization();
     fpm2.run(F);
-    
+
     if (autoVec)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
-      m_postWeight = postCounter->getWeight();               
-      float Ratio = (float)m_postWeight / m_preWeight;          
-
+      m_postWeight = postCounter->getWeight();
+      float Ratio = (float)m_postWeight / m_preWeight;
       int attemptedWidth = m_packetWidth;
       if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
         m_packetWidth = 1;
-        m_isFunctionVectorized = false; 
+        m_isFunctionVectorized = false;
         return true;
       }
       if (enableDebugPrints) {
         dbgPrint() << "Function: " << F.getName() << "\n";
         dbgPrint() << "Pre count: " << (long long)m_preWeight << "\n";
         dbgPrint() << "Post count: " << (long long)m_postWeight << "\n";
-        std::ostringstream os; 
+        std::ostringstream os;
         os << std::setprecision(3) << Ratio;
         dbgPrint() << "Ratio: " << os.str() << "\n";
         dbgPrint() << "Attempted Width: " << attemptedWidth << "\n";
@@ -287,7 +287,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
       }
     }
   }
-
   // If we reach the end of the function this means we choose to vectorize the kernel!!
   m_isFunctionVectorized = true;
   return true;
@@ -297,6 +296,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
 extern "C"
 intel::VectorizerCore *createVectorizerCorePass(const intel::OptimizerConfig* pConfig=NULL, bool isApple=false)
-{    
+{
   return new intel::VectorizerCore(pConfig, isApple);
 }

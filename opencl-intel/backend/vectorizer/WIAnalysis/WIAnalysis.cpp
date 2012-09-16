@@ -4,6 +4,7 @@
 #include "llvm/Support/Debug.h"
 #include <string>
 #include "llvm/Constants.h"
+#include "Functions.h"
 
 namespace intel {
 
