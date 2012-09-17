@@ -2676,14 +2676,18 @@ void NEATPlugIn::execute_async_work_group_copy(Function *F,
 {
     Function::arg_iterator Fit = F->arg_begin();
     Value* arg0 = Fit++;
+    
+    const Type *Ty = arg0->getType();
+    const PointerType *PTy = dyn_cast<PointerType>(Ty);
+    const Type *ETy = PTy->getElementType();
+
+    if(!m_NTD.IsNEATSupported(ETy)) return;
+
     const NEATGenericValue dst = GetArg(arg0, ArgVals);
     Value* arg1 = Fit++;
     const NEATGenericValue src = GetArg(arg1, ArgVals);
     GenericValue num_gentypes = GetGenericArg(2);
 
-    const Type *Ty = arg0->getType();
-    const PointerType *PTy = dyn_cast<PointerType>(Ty);
-    const Type *ETy = PTy->getElementType();
     if (ETy->isFloatingPointTy())
     {
         NEATValue *dstP = (NEATValue *)dst.PointerVal;
@@ -2710,15 +2714,19 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
 {
     Function::arg_iterator Fit = F->arg_begin();
     Value* arg0 = Fit++;
+
+    const Type *Ty = arg0->getType();
+    const PointerType *PTy = dyn_cast<PointerType>(Ty);
+    const Type *ETy = PTy->getElementType();
+
+    if(!m_NTD.IsNEATSupported(ETy)) return;
+
     const NEATGenericValue dst = GetArg(arg0, ArgVals);
     Value* arg1 = Fit++;
     const NEATGenericValue src = GetArg(arg1, ArgVals);
     GenericValue num_gentypes = GetGenericArg(2);
     uint64_t stride = GetGenericArg(3).IntVal.getZExtValue();
 
-    const Type *Ty = arg0->getType();
-    const PointerType *PTy = dyn_cast<PointerType>(Ty);
-    const Type *ETy = PTy->getElementType();
     if (ETy->isFloatingPointTy())
     {
         NEATValue *dstP = (NEATValue *)dst.PointerVal;
