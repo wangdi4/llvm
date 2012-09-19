@@ -63,7 +63,7 @@
 #include <cvms/plugin.h>
 
 #include "Optimizer.h"
-#include "VecConfig.h"
+#include "VolcanoWrapper/VecConfig.h"
 
 #ifdef CLD_ASSERT
 #include <sys/types.h>
@@ -90,6 +90,13 @@ int cld_link(Module *M, Module *Runtime)
 __END_DECLS
 
 Intel::CPUId selectCPU();
+
+/// Used to keep the plugin instance specific data
+/// allocated by cvmsPluginServiceInitialize
+struct CPUPluginPrivateData
+{
+  Intel::CPUId cpuId;
+};
 
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
@@ -827,6 +834,28 @@ static int compileProgram(
     return -3;
   }
 
+  if (has_kernel_annotation) {
+    // Make sure that llvm.global.annotations has a constant initializer.
+    ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
+    if (!init)
+      return -4;
+
+    // We have at least one kernel.
+
+    has_kernel = true;
+    annotation->eraseFromParent();
+  } else {
+    // We have no kernels so we must be linking multiple files.  Create an
+    // empty kernel data dictionary.
+    CFMutableDictionaryRef d;
+    d = CFDictionaryCreateMutable(NULL, 0,
+                                  &kCFTypeDictionaryKeyCallBacks,
+                                  &kCFTypeDictionaryValueCallBacks);
+    if (!d)
+      return -15;
+    *info = d;
+  }
+
   // Optimize the whole module
   int vectorWidth = 1;
 
@@ -841,7 +870,7 @@ static int compileProgram(
   Intel::CPUId cpuId;
 
   if( pluginData != NULL)
-    cpuId = pluginData->m_CpuId;
+    cpuId = pluginData->cpuId;
   else
     cpuId = selectCPU();
 
@@ -849,10 +878,10 @@ static int compileProgram(
                                          vectorWidth,
                                          std::vector<int>(),
                                          std::vector<int>(),
-                                         "",
-                                         debug,
-                                         false,
-                                         disable_opt,
+                                         "",    // dump IR - disabled
+                                         debug, // debug mode
+                                         false, // profiling - disabled
+                                         disable_opt, // optimizations on/off
                                          false, // relaxed_math
                                          false, // create library only
                                          false  // produce heuristics IR
@@ -860,144 +889,6 @@ static int compileProgram(
 
   Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);
   optimizer.Optimize();
-
-
-  // Create list of functions we want to export and compile for, the name of
-  // wrappers, the set of functions in the kernel, and the list of function
-  // names.
-  // name of wrappers and recr
-  std::vector<const char *> exportList;
-  SmallVector<std::string, 8> wrapperNames;
-  SmallVector<std::string, 8> funcNames;
-  SmallVector<Function*, 8> kernelSet;
-
-  // If vectorization was requested and an Intel autovectorizer exists, create 
-  // an instance of it, and add it to the pass manager.
-  SmallVector<std::string, 8> AVNames;
-  SmallVector<int, 8> AVWidthMax;
-
-  if (has_kernel_annotation) {
-    // Make sure that llvm.global.annotations has a constant initializer.
-    ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
-    if (!init)
-      return -4;
-
-    // We have at least one kernel.
-
-    has_kernel = true;
-
-
-      
-    if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) &&
-        !debug && !disable_opt) {
-      // FIXME: replace with sysctl check for avx when available.
-      unsigned vectorWidth = 4;
-      if (getenv("CL_VWIDTH_8"))
-        vectorWidth = 8;
-
-      if (Pass *CLAVPass = cld_autovec_create(Runtime, vectorWidth)) {
-        // For the vectorizer, mark all kernels as always_inline in case one 
-        // kernel calls another.
-        for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
-          ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-          Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
-          kernelSet.push_back(kf);
-          kf->addFnAttr(Attribute::AlwaysInline);
-        }
-
-        PassManager VectorizerPM;
-        TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(SM->getTargetTriple()));
-        VectorizerPM.add(TLI);
-        VectorizerPM.add(new TargetData(SM));
-        VectorizerPM.add(createFunctionInliningPass());
-        VectorizerPM.add(createScalarReplAggregatesPass());
-        VectorizerPM.add(createInstructionCombiningPass());
-        VectorizerPM.add(createUnifyFunctionExitNodesPass());
-        VectorizerPM.add(CLAVPass);
-        VectorizerPM.run(*SM);
-
-        cld_autovec_getinfo(CLAVPass, AVNames, AVWidthMax,
-                            init->getType()->getNumElements());
-      }
-    }
-
-    // Generate the wrapper for each kernel function and vectorized kernel 
-    // function.  The wrapper is glue code between the runtime and the actual
-    // kernel function which hides things like ABI differences.
-    if (cld_plugin_createwrappers(SM, init, wrapperNames, AVNames,
-                                  AVWidthMax, info, debug))
-      return -5;
-  
-    // Remove the annotation from the module now that we're done with it. Delete
-    // any altered kernels that had globals holding __local as they no longer
-    // have sane IR.
-    annotation->eraseFromParent();
-
-  } else {
-    // We have no kernels so we must be linking multiple files.  Create an
-    // empty kernel data dictionary.
-    CFMutableDictionaryRef d;
-    d = CFDictionaryCreateMutable(NULL, 0,
-                                  &kCFTypeDictionaryKeyCallBacks,
-                                  &kCFTypeDictionaryValueCallBacks);
-    if (!d)
-      return -15;
-    *info = d;
-  }
-  
-  if (link_multiple) {
-    // Now that we are done with the vectorizer, undo forcing inline since
-    // another compilation unit may link with the kernels in this module.
-    for (unsigned i = 0, e = kernelSet.size(); i != e; ++i)
-      kernelSet[i]->removeFnAttr(Attribute::AlwaysInline);
-
-    // If we are linking multiple files, all non static functions in the file
-    // should be exported since they may be used by another compilation unit.
-    // Any constant address space globals may need to be exported since they
-    //  can also be used by another module.
-    for (Module::const_iterator F = SM->begin(), E = SM->end(); F != E; ++F) {
-      if (!F->hasLocalLinkage() && !F->empty() &&
-          !F->hasFnAttr(Attribute::AlwaysInline))
-        funcNames.push_back(F->getNameStr().c_str());
-    }
-    const int ConstAddrSpace = 2;
-    for (Module::const_global_iterator GI = SM->global_begin(),
-         GE = SM->global_end(); GI != GE; ++GI) {
-      if (!GI->hasLocalLinkage()) {
-        if (const PointerType *PTy = dyn_cast<const PointerType>(GI->getType()))
-          if (PTy->getAddressSpace() == ConstAddrSpace)
-            funcNames.push_back(GI->getNameStr().c_str());
-      }
-    }
-  }
-
-  // Set up the export list.
-  for (unsigned i = 0, e = wrapperNames.size(); i != e; ++i)
-    exportList.push_back(wrapperNames[i].c_str());
-  for (unsigned i = 0, e = funcNames.size(); i != e; ++i)
-    exportList.push_back(funcNames[i].c_str());
-
-  // Iteratively link from Runtime into SM
-  if (cld_link(SM, Runtime))
-    return -6;
-
-  // Optimize the code that was generated for the program, before linking it
-  // into the runtime code.
-  PassManager KernelPasses;
-  TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(SM->getTargetTriple()));
-  KernelPasses.add(TLI);
-  KernelPasses.add(new TargetData(SM));
-  KernelPasses.add(createVerifierPass());
-  KernelPasses.add(createInternalizePass(exportList));
-  if (!debug && !disable_opt) {
-    KernelPasses.add(createGlobalOptimizerPass());
-    KernelPasses.add(createFunctionInliningPass());
-    KernelPasses.add(createGlobalDCEPass());
-    KernelPasses.add(createScalarReplAggregatesPass());
-    KernelPasses.add(createInstructionCombiningPass());
-    KernelPasses.add(createCFGSimplificationPass());
-    KernelPasses.add(createGVNPass());
-  }
   
   // Create the target machine for this module, and add passes to emit an object
   // file of this module's architecture. We can't get it from SM since we
@@ -1010,9 +901,12 @@ static int compileProgram(
     return -7;
   }
 
+
   OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","",
                                                          Reloc::PIC_,
                                                          CodeModel::Default));
+
+  PassManager KernelPasses;
 
   if (Target->addPassesToEmitFile(KernelPasses, os,
                                   TargetMachine::CGFT_ObjectFile, 
@@ -1302,10 +1196,6 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 }
 
 
-struct CPUPluginPrivateData
-{
-  Intel::CPUId cpuId;
-};
 
 
 unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
