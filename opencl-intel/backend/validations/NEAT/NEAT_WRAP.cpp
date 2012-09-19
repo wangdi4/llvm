@@ -397,6 +397,12 @@ namespace Validation
         return NEATALU::shufflevector (vec1,vec2,mask);
     }
 
+    NEATVector NEAT_WRAP::shuffle_fd ( const NEATVector& vec1, const std::vector<uint32_t>& mask) {
+        return NEATALU::shuffle (vec1,mask);
+    }
+    NEATVector NEAT_WRAP::shuffle2_fd ( const NEATVector& vec1, const NEATVector& vec2, const std::vector<uint32_t>& mask) {
+        return NEATALU::shuffle2 (vec1,vec2,mask);
+    }
 
     NEATValue NEAT_WRAP::fpext_f2d(const NEATValue& a) {
         return NEATALU::fpext<float,double>(a);

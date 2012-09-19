@@ -309,6 +309,8 @@ namespace llvm {
         DECLARE_EXECUTE(bitselect);
         DECLARE_EXECUTE(select); // built-in, not instruction
         DECLARE_EXECUTE(cross);
+        DECLARE_EXECUTE(shuffle);
+        DECLARE_EXECUTE(shuffle2);
 
 #undef DECLARE_EXECUTE_ALL_N
 #undef DECLARE_EXECUTE_N

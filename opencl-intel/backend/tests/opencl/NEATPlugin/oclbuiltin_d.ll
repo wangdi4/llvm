@@ -7,12 +7,13 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
 
-define void @oclbuiltin(double addrspace(1)* %input, double addrspace(1)* %output, i32 addrspace(1)* %inputInt, i32 addrspace(1)* %outputInt, i32 %buffer_size) nounwind {
+define void @oclbuiltin(double addrspace(1)* %input, double addrspace(1)* %output, i32 addrspace(1)* %inputInt, i32 addrspace(1)* %outputInt, i64 addrspace(1)* %inputUlong, i32 %buffer_size) nounwind {
 entry:
   %input.addr = alloca double addrspace(1)*, align 4
   %output.addr = alloca double addrspace(1)*, align 4
   %inputInt.addr = alloca i32 addrspace(1)*, align 4
   %outputInt.addr = alloca i32 addrspace(1)*, align 4
+  %inputUlong.addr = alloca i64 addrspace(1)*, align 4
   %buffer_size.addr = alloca i32, align 4
   %tid = alloca i32, align 4
   %a_in = alloca double, align 8
@@ -109,6 +110,7 @@ entry:
   store double addrspace(1)* %output, double addrspace(1)** %output.addr, align 4
   store i32 addrspace(1)* %inputInt, i32 addrspace(1)** %inputInt.addr, align 4
   store i32 addrspace(1)* %outputInt, i32 addrspace(1)** %outputInt.addr, align 4
+  store i64 addrspace(1)* %inputUlong, i64 addrspace(1)** %inputUlong.addr, align 4
   store i32 %buffer_size, i32* %buffer_size.addr, align 4
   store i32 0, i32* %tid, align 4
   %0 = load i32* %tid, align 4
@@ -433,1249 +435,1433 @@ entry:
   %183 = insertelement <16 x i32> undef, i32 %182, i32 0
   %splat87 = shufflevector <16 x i32> %183, <16 x i32> %183, <16 x i32> zeroinitializer
   store <16 x i32> %splat87, <16 x i32>* %i16_out, align 64
-  %184 = load double* %a_in, align 8
-  %call = call double @_Z4acosd(double %184) nounwind readnone
+  %184 = load i32* %tid, align 4
+  %185 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx88 = getelementptr inbounds i64 addrspace(1)* %185, i32 %184
+  %186 = load i64 addrspace(1)* %arrayidx88
+  store i64 %186, i64* %ul_in, align 8
+  %187 = load i32* %tid, align 4
+  %188 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx89 = getelementptr inbounds i64 addrspace(1)* %188, i32 %187
+  %189 = load i64 addrspace(1)* %arrayidx89
+  %190 = insertelement <2 x i64> undef, i64 %189, i32 0
+  %splat90 = shufflevector <2 x i64> %190, <2 x i64> %190, <2 x i32> zeroinitializer
+  store <2 x i64> %splat90, <2 x i64>* %ul2_in, align 16
+  %191 = load i32* %tid, align 4
+  %192 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx91 = getelementptr inbounds i64 addrspace(1)* %192, i32 %191
+  %193 = load i64 addrspace(1)* %arrayidx91
+  %194 = insertelement <3 x i64> undef, i64 %193, i32 0
+  %splat92 = shufflevector <3 x i64> %194, <3 x i64> %194, <3 x i32> zeroinitializer
+  store <3 x i64> %splat92, <3 x i64>* %ul3_in, align 32
+  %195 = load i32* %tid, align 4
+  %196 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx93 = getelementptr inbounds i64 addrspace(1)* %196, i32 %195
+  %197 = load i64 addrspace(1)* %arrayidx93
+  %198 = insertelement <4 x i64> undef, i64 %197, i32 0
+  %splat94 = shufflevector <4 x i64> %198, <4 x i64> %198, <4 x i32> zeroinitializer
+  store <4 x i64> %splat94, <4 x i64>* %ul4_in, align 32
+  %199 = load i32* %tid, align 4
+  %200 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx95 = getelementptr inbounds i64 addrspace(1)* %200, i32 %199
+  %201 = load i64 addrspace(1)* %arrayidx95
+  %202 = insertelement <8 x i64> undef, i64 %201, i32 0
+  %splat96 = shufflevector <8 x i64> %202, <8 x i64> %202, <8 x i32> zeroinitializer
+  store <8 x i64> %splat96, <8 x i64>* %ul8_in, align 64
+  %203 = load i32* %tid, align 4
+  %204 = load i64 addrspace(1)** %inputUlong.addr, align 4
+  %arrayidx97 = getelementptr inbounds i64 addrspace(1)* %204, i32 %203
+  %205 = load i64 addrspace(1)* %arrayidx97
+  %206 = insertelement <16 x i64> undef, i64 %205, i32 0
+  %splat98 = shufflevector <16 x i64> %206, <16 x i64> %206, <16 x i32> zeroinitializer
+  store <16 x i64> %splat98, <16 x i64>* %ul16_in, align 128
+  %207 = load double* %a_in, align 8
+  %call = call double @_Z4acosd(double %207) nounwind readnone
   store double %call, double* %a_out, align 8
-  %185 = load <4 x double>* %a4_in, align 32
-  %call88 = call <4 x double> @_Z4acosDv4_d(<4 x double> %185) nounwind readnone
-  store <4 x double> %call88, <4 x double>* %a4_out, align 32
-  %186 = load <8 x double>* %a8_in, align 64
-  %call89 = call <8 x double> @_Z4acosDv8_d(<8 x double> %186) nounwind readnone
-  store <8 x double> %call89, <8 x double>* %a8_out, align 64
-  %187 = load <16 x double>* %a16_in, align 128
-  %call90 = call <16 x double> @_Z4acosDv16_d(<16 x double> %187) nounwind readnone
-  store <16 x double> %call90, <16 x double>* %a16_out, align 128
-  %188 = load double* %a_in, align 8
-  %call91 = call double @_Z6acospid(double %188) nounwind readnone
-  store double %call91, double* %a_out, align 8
-  %189 = load <4 x double>* %a4_in, align 32
-  %call92 = call <4 x double> @_Z6acospiDv4_d(<4 x double> %189) nounwind readnone
-  store <4 x double> %call92, <4 x double>* %a4_out, align 32
-  %190 = load <8 x double>* %a8_in, align 64
-  %call93 = call <8 x double> @_Z6acospiDv8_d(<8 x double> %190) nounwind readnone
-  store <8 x double> %call93, <8 x double>* %a8_out, align 64
-  %191 = load <16 x double>* %a16_in, align 128
-  %call94 = call <16 x double> @_Z6acospiDv16_d(<16 x double> %191) nounwind readnone
-  store <16 x double> %call94, <16 x double>* %a16_out, align 128
-  %192 = load double* %a_in, align 8
-  %call95 = call double @_Z4asind(double %192) nounwind readnone
-  store double %call95, double* %a_out, align 8
-  %193 = load <4 x double>* %a4_in, align 32
-  %call96 = call <4 x double> @_Z4asinDv4_d(<4 x double> %193) nounwind readnone
-  store <4 x double> %call96, <4 x double>* %a4_out, align 32
-  %194 = load <8 x double>* %a8_in, align 64
-  %call97 = call <8 x double> @_Z4asinDv8_d(<8 x double> %194) nounwind readnone
-  store <8 x double> %call97, <8 x double>* %a8_out, align 64
-  %195 = load <16 x double>* %a16_in, align 128
-  %call98 = call <16 x double> @_Z4asinDv16_d(<16 x double> %195) nounwind readnone
-  store <16 x double> %call98, <16 x double>* %a16_out, align 128
-  %196 = load double* %a_in, align 8
-  %call99 = call double @_Z6asinpid(double %196) nounwind readnone
-  store double %call99, double* %a_out, align 8
-  %197 = load <4 x double>* %a4_in, align 32
-  %call100 = call <4 x double> @_Z6asinpiDv4_d(<4 x double> %197) nounwind readnone
-  store <4 x double> %call100, <4 x double>* %a4_out, align 32
-  %198 = load <8 x double>* %a8_in, align 64
-  %call101 = call <8 x double> @_Z6asinpiDv8_d(<8 x double> %198) nounwind readnone
-  store <8 x double> %call101, <8 x double>* %a8_out, align 64
-  %199 = load <16 x double>* %a16_in, align 128
-  %call102 = call <16 x double> @_Z6asinpiDv16_d(<16 x double> %199) nounwind readnone
-  store <16 x double> %call102, <16 x double>* %a16_out, align 128
-  %200 = load double* %a_in, align 8
-  %call103 = call double @_Z4atand(double %200) nounwind readnone
-  store double %call103, double* %a_out, align 8
-  %201 = load <4 x double>* %a4_in, align 32
-  %call104 = call <4 x double> @_Z4atanDv4_d(<4 x double> %201) nounwind readnone
-  store <4 x double> %call104, <4 x double>* %a4_out, align 32
-  %202 = load <8 x double>* %a8_in, align 64
-  %call105 = call <8 x double> @_Z4atanDv8_d(<8 x double> %202) nounwind readnone
-  store <8 x double> %call105, <8 x double>* %a8_out, align 64
-  %203 = load <16 x double>* %a16_in, align 128
-  %call106 = call <16 x double> @_Z4atanDv16_d(<16 x double> %203) nounwind readnone
-  store <16 x double> %call106, <16 x double>* %a16_out, align 128
-  %204 = load double* %a_in, align 8
-  %205 = load double* %b_in, align 8
-  %call107 = call double @_Z5atan2dd(double %204, double %205) nounwind readnone
-  store double %call107, double* %a_out, align 8
-  %206 = load <4 x double>* %a4_in, align 32
-  %207 = load <4 x double>* %b4_in, align 32
-  %call108 = call <4 x double> @_Z5atan2Dv4_dS_(<4 x double> %206, <4 x double> %207) nounwind readnone
-  store <4 x double> %call108, <4 x double>* %a4_out, align 32
-  %208 = load <8 x double>* %a8_in, align 64
-  %209 = load <8 x double>* %b8_in, align 64
-  %call109 = call <8 x double> @_Z5atan2Dv8_dS_(<8 x double> %208, <8 x double> %209) nounwind readnone
-  store <8 x double> %call109, <8 x double>* %a8_out, align 64
+  %208 = load <4 x double>* %a4_in, align 32
+  %call99 = call <4 x double> @_Z4acosDv4_d(<4 x double> %208) nounwind readnone
+  store <4 x double> %call99, <4 x double>* %a4_out, align 32
+  %209 = load <8 x double>* %a8_in, align 64
+  %call100 = call <8 x double> @_Z4acosDv8_d(<8 x double> %209) nounwind readnone
+  store <8 x double> %call100, <8 x double>* %a8_out, align 64
   %210 = load <16 x double>* %a16_in, align 128
-  %211 = load <16 x double>* %b16_in, align 128
-  %call110 = call <16 x double> @_Z5atan2Dv16_dS_(<16 x double> %210, <16 x double> %211) nounwind readnone
-  store <16 x double> %call110, <16 x double>* %a16_out, align 128
-  %212 = load double* %a_in, align 8
-  %213 = load double* %b_in, align 8
-  %call111 = call double @_Z7atan2pidd(double %212, double %213) nounwind readnone
-  store double %call111, double* %a_out, align 8
-  %214 = load <4 x double>* %a4_in, align 32
-  %215 = load <4 x double>* %b4_in, align 32
-  %call112 = call <4 x double> @_Z7atan2piDv4_dS_(<4 x double> %214, <4 x double> %215) nounwind readnone
-  store <4 x double> %call112, <4 x double>* %a4_out, align 32
-  %216 = load <8 x double>* %a8_in, align 64
-  %217 = load <8 x double>* %b8_in, align 64
-  %call113 = call <8 x double> @_Z7atan2piDv8_dS_(<8 x double> %216, <8 x double> %217) nounwind readnone
-  store <8 x double> %call113, <8 x double>* %a8_out, align 64
+  %call101 = call <16 x double> @_Z4acosDv16_d(<16 x double> %210) nounwind readnone
+  store <16 x double> %call101, <16 x double>* %a16_out, align 128
+  %211 = load double* %a_in, align 8
+  %call102 = call double @_Z6acospid(double %211) nounwind readnone
+  store double %call102, double* %a_out, align 8
+  %212 = load <4 x double>* %a4_in, align 32
+  %call103 = call <4 x double> @_Z6acospiDv4_d(<4 x double> %212) nounwind readnone
+  store <4 x double> %call103, <4 x double>* %a4_out, align 32
+  %213 = load <8 x double>* %a8_in, align 64
+  %call104 = call <8 x double> @_Z6acospiDv8_d(<8 x double> %213) nounwind readnone
+  store <8 x double> %call104, <8 x double>* %a8_out, align 64
+  %214 = load <16 x double>* %a16_in, align 128
+  %call105 = call <16 x double> @_Z6acospiDv16_d(<16 x double> %214) nounwind readnone
+  store <16 x double> %call105, <16 x double>* %a16_out, align 128
+  %215 = load double* %a_in, align 8
+  %call106 = call double @_Z4asind(double %215) nounwind readnone
+  store double %call106, double* %a_out, align 8
+  %216 = load <4 x double>* %a4_in, align 32
+  %call107 = call <4 x double> @_Z4asinDv4_d(<4 x double> %216) nounwind readnone
+  store <4 x double> %call107, <4 x double>* %a4_out, align 32
+  %217 = load <8 x double>* %a8_in, align 64
+  %call108 = call <8 x double> @_Z4asinDv8_d(<8 x double> %217) nounwind readnone
+  store <8 x double> %call108, <8 x double>* %a8_out, align 64
   %218 = load <16 x double>* %a16_in, align 128
-  %219 = load <16 x double>* %b16_in, align 128
-  %call114 = call <16 x double> @_Z7atan2piDv16_dS_(<16 x double> %218, <16 x double> %219) nounwind readnone
-  store <16 x double> %call114, <16 x double>* %a16_out, align 128
-  %220 = load double* %a_in, align 8
-  %call115 = call double @_Z6atanpid(double %220) nounwind readnone
-  store double %call115, double* %a_out, align 8
-  %221 = load <4 x double>* %a4_in, align 32
-  %call116 = call <4 x double> @_Z6atanpiDv4_d(<4 x double> %221) nounwind readnone
-  store <4 x double> %call116, <4 x double>* %a4_out, align 32
-  %222 = load <8 x double>* %a8_in, align 64
-  %call117 = call <8 x double> @_Z6atanpiDv8_d(<8 x double> %222) nounwind readnone
-  store <8 x double> %call117, <8 x double>* %a8_out, align 64
-  %223 = load <16 x double>* %a16_in, align 128
-  %call118 = call <16 x double> @_Z6atanpiDv16_d(<16 x double> %223) nounwind readnone
-  store <16 x double> %call118, <16 x double>* %a16_out, align 128
-  %224 = load double* %a_in, align 8
-  %call119 = call double @_Z3cosd(double %224) nounwind readnone
-  store double %call119, double* %a_out, align 8
-  %225 = load <4 x double>* %a4_in, align 32
-  %call120 = call <4 x double> @_Z3cosDv4_d(<4 x double> %225) nounwind readnone
-  store <4 x double> %call120, <4 x double>* %a4_out, align 32
-  %226 = load <8 x double>* %a8_in, align 64
-  %call121 = call <8 x double> @_Z3cosDv8_d(<8 x double> %226) nounwind readnone
-  store <8 x double> %call121, <8 x double>* %a8_out, align 64
-  %227 = load <16 x double>* %a16_in, align 128
-  %call122 = call <16 x double> @_Z3cosDv16_d(<16 x double> %227) nounwind readnone
-  store <16 x double> %call122, <16 x double>* %a16_out, align 128
-  %228 = load double* %a_in, align 8
-  %call123 = call double @_Z4coshd(double %228) nounwind readnone
-  store double %call123, double* %a_out, align 8
+  %call109 = call <16 x double> @_Z4asinDv16_d(<16 x double> %218) nounwind readnone
+  store <16 x double> %call109, <16 x double>* %a16_out, align 128
+  %219 = load double* %a_in, align 8
+  %call110 = call double @_Z6asinpid(double %219) nounwind readnone
+  store double %call110, double* %a_out, align 8
+  %220 = load <4 x double>* %a4_in, align 32
+  %call111 = call <4 x double> @_Z6asinpiDv4_d(<4 x double> %220) nounwind readnone
+  store <4 x double> %call111, <4 x double>* %a4_out, align 32
+  %221 = load <8 x double>* %a8_in, align 64
+  %call112 = call <8 x double> @_Z6asinpiDv8_d(<8 x double> %221) nounwind readnone
+  store <8 x double> %call112, <8 x double>* %a8_out, align 64
+  %222 = load <16 x double>* %a16_in, align 128
+  %call113 = call <16 x double> @_Z6asinpiDv16_d(<16 x double> %222) nounwind readnone
+  store <16 x double> %call113, <16 x double>* %a16_out, align 128
+  %223 = load double* %a_in, align 8
+  %call114 = call double @_Z4atand(double %223) nounwind readnone
+  store double %call114, double* %a_out, align 8
+  %224 = load <4 x double>* %a4_in, align 32
+  %call115 = call <4 x double> @_Z4atanDv4_d(<4 x double> %224) nounwind readnone
+  store <4 x double> %call115, <4 x double>* %a4_out, align 32
+  %225 = load <8 x double>* %a8_in, align 64
+  %call116 = call <8 x double> @_Z4atanDv8_d(<8 x double> %225) nounwind readnone
+  store <8 x double> %call116, <8 x double>* %a8_out, align 64
+  %226 = load <16 x double>* %a16_in, align 128
+  %call117 = call <16 x double> @_Z4atanDv16_d(<16 x double> %226) nounwind readnone
+  store <16 x double> %call117, <16 x double>* %a16_out, align 128
+  %227 = load double* %a_in, align 8
+  %228 = load double* %b_in, align 8
+  %call118 = call double @_Z5atan2dd(double %227, double %228) nounwind readnone
+  store double %call118, double* %a_out, align 8
   %229 = load <4 x double>* %a4_in, align 32
-  %call124 = call <4 x double> @_Z4coshDv4_d(<4 x double> %229) nounwind readnone
-  store <4 x double> %call124, <4 x double>* %a4_out, align 32
-  %230 = load <8 x double>* %a8_in, align 64
-  %call125 = call <8 x double> @_Z4coshDv8_d(<8 x double> %230) nounwind readnone
-  store <8 x double> %call125, <8 x double>* %a8_out, align 64
-  %231 = load <16 x double>* %a16_in, align 128
-  %call126 = call <16 x double> @_Z4coshDv16_d(<16 x double> %231) nounwind readnone
-  store <16 x double> %call126, <16 x double>* %a16_out, align 128
-  %232 = load double* %a_in, align 8
-  %call127 = call double @_Z5cospid(double %232) nounwind readnone
-  store double %call127, double* %a_out, align 8
-  %233 = load <4 x double>* %a4_in, align 32
-  %call128 = call <4 x double> @_Z5cospiDv4_d(<4 x double> %233) nounwind readnone
-  store <4 x double> %call128, <4 x double>* %a4_out, align 32
-  %234 = load <8 x double>* %a8_in, align 64
-  %call129 = call <8 x double> @_Z5cospiDv8_d(<8 x double> %234) nounwind readnone
-  store <8 x double> %call129, <8 x double>* %a8_out, align 64
-  %235 = load <16 x double>* %a16_in, align 128
-  %call130 = call <16 x double> @_Z5cospiDv16_d(<16 x double> %235) nounwind readnone
-  store <16 x double> %call130, <16 x double>* %a16_out, align 128
-  %236 = load double* %a_in, align 8
-  %call131 = call double @_Z3expd(double %236) nounwind readnone
-  store double %call131, double* %a_out, align 8
+  %230 = load <4 x double>* %b4_in, align 32
+  %call119 = call <4 x double> @_Z5atan2Dv4_dS_(<4 x double> %229, <4 x double> %230) nounwind readnone
+  store <4 x double> %call119, <4 x double>* %a4_out, align 32
+  %231 = load <8 x double>* %a8_in, align 64
+  %232 = load <8 x double>* %b8_in, align 64
+  %call120 = call <8 x double> @_Z5atan2Dv8_dS_(<8 x double> %231, <8 x double> %232) nounwind readnone
+  store <8 x double> %call120, <8 x double>* %a8_out, align 64
+  %233 = load <16 x double>* %a16_in, align 128
+  %234 = load <16 x double>* %b16_in, align 128
+  %call121 = call <16 x double> @_Z5atan2Dv16_dS_(<16 x double> %233, <16 x double> %234) nounwind readnone
+  store <16 x double> %call121, <16 x double>* %a16_out, align 128
+  %235 = load double* %a_in, align 8
+  %236 = load double* %b_in, align 8
+  %call122 = call double @_Z7atan2pidd(double %235, double %236) nounwind readnone
+  store double %call122, double* %a_out, align 8
   %237 = load <4 x double>* %a4_in, align 32
-  %call132 = call <4 x double> @_Z3expDv4_d(<4 x double> %237) nounwind readnone
-  store <4 x double> %call132, <4 x double>* %a4_out, align 32
-  %238 = load <8 x double>* %a8_in, align 64
-  %call133 = call <8 x double> @_Z3expDv8_d(<8 x double> %238) nounwind readnone
-  store <8 x double> %call133, <8 x double>* %a8_out, align 64
-  %239 = load <16 x double>* %a16_in, align 128
-  %call134 = call <16 x double> @_Z3expDv16_d(<16 x double> %239) nounwind readnone
-  store <16 x double> %call134, <16 x double>* %a16_out, align 128
-  %240 = load double* %a_in, align 8
-  %call135 = call double @_Z4exp2d(double %240) nounwind readnone
-  store double %call135, double* %a_out, align 8
-  %241 = load <4 x double>* %a4_in, align 32
-  %call136 = call <4 x double> @_Z4exp2Dv4_d(<4 x double> %241) nounwind readnone
-  store <4 x double> %call136, <4 x double>* %a4_out, align 32
-  %242 = load <8 x double>* %a8_in, align 64
-  %call137 = call <8 x double> @_Z4exp2Dv8_d(<8 x double> %242) nounwind readnone
-  store <8 x double> %call137, <8 x double>* %a8_out, align 64
-  %243 = load <16 x double>* %a16_in, align 128
-  %call138 = call <16 x double> @_Z4exp2Dv16_d(<16 x double> %243) nounwind readnone
-  store <16 x double> %call138, <16 x double>* %a16_out, align 128
-  %244 = load double* %a_in, align 8
-  %call139 = call double @_Z5exp10d(double %244) nounwind readnone
-  store double %call139, double* %a_out, align 8
-  %245 = load <4 x double>* %a4_in, align 32
-  %call140 = call <4 x double> @_Z5exp10Dv4_d(<4 x double> %245) nounwind readnone
-  store <4 x double> %call140, <4 x double>* %a4_out, align 32
-  %246 = load <8 x double>* %a8_in, align 64
-  %call141 = call <8 x double> @_Z5exp10Dv8_d(<8 x double> %246) nounwind readnone
-  store <8 x double> %call141, <8 x double>* %a8_out, align 64
-  %247 = load <16 x double>* %a16_in, align 128
-  %call142 = call <16 x double> @_Z5exp10Dv16_d(<16 x double> %247) nounwind readnone
-  store <16 x double> %call142, <16 x double>* %a16_out, align 128
-  %248 = load double* %a_in, align 8
-  %call143 = call double @_Z5expm1d(double %248) nounwind readnone
-  store double %call143, double* %a_out, align 8
-  %249 = load <4 x double>* %a4_in, align 32
-  %call144 = call <4 x double> @_Z5expm1Dv4_d(<4 x double> %249) nounwind readnone
-  store <4 x double> %call144, <4 x double>* %a4_out, align 32
-  %250 = load <8 x double>* %a8_in, align 64
-  %call145 = call <8 x double> @_Z5expm1Dv8_d(<8 x double> %250) nounwind readnone
-  store <8 x double> %call145, <8 x double>* %a8_out, align 64
-  %251 = load <16 x double>* %a16_in, align 128
-  %call146 = call <16 x double> @_Z5expm1Dv16_d(<16 x double> %251) nounwind readnone
-  store <16 x double> %call146, <16 x double>* %a16_out, align 128
-  %252 = load double* %a_in, align 8
-  %call147 = call double @_Z3logd(double %252) nounwind readnone
-  store double %call147, double* %a_out, align 8
-  %253 = load <4 x double>* %a4_in, align 32
-  %call148 = call <4 x double> @_Z3logDv4_d(<4 x double> %253) nounwind readnone
-  store <4 x double> %call148, <4 x double>* %a4_out, align 32
-  %254 = load <8 x double>* %a8_in, align 64
-  %call149 = call <8 x double> @_Z3logDv8_d(<8 x double> %254) nounwind readnone
-  store <8 x double> %call149, <8 x double>* %a8_out, align 64
-  %255 = load <16 x double>* %a16_in, align 128
-  %call150 = call <16 x double> @_Z3logDv16_d(<16 x double> %255) nounwind readnone
-  store <16 x double> %call150, <16 x double>* %a16_out, align 128
-  %256 = load double* %a_in, align 8
-  %call151 = call double @_Z4log2d(double %256) nounwind readnone
-  store double %call151, double* %a_out, align 8
-  %257 = load <4 x double>* %a4_in, align 32
-  %call152 = call <4 x double> @_Z4log2Dv4_d(<4 x double> %257) nounwind readnone
-  store <4 x double> %call152, <4 x double>* %a4_out, align 32
-  %258 = load <8 x double>* %a8_in, align 64
-  %call153 = call <8 x double> @_Z4log2Dv8_d(<8 x double> %258) nounwind readnone
-  store <8 x double> %call153, <8 x double>* %a8_out, align 64
-  %259 = load <16 x double>* %a16_in, align 128
-  %call154 = call <16 x double> @_Z4log2Dv16_d(<16 x double> %259) nounwind readnone
-  store <16 x double> %call154, <16 x double>* %a16_out, align 128
-  %260 = load double* %a_in, align 8
-  %call155 = call double @_Z5log10d(double %260) nounwind readnone
-  store double %call155, double* %a_out, align 8
-  %261 = load <4 x double>* %a4_in, align 32
-  %call156 = call <4 x double> @_Z5log10Dv4_d(<4 x double> %261) nounwind readnone
-  store <4 x double> %call156, <4 x double>* %a4_out, align 32
-  %262 = load <8 x double>* %a8_in, align 64
-  %call157 = call <8 x double> @_Z5log10Dv8_d(<8 x double> %262) nounwind readnone
-  store <8 x double> %call157, <8 x double>* %a8_out, align 64
-  %263 = load <16 x double>* %a16_in, align 128
-  %call158 = call <16 x double> @_Z5log10Dv16_d(<16 x double> %263) nounwind readnone
-  store <16 x double> %call158, <16 x double>* %a16_out, align 128
-  %264 = load double* %a_in, align 8
-  %call159 = call double @_Z5log1pd(double %264) nounwind readnone
-  store double %call159, double* %a_out, align 8
-  %265 = load <4 x double>* %a4_in, align 32
-  %call160 = call <4 x double> @_Z5log1pDv4_d(<4 x double> %265) nounwind readnone
-  store <4 x double> %call160, <4 x double>* %a4_out, align 32
-  %266 = load <8 x double>* %a8_in, align 64
-  %call161 = call <8 x double> @_Z5log1pDv8_d(<8 x double> %266) nounwind readnone
-  store <8 x double> %call161, <8 x double>* %a8_out, align 64
-  %267 = load <16 x double>* %a16_in, align 128
-  %call162 = call <16 x double> @_Z5log1pDv16_d(<16 x double> %267) nounwind readnone
-  store <16 x double> %call162, <16 x double>* %a16_out, align 128
-  %268 = load double* %a_in, align 8
-  %call163 = call double @_Z4logbd(double %268) nounwind readnone
-  store double %call163, double* %a_out, align 8
-  %269 = load <4 x double>* %a4_in, align 32
-  %call164 = call <4 x double> @_Z4logbDv4_d(<4 x double> %269) nounwind readnone
-  store <4 x double> %call164, <4 x double>* %a4_out, align 32
-  %270 = load <8 x double>* %a8_in, align 64
-  %call165 = call <8 x double> @_Z4logbDv8_d(<8 x double> %270) nounwind readnone
-  store <8 x double> %call165, <8 x double>* %a8_out, align 64
-  %271 = load <16 x double>* %a16_in, align 128
-  %call166 = call <16 x double> @_Z4logbDv16_d(<16 x double> %271) nounwind readnone
-  store <16 x double> %call166, <16 x double>* %a16_out, align 128
-  %272 = load double* %a_in, align 8
-  %call167 = call double @_Z4ceild(double %272) nounwind readnone
-  store double %call167, double* %a_out, align 8
-  %273 = load <4 x double>* %a4_in, align 32
-  %call168 = call <4 x double> @_Z4ceilDv4_d(<4 x double> %273) nounwind readnone
-  store <4 x double> %call168, <4 x double>* %a4_out, align 32
-  %274 = load <8 x double>* %a8_in, align 64
-  %call169 = call <8 x double> @_Z4ceilDv8_d(<8 x double> %274) nounwind readnone
-  store <8 x double> %call169, <8 x double>* %a8_out, align 64
-  %275 = load <16 x double>* %a16_in, align 128
-  %call170 = call <16 x double> @_Z4ceilDv16_d(<16 x double> %275) nounwind readnone
-  store <16 x double> %call170, <16 x double>* %a16_out, align 128
-  %276 = load double* %a_in, align 8
-  %277 = load double* %b_in, align 8
-  %call171 = call double @_Z3powdd(double %276, double %277) nounwind readnone
-  store double %call171, double* %a_out, align 8
-  %278 = load <4 x double>* %a4_in, align 32
-  %279 = load <4 x double>* %b4_in, align 32
-  %call172 = call <4 x double> @_Z3powDv4_dS_(<4 x double> %278, <4 x double> %279) nounwind readnone
-  store <4 x double> %call172, <4 x double>* %a4_out, align 32
-  %280 = load <8 x double>* %a8_in, align 64
-  %281 = load <8 x double>* %b8_in, align 64
-  %call173 = call <8 x double> @_Z3powDv8_dS_(<8 x double> %280, <8 x double> %281) nounwind readnone
-  store <8 x double> %call173, <8 x double>* %a8_out, align 64
+  %238 = load <4 x double>* %b4_in, align 32
+  %call123 = call <4 x double> @_Z7atan2piDv4_dS_(<4 x double> %237, <4 x double> %238) nounwind readnone
+  store <4 x double> %call123, <4 x double>* %a4_out, align 32
+  %239 = load <8 x double>* %a8_in, align 64
+  %240 = load <8 x double>* %b8_in, align 64
+  %call124 = call <8 x double> @_Z7atan2piDv8_dS_(<8 x double> %239, <8 x double> %240) nounwind readnone
+  store <8 x double> %call124, <8 x double>* %a8_out, align 64
+  %241 = load <16 x double>* %a16_in, align 128
+  %242 = load <16 x double>* %b16_in, align 128
+  %call125 = call <16 x double> @_Z7atan2piDv16_dS_(<16 x double> %241, <16 x double> %242) nounwind readnone
+  store <16 x double> %call125, <16 x double>* %a16_out, align 128
+  %243 = load double* %a_in, align 8
+  %call126 = call double @_Z6atanpid(double %243) nounwind readnone
+  store double %call126, double* %a_out, align 8
+  %244 = load <4 x double>* %a4_in, align 32
+  %call127 = call <4 x double> @_Z6atanpiDv4_d(<4 x double> %244) nounwind readnone
+  store <4 x double> %call127, <4 x double>* %a4_out, align 32
+  %245 = load <8 x double>* %a8_in, align 64
+  %call128 = call <8 x double> @_Z6atanpiDv8_d(<8 x double> %245) nounwind readnone
+  store <8 x double> %call128, <8 x double>* %a8_out, align 64
+  %246 = load <16 x double>* %a16_in, align 128
+  %call129 = call <16 x double> @_Z6atanpiDv16_d(<16 x double> %246) nounwind readnone
+  store <16 x double> %call129, <16 x double>* %a16_out, align 128
+  %247 = load double* %a_in, align 8
+  %call130 = call double @_Z3cosd(double %247) nounwind readnone
+  store double %call130, double* %a_out, align 8
+  %248 = load <4 x double>* %a4_in, align 32
+  %call131 = call <4 x double> @_Z3cosDv4_d(<4 x double> %248) nounwind readnone
+  store <4 x double> %call131, <4 x double>* %a4_out, align 32
+  %249 = load <8 x double>* %a8_in, align 64
+  %call132 = call <8 x double> @_Z3cosDv8_d(<8 x double> %249) nounwind readnone
+  store <8 x double> %call132, <8 x double>* %a8_out, align 64
+  %250 = load <16 x double>* %a16_in, align 128
+  %call133 = call <16 x double> @_Z3cosDv16_d(<16 x double> %250) nounwind readnone
+  store <16 x double> %call133, <16 x double>* %a16_out, align 128
+  %251 = load double* %a_in, align 8
+  %call134 = call double @_Z4coshd(double %251) nounwind readnone
+  store double %call134, double* %a_out, align 8
+  %252 = load <4 x double>* %a4_in, align 32
+  %call135 = call <4 x double> @_Z4coshDv4_d(<4 x double> %252) nounwind readnone
+  store <4 x double> %call135, <4 x double>* %a4_out, align 32
+  %253 = load <8 x double>* %a8_in, align 64
+  %call136 = call <8 x double> @_Z4coshDv8_d(<8 x double> %253) nounwind readnone
+  store <8 x double> %call136, <8 x double>* %a8_out, align 64
+  %254 = load <16 x double>* %a16_in, align 128
+  %call137 = call <16 x double> @_Z4coshDv16_d(<16 x double> %254) nounwind readnone
+  store <16 x double> %call137, <16 x double>* %a16_out, align 128
+  %255 = load double* %a_in, align 8
+  %call138 = call double @_Z5cospid(double %255) nounwind readnone
+  store double %call138, double* %a_out, align 8
+  %256 = load <4 x double>* %a4_in, align 32
+  %call139 = call <4 x double> @_Z5cospiDv4_d(<4 x double> %256) nounwind readnone
+  store <4 x double> %call139, <4 x double>* %a4_out, align 32
+  %257 = load <8 x double>* %a8_in, align 64
+  %call140 = call <8 x double> @_Z5cospiDv8_d(<8 x double> %257) nounwind readnone
+  store <8 x double> %call140, <8 x double>* %a8_out, align 64
+  %258 = load <16 x double>* %a16_in, align 128
+  %call141 = call <16 x double> @_Z5cospiDv16_d(<16 x double> %258) nounwind readnone
+  store <16 x double> %call141, <16 x double>* %a16_out, align 128
+  %259 = load double* %a_in, align 8
+  %call142 = call double @_Z3expd(double %259) nounwind readnone
+  store double %call142, double* %a_out, align 8
+  %260 = load <4 x double>* %a4_in, align 32
+  %call143 = call <4 x double> @_Z3expDv4_d(<4 x double> %260) nounwind readnone
+  store <4 x double> %call143, <4 x double>* %a4_out, align 32
+  %261 = load <8 x double>* %a8_in, align 64
+  %call144 = call <8 x double> @_Z3expDv8_d(<8 x double> %261) nounwind readnone
+  store <8 x double> %call144, <8 x double>* %a8_out, align 64
+  %262 = load <16 x double>* %a16_in, align 128
+  %call145 = call <16 x double> @_Z3expDv16_d(<16 x double> %262) nounwind readnone
+  store <16 x double> %call145, <16 x double>* %a16_out, align 128
+  %263 = load double* %a_in, align 8
+  %call146 = call double @_Z4exp2d(double %263) nounwind readnone
+  store double %call146, double* %a_out, align 8
+  %264 = load <4 x double>* %a4_in, align 32
+  %call147 = call <4 x double> @_Z4exp2Dv4_d(<4 x double> %264) nounwind readnone
+  store <4 x double> %call147, <4 x double>* %a4_out, align 32
+  %265 = load <8 x double>* %a8_in, align 64
+  %call148 = call <8 x double> @_Z4exp2Dv8_d(<8 x double> %265) nounwind readnone
+  store <8 x double> %call148, <8 x double>* %a8_out, align 64
+  %266 = load <16 x double>* %a16_in, align 128
+  %call149 = call <16 x double> @_Z4exp2Dv16_d(<16 x double> %266) nounwind readnone
+  store <16 x double> %call149, <16 x double>* %a16_out, align 128
+  %267 = load double* %a_in, align 8
+  %call150 = call double @_Z5exp10d(double %267) nounwind readnone
+  store double %call150, double* %a_out, align 8
+  %268 = load <4 x double>* %a4_in, align 32
+  %call151 = call <4 x double> @_Z5exp10Dv4_d(<4 x double> %268) nounwind readnone
+  store <4 x double> %call151, <4 x double>* %a4_out, align 32
+  %269 = load <8 x double>* %a8_in, align 64
+  %call152 = call <8 x double> @_Z5exp10Dv8_d(<8 x double> %269) nounwind readnone
+  store <8 x double> %call152, <8 x double>* %a8_out, align 64
+  %270 = load <16 x double>* %a16_in, align 128
+  %call153 = call <16 x double> @_Z5exp10Dv16_d(<16 x double> %270) nounwind readnone
+  store <16 x double> %call153, <16 x double>* %a16_out, align 128
+  %271 = load double* %a_in, align 8
+  %call154 = call double @_Z5expm1d(double %271) nounwind readnone
+  store double %call154, double* %a_out, align 8
+  %272 = load <4 x double>* %a4_in, align 32
+  %call155 = call <4 x double> @_Z5expm1Dv4_d(<4 x double> %272) nounwind readnone
+  store <4 x double> %call155, <4 x double>* %a4_out, align 32
+  %273 = load <8 x double>* %a8_in, align 64
+  %call156 = call <8 x double> @_Z5expm1Dv8_d(<8 x double> %273) nounwind readnone
+  store <8 x double> %call156, <8 x double>* %a8_out, align 64
+  %274 = load <16 x double>* %a16_in, align 128
+  %call157 = call <16 x double> @_Z5expm1Dv16_d(<16 x double> %274) nounwind readnone
+  store <16 x double> %call157, <16 x double>* %a16_out, align 128
+  %275 = load double* %a_in, align 8
+  %call158 = call double @_Z3logd(double %275) nounwind readnone
+  store double %call158, double* %a_out, align 8
+  %276 = load <4 x double>* %a4_in, align 32
+  %call159 = call <4 x double> @_Z3logDv4_d(<4 x double> %276) nounwind readnone
+  store <4 x double> %call159, <4 x double>* %a4_out, align 32
+  %277 = load <8 x double>* %a8_in, align 64
+  %call160 = call <8 x double> @_Z3logDv8_d(<8 x double> %277) nounwind readnone
+  store <8 x double> %call160, <8 x double>* %a8_out, align 64
+  %278 = load <16 x double>* %a16_in, align 128
+  %call161 = call <16 x double> @_Z3logDv16_d(<16 x double> %278) nounwind readnone
+  store <16 x double> %call161, <16 x double>* %a16_out, align 128
+  %279 = load double* %a_in, align 8
+  %call162 = call double @_Z4log2d(double %279) nounwind readnone
+  store double %call162, double* %a_out, align 8
+  %280 = load <4 x double>* %a4_in, align 32
+  %call163 = call <4 x double> @_Z4log2Dv4_d(<4 x double> %280) nounwind readnone
+  store <4 x double> %call163, <4 x double>* %a4_out, align 32
+  %281 = load <8 x double>* %a8_in, align 64
+  %call164 = call <8 x double> @_Z4log2Dv8_d(<8 x double> %281) nounwind readnone
+  store <8 x double> %call164, <8 x double>* %a8_out, align 64
   %282 = load <16 x double>* %a16_in, align 128
-  %283 = load <16 x double>* %b16_in, align 128
-  %call174 = call <16 x double> @_Z3powDv16_dS_(<16 x double> %282, <16 x double> %283) nounwind readnone
-  store <16 x double> %call174, <16 x double>* %a16_out, align 128
-  %284 = load double* %a_in, align 8
-  %285 = load double* %b_in, align 8
-  %286 = load double* %c_in, align 8
-  %call175 = call double @_Z5clampddd(double %284, double %285, double %286) nounwind readnone
-  store double %call175, double* %a_out, align 8
-  %287 = load <4 x double>* %a4_in, align 32
-  %288 = load <4 x double>* %b4_in, align 32
-  %289 = load <4 x double>* %c4_in, align 32
-  %call176 = call <4 x double> @_Z5clampDv4_dS_S_(<4 x double> %287, <4 x double> %288, <4 x double> %289) nounwind readnone
-  store <4 x double> %call176, <4 x double>* %a4_out, align 32
-  %290 = load <8 x double>* %a8_in, align 64
-  %291 = load <8 x double>* %b8_in, align 64
-  %292 = load <8 x double>* %c8_in, align 64
-  %call177 = call <8 x double> @_Z5clampDv8_dS_S_(<8 x double> %290, <8 x double> %291, <8 x double> %292) nounwind readnone
-  store <8 x double> %call177, <8 x double>* %a8_out, align 64
-  %293 = load <16 x double>* %a16_in, align 128
-  %294 = load <16 x double>* %b16_in, align 128
-  %295 = load <16 x double>* %c16_in, align 128
-  %call178 = call <16 x double> @_Z5clampDv16_dS_S_(<16 x double> %293, <16 x double> %294, <16 x double> %295) nounwind readnone
-  store <16 x double> %call178, <16 x double>* %a16_out, align 128
-  %296 = load double* %a_in, align 8
-  %297 = load double* %b_in, align 8
-  %298 = load double* %c_in, align 8
-  %call179 = call double @_Z5clampddd(double %296, double %297, double %298) nounwind readnone
-  store double %call179, double* %a_out, align 8
-  %299 = load <4 x double>* %a4_in, align 32
+  %call165 = call <16 x double> @_Z4log2Dv16_d(<16 x double> %282) nounwind readnone
+  store <16 x double> %call165, <16 x double>* %a16_out, align 128
+  %283 = load double* %a_in, align 8
+  %call166 = call double @_Z5log10d(double %283) nounwind readnone
+  store double %call166, double* %a_out, align 8
+  %284 = load <4 x double>* %a4_in, align 32
+  %call167 = call <4 x double> @_Z5log10Dv4_d(<4 x double> %284) nounwind readnone
+  store <4 x double> %call167, <4 x double>* %a4_out, align 32
+  %285 = load <8 x double>* %a8_in, align 64
+  %call168 = call <8 x double> @_Z5log10Dv8_d(<8 x double> %285) nounwind readnone
+  store <8 x double> %call168, <8 x double>* %a8_out, align 64
+  %286 = load <16 x double>* %a16_in, align 128
+  %call169 = call <16 x double> @_Z5log10Dv16_d(<16 x double> %286) nounwind readnone
+  store <16 x double> %call169, <16 x double>* %a16_out, align 128
+  %287 = load double* %a_in, align 8
+  %call170 = call double @_Z5log1pd(double %287) nounwind readnone
+  store double %call170, double* %a_out, align 8
+  %288 = load <4 x double>* %a4_in, align 32
+  %call171 = call <4 x double> @_Z5log1pDv4_d(<4 x double> %288) nounwind readnone
+  store <4 x double> %call171, <4 x double>* %a4_out, align 32
+  %289 = load <8 x double>* %a8_in, align 64
+  %call172 = call <8 x double> @_Z5log1pDv8_d(<8 x double> %289) nounwind readnone
+  store <8 x double> %call172, <8 x double>* %a8_out, align 64
+  %290 = load <16 x double>* %a16_in, align 128
+  %call173 = call <16 x double> @_Z5log1pDv16_d(<16 x double> %290) nounwind readnone
+  store <16 x double> %call173, <16 x double>* %a16_out, align 128
+  %291 = load double* %a_in, align 8
+  %call174 = call double @_Z4logbd(double %291) nounwind readnone
+  store double %call174, double* %a_out, align 8
+  %292 = load <4 x double>* %a4_in, align 32
+  %call175 = call <4 x double> @_Z4logbDv4_d(<4 x double> %292) nounwind readnone
+  store <4 x double> %call175, <4 x double>* %a4_out, align 32
+  %293 = load <8 x double>* %a8_in, align 64
+  %call176 = call <8 x double> @_Z4logbDv8_d(<8 x double> %293) nounwind readnone
+  store <8 x double> %call176, <8 x double>* %a8_out, align 64
+  %294 = load <16 x double>* %a16_in, align 128
+  %call177 = call <16 x double> @_Z4logbDv16_d(<16 x double> %294) nounwind readnone
+  store <16 x double> %call177, <16 x double>* %a16_out, align 128
+  %295 = load double* %a_in, align 8
+  %call178 = call double @_Z4ceild(double %295) nounwind readnone
+  store double %call178, double* %a_out, align 8
+  %296 = load <4 x double>* %a4_in, align 32
+  %call179 = call <4 x double> @_Z4ceilDv4_d(<4 x double> %296) nounwind readnone
+  store <4 x double> %call179, <4 x double>* %a4_out, align 32
+  %297 = load <8 x double>* %a8_in, align 64
+  %call180 = call <8 x double> @_Z4ceilDv8_d(<8 x double> %297) nounwind readnone
+  store <8 x double> %call180, <8 x double>* %a8_out, align 64
+  %298 = load <16 x double>* %a16_in, align 128
+  %call181 = call <16 x double> @_Z4ceilDv16_d(<16 x double> %298) nounwind readnone
+  store <16 x double> %call181, <16 x double>* %a16_out, align 128
+  %299 = load double* %a_in, align 8
   %300 = load double* %b_in, align 8
-  %301 = load double* %c_in, align 8
-  %call180 = call <4 x double> @_Z5clampDv4_ddd(<4 x double> %299, double %300, double %301) nounwind readnone
-  store <4 x double> %call180, <4 x double>* %a4_out, align 32
-  %302 = load <8 x double>* %a8_in, align 64
-  %303 = load double* %b_in, align 8
-  %304 = load double* %c_in, align 8
-  %call181 = call <8 x double> @_Z5clampDv8_ddd(<8 x double> %302, double %303, double %304) nounwind readnone
-  store <8 x double> %call181, <8 x double>* %a8_out, align 64
+  %call182 = call double @_Z3powdd(double %299, double %300) nounwind readnone
+  store double %call182, double* %a_out, align 8
+  %301 = load <4 x double>* %a4_in, align 32
+  %302 = load <4 x double>* %b4_in, align 32
+  %call183 = call <4 x double> @_Z3powDv4_dS_(<4 x double> %301, <4 x double> %302) nounwind readnone
+  store <4 x double> %call183, <4 x double>* %a4_out, align 32
+  %303 = load <8 x double>* %a8_in, align 64
+  %304 = load <8 x double>* %b8_in, align 64
+  %call184 = call <8 x double> @_Z3powDv8_dS_(<8 x double> %303, <8 x double> %304) nounwind readnone
+  store <8 x double> %call184, <8 x double>* %a8_out, align 64
   %305 = load <16 x double>* %a16_in, align 128
-  %306 = load double* %b_in, align 8
-  %307 = load double* %c_in, align 8
-  %call182 = call <16 x double> @_Z5clampDv16_ddd(<16 x double> %305, double %306, double %307) nounwind readnone
-  store <16 x double> %call182, <16 x double>* %a16_out, align 128
-  %308 = load double* %a_in, align 8
-  %call183 = call double @_Z4sinhd(double %308) nounwind readnone
-  store double %call183, double* %a_out, align 8
-  %309 = load <4 x double>* %a4_in, align 32
-  %call184 = call <4 x double> @_Z4sinhDv4_d(<4 x double> %309) nounwind readnone
-  store <4 x double> %call184, <4 x double>* %a4_out, align 32
-  %310 = load <8 x double>* %a8_in, align 64
-  %call185 = call <8 x double> @_Z4sinhDv8_d(<8 x double> %310) nounwind readnone
-  store <8 x double> %call185, <8 x double>* %a8_out, align 64
-  %311 = load <16 x double>* %a16_in, align 128
-  %call186 = call <16 x double> @_Z4sinhDv16_d(<16 x double> %311) nounwind readnone
-  store <16 x double> %call186, <16 x double>* %a16_out, align 128
-  %312 = load double* %a_in, align 8
-  %call187 = call double @_Z3sind(double %312) nounwind readnone
-  store double %call187, double* %a_out, align 8
-  %313 = load <4 x double>* %a4_in, align 32
-  %call188 = call <4 x double> @_Z3sinDv4_d(<4 x double> %313) nounwind readnone
-  store <4 x double> %call188, <4 x double>* %a4_out, align 32
-  %314 = load <8 x double>* %a8_in, align 64
-  %call189 = call <8 x double> @_Z3sinDv8_d(<8 x double> %314) nounwind readnone
-  store <8 x double> %call189, <8 x double>* %a8_out, align 64
-  %315 = load <16 x double>* %a16_in, align 128
-  %call190 = call <16 x double> @_Z3sinDv16_d(<16 x double> %315) nounwind readnone
-  store <16 x double> %call190, <16 x double>* %a16_out, align 128
-  %316 = load double* %a_in, align 8
-  %call191 = call double @_Z5sinpid(double %316) nounwind readnone
-  store double %call191, double* %a_out, align 8
-  %317 = load <4 x double>* %a4_in, align 32
-  %call192 = call <4 x double> @_Z5sinpiDv4_d(<4 x double> %317) nounwind readnone
-  store <4 x double> %call192, <4 x double>* %a4_out, align 32
-  %318 = load <8 x double>* %a8_in, align 64
-  %call193 = call <8 x double> @_Z5sinpiDv8_d(<8 x double> %318) nounwind readnone
-  store <8 x double> %call193, <8 x double>* %a8_out, align 64
-  %319 = load <16 x double>* %a16_in, align 128
-  %call194 = call <16 x double> @_Z5sinpiDv16_d(<16 x double> %319) nounwind readnone
-  store <16 x double> %call194, <16 x double>* %a16_out, align 128
-  %320 = load double* %a_in, align 8
-  %call195 = call double @_Z4sqrtd(double %320) nounwind readnone
-  store double %call195, double* %a_out, align 8
-  %321 = load <4 x double>* %a4_in, align 32
-  %call196 = call <4 x double> @_Z4sqrtDv4_d(<4 x double> %321) nounwind readnone
-  store <4 x double> %call196, <4 x double>* %a4_out, align 32
-  %322 = load <8 x double>* %a8_in, align 64
-  %call197 = call <8 x double> @_Z4sqrtDv8_d(<8 x double> %322) nounwind readnone
-  store <8 x double> %call197, <8 x double>* %a8_out, align 64
-  %323 = load <16 x double>* %a16_in, align 128
-  %call198 = call <16 x double> @_Z4sqrtDv16_d(<16 x double> %323) nounwind readnone
-  store <16 x double> %call198, <16 x double>* %a16_out, align 128
-  %324 = load double* %a_in, align 8
-  %call199 = call double @_Z5rsqrtd(double %324) nounwind readnone
-  store double %call199, double* %a_out, align 8
-  %325 = load <4 x double>* %a4_in, align 32
-  %call200 = call <4 x double> @_Z5rsqrtDv4_d(<4 x double> %325) nounwind readnone
-  store <4 x double> %call200, <4 x double>* %a4_out, align 32
-  %326 = load <8 x double>* %a8_in, align 64
-  %call201 = call <8 x double> @_Z5rsqrtDv8_d(<8 x double> %326) nounwind readnone
-  store <8 x double> %call201, <8 x double>* %a8_out, align 64
-  %327 = load <16 x double>* %a16_in, align 128
-  %call202 = call <16 x double> @_Z5rsqrtDv16_d(<16 x double> %327) nounwind readnone
-  store <16 x double> %call202, <16 x double>* %a16_out, align 128
-  %328 = load double* %a_in, align 8
-  %call203 = call double @_Z3tand(double %328) nounwind readnone
-  store double %call203, double* %a_out, align 8
-  %329 = load <4 x double>* %a4_in, align 32
-  %call204 = call <4 x double> @_Z3tanDv4_d(<4 x double> %329) nounwind readnone
-  store <4 x double> %call204, <4 x double>* %a4_out, align 32
-  %330 = load <8 x double>* %a8_in, align 64
-  %call205 = call <8 x double> @_Z3tanDv8_d(<8 x double> %330) nounwind readnone
-  store <8 x double> %call205, <8 x double>* %a8_out, align 64
-  %331 = load <16 x double>* %a16_in, align 128
-  %call206 = call <16 x double> @_Z3tanDv16_d(<16 x double> %331) nounwind readnone
-  store <16 x double> %call206, <16 x double>* %a16_out, align 128
-  %332 = load double* %a_in, align 8
-  %call207 = call double @_Z4tanhd(double %332) nounwind readnone
-  store double %call207, double* %a_out, align 8
-  %333 = load <4 x double>* %a4_in, align 32
-  %call208 = call <4 x double> @_Z4tanhDv4_d(<4 x double> %333) nounwind readnone
-  store <4 x double> %call208, <4 x double>* %a4_out, align 32
-  %334 = load <8 x double>* %a8_in, align 64
-  %call209 = call <8 x double> @_Z4tanhDv8_d(<8 x double> %334) nounwind readnone
-  store <8 x double> %call209, <8 x double>* %a8_out, align 64
-  %335 = load <16 x double>* %a16_in, align 128
-  %call210 = call <16 x double> @_Z4tanhDv16_d(<16 x double> %335) nounwind readnone
-  store <16 x double> %call210, <16 x double>* %a16_out, align 128
-  %336 = load double* %a_in, align 8
-  %call211 = call double @_Z5tanpid(double %336) nounwind readnone
-  store double %call211, double* %a_out, align 8
-  %337 = load <4 x double>* %a4_in, align 32
-  %call212 = call <4 x double> @_Z5tanpiDv4_d(<4 x double> %337) nounwind readnone
-  store <4 x double> %call212, <4 x double>* %a4_out, align 32
-  %338 = load <8 x double>* %a8_in, align 64
-  %call213 = call <8 x double> @_Z5tanpiDv8_d(<8 x double> %338) nounwind readnone
-  store <8 x double> %call213, <8 x double>* %a8_out, align 64
-  %339 = load <16 x double>* %a16_in, align 128
-  %call214 = call <16 x double> @_Z5tanpiDv16_d(<16 x double> %339) nounwind readnone
-  store <16 x double> %call214, <16 x double>* %a16_out, align 128
-  %340 = load double* %a_in, align 8
-  %call215 = call double @_Z4fabsd(double %340) nounwind readnone
-  store double %call215, double* %a_out, align 8
-  %341 = load <4 x double>* %a4_in, align 32
-  %call216 = call <4 x double> @_Z4fabsDv4_d(<4 x double> %341) nounwind readnone
-  store <4 x double> %call216, <4 x double>* %a4_out, align 32
-  %342 = load <8 x double>* %a8_in, align 64
-  %call217 = call <8 x double> @_Z4fabsDv8_d(<8 x double> %342) nounwind readnone
-  store <8 x double> %call217, <8 x double>* %a8_out, align 64
-  %343 = load <16 x double>* %a16_in, align 128
-  %call218 = call <16 x double> @_Z4fabsDv16_d(<16 x double> %343) nounwind readnone
-  store <16 x double> %call218, <16 x double>* %a16_out, align 128
-  %344 = load double* %a_in, align 8
-  %call219 = call double @_Z5asinhd(double %344) nounwind readnone
-  store double %call219, double* %a_out, align 8
-  %345 = load <4 x double>* %a4_in, align 32
-  %call220 = call <4 x double> @_Z5asinhDv4_d(<4 x double> %345) nounwind readnone
-  store <4 x double> %call220, <4 x double>* %a4_out, align 32
-  %346 = load <8 x double>* %a8_in, align 64
-  %call221 = call <8 x double> @_Z5asinhDv8_d(<8 x double> %346) nounwind readnone
-  store <8 x double> %call221, <8 x double>* %a8_out, align 64
-  %347 = load <16 x double>* %a16_in, align 128
-  %call222 = call <16 x double> @_Z5asinhDv16_d(<16 x double> %347) nounwind readnone
-  store <16 x double> %call222, <16 x double>* %a16_out, align 128
-  %348 = load double* %a_in, align 8
-  %call223 = call double @_Z5acoshd(double %348) nounwind readnone
-  store double %call223, double* %a_out, align 8
-  %349 = load <4 x double>* %a4_in, align 32
-  %call224 = call <4 x double> @_Z5acoshDv4_d(<4 x double> %349) nounwind readnone
-  store <4 x double> %call224, <4 x double>* %a4_out, align 32
-  %350 = load <8 x double>* %a8_in, align 64
-  %call225 = call <8 x double> @_Z5acoshDv8_d(<8 x double> %350) nounwind readnone
-  store <8 x double> %call225, <8 x double>* %a8_out, align 64
-  %351 = load <16 x double>* %a16_in, align 128
-  %call226 = call <16 x double> @_Z5acoshDv16_d(<16 x double> %351) nounwind readnone
-  store <16 x double> %call226, <16 x double>* %a16_out, align 128
-  %352 = load double* %a_in, align 8
-  %call227 = call double @_Z5atanhd(double %352) nounwind readnone
-  store double %call227, double* %a_out, align 8
-  %353 = load <4 x double>* %a4_in, align 32
-  %call228 = call <4 x double> @_Z5atanhDv4_d(<4 x double> %353) nounwind readnone
-  store <4 x double> %call228, <4 x double>* %a4_out, align 32
-  %354 = load <8 x double>* %a8_in, align 64
-  %call229 = call <8 x double> @_Z5atanhDv8_d(<8 x double> %354) nounwind readnone
-  store <8 x double> %call229, <8 x double>* %a8_out, align 64
-  %355 = load <16 x double>* %a16_in, align 128
-  %call230 = call <16 x double> @_Z5atanhDv16_d(<16 x double> %355) nounwind readnone
-  store <16 x double> %call230, <16 x double>* %a16_out, align 128
-  %call231 = call <4 x double> @_Z6vload4jPKd(i32 0, double* %b_in)
-  store <4 x double> %call231, <4 x double>* %a4_out, align 32
-  %call232 = call <8 x double> @_Z6vload8jPKd(i32 0, double* %b_in)
-  store <8 x double> %call232, <8 x double>* %a8_out, align 64
-  %call233 = call <16 x double> @_Z7vload16jPKd(i32 0, double* %b_in)
-  store <16 x double> %call233, <16 x double>* %a16_out, align 128
+  %306 = load <16 x double>* %b16_in, align 128
+  %call185 = call <16 x double> @_Z3powDv16_dS_(<16 x double> %305, <16 x double> %306) nounwind readnone
+  store <16 x double> %call185, <16 x double>* %a16_out, align 128
+  %307 = load double* %a_in, align 8
+  %308 = load double* %b_in, align 8
+  %309 = load double* %c_in, align 8
+  %call186 = call double @_Z5clampddd(double %307, double %308, double %309) nounwind readnone
+  store double %call186, double* %a_out, align 8
+  %310 = load <4 x double>* %a4_in, align 32
+  %311 = load <4 x double>* %b4_in, align 32
+  %312 = load <4 x double>* %c4_in, align 32
+  %call187 = call <4 x double> @_Z5clampDv4_dS_S_(<4 x double> %310, <4 x double> %311, <4 x double> %312) nounwind readnone
+  store <4 x double> %call187, <4 x double>* %a4_out, align 32
+  %313 = load <8 x double>* %a8_in, align 64
+  %314 = load <8 x double>* %b8_in, align 64
+  %315 = load <8 x double>* %c8_in, align 64
+  %call188 = call <8 x double> @_Z5clampDv8_dS_S_(<8 x double> %313, <8 x double> %314, <8 x double> %315) nounwind readnone
+  store <8 x double> %call188, <8 x double>* %a8_out, align 64
+  %316 = load <16 x double>* %a16_in, align 128
+  %317 = load <16 x double>* %b16_in, align 128
+  %318 = load <16 x double>* %c16_in, align 128
+  %call189 = call <16 x double> @_Z5clampDv16_dS_S_(<16 x double> %316, <16 x double> %317, <16 x double> %318) nounwind readnone
+  store <16 x double> %call189, <16 x double>* %a16_out, align 128
+  %319 = load double* %a_in, align 8
+  %320 = load double* %b_in, align 8
+  %321 = load double* %c_in, align 8
+  %call190 = call double @_Z5clampddd(double %319, double %320, double %321) nounwind readnone
+  store double %call190, double* %a_out, align 8
+  %322 = load <4 x double>* %a4_in, align 32
+  %323 = load double* %b_in, align 8
+  %324 = load double* %c_in, align 8
+  %call191 = call <4 x double> @_Z5clampDv4_ddd(<4 x double> %322, double %323, double %324) nounwind readnone
+  store <4 x double> %call191, <4 x double>* %a4_out, align 32
+  %325 = load <8 x double>* %a8_in, align 64
+  %326 = load double* %b_in, align 8
+  %327 = load double* %c_in, align 8
+  %call192 = call <8 x double> @_Z5clampDv8_ddd(<8 x double> %325, double %326, double %327) nounwind readnone
+  store <8 x double> %call192, <8 x double>* %a8_out, align 64
+  %328 = load <16 x double>* %a16_in, align 128
+  %329 = load double* %b_in, align 8
+  %330 = load double* %c_in, align 8
+  %call193 = call <16 x double> @_Z5clampDv16_ddd(<16 x double> %328, double %329, double %330) nounwind readnone
+  store <16 x double> %call193, <16 x double>* %a16_out, align 128
+  %331 = load double* %a_in, align 8
+  %call194 = call double @_Z4sinhd(double %331) nounwind readnone
+  store double %call194, double* %a_out, align 8
+  %332 = load <4 x double>* %a4_in, align 32
+  %call195 = call <4 x double> @_Z4sinhDv4_d(<4 x double> %332) nounwind readnone
+  store <4 x double> %call195, <4 x double>* %a4_out, align 32
+  %333 = load <8 x double>* %a8_in, align 64
+  %call196 = call <8 x double> @_Z4sinhDv8_d(<8 x double> %333) nounwind readnone
+  store <8 x double> %call196, <8 x double>* %a8_out, align 64
+  %334 = load <16 x double>* %a16_in, align 128
+  %call197 = call <16 x double> @_Z4sinhDv16_d(<16 x double> %334) nounwind readnone
+  store <16 x double> %call197, <16 x double>* %a16_out, align 128
+  %335 = load double* %a_in, align 8
+  %call198 = call double @_Z3sind(double %335) nounwind readnone
+  store double %call198, double* %a_out, align 8
+  %336 = load <4 x double>* %a4_in, align 32
+  %call199 = call <4 x double> @_Z3sinDv4_d(<4 x double> %336) nounwind readnone
+  store <4 x double> %call199, <4 x double>* %a4_out, align 32
+  %337 = load <8 x double>* %a8_in, align 64
+  %call200 = call <8 x double> @_Z3sinDv8_d(<8 x double> %337) nounwind readnone
+  store <8 x double> %call200, <8 x double>* %a8_out, align 64
+  %338 = load <16 x double>* %a16_in, align 128
+  %call201 = call <16 x double> @_Z3sinDv16_d(<16 x double> %338) nounwind readnone
+  store <16 x double> %call201, <16 x double>* %a16_out, align 128
+  %339 = load double* %a_in, align 8
+  %call202 = call double @_Z5sinpid(double %339) nounwind readnone
+  store double %call202, double* %a_out, align 8
+  %340 = load <4 x double>* %a4_in, align 32
+  %call203 = call <4 x double> @_Z5sinpiDv4_d(<4 x double> %340) nounwind readnone
+  store <4 x double> %call203, <4 x double>* %a4_out, align 32
+  %341 = load <8 x double>* %a8_in, align 64
+  %call204 = call <8 x double> @_Z5sinpiDv8_d(<8 x double> %341) nounwind readnone
+  store <8 x double> %call204, <8 x double>* %a8_out, align 64
+  %342 = load <16 x double>* %a16_in, align 128
+  %call205 = call <16 x double> @_Z5sinpiDv16_d(<16 x double> %342) nounwind readnone
+  store <16 x double> %call205, <16 x double>* %a16_out, align 128
+  %343 = load double* %a_in, align 8
+  %call206 = call double @_Z4sqrtd(double %343) nounwind readnone
+  store double %call206, double* %a_out, align 8
+  %344 = load <4 x double>* %a4_in, align 32
+  %call207 = call <4 x double> @_Z4sqrtDv4_d(<4 x double> %344) nounwind readnone
+  store <4 x double> %call207, <4 x double>* %a4_out, align 32
+  %345 = load <8 x double>* %a8_in, align 64
+  %call208 = call <8 x double> @_Z4sqrtDv8_d(<8 x double> %345) nounwind readnone
+  store <8 x double> %call208, <8 x double>* %a8_out, align 64
+  %346 = load <16 x double>* %a16_in, align 128
+  %call209 = call <16 x double> @_Z4sqrtDv16_d(<16 x double> %346) nounwind readnone
+  store <16 x double> %call209, <16 x double>* %a16_out, align 128
+  %347 = load double* %a_in, align 8
+  %call210 = call double @_Z5rsqrtd(double %347) nounwind readnone
+  store double %call210, double* %a_out, align 8
+  %348 = load <4 x double>* %a4_in, align 32
+  %call211 = call <4 x double> @_Z5rsqrtDv4_d(<4 x double> %348) nounwind readnone
+  store <4 x double> %call211, <4 x double>* %a4_out, align 32
+  %349 = load <8 x double>* %a8_in, align 64
+  %call212 = call <8 x double> @_Z5rsqrtDv8_d(<8 x double> %349) nounwind readnone
+  store <8 x double> %call212, <8 x double>* %a8_out, align 64
+  %350 = load <16 x double>* %a16_in, align 128
+  %call213 = call <16 x double> @_Z5rsqrtDv16_d(<16 x double> %350) nounwind readnone
+  store <16 x double> %call213, <16 x double>* %a16_out, align 128
+  %351 = load double* %a_in, align 8
+  %call214 = call double @_Z3tand(double %351) nounwind readnone
+  store double %call214, double* %a_out, align 8
+  %352 = load <4 x double>* %a4_in, align 32
+  %call215 = call <4 x double> @_Z3tanDv4_d(<4 x double> %352) nounwind readnone
+  store <4 x double> %call215, <4 x double>* %a4_out, align 32
+  %353 = load <8 x double>* %a8_in, align 64
+  %call216 = call <8 x double> @_Z3tanDv8_d(<8 x double> %353) nounwind readnone
+  store <8 x double> %call216, <8 x double>* %a8_out, align 64
+  %354 = load <16 x double>* %a16_in, align 128
+  %call217 = call <16 x double> @_Z3tanDv16_d(<16 x double> %354) nounwind readnone
+  store <16 x double> %call217, <16 x double>* %a16_out, align 128
+  %355 = load double* %a_in, align 8
+  %call218 = call double @_Z4tanhd(double %355) nounwind readnone
+  store double %call218, double* %a_out, align 8
   %356 = load <4 x double>* %a4_in, align 32
-  %357 = bitcast <4 x double>* %a4_out to double*
-  call void @_Z7vstore4Dv4_djPd(<4 x double> %356, i32 0, double* %357)
-  %358 = load <8 x double>* %a8_in, align 64
-  %359 = bitcast <8 x double>* %a8_out to double*
-  call void @_Z7vstore8Dv8_djPd(<8 x double> %358, i32 0, double* %359)
-  %360 = load <16 x double>* %a16_in, align 128
-  %361 = bitcast <16 x double>* %a16_out to double*
-  call void @_Z8vstore16Dv16_djPd(<16 x double> %360, i32 0, double* %361)
-  %362 = load double* %a_in, align 8
-  %363 = load double* %b_in, align 8
-  %call234 = call double @_Z3mindd(double %362, double %363) nounwind readnone
-  store double %call234, double* %a_out, align 8
+  %call219 = call <4 x double> @_Z4tanhDv4_d(<4 x double> %356) nounwind readnone
+  store <4 x double> %call219, <4 x double>* %a4_out, align 32
+  %357 = load <8 x double>* %a8_in, align 64
+  %call220 = call <8 x double> @_Z4tanhDv8_d(<8 x double> %357) nounwind readnone
+  store <8 x double> %call220, <8 x double>* %a8_out, align 64
+  %358 = load <16 x double>* %a16_in, align 128
+  %call221 = call <16 x double> @_Z4tanhDv16_d(<16 x double> %358) nounwind readnone
+  store <16 x double> %call221, <16 x double>* %a16_out, align 128
+  %359 = load double* %a_in, align 8
+  %call222 = call double @_Z5tanpid(double %359) nounwind readnone
+  store double %call222, double* %a_out, align 8
+  %360 = load <4 x double>* %a4_in, align 32
+  %call223 = call <4 x double> @_Z5tanpiDv4_d(<4 x double> %360) nounwind readnone
+  store <4 x double> %call223, <4 x double>* %a4_out, align 32
+  %361 = load <8 x double>* %a8_in, align 64
+  %call224 = call <8 x double> @_Z5tanpiDv8_d(<8 x double> %361) nounwind readnone
+  store <8 x double> %call224, <8 x double>* %a8_out, align 64
+  %362 = load <16 x double>* %a16_in, align 128
+  %call225 = call <16 x double> @_Z5tanpiDv16_d(<16 x double> %362) nounwind readnone
+  store <16 x double> %call225, <16 x double>* %a16_out, align 128
+  %363 = load double* %a_in, align 8
+  %call226 = call double @_Z4fabsd(double %363) nounwind readnone
+  store double %call226, double* %a_out, align 8
   %364 = load <4 x double>* %a4_in, align 32
-  %365 = load <4 x double>* %b4_in, align 32
-  %call235 = call <4 x double> @_Z3minDv4_dS_(<4 x double> %364, <4 x double> %365) nounwind readnone
+  %call227 = call <4 x double> @_Z4fabsDv4_d(<4 x double> %364) nounwind readnone
+  store <4 x double> %call227, <4 x double>* %a4_out, align 32
+  %365 = load <8 x double>* %a8_in, align 64
+  %call228 = call <8 x double> @_Z4fabsDv8_d(<8 x double> %365) nounwind readnone
+  store <8 x double> %call228, <8 x double>* %a8_out, align 64
+  %366 = load <16 x double>* %a16_in, align 128
+  %call229 = call <16 x double> @_Z4fabsDv16_d(<16 x double> %366) nounwind readnone
+  store <16 x double> %call229, <16 x double>* %a16_out, align 128
+  %367 = load double* %a_in, align 8
+  %call230 = call double @_Z5asinhd(double %367) nounwind readnone
+  store double %call230, double* %a_out, align 8
+  %368 = load <4 x double>* %a4_in, align 32
+  %call231 = call <4 x double> @_Z5asinhDv4_d(<4 x double> %368) nounwind readnone
+  store <4 x double> %call231, <4 x double>* %a4_out, align 32
+  %369 = load <8 x double>* %a8_in, align 64
+  %call232 = call <8 x double> @_Z5asinhDv8_d(<8 x double> %369) nounwind readnone
+  store <8 x double> %call232, <8 x double>* %a8_out, align 64
+  %370 = load <16 x double>* %a16_in, align 128
+  %call233 = call <16 x double> @_Z5asinhDv16_d(<16 x double> %370) nounwind readnone
+  store <16 x double> %call233, <16 x double>* %a16_out, align 128
+  %371 = load double* %a_in, align 8
+  %call234 = call double @_Z5acoshd(double %371) nounwind readnone
+  store double %call234, double* %a_out, align 8
+  %372 = load <4 x double>* %a4_in, align 32
+  %call235 = call <4 x double> @_Z5acoshDv4_d(<4 x double> %372) nounwind readnone
   store <4 x double> %call235, <4 x double>* %a4_out, align 32
-  %366 = load <8 x double>* %a8_in, align 64
-  %367 = load <8 x double>* %b8_in, align 64
-  %call236 = call <8 x double> @_Z3minDv8_dS_(<8 x double> %366, <8 x double> %367) nounwind readnone
+  %373 = load <8 x double>* %a8_in, align 64
+  %call236 = call <8 x double> @_Z5acoshDv8_d(<8 x double> %373) nounwind readnone
   store <8 x double> %call236, <8 x double>* %a8_out, align 64
-  %368 = load <16 x double>* %a16_in, align 128
-  %369 = load <16 x double>* %b16_in, align 128
-  %call237 = call <16 x double> @_Z3minDv16_dS_(<16 x double> %368, <16 x double> %369) nounwind readnone
-  store <16 x double> %call237, <16 x double>* %a16_out, align 128
-  %370 = load <4 x double>* %a4_in, align 32
-  %371 = load double* %b_in, align 8
-  %call238 = call <4 x double> @_Z3minDv4_dd(<4 x double> %370, double %371) nounwind readnone
-  store <4 x double> %call238, <4 x double>* %a4_out, align 32
-  %372 = load <8 x double>* %a8_in, align 64
-  %373 = load double* %b_in, align 8
-  %call239 = call <8 x double> @_Z3minDv8_dd(<8 x double> %372, double %373) nounwind readnone
-  store <8 x double> %call239, <8 x double>* %a8_out, align 64
   %374 = load <16 x double>* %a16_in, align 128
-  %375 = load double* %b_in, align 8
-  %call240 = call <16 x double> @_Z3minDv16_dd(<16 x double> %374, double %375) nounwind readnone
-  store <16 x double> %call240, <16 x double>* %a16_out, align 128
-  %376 = load double* %a_in, align 8
-  %377 = load double* %b_in, align 8
-  %call241 = call double @_Z3maxdd(double %376, double %377) nounwind readnone
-  store double %call241, double* %a_out, align 8
-  %378 = load <4 x double>* %a4_in, align 32
-  %379 = load <4 x double>* %b4_in, align 32
-  %call242 = call <4 x double> @_Z3maxDv4_dS_(<4 x double> %378, <4 x double> %379) nounwind readnone
+  %call237 = call <16 x double> @_Z5acoshDv16_d(<16 x double> %374) nounwind readnone
+  store <16 x double> %call237, <16 x double>* %a16_out, align 128
+  %375 = load double* %a_in, align 8
+  %call238 = call double @_Z5atanhd(double %375) nounwind readnone
+  store double %call238, double* %a_out, align 8
+  %376 = load <4 x double>* %a4_in, align 32
+  %call239 = call <4 x double> @_Z5atanhDv4_d(<4 x double> %376) nounwind readnone
+  store <4 x double> %call239, <4 x double>* %a4_out, align 32
+  %377 = load <8 x double>* %a8_in, align 64
+  %call240 = call <8 x double> @_Z5atanhDv8_d(<8 x double> %377) nounwind readnone
+  store <8 x double> %call240, <8 x double>* %a8_out, align 64
+  %378 = load <16 x double>* %a16_in, align 128
+  %call241 = call <16 x double> @_Z5atanhDv16_d(<16 x double> %378) nounwind readnone
+  store <16 x double> %call241, <16 x double>* %a16_out, align 128
+  %call242 = call <4 x double> @_Z6vload4jPKd(i32 0, double* %b_in)
   store <4 x double> %call242, <4 x double>* %a4_out, align 32
-  %380 = load <8 x double>* %a8_in, align 64
-  %381 = load <8 x double>* %b8_in, align 64
-  %call243 = call <8 x double> @_Z3maxDv8_dS_(<8 x double> %380, <8 x double> %381) nounwind readnone
+  %call243 = call <8 x double> @_Z6vload8jPKd(i32 0, double* %b_in)
   store <8 x double> %call243, <8 x double>* %a8_out, align 64
-  %382 = load <16 x double>* %a16_in, align 128
-  %383 = load <16 x double>* %b16_in, align 128
-  %call244 = call <16 x double> @_Z3maxDv16_dS_(<16 x double> %382, <16 x double> %383) nounwind readnone
+  %call244 = call <16 x double> @_Z7vload16jPKd(i32 0, double* %b_in)
   store <16 x double> %call244, <16 x double>* %a16_out, align 128
-  %384 = load <4 x double>* %a4_in, align 32
-  %385 = load double* %b_in, align 8
-  %call245 = call <4 x double> @_Z3maxDv4_dd(<4 x double> %384, double %385) nounwind readnone
-  store <4 x double> %call245, <4 x double>* %a4_out, align 32
-  %386 = load <8 x double>* %a8_in, align 64
-  %387 = load double* %b_in, align 8
-  %call246 = call <8 x double> @_Z3maxDv8_dd(<8 x double> %386, double %387) nounwind readnone
-  store <8 x double> %call246, <8 x double>* %a8_out, align 64
-  %388 = load <16 x double>* %a16_in, align 128
-  %389 = load double* %b_in, align 8
-  %call247 = call <16 x double> @_Z3maxDv16_dd(<16 x double> %388, double %389) nounwind readnone
-  store <16 x double> %call247, <16 x double>* %a16_out, align 128
-  %390 = load double* %a_in, align 8
-  %391 = load double* %b_in, align 8
-  %call248 = call double @_Z5hypotdd(double %390, double %391) nounwind readnone
-  store double %call248, double* %a_out, align 8
-  %392 = load <4 x double>* %a4_in, align 32
-  %393 = load <4 x double>* %b4_in, align 32
-  %call249 = call <4 x double> @_Z5hypotDv4_dS_(<4 x double> %392, <4 x double> %393) nounwind readnone
+  %379 = load <4 x double>* %a4_in, align 32
+  %380 = bitcast <4 x double>* %a4_out to double*
+  call void @_Z7vstore4Dv4_djPd(<4 x double> %379, i32 0, double* %380)
+  %381 = load <8 x double>* %a8_in, align 64
+  %382 = bitcast <8 x double>* %a8_out to double*
+  call void @_Z7vstore8Dv8_djPd(<8 x double> %381, i32 0, double* %382)
+  %383 = load <16 x double>* %a16_in, align 128
+  %384 = bitcast <16 x double>* %a16_out to double*
+  call void @_Z8vstore16Dv16_djPd(<16 x double> %383, i32 0, double* %384)
+  %385 = load double* %a_in, align 8
+  %386 = load double* %b_in, align 8
+  %call245 = call double @_Z3mindd(double %385, double %386) nounwind readnone
+  store double %call245, double* %a_out, align 8
+  %387 = load <4 x double>* %a4_in, align 32
+  %388 = load <4 x double>* %b4_in, align 32
+  %call246 = call <4 x double> @_Z3minDv4_dS_(<4 x double> %387, <4 x double> %388) nounwind readnone
+  store <4 x double> %call246, <4 x double>* %a4_out, align 32
+  %389 = load <8 x double>* %a8_in, align 64
+  %390 = load <8 x double>* %b8_in, align 64
+  %call247 = call <8 x double> @_Z3minDv8_dS_(<8 x double> %389, <8 x double> %390) nounwind readnone
+  store <8 x double> %call247, <8 x double>* %a8_out, align 64
+  %391 = load <16 x double>* %a16_in, align 128
+  %392 = load <16 x double>* %b16_in, align 128
+  %call248 = call <16 x double> @_Z3minDv16_dS_(<16 x double> %391, <16 x double> %392) nounwind readnone
+  store <16 x double> %call248, <16 x double>* %a16_out, align 128
+  %393 = load <4 x double>* %a4_in, align 32
+  %394 = load double* %b_in, align 8
+  %call249 = call <4 x double> @_Z3minDv4_dd(<4 x double> %393, double %394) nounwind readnone
   store <4 x double> %call249, <4 x double>* %a4_out, align 32
-  %394 = load <8 x double>* %a8_in, align 64
-  %395 = load <8 x double>* %b8_in, align 64
-  %call250 = call <8 x double> @_Z5hypotDv8_dS_(<8 x double> %394, <8 x double> %395) nounwind readnone
+  %395 = load <8 x double>* %a8_in, align 64
+  %396 = load double* %b_in, align 8
+  %call250 = call <8 x double> @_Z3minDv8_dd(<8 x double> %395, double %396) nounwind readnone
   store <8 x double> %call250, <8 x double>* %a8_out, align 64
-  %396 = load <16 x double>* %a16_in, align 128
-  %397 = load <16 x double>* %b16_in, align 128
-  %call251 = call <16 x double> @_Z5hypotDv16_dS_(<16 x double> %396, <16 x double> %397) nounwind readnone
+  %397 = load <16 x double>* %a16_in, align 128
+  %398 = load double* %b_in, align 8
+  %call251 = call <16 x double> @_Z3minDv16_dd(<16 x double> %397, double %398) nounwind readnone
   store <16 x double> %call251, <16 x double>* %a16_out, align 128
-  %398 = load double* %a_in, align 8
-  %399 = load double* %b_in, align 8
-  %call252 = call double @_Z4stepdd(double %398, double %399) nounwind readnone
+  %399 = load double* %a_in, align 8
+  %400 = load double* %b_in, align 8
+  %call252 = call double @_Z3maxdd(double %399, double %400) nounwind readnone
   store double %call252, double* %a_out, align 8
-  %400 = load <4 x double>* %a4_in, align 32
-  %401 = load <4 x double>* %b4_in, align 32
-  %call253 = call <4 x double> @_Z4stepDv4_dS_(<4 x double> %400, <4 x double> %401) nounwind readnone
+  %401 = load <4 x double>* %a4_in, align 32
+  %402 = load <4 x double>* %b4_in, align 32
+  %call253 = call <4 x double> @_Z3maxDv4_dS_(<4 x double> %401, <4 x double> %402) nounwind readnone
   store <4 x double> %call253, <4 x double>* %a4_out, align 32
-  %402 = load <8 x double>* %a8_in, align 64
-  %403 = load <8 x double>* %b8_in, align 64
-  %call254 = call <8 x double> @_Z4stepDv8_dS_(<8 x double> %402, <8 x double> %403) nounwind readnone
+  %403 = load <8 x double>* %a8_in, align 64
+  %404 = load <8 x double>* %b8_in, align 64
+  %call254 = call <8 x double> @_Z3maxDv8_dS_(<8 x double> %403, <8 x double> %404) nounwind readnone
   store <8 x double> %call254, <8 x double>* %a8_out, align 64
-  %404 = load <16 x double>* %a16_in, align 128
-  %405 = load <16 x double>* %b16_in, align 128
-  %call255 = call <16 x double> @_Z4stepDv16_dS_(<16 x double> %404, <16 x double> %405) nounwind readnone
+  %405 = load <16 x double>* %a16_in, align 128
+  %406 = load <16 x double>* %b16_in, align 128
+  %call255 = call <16 x double> @_Z3maxDv16_dS_(<16 x double> %405, <16 x double> %406) nounwind readnone
   store <16 x double> %call255, <16 x double>* %a16_out, align 128
-  %406 = load double* %a_in, align 8
-  %407 = load double* %b_in, align 8
-  %call256 = call double @_Z4stepdd(double %406, double %407) nounwind readnone
-  store double %call256, double* %a_out, align 8
-  %408 = load double* %a_in, align 8
-  %409 = load <4 x double>* %b4_in, align 32
-  %call257 = call <4 x double> @_Z4stepdDv4_d(double %408, <4 x double> %409) nounwind readnone
-  store <4 x double> %call257, <4 x double>* %a4_out, align 32
-  %410 = load double* %a_in, align 8
-  %411 = load <8 x double>* %b8_in, align 64
-  %call258 = call <8 x double> @_Z4stepdDv8_d(double %410, <8 x double> %411) nounwind readnone
-  store <8 x double> %call258, <8 x double>* %a8_out, align 64
-  %412 = load double* %a_in, align 8
-  %413 = load <16 x double>* %b16_in, align 128
-  %call259 = call <16 x double> @_Z4stepdDv16_d(double %412, <16 x double> %413) nounwind readnone
-  store <16 x double> %call259, <16 x double>* %a16_out, align 128
-  %414 = load double* %a_in, align 8
-  %415 = load double* %b_in, align 8
-  %416 = load double* %c_in, align 8
-  %call260 = call double @_Z10smoothstepddd(double %414, double %415, double %416) nounwind readnone
-  store double %call260, double* %a_out, align 8
-  %417 = load <4 x double>* %a4_in, align 32
-  %418 = load <4 x double>* %b4_in, align 32
-  %419 = load <4 x double>* %c4_in, align 32
-  %call261 = call <4 x double> @_Z10smoothstepDv4_dS_S_(<4 x double> %417, <4 x double> %418, <4 x double> %419) nounwind readnone
-  store <4 x double> %call261, <4 x double>* %a4_out, align 32
-  %420 = load <8 x double>* %a8_in, align 64
-  %421 = load <8 x double>* %b8_in, align 64
-  %422 = load <8 x double>* %c8_in, align 64
-  %call262 = call <8 x double> @_Z10smoothstepDv8_dS_S_(<8 x double> %420, <8 x double> %421, <8 x double> %422) nounwind readnone
-  store <8 x double> %call262, <8 x double>* %a8_out, align 64
-  %423 = load <16 x double>* %a16_in, align 128
-  %424 = load <16 x double>* %b16_in, align 128
-  %425 = load <16 x double>* %c16_in, align 128
-  %call263 = call <16 x double> @_Z10smoothstepDv16_dS_S_(<16 x double> %423, <16 x double> %424, <16 x double> %425) nounwind readnone
-  store <16 x double> %call263, <16 x double>* %a16_out, align 128
-  %426 = load double* %a_in, align 8
-  %427 = load double* %b_in, align 8
-  %428 = load double* %c_in, align 8
-  %call264 = call double @_Z10smoothstepddd(double %426, double %427, double %428) nounwind readnone
-  store double %call264, double* %a_out, align 8
+  %407 = load <4 x double>* %a4_in, align 32
+  %408 = load double* %b_in, align 8
+  %call256 = call <4 x double> @_Z3maxDv4_dd(<4 x double> %407, double %408) nounwind readnone
+  store <4 x double> %call256, <4 x double>* %a4_out, align 32
+  %409 = load <8 x double>* %a8_in, align 64
+  %410 = load double* %b_in, align 8
+  %call257 = call <8 x double> @_Z3maxDv8_dd(<8 x double> %409, double %410) nounwind readnone
+  store <8 x double> %call257, <8 x double>* %a8_out, align 64
+  %411 = load <16 x double>* %a16_in, align 128
+  %412 = load double* %b_in, align 8
+  %call258 = call <16 x double> @_Z3maxDv16_dd(<16 x double> %411, double %412) nounwind readnone
+  store <16 x double> %call258, <16 x double>* %a16_out, align 128
+  %413 = load double* %a_in, align 8
+  %414 = load double* %b_in, align 8
+  %call259 = call double @_Z5hypotdd(double %413, double %414) nounwind readnone
+  store double %call259, double* %a_out, align 8
+  %415 = load <4 x double>* %a4_in, align 32
+  %416 = load <4 x double>* %b4_in, align 32
+  %call260 = call <4 x double> @_Z5hypotDv4_dS_(<4 x double> %415, <4 x double> %416) nounwind readnone
+  store <4 x double> %call260, <4 x double>* %a4_out, align 32
+  %417 = load <8 x double>* %a8_in, align 64
+  %418 = load <8 x double>* %b8_in, align 64
+  %call261 = call <8 x double> @_Z5hypotDv8_dS_(<8 x double> %417, <8 x double> %418) nounwind readnone
+  store <8 x double> %call261, <8 x double>* %a8_out, align 64
+  %419 = load <16 x double>* %a16_in, align 128
+  %420 = load <16 x double>* %b16_in, align 128
+  %call262 = call <16 x double> @_Z5hypotDv16_dS_(<16 x double> %419, <16 x double> %420) nounwind readnone
+  store <16 x double> %call262, <16 x double>* %a16_out, align 128
+  %421 = load double* %a_in, align 8
+  %422 = load double* %b_in, align 8
+  %call263 = call double @_Z4stepdd(double %421, double %422) nounwind readnone
+  store double %call263, double* %a_out, align 8
+  %423 = load <4 x double>* %a4_in, align 32
+  %424 = load <4 x double>* %b4_in, align 32
+  %call264 = call <4 x double> @_Z4stepDv4_dS_(<4 x double> %423, <4 x double> %424) nounwind readnone
+  store <4 x double> %call264, <4 x double>* %a4_out, align 32
+  %425 = load <8 x double>* %a8_in, align 64
+  %426 = load <8 x double>* %b8_in, align 64
+  %call265 = call <8 x double> @_Z4stepDv8_dS_(<8 x double> %425, <8 x double> %426) nounwind readnone
+  store <8 x double> %call265, <8 x double>* %a8_out, align 64
+  %427 = load <16 x double>* %a16_in, align 128
+  %428 = load <16 x double>* %b16_in, align 128
+  %call266 = call <16 x double> @_Z4stepDv16_dS_(<16 x double> %427, <16 x double> %428) nounwind readnone
+  store <16 x double> %call266, <16 x double>* %a16_out, align 128
   %429 = load double* %a_in, align 8
   %430 = load double* %b_in, align 8
-  %431 = load <4 x double>* %c4_in, align 32
-  %call265 = call <4 x double> @_Z10smoothstepddDv4_d(double %429, double %430, <4 x double> %431) nounwind readnone
-  store <4 x double> %call265, <4 x double>* %a4_out, align 32
-  %432 = load double* %a_in, align 8
-  %433 = load double* %b_in, align 8
-  %434 = load <8 x double>* %c8_in, align 64
-  %call266 = call <8 x double> @_Z10smoothstepddDv8_d(double %432, double %433, <8 x double> %434) nounwind readnone
-  store <8 x double> %call266, <8 x double>* %a8_out, align 64
+  %call267 = call double @_Z4stepdd(double %429, double %430) nounwind readnone
+  store double %call267, double* %a_out, align 8
+  %431 = load double* %a_in, align 8
+  %432 = load <4 x double>* %b4_in, align 32
+  %call268 = call <4 x double> @_Z4stepdDv4_d(double %431, <4 x double> %432) nounwind readnone
+  store <4 x double> %call268, <4 x double>* %a4_out, align 32
+  %433 = load double* %a_in, align 8
+  %434 = load <8 x double>* %b8_in, align 64
+  %call269 = call <8 x double> @_Z4stepdDv8_d(double %433, <8 x double> %434) nounwind readnone
+  store <8 x double> %call269, <8 x double>* %a8_out, align 64
   %435 = load double* %a_in, align 8
-  %436 = load double* %b_in, align 8
-  %437 = load <16 x double>* %c16_in, align 128
-  %call267 = call <16 x double> @_Z10smoothstepddDv16_d(double %435, double %436, <16 x double> %437) nounwind readnone
-  store <16 x double> %call267, <16 x double>* %a16_out, align 128
-  %438 = load double* %a_in, align 8
-  %call268 = call double @_Z7radiansd(double %438) nounwind readnone
-  store double %call268, double* %a_out, align 8
-  %439 = load <4 x double>* %a4_in, align 32
-  %call269 = call <4 x double> @_Z7radiansDv4_d(<4 x double> %439) nounwind readnone
-  store <4 x double> %call269, <4 x double>* %a4_out, align 32
-  %440 = load <8 x double>* %a8_in, align 64
-  %call270 = call <8 x double> @_Z7radiansDv8_d(<8 x double> %440) nounwind readnone
-  store <8 x double> %call270, <8 x double>* %a8_out, align 64
-  %441 = load <16 x double>* %a16_in, align 128
-  %call271 = call <16 x double> @_Z7radiansDv16_d(<16 x double> %441) nounwind readnone
-  store <16 x double> %call271, <16 x double>* %a16_out, align 128
-  %442 = load double* %a_in, align 8
-  %call272 = call double @_Z7degreesd(double %442) nounwind readnone
-  store double %call272, double* %a_out, align 8
-  %443 = load <4 x double>* %a4_in, align 32
-  %call273 = call <4 x double> @_Z7degreesDv4_d(<4 x double> %443) nounwind readnone
-  store <4 x double> %call273, <4 x double>* %a4_out, align 32
-  %444 = load <8 x double>* %a8_in, align 64
-  %call274 = call <8 x double> @_Z7degreesDv8_d(<8 x double> %444) nounwind readnone
-  store <8 x double> %call274, <8 x double>* %a8_out, align 64
-  %445 = load <16 x double>* %a16_in, align 128
-  %call275 = call <16 x double> @_Z7degreesDv16_d(<16 x double> %445) nounwind readnone
-  store <16 x double> %call275, <16 x double>* %a16_out, align 128
-  %446 = load double* %a_in, align 8
-  %call276 = call double @_Z4signd(double %446) nounwind readnone
-  store double %call276, double* %a_out, align 8
-  %447 = load <4 x double>* %a4_in, align 32
-  %call277 = call <4 x double> @_Z4signDv4_d(<4 x double> %447) nounwind readnone
-  store <4 x double> %call277, <4 x double>* %a4_out, align 32
-  %448 = load <8 x double>* %a8_in, align 64
-  %call278 = call <8 x double> @_Z4signDv8_d(<8 x double> %448) nounwind readnone
-  store <8 x double> %call278, <8 x double>* %a8_out, align 64
-  %449 = load <16 x double>* %a16_in, align 128
-  %call279 = call <16 x double> @_Z4signDv16_d(<16 x double> %449) nounwind readnone
-  store <16 x double> %call279, <16 x double>* %a16_out, align 128
-  %450 = load double* %a_in, align 8
-  %call280 = call double @_Z5floord(double %450) nounwind readnone
-  store double %call280, double* %a_out, align 8
-  %451 = load <4 x double>* %a4_in, align 32
-  %call281 = call <4 x double> @_Z5floorDv4_d(<4 x double> %451) nounwind readnone
-  store <4 x double> %call281, <4 x double>* %a4_out, align 32
-  %452 = load <8 x double>* %a8_in, align 64
-  %call282 = call <8 x double> @_Z5floorDv8_d(<8 x double> %452) nounwind readnone
-  store <8 x double> %call282, <8 x double>* %a8_out, align 64
-  %453 = load <16 x double>* %a16_in, align 128
-  %call283 = call <16 x double> @_Z5floorDv16_d(<16 x double> %453) nounwind readnone
-  store <16 x double> %call283, <16 x double>* %a16_out, align 128
-  %454 = load double* %a_in, align 8
-  %455 = load double* %b_in, align 8
-  %call284 = call double @_Z3dotdd(double %454, double %455) nounwind readnone
-  store double %call284, double* %a_out, align 8
-  %456 = load <4 x double>* %a4_in, align 32
-  %457 = load <4 x double>* %b4_in, align 32
-  %call285 = call double @_Z3dotDv4_dS_(<4 x double> %456, <4 x double> %457) nounwind readnone
-  store double %call285, double* %a_out, align 8
+  %436 = load <16 x double>* %b16_in, align 128
+  %call270 = call <16 x double> @_Z4stepdDv16_d(double %435, <16 x double> %436) nounwind readnone
+  store <16 x double> %call270, <16 x double>* %a16_out, align 128
+  %437 = load double* %a_in, align 8
+  %438 = load double* %b_in, align 8
+  %439 = load double* %c_in, align 8
+  %call271 = call double @_Z10smoothstepddd(double %437, double %438, double %439) nounwind readnone
+  store double %call271, double* %a_out, align 8
+  %440 = load <4 x double>* %a4_in, align 32
+  %441 = load <4 x double>* %b4_in, align 32
+  %442 = load <4 x double>* %c4_in, align 32
+  %call272 = call <4 x double> @_Z10smoothstepDv4_dS_S_(<4 x double> %440, <4 x double> %441, <4 x double> %442) nounwind readnone
+  store <4 x double> %call272, <4 x double>* %a4_out, align 32
+  %443 = load <8 x double>* %a8_in, align 64
+  %444 = load <8 x double>* %b8_in, align 64
+  %445 = load <8 x double>* %c8_in, align 64
+  %call273 = call <8 x double> @_Z10smoothstepDv8_dS_S_(<8 x double> %443, <8 x double> %444, <8 x double> %445) nounwind readnone
+  store <8 x double> %call273, <8 x double>* %a8_out, align 64
+  %446 = load <16 x double>* %a16_in, align 128
+  %447 = load <16 x double>* %b16_in, align 128
+  %448 = load <16 x double>* %c16_in, align 128
+  %call274 = call <16 x double> @_Z10smoothstepDv16_dS_S_(<16 x double> %446, <16 x double> %447, <16 x double> %448) nounwind readnone
+  store <16 x double> %call274, <16 x double>* %a16_out, align 128
+  %449 = load double* %a_in, align 8
+  %450 = load double* %b_in, align 8
+  %451 = load double* %c_in, align 8
+  %call275 = call double @_Z10smoothstepddd(double %449, double %450, double %451) nounwind readnone
+  store double %call275, double* %a_out, align 8
+  %452 = load double* %a_in, align 8
+  %453 = load double* %b_in, align 8
+  %454 = load <4 x double>* %c4_in, align 32
+  %call276 = call <4 x double> @_Z10smoothstepddDv4_d(double %452, double %453, <4 x double> %454) nounwind readnone
+  store <4 x double> %call276, <4 x double>* %a4_out, align 32
+  %455 = load double* %a_in, align 8
+  %456 = load double* %b_in, align 8
+  %457 = load <8 x double>* %c8_in, align 64
+  %call277 = call <8 x double> @_Z10smoothstepddDv8_d(double %455, double %456, <8 x double> %457) nounwind readnone
+  store <8 x double> %call277, <8 x double>* %a8_out, align 64
   %458 = load double* %a_in, align 8
   %459 = load double* %b_in, align 8
-  %460 = load double* %c_in, align 8
-  %call286 = call double @_Z3mixddd(double %458, double %459, double %460) nounwind readnone
-  store double %call286, double* %a_out, align 8
-  %461 = load <4 x double>* %a4_in, align 32
-  %462 = load <4 x double>* %b4_in, align 32
-  %463 = load <4 x double>* %c4_in, align 32
-  %call287 = call <4 x double> @_Z3mixDv4_dS_S_(<4 x double> %461, <4 x double> %462, <4 x double> %463) nounwind readnone
-  store <4 x double> %call287, <4 x double>* %a4_out, align 32
-  %464 = load <4 x double>* %a4_in, align 32
-  %465 = load <4 x double>* %b4_in, align 32
-  %466 = load double* %c_in, align 8
-  %call288 = call <4 x double> @_Z3mixDv4_dS_d(<4 x double> %464, <4 x double> %465, double %466) nounwind readnone
-  store <4 x double> %call288, <4 x double>* %a4_out, align 32
+  %460 = load <16 x double>* %c16_in, align 128
+  %call278 = call <16 x double> @_Z10smoothstepddDv16_d(double %458, double %459, <16 x double> %460) nounwind readnone
+  store <16 x double> %call278, <16 x double>* %a16_out, align 128
+  %461 = load double* %a_in, align 8
+  %call279 = call double @_Z7radiansd(double %461) nounwind readnone
+  store double %call279, double* %a_out, align 8
+  %462 = load <4 x double>* %a4_in, align 32
+  %call280 = call <4 x double> @_Z7radiansDv4_d(<4 x double> %462) nounwind readnone
+  store <4 x double> %call280, <4 x double>* %a4_out, align 32
+  %463 = load <8 x double>* %a8_in, align 64
+  %call281 = call <8 x double> @_Z7radiansDv8_d(<8 x double> %463) nounwind readnone
+  store <8 x double> %call281, <8 x double>* %a8_out, align 64
+  %464 = load <16 x double>* %a16_in, align 128
+  %call282 = call <16 x double> @_Z7radiansDv16_d(<16 x double> %464) nounwind readnone
+  store <16 x double> %call282, <16 x double>* %a16_out, align 128
+  %465 = load double* %a_in, align 8
+  %call283 = call double @_Z7degreesd(double %465) nounwind readnone
+  store double %call283, double* %a_out, align 8
+  %466 = load <4 x double>* %a4_in, align 32
+  %call284 = call <4 x double> @_Z7degreesDv4_d(<4 x double> %466) nounwind readnone
+  store <4 x double> %call284, <4 x double>* %a4_out, align 32
   %467 = load <8 x double>* %a8_in, align 64
-  %468 = load <8 x double>* %b8_in, align 64
-  %469 = load double* %c_in, align 8
-  %call289 = call <8 x double> @_Z3mixDv8_dS_d(<8 x double> %467, <8 x double> %468, double %469) nounwind readnone
+  %call285 = call <8 x double> @_Z7degreesDv8_d(<8 x double> %467) nounwind readnone
+  store <8 x double> %call285, <8 x double>* %a8_out, align 64
+  %468 = load <16 x double>* %a16_in, align 128
+  %call286 = call <16 x double> @_Z7degreesDv16_d(<16 x double> %468) nounwind readnone
+  store <16 x double> %call286, <16 x double>* %a16_out, align 128
+  %469 = load double* %a_in, align 8
+  %call287 = call double @_Z4signd(double %469) nounwind readnone
+  store double %call287, double* %a_out, align 8
+  %470 = load <4 x double>* %a4_in, align 32
+  %call288 = call <4 x double> @_Z4signDv4_d(<4 x double> %470) nounwind readnone
+  store <4 x double> %call288, <4 x double>* %a4_out, align 32
+  %471 = load <8 x double>* %a8_in, align 64
+  %call289 = call <8 x double> @_Z4signDv8_d(<8 x double> %471) nounwind readnone
   store <8 x double> %call289, <8 x double>* %a8_out, align 64
-  %470 = load <16 x double>* %a16_in, align 128
-  %471 = load <16 x double>* %b16_in, align 128
-  %472 = load double* %c_in, align 8
-  %call290 = call <16 x double> @_Z3mixDv16_dS_d(<16 x double> %470, <16 x double> %471, double %472) nounwind readnone
+  %472 = load <16 x double>* %a16_in, align 128
+  %call290 = call <16 x double> @_Z4signDv16_d(<16 x double> %472) nounwind readnone
   store <16 x double> %call290, <16 x double>* %a16_out, align 128
-  %473 = load <8 x double>* %a8_in, align 64
-  %474 = load <8 x double>* %b8_in, align 64
-  %475 = load <8 x double>* %c8_in, align 64
-  %call291 = call <8 x double> @_Z3mixDv8_dS_S_(<8 x double> %473, <8 x double> %474, <8 x double> %475) nounwind readnone
-  store <8 x double> %call291, <8 x double>* %a8_out, align 64
+  %473 = load double* %a_in, align 8
+  %call291 = call double @_Z5floord(double %473) nounwind readnone
+  store double %call291, double* %a_out, align 8
+  %474 = load <4 x double>* %a4_in, align 32
+  %call292 = call <4 x double> @_Z5floorDv4_d(<4 x double> %474) nounwind readnone
+  store <4 x double> %call292, <4 x double>* %a4_out, align 32
+  %475 = load <8 x double>* %a8_in, align 64
+  %call293 = call <8 x double> @_Z5floorDv8_d(<8 x double> %475) nounwind readnone
+  store <8 x double> %call293, <8 x double>* %a8_out, align 64
   %476 = load <16 x double>* %a16_in, align 128
-  %477 = load <16 x double>* %b16_in, align 128
-  %478 = load <16 x double>* %c16_in, align 128
-  %call292 = call <16 x double> @_Z3mixDv16_dS_S_(<16 x double> %476, <16 x double> %477, <16 x double> %478) nounwind readnone
-  store <16 x double> %call292, <16 x double>* %a16_out, align 128
-  %479 = load double* %a_in, align 8
-  %call293 = call double @_Z9normalized(double %479) nounwind readnone
-  store double %call293, double* %a_out, align 8
-  %480 = load <4 x double>* %a4_in, align 32
-  %call294 = call <4 x double> @_Z9normalizeDv4_d(<4 x double> %480) nounwind readnone
-  store <4 x double> %call294, <4 x double>* %a4_out, align 32
-  %481 = load <4 x double>* %a4_in, align 32
-  %482 = load <4 x double>* %b4_in, align 32
-  %call295 = call <4 x double> @_Z5crossDv4_dS_(<4 x double> %481, <4 x double> %482) nounwind readnone
-  store <4 x double> %call295, <4 x double>* %a4_out, align 32
-  %483 = load double* %a_in, align 8
-  %call296 = call double @_Z6lengthd(double %483) nounwind readnone
+  %call294 = call <16 x double> @_Z5floorDv16_d(<16 x double> %476) nounwind readnone
+  store <16 x double> %call294, <16 x double>* %a16_out, align 128
+  %477 = load double* %a_in, align 8
+  %478 = load double* %b_in, align 8
+  %call295 = call double @_Z3dotdd(double %477, double %478) nounwind readnone
+  store double %call295, double* %a_out, align 8
+  %479 = load <4 x double>* %a4_in, align 32
+  %480 = load <4 x double>* %b4_in, align 32
+  %call296 = call double @_Z3dotDv4_dS_(<4 x double> %479, <4 x double> %480) nounwind readnone
   store double %call296, double* %a_out, align 8
-  %484 = load <2 x double>* %a2_in, align 16
-  %call297 = call double @_Z6lengthDv2_d(<2 x double> %484) nounwind readnone
+  %481 = load double* %a_in, align 8
+  %482 = load double* %b_in, align 8
+  %483 = load double* %c_in, align 8
+  %call297 = call double @_Z3mixddd(double %481, double %482, double %483) nounwind readnone
   store double %call297, double* %a_out, align 8
-  %485 = load <4 x double>* %a4_in, align 32
-  %call298 = call double @_Z6lengthDv4_d(<4 x double> %485) nounwind readnone
-  store double %call298, double* %a_out, align 8
-  %486 = load double* %a_in, align 8
-  %487 = load double* %b_in, align 8
-  %call299 = call double @_Z8distancedd(double %486, double %487) nounwind readnone
-  store double %call299, double* %a_out, align 8
-  %488 = load <2 x double>* %a2_in, align 16
-  %489 = load <2 x double>* %b2_in, align 16
-  %call300 = call double @_Z8distanceDv2_dS_(<2 x double> %488, <2 x double> %489) nounwind readnone
-  store double %call300, double* %a_out, align 8
-  %490 = load <4 x double>* %a4_in, align 32
-  %491 = load <4 x double>* %b4_in, align 32
-  %call301 = call double @_Z8distanceDv4_dS_(<4 x double> %490, <4 x double> %491) nounwind readnone
-  store double %call301, double* %a_out, align 8
-  %492 = load double* %a_in, align 8
-  %493 = load i32* %i_in, align 4
-  %call302 = call double @_Z5rootndi(double %492, i32 %493) nounwind readnone
-  store double %call302, double* %a_out, align 8
-  %494 = load <4 x double>* %a4_in, align 32
-  %495 = load <4 x i32>* %i4_in, align 16
-  %call303 = call <4 x double> @_Z5rootnDv4_dDv4_i(<4 x double> %494, <4 x i32> %495) nounwind readnone
-  store <4 x double> %call303, <4 x double>* %a4_out, align 32
+  %484 = load <4 x double>* %a4_in, align 32
+  %485 = load <4 x double>* %b4_in, align 32
+  %486 = load <4 x double>* %c4_in, align 32
+  %call298 = call <4 x double> @_Z3mixDv4_dS_S_(<4 x double> %484, <4 x double> %485, <4 x double> %486) nounwind readnone
+  store <4 x double> %call298, <4 x double>* %a4_out, align 32
+  %487 = load <4 x double>* %a4_in, align 32
+  %488 = load <4 x double>* %b4_in, align 32
+  %489 = load double* %c_in, align 8
+  %call299 = call <4 x double> @_Z3mixDv4_dS_d(<4 x double> %487, <4 x double> %488, double %489) nounwind readnone
+  store <4 x double> %call299, <4 x double>* %a4_out, align 32
+  %490 = load <8 x double>* %a8_in, align 64
+  %491 = load <8 x double>* %b8_in, align 64
+  %492 = load double* %c_in, align 8
+  %call300 = call <8 x double> @_Z3mixDv8_dS_d(<8 x double> %490, <8 x double> %491, double %492) nounwind readnone
+  store <8 x double> %call300, <8 x double>* %a8_out, align 64
+  %493 = load <16 x double>* %a16_in, align 128
+  %494 = load <16 x double>* %b16_in, align 128
+  %495 = load double* %c_in, align 8
+  %call301 = call <16 x double> @_Z3mixDv16_dS_d(<16 x double> %493, <16 x double> %494, double %495) nounwind readnone
+  store <16 x double> %call301, <16 x double>* %a16_out, align 128
   %496 = load <8 x double>* %a8_in, align 64
-  %497 = load <8 x i32>* %i8_in, align 32
-  %call304 = call <8 x double> @_Z5rootnDv8_dDv8_i(<8 x double> %496, <8 x i32> %497) nounwind readnone
-  store <8 x double> %call304, <8 x double>* %a8_out, align 64
-  %498 = load <16 x double>* %a16_in, align 128
-  %499 = load <16 x i32>* %i16_in, align 64
-  %call305 = call <16 x double> @_Z5rootnDv16_dDv16_i(<16 x double> %498, <16 x i32> %499) nounwind readnone
-  store <16 x double> %call305, <16 x double>* %a16_out, align 128
-  %500 = load double* %a_in, align 8
-  %501 = load i32* %i_in, align 4
-  %call306 = call double @_Z5ldexpdi(double %500, i32 %501) nounwind readnone
-  store double %call306, double* %a_out, align 8
-  %502 = load <4 x double>* %a4_in, align 32
-  %503 = load <4 x i32>* %i4_in, align 16
-  %call307 = call <4 x double> @_Z5ldexpDv4_dDv4_i(<4 x double> %502, <4 x i32> %503) nounwind readnone
-  store <4 x double> %call307, <4 x double>* %a4_out, align 32
-  %504 = load <8 x double>* %a8_in, align 64
-  %505 = load <8 x i32>* %i8_in, align 32
-  %call308 = call <8 x double> @_Z5ldexpDv8_dDv8_i(<8 x double> %504, <8 x i32> %505) nounwind readnone
-  store <8 x double> %call308, <8 x double>* %a8_out, align 64
-  %506 = load <16 x double>* %a16_in, align 128
-  %507 = load <16 x i32>* %i16_in, align 64
-  %call309 = call <16 x double> @_Z5ldexpDv16_dDv16_i(<16 x double> %506, <16 x i32> %507) nounwind readnone
-  store <16 x double> %call309, <16 x double>* %a16_out, align 128
+  %497 = load <8 x double>* %b8_in, align 64
+  %498 = load <8 x double>* %c8_in, align 64
+  %call302 = call <8 x double> @_Z3mixDv8_dS_S_(<8 x double> %496, <8 x double> %497, <8 x double> %498) nounwind readnone
+  store <8 x double> %call302, <8 x double>* %a8_out, align 64
+  %499 = load <16 x double>* %a16_in, align 128
+  %500 = load <16 x double>* %b16_in, align 128
+  %501 = load <16 x double>* %c16_in, align 128
+  %call303 = call <16 x double> @_Z3mixDv16_dS_S_(<16 x double> %499, <16 x double> %500, <16 x double> %501) nounwind readnone
+  store <16 x double> %call303, <16 x double>* %a16_out, align 128
+  %502 = load double* %a_in, align 8
+  %call304 = call double @_Z9normalized(double %502) nounwind readnone
+  store double %call304, double* %a_out, align 8
+  %503 = load <4 x double>* %a4_in, align 32
+  %call305 = call <4 x double> @_Z9normalizeDv4_d(<4 x double> %503) nounwind readnone
+  store <4 x double> %call305, <4 x double>* %a4_out, align 32
+  %504 = load <4 x double>* %a4_in, align 32
+  %505 = load <4 x double>* %b4_in, align 32
+  %call306 = call <4 x double> @_Z5crossDv4_dS_(<4 x double> %504, <4 x double> %505) nounwind readnone
+  store <4 x double> %call306, <4 x double>* %a4_out, align 32
+  %506 = load double* %a_in, align 8
+  %call307 = call double @_Z6lengthd(double %506) nounwind readnone
+  store double %call307, double* %a_out, align 8
+  %507 = load <2 x double>* %a2_in, align 16
+  %call308 = call double @_Z6lengthDv2_d(<2 x double> %507) nounwind readnone
+  store double %call308, double* %a_out, align 8
   %508 = load <4 x double>* %a4_in, align 32
-  %509 = load i32* %i_in, align 4
-  %call310 = call <4 x double> @_Z5ldexpDv4_di(<4 x double> %508, i32 %509) nounwind readnone
-  store <4 x double> %call310, <4 x double>* %a4_out, align 32
-  %510 = load <8 x double>* %a8_in, align 64
-  %511 = load i32* %i_in, align 4
-  %call311 = call <8 x double> @_Z5ldexpDv8_di(<8 x double> %510, i32 %511) nounwind readnone
-  store <8 x double> %call311, <8 x double>* %a8_out, align 64
-  %512 = load <16 x double>* %a16_in, align 128
-  %513 = load i32* %i_in, align 4
-  %call312 = call <16 x double> @_Z5ldexpDv16_di(<16 x double> %512, i32 %513) nounwind readnone
-  store <16 x double> %call312, <16 x double>* %a16_out, align 128
-  %514 = load double* %a_in, align 8
-  %call313 = call double @_Z4modfdPd(double %514, double* %b_out)
+  %call309 = call double @_Z6lengthDv4_d(<4 x double> %508) nounwind readnone
+  store double %call309, double* %a_out, align 8
+  %509 = load double* %a_in, align 8
+  %510 = load double* %b_in, align 8
+  %call310 = call double @_Z8distancedd(double %509, double %510) nounwind readnone
+  store double %call310, double* %a_out, align 8
+  %511 = load <2 x double>* %a2_in, align 16
+  %512 = load <2 x double>* %b2_in, align 16
+  %call311 = call double @_Z8distanceDv2_dS_(<2 x double> %511, <2 x double> %512) nounwind readnone
+  store double %call311, double* %a_out, align 8
+  %513 = load <4 x double>* %a4_in, align 32
+  %514 = load <4 x double>* %b4_in, align 32
+  %call312 = call double @_Z8distanceDv4_dS_(<4 x double> %513, <4 x double> %514) nounwind readnone
+  store double %call312, double* %a_out, align 8
+  %515 = load double* %a_in, align 8
+  %516 = load i32* %i_in, align 4
+  %call313 = call double @_Z5rootndi(double %515, i32 %516) nounwind readnone
   store double %call313, double* %a_out, align 8
-  %515 = load <4 x double>* %a4_in, align 32
-  %call314 = call <4 x double> @_Z4modfDv4_dPS_(<4 x double> %515, <4 x double>* %b4_out)
+  %517 = load <4 x double>* %a4_in, align 32
+  %518 = load <4 x i32>* %i4_in, align 16
+  %call314 = call <4 x double> @_Z5rootnDv4_dDv4_i(<4 x double> %517, <4 x i32> %518) nounwind readnone
   store <4 x double> %call314, <4 x double>* %a4_out, align 32
-  %516 = load <8 x double>* %a8_in, align 64
-  %call315 = call <8 x double> @_Z4modfDv8_dPS_(<8 x double> %516, <8 x double>* %b8_out)
+  %519 = load <8 x double>* %a8_in, align 64
+  %520 = load <8 x i32>* %i8_in, align 32
+  %call315 = call <8 x double> @_Z5rootnDv8_dDv8_i(<8 x double> %519, <8 x i32> %520) nounwind readnone
   store <8 x double> %call315, <8 x double>* %a8_out, align 64
-  %517 = load <16 x double>* %a16_in, align 128
-  %call316 = call <16 x double> @_Z4modfDv16_dPS_(<16 x double> %517, <16 x double>* %b16_out)
-  store <16 x double> %call316, <16 x double>* %a16_out, align 128
-  %518 = load double* %a_in, align 8
-  %call317 = call double @_Z5frexpdPi(double %518, i32* %i_out)
-  store double %call317, double* %a_out, align 8
-  %519 = load <4 x double>* %a4_in, align 32
-  %call318 = call <4 x double> @_Z5frexpDv4_dPDv4_i(<4 x double> %519, <4 x i32>* %i4_out)
-  store <4 x double> %call318, <4 x double>* %a4_out, align 32
-  %520 = load <8 x double>* %a8_in, align 64
-  %call319 = call <8 x double> @_Z5frexpDv8_dPDv8_i(<8 x double> %520, <8 x i32>* %i8_out)
-  store <8 x double> %call319, <8 x double>* %a8_out, align 64
   %521 = load <16 x double>* %a16_in, align 128
-  %call320 = call <16 x double> @_Z5frexpDv16_dPDv16_i(<16 x double> %521, <16 x i32>* %i16_out)
+  %522 = load <16 x i32>* %i16_in, align 64
+  %call316 = call <16 x double> @_Z5rootnDv16_dDv16_i(<16 x double> %521, <16 x i32> %522) nounwind readnone
+  store <16 x double> %call316, <16 x double>* %a16_out, align 128
+  %523 = load double* %a_in, align 8
+  %524 = load i32* %i_in, align 4
+  %call317 = call double @_Z5ldexpdi(double %523, i32 %524) nounwind readnone
+  store double %call317, double* %a_out, align 8
+  %525 = load <4 x double>* %a4_in, align 32
+  %526 = load <4 x i32>* %i4_in, align 16
+  %call318 = call <4 x double> @_Z5ldexpDv4_dDv4_i(<4 x double> %525, <4 x i32> %526) nounwind readnone
+  store <4 x double> %call318, <4 x double>* %a4_out, align 32
+  %527 = load <8 x double>* %a8_in, align 64
+  %528 = load <8 x i32>* %i8_in, align 32
+  %call319 = call <8 x double> @_Z5ldexpDv8_dDv8_i(<8 x double> %527, <8 x i32> %528) nounwind readnone
+  store <8 x double> %call319, <8 x double>* %a8_out, align 64
+  %529 = load <16 x double>* %a16_in, align 128
+  %530 = load <16 x i32>* %i16_in, align 64
+  %call320 = call <16 x double> @_Z5ldexpDv16_dDv16_i(<16 x double> %529, <16 x i32> %530) nounwind readnone
   store <16 x double> %call320, <16 x double>* %a16_out, align 128
-  %522 = load double* %a_in, align 8
-  %523 = load double* %b_in, align 8
-  %call321 = call double @_Z6maxmagdd(double %522, double %523) nounwind readnone
-  store double %call321, double* %a_out, align 8
-  %524 = load <4 x double>* %a4_in, align 32
-  %525 = load <4 x double>* %b4_in, align 32
-  %call322 = call <4 x double> @_Z6maxmagDv4_dS_(<4 x double> %524, <4 x double> %525) nounwind readnone
-  store <4 x double> %call322, <4 x double>* %a4_out, align 32
-  %526 = load <8 x double>* %a8_in, align 64
-  %527 = load <8 x double>* %b8_in, align 64
-  %call323 = call <8 x double> @_Z6maxmagDv8_dS_(<8 x double> %526, <8 x double> %527) nounwind readnone
-  store <8 x double> %call323, <8 x double>* %a8_out, align 64
-  %528 = load <16 x double>* %a16_in, align 128
-  %529 = load <16 x double>* %b16_in, align 128
-  %call324 = call <16 x double> @_Z6maxmagDv16_dS_(<16 x double> %528, <16 x double> %529) nounwind readnone
-  store <16 x double> %call324, <16 x double>* %a16_out, align 128
-  %530 = load double* %a_in, align 8
-  %531 = load double* %b_in, align 8
-  %call325 = call double @_Z6minmagdd(double %530, double %531) nounwind readnone
-  store double %call325, double* %a_out, align 8
-  %532 = load <4 x double>* %a4_in, align 32
-  %533 = load <4 x double>* %b4_in, align 32
-  %call326 = call <4 x double> @_Z6minmagDv4_dS_(<4 x double> %532, <4 x double> %533) nounwind readnone
-  store <4 x double> %call326, <4 x double>* %a4_out, align 32
-  %534 = load <8 x double>* %a8_in, align 64
-  %535 = load <8 x double>* %b8_in, align 64
-  %call327 = call <8 x double> @_Z6minmagDv8_dS_(<8 x double> %534, <8 x double> %535) nounwind readnone
-  store <8 x double> %call327, <8 x double>* %a8_out, align 64
-  %536 = load <16 x double>* %a16_in, align 128
-  %537 = load <16 x double>* %b16_in, align 128
-  %call328 = call <16 x double> @_Z6minmagDv16_dS_(<16 x double> %536, <16 x double> %537) nounwind readnone
-  store <16 x double> %call328, <16 x double>* %a16_out, align 128
-  %538 = load double* %a_in, align 8
-  %539 = load double* %b_in, align 8
-  %call329 = call double @_Z8copysigndd(double %538, double %539) nounwind readnone
-  store double %call329, double* %a_out, align 8
-  %540 = load <4 x double>* %a4_in, align 32
-  %541 = load <4 x double>* %b4_in, align 32
-  %call330 = call <4 x double> @_Z8copysignDv4_dS_(<4 x double> %540, <4 x double> %541) nounwind readnone
-  store <4 x double> %call330, <4 x double>* %a4_out, align 32
-  %542 = load <8 x double>* %a8_in, align 64
-  %543 = load <8 x double>* %b8_in, align 64
-  %call331 = call <8 x double> @_Z8copysignDv8_dS_(<8 x double> %542, <8 x double> %543) nounwind readnone
-  store <8 x double> %call331, <8 x double>* %a8_out, align 64
+  %531 = load <4 x double>* %a4_in, align 32
+  %532 = load i32* %i_in, align 4
+  %call321 = call <4 x double> @_Z5ldexpDv4_di(<4 x double> %531, i32 %532) nounwind readnone
+  store <4 x double> %call321, <4 x double>* %a4_out, align 32
+  %533 = load <8 x double>* %a8_in, align 64
+  %534 = load i32* %i_in, align 4
+  %call322 = call <8 x double> @_Z5ldexpDv8_di(<8 x double> %533, i32 %534) nounwind readnone
+  store <8 x double> %call322, <8 x double>* %a8_out, align 64
+  %535 = load <16 x double>* %a16_in, align 128
+  %536 = load i32* %i_in, align 4
+  %call323 = call <16 x double> @_Z5ldexpDv16_di(<16 x double> %535, i32 %536) nounwind readnone
+  store <16 x double> %call323, <16 x double>* %a16_out, align 128
+  %537 = load double* %a_in, align 8
+  %call324 = call double @_Z4modfdPd(double %537, double* %b_out)
+  store double %call324, double* %a_out, align 8
+  %538 = load <4 x double>* %a4_in, align 32
+  %call325 = call <4 x double> @_Z4modfDv4_dPS_(<4 x double> %538, <4 x double>* %b4_out)
+  store <4 x double> %call325, <4 x double>* %a4_out, align 32
+  %539 = load <8 x double>* %a8_in, align 64
+  %call326 = call <8 x double> @_Z4modfDv8_dPS_(<8 x double> %539, <8 x double>* %b8_out)
+  store <8 x double> %call326, <8 x double>* %a8_out, align 64
+  %540 = load <16 x double>* %a16_in, align 128
+  %call327 = call <16 x double> @_Z4modfDv16_dPS_(<16 x double> %540, <16 x double>* %b16_out)
+  store <16 x double> %call327, <16 x double>* %a16_out, align 128
+  %541 = load double* %a_in, align 8
+  %call328 = call double @_Z5frexpdPi(double %541, i32* %i_out)
+  store double %call328, double* %a_out, align 8
+  %542 = load <4 x double>* %a4_in, align 32
+  %call329 = call <4 x double> @_Z5frexpDv4_dPDv4_i(<4 x double> %542, <4 x i32>* %i4_out)
+  store <4 x double> %call329, <4 x double>* %a4_out, align 32
+  %543 = load <8 x double>* %a8_in, align 64
+  %call330 = call <8 x double> @_Z5frexpDv8_dPDv8_i(<8 x double> %543, <8 x i32>* %i8_out)
+  store <8 x double> %call330, <8 x double>* %a8_out, align 64
   %544 = load <16 x double>* %a16_in, align 128
-  %545 = load <16 x double>* %b16_in, align 128
-  %call332 = call <16 x double> @_Z8copysignDv16_dS_(<16 x double> %544, <16 x double> %545) nounwind readnone
-  store <16 x double> %call332, <16 x double>* %a16_out, align 128
-  %546 = load double* %a_in, align 8
-  %547 = load double* %b_in, align 8
-  %call333 = call double @_Z9nextafterdd(double %546, double %547) nounwind readnone
-  store double %call333, double* %a_out, align 8
-  %548 = load <4 x double>* %a4_in, align 32
-  %549 = load <4 x double>* %b4_in, align 32
-  %call334 = call <4 x double> @_Z9nextafterDv4_dS_(<4 x double> %548, <4 x double> %549) nounwind readnone
-  store <4 x double> %call334, <4 x double>* %a4_out, align 32
-  %550 = load <8 x double>* %a8_in, align 64
-  %551 = load <8 x double>* %b8_in, align 64
-  %call335 = call <8 x double> @_Z9nextafterDv8_dS_(<8 x double> %550, <8 x double> %551) nounwind readnone
-  store <8 x double> %call335, <8 x double>* %a8_out, align 64
-  %552 = load <16 x double>* %a16_in, align 128
-  %553 = load <16 x double>* %b16_in, align 128
-  %call336 = call <16 x double> @_Z9nextafterDv16_dS_(<16 x double> %552, <16 x double> %553) nounwind readnone
-  store <16 x double> %call336, <16 x double>* %a16_out, align 128
-  %554 = load double* %a_in, align 8
-  %555 = load double* %b_in, align 8
-  %call337 = call double @_Z4fdimdd(double %554, double %555) nounwind readnone
-  store double %call337, double* %a_out, align 8
-  %556 = load <4 x double>* %a4_in, align 32
-  %557 = load <4 x double>* %b4_in, align 32
-  %call338 = call <4 x double> @_Z4fdimDv4_dS_(<4 x double> %556, <4 x double> %557) nounwind readnone
-  store <4 x double> %call338, <4 x double>* %a4_out, align 32
-  %558 = load <8 x double>* %a8_in, align 64
-  %559 = load <8 x double>* %b8_in, align 64
-  %call339 = call <8 x double> @_Z4fdimDv8_dS_(<8 x double> %558, <8 x double> %559) nounwind readnone
-  store <8 x double> %call339, <8 x double>* %a8_out, align 64
-  %560 = load <16 x double>* %a16_in, align 128
-  %561 = load <16 x double>* %b16_in, align 128
-  %call340 = call <16 x double> @_Z4fdimDv16_dS_(<16 x double> %560, <16 x double> %561) nounwind readnone
-  store <16 x double> %call340, <16 x double>* %a16_out, align 128
-  %562 = load double* %a_in, align 8
-  %563 = load double* %b_in, align 8
-  %564 = load double* %c_in, align 8
-  %call341 = call double @_Z3fmaddd(double %562, double %563, double %564) nounwind readnone
-  store double %call341, double* %a_out, align 8
-  %565 = load <4 x double>* %a4_in, align 32
-  %566 = load <4 x double>* %b4_in, align 32
-  %567 = load <4 x double>* %c4_in, align 32
-  %call342 = call <4 x double> @_Z3fmaDv4_dS_S_(<4 x double> %565, <4 x double> %566, <4 x double> %567) nounwind readnone
-  store <4 x double> %call342, <4 x double>* %a4_out, align 32
-  %568 = load <8 x double>* %a8_in, align 64
-  %569 = load <8 x double>* %b8_in, align 64
-  %570 = load <8 x double>* %c8_in, align 64
-  %call343 = call <8 x double> @_Z3fmaDv8_dS_S_(<8 x double> %568, <8 x double> %569, <8 x double> %570) nounwind readnone
-  store <8 x double> %call343, <8 x double>* %a8_out, align 64
-  %571 = load <16 x double>* %a16_in, align 128
-  %572 = load <16 x double>* %b16_in, align 128
-  %573 = load <16 x double>* %c16_in, align 128
-  %call344 = call <16 x double> @_Z3fmaDv16_dS_S_(<16 x double> %571, <16 x double> %572, <16 x double> %573) nounwind readnone
-  store <16 x double> %call344, <16 x double>* %a16_out, align 128
-  %574 = load double* %a_in, align 8
-  %575 = load double* %b_in, align 8
-  %576 = load double* %c_in, align 8
-  %call345 = call double @_Z3madddd(double %574, double %575, double %576) nounwind readnone
-  store double %call345, double* %a_out, align 8
-  %577 = load <4 x double>* %a4_in, align 32
-  %578 = load <4 x double>* %b4_in, align 32
-  %579 = load <4 x double>* %c4_in, align 32
-  %call346 = call <4 x double> @_Z3madDv4_dS_S_(<4 x double> %577, <4 x double> %578, <4 x double> %579) nounwind readnone
-  store <4 x double> %call346, <4 x double>* %a4_out, align 32
-  %580 = load <8 x double>* %a8_in, align 64
-  %581 = load <8 x double>* %b8_in, align 64
-  %582 = load <8 x double>* %c8_in, align 64
-  %call347 = call <8 x double> @_Z3madDv8_dS_S_(<8 x double> %580, <8 x double> %581, <8 x double> %582) nounwind readnone
-  store <8 x double> %call347, <8 x double>* %a8_out, align 64
+  %call331 = call <16 x double> @_Z5frexpDv16_dPDv16_i(<16 x double> %544, <16 x i32>* %i16_out)
+  store <16 x double> %call331, <16 x double>* %a16_out, align 128
+  %545 = load double* %a_in, align 8
+  %546 = load double* %b_in, align 8
+  %call332 = call double @_Z6maxmagdd(double %545, double %546) nounwind readnone
+  store double %call332, double* %a_out, align 8
+  %547 = load <4 x double>* %a4_in, align 32
+  %548 = load <4 x double>* %b4_in, align 32
+  %call333 = call <4 x double> @_Z6maxmagDv4_dS_(<4 x double> %547, <4 x double> %548) nounwind readnone
+  store <4 x double> %call333, <4 x double>* %a4_out, align 32
+  %549 = load <8 x double>* %a8_in, align 64
+  %550 = load <8 x double>* %b8_in, align 64
+  %call334 = call <8 x double> @_Z6maxmagDv8_dS_(<8 x double> %549, <8 x double> %550) nounwind readnone
+  store <8 x double> %call334, <8 x double>* %a8_out, align 64
+  %551 = load <16 x double>* %a16_in, align 128
+  %552 = load <16 x double>* %b16_in, align 128
+  %call335 = call <16 x double> @_Z6maxmagDv16_dS_(<16 x double> %551, <16 x double> %552) nounwind readnone
+  store <16 x double> %call335, <16 x double>* %a16_out, align 128
+  %553 = load double* %a_in, align 8
+  %554 = load double* %b_in, align 8
+  %call336 = call double @_Z6minmagdd(double %553, double %554) nounwind readnone
+  store double %call336, double* %a_out, align 8
+  %555 = load <4 x double>* %a4_in, align 32
+  %556 = load <4 x double>* %b4_in, align 32
+  %call337 = call <4 x double> @_Z6minmagDv4_dS_(<4 x double> %555, <4 x double> %556) nounwind readnone
+  store <4 x double> %call337, <4 x double>* %a4_out, align 32
+  %557 = load <8 x double>* %a8_in, align 64
+  %558 = load <8 x double>* %b8_in, align 64
+  %call338 = call <8 x double> @_Z6minmagDv8_dS_(<8 x double> %557, <8 x double> %558) nounwind readnone
+  store <8 x double> %call338, <8 x double>* %a8_out, align 64
+  %559 = load <16 x double>* %a16_in, align 128
+  %560 = load <16 x double>* %b16_in, align 128
+  %call339 = call <16 x double> @_Z6minmagDv16_dS_(<16 x double> %559, <16 x double> %560) nounwind readnone
+  store <16 x double> %call339, <16 x double>* %a16_out, align 128
+  %561 = load double* %a_in, align 8
+  %562 = load double* %b_in, align 8
+  %call340 = call double @_Z8copysigndd(double %561, double %562) nounwind readnone
+  store double %call340, double* %a_out, align 8
+  %563 = load <4 x double>* %a4_in, align 32
+  %564 = load <4 x double>* %b4_in, align 32
+  %call341 = call <4 x double> @_Z8copysignDv4_dS_(<4 x double> %563, <4 x double> %564) nounwind readnone
+  store <4 x double> %call341, <4 x double>* %a4_out, align 32
+  %565 = load <8 x double>* %a8_in, align 64
+  %566 = load <8 x double>* %b8_in, align 64
+  %call342 = call <8 x double> @_Z8copysignDv8_dS_(<8 x double> %565, <8 x double> %566) nounwind readnone
+  store <8 x double> %call342, <8 x double>* %a8_out, align 64
+  %567 = load <16 x double>* %a16_in, align 128
+  %568 = load <16 x double>* %b16_in, align 128
+  %call343 = call <16 x double> @_Z8copysignDv16_dS_(<16 x double> %567, <16 x double> %568) nounwind readnone
+  store <16 x double> %call343, <16 x double>* %a16_out, align 128
+  %569 = load double* %a_in, align 8
+  %570 = load double* %b_in, align 8
+  %call344 = call double @_Z9nextafterdd(double %569, double %570) nounwind readnone
+  store double %call344, double* %a_out, align 8
+  %571 = load <4 x double>* %a4_in, align 32
+  %572 = load <4 x double>* %b4_in, align 32
+  %call345 = call <4 x double> @_Z9nextafterDv4_dS_(<4 x double> %571, <4 x double> %572) nounwind readnone
+  store <4 x double> %call345, <4 x double>* %a4_out, align 32
+  %573 = load <8 x double>* %a8_in, align 64
+  %574 = load <8 x double>* %b8_in, align 64
+  %call346 = call <8 x double> @_Z9nextafterDv8_dS_(<8 x double> %573, <8 x double> %574) nounwind readnone
+  store <8 x double> %call346, <8 x double>* %a8_out, align 64
+  %575 = load <16 x double>* %a16_in, align 128
+  %576 = load <16 x double>* %b16_in, align 128
+  %call347 = call <16 x double> @_Z9nextafterDv16_dS_(<16 x double> %575, <16 x double> %576) nounwind readnone
+  store <16 x double> %call347, <16 x double>* %a16_out, align 128
+  %577 = load double* %a_in, align 8
+  %578 = load double* %b_in, align 8
+  %call348 = call double @_Z4fdimdd(double %577, double %578) nounwind readnone
+  store double %call348, double* %a_out, align 8
+  %579 = load <4 x double>* %a4_in, align 32
+  %580 = load <4 x double>* %b4_in, align 32
+  %call349 = call <4 x double> @_Z4fdimDv4_dS_(<4 x double> %579, <4 x double> %580) nounwind readnone
+  store <4 x double> %call349, <4 x double>* %a4_out, align 32
+  %581 = load <8 x double>* %a8_in, align 64
+  %582 = load <8 x double>* %b8_in, align 64
+  %call350 = call <8 x double> @_Z4fdimDv8_dS_(<8 x double> %581, <8 x double> %582) nounwind readnone
+  store <8 x double> %call350, <8 x double>* %a8_out, align 64
   %583 = load <16 x double>* %a16_in, align 128
   %584 = load <16 x double>* %b16_in, align 128
-  %585 = load <16 x double>* %c16_in, align 128
-  %call348 = call <16 x double> @_Z3madDv16_dS_S_(<16 x double> %583, <16 x double> %584, <16 x double> %585) nounwind readnone
-  store <16 x double> %call348, <16 x double>* %a16_out, align 128
-  %586 = load double* %a_in, align 8
-  %call349 = call double @_Z4rintd(double %586) nounwind readnone
-  store double %call349, double* %a_out, align 8
-  %587 = load <4 x double>* %a4_in, align 32
-  %call350 = call <4 x double> @_Z4rintDv4_d(<4 x double> %587) nounwind readnone
-  store <4 x double> %call350, <4 x double>* %a4_out, align 32
-  %588 = load <8 x double>* %a8_in, align 64
-  %call351 = call <8 x double> @_Z4rintDv8_d(<8 x double> %588) nounwind readnone
-  store <8 x double> %call351, <8 x double>* %a8_out, align 64
-  %589 = load <16 x double>* %a16_in, align 128
-  %call352 = call <16 x double> @_Z4rintDv16_d(<16 x double> %589) nounwind readnone
-  store <16 x double> %call352, <16 x double>* %a16_out, align 128
-  %590 = load double* %a_in, align 8
-  %call353 = call double @_Z5roundd(double %590) nounwind readnone
-  store double %call353, double* %a_out, align 8
-  %591 = load <4 x double>* %a4_in, align 32
-  %call354 = call <4 x double> @_Z5roundDv4_d(<4 x double> %591) nounwind readnone
-  store <4 x double> %call354, <4 x double>* %a4_out, align 32
-  %592 = load <8 x double>* %a8_in, align 64
-  %call355 = call <8 x double> @_Z5roundDv8_d(<8 x double> %592) nounwind readnone
-  store <8 x double> %call355, <8 x double>* %a8_out, align 64
-  %593 = load <16 x double>* %a16_in, align 128
-  %call356 = call <16 x double> @_Z5roundDv16_d(<16 x double> %593) nounwind readnone
-  store <16 x double> %call356, <16 x double>* %a16_out, align 128
-  %594 = load double* %a_in, align 8
-  %call357 = call double @_Z5truncd(double %594) nounwind readnone
-  store double %call357, double* %a_out, align 8
-  %595 = load <4 x double>* %a4_in, align 32
-  %call358 = call <4 x double> @_Z5truncDv4_d(<4 x double> %595) nounwind readnone
-  store <4 x double> %call358, <4 x double>* %a4_out, align 32
-  %596 = load <8 x double>* %a8_in, align 64
-  %call359 = call <8 x double> @_Z5truncDv8_d(<8 x double> %596) nounwind readnone
-  store <8 x double> %call359, <8 x double>* %a8_out, align 64
-  %597 = load <16 x double>* %a16_in, align 128
-  %call360 = call <16 x double> @_Z5truncDv16_d(<16 x double> %597) nounwind readnone
-  store <16 x double> %call360, <16 x double>* %a16_out, align 128
-  %598 = load double* %a_in, align 8
-  %call361 = call double @_Z4cbrtd(double %598) nounwind readnone
-  store double %call361, double* %a_out, align 8
-  %599 = load <4 x double>* %a4_in, align 32
-  %call362 = call <4 x double> @_Z4cbrtDv4_d(<4 x double> %599) nounwind readnone
-  store <4 x double> %call362, <4 x double>* %a4_out, align 32
-  %600 = load <8 x double>* %a8_in, align 64
-  %call363 = call <8 x double> @_Z4cbrtDv8_d(<8 x double> %600) nounwind readnone
-  store <8 x double> %call363, <8 x double>* %a8_out, align 64
-  %601 = load <16 x double>* %a16_in, align 128
-  %call364 = call <16 x double> @_Z4cbrtDv16_d(<16 x double> %601) nounwind readnone
-  store <16 x double> %call364, <16 x double>* %a16_out, align 128
-  %602 = load double* %a_in, align 8
-  %603 = load double* %b_in, align 8
-  %call365 = call double @_Z4powrdd(double %602, double %603) nounwind readnone
-  store double %call365, double* %a_out, align 8
-  %604 = load <4 x double>* %a4_in, align 32
-  %605 = load <4 x double>* %b4_in, align 32
-  %call366 = call <4 x double> @_Z4powrDv4_dS_(<4 x double> %604, <4 x double> %605) nounwind readnone
-  store <4 x double> %call366, <4 x double>* %a4_out, align 32
-  %606 = load <8 x double>* %a8_in, align 64
-  %607 = load <8 x double>* %b8_in, align 64
-  %call367 = call <8 x double> @_Z4powrDv8_dS_(<8 x double> %606, <8 x double> %607) nounwind readnone
-  store <8 x double> %call367, <8 x double>* %a8_out, align 64
-  %608 = load <16 x double>* %a16_in, align 128
-  %609 = load <16 x double>* %b16_in, align 128
-  %call368 = call <16 x double> @_Z4powrDv16_dS_(<16 x double> %608, <16 x double> %609) nounwind readnone
-  store <16 x double> %call368, <16 x double>* %a16_out, align 128
-  %610 = load double* %a_in, align 8
-  %611 = load double* %b_in, align 8
-  %call369 = call double @_Z4fmoddd(double %610, double %611) nounwind readnone
-  store double %call369, double* %a_out, align 8
-  %612 = load <4 x double>* %a4_in, align 32
-  %613 = load <4 x double>* %b4_in, align 32
-  %call370 = call <4 x double> @_Z4fmodDv4_dS_(<4 x double> %612, <4 x double> %613) nounwind readnone
-  store <4 x double> %call370, <4 x double>* %a4_out, align 32
-  %614 = load <8 x double>* %a8_in, align 64
-  %615 = load <8 x double>* %b8_in, align 64
-  %call371 = call <8 x double> @_Z4fmodDv8_dS_(<8 x double> %614, <8 x double> %615) nounwind readnone
-  store <8 x double> %call371, <8 x double>* %a8_out, align 64
+  %call351 = call <16 x double> @_Z4fdimDv16_dS_(<16 x double> %583, <16 x double> %584) nounwind readnone
+  store <16 x double> %call351, <16 x double>* %a16_out, align 128
+  %585 = load double* %a_in, align 8
+  %586 = load double* %b_in, align 8
+  %587 = load double* %c_in, align 8
+  %call352 = call double @_Z3fmaddd(double %585, double %586, double %587) nounwind readnone
+  store double %call352, double* %a_out, align 8
+  %588 = load <4 x double>* %a4_in, align 32
+  %589 = load <4 x double>* %b4_in, align 32
+  %590 = load <4 x double>* %c4_in, align 32
+  %call353 = call <4 x double> @_Z3fmaDv4_dS_S_(<4 x double> %588, <4 x double> %589, <4 x double> %590) nounwind readnone
+  store <4 x double> %call353, <4 x double>* %a4_out, align 32
+  %591 = load <8 x double>* %a8_in, align 64
+  %592 = load <8 x double>* %b8_in, align 64
+  %593 = load <8 x double>* %c8_in, align 64
+  %call354 = call <8 x double> @_Z3fmaDv8_dS_S_(<8 x double> %591, <8 x double> %592, <8 x double> %593) nounwind readnone
+  store <8 x double> %call354, <8 x double>* %a8_out, align 64
+  %594 = load <16 x double>* %a16_in, align 128
+  %595 = load <16 x double>* %b16_in, align 128
+  %596 = load <16 x double>* %c16_in, align 128
+  %call355 = call <16 x double> @_Z3fmaDv16_dS_S_(<16 x double> %594, <16 x double> %595, <16 x double> %596) nounwind readnone
+  store <16 x double> %call355, <16 x double>* %a16_out, align 128
+  %597 = load double* %a_in, align 8
+  %598 = load double* %b_in, align 8
+  %599 = load double* %c_in, align 8
+  %call356 = call double @_Z3madddd(double %597, double %598, double %599) nounwind readnone
+  store double %call356, double* %a_out, align 8
+  %600 = load <4 x double>* %a4_in, align 32
+  %601 = load <4 x double>* %b4_in, align 32
+  %602 = load <4 x double>* %c4_in, align 32
+  %call357 = call <4 x double> @_Z3madDv4_dS_S_(<4 x double> %600, <4 x double> %601, <4 x double> %602) nounwind readnone
+  store <4 x double> %call357, <4 x double>* %a4_out, align 32
+  %603 = load <8 x double>* %a8_in, align 64
+  %604 = load <8 x double>* %b8_in, align 64
+  %605 = load <8 x double>* %c8_in, align 64
+  %call358 = call <8 x double> @_Z3madDv8_dS_S_(<8 x double> %603, <8 x double> %604, <8 x double> %605) nounwind readnone
+  store <8 x double> %call358, <8 x double>* %a8_out, align 64
+  %606 = load <16 x double>* %a16_in, align 128
+  %607 = load <16 x double>* %b16_in, align 128
+  %608 = load <16 x double>* %c16_in, align 128
+  %call359 = call <16 x double> @_Z3madDv16_dS_S_(<16 x double> %606, <16 x double> %607, <16 x double> %608) nounwind readnone
+  store <16 x double> %call359, <16 x double>* %a16_out, align 128
+  %609 = load double* %a_in, align 8
+  %call360 = call double @_Z4rintd(double %609) nounwind readnone
+  store double %call360, double* %a_out, align 8
+  %610 = load <4 x double>* %a4_in, align 32
+  %call361 = call <4 x double> @_Z4rintDv4_d(<4 x double> %610) nounwind readnone
+  store <4 x double> %call361, <4 x double>* %a4_out, align 32
+  %611 = load <8 x double>* %a8_in, align 64
+  %call362 = call <8 x double> @_Z4rintDv8_d(<8 x double> %611) nounwind readnone
+  store <8 x double> %call362, <8 x double>* %a8_out, align 64
+  %612 = load <16 x double>* %a16_in, align 128
+  %call363 = call <16 x double> @_Z4rintDv16_d(<16 x double> %612) nounwind readnone
+  store <16 x double> %call363, <16 x double>* %a16_out, align 128
+  %613 = load double* %a_in, align 8
+  %call364 = call double @_Z5roundd(double %613) nounwind readnone
+  store double %call364, double* %a_out, align 8
+  %614 = load <4 x double>* %a4_in, align 32
+  %call365 = call <4 x double> @_Z5roundDv4_d(<4 x double> %614) nounwind readnone
+  store <4 x double> %call365, <4 x double>* %a4_out, align 32
+  %615 = load <8 x double>* %a8_in, align 64
+  %call366 = call <8 x double> @_Z5roundDv8_d(<8 x double> %615) nounwind readnone
+  store <8 x double> %call366, <8 x double>* %a8_out, align 64
   %616 = load <16 x double>* %a16_in, align 128
-  %617 = load <16 x double>* %b16_in, align 128
-  %call372 = call <16 x double> @_Z4fmodDv16_dS_(<16 x double> %616, <16 x double> %617) nounwind readnone
-  store <16 x double> %call372, <16 x double>* %a16_out, align 128
-  %618 = load double* %a_in, align 8
-  %619 = load double* %b_in, align 8
-  %call373 = call double @_Z4fmindd(double %618, double %619) nounwind readnone
-  store double %call373, double* %a_out, align 8
-  %620 = load <4 x double>* %a4_in, align 32
-  %621 = load <4 x double>* %b4_in, align 32
-  %call374 = call <4 x double> @_Z4fminDv4_dS_(<4 x double> %620, <4 x double> %621) nounwind readnone
-  store <4 x double> %call374, <4 x double>* %a4_out, align 32
-  %622 = load <8 x double>* %a8_in, align 64
-  %623 = load <8 x double>* %b8_in, align 64
-  %call375 = call <8 x double> @_Z4fminDv8_dS_(<8 x double> %622, <8 x double> %623) nounwind readnone
-  store <8 x double> %call375, <8 x double>* %a8_out, align 64
+  %call367 = call <16 x double> @_Z5roundDv16_d(<16 x double> %616) nounwind readnone
+  store <16 x double> %call367, <16 x double>* %a16_out, align 128
+  %617 = load double* %a_in, align 8
+  %call368 = call double @_Z5truncd(double %617) nounwind readnone
+  store double %call368, double* %a_out, align 8
+  %618 = load <4 x double>* %a4_in, align 32
+  %call369 = call <4 x double> @_Z5truncDv4_d(<4 x double> %618) nounwind readnone
+  store <4 x double> %call369, <4 x double>* %a4_out, align 32
+  %619 = load <8 x double>* %a8_in, align 64
+  %call370 = call <8 x double> @_Z5truncDv8_d(<8 x double> %619) nounwind readnone
+  store <8 x double> %call370, <8 x double>* %a8_out, align 64
+  %620 = load <16 x double>* %a16_in, align 128
+  %call371 = call <16 x double> @_Z5truncDv16_d(<16 x double> %620) nounwind readnone
+  store <16 x double> %call371, <16 x double>* %a16_out, align 128
+  %621 = load double* %a_in, align 8
+  %call372 = call double @_Z4cbrtd(double %621) nounwind readnone
+  store double %call372, double* %a_out, align 8
+  %622 = load <4 x double>* %a4_in, align 32
+  %call373 = call <4 x double> @_Z4cbrtDv4_d(<4 x double> %622) nounwind readnone
+  store <4 x double> %call373, <4 x double>* %a4_out, align 32
+  %623 = load <8 x double>* %a8_in, align 64
+  %call374 = call <8 x double> @_Z4cbrtDv8_d(<8 x double> %623) nounwind readnone
+  store <8 x double> %call374, <8 x double>* %a8_out, align 64
   %624 = load <16 x double>* %a16_in, align 128
-  %625 = load <16 x double>* %b16_in, align 128
-  %call376 = call <16 x double> @_Z4fminDv16_dS_(<16 x double> %624, <16 x double> %625) nounwind readnone
-  store <16 x double> %call376, <16 x double>* %a16_out, align 128
-  %626 = load double* %a_in, align 8
-  %627 = load double* %b_in, align 8
-  %call377 = call double @_Z4fmaxdd(double %626, double %627) nounwind readnone
-  store double %call377, double* %a_out, align 8
-  %628 = load <4 x double>* %a4_in, align 32
-  %629 = load <4 x double>* %b4_in, align 32
-  %call378 = call <4 x double> @_Z4fmaxDv4_dS_(<4 x double> %628, <4 x double> %629) nounwind readnone
-  store <4 x double> %call378, <4 x double>* %a4_out, align 32
-  %630 = load <8 x double>* %a8_in, align 64
-  %631 = load <8 x double>* %b8_in, align 64
-  %call379 = call <8 x double> @_Z4fmaxDv8_dS_(<8 x double> %630, <8 x double> %631) nounwind readnone
-  store <8 x double> %call379, <8 x double>* %a8_out, align 64
-  %632 = load <16 x double>* %a16_in, align 128
-  %633 = load <16 x double>* %b16_in, align 128
-  %call380 = call <16 x double> @_Z4fmaxDv16_dS_(<16 x double> %632, <16 x double> %633) nounwind readnone
-  store <16 x double> %call380, <16 x double>* %a16_out, align 128
-  %634 = load <4 x double>* %a4_in, align 32
-  %635 = load double* %b_in, align 8
-  %call381 = call <4 x double> @_Z4fminDv4_dd(<4 x double> %634, double %635) nounwind readnone
+  %call375 = call <16 x double> @_Z4cbrtDv16_d(<16 x double> %624) nounwind readnone
+  store <16 x double> %call375, <16 x double>* %a16_out, align 128
+  %625 = load double* %a_in, align 8
+  %626 = load double* %b_in, align 8
+  %call376 = call double @_Z4powrdd(double %625, double %626) nounwind readnone
+  store double %call376, double* %a_out, align 8
+  %627 = load <4 x double>* %a4_in, align 32
+  %628 = load <4 x double>* %b4_in, align 32
+  %call377 = call <4 x double> @_Z4powrDv4_dS_(<4 x double> %627, <4 x double> %628) nounwind readnone
+  store <4 x double> %call377, <4 x double>* %a4_out, align 32
+  %629 = load <8 x double>* %a8_in, align 64
+  %630 = load <8 x double>* %b8_in, align 64
+  %call378 = call <8 x double> @_Z4powrDv8_dS_(<8 x double> %629, <8 x double> %630) nounwind readnone
+  store <8 x double> %call378, <8 x double>* %a8_out, align 64
+  %631 = load <16 x double>* %a16_in, align 128
+  %632 = load <16 x double>* %b16_in, align 128
+  %call379 = call <16 x double> @_Z4powrDv16_dS_(<16 x double> %631, <16 x double> %632) nounwind readnone
+  store <16 x double> %call379, <16 x double>* %a16_out, align 128
+  %633 = load double* %a_in, align 8
+  %634 = load double* %b_in, align 8
+  %call380 = call double @_Z4fmoddd(double %633, double %634) nounwind readnone
+  store double %call380, double* %a_out, align 8
+  %635 = load <4 x double>* %a4_in, align 32
+  %636 = load <4 x double>* %b4_in, align 32
+  %call381 = call <4 x double> @_Z4fmodDv4_dS_(<4 x double> %635, <4 x double> %636) nounwind readnone
   store <4 x double> %call381, <4 x double>* %a4_out, align 32
-  %636 = load <8 x double>* %a8_in, align 64
-  %637 = load double* %b_in, align 8
-  %call382 = call <8 x double> @_Z4fminDv8_dd(<8 x double> %636, double %637) nounwind readnone
+  %637 = load <8 x double>* %a8_in, align 64
+  %638 = load <8 x double>* %b8_in, align 64
+  %call382 = call <8 x double> @_Z4fmodDv8_dS_(<8 x double> %637, <8 x double> %638) nounwind readnone
   store <8 x double> %call382, <8 x double>* %a8_out, align 64
-  %638 = load <16 x double>* %a16_in, align 128
-  %639 = load double* %b_in, align 8
-  %call383 = call <16 x double> @_Z4fminDv16_dd(<16 x double> %638, double %639) nounwind readnone
+  %639 = load <16 x double>* %a16_in, align 128
+  %640 = load <16 x double>* %b16_in, align 128
+  %call383 = call <16 x double> @_Z4fmodDv16_dS_(<16 x double> %639, <16 x double> %640) nounwind readnone
   store <16 x double> %call383, <16 x double>* %a16_out, align 128
-  %640 = load <4 x double>* %a4_in, align 32
-  %641 = load double* %b_in, align 8
-  %call384 = call <4 x double> @_Z4fmaxDv4_dd(<4 x double> %640, double %641) nounwind readnone
-  store <4 x double> %call384, <4 x double>* %a4_out, align 32
-  %642 = load <8 x double>* %a8_in, align 64
-  %643 = load double* %b_in, align 8
-  %call385 = call <8 x double> @_Z4fmaxDv8_dd(<8 x double> %642, double %643) nounwind readnone
-  store <8 x double> %call385, <8 x double>* %a8_out, align 64
-  %644 = load <16 x double>* %a16_in, align 128
-  %645 = load double* %b_in, align 8
-  %call386 = call <16 x double> @_Z4fmaxDv16_dd(<16 x double> %644, double %645) nounwind readnone
-  store <16 x double> %call386, <16 x double>* %a16_out, align 128
-  %646 = load <4 x double>* %a4_in, align 32
-  %647 = load i32* %i_in, align 4
-  %648 = insertelement <4 x i32> undef, i32 %647, i32 0
-  %splat387 = shufflevector <4 x i32> %648, <4 x i32> %648, <4 x i32> zeroinitializer
-  %call388 = call <4 x double> @_Z4pownDv4_dDv4_i(<4 x double> %646, <4 x i32> %splat387) nounwind readnone
-  store <4 x double> %call388, <4 x double>* %a4_out, align 32
-  %649 = load <8 x double>* %a8_in, align 64
-  %650 = load i32* %i_in, align 4
-  %651 = insertelement <8 x i32> undef, i32 %650, i32 0
-  %splat389 = shufflevector <8 x i32> %651, <8 x i32> %651, <8 x i32> zeroinitializer
-  %call390 = call <8 x double> @_Z4pownDv8_dDv8_i(<8 x double> %649, <8 x i32> %splat389) nounwind readnone
+  %641 = load double* %a_in, align 8
+  %642 = load double* %b_in, align 8
+  %call384 = call double @_Z4fmindd(double %641, double %642) nounwind readnone
+  store double %call384, double* %a_out, align 8
+  %643 = load <4 x double>* %a4_in, align 32
+  %644 = load <4 x double>* %b4_in, align 32
+  %call385 = call <4 x double> @_Z4fminDv4_dS_(<4 x double> %643, <4 x double> %644) nounwind readnone
+  store <4 x double> %call385, <4 x double>* %a4_out, align 32
+  %645 = load <8 x double>* %a8_in, align 64
+  %646 = load <8 x double>* %b8_in, align 64
+  %call386 = call <8 x double> @_Z4fminDv8_dS_(<8 x double> %645, <8 x double> %646) nounwind readnone
+  store <8 x double> %call386, <8 x double>* %a8_out, align 64
+  %647 = load <16 x double>* %a16_in, align 128
+  %648 = load <16 x double>* %b16_in, align 128
+  %call387 = call <16 x double> @_Z4fminDv16_dS_(<16 x double> %647, <16 x double> %648) nounwind readnone
+  store <16 x double> %call387, <16 x double>* %a16_out, align 128
+  %649 = load double* %a_in, align 8
+  %650 = load double* %b_in, align 8
+  %call388 = call double @_Z4fmaxdd(double %649, double %650) nounwind readnone
+  store double %call388, double* %a_out, align 8
+  %651 = load <4 x double>* %a4_in, align 32
+  %652 = load <4 x double>* %b4_in, align 32
+  %call389 = call <4 x double> @_Z4fmaxDv4_dS_(<4 x double> %651, <4 x double> %652) nounwind readnone
+  store <4 x double> %call389, <4 x double>* %a4_out, align 32
+  %653 = load <8 x double>* %a8_in, align 64
+  %654 = load <8 x double>* %b8_in, align 64
+  %call390 = call <8 x double> @_Z4fmaxDv8_dS_(<8 x double> %653, <8 x double> %654) nounwind readnone
   store <8 x double> %call390, <8 x double>* %a8_out, align 64
-  %652 = load <16 x double>* %a16_in, align 128
-  %653 = load i32* %i_in, align 4
-  %654 = insertelement <16 x i32> undef, i32 %653, i32 0
-  %splat391 = shufflevector <16 x i32> %654, <16 x i32> %654, <16 x i32> zeroinitializer
-  %call392 = call <16 x double> @_Z4pownDv16_dDv16_i(<16 x double> %652, <16 x i32> %splat391) nounwind readnone
-  store <16 x double> %call392, <16 x double>* %a16_out, align 128
-  %655 = load double* %a_in, align 8
-  %call393 = call i32 @_Z5ilogbd(double %655) nounwind readnone
-  store i32 %call393, i32* %i_out, align 4
-  %656 = load <4 x double>* %a4_in, align 32
-  %call394 = call <4 x i32> @_Z5ilogbDv4_d(<4 x double> %656) nounwind readnone
-  store <4 x i32> %call394, <4 x i32>* %i4_out, align 16
-  %657 = load <8 x double>* %a8_in, align 64
-  %call395 = call <8 x i32> @_Z5ilogbDv8_d(<8 x double> %657) nounwind readnone
-  store <8 x i32> %call395, <8 x i32>* %i8_out, align 32
-  %658 = load <16 x double>* %a16_in, align 128
-  %call396 = call <16 x i32> @_Z5ilogbDv16_d(<16 x double> %658) nounwind readnone
-  store <16 x i32> %call396, <16 x i32>* %i16_out, align 64
-  %659 = load i64* %ul_in, align 8
-  %call397 = call double @_Z3nanm(i64 %659) nounwind readnone
-  store double %call397, double* %a_out, align 8
-  %660 = load <4 x i64>* %ul4_in, align 32
-  %call398 = call <4 x double> @_Z3nanDv4_m(<4 x i64> %660) nounwind readnone
-  store <4 x double> %call398, <4 x double>* %a4_out, align 32
-  %661 = load <8 x i64>* %ul8_in, align 64
-  %call399 = call <8 x double> @_Z3nanDv8_m(<8 x i64> %661) nounwind readnone
-  store <8 x double> %call399, <8 x double>* %a8_out, align 64
-  %662 = load <16 x i64>* %ul16_in, align 128
-  %call400 = call <16 x double> @_Z3nanDv16_m(<16 x i64> %662) nounwind readnone
-  store <16 x double> %call400, <16 x double>* %a16_out, align 128
-  %663 = load double* %a_in, align 8
-  %call401 = call double @_Z5fractdPd(double %663, double* %b_out)
-  store double %call401, double* %a_out, align 8
-  %664 = load <4 x double>* %a4_in, align 32
-  %call402 = call <4 x double> @_Z5fractDv4_dPS_(<4 x double> %664, <4 x double>* %b4_out)
-  store <4 x double> %call402, <4 x double>* %a4_out, align 32
+  %655 = load <16 x double>* %a16_in, align 128
+  %656 = load <16 x double>* %b16_in, align 128
+  %call391 = call <16 x double> @_Z4fmaxDv16_dS_(<16 x double> %655, <16 x double> %656) nounwind readnone
+  store <16 x double> %call391, <16 x double>* %a16_out, align 128
+  %657 = load <4 x double>* %a4_in, align 32
+  %658 = load double* %b_in, align 8
+  %call392 = call <4 x double> @_Z4fminDv4_dd(<4 x double> %657, double %658) nounwind readnone
+  store <4 x double> %call392, <4 x double>* %a4_out, align 32
+  %659 = load <8 x double>* %a8_in, align 64
+  %660 = load double* %b_in, align 8
+  %call393 = call <8 x double> @_Z4fminDv8_dd(<8 x double> %659, double %660) nounwind readnone
+  store <8 x double> %call393, <8 x double>* %a8_out, align 64
+  %661 = load <16 x double>* %a16_in, align 128
+  %662 = load double* %b_in, align 8
+  %call394 = call <16 x double> @_Z4fminDv16_dd(<16 x double> %661, double %662) nounwind readnone
+  store <16 x double> %call394, <16 x double>* %a16_out, align 128
+  %663 = load <4 x double>* %a4_in, align 32
+  %664 = load double* %b_in, align 8
+  %call395 = call <4 x double> @_Z4fmaxDv4_dd(<4 x double> %663, double %664) nounwind readnone
+  store <4 x double> %call395, <4 x double>* %a4_out, align 32
   %665 = load <8 x double>* %a8_in, align 64
-  %call403 = call <8 x double> @_Z5fractDv8_dPS_(<8 x double> %665, <8 x double>* %b8_out)
-  store <8 x double> %call403, <8 x double>* %a8_out, align 64
-  %666 = load <16 x double>* %a16_in, align 128
-  %call404 = call <16 x double> @_Z5fractDv16_dPS_(<16 x double> %666, <16 x double>* %b16_out)
-  store <16 x double> %call404, <16 x double>* %a16_out, align 128
-  %667 = load double* %a_in, align 8
-  %call405 = call double @_Z6lgammad(double %667) nounwind readnone
-  store double %call405, double* %a_out, align 8
-  %668 = load <4 x double>* %a4_in, align 32
-  %call406 = call <4 x double> @_Z6lgammaDv4_d(<4 x double> %668) nounwind readnone
-  store <4 x double> %call406, <4 x double>* %a4_out, align 32
-  %669 = load <8 x double>* %a8_in, align 64
-  %call407 = call <8 x double> @_Z6lgammaDv8_d(<8 x double> %669) nounwind readnone
-  store <8 x double> %call407, <8 x double>* %a8_out, align 64
-  %670 = load <16 x double>* %a16_in, align 128
-  %call408 = call <16 x double> @_Z6lgammaDv16_d(<16 x double> %670) nounwind readnone
-  store <16 x double> %call408, <16 x double>* %a16_out, align 128
-  %671 = load double* %a_in, align 8
-  %call409 = call double @_Z8lgamma_rdPi(double %671, i32* %i_out)
-  store double %call409, double* %a_out, align 8
-  %672 = load <4 x double>* %a4_in, align 32
-  %call410 = call <4 x double> @_Z8lgamma_rDv4_dPDv4_i(<4 x double> %672, <4 x i32>* %i4_out)
-  store <4 x double> %call410, <4 x double>* %a4_out, align 32
-  %673 = load <8 x double>* %a8_in, align 64
-  %call411 = call <8 x double> @_Z8lgamma_rDv8_dPDv8_i(<8 x double> %673, <8 x i32>* %i8_out)
-  store <8 x double> %call411, <8 x double>* %a8_out, align 64
-  %674 = load <16 x double>* %a16_in, align 128
-  %call412 = call <16 x double> @_Z8lgamma_rDv16_dPDv16_i(<16 x double> %674, <16 x i32>* %i16_out)
-  store <16 x double> %call412, <16 x double>* %a16_out, align 128
-  %675 = load double* %a_in, align 8
-  %676 = load double* %b_in, align 8
-  %677 = load double* %c_in, align 8
-  %call413 = call double @_Z9bitselectddd(double %675, double %676, double %677) nounwind readnone
-  store double %call413, double* %a_out, align 8
-  %678 = load <4 x double>* %a4_in, align 32
-  %679 = load <4 x double>* %b4_in, align 32
-  %680 = load <4 x double>* %c4_in, align 32
-  %call414 = call <4 x double> @_Z9bitselectDv4_dS_S_(<4 x double> %678, <4 x double> %679, <4 x double> %680) nounwind readnone
-  store <4 x double> %call414, <4 x double>* %a4_out, align 32
-  %681 = load <8 x double>* %a8_in, align 64
-  %682 = load <8 x double>* %b8_in, align 64
-  %683 = load <8 x double>* %c8_in, align 64
-  %call415 = call <8 x double> @_Z9bitselectDv8_dS_S_(<8 x double> %681, <8 x double> %682, <8 x double> %683) nounwind readnone
-  store <8 x double> %call415, <8 x double>* %a8_out, align 64
-  %684 = load <16 x double>* %a16_in, align 128
-  %685 = load <16 x double>* %b16_in, align 128
-  %686 = load <16 x double>* %c16_in, align 128
-  %call416 = call <16 x double> @_Z9bitselectDv16_dS_S_(<16 x double> %684, <16 x double> %685, <16 x double> %686) nounwind readnone
-  store <16 x double> %call416, <16 x double>* %a16_out, align 128
-  %687 = load double* %a_in, align 8
-  %688 = load double* %b_in, align 8
-  %689 = load i64* %l_in, align 8
-  %call417 = call double @_Z6selectddl(double %687, double %688, i64 %689) nounwind readnone
-  store double %call417, double* %a_out, align 8
-  %690 = load <4 x double>* %a4_in, align 32
-  %691 = load <4 x double>* %b4_in, align 32
-  %692 = load <4 x i64>* %l4_in, align 32
-  %call418 = call <4 x double> @_Z6selectDv4_dS_Dv4_l(<4 x double> %690, <4 x double> %691, <4 x i64> %692) nounwind readnone
-  store <4 x double> %call418, <4 x double>* %a4_out, align 32
-  %693 = load <8 x double>* %a8_in, align 64
-  %694 = load <8 x double>* %b8_in, align 64
-  %695 = load <8 x i64>* %l8_in, align 64
-  %call419 = call <8 x double> @_Z6selectDv8_dS_Dv8_l(<8 x double> %693, <8 x double> %694, <8 x i64> %695) nounwind readnone
-  store <8 x double> %call419, <8 x double>* %a8_out, align 64
-  %696 = load <16 x double>* %a16_in, align 128
-  %697 = load <16 x double>* %b16_in, align 128
-  %698 = load <16 x i64>* %l16_in, align 128
-  %call420 = call <16 x double> @_Z6selectDv16_dS_Dv16_l(<16 x double> %696, <16 x double> %697, <16 x i64> %698) nounwind readnone
-  store <16 x double> %call420, <16 x double>* %a16_out, align 128
-  %699 = load double* %a_in, align 8
-  %700 = load double* %b_in, align 8
-  %701 = load i64* %ul_in, align 8
-  %call421 = call double @_Z6selectddm(double %699, double %700, i64 %701) nounwind readnone
-  store double %call421, double* %a_out, align 8
-  %702 = load <4 x double>* %a4_in, align 32
-  %703 = load <4 x double>* %b4_in, align 32
-  %704 = load <4 x i64>* %ul4_in, align 32
-  %call422 = call <4 x double> @_Z6selectDv4_dS_Dv4_m(<4 x double> %702, <4 x double> %703, <4 x i64> %704) nounwind readnone
-  store <4 x double> %call422, <4 x double>* %a4_out, align 32
-  %705 = load <8 x double>* %a8_in, align 64
-  %706 = load <8 x double>* %b8_in, align 64
-  %707 = load <8 x i64>* %ul8_in, align 64
-  %call423 = call <8 x double> @_Z6selectDv8_dS_Dv8_m(<8 x double> %705, <8 x double> %706, <8 x i64> %707) nounwind readnone
-  store <8 x double> %call423, <8 x double>* %a8_out, align 64
-  %708 = load <16 x double>* %a16_in, align 128
-  %709 = load <16 x double>* %b16_in, align 128
-  %710 = load <16 x i64>* %ul16_in, align 128
-  %call424 = call <16 x double> @_Z6selectDv16_dS_Dv16_m(<16 x double> %708, <16 x double> %709, <16 x i64> %710) nounwind readnone
-  store <16 x double> %call424, <16 x double>* %a16_out, align 128
-  %711 = load double* %a_in, align 8
-  %712 = load double* %b_in, align 8
-  %call425 = call double @_Z9remainderdd(double %711, double %712) nounwind readnone
-  store double %call425, double* %a_out, align 8
+  %666 = load double* %b_in, align 8
+  %call396 = call <8 x double> @_Z4fmaxDv8_dd(<8 x double> %665, double %666) nounwind readnone
+  store <8 x double> %call396, <8 x double>* %a8_out, align 64
+  %667 = load <16 x double>* %a16_in, align 128
+  %668 = load double* %b_in, align 8
+  %call397 = call <16 x double> @_Z4fmaxDv16_dd(<16 x double> %667, double %668) nounwind readnone
+  store <16 x double> %call397, <16 x double>* %a16_out, align 128
+  %669 = load <4 x double>* %a4_in, align 32
+  %670 = load i32* %i_in, align 4
+  %671 = insertelement <4 x i32> undef, i32 %670, i32 0
+  %splat398 = shufflevector <4 x i32> %671, <4 x i32> %671, <4 x i32> zeroinitializer
+  %call399 = call <4 x double> @_Z4pownDv4_dDv4_i(<4 x double> %669, <4 x i32> %splat398) nounwind readnone
+  store <4 x double> %call399, <4 x double>* %a4_out, align 32
+  %672 = load <8 x double>* %a8_in, align 64
+  %673 = load i32* %i_in, align 4
+  %674 = insertelement <8 x i32> undef, i32 %673, i32 0
+  %splat400 = shufflevector <8 x i32> %674, <8 x i32> %674, <8 x i32> zeroinitializer
+  %call401 = call <8 x double> @_Z4pownDv8_dDv8_i(<8 x double> %672, <8 x i32> %splat400) nounwind readnone
+  store <8 x double> %call401, <8 x double>* %a8_out, align 64
+  %675 = load <16 x double>* %a16_in, align 128
+  %676 = load i32* %i_in, align 4
+  %677 = insertelement <16 x i32> undef, i32 %676, i32 0
+  %splat402 = shufflevector <16 x i32> %677, <16 x i32> %677, <16 x i32> zeroinitializer
+  %call403 = call <16 x double> @_Z4pownDv16_dDv16_i(<16 x double> %675, <16 x i32> %splat402) nounwind readnone
+  store <16 x double> %call403, <16 x double>* %a16_out, align 128
+  %678 = load double* %a_in, align 8
+  %call404 = call i32 @_Z5ilogbd(double %678) nounwind readnone
+  store i32 %call404, i32* %i_out, align 4
+  %679 = load <4 x double>* %a4_in, align 32
+  %call405 = call <4 x i32> @_Z5ilogbDv4_d(<4 x double> %679) nounwind readnone
+  store <4 x i32> %call405, <4 x i32>* %i4_out, align 16
+  %680 = load <8 x double>* %a8_in, align 64
+  %call406 = call <8 x i32> @_Z5ilogbDv8_d(<8 x double> %680) nounwind readnone
+  store <8 x i32> %call406, <8 x i32>* %i8_out, align 32
+  %681 = load <16 x double>* %a16_in, align 128
+  %call407 = call <16 x i32> @_Z5ilogbDv16_d(<16 x double> %681) nounwind readnone
+  store <16 x i32> %call407, <16 x i32>* %i16_out, align 64
+  %682 = load i64* %ul_in, align 8
+  %call408 = call double @_Z3nanm(i64 %682) nounwind readnone
+  store double %call408, double* %a_out, align 8
+  %683 = load <4 x i64>* %ul4_in, align 32
+  %call409 = call <4 x double> @_Z3nanDv4_m(<4 x i64> %683) nounwind readnone
+  store <4 x double> %call409, <4 x double>* %a4_out, align 32
+  %684 = load <8 x i64>* %ul8_in, align 64
+  %call410 = call <8 x double> @_Z3nanDv8_m(<8 x i64> %684) nounwind readnone
+  store <8 x double> %call410, <8 x double>* %a8_out, align 64
+  %685 = load <16 x i64>* %ul16_in, align 128
+  %call411 = call <16 x double> @_Z3nanDv16_m(<16 x i64> %685) nounwind readnone
+  store <16 x double> %call411, <16 x double>* %a16_out, align 128
+  %686 = load double* %a_in, align 8
+  %call412 = call double @_Z5fractdPd(double %686, double* %b_out)
+  store double %call412, double* %a_out, align 8
+  %687 = load <4 x double>* %a4_in, align 32
+  %call413 = call <4 x double> @_Z5fractDv4_dPS_(<4 x double> %687, <4 x double>* %b4_out)
+  store <4 x double> %call413, <4 x double>* %a4_out, align 32
+  %688 = load <8 x double>* %a8_in, align 64
+  %call414 = call <8 x double> @_Z5fractDv8_dPS_(<8 x double> %688, <8 x double>* %b8_out)
+  store <8 x double> %call414, <8 x double>* %a8_out, align 64
+  %689 = load <16 x double>* %a16_in, align 128
+  %call415 = call <16 x double> @_Z5fractDv16_dPS_(<16 x double> %689, <16 x double>* %b16_out)
+  store <16 x double> %call415, <16 x double>* %a16_out, align 128
+  %690 = load double* %a_in, align 8
+  %call416 = call double @_Z6lgammad(double %690) nounwind readnone
+  store double %call416, double* %a_out, align 8
+  %691 = load <4 x double>* %a4_in, align 32
+  %call417 = call <4 x double> @_Z6lgammaDv4_d(<4 x double> %691) nounwind readnone
+  store <4 x double> %call417, <4 x double>* %a4_out, align 32
+  %692 = load <8 x double>* %a8_in, align 64
+  %call418 = call <8 x double> @_Z6lgammaDv8_d(<8 x double> %692) nounwind readnone
+  store <8 x double> %call418, <8 x double>* %a8_out, align 64
+  %693 = load <16 x double>* %a16_in, align 128
+  %call419 = call <16 x double> @_Z6lgammaDv16_d(<16 x double> %693) nounwind readnone
+  store <16 x double> %call419, <16 x double>* %a16_out, align 128
+  %694 = load double* %a_in, align 8
+  %call420 = call double @_Z8lgamma_rdPi(double %694, i32* %i_out)
+  store double %call420, double* %a_out, align 8
+  %695 = load <4 x double>* %a4_in, align 32
+  %call421 = call <4 x double> @_Z8lgamma_rDv4_dPDv4_i(<4 x double> %695, <4 x i32>* %i4_out)
+  store <4 x double> %call421, <4 x double>* %a4_out, align 32
+  %696 = load <8 x double>* %a8_in, align 64
+  %call422 = call <8 x double> @_Z8lgamma_rDv8_dPDv8_i(<8 x double> %696, <8 x i32>* %i8_out)
+  store <8 x double> %call422, <8 x double>* %a8_out, align 64
+  %697 = load <16 x double>* %a16_in, align 128
+  %call423 = call <16 x double> @_Z8lgamma_rDv16_dPDv16_i(<16 x double> %697, <16 x i32>* %i16_out)
+  store <16 x double> %call423, <16 x double>* %a16_out, align 128
+  %698 = load double* %a_in, align 8
+  %699 = load double* %b_in, align 8
+  %700 = load double* %c_in, align 8
+  %call424 = call double @_Z9bitselectddd(double %698, double %699, double %700) nounwind readnone
+  store double %call424, double* %a_out, align 8
+  %701 = load <4 x double>* %a4_in, align 32
+  %702 = load <4 x double>* %b4_in, align 32
+  %703 = load <4 x double>* %c4_in, align 32
+  %call425 = call <4 x double> @_Z9bitselectDv4_dS_S_(<4 x double> %701, <4 x double> %702, <4 x double> %703) nounwind readnone
+  store <4 x double> %call425, <4 x double>* %a4_out, align 32
+  %704 = load <8 x double>* %a8_in, align 64
+  %705 = load <8 x double>* %b8_in, align 64
+  %706 = load <8 x double>* %c8_in, align 64
+  %call426 = call <8 x double> @_Z9bitselectDv8_dS_S_(<8 x double> %704, <8 x double> %705, <8 x double> %706) nounwind readnone
+  store <8 x double> %call426, <8 x double>* %a8_out, align 64
+  %707 = load <16 x double>* %a16_in, align 128
+  %708 = load <16 x double>* %b16_in, align 128
+  %709 = load <16 x double>* %c16_in, align 128
+  %call427 = call <16 x double> @_Z9bitselectDv16_dS_S_(<16 x double> %707, <16 x double> %708, <16 x double> %709) nounwind readnone
+  store <16 x double> %call427, <16 x double>* %a16_out, align 128
+  %710 = load double* %a_in, align 8
+  %711 = load double* %b_in, align 8
+  %712 = load i64* %l_in, align 8
+  %call428 = call double @_Z6selectddl(double %710, double %711, i64 %712) nounwind readnone
+  store double %call428, double* %a_out, align 8
   %713 = load <4 x double>* %a4_in, align 32
   %714 = load <4 x double>* %b4_in, align 32
-  %call426 = call <4 x double> @_Z9remainderDv4_dS_(<4 x double> %713, <4 x double> %714) nounwind readnone
-  store <4 x double> %call426, <4 x double>* %a4_out, align 32
-  %715 = load <8 x double>* %a8_in, align 64
-  %716 = load <8 x double>* %b8_in, align 64
-  %call427 = call <8 x double> @_Z9remainderDv8_dS_(<8 x double> %715, <8 x double> %716) nounwind readnone
-  store <8 x double> %call427, <8 x double>* %a8_out, align 64
-  %717 = load <16 x double>* %a16_in, align 128
-  %718 = load <16 x double>* %b16_in, align 128
-  %call428 = call <16 x double> @_Z9remainderDv16_dS_(<16 x double> %717, <16 x double> %718) nounwind readnone
-  store <16 x double> %call428, <16 x double>* %a16_out, align 128
-  %719 = load double* %a_in, align 8
-  %720 = load double* %b_in, align 8
-  %call429 = call double @_Z6remquoddPi(double %719, double %720, i32* %i_out)
-  store double %call429, double* %a_out, align 8
-  %721 = load <2 x double>* %a2_in, align 16
-  %722 = load <2 x double>* %b2_in, align 16
-  %call430 = call <2 x double> @_Z6remquoDv2_dS_PDv2_i(<2 x double> %721, <2 x double> %722, <2 x i32>* %i2_out)
-  store <2 x double> %call430, <2 x double>* %a2_out, align 16
-  %723 = load <3 x double>* %a3_in, align 32
-  %724 = load <3 x double>* %b3_in, align 32
-  %call431 = call <3 x double> @_Z6remquoDv3_dS_PDv3_i(<3 x double> %723, <3 x double> %724, <3 x i32>* %i3_out)
-  store <3 x double> %call431, <3 x double>* %a3_out, align 32
+  %715 = load <4 x i64>* %l4_in, align 32
+  %call429 = call <4 x double> @_Z6selectDv4_dS_Dv4_l(<4 x double> %713, <4 x double> %714, <4 x i64> %715) nounwind readnone
+  store <4 x double> %call429, <4 x double>* %a4_out, align 32
+  %716 = load <8 x double>* %a8_in, align 64
+  %717 = load <8 x double>* %b8_in, align 64
+  %718 = load <8 x i64>* %l8_in, align 64
+  %call430 = call <8 x double> @_Z6selectDv8_dS_Dv8_l(<8 x double> %716, <8 x double> %717, <8 x i64> %718) nounwind readnone
+  store <8 x double> %call430, <8 x double>* %a8_out, align 64
+  %719 = load <16 x double>* %a16_in, align 128
+  %720 = load <16 x double>* %b16_in, align 128
+  %721 = load <16 x i64>* %l16_in, align 128
+  %call431 = call <16 x double> @_Z6selectDv16_dS_Dv16_l(<16 x double> %719, <16 x double> %720, <16 x i64> %721) nounwind readnone
+  store <16 x double> %call431, <16 x double>* %a16_out, align 128
+  %722 = load double* %a_in, align 8
+  %723 = load double* %b_in, align 8
+  %724 = load i64* %ul_in, align 8
+  %call432 = call double @_Z6selectddm(double %722, double %723, i64 %724) nounwind readnone
+  store double %call432, double* %a_out, align 8
   %725 = load <4 x double>* %a4_in, align 32
   %726 = load <4 x double>* %b4_in, align 32
-  %call432 = call <4 x double> @_Z6remquoDv4_dS_PDv4_i(<4 x double> %725, <4 x double> %726, <4 x i32>* %i4_out)
-  store <4 x double> %call432, <4 x double>* %a4_out, align 32
-  %727 = load <8 x double>* %a8_in, align 64
-  %728 = load <8 x double>* %b8_in, align 64
-  %call433 = call <8 x double> @_Z6remquoDv8_dS_PDv8_i(<8 x double> %727, <8 x double> %728, <8 x i32>* %i8_out)
-  store <8 x double> %call433, <8 x double>* %a8_out, align 64
-  %729 = load <16 x double>* %a16_in, align 128
-  %730 = load <16 x double>* %b16_in, align 128
-  %call434 = call <16 x double> @_Z6remquoDv16_dS_PDv16_i(<16 x double> %729, <16 x double> %730, <16 x i32>* %i16_out)
-  store <16 x double> %call434, <16 x double>* %a16_out, align 128
+  %727 = load <4 x i64>* %ul4_in, align 32
+  %call433 = call <4 x double> @_Z6selectDv4_dS_Dv4_m(<4 x double> %725, <4 x double> %726, <4 x i64> %727) nounwind readnone
+  store <4 x double> %call433, <4 x double>* %a4_out, align 32
+  %728 = load <8 x double>* %a8_in, align 64
+  %729 = load <8 x double>* %b8_in, align 64
+  %730 = load <8 x i64>* %ul8_in, align 64
+  %call434 = call <8 x double> @_Z6selectDv8_dS_Dv8_m(<8 x double> %728, <8 x double> %729, <8 x i64> %730) nounwind readnone
+  store <8 x double> %call434, <8 x double>* %a8_out, align 64
+  %731 = load <16 x double>* %a16_in, align 128
+  %732 = load <16 x double>* %b16_in, align 128
+  %733 = load <16 x i64>* %ul16_in, align 128
+  %call435 = call <16 x double> @_Z6selectDv16_dS_Dv16_m(<16 x double> %731, <16 x double> %732, <16 x i64> %733) nounwind readnone
+  store <16 x double> %call435, <16 x double>* %a16_out, align 128
+  %734 = load double* %a_in, align 8
+  %735 = load double* %b_in, align 8
+  %call436 = call double @_Z9remainderdd(double %734, double %735) nounwind readnone
+  store double %call436, double* %a_out, align 8
+  %736 = load <4 x double>* %a4_in, align 32
+  %737 = load <4 x double>* %b4_in, align 32
+  %call437 = call <4 x double> @_Z9remainderDv4_dS_(<4 x double> %736, <4 x double> %737) nounwind readnone
+  store <4 x double> %call437, <4 x double>* %a4_out, align 32
+  %738 = load <8 x double>* %a8_in, align 64
+  %739 = load <8 x double>* %b8_in, align 64
+  %call438 = call <8 x double> @_Z9remainderDv8_dS_(<8 x double> %738, <8 x double> %739) nounwind readnone
+  store <8 x double> %call438, <8 x double>* %a8_out, align 64
+  %740 = load <16 x double>* %a16_in, align 128
+  %741 = load <16 x double>* %b16_in, align 128
+  %call439 = call <16 x double> @_Z9remainderDv16_dS_(<16 x double> %740, <16 x double> %741) nounwind readnone
+  store <16 x double> %call439, <16 x double>* %a16_out, align 128
+  %742 = load double* %a_in, align 8
+  %743 = load double* %b_in, align 8
+  %call440 = call double @_Z6remquoddPi(double %742, double %743, i32* %i_out)
+  store double %call440, double* %a_out, align 8
+  %744 = load <2 x double>* %a2_in, align 16
+  %745 = load <2 x double>* %b2_in, align 16
+  %call441 = call <2 x double> @_Z6remquoDv2_dS_PDv2_i(<2 x double> %744, <2 x double> %745, <2 x i32>* %i2_out)
+  store <2 x double> %call441, <2 x double>* %a2_out, align 16
+  %746 = load <3 x double>* %a3_in, align 32
+  %747 = load <3 x double>* %b3_in, align 32
+  %call442 = call <3 x double> @_Z6remquoDv3_dS_PDv3_i(<3 x double> %746, <3 x double> %747, <3 x i32>* %i3_out)
+  store <3 x double> %call442, <3 x double>* %a3_out, align 32
+  %748 = load <4 x double>* %a4_in, align 32
+  %749 = load <4 x double>* %b4_in, align 32
+  %call443 = call <4 x double> @_Z6remquoDv4_dS_PDv4_i(<4 x double> %748, <4 x double> %749, <4 x i32>* %i4_out)
+  store <4 x double> %call443, <4 x double>* %a4_out, align 32
+  %750 = load <8 x double>* %a8_in, align 64
+  %751 = load <8 x double>* %b8_in, align 64
+  %call444 = call <8 x double> @_Z6remquoDv8_dS_PDv8_i(<8 x double> %750, <8 x double> %751, <8 x i32>* %i8_out)
+  store <8 x double> %call444, <8 x double>* %a8_out, align 64
+  %752 = load <16 x double>* %a16_in, align 128
+  %753 = load <16 x double>* %b16_in, align 128
+  %call445 = call <16 x double> @_Z6remquoDv16_dS_PDv16_i(<16 x double> %752, <16 x double> %753, <16 x i32>* %i16_out)
+  store <16 x double> %call445, <16 x double>* %a16_out, align 128
+  %754 = load <2 x double>* %a2_in, align 16
+  %755 = load <2 x i64>* %ul2_in, align 16
+  %call446 = call <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double> %754, <2 x i64> %755) nounwind readnone
+  store <2 x double> %call446, <2 x double>* %a2_out, align 16
+  %756 = load <4 x double>* %a4_in, align 32
+  %757 = load <2 x i64>* %ul2_in, align 16
+  %call447 = call <2 x double> @_Z7shuffleDv4_dDv2_m(<4 x double> %756, <2 x i64> %757) nounwind readnone
+  store <2 x double> %call447, <2 x double>* %a2_out, align 16
+  %758 = load <8 x double>* %a8_in, align 64
+  %759 = load <2 x i64>* %ul2_in, align 16
+  %call448 = call <2 x double> @_Z7shuffleDv8_dDv2_m(<8 x double> %758, <2 x i64> %759) nounwind readnone
+  store <2 x double> %call448, <2 x double>* %a2_out, align 16
+  %760 = load <16 x double>* %a16_in, align 128
+  %761 = load <2 x i64>* %ul2_in, align 16
+  %call449 = call <2 x double> @_Z7shuffleDv16_dDv2_m(<16 x double> %760, <2 x i64> %761) nounwind readnone
+  store <2 x double> %call449, <2 x double>* %a2_out, align 16
+  %762 = load <2 x double>* %a2_in, align 16
+  %763 = load <4 x i64>* %ul4_in, align 32
+  %call450 = call <4 x double> @_Z7shuffleDv2_dDv4_m(<2 x double> %762, <4 x i64> %763) nounwind readnone
+  store <4 x double> %call450, <4 x double>* %a4_out, align 32
+  %764 = load <4 x double>* %a4_in, align 32
+  %765 = load <4 x i64>* %ul4_in, align 32
+  %call451 = call <4 x double> @_Z7shuffleDv4_dDv4_m(<4 x double> %764, <4 x i64> %765) nounwind readnone
+  store <4 x double> %call451, <4 x double>* %a4_out, align 32
+  %766 = load <8 x double>* %a8_in, align 64
+  %767 = load <4 x i64>* %ul4_in, align 32
+  %call452 = call <4 x double> @_Z7shuffleDv8_dDv4_m(<8 x double> %766, <4 x i64> %767) nounwind readnone
+  store <4 x double> %call452, <4 x double>* %a4_out, align 32
+  %768 = load <16 x double>* %a16_in, align 128
+  %769 = load <4 x i64>* %ul4_in, align 32
+  %call453 = call <4 x double> @_Z7shuffleDv16_dDv4_m(<16 x double> %768, <4 x i64> %769) nounwind readnone
+  store <4 x double> %call453, <4 x double>* %a4_out, align 32
+  %770 = load <2 x double>* %a2_in, align 16
+  %771 = load <8 x i64>* %ul8_in, align 64
+  %call454 = call <8 x double> @_Z7shuffleDv2_dDv8_m(<2 x double> %770, <8 x i64> %771) nounwind readnone
+  store <8 x double> %call454, <8 x double>* %a8_out, align 64
+  %772 = load <4 x double>* %a4_in, align 32
+  %773 = load <8 x i64>* %ul8_in, align 64
+  %call455 = call <8 x double> @_Z7shuffleDv4_dDv8_m(<4 x double> %772, <8 x i64> %773) nounwind readnone
+  store <8 x double> %call455, <8 x double>* %a8_out, align 64
+  %774 = load <8 x double>* %a8_in, align 64
+  %775 = load <8 x i64>* %ul8_in, align 64
+  %call456 = call <8 x double> @_Z7shuffleDv8_dDv8_m(<8 x double> %774, <8 x i64> %775) nounwind readnone
+  store <8 x double> %call456, <8 x double>* %a8_out, align 64
+  %776 = load <16 x double>* %a16_in, align 128
+  %777 = load <8 x i64>* %ul8_in, align 64
+  %call457 = call <8 x double> @_Z7shuffleDv16_dDv8_m(<16 x double> %776, <8 x i64> %777) nounwind readnone
+  store <8 x double> %call457, <8 x double>* %a8_out, align 64
+  %778 = load <2 x double>* %a2_in, align 16
+  %779 = load <16 x i64>* %ul16_in, align 128
+  %call458 = call <16 x double> @_Z7shuffleDv2_dDv16_m(<2 x double> %778, <16 x i64> %779) nounwind readnone
+  store <16 x double> %call458, <16 x double>* %a16_out, align 128
+  %780 = load <4 x double>* %a4_in, align 32
+  %781 = load <16 x i64>* %ul16_in, align 128
+  %call459 = call <16 x double> @_Z7shuffleDv4_dDv16_m(<4 x double> %780, <16 x i64> %781) nounwind readnone
+  store <16 x double> %call459, <16 x double>* %a16_out, align 128
+  %782 = load <8 x double>* %a8_in, align 64
+  %783 = load <16 x i64>* %ul16_in, align 128
+  %call460 = call <16 x double> @_Z7shuffleDv8_dDv16_m(<8 x double> %782, <16 x i64> %783) nounwind readnone
+  store <16 x double> %call460, <16 x double>* %a16_out, align 128
+  %784 = load <16 x double>* %a16_in, align 128
+  %785 = load <16 x i64>* %ul16_in, align 128
+  %call461 = call <16 x double> @_Z7shuffleDv16_dDv16_m(<16 x double> %784, <16 x i64> %785) nounwind readnone
+  store <16 x double> %call461, <16 x double>* %a16_out, align 128
+  %786 = load <2 x double>* %a2_in, align 16
+  %787 = load <2 x double>* %b2_in, align 16
+  %788 = load <2 x i64>* %ul2_in, align 16
+  %call462 = call <2 x double> @_Z8shuffle2Dv2_dS_Dv2_m(<2 x double> %786, <2 x double> %787, <2 x i64> %788) nounwind readnone
+  store <2 x double> %call462, <2 x double>* %a2_out, align 16
+  %789 = load <4 x double>* %a4_in, align 32
+  %790 = load <4 x double>* %b4_in, align 32
+  %791 = load <2 x i64>* %ul2_in, align 16
+  %call463 = call <2 x double> @_Z8shuffle2Dv4_dS_Dv2_m(<4 x double> %789, <4 x double> %790, <2 x i64> %791) nounwind readnone
+  store <2 x double> %call463, <2 x double>* %a2_out, align 16
+  %792 = load <8 x double>* %a8_in, align 64
+  %793 = load <8 x double>* %b8_in, align 64
+  %794 = load <2 x i64>* %ul2_in, align 16
+  %call464 = call <2 x double> @_Z8shuffle2Dv8_dS_Dv2_m(<8 x double> %792, <8 x double> %793, <2 x i64> %794) nounwind readnone
+  store <2 x double> %call464, <2 x double>* %a2_out, align 16
+  %795 = load <16 x double>* %a16_in, align 128
+  %796 = load <16 x double>* %b16_in, align 128
+  %797 = load <2 x i64>* %ul2_in, align 16
+  %call465 = call <2 x double> @_Z8shuffle2Dv16_dS_Dv2_m(<16 x double> %795, <16 x double> %796, <2 x i64> %797) nounwind readnone
+  store <2 x double> %call465, <2 x double>* %a2_out, align 16
+  %798 = load <2 x double>* %a2_in, align 16
+  %799 = load <2 x double>* %b2_in, align 16
+  %800 = load <4 x i64>* %ul4_in, align 32
+  %call466 = call <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double> %798, <2 x double> %799, <4 x i64> %800) nounwind readnone
+  store <4 x double> %call466, <4 x double>* %a4_out, align 32
+  %801 = load <4 x double>* %a4_in, align 32
+  %802 = load <4 x double>* %b4_in, align 32
+  %803 = load <4 x i64>* %ul4_in, align 32
+  %call467 = call <4 x double> @_Z8shuffle2Dv4_dS_Dv4_m(<4 x double> %801, <4 x double> %802, <4 x i64> %803) nounwind readnone
+  store <4 x double> %call467, <4 x double>* %a4_out, align 32
+  %804 = load <8 x double>* %a8_in, align 64
+  %805 = load <8 x double>* %b8_in, align 64
+  %806 = load <4 x i64>* %ul4_in, align 32
+  %call468 = call <4 x double> @_Z8shuffle2Dv8_dS_Dv4_m(<8 x double> %804, <8 x double> %805, <4 x i64> %806) nounwind readnone
+  store <4 x double> %call468, <4 x double>* %a4_out, align 32
+  %807 = load <16 x double>* %a16_in, align 128
+  %808 = load <16 x double>* %b16_in, align 128
+  %809 = load <4 x i64>* %ul4_in, align 32
+  %call469 = call <4 x double> @_Z8shuffle2Dv16_dS_Dv4_m(<16 x double> %807, <16 x double> %808, <4 x i64> %809) nounwind readnone
+  store <4 x double> %call469, <4 x double>* %a4_out, align 32
+  %810 = load <2 x double>* %a2_in, align 16
+  %811 = load <2 x double>* %b2_in, align 16
+  %812 = load <8 x i64>* %ul8_in, align 64
+  %call470 = call <8 x double> @_Z8shuffle2Dv2_dS_Dv8_m(<2 x double> %810, <2 x double> %811, <8 x i64> %812) nounwind readnone
+  store <8 x double> %call470, <8 x double>* %a8_out, align 64
+  %813 = load <4 x double>* %a4_in, align 32
+  %814 = load <4 x double>* %b4_in, align 32
+  %815 = load <8 x i64>* %ul8_in, align 64
+  %call471 = call <8 x double> @_Z8shuffle2Dv4_dS_Dv8_m(<4 x double> %813, <4 x double> %814, <8 x i64> %815) nounwind readnone
+  store <8 x double> %call471, <8 x double>* %a8_out, align 64
+  %816 = load <8 x double>* %a8_in, align 64
+  %817 = load <8 x double>* %b8_in, align 64
+  %818 = load <8 x i64>* %ul8_in, align 64
+  %call472 = call <8 x double> @_Z8shuffle2Dv8_dS_Dv8_m(<8 x double> %816, <8 x double> %817, <8 x i64> %818) nounwind readnone
+  store <8 x double> %call472, <8 x double>* %a8_out, align 64
+  %819 = load <16 x double>* %a16_in, align 128
+  %820 = load <16 x double>* %b16_in, align 128
+  %821 = load <8 x i64>* %ul8_in, align 64
+  %call473 = call <8 x double> @_Z8shuffle2Dv16_dS_Dv8_m(<16 x double> %819, <16 x double> %820, <8 x i64> %821) nounwind readnone
+  store <8 x double> %call473, <8 x double>* %a8_out, align 64
+  %822 = load <2 x double>* %a2_in, align 16
+  %823 = load <2 x double>* %b2_in, align 16
+  %824 = load <16 x i64>* %ul16_in, align 128
+  %call474 = call <16 x double> @_Z8shuffle2Dv2_dS_Dv16_m(<2 x double> %822, <2 x double> %823, <16 x i64> %824) nounwind readnone
+  store <16 x double> %call474, <16 x double>* %a16_out, align 128
+  %825 = load <4 x double>* %a4_in, align 32
+  %826 = load <4 x double>* %b4_in, align 32
+  %827 = load <16 x i64>* %ul16_in, align 128
+  %call475 = call <16 x double> @_Z8shuffle2Dv4_dS_Dv16_m(<4 x double> %825, <4 x double> %826, <16 x i64> %827) nounwind readnone
+  store <16 x double> %call475, <16 x double>* %a16_out, align 128
+  %828 = load <8 x double>* %a8_in, align 64
+  %829 = load <8 x double>* %b8_in, align 64
+  %830 = load <16 x i64>* %ul16_in, align 128
+  %call476 = call <16 x double> @_Z8shuffle2Dv8_dS_Dv16_m(<8 x double> %828, <8 x double> %829, <16 x i64> %830) nounwind readnone
+  store <16 x double> %call476, <16 x double>* %a16_out, align 128
+  %831 = load <16 x double>* %a16_in, align 128
+  %832 = load <16 x double>* %b16_in, align 128
+  %833 = load <16 x i64>* %ul16_in, align 128
+  %call477 = call <16 x double> @_Z8shuffle2Dv16_dS_Dv16_m(<16 x double> %831, <16 x double> %832, <16 x i64> %833) nounwind readnone
+  store <16 x double> %call477, <16 x double>* %a16_out, align 128
   ret void
 }
 
@@ -2369,9 +2555,73 @@ declare <8 x double> @_Z6remquoDv8_dS_PDv8_i(<8 x double>, <8 x double>, <8 x i3
 
 declare <16 x double> @_Z6remquoDv16_dS_PDv16_i(<16 x double>, <16 x double>, <16 x i32>*)
 
+declare <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z7shuffleDv4_dDv2_m(<4 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z7shuffleDv8_dDv2_m(<8 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z7shuffleDv16_dDv2_m(<16 x double>, <2 x i64>) nounwind readnone
+
+declare <4 x double> @_Z7shuffleDv2_dDv4_m(<2 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z7shuffleDv4_dDv4_m(<4 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z7shuffleDv8_dDv4_m(<8 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z7shuffleDv16_dDv4_m(<16 x double>, <4 x i64>) nounwind readnone
+
+declare <8 x double> @_Z7shuffleDv2_dDv8_m(<2 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z7shuffleDv4_dDv8_m(<4 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z7shuffleDv8_dDv8_m(<8 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z7shuffleDv16_dDv8_m(<16 x double>, <8 x i64>) nounwind readnone
+
+declare <16 x double> @_Z7shuffleDv2_dDv16_m(<2 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z7shuffleDv4_dDv16_m(<4 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z7shuffleDv8_dDv16_m(<8 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z7shuffleDv16_dDv16_m(<16 x double>, <16 x i64>) nounwind readnone
+
+declare <2 x double> @_Z8shuffle2Dv2_dS_Dv2_m(<2 x double>, <2 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z8shuffle2Dv4_dS_Dv2_m(<4 x double>, <4 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z8shuffle2Dv8_dS_Dv2_m(<8 x double>, <8 x double>, <2 x i64>) nounwind readnone
+
+declare <2 x double> @_Z8shuffle2Dv16_dS_Dv2_m(<16 x double>, <16 x double>, <2 x i64>) nounwind readnone
+
+declare <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double>, <2 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z8shuffle2Dv4_dS_Dv4_m(<4 x double>, <4 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z8shuffle2Dv8_dS_Dv4_m(<8 x double>, <8 x double>, <4 x i64>) nounwind readnone
+
+declare <4 x double> @_Z8shuffle2Dv16_dS_Dv4_m(<16 x double>, <16 x double>, <4 x i64>) nounwind readnone
+
+declare <8 x double> @_Z8shuffle2Dv2_dS_Dv8_m(<2 x double>, <2 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z8shuffle2Dv4_dS_Dv8_m(<4 x double>, <4 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z8shuffle2Dv8_dS_Dv8_m(<8 x double>, <8 x double>, <8 x i64>) nounwind readnone
+
+declare <8 x double> @_Z8shuffle2Dv16_dS_Dv8_m(<16 x double>, <16 x double>, <8 x i64>) nounwind readnone
+
+declare <16 x double> @_Z8shuffle2Dv2_dS_Dv16_m(<2 x double>, <2 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z8shuffle2Dv4_dS_Dv16_m(<4 x double>, <4 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z8shuffle2Dv8_dS_Dv16_m(<8 x double>, <8 x double>, <16 x i64>) nounwind readnone
+
+declare <16 x double> @_Z8shuffle2Dv16_dS_Dv16_m(<16 x double>, <16 x double>, <16 x i64>) nounwind readnone
+
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}
 
-!0 = metadata !{void (double addrspace(1)*, double addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32)* @oclbuiltin, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3, i32 3}
+!0 = metadata !{void (double addrspace(1)*, double addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i64 addrspace(1)*, i32)* @oclbuiltin, metadata !1}
+!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3, i32 3, i32 3}
 !2 = metadata !{metadata !"-cl-std=CL1.2"}

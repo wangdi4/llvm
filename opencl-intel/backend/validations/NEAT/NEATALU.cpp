@@ -275,10 +275,8 @@ namespace Validation
         return dstVec;
     }
 
-
-    NEATVector NEATALU::shufflevector ( const NEATVector& vec1, const NEATVector& vec2,
-                                      const std::vector<uint32_t>& mask)
-    {
+    static NEATVector shuffleLocal( const NEATVector& vec1, const NEATVector& vec2,
+                                    const std::vector<uint32_t>& mask, std::string& str) {
         NEATVector src1 = vec1;
         NEATVector src2 = vec2;
         unsigned src1Size = (unsigned)src1.GetSize();
@@ -301,8 +299,7 @@ namespace Validation
             case 16: dstSize = V16;
                 break;
             default:
-                throw Exception::InvalidArgument(
-                "[NEATALU::shufflevector] Wrong mask size");
+                throw Exception::InvalidArgument(str + " Wrong mask size");
                 break;
         }
 
@@ -318,12 +315,40 @@ namespace Validation
                     dstVec[i] = src2[j-src1Size];
                 } else {
                     throw Exception::InvalidArgument(
-                    "[NEATALU::shufflevector] Wrong element selector value ");
+                    str + " Wrong element selector value ");
                 }
             }
         }
 
         return dstVec;
+    }
+
+    NEATVector NEATALU::shufflevector ( const NEATVector& vec1, const NEATVector& vec2,
+                                      const std::vector<uint32_t>& mask)
+    {
+        std::string str = "[NEATALU::shufflevector]";
+        return shuffleLocal(vec1, vec2, mask, str); 
+    }
+
+
+    NEATVector NEATALU::shuffle ( const NEATVector& vec1,
+                                  const std::vector<uint32_t>& mask) {
+
+        std::string str = "[NEATALU::shuffle]";
+        if((unsigned)mask.size() == 1) {
+            throw Exception::InvalidArgument(str + " Wrong mask size");
+        }
+        return shuffleLocal(vec1, vec1, mask, str);
+    }
+
+    NEATVector NEATALU::shuffle2 ( const NEATVector& vec1, const NEATVector& vec2,
+                                  const std::vector<uint32_t>& mask) {
+
+        std::string str = "[NEATALU::shuffle2]";
+        if((unsigned)mask.size() == 1) {
+            throw Exception::InvalidArgument(str + " Wrong mask size");
+        }
+        return shuffleLocal(vec1, vec2, mask, str); 
     }
 
     Validation::NEATVector NEATALU::read_imagef_src_noneat( void *imageData, Conformance::image_descriptor *imageInfo, 

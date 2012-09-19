@@ -150,7 +150,7 @@ Kernel argument currently plays no role and are formal.
 
 #define CALL_GEOM_TWOARG(_f) a_out = _f(a_in,b_in); a_out = _f(a2_in,b2_in);\
                            a_out = _f(a4_in,b4_in);
-						   
+
 #define CALL_MIX(_f) a_out = _f(a_in, b_in, c_in); a4_out = _f(a4_in, b4_in, c4_in);\
                      a4_out = _f(a4_in, b4_in, c_in); a8_out = _f(a8_in, b8_in, c_in);\
                      a16_out = _f(a16_in, b16_in, c_in);  a8_out = _f(a8_in, b8_in, c8_in); \
@@ -179,11 +179,22 @@ Kernel argument currently plays no role and are formal.
                         a3_out = _f(a3_in, b3_in, &i3_out); a4_out = _f(a4_in, b4_in, &i4_out); \
                         a8_out = _f(a8_in, b8_in, &i8_out); a16_out = _f(a16_in, b16_in, &i16_out);
 
+#define CALL_SHUFFLE(_f) a2_out = _f(a2_in, ul2_in); a2_out = _f(a4_in, ul2_in); a2_out = _f(a8_in, ul2_in); a2_out = _f(a16_in, ul2_in);\
+                         a4_out = _f(a2_in, ul4_in); a4_out = _f(a4_in, ul4_in); a4_out = _f(a8_in, ul4_in); a4_out = _f(a16_in, ul4_in);\
+                         a8_out = _f(a2_in, ul8_in); a8_out = _f(a4_in, ul8_in); a8_out = _f(a8_in, ul8_in); a8_out = _f(a16_in, ul8_in);\
+                         a16_out = _f(a2_in, ul16_in); a16_out = _f(a4_in, ul16_in); a16_out = _f(a8_in, ul16_in); a16_out = _f(a16_in, ul16_in);
+
+#define CALL_SHUFFLE2(_f) a2_out = _f(a2_in, b2_in, ul2_in); a2_out = _f(a4_in, b4_in, ul2_in); a2_out = _f(a8_in, b8_in, ul2_in); a2_out = _f(a16_in, b16_in, ul2_in);\
+                          a4_out = _f(a2_in, b2_in, ul4_in); a4_out = _f(a4_in, b4_in, ul4_in); a4_out = _f(a8_in, b8_in, ul4_in); a4_out = _f(a16_in, b16_in, ul4_in);\
+                          a8_out = _f(a2_in, b2_in, ul8_in); a8_out = _f(a4_in, b4_in, ul8_in); a8_out = _f(a8_in, b8_in, ul8_in); a8_out = _f(a16_in, b16_in, ul8_in);\
+                          a16_out = _f(a2_in, b2_in, ul16_in); a16_out = _f(a4_in, b4_in, ul16_in); a16_out = _f(a8_in, b8_in, ul16_in); a16_out = _f(a16_in, b16_in, ul16_in);
+
 __kernel
 void oclbuiltin(__global double * input,
                 __global double * output,
                 __global int * inputInt,
                 __global int * outputInt,
+                __global long * inputUlong,
                 const uint  buffer_size)
 {
     uint tid = 0;
@@ -256,27 +267,27 @@ void oclbuiltin(__global double * input,
     char4 ch4_in;
     char8 ch8_in;
     char16 ch16_in;
-	
+
     uchar uch_in;
     uchar2 uch2_in;
     uchar3 uch3_in;
     uchar4 uch4_in;
     uchar8 uch8_in;
-    uchar16 uch16_in;	
-	
+    uchar16 uch16_in;
+
     short s_in;
     short2 s2_in;
     short3 s3_in;
     short4 s4_in;
     short8 s8_in;
     short16 s16_in;
-	
+
     ushort us_in;
     ushort2 us2_in;
     ushort3 us3_in;
     ushort4 us4_in;
     ushort8 us8_in;
-    ushort16 us16_in;	
+    ushort16 us16_in;
 
     long l_in;
     long2 l2_in;
@@ -284,13 +295,13 @@ void oclbuiltin(__global double * input,
     long4 l4_in;
     long8 l8_in;
     long16 l16_in;
-	
-    ulong ul_in;
-    ulong2 ul2_in;
-    ulong3 ul3_in;
-    ulong4 ul4_in;
-    ulong8 ul8_in;
-    ulong16 ul16_in;
+
+    ulong ul_in = inputUlong[tid];
+    ulong2 ul2_in = inputUlong[tid];
+    ulong3 ul3_in = inputUlong[tid];
+    ulong4 ul4_in = inputUlong[tid];
+    ulong8 ul8_in = inputUlong[tid];
+    ulong16 ul16_in = inputUlong[tid];
 
     CALL_BI_ONEARG(acos);
     CALL_BI_ONEARG(acospi);
@@ -396,6 +407,9 @@ void oclbuiltin(__global double * input,
     CALL_SELECT(select);
     CALL_BI_TWOARG(remainder);
     CALL_REMQUO(remquo);
+
+    CALL_SHUFFLE(shuffle);
+    CALL_SHUFFLE2(shuffle2);
 
     // TODO: add here tests for other builtins when they are implemented
     // TODO: in NEAT ALU

@@ -267,6 +267,9 @@ namespace Validation
     static NEATVector insertelement_fd ( NEATVector vec, const NEATValue elt, const uint32_t& idx );
     static NEATVector shufflevector_fd ( const NEATVector& vec1, const NEATVector& vec2, const std::vector<uint32_t>& mask);
 
+    static NEATVector shuffle_fd ( const NEATVector& vec1, const std::vector<uint32_t>& mask);
+    static NEATVector shuffle2_fd ( const NEATVector& vec1, const NEATVector& vec2, const std::vector<uint32_t>& mask);
+
     static NEATValue fpext_f2d(const NEATValue& a);
     static NEATVector bitcast_d2f (const NEATValue& a);
     static NEATVector bitcast_d2f (const NEATVector& a);

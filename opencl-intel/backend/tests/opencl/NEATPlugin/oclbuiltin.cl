@@ -195,11 +195,21 @@ double @_Z4acosDv2_f(double)
                         a3_out = _f(a3_in, b3_in, &i3_out); a4_out = _f(a4_in, b4_in, &i4_out); \
                         a8_out = _f(a8_in, b8_in, &i8_out); a16_out = _f(a16_in, b16_in, &i16_out);
 
+#define CALL_SHUFFLE(_f) a2_out = _f(a2_in, ui2_in); a2_out = _f(a4_in, ui2_in); a2_out = _f(a8_in, ui2_in); a2_out = _f(a16_in, ui2_in);\
+                         a4_out = _f(a2_in, ui4_in); a4_out = _f(a4_in, ui4_in); a4_out = _f(a8_in, ui4_in); a4_out = _f(a16_in, ui4_in);\
+                         a8_out = _f(a2_in, ui8_in); a8_out = _f(a4_in, ui8_in); a8_out = _f(a8_in, ui8_in); a8_out = _f(a16_in, ui8_in);\
+                         a16_out = _f(a2_in, ui16_in); a16_out = _f(a4_in, ui16_in); a16_out = _f(a8_in, ui16_in); a16_out = _f(a16_in, ui16_in);
+
+#define CALL_SHUFFLE2(_f) a2_out = _f(a2_in, b2_in, ui2_in); a2_out = _f(a4_in, b4_in, ui2_in); a2_out = _f(a8_in, b8_in, ui2_in); a2_out = _f(a16_in, b16_in, ui2_in);\
+                          a4_out = _f(a2_in, b2_in, ui4_in); a4_out = _f(a4_in, b4_in, ui4_in); a4_out = _f(a8_in, b8_in, ui4_in); a4_out = _f(a16_in, b16_in, ui4_in);\
+                          a8_out = _f(a2_in, b2_in, ui8_in); a8_out = _f(a4_in, b4_in, ui8_in); a8_out = _f(a8_in, b8_in, ui8_in); a8_out = _f(a16_in, b16_in, ui8_in);\
+                          a16_out = _f(a2_in, b2_in, ui16_in); a16_out = _f(a4_in, b4_in, ui16_in); a16_out = _f(a8_in, b8_in, ui16_in); a16_out = _f(a16_in, b16_in, ui16_in);
 __kernel
 void oclbuiltin(__global float * input,
                 __global float * output,
                 __global int * inputInt,
                 __global int * outputInt,
+				__global uint * inputUint,
                 const uint  buffer_size)
 {
     uint tid = 0;
@@ -259,12 +269,12 @@ void oclbuiltin(__global float * input,
     int8 i8_out = outputInt[tid];
     int16 i16_out = outputInt[tid];
 
-    uint ui_in;
-    uint2 ui2_in;
-    uint3 ui3_in;
-    uint4 ui4_in;
-    uint8 ui8_in;
-    uint16 ui16_in;
+    uint ui_in   = inputUint[tid];
+    uint2 ui2_in = inputUint[tid];
+    uint3 ui3_in = inputUint[tid];
+    uint4 ui4_in = inputUint[tid];
+    uint8 ui8_in = inputUint[tid];
+    uint16 ui16_in = inputUint[tid];
 
     char ch_in;
     char2 ch2_in;
@@ -272,27 +282,27 @@ void oclbuiltin(__global float * input,
     char4 ch4_in;
     char8 ch8_in;
     char16 ch16_in;
-	
+
     uchar uch_in;
     uchar2 uch2_in;
     uchar3 uch3_in;
     uchar4 uch4_in;
     uchar8 uch8_in;
     uchar16 uch16_in;	
-	
+
     short s_in;
     short2 s2_in;
     short3 s3_in;
     short4 s4_in;
     short8 s8_in;
     short16 s16_in;
-	
+
     ushort us_in;
     ushort2 us2_in;
     ushort3 us3_in;
     ushort4 us4_in;
     ushort8 us8_in;
-    ushort16 us16_in;	
+    ushort16 us16_in;
 
     long l_in;
     long2 l2_in;
@@ -300,14 +310,14 @@ void oclbuiltin(__global float * input,
     long4 l4_in;
     long8 l8_in;
     long16 l16_in;
-	
+
     ulong ul_in;
     ulong2 ul2_in;
     ulong3 ul3_in;
     ulong4 ul4_in;
     ulong8 ul8_in;
     ulong16 ul16_in;
-	
+
     CALL_BI_ONEARG(acos);
     CALL_BI_ONEARG(acospi);
     CALL_BI_ONEARG(asin);
@@ -445,6 +455,9 @@ void oclbuiltin(__global float * input,
     CALL_SELECT(select);
     CALL_BI_TWOARG(remainder);
     CALL_REMQUO(remquo);
+
+    CALL_SHUFFLE(shuffle);
+    CALL_SHUFFLE2(shuffle2);
 
     // TODO: add here tests for other builtins when they are implemented
     // TODO: in NEAT ALU
