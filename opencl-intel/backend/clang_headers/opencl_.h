@@ -49,81 +49,10 @@ typedef unsigned int uint;
  */
 typedef unsigned long ulong;
 
-/**
- * The unsigned integer type of the result of the sizeof operator. This
- * is a 32-bit unsigned integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit unsigned integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-#if defined(__i386__) || defined(i386) || defined(_M_IX86)
-typedef uint size_t;
-#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
-typedef ulong size_t;
-#endif
+typedef ptrdiff_t intptr_t;
 
-/**
- * A signed integer type that is the result of subtracting two pointers.
- * This is a 32-bit signed integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit signed integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-#if defined(__i386__) || defined(i386) || defined(_M_IX86)
-typedef uint ptrdiff_t;
-#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
-typedef ulong ptrdiff_t;
-#endif
+typedef size_t uintptr_t;
 
-/**
- * A signed integer type with the property that any valid pointer to
- * void can be converted to this type, then converted back to pointer
- * to void, and the result will compare equal to the original pointer.
- */
-
-// the following code is copied from stdint.h
-
-#define __stdint_join3(a,b,c) a ## b ## c
-
-// we use _t1, so the generated type won't be called int64_t/int32_t, since these types are already defined in stdint.h
-#define  __intn_t(n) __stdint_join3( int, n, _t1)
-#define __uintn_t(n) __stdint_join3(uint, n, _t1)
-
-# ifndef __int8_t_defined /* glibc sys/types.h also defines int64_t*/
-#define int64_t1 long
-#define int32_t1 int
-# endif /* __int8_t_defined */
-#define uint64_t1 unsigned long
-#define uint32_t1 unsigned int
-
-#ifndef __intptr_t_defined
-typedef  __intn_t(__INTPTR_WIDTH__)  intptr_t;
-#define __intptr_t_defined
-#endif
-
-/**
- * An unsigned integer type with the property that any valid pointer to
- * void can be converted to this type, then converted back to pointer
- * to void, and the result will compare equal to the original pointer.
- */
-typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
-
-#undef int64_t1
-#undef uint64_t1
-#undef int32_t1
-#undef uint32_t1
-
-struct _image1d_t;
-struct _image1d_buffer_t;
-struct _image2d_t;
-struct _image3d_t;
-struct _image2d_array_t;
-struct _image1d_array_t;
-typedef struct _image1d_t* image1d_t;
-typedef struct _image1d_buffer_t* image1d_buffer_t;
-typedef struct _image2d_t* image2d_t;
-typedef struct _image3d_t* image3d_t;
-typedef struct _image2d_array_t* image2d_array_t;
-typedef struct _image1d_array_t* image1d_array_t;
-typedef uint sampler_t;
 
 // built-in vector data types:
 
@@ -293,8 +222,6 @@ typedef double double16 __attribute__((ext_vector_type(16)));
 #define DBL_MAX 0x1.fffffffffffffp1023
 #define DBL_MIN 0x1.0p-1022
 #define DBL_EPSILON 0x1.0p-52
-
-typedef size_t event_t;
 
 typedef struct _cl_image_format_t {
     unsigned int image_channel_order;

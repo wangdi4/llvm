@@ -100,32 +100,32 @@ namespace OCLBuiltins {
 
 void ImageMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
 {
-    funcNames["lle_X__Z11read_imagefP10_image2d_tjDv2_i"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagefP10_image2d_tjDv2_f"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imageiP10_image2d_tjDv2_i"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z11read_imageiP10_image2d_tjDv2_f"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z12read_imageuiP10_image2d_tjDv2_i"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12read_imageuiP10_image2d_tjDv2_f"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12write_imagefP10_image2d_tDv2_iDv4_f"] = lle_X_write_image;
-    funcNames["lle_X__Z12write_imageiP10_image2d_tDv2_iDv4_i"] = lle_X_write_image;
-    funcNames["lle_X__Z13write_imageuiP10_image2d_tDv2_iDv4_j"] = lle_X_write_image;
-    funcNames["lle_X__Z11read_imagefP10_image3d_tjDv4_i"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagefP10_image3d_tjDv4_f"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imageiP10_image3d_tjDv4_i"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z11read_imageiP10_image3d_tjDv4_f"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z12read_imageuiP10_image3d_tjDv4_i"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12read_imageuiP10_image3d_tjDv4_f"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z15get_image_widthP10_image2d_t"] = lle_X_get_image_width;
-    funcNames["lle_X__Z15get_image_widthP10_image3d_t"] = lle_X_get_image_width;
-    funcNames["lle_X__Z16get_image_heightP10_image2d_t"] = lle_X_get_image_height;
-    funcNames["lle_X__Z16get_image_heightP10_image3d_t"] = lle_X_get_image_height;
-    funcNames["lle_X__Z15get_image_depthP10_image3d_t"] = lle_X_get_image_depth;
-    funcNames["lle_X__Z27get_image_channel_data_typeP10_image2d_t"] = lle_X_get_image_channel_data_type;
-    funcNames["lle_X__Z27get_image_channel_data_typeP10_image3d_t"] = lle_X_get_image_channel_data_type;
-    funcNames["lle_X__Z23get_image_channel_orderP10_image2d_t"] = lle_X_get_image_channel_order;
-    funcNames["lle_X__Z23get_image_channel_orderP10_image3d_t"] = lle_X_get_image_channel_order;
-    funcNames["lle_X__Z13get_image_dimP10_image2d_t"] = lle_X_get_image_dim2;
-    funcNames["lle_X__Z13get_image_dimP10_image3d_t"] = lle_X_get_image_dim3;
+    funcNames["lle_X__Z11read_imagef9image2d_tjDv2_i"] = lle_X_read_image<float>;
+    funcNames["lle_X__Z11read_imagef9image2d_tjDv2_f"] = lle_X_read_image<float>;
+    funcNames["lle_X__Z11read_imagei9image2d_tjDv2_i"] = lle_X_read_image<int32_t>;
+    funcNames["lle_X__Z11read_imagei9image2d_tjDv2_f"] = lle_X_read_image<int32_t>;
+    funcNames["lle_X__Z12read_imageui9image2d_tjDv2_i"] = lle_X_read_image<uint32_t>;
+    funcNames["lle_X__Z12read_imageui9image2d_tjDv2_f"] = lle_X_read_image<uint32_t>;
+    funcNames["lle_X__Z12write_imagef9image2d_tDv2_iDv4_f"] = lle_X_write_image;
+    funcNames["lle_X__Z12write_imagei9image2d_tDv2_iDv4_i"] = lle_X_write_image;
+    funcNames["lle_X__Z13write_imageui9image2d_tDv2_iDv4_j"] = lle_X_write_image;
+    funcNames["lle_X__Z11read_imagef9image3d_tjDv4_i"] = lle_X_read_image<float>;
+    funcNames["lle_X__Z11read_imagef9image3d_tjDv4_f"] = lle_X_read_image<float>;
+    funcNames["lle_X__Z11read_imagei9image3d_tjDv4_i"] = lle_X_read_image<int32_t>;
+    funcNames["lle_X__Z11read_imagei9image3d_tjDv4_f"] = lle_X_read_image<int32_t>;
+    funcNames["lle_X__Z12read_imageui9image3d_tjDv4_i"] = lle_X_read_image<uint32_t>;
+    funcNames["lle_X__Z12read_imageui9image3d_tjDv4_f"] = lle_X_read_image<uint32_t>;
+    funcNames["lle_X__Z15get_image_width9image2d_t"] = lle_X_get_image_width;
+    funcNames["lle_X__Z15get_image_width9image3d_t"] = lle_X_get_image_width;
+    funcNames["lle_X__Z16get_image_height9image2d_t"] = lle_X_get_image_height;
+    funcNames["lle_X__Z16get_image_height9image3d_t"] = lle_X_get_image_height;
+    funcNames["lle_X__Z15get_image_depth9image3d_t"] = lle_X_get_image_depth;
+    funcNames["lle_X__Z27get_image_channel_data_type9image2d_t"] = lle_X_get_image_channel_data_type;
+    funcNames["lle_X__Z27get_image_channel_data_type9image3d_t"] = lle_X_get_image_channel_data_type;
+    funcNames["lle_X__Z23get_image_channel_order9image2d_t"] = lle_X_get_image_channel_order;
+    funcNames["lle_X__Z23get_image_channel_order9image3d_t"] = lle_X_get_image_channel_order;
+    funcNames["lle_X__Z13get_image_dim9image2d_t"] = lle_X_get_image_dim2;
+    funcNames["lle_X__Z13get_image_dim9image3d_t"] = lle_X_get_image_dim3;
 }
 
 // convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix

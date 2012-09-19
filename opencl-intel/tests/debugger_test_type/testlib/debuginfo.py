@@ -65,7 +65,7 @@ def _descriptor_as_string(descr):
     """ Build the string type name encoded in the given descriptor.
     """
     if descr.tag == VarTypeDescriptor.BASIC:
-        return _descriptor_basic_as_string(descr.type_basic)
+        return descr.type_basic.name
     elif descr.tag == VarTypeDescriptor.TYPEDEF:
         return descr.type_typedef.name
     elif descr.tag == VarTypeDescriptor.VECTOR:
