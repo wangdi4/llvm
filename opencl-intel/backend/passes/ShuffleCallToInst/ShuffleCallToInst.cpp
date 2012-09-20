@@ -143,13 +143,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         // Get function name
         std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
         std::string strippedName;
-        try {
-            // stripName is one of the NameMangler APIs which returns the demangled name of a function
-            strippedName = stripName(calledFuncName.c_str());
-        } catch (const char *) {
-            // stripName throws an exception when the function name is not a mangled name
-            return NOT_SHUFFLE;
-        }
+        if (!isMangledName(calledFuncName.c_str()))
+          return NOT_SHUFFLE;
+        strippedName = stripName(calledFuncName.c_str());
 
         // Check if its shuffle function and mask is constant
         if (strippedName == "shuffle" && isa<Constant>(pCall->getArgOperand(SHUFFLE_MASK_POS)) ) {

@@ -42,12 +42,15 @@ std::vector<reflection::Type*> m_parameters;
 
 };//End TypeAccumulator
 
+const char* PREFIX = "_Z";
+
+size_t PREFIX_LEN = 2;
 //parsing methods for the raw mangled name
 //
 static bool peelPrefix(std::string& s){
-  if ("_Z" != s.substr(0,2) )
+  if (PREFIX != s.substr(0,PREFIX_LEN) )
       return false;
-  s = s.substr(2, s.length()-2);
+  s = s.substr(PREFIX_LEN, s.length()-PREFIX_LEN);
   return true;
 }
 
@@ -59,6 +62,17 @@ static std::string peelNameLen(std::string& s){
   std::string ret = s.substr(0, len);
   s = s.substr(len, s.length()-len);
   return ret;
+}
+
+//
+//Implementation of an API function.
+//Indicating whether the given string is a mangled function name
+//
+bool isMangledName(const char* rawString){
+  const std::string strName(rawString);
+  if (strName.substr(0, PREFIX_LEN) != PREFIX)
+    return false;
+  return isdigit(strName[PREFIX_LEN]);
 }
 
 //
@@ -105,13 +119,20 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   return ret;
 }
 
+class DemanglerException: public std::exception{
+public:
+  const char* what() const throw(){
+    return "invalid prefix";
+  }
+};
+
 //
 //Implementation of an API function.
 std::string stripName(const char* rawstring){
   std::string mangledName(rawstring);
   //making sure it starts with _Z
   if (false == peelPrefix(mangledName))
-    throw "not a valid prefix";
+    throw DemanglerException();
   std::string nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.c_str());

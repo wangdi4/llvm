@@ -8,6 +8,12 @@
 #include "compile_data.h"
 #include "link_data.h"
 #include "source_file.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/LLVMContext.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Module.h"
+#include "llvm/Metadata.h"
 #endif //OCLFRONTEND_PLUGINS
 
 #include <Logger.h>
@@ -138,30 +144,39 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
   IOCLFEBinaryResult* pBinary = NULL)
 {
   //composing a file name based on the current time
-  time_t now = time(0);
-  tm* localtm = localtime(&now);
-  std::stringstream fileName;
   const char* strPrefix = getenv("OCLRECORDER_DUMPPREFIX");
+  std::stringstream fileName;
   if (strPrefix)
-    fileName << strPrefix;
-  fileName << localtm->tm_yday << "_" << localtm->tm_hour;
-  fileName << "_" << localtm->tm_min << "_" << localtm->tm_sec;
-  fileName << "_" <<  clock() << serial << ".cl";
+    fileName << strPrefix << "_";
   std::string strContents(contents);
-  Intel::OpenCL::Frontend::SourceFile ret= Intel::OpenCL::Frontend::SourceFile(
-    std::string(fileName.str()),
-    std::string(strContents),
-    std::string(options) );
-  if (pBinary) {
-    Intel::OpenCL::Frontend::BinaryBuffer buffer;
-    //the length (in bytes) of the bytecode headers. We leave that out of the
+  Intel::OpenCL::Frontend::BinaryBuffer buffer;
+  if (pBinary){
+   //the length (in bytes) of the bytecode headers. We leave that out of the
     //hashcode computation, since the header(s) might change during the
     //the compilation process.
     const size_t bufferLen = sizeof(_cl_prog_container_header) + sizeof(cl_llvm_prog_header);
     buffer.binary = (char*)pBinary->GetIR() + bufferLen;
     buffer.size   = pBinary->GetIRSize() - bufferLen;
-    ret.setBinaryBuffer(buffer);
+    llvm::SMDiagnostic err;
+    llvm::LLVMContext  ctxt;
+    //retrieving the name of the first kernel
+    llvm::StringRef inData((const char*)buffer.binary, buffer.size);
+    llvm::MemoryBuffer* pBuffer = llvm::MemoryBuffer::getMemBuffer(inData, "", false);
+    std::auto_ptr<llvm::Module> pModule(llvm::ParseIR(pBuffer, err, ctxt));
+    assert(pModule.get() && "NULL module");
+    llvm::NamedMDNode* metadata = pModule->getNamedMetadata("opencl.kernels");
+    llvm::MDNode *elt = metadata->getOperand(0);
+    llvm::Function* pKernel =
+      llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
+    fileName << "_" << pKernel->getName().str();
   }
+  fileName  << serial << ".cl";
+  Intel::OpenCL::Frontend::SourceFile ret = Intel::OpenCL::Frontend::SourceFile(
+    std::string(fileName.str()),
+    std::string(strContents),
+    std::string(options) );
+  if (pBinary)
+    ret.setBinaryBuffer(buffer); 
   return ret;
 }
 #endif //OCLFRONTEND_PLUGINS

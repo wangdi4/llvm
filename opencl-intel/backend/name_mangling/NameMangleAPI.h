@@ -17,6 +17,12 @@
 
 #include "FunctionDescriptor.h"
 #include <string>
+#include <exception>
+
+//
+//Purpose: indicates whether the given string is the named of a mangled fumction
+//Return: true if rawString is the name of a mangled function, false otherwise.
+bool isMangledName(const char* rawString);
 
 //Purpose: converts the given string to function descriptor, that represents
 //the function's prototype.
