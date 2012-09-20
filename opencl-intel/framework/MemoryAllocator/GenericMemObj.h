@@ -538,7 +538,7 @@ inline void GenericMemObject::GetLayout( OUT size_t* dimensions, OUT size_t* row
 {
     if (dimensions)
     {
-        memcpy( dimensions, m_BS->GetDimentions(), sizeof(size_t)*MAX_WORK_DIM );
+        MEMCPY_S( dimensions, sizeof(size_t)*MAX_WORK_DIM, m_BS->GetDimentions(), sizeof(size_t)*MAX_WORK_DIM );
     }
 
     if (rowPitch)

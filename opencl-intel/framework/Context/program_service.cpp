@@ -844,6 +844,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
 
         if (CL_BUILD_SUCCESS != ret)
         {
+			delete[] pszHeaders;
             return CL_COMPILE_PROGRAM_FAILURE;
         }
     }
@@ -973,6 +974,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
 			continue;
         }
 		delete[] szBuildOptions;
+		delete[] pDevices;
         return CL_INVALID_OPERATION;
     }
 
@@ -992,6 +994,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
                     }
                 }
 				delete[] szBuildOptions;
+				delete[] pDevices;
                 return CL_INVALID_OPERATION;
             }
         }
@@ -1020,6 +1023,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
           program->Unacquire(pDevices[j]);
         }
 		delete[] szBuildOptions;
+		delete[] pDevices;
         return CL_INVALID_LINKER_OPTIONS;
       }
     }
@@ -1079,6 +1083,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
     if (NULL == pPostBuildTask)
     {
 		delete[] szBuildOptions;
+		delete[] pDevices;
         return CL_OUT_OF_HOST_MEMORY;
     }
 

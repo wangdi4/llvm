@@ -1482,7 +1482,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
 template<typename TrgtCLVecType>
 void voidToCLVec(const void *in, TrgtCLVecType &out)
 {
-	memcpy(&out, in, sizeof(TrgtCLVecType));
+	MEMCPY_S(&out, sizeof(TrgtCLVecType), in, sizeof(TrgtCLVecType));
 }
 
 /**

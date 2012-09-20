@@ -856,7 +856,8 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
 	// Copy 1D array only
 	if ( 1 == pCopyCmd->uiDimCount )
 	{
-		memcpy(pCopyCmd->pDst, pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
+		//useless memcpy_s, this function is called from many different places
+		MEMCPY_S(pCopyCmd->pDst, pCopyCmd->vRegion[0], pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
 		return;
 	}
 

@@ -659,7 +659,8 @@ cl_err_code GenericMemObject::ReadData(void * pData,
     // optimize for the case of single dimension
     if (1 == sCpyParam.uiDimCount)
     {
-        memcpy( sCpyParam.pDst, sCpyParam.pSrc, pszRegion[0] * m_BS->GetElementSize() );
+		//useless memcpy_s, this function is called from many different places
+        MEMCPY_S( sCpyParam.pDst, pszRegion[0] * m_BS->GetElementSize(), sCpyParam.pSrc, pszRegion[0] * m_BS->GetElementSize() );
         return CL_SUCCESS;
     }
 
@@ -697,7 +698,8 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
     // optimize for the case of single dimension
     if (1 == sCpyParam.uiDimCount)
     {
-        memcpy( sCpyParam.pDst, sCpyParam.pSrc, pszRegion[0] * m_BS->GetElementSize() );
+		//useless memcpy_s, this function is called from many different places
+        MEMCPY_S( sCpyParam.pDst, pszRegion[0] * m_BS->GetElementSize(), sCpyParam.pSrc, pszRegion[0] * m_BS->GetElementSize() );
         return CL_SUCCESS;
     }
 
@@ -747,7 +749,7 @@ cl_err_code GenericMemObject::CheckBounds( const size_t* pszOrigin, const size_t
 cl_err_code GenericMemObject::GetDimensionSizes( size_t* pszRegion ) const
 {
     assert( pszRegion );
-    memcpy( pszRegion, m_BS->GetDimentions(), sizeof( size_t ) * m_BS->GetDimCount() );
+    MEMCPY_S( pszRegion, sizeof(size_t) * MAX_WORK_DIM, m_BS->GetDimentions(), sizeof( size_t ) * m_BS->GetDimCount() );
     return CL_SUCCESS;
 }
 

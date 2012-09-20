@@ -60,6 +60,10 @@ QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
 		m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
 		m_pGPAData = cmdQueue->GetGPAData();
 	}
+	else
+	{
+		m_pGPAData = NULL;
+	}
 
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -212,7 +216,7 @@ cl_err_code QueueEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t s
 	{
 		if ( NULL != pParamValue )
 		{
-			memcpy(pParamValue, localParamValue, outputValueSize);
+			MEMCPY_S(pParamValue, szParamValueSize, localParamValue, outputValueSize);
 		}
 		if ( NULL != pszParamValueSizeRet )
 		{

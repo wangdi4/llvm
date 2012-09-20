@@ -61,10 +61,14 @@ OclEvent::OclEvent(_cl_context_int* context)
 	: OCLObject<_cl_event_int>(context, "OclEvent"),
 	  m_numOfDependencies(0),
 	  m_complete(false), m_returnCode(CL_SUCCESS),
-	m_eventState(EVENT_STATE_CREATED)
+	m_eventState(EVENT_STATE_CREATED),
+	m_pContext(NULL),
+	m_pCurrentEvent(NULL)
 {
-	m_pContext = SharedPtr<Context>((Context*)(context->object));
-	m_pCurrentEvent = NULL;
+	if (NULL != context)
+	{
+		m_pContext = SharedPtr<Context>((Context*)(context->object));
+	}
 }
 
 OclEvent::~OclEvent()
