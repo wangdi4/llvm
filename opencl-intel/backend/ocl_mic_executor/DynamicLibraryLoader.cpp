@@ -33,7 +33,7 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-#define OCL_SVML_FUNCTIONS_COUNT    1974
+#define OCL_SVML_FUNCTIONS_COUNT    1980
 
 // We use the tokens defined in CVT_RT? and replace them with the appropriate values at run time,
 // depending on the target.
@@ -445,6 +445,12 @@ static const char* g_functionNames[OCL_SVML_FUNCTIONS_COUNT] =
     "cvtfp64tofp32"CVT_RTN"3",
     "cvtfp64tofp32"CVT_RTN"4",
     "cvtfp64tofp32"CVT_RTN"8",
+    "cvtfp64tofp32"CVT_RTE"1",
+    "cvtfp64tofp32"CVT_RTE"16",
+    "cvtfp64tofp32"CVT_RTE"2",
+    "cvtfp64tofp32"CVT_RTE"3",
+    "cvtfp64tofp32"CVT_RTE"4",
+    "cvtfp64tofp32"CVT_RTE"8",
     "cvtfptoi32"CVT_RTN"nosat1",
     "cvtfptoi32"CVT_RTN"nosat16",
     "cvtfptoi32"CVT_RTN"nosat2",

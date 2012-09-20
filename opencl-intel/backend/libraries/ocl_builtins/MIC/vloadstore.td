@@ -529,72 +529,106 @@ code MaskVStoreFHalfRTE = [{
             _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*2);
             break;
         case 0x0001:
-            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
+            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*1 );
             break; 
     }
   }];
 code MaskVStoreFHalfRTZ = [{
-    switch ($Arg0VarName) {
-        case 0xFFFF:
-            _mm512_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            break;
-        case 0x00FF:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*8);
-            break;
-        case 0x000F:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*4);
-            break;
-        case 0x0007:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 3)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*3);
-            break;
-        case 0x0003:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*2);
-            break;
-        case 0x0001:
-            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            break;
-    }
+
+    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
+    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all normal numbers that are too big to be represented in 16 bit precision.
+    // in rtz, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
+    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
+    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
+    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
+
+    //  NaN's should not be truncated because they will become infinities.
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+
+    __mmask16 finalMask = ~negativeOverflowMask & ~positiveOverflowMask & ~nanMask;
+    // This is silencing the lower 13 bits that we lose when moving to 16 bit precision.
+    __m512i vVal = (__m512i)(int16)~0x1fff;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, finalMask, (__m512i)$Arg1VarName, vVal);
+
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
   }];
 code MaskVStoreFHalfRTP = [{
-    // Ignore NaN and negative values and handle positive values only.
-    // +infinity is fine as its mantissa is all 0s.
-    $Arg0Type p$Arg0VarName;
-    p$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, (float16)0, $Arg1VarName);
-    p$Arg0VarName = _mm512_mask_cmplt_ps(p$Arg0VarName, (float16)0, $Arg1VarName);
-    // float: S E8 M23
-    //  half: S E5 M10
-    // g bit M12
-    // r bit M11
-    // s bit M10-0
-    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
-    g$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
-    r$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
-    s$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
-    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
-    // will be rounded in round-nearest-even.)
-    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
-    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+
+    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all negative normal numbers that are too big to be represented in 16 bit precision.
+    // in rtp, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
+    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
+
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+    
+    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
+    // it is used to help with with rounding to the correct direction according to the specified rules.
+    __m512i vVal = (__m512i)(int16)0x1fff;
+
+    // normal positive values should be "helped" up by setting bits [0:12], 
+    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
+    __mmask16 positiveMask = _mm512_mask_cmplt_ps($Arg0VarName, (__m512)(int16)0, $Arg1VarName);
+    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vPositiveInfinity);
+    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
+    __mmask16 fixPositiveMask = $Arg0VarName & positiveMask & notInfinityMask & ~nanMask & ~mask0;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixPositiveMask , (__m512i)$Arg1VarName, vVal);
+
+    // normal negative values should be "helped" up by turning off bit [0:12]
+    __mmask16 fixNegativeMask = $Arg0VarName & ~positiveMask & ~nanMask;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixNegativeMask, (__m512i)$Arg1VarName, ~vVal);
+
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
+
   }];
+
 code MaskVStoreFHalfRTN = [{
-    // Ignore NaN and positive values and handle negative values only.
-    // -infinity is fine as its mantissa is all 0s.
-    $Arg0Type n$Arg0VarName;
-    n$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, $Arg1VarName, (float16)0);
-    n$Arg0VarName = _mm512_mask_cmplt_ps(n$Arg0VarName, $Arg1VarName, (float16)0);
-    // float: S E8 M23
-    //  half: S E5 M10
-    // g bit M12
-    // r bit M11
-    // s bit M10-0
-    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
-    g$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
-    r$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
-    s$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
-    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
-    // will be rounded in round-nearest-even.)
-    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
-    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+
+    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all positive normal numbers that are too big to be represented in 16 bit precision.
+    // in rtn, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
+    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
+
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+
+    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
+    // it is used to help with with rounding to the correct direction according to the specified rules.
+    __m512i vVal = (__m512i)(int16)0x1fff;
+
+    // normal negative values should be "helped" down by setting bits [0:12], 
+    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
+    __mmask16 negativeMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, (__m512)(int16)0);
+    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, vNegativeInfinity, $Arg1VarName);
+    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
+    __mmask16 fixNegativeMask = $Arg0VarName & negativeMask & notInfinityMask & ~nanMask & ~mask0;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixNegativeMask , (__m512i)$Arg1VarName, vVal);
+
+    // normal positive values should be "helped" down by turning off bit [0:12]
+    __mmask16 fixPositiveMask = $Arg0VarName & ~negativeMask & ~nanMask;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixPositiveMask, (__m512i)$Arg1VarName, ~vVal);
+
+    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
   }];
+
 OclBuiltinImpl mask_vstoref_half_gas_v16      = OclBuiltinImpl<mask_vstoref_half_gas,     [v16f16], 0, MaskVStoreFHalf>;
 OclBuiltinImpl mask_vstoref_half_las_v16      = OclBuiltinImpl<mask_vstoref_half_las,     [v16f16], 0, MaskVStoreFHalf>;
 OclBuiltinImpl mask_vstoref_half_pas_v16      = OclBuiltinImpl<mask_vstoref_half_pas,     [v16f16], 0, MaskVStoreFHalf>;
@@ -615,22 +649,33 @@ code MaskVStoreDHalf = [{
     mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTE = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    typedef union { double8 d; long8 ix; } double8_t;
+    double8_t x,j;
+    float16 tmp;
+    x.d = $Arg1VarName;
+    j.ix = x.ix + 0x1fffffff;
+    j.ix &= 0x20000000;
+    x.ix |= j.ix;
+    x.ix &= ~0x1fffffff;  
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rte8(x.d);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTZ = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp;
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtz8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTP = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp;
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtp8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTN = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp; 
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtn8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
@@ -677,66 +722,98 @@ code MaskVStoreAFHalfRTE = [{
     }
   }];
 code MaskVStoreAFHalfRTZ = [{
-    switch ($Arg0VarName) {
-        case 0xFFFF:
-            _mm512_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            break;
-        case 0x00FF:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 8)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 8*2);
-            break;
-        case 0x000F:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 4*2);
-            break;
-        case 0x0007:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 4)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 3*2);
-            break;
-        case 0x0003:
-            _mm512_mask_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 2)), $Arg0VarName, $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE, 2*2);
-            break;
-        case 0x0001:
-            _mm512_extstore_ps((void *)($Arg3VarName + ($Arg2VarName * 1)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
-            break;
-    } 
+
+    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
+    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all normal numbers that are too big to be represented in 16 bit precision.
+    // in rtz, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
+    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
+    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
+    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
+
+    //  NaN's should not be truncated because they will become infinities.
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+
+    __mmask16 finalMask = ~negativeOverflowMask & ~positiveOverflowMask & ~nanMask;
+    // This is silencing the lower 13 bits that we lose when moving to 16 bit precision.
+    __m512i vVal = (__m512i)(int16)~0x1fff;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, finalMask, (__m512i)$Arg1VarName, vVal);
+
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
+
   }];
 code MaskVStoreAFHalfRTP = [{
-    // Ignore NaN and negative values and handle positive values only.
-    // +infinity is fine as its mantissa is all 0s.
-    $Arg0Type p$Arg0VarName;
-    p$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, (float16)0, $Arg1VarName);
-    p$Arg0VarName = _mm512_mask_cmplt_ps(p$Arg0VarName, (float16)0, $Arg1VarName);
-    // float: S E8 M23
-    //  half: S E5 M10
-    // g bit M12
-    // r bit M11
-    // s bit M10-0
-    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
-    g$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
-    r$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
-    s$Arg0VarName = _mm512_mask_test_epi32(p$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
-    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
-    // will be rounded in round-nearest-even.)
-    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
-    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+
+    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all negative normal numbers that are too big to be represented in 16 bit precision.
+    // in rtp, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
+    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
+
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+
+    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
+    // it is used to help with with rounding to the correct direction according to the specified rules.
+    __m512i vVal = (__m512i)(int16)0x1fff;
+
+    // normal positive values should be "helped" up by setting bits [0:12], 
+    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
+    __mmask16 positiveMask = _mm512_mask_cmplt_ps($Arg0VarName, (__m512)(int16)0, $Arg1VarName);
+    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vPositiveInfinity);
+    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
+    __mmask16 fixPositiveMask = $Arg0VarName & positiveMask & notInfinityMask & ~nanMask & ~mask0;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixPositiveMask , (__m512i)$Arg1VarName, vVal);
+
+    // normal negative values should be "helped" up by turning off bit [0:12]
+    __mmask16 fixNegativeMask = $Arg0VarName & ~positiveMask & ~nanMask;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixNegativeMask, (__m512i)$Arg1VarName, ~vVal);
+
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
   }];
 code MaskVStoreAFHalfRTN = [{
-    // Ignore NaN and positive values and handle negative values only.
-    // -infinity is fine as its mantissa is all 0s.
-    $Arg0Type n$Arg0VarName;
-    n$Arg0VarName = _mm512_mask_cmpord_ps($Arg0VarName, $Arg1VarName, (float16)0);
-    n$Arg0VarName = _mm512_mask_cmplt_ps(n$Arg0VarName, $Arg1VarName, (float16)0);
-    // float: S E8 M23
-    //  half: S E5 M10
-    // g bit M12
-    // r bit M11
-    // s bit M10-0
-    $Arg0Type g$Arg0VarName, r$Arg0VarName, s$Arg0VarName;
-    g$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 12));
-    r$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(1U << 11));
-    s$Arg0VarName = _mm512_mask_test_epi32(n$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)((1U << 11) - 1U));
-    // Set g, r, s bits if any of them (round to positive infinity) is 1s (and
-    // will be rounded in round-nearest-even.)
-    $Arg1VarName = (__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, g$Arg0VarName | r$Arg0VarName | s$Arg0VarName, (__m512i)$Arg1VarName, (__m512i)(uint16)(7U << 10));
-    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+
+    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
+    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
+    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
+    
+    // single out all positive normal numbers that are too big to be represented in 16 bit precision.
+    // in rtn, these numbers should be converted to the maximal number that can be represented in
+    // 16 bit.
+    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
+    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
+    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
+
+    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
+
+    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
+    // it is used to help with with rounding to the correct direction according to the specified rules.
+    __m512i vVal = (__m512i)(int16)0x1fff;
+
+    // normal negative values should be "helped" down by setting bits [0:12], 
+    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
+    __mmask16 negativeMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, (__m512)(int16)0);
+    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, vNegativeInfinity, $Arg1VarName);
+    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
+    __mmask16 fixNegativeMask = $Arg0VarName & negativeMask & notInfinityMask & ~nanMask & ~mask0;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixNegativeMask , (__m512i)$Arg1VarName, vVal);
+
+    // normal positive values should be "helped" down by turning off bit [0:12]
+    __mmask16 fixPositiveMask = $Arg0VarName & ~negativeMask & ~nanMask;
+    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixPositiveMask, (__m512i)$Arg1VarName, ~vVal);
+
+    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
   }];
 OclBuiltinImpl mask_vstoreaf_half_gas_v16     = OclBuiltinImpl<mask_vstoreaf_half_gas,      [v16f16], 0, MaskVStoreAFHalf>;
 OclBuiltinImpl mask_vstoreaf_half_las_v16     = OclBuiltinImpl<mask_vstoreaf_half_las,      [v16f16], 0, MaskVStoreAFHalf>;
@@ -758,22 +835,33 @@ code MaskVStoreADHalf = [{
     mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTE = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    typedef union { double8 d; long8 ix; } double8_t;
+    double8_t x,j;
+    float16 tmp;
+    x.d = $Arg1VarName;
+    j.ix = x.ix + 0x1fffffff;
+    j.ix &= 0x20000000;
+    x.ix |= j.ix;
+    x.ix &= ~0x1fffffff;  
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rte8(x.d);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTZ = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp;
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtz8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTP = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp;
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtp8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTN = [{
-    float16 tmp; tmp.lo = convert_float8_rtz($Arg1VarName);
+    float16 tmp;
+    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtn8($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
@@ -797,9 +885,41 @@ code VStoreHalfPromote = [{
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
     mask_vstore_half($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
+code VStoreHalfPromoteRTE = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore_half_rte($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreHalfPromoteRTZ = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore_half_rtz($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreHalfPromoteRTN = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore_half_rtn($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreHalfPromoteRTP = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstore_half_rtp($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
 code VStoreAHalfPromote = [{
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
     mask_vstorea_half($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreAHalfPromoteRTE = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstorea_half_rte($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreAHalfPromoteRTZ = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstorea_half_rtz($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreAHalfPromoteRTN = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstorea_half_rtn($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code VStoreAHalfPromoteRTP = [{
+    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
+    mask_vstorea_half_rtp($Mask, n$Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
 code VStoreHalfExpand = [{
     $ExpandLoFunc($Arg0VarName$ExpandLoPattern, 0, $Arg2VarName + ($Arg1VarName * $VecLength));
@@ -808,34 +928,34 @@ code VStoreHalfExpand = [{
 OclBuiltinImpl vstoref_half_gas_promote       = OclBuiltinImpl<vstoref_half_gas,      vstoref_half_gas.Types, 0, VStoreHalfPromote>;
 OclBuiltinImpl vstoref_half_las_promote       = OclBuiltinImpl<vstoref_half_las,      vstoref_half_las.Types, 0, VStoreHalfPromote>;
 OclBuiltinImpl vstoref_half_pas_promote       = OclBuiltinImpl<vstoref_half_pas,      vstoref_half_pas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rte_gas_promote   = OclBuiltinImpl<vstoref_half_rte_gas,  vstoref_half_rte_gas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rte_las_promote   = OclBuiltinImpl<vstoref_half_rte_las,  vstoref_half_rte_las.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rte_pas_promote   = OclBuiltinImpl<vstoref_half_rte_pas,  vstoref_half_rte_pas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtz_gas_promote   = OclBuiltinImpl<vstoref_half_rtz_gas,  vstoref_half_rtz_gas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtz_las_promote   = OclBuiltinImpl<vstoref_half_rtz_las,  vstoref_half_rtz_las.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtz_pas_promote   = OclBuiltinImpl<vstoref_half_rtz_pas,  vstoref_half_rtz_pas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtp_gas_promote   = OclBuiltinImpl<vstoref_half_rtp_gas,  vstoref_half_rtp_gas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtp_las_promote   = OclBuiltinImpl<vstoref_half_rtp_las,  vstoref_half_rtp_las.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtp_pas_promote   = OclBuiltinImpl<vstoref_half_rtp_pas,  vstoref_half_rtp_pas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtn_gas_promote   = OclBuiltinImpl<vstoref_half_rtn_gas,  vstoref_half_rtn_gas.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtn_las_promote   = OclBuiltinImpl<vstoref_half_rtn_las,  vstoref_half_rtn_las.Types, 0, VStoreHalfPromote>;
-OclBuiltinImpl vstoref_half_rtn_pas_promote   = OclBuiltinImpl<vstoref_half_rtn_pas,  vstoref_half_rtn_pas.Types, 0, VStoreHalfPromote>;
+OclBuiltinImpl vstoref_half_rte_gas_promote   = OclBuiltinImpl<vstoref_half_rte_gas,  vstoref_half_rte_gas.Types, 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstoref_half_rte_las_promote   = OclBuiltinImpl<vstoref_half_rte_las,  vstoref_half_rte_las.Types, 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstoref_half_rte_pas_promote   = OclBuiltinImpl<vstoref_half_rte_pas,  vstoref_half_rte_pas.Types, 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstoref_half_rtz_gas_promote   = OclBuiltinImpl<vstoref_half_rtz_gas,  vstoref_half_rtz_gas.Types, 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstoref_half_rtz_las_promote   = OclBuiltinImpl<vstoref_half_rtz_las,  vstoref_half_rtz_las.Types, 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstoref_half_rtz_pas_promote   = OclBuiltinImpl<vstoref_half_rtz_pas,  vstoref_half_rtz_pas.Types, 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstoref_half_rtp_gas_promote   = OclBuiltinImpl<vstoref_half_rtp_gas,  vstoref_half_rtp_gas.Types, 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstoref_half_rtp_las_promote   = OclBuiltinImpl<vstoref_half_rtp_las,  vstoref_half_rtp_las.Types, 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstoref_half_rtp_pas_promote   = OclBuiltinImpl<vstoref_half_rtp_pas,  vstoref_half_rtp_pas.Types, 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstoref_half_rtn_gas_promote   = OclBuiltinImpl<vstoref_half_rtn_gas,  vstoref_half_rtn_gas.Types, 0, VStoreHalfPromoteRTN>;
+OclBuiltinImpl vstoref_half_rtn_las_promote   = OclBuiltinImpl<vstoref_half_rtn_las,  vstoref_half_rtn_las.Types, 0, VStoreHalfPromoteRTN>;
+OclBuiltinImpl vstoref_half_rtn_pas_promote   = OclBuiltinImpl<vstoref_half_rtn_pas,  vstoref_half_rtn_pas.Types, 0, VStoreHalfPromoteRTN>;
 
 OclBuiltinImpl vstored_half_gas_promote       = OclBuiltinImpl<vstored_half_gas,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
 OclBuiltinImpl vstored_half_las_promote       = OclBuiltinImpl<vstored_half_las,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
 OclBuiltinImpl vstored_half_pas_promote       = OclBuiltinImpl<vstored_half_pas,      [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rte_gas_promote   = OclBuiltinImpl<vstored_half_rte_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rte_las_promote   = OclBuiltinImpl<vstored_half_rte_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rte_pas_promote   = OclBuiltinImpl<vstored_half_rte_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtz_gas_promote   = OclBuiltinImpl<vstored_half_rtz_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtz_las_promote   = OclBuiltinImpl<vstored_half_rtz_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtz_pas_promote   = OclBuiltinImpl<vstored_half_rtz_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtp_gas_promote   = OclBuiltinImpl<vstored_half_rtp_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtp_las_promote   = OclBuiltinImpl<vstored_half_rtp_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtp_pas_promote   = OclBuiltinImpl<vstored_half_rtp_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtn_gas_promote   = OclBuiltinImpl<vstored_half_rtn_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtn_las_promote   = OclBuiltinImpl<vstored_half_rtn_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
-OclBuiltinImpl vstored_half_rtn_pas_promote   = OclBuiltinImpl<vstored_half_rtn_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromote>;
+OclBuiltinImpl vstored_half_rte_gas_promote   = OclBuiltinImpl<vstored_half_rte_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstored_half_rte_las_promote   = OclBuiltinImpl<vstored_half_rte_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstored_half_rte_pas_promote   = OclBuiltinImpl<vstored_half_rte_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTE>;
+OclBuiltinImpl vstored_half_rtz_gas_promote   = OclBuiltinImpl<vstored_half_rtz_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstored_half_rtz_las_promote   = OclBuiltinImpl<vstored_half_rtz_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstored_half_rtz_pas_promote   = OclBuiltinImpl<vstored_half_rtz_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTZ>;
+OclBuiltinImpl vstored_half_rtp_gas_promote   = OclBuiltinImpl<vstored_half_rtp_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstored_half_rtp_las_promote   = OclBuiltinImpl<vstored_half_rtp_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstored_half_rtp_pas_promote   = OclBuiltinImpl<vstored_half_rtp_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTP>;
+OclBuiltinImpl vstored_half_rtn_gas_promote   = OclBuiltinImpl<vstored_half_rtn_gas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTN>;
+OclBuiltinImpl vstored_half_rtn_las_promote   = OclBuiltinImpl<vstored_half_rtn_las,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTN>;
+OclBuiltinImpl vstored_half_rtn_pas_promote   = OclBuiltinImpl<vstored_half_rtn_pas,  [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreHalfPromoteRTN>;
 
 OclBuiltinImpl vstored_half_gas_expand        = OclBuiltinImpl<vstored_half_gas,      [v16f16], 0, VStoreHalfExpand>;
 OclBuiltinImpl vstored_half_las_expand        = OclBuiltinImpl<vstored_half_las,      [v16f16], 0, VStoreHalfExpand>;
@@ -856,34 +976,34 @@ OclBuiltinImpl vstored_half_rtn_pas_expand    = OclBuiltinImpl<vstored_half_rtn_
 OclBuiltinImpl vstoreaf_half_gas_promote      = OclBuiltinImpl<vstoreaf_half_gas,     vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
 OclBuiltinImpl vstoreaf_half_las_promote      = OclBuiltinImpl<vstoreaf_half_las,     vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
 OclBuiltinImpl vstoreaf_half_pas_promote      = OclBuiltinImpl<vstoreaf_half_pas,     vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rte_gas_promote  = OclBuiltinImpl<vstoreaf_half_rte_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rte_las_promote  = OclBuiltinImpl<vstoreaf_half_rte_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rte_pas_promote  = OclBuiltinImpl<vstoreaf_half_rte_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtz_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtz_las_promote  = OclBuiltinImpl<vstoreaf_half_rtz_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtz_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtp_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtp_las_promote  = OclBuiltinImpl<vstoreaf_half_rtp_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtp_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtn_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtn_las_promote  = OclBuiltinImpl<vstoreaf_half_rtn_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoreaf_half_rtn_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoreaf_half_rte_gas_promote  = OclBuiltinImpl<vstoreaf_half_rte_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoreaf_half_rte_las_promote  = OclBuiltinImpl<vstoreaf_half_rte_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoreaf_half_rte_pas_promote  = OclBuiltinImpl<vstoreaf_half_rte_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoreaf_half_rtz_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoreaf_half_rtz_las_promote  = OclBuiltinImpl<vstoreaf_half_rtz_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoreaf_half_rtz_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtz_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoreaf_half_rtp_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoreaf_half_rtp_las_promote  = OclBuiltinImpl<vstoreaf_half_rtp_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoreaf_half_rtp_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtp_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoreaf_half_rtn_gas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_gas, vstoreaf_half_gas.Types, 0, VStoreAHalfPromoteRTN>;
+OclBuiltinImpl vstoreaf_half_rtn_las_promote  = OclBuiltinImpl<vstoreaf_half_rtn_las, vstoreaf_half_las.Types, 0, VStoreAHalfPromoteRTN>;
+OclBuiltinImpl vstoreaf_half_rtn_pas_promote  = OclBuiltinImpl<vstoreaf_half_rtn_pas, vstoreaf_half_pas.Types, 0, VStoreAHalfPromoteRTN>;
 
 OclBuiltinImpl vstoread_half_gas_promote      = OclBuiltinImpl<vstoread_half_gas,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
 OclBuiltinImpl vstoread_half_las_promote      = OclBuiltinImpl<vstoread_half_las,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
 OclBuiltinImpl vstoread_half_pas_promote      = OclBuiltinImpl<vstoread_half_pas,     [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rte_gas_promote  = OclBuiltinImpl<vstoread_half_rte_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rte_las_promote  = OclBuiltinImpl<vstoread_half_rte_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rte_pas_promote  = OclBuiltinImpl<vstoread_half_rte_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtz_gas_promote  = OclBuiltinImpl<vstoread_half_rtz_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtz_las_promote  = OclBuiltinImpl<vstoread_half_rtz_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtz_pas_promote  = OclBuiltinImpl<vstoread_half_rtz_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtp_gas_promote  = OclBuiltinImpl<vstoread_half_rtp_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtp_las_promote  = OclBuiltinImpl<vstoread_half_rtp_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtp_pas_promote  = OclBuiltinImpl<vstoread_half_rtp_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtn_gas_promote  = OclBuiltinImpl<vstoread_half_rtn_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtn_las_promote  = OclBuiltinImpl<vstoread_half_rtn_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
-OclBuiltinImpl vstoread_half_rtn_pas_promote  = OclBuiltinImpl<vstoread_half_rtn_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromote>;
+OclBuiltinImpl vstoread_half_rte_gas_promote  = OclBuiltinImpl<vstoread_half_rte_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoread_half_rte_las_promote  = OclBuiltinImpl<vstoread_half_rte_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoread_half_rte_pas_promote  = OclBuiltinImpl<vstoread_half_rte_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTE>;
+OclBuiltinImpl vstoread_half_rtz_gas_promote  = OclBuiltinImpl<vstoread_half_rtz_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoread_half_rtz_las_promote  = OclBuiltinImpl<vstoread_half_rtz_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoread_half_rtz_pas_promote  = OclBuiltinImpl<vstoread_half_rtz_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTZ>;
+OclBuiltinImpl vstoread_half_rtp_gas_promote  = OclBuiltinImpl<vstoread_half_rtp_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoread_half_rtp_las_promote  = OclBuiltinImpl<vstoread_half_rtp_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoread_half_rtp_pas_promote  = OclBuiltinImpl<vstoread_half_rtp_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTP>;
+OclBuiltinImpl vstoread_half_rtn_gas_promote  = OclBuiltinImpl<vstoread_half_rtn_gas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTN>;
+OclBuiltinImpl vstoread_half_rtn_las_promote  = OclBuiltinImpl<vstoread_half_rtn_las, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTN>;
+OclBuiltinImpl vstoread_half_rtn_pas_promote  = OclBuiltinImpl<vstoread_half_rtn_pas, [v1f16, v2f16, v3f16, v4f16, v8f16], 0, VStoreAHalfPromoteRTN>;
 
 OclBuiltinImpl vstoread_half_gas_expand       = OclBuiltinImpl<vstoread_half_gas,     [v16f16], 0, VStoreHalfExpand>;
 OclBuiltinImpl vstoread_half_las_expand       = OclBuiltinImpl<vstoread_half_las,     [v16f16], 0, VStoreHalfExpand>;
