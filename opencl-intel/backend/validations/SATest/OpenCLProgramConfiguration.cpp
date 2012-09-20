@@ -285,6 +285,11 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
         value >> m_useVectorizer;
     }
 
+    else if( element.ValueStr() == "InjectObject" )
+    {
+        m_injectedObjectPath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+    }
+
     return true;
 }
 } // namespace Validation

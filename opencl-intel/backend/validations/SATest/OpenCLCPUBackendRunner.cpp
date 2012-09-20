@@ -364,7 +364,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         programHolder.setProgram( CreateProgram(pOCLProgram, spCompileService.get()) );
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
-        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig);
+        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig, pOCLProgramConfig);
     }
 
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() )

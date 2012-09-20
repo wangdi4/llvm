@@ -72,7 +72,7 @@ protected:
                              llvm::Module* pModule, 
                              ProgramBuildResult& buildResult) const;
 
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const { }
+    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
 
 private:
 

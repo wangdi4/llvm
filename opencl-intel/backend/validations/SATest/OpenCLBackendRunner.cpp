@@ -32,6 +32,10 @@ File Name:  OpenCLBackendRunner.cpp
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 
+#include <llvm/ADT/OwningPtr.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/FileSystem.h>
+
 #include <cstdio>
 #include <cassert>
 #include <vector>
@@ -86,13 +90,30 @@ ICLDevBackendProgram_* OpenCLBackendRunner::CreateProgram(const OpenCLProgram * 
 void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
                                        /*const*/ ICLDevBackendCompilationService* pCompileService,
                                        IRunResult * runResult,
-                                       const BERunOptions* runConfig)
+                                       const BERunOptions* runConfig,
+                                       const IProgramConfiguration* pProgramConfig)
 {
     Sample buildTime;
 
     buildTime.Start();
     DEBUG(llvm::dbgs() << "Build program started.\n");
-    cl_int ret = pCompileService->BuildProgram(pProgram, NULL);
+    BuildProgramOptions buildProgramOptions;
+
+    std::string injectedObjectPath = static_cast<const OpenCLProgramConfiguration*>(pProgramConfig)->GetInjectedObjectPath();
+    llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
+
+    // Try to load the injected object file if specified
+    if (injectedObjectPath != "")
+    {
+        llvm::MemoryBuffer::getFile(injectedObjectPath, injectedObject);
+        if (!injectedObject)
+        {
+            throw Exception::TestRunnerException("Loading the specified object file \"" + injectedObjectPath + "\" has failed.\n");
+        }
+        buildProgramOptions.SetInjectedObject(injectedObject->getBufferStart(), injectedObject->getBufferSize());
+    }
+
+    cl_int ret = pCompileService->BuildProgram(pProgram, &buildProgramOptions);
     DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 

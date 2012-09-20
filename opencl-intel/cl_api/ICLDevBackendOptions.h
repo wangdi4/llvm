@@ -6,22 +6,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /*! \enum cl_dev_backend_options
  * Defines possible values of the backend options
  */
-enum cl_dev_backend_options                // Description                           | Type        | Values/Format/Exampl 
-{                                          // --------------------------------------+-------------+----------------------
-	CL_DEV_BACKEND_OPTION_DEVICE,          //!< Device selection                    |string       | "mic","cpu"                     
-    CL_DEV_BACKEND_OPTION_SUBDEVICE,       //!< Sub-device selection                |string       | "corei7","sandybride" for cpu or "knc" for mic
-    CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,    //!< Enable/Disable specific CPU features|string       | "+avx,-avx256"       
-    CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,  //!< Transpose size use in vectorizer    |ETranposeSize|                      
-    CL_DEV_BACKEND_OPTION_USE_VTUNE,       //!< VTune support                       |boolean      |                      
-    CL_DEV_BACKEND_OPTION_LOGGER_CALLBACK, //!< Pointer to the logger callback      |pointer      |  
-    CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR,   //!< Pointer to the JIT mem. allocator   |pointer      | (Used in serialization)
-    CL_DEV_BACKEND_OPTION_DUMP_IR_DIR,     //!< Directory for dumping the IR files  |string       |
-    CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB, //!< Target Description Blob             |buffer       |
-    CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE, //!< Target Description Blob Size        |int          |
-    CL_DEV_BACKEND_OPTION_TIME_PASSES,      //!< Filename for dumping time passes    |string       |
-    CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP,//!< Disables stack dump on crash        |boolean      |
-    CL_DEV_BACKEND_OPTION_BUFFER_PRINTER,   //!< Pointer to the Buffer Printer       |pointer      | (Used for ocl_printf)
-    CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR //!< Print IR input to heuristic         |boolean      |
+enum cl_dev_backend_options                     // Description                           | Type        | Values/Format/Exampl
+{                                               // --------------------------------------+-------------+----------------------
+	CL_DEV_BACKEND_OPTION_DEVICE,               //!< Device selection                    |string       | "mic","cpu"
+    CL_DEV_BACKEND_OPTION_SUBDEVICE,            //!< Sub-device selection                |string       | "corei7","sandybride" for cpu or "knc" for mic
+    CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,   //!< Enable/Disable specific CPU features|string       | "+avx,-avx256"
+    CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,       //!< Transpose size use in vectorizer    |ETranposeSize|
+    CL_DEV_BACKEND_OPTION_USE_VTUNE,            //!< VTune support                       |boolean      |
+    CL_DEV_BACKEND_OPTION_LOGGER_CALLBACK,      //!< Pointer to the logger callback      |pointer      |
+    CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR,        //!< Pointer to the JIT mem. allocator   |pointer      | (Used in serialization)
+    CL_DEV_BACKEND_OPTION_DUMP_IR_DIR,          //!< Directory for dumping the IR files  |string       |
+    CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB,     //!< Target Description Blob             |buffer       |
+    CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE,     //!< Target Description Blob Size        |int          |
+    CL_DEV_BACKEND_OPTION_TIME_PASSES,          //!< Filename for dumping time passes    |string       |
+    CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP,    //!< Disables stack dump on crash        |boolean      |
+    CL_DEV_BACKEND_OPTION_BUFFER_PRINTER,       //!< Pointer to the Buffer Printer       |pointer      | (Used for ocl_printf)
+    CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR,    //!< Print IR input to heuristic         |boolean      |
+    CL_DEV_BACKEND_OPTION_INJECTED_OBJECT       //!< Pointer to preloaded object file    |pointer      |
 };
 
 /*! \enum cl_dev_backend_dump_options

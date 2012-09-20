@@ -19,6 +19,7 @@ File Name:  auto_ptr_ex.h
 #define AUTO_PTR_EX_H
 
 #include <memory>
+#include <assert.h>
 
 namespace Validation {
 

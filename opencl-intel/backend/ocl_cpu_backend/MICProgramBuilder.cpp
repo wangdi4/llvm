@@ -211,7 +211,7 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
     pKernel->AddKernelJIT( pJIT );
 }
 
-void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const
+void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
     assert(spModule && "Invalid module for post optimization processing.");
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 

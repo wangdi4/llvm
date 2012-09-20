@@ -51,14 +51,6 @@ class Compiler;
 struct TLLVMKernelInfo;
 
 //*****************************************************************************************
-// Represent the buid specific options passed to the compiler upon BuildProgram call
-// 
-class ProgramBuilderBuildOptions
-{
-};
-
-
-//*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
 // 
 class ProgramBuilder
@@ -74,14 +66,14 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions);
+    cl_dev_err_code BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions);
 
 protected:
 
     virtual Compiler* GetCompiler() = 0;
     virtual const Compiler* GetCompiler() const = 0;
 
-    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule) const = 0;
+    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const = 0;
 
     virtual KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule, 

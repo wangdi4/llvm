@@ -238,6 +238,12 @@ namespace Validation
             return m_compilationFlags;
         }
 
+        /// @brief Returns the injected object file path
+        std::string GetInjectedObjectPath() const
+        {
+            return m_injectedObjectPath;
+        }
+
         /// @brief Returns indicator whether to use vectorizer
         /// @return True if vectorizer should be used, false otherwise.
         bool GetUseVectorizer() const
@@ -308,6 +314,9 @@ namespace Validation
         
         //compilation options
         std::string m_compilationFlags;
+
+        // Injected object file path
+        std::string m_injectedObjectPath;
 
         // program configuration file format
         enum PROGRAM_CONFIG_FILE_FORMAT {

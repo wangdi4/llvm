@@ -101,8 +101,8 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
         }
 
         llvm::MutexGuard lock(m_buildLock);
-        //TODO: build the CompilerBuildOptions from the supplied pOptions
-        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), NULL);
+
+        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {

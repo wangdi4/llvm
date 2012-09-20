@@ -19,6 +19,7 @@ File Name:  StaticObjectLoader.h
 
 
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -77,6 +78,13 @@ public:
         ReadObject(ObjectFilePath));
       StaticObjects.insert(std::make_pair(M, StaticObject.take()));
     }
+  }
+
+  /// AddPreCompiled - Adds a mapping between a module and a preloaded object
+  /// file.
+  virtual void AddPreCompiled(const llvm::Module* M,
+                              const llvm::MemoryBuffer* MemBuff) {
+    StaticObjects.insert(std::make_pair(M, MemBuff));
   }
 
   virtual void NotifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*) {

@@ -496,7 +496,59 @@ private:
     std::string m_fileName;
 };
 
-}
+/**
+ * Options used during program building
+ */
+class BuildProgramOptions: public ICLDevBackendOptions
+{
+public:
+    BuildProgramOptions() : m_pInjectedObjectStart(NULL) {}
+
+    void SetInjectedObject(const char* pInjectedObjectStart, size_t injectedObjectSize)
+    {
+        m_pInjectedObjectStart = pInjectedObjectStart;
+        m_injectedObjectSize   = injectedObjectSize;
+    }
+
+    const char* GetStringValue(int optionId, const char* defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    bool GetBooleanValue(int optionId, bool defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    int GetIntValue( int optionId, int defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    bool GetValue(int optionId, void* Value, size_t* pSize) const
+    {
+        if (Value == NULL)
+        {
+            throw Exception::InvalidArgument("Value is not initialized");
+        }
+
+        switch(optionId)
+        {
+            case CL_DEV_BACKEND_OPTION_INJECTED_OBJECT:
+                *(static_cast<const char* *>(Value)) = m_pInjectedObjectStart;
+                *pSize = m_injectedObjectSize;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+private:
+    const char*  m_pInjectedObjectStart;
+    size_t       m_injectedObjectSize;
+};
+
+} // namespace Validation
 
 #endif // BACKEND_OPTIONS_H
 

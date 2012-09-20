@@ -74,8 +74,9 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
     assert((runConfig != NULL) && "Run Configuration is not initialized");
     assert((runResult != NULL) && "Run Result is not initialized");
 
-    const BERunOptions         *pOCLRunConfig     = static_cast<const BERunOptions *>(runConfig);
-    const OpenCLProgram        *pOCLProgram       = static_cast<const OpenCLProgram *>(program);
+    const BERunOptions               *pOCLRunConfig     = static_cast<const BERunOptions *>(runConfig);
+    const OpenCLProgram              *pOCLProgram       = static_cast<const OpenCLProgram *>(program);
+    const OpenCLProgramConfiguration *pOCLProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
 
     MICBackendOptions options;
     options.InitFromRunConfiguration(*pOCLRunConfig);
@@ -103,7 +104,7 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
         programHolder.setProgram( CreateProgram(pOCLProgram, spCompileService.get()) );
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
-        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig);
+        BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig, pOCLProgramConfig);
     }
 
     /////////////// Dump optimized LLVM IR if required ////////////////
@@ -127,8 +128,6 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
     // 1. Test program
     // 2. Configurations: program configurations and run configurations
     // 3. Kernel arguments
-
-    const OpenCLProgramConfiguration *pOCLProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
 
     ICLDevBackendSerializationServicePtr spSerializationService(NULL);
     ret = m_pServiceFactory->GetSerializationService(&options, spSerializationService.getOutPtr());

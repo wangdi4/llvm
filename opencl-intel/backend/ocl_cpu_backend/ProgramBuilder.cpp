@@ -84,7 +84,7 @@ ProgramBuilder::~ProgramBuilder()
 {
 }
 
-cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBuilderBuildOptions* pOptions)
+cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be NULL");
     ProgramBuildResult buildResult;
@@ -106,7 +106,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ProgramBui
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
 
-        PostOptimizationProcessing(pProgram, spModule.get());
+        PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 
         //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
         KernelSet* pKernels = CreateKernels( pProgram,

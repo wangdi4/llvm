@@ -30,10 +30,12 @@ File Name:  CPUProgramBuilder.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
+#include "StaticObjectLoader.h"
 #include "plugin_manager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
@@ -235,5 +237,27 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
     pKernel->AddKernelJIT( pJIT );
 }
 
+void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
+{
+    char*  pInjectedObjStart = NULL;
+    size_t injectedObjSize;
 
+    // Check if we are going to do injection
+    if (pOptions
+        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
+        && pInjectedObjStart != NULL)
+    {
+        std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
+        // Build the MemoryBuffer object from the supplied options
+        std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
+            llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize)) );
+
+        pObjectLoader->AddPreCompiled(spModule, pInjectedObj.release());
+        // Add the injected object to the execution engine cache
+        CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
+        pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
+    }
+
+
+}
 }}} // namespace

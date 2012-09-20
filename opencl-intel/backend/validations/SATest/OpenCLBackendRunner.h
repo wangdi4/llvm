@@ -76,10 +76,12 @@ namespace Validation
         /// @param [IN]pCompileServie - compilation service to use
         /// @param [OUT] runResult This method updates runResult build time
         /// @param [OUT] runConfig run time configuration to use
+        /// @param [IN] pProgramConfig - program configuration to use
         void BuildProgram( ICLDevBackendProgram_* program, 
                            /*const*/ ICLDevBackendCompilationService* pCompileService,
                            IRunResult * runResult, 
-                           const BERunOptions* runConfig);
+                           const BERunOptions* runConfig,
+                           const IProgramConfiguration* pProgramConfig);
 
         /// @brief Fills list of marks which arguments to ignore in comparator.
         /// @param [OUT] ignoreList The list of marks which arguments to ignore in comparator.
