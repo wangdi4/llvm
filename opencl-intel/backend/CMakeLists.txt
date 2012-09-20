@@ -45,6 +45,18 @@ if (NOT WIN32)
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
         add_definitions( ${WARNING_LEVEL} )
     endif (APPLE)
+    
+    # Assembler setup - use private rules
+    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
+    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
+    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
+    if (CVCC_ASM_PATH)
+        set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
+    else(CVCC_ASM_PATH)
+        message(STATUS "Using system assembler, check that its version is 4.3.x")
+        set( CMAKE_ASM_COMPILER        as )
+    endif(CVCC_ASM_PATH)    
+    
 endif (NOT WIN32)
 
 
@@ -125,7 +137,7 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
             add_custom_command(OUTPUT ${OBJ_FILE}
                                COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                                COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                                       ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
+                                                             ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
                                                              ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
                                                              ${OBJ_OUTPUT_NAME_FLAG}
                                                              ${SRC_FILE}

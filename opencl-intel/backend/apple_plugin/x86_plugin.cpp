@@ -62,6 +62,8 @@
 #include "x86_cvms.h"
 #include <cvms/plugin.h>
 
+#include "TargetArch.h"
+#include "CPUDetect.h"
 #include "Optimizer.h"
 #include "VolcanoWrapper/VecConfig.h"
 
@@ -309,66 +311,6 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   CFRelease(kfstr);
   CFRelease(arrayref);
   return 0;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Intel AutoVectorizer Interface
-////////////////////////////////////////////////////////////////////////////////
-static void *intel_dylib;
-
-static Pass *cld_autovec_create(const Module *CLM, unsigned vw) {
-  if (!intel_dylib)
-    intel_dylib = dlopen("/System/Library/Frameworks/OpenCL.framework"
-                         "/Versions/A/Libraries/Vectorizer.dylib", RTLD_LAZY);
-
-  if (!intel_dylib)
-    return 0;
-  
-  Pass *(*createPass)(const Module *CLM, unsigned vectorWidth);
-  createPass = (typeof(createPass))dlsym(intel_dylib, "createVectorizerPass");
-  if (!createPass)
-    return 0;
-
-  return createPass(CLM, vw);
-}
-
-static void cld_autovec_getinfo(Pass *P, SmallVectorImpl<std::string> &VFuncs,
-                                SmallVectorImpl<int> &MaxWidths, unsigned n) {
-  if (!intel_dylib)
-    return;
-  
-  int (*getVecFns)(Pass *P, SmallVectorImpl<Function*>&);
-  int (*getVecSzs)(Pass *P, SmallVectorImpl<int>&);
-  
-  getVecFns = (typeof(getVecFns))dlsym(intel_dylib, "getVectorizerFunctions");
-  getVecSzs = (typeof(getVecSzs))dlsym(intel_dylib, "getVectorizerWidths");
-  
-  if (!getVecFns || !getVecSzs)
-    return;
-
-  // Ask for the vector of Function*'s that correspond to the vectorized version
-  // of each kernel in the global annotation structure.  Will be nonzero if 
-  // a vectorized variant exists.
-  SmallVector<Function *, 8> Fns;
-  getVecFns(P, Fns);
-  
-  // Ask for the vector width the vectorized version of each kernel in the
-  // global annotation structure.  Will be nonzero if a vectorized variant
-  // exists.
-  getVecSzs(P, MaxWidths);
-  
-  // For now, map the Function * to std::string names, so that we can extract
-  // them after linking, since the vectorizer is run pre-link.
-  assert(Fns.size() == n && 
-         "getVectorizerFunctions returned wrong number of Functions!");
-  assert(MaxWidths.size() == n && 
-         "getVectorizerWidths returned wrong number of integers!");
-  for (unsigned i = 0; i != n; ++i) {
-    if (Fns[i])
-      VFuncs.push_back(Fns[i]->getNameStr());
-    else
-      VFuncs.push_back("");
-  }
 }
 
 static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
@@ -631,95 +573,6 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
 }
                           
 
-/// cld_plugin_createwrappers - For each kernel and vectorized kernel:
-/// 1. create a wrapper with external linkage.
-/// 2. fix up any __local arguments to the kernel.
-/// 3. add the wrapper to the export list for the module.
-static 
-int cld_plugin_createwrappers(Module *M, ConstantArray *init,
-                              SmallVectorImpl<std::string> &WrapperNames,
-                              SmallVectorImpl<std::string> &AVNames,
-                              SmallVectorImpl<int> &AVWidthsMax,
-                              CFDictionaryRef *info, bool debug) {
-  // Create the info dictionary which will store CFString program names as
-  // the keys, and CFArrays of CFNumbers for the size|flags fields.
-  CFMutableDictionaryRef d;
-  d = CFDictionaryCreateMutable(NULL, init->getType()->getNumElements(),
-                                &kCFTypeDictionaryKeyCallBacks,
-                                &kCFTypeDictionaryValueCallBacks);
-  if (!d)
-    return -1;
-  
-  // Create the TargetData structure from the Module's arch info.
-  TargetData TD(M);
-  
-  // LLVM uses i8 * rather than void *.
-  LLVMContext &CTX = M->getContext();
-  Type *VoidTy = Type::getVoidTy(CTX);
-  Type *SBPTy = PointerType::getUnqual(Type::getInt8Ty(CTX));
-  Type *SBPPTy = PointerType::getUnqual(SBPTy);
-  Type *SizeTy = IntegerType::get(CTX, TD.getPointerSizeInBits());
-  Type *SizePTy = PointerType::getUnqual(SizeTy);
-  
-  std::vector<Type *> Tys;
-
-  Tys.push_back(SBPPTy);  // args_list
-  Tys.push_back(SizePTy); // gtid
-  Tys.push_back(SizeTy);  // xend
-  Tys.push_back(SizeTy);  // stride
-  FunctionType *wTy = FunctionType::get(VoidTy, Tys, false);
-
-  
-  // Iterate the constant array which tracks the kernel functions in a module
-  // and generate a wrapper for each.
-  for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
-    ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-
-    Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
-
-    Value *field3 = elt->getOperand(3)->stripPointerCasts();
-    GlobalVariable *lgv = dyn_cast<GlobalVariable>(field3);
-    ConstantArray *lgva = NULL;
-    if (lgv)
-      lgva = dyn_cast<ConstantArray>(lgv->getInitializer());
-
-    Function *wf = NULL;
-    unsigned vmax = 1;
-    if (!AVWidthsMax.empty() && AVWidthsMax[i] > 0) {
-      // Use vectorized version
-      Function *vf = M->getFunction(AVNames[i]);
-      wf = cld_genwrapper(M, TD, vf, wTy, lgva, debug, true);
-      vmax = AVWidthsMax[i];
-    } else {
-      // Only scalar version exists.
-      wf = cld_genwrapper(M, TD, kf, wTy, lgva, debug, false);
-    }
-    WrapperNames.push_back(wf->getNameStr());
-
-    // This is a function, pull out the arg info string.
-    Value *field1 = elt->getOperand(1)->stripPointerCasts();
-    GlobalVariable *sgv = cast<GlobalVariable>(field1);
-    
-    // Get the description of the arguments that the front end generated, so
-    // that we can put the read and write information for images in the arg
-    // description structure.
-    std::string args_desc;
-    if (ConstantArray *f1arr = dyn_cast<ConstantArray>(sgv->getInitializer()))
-      if (f1arr->isString())
-        args_desc = f1arr->getAsString();
-
-    // Nuke LGV, which has uses of the kernel functions,  so it doesn't 
-    // interfere with removing them later.
-    if (lgv)
-      lgv->replaceAllUsesWith(UndefValue::get(lgv->getType()));
-
-    alloc_kernel_info(d, TD, kf, args_desc, wf->getName(), vmax);
-  }
-
-  // Return the info dictionary.
-  *info = d;
-  return 0;
-}
 
 
 // HeaderStruct used internally to pass header information.
@@ -1200,68 +1053,68 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 
 unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
 {
-  unsigned int  cpuFeatures = CFS_SSE2;
+  unsigned int  cpuFeatures = Intel::CFS_SSE2;
 
   // Add standard features
   if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
   {
-    cpuFeatures |= CFS_SSE41 | CFS_SSE42;
+    cpuFeatures |= Intel::CFS_SSE41 | Intel::CFS_SSE42;
   }
 
   if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
   {
-    cpuFeatures |= CFS_AVX1;
+    cpuFeatures |= Intel::CFS_AVX1;
   }
 
   if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core-avx2"))
   {
-    cpuFeatures |= CFS_AVX1;
-    cpuFeatures |= CFS_AVX2;
+    cpuFeatures |= Intel::CFS_AVX1;
+    cpuFeatures |= Intel::CFS_AVX2;
     //cpuFeatures |= CFS_FMA;
   }
 
   // Add forced features
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+sse41" ) != forcedFeatures.end())
   {
-    cpuFeatures |= CFS_SSE41;
+    cpuFeatures |= Intel::CFS_SSE41;
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx2" ) != forcedFeatures.end())
   {
-    cpuFeatures |= CFS_AVX2;
-    cpuFeatures |= CFS_AVX1;
+    cpuFeatures |= Intel::CFS_AVX2;
+    cpuFeatures |= Intel::CFS_AVX1;
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+fma3" ) != forcedFeatures.end())
   {
-    cpuFeatures |= CFS_FMA;
+    cpuFeatures |= Intel::CFS_FMA;
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx" ) != forcedFeatures.end())
   {
-    cpuFeatures |= CFS_AVX1;
+    cpuFeatures |= Intel::CFS_AVX1;
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~(CFS_SSE41 | CFS_SSE42);
+    cpuFeatures &= ~(Intel::CFS_SSE41 | Intel::CFS_SSE42);
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx2" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~CFS_AVX2;
-    cpuFeatures &= ~CFS_FMA;
+    cpuFeatures &= ~Intel::CFS_AVX2;
+    cpuFeatures &= ~Intel::CFS_FMA;
   }
 
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~CFS_AVX1;
-    cpuFeatures &= ~CFS_AVX2;
-    cpuFeatures &= ~CFS_FMA;
+    cpuFeatures &= ~Intel::CFS_AVX1;
+    cpuFeatures &= ~Intel::CFS_AVX2;
+    cpuFeatures &= ~Intel::CFS_FMA;
   }
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma3" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~CFS_FMA;
+    cpuFeatures &= ~Intel::CFS_FMA;
   }
 
   return cpuFeatures;
@@ -1270,7 +1123,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 
 Intel::CPUId selectCPU()
 {
-  Intel::ECPU selectedCpuId = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPU();
+  Intel::ECPU selectedCpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUId().GetCPU();
   std::vector< std::string > forcedCpuFeatures;
 
   if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
@@ -1283,7 +1136,7 @@ Intel::CPUId selectCPU()
   }
 
   unsigned int selectedCpuFeatures = SelectCpuFeatures( selectedCpuId, forcedCpuFeatures );
-  m_CpuId = CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
+  return Intel::CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
 }
 
 /// cvmsPluginElementBuild - Plugin interface to CVMS invoked when CVMS has been
@@ -1304,15 +1157,15 @@ Intel::CPUId selectCPU()
 ///      This occurs when none of the above conditions are met. 
 cvms_private_service_t *cvmsPluginServiceInitialize(cvms_plugin_service_t service)
 {
-  CPUPluginPrivateData privateData = new CPUPluginPrivateData()
-  privateData->m_cpuId = selectCPU();
+  CPUPluginPrivateData* privateData = new CPUPluginPrivateData();
+  privateData->cpuId = selectCPU();
   return (cvms_private_service_t *)privateData;
 }
 
 void cvmsPluginServiceTerminate(cvms_plugin_service_t service)
 {
-  if( service.private_service )
-    delete service.private_service;
+  if( service->private_service )
+    delete (CPUPluginPrivateData*)service->private_service;
 }
 
 cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)

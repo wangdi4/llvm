@@ -13,7 +13,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/vectorizer/VolcanoWrapper
+    ${BACKEND_ROOT_DIR}/vectorizer
 )
 
 link_directories( "/Users/opencl/Documents/work/llvm/lib")
