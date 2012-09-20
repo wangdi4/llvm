@@ -47,18 +47,17 @@ namespace OCLBuiltins {
 
         for( uint32_t i=0; i<n; i++) {
             unsigned j = (unsigned)getVal<T2,n>(arg1, i);
-            getRef<T1,n>(R, i) = getVal<T1,n>(arg0, j);
+            getRef<T1,n>(R, i) = getRef<T1,n>(arg0, j);
         }
 
         return R;
     }
 
-
     template<typename T1, typename T2, int n>
     llvm::GenericValue lle_X_shuffle2(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
-        llvm::GenericValue R;        
+        llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];
         llvm::GenericValue arg2 = Args[2];
@@ -68,10 +67,10 @@ namespace OCLBuiltins {
         for( uint32_t i=0; i<n; i++) {
             unsigned j = (unsigned)getVal<T2,n>(arg2, i);
             if(j < arg0.AggregateVal.size()) {
-                getRef<T1,n>(R, i) = getVal<T1,n>(arg0, j);
+                getRef<T1,n>(R, i) = getRef<T1,n>(arg0, j);
             } else {
                 if(j < arg0.AggregateVal.size() + arg1.AggregateVal.size()) {
-                    getRef<T1,n>(R, i) = getVal<T1,n>(arg1,j-arg0.AggregateVal.size());
+                    getRef<T1,n>(R, i) = getRef<T1,n>(arg1,j-arg0.AggregateVal.size());
                 } else {
                     throw Exception::InvalidArgument("lle_X_shuffle2: Wrong element selector value ");
                 }
