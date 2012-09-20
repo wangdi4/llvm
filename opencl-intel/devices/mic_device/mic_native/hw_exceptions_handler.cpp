@@ -29,18 +29,17 @@
 
 #include "native_common_macros.h"
 #include "hw_exceptions_handler.h"
-#include "mic_device_interface.h"
 #include <pthread.h>
 #include <stdexcept> 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <execinfo.h>
+#include "native_globals.h"
 
 using namespace Intel::OpenCL::MICDevice;
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
-	extern mic_exec_env_options gMicExecEnvOptions;
 
 using namespace Intel::OpenCL::UtilsNative;
 

@@ -30,6 +30,7 @@
 #include "native_common_macros.h"
 #include "thread_local_storage.h"
 #include <cl_dev_backend_api.h>
+#include "native_globals.h"
 
 #include "mic_tracer.h"
 
@@ -44,10 +45,6 @@
 
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::DeviceBackend;
-
-namespace Intel { namespace OpenCL { namespace MICDeviceNative {
-	extern mic_exec_env_options gMicExecEnvOptions;
-}}};
 
 // init singleton
 ProgramService* ProgramService::m_gProgramService = NULL;

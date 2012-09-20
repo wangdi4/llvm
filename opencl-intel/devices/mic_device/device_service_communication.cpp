@@ -311,7 +311,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         mic_device_options.trap_workers             = pDevServiceComm->m_config->Device_TbbTrapWorkers();
 
         string tbb_scheduler = pDevServiceComm->m_config->Device_TbbScheduler();
-        
+     
         if (tbb_scheduler == "affinity")
         {
             mic_device_options.tbb_scheduler = mic_TBB_affinity;
@@ -323,6 +323,25 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
         else
         {
             mic_device_options.tbb_scheduler = mic_TBB_auto;
+        }
+
+        string block_optimization = pDevServiceComm->m_config->Device_TbbBlockOptimization();
+        
+        if (block_optimization == "rows")
+        {
+            mic_device_options.tbb_block_optimization = mic_TBB_block_by_row;
+        }
+        else if (block_optimization == "columns")
+        {
+            mic_device_options.tbb_block_optimization = mic_TBB_block_by_column;
+        }
+        else if (block_optimization == "tiles")
+        {
+            mic_device_options.tbb_block_optimization = mic_TBB_block_by_tile;
+        }
+        else
+        {
+            mic_device_options.tbb_block_optimization = mic_TBB_block_by_default_TBB_tile;
         }
         
 		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);

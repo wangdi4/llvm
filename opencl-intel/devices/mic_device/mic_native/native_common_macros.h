@@ -29,3 +29,11 @@ inline unsigned int hw_cpu_idx()
 	_CPUID( 1, &eax, &ebx, &ecx, &edx );
 	return ebx >> 24;
 }
+
+inline unsigned long long _RDTSC(void)
+{
+     unsigned int a, d;
+     __asm__ __volatile__("rdtsc" : "=a" (a), "=d" (d));
+     return (((unsigned long long)a) | (((unsigned long long)d) << 32));
+}
+

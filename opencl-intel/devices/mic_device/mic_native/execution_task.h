@@ -362,6 +362,52 @@ public:
 
 		// The task region.
 		uint64_t* m_region;
+
+        struct BlockedRangeBase {};
+
+        template <class TbbBlockedRange>
+            struct SpecificBlockedRange : public BlockedRangeBase
+        {
+            TbbBlockedRange m_range;
+            SpecificBlockedRange( const TbbBlockedRange& r ) : m_range(r) {};
+        };
+
+        // specific execution methods
+        template <class TbbBlockedRange, class BlockedRange, class TaskLoopBody>        
+            void openmp_executor( const BlockedRangeBase& range, tbb::affinity_partitioner* ap, 
+                                  tbb::task_list* task_list, bool* result );
+
+        // tiled, horizontal, vertical
+        template <class TbbBlockedRange, class BlockedRange, class TaskLoopBody>        
+            void auto_executor( const BlockedRangeBase& range, tbb::affinity_partitioner* ap, 
+                                  tbb::task_list* task_list, bool* result );
+        
+        template <class TbbBlockedRange, class BlockedRange, class TaskLoopBody>        
+            void affinity_executor( const BlockedRangeBase& range, tbb::affinity_partitioner* ap, 
+                                  tbb::task_list* task_list, bool* result );
+
+        typedef void (TBBNDRangeExecutor::*ExecutorFunc)( 
+                                    const BlockedRangeBase& range, tbb::affinity_partitioner* ap, 
+                                  tbb::task_list* task_list, bool* result );
+        
+        static ExecutorFunc auto_block_default[MAX_WORK_DIM];
+        static ExecutorFunc affinity_block_default[MAX_WORK_DIM];
+        static ExecutorFunc openmp_block_default[MAX_WORK_DIM];
+
+        static ExecutorFunc auto_block_raw[MAX_WORK_DIM];
+        static ExecutorFunc affinity_block_raw[MAX_WORK_DIM];
+        static ExecutorFunc openmp_block_raw[MAX_WORK_DIM];
+
+        static ExecutorFunc auto_block_column[MAX_WORK_DIM];
+        static ExecutorFunc affinity_block_column[MAX_WORK_DIM];
+        static ExecutorFunc openmp_block_column[MAX_WORK_DIM];
+
+        static ExecutorFunc auto_block_tile[MAX_WORK_DIM];
+        static ExecutorFunc affinity_block_tile[MAX_WORK_DIM];
+        static ExecutorFunc openmp_block_tile[MAX_WORK_DIM];
+        
+        static ExecutorFunc* g_executor[mic_TBB_scheduler_LAST][mic_TBB_block_by_LAST];
+        
 	};
 
 
