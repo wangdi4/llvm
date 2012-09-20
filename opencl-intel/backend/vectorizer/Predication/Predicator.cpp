@@ -561,7 +561,12 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   // the instruction
   if (dyn_cast<PHINode>(inst)) {
     Instruction* loc = m_inInst[BB];
-    select->insertAfter(loc);
+    // m_inInst can be a terminator, this happens when basic block contains only PhiNodes.
+    if(loc->isTerminator()) {
+      select->insertBefore(loc);
+    } else {
+      select->insertAfter(loc);
+    }
   } else {
     // make sure the instructions we created are after the original instruction
     select->insertAfter(inst);

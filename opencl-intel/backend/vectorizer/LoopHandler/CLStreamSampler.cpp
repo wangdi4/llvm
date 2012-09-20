@@ -12,7 +12,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "VectorizerUtils.h"
 
 // On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
 #if VOLCANO_ENV
