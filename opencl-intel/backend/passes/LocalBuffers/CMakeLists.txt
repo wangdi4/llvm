@@ -18,3 +18,7 @@ add_library(${TARGET_NAME}
     ${LOCALBUFFERS_INCLUDE_FILES}
     ${LOCALBUFFERS_SOURCE_FILES}
 )
+
+target_link_libraries(${TARGET_NAME}
+    OclUtils
+)

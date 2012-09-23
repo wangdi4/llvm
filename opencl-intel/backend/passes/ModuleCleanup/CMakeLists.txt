@@ -1,9 +1,14 @@
 set(TARGET_NAME ModuleCleanup)
 
+set(MODULECLEANUP_INCLUDE_FILES
+    ModuleCleanup.h
+)
+
 set(MODULECLEANUP_SOURCE_FILES
     ModuleCleanup.cpp
 )
 
 add_library(${TARGET_NAME}
+    ${MODULECLEANUP_INCLUDE_FILES}
     ${MODULECLEANUP_SOURCE_FILES}
 )

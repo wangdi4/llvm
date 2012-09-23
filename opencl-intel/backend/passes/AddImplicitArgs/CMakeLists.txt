@@ -19,3 +19,7 @@ add_library(${TARGET_NAME}
     ${ADDIMPLICITARGS_SOURCE_FILES}
 )
 
+target_link_libraries(${TARGET_NAME}
+    OclUtils
+)
+

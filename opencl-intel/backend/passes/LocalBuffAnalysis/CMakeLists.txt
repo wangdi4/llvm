@@ -17,3 +17,7 @@ add_library(${TARGET_NAME}
     ${LOCALBUFFANALYSIS_INCLUDE_FILES}
     ${LOCALBUFFANALYSIS_SOURCE_FILES}
 )
+
+target_link_libraries(${TARGET_NAME}
+    OclUtils
+)

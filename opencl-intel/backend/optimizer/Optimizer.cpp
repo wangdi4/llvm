@@ -59,6 +59,7 @@ extern "C" void* destroyOpenclRuntimeSupport();
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
 extern "C" llvm::Pass *createShuffleCallToInstPass();
+extern "C" llvm::Pass *createRelaxedPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
 #ifdef _M_X64
 extern "C" llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
@@ -67,7 +68,6 @@ extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-llvm::ModulePass *createRelaxedPass();
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
