@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 2.8.4)
+#
+#
 
 set( LLVM_ENABLE_WERROR          OFF CACHE STRING "")
 set( LLVM_BUILD_TESTS            ON  CACHE STRING "")
@@ -166,6 +168,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
     project(Backend)
     add_subdirectory(llvm )
 
+
     set_target_properties( llc PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
     set_target_properties( lli PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
     if( MSVC_IDE OR XCODE )
@@ -321,7 +324,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
     set_target_properties( NEATChecker PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( BackEndTests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
-
+    set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
     
     # copying MICRegression suite tests to install directory, excluding .svn
