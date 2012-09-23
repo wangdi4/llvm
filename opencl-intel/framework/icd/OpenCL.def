@@ -22,7 +22,6 @@ clCreateProgramWithSource
 clCreateSampler
 clCreateSubBuffer
 clCreateSubDevices
-clCreateSubDevicesEXT
 clCreateUserEvent
 clEnqueueAcquireGLObjects
 clEnqueueBarrier
@@ -79,7 +78,6 @@ clLinkProgram
 clReleaseCommandQueue
 clReleaseContext
 clReleaseDevice
-clReleaseDeviceEXT
 clReleaseEvent
 clReleaseKernel
 clReleaseMemObject
@@ -88,7 +86,6 @@ clReleaseSampler
 clRetainCommandQueue
 clRetainContext
 clRetainDevice
-clRetainDeviceEXT
 clRetainEvent
 clRetainKernel
 clRetainMemObject
