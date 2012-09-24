@@ -53,7 +53,9 @@ TEST_F(CRT12_VR274_280, LinkProgramWithBuildBinaries){
 
 	cl_program out_program = NULL;
 	//link the two programs
-	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,2,ocl_descriptor.devices,NULL,2, prog_list, &out_program));
+	cl_int ret;
+	out_program = clLinkProgram(ocl_descriptor.context,2,ocl_descriptor.devices,NULL,2, prog_list, NULL, NULL, &ret);
+	ASSERT_NE(CL_SUCCESS, ret) << "linkProgram failed";
 }
 
 

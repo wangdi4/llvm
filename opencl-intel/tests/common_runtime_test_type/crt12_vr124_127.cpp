@@ -221,7 +221,7 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 //|	the memory object is recognized in each of the devices.
 //|
 
-//maybe I should use one memory object?
+/////////////////////////////fixed////////////////////////////
 TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
@@ -236,14 +236,14 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	memset(buffer3.dynamic_array,0,sizeof(cl_int));
 
 	buffer1.dynamic_array[0]=1;
-	buffer2.dynamic_array[0]=1;
+	buffer2.dynamic_array[0]=2;
 
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "read_only_kernel.cl"));
 
 	// create the buffer objects
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(cl_int), buffer1.dynamic_array));
-	//ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR,sizeof(cl_int),buffer2.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR,sizeof(cl_int),buffer2.dynamic_array));
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.out_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int),buffer2.dynamic_array));
 
 	//create kernel and set arguments.
@@ -265,7 +265,7 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 
 	// enqueue kernel on CPU 
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
-
+	num = 2;
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
 	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";

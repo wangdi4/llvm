@@ -93,8 +93,8 @@ void testEnqueueMarkerWithWaitList(OpenCLDescriptor ocl_descriptor,cl_int marker
 	ASSERT_NO_FATAL_FAILURE(setUserEventStatus(user_event,CL_COMPLETE));
 
 	// wait
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[marker_device]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[kernel_device]));
 
 	//check that the kernel was excuted
 	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
@@ -216,8 +216,8 @@ void enqueueBarrierWithWaitListCPU(OpenCLDescriptor ocl_descriptor, cl_int barri
 	setUserEventStatus(user_event,CL_COMPLETE);
 
 	// wait
-	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1-barrier_device]));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[barrier_device]));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[kernel_device]));
 
 	//check that the kernel was executed
 	ASSERT_NO_FATAL_FAILURE(getEventInfo(kernel_event,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(cl_int),&event_status));
