@@ -1,0 +1,116 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2010-2011).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  KernelInfoPass.h
+
+\*****************************************************************************/
+
+#ifndef __KERNEL_INFO_H__
+#define __KERNEL_INFO_H__
+
+#include "TLLVMKernelInfo.h"
+#include <llvm/Pass.h>
+#include <llvm/Module.h>
+#include <llvm/Instructions.h>
+#include <llvm/Constants.h>
+#include "llvm/Analysis/LoopInfo.h"
+
+#include <map>
+#include <set>
+#include <vector>
+
+using namespace llvm;
+
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+  /// This pass is Warraper of the Kernel Info Pass, which currently outputs
+  /// two information about the kernel: Has Barrier and Execution estimation
+  /// This pass should run before the Barrier Pass, createPrepareKernelArgsPass
+
+  class KernelInfoWrapper : public ModulePass {
+  public:
+    /// Pass identification, replacement for typeid
+    static char ID;
+
+    /// @brief Constructor 
+    KernelInfoWrapper() : ModulePass(ID) {
+    }
+
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "KernelInfoWrapper";
+    }
+
+    /// @brief performs KernelInfo pass on the module
+    bool runOnModule(Module& Mod);
+
+    friend void getKernelInfoMap(ModulePass *pPass, std::map<std::string, TKernelInfo>& infoMap);
+  protected:
+    /// @brief map between kernel and its kernel info
+    std::map<std::string, TKernelInfo>  m_mapKernelInfo;
+  };
+
+  /// This pass is responsible of getting some info about the OCL
+  /// kernels in the supplied program (module)
+  class KernelInfo : public FunctionPass {
+  public:
+    /// Pass identification, replacement for typeid
+    static char ID;
+
+    /// @brief Constructor 
+    KernelInfo() : FunctionPass(ID) {
+      initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+    }
+
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "KernelInfo";
+    }
+
+    /// @brief gets the required info on specific function
+    /// @param pFunc ptr to function
+    /// @returns True if module was modified
+    bool runOnFunction(Function &Func);
+
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<LoopInfo>();
+      AU.setPreservesAll();
+    }
+
+    friend void getKernelInfoMap(FunctionPass *pPass, std::map<std::string, TKernelInfo>& infoMap);
+
+  protected:
+
+    /// @brief checks if the function has a barrier in it
+    /// @param pFunc ptr to function
+    bool conatinsBarrier(Function *pFunc);
+
+    /// @brief returns approximation of the execution lenght of the given func
+    /// @param pFunc ptr to function
+    size_t getExecutionLength(Function *pFunc);
+
+    /// returns the execution estimation of basic block based on it's nesting
+    /// level
+    size_t getExecutionEstimation(unsigned depth);
+
+  protected:
+
+    /// @brief map between kernel and its kernel info
+    std::map<std::string, TKernelInfo>  m_mapKernelInfo;
+  };
+
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+#endif // __KERNEL_INFO_H__
+

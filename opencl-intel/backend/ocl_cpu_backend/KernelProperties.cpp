@@ -29,6 +29,7 @@ KernelJITProperties::KernelJITProperties():
 {}
 
 KernelProperties::KernelProperties(): 
+    m_hasBarrier(false),
     m_optWGSize(0),
     m_totalImplSize(0),
     m_privateMemorySize(0),
@@ -36,6 +37,11 @@ KernelProperties::KernelProperties():
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM*sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM*sizeof(size_t));
+}
+
+size_t KernelProperties::GetKernelExecutionLength() const
+{
+    return m_kernelExecutionLength;
 }
 
 unsigned int KernelProperties::GetKernelPackCount() const
@@ -70,7 +76,7 @@ bool KernelProperties::HasPrintOperation() const
 
 bool KernelProperties::HasBarrierOperation() const
 {
-    return false;
+    return m_hasBarrier;
 }
 
 bool KernelProperties::HasKernelCallOperation() const

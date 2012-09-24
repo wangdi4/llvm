@@ -17,9 +17,13 @@ add_subdirectory(ResolveWICall)
 add_subdirectory(ShiftZeroUpperBits)
 add_subdirectory(ShuffleCallToInst)
 add_subdirectory(UndefExternalFuncs)
+
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         add_subdirectory(WrapSvml)
     endif (WIN32)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+use_rtti( TRUE )
+add_subdirectory(KernelInfo)
+use_rtti( FALSE )
 

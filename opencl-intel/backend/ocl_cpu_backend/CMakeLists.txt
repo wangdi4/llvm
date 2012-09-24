@@ -418,6 +418,7 @@ set( BACKEND_PASSES
     ShiftZeroUpperBits
     ShuffleCallToInst
     UndefExternalFuncs
+    KernelInfo
 )
 
 if (WIN32)

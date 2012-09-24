@@ -46,6 +46,7 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
 {
     // Need to revert dbgPrint flag
     //Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
+    Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
     Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
     Serializer::SerialPrimitive(&m_cpuId, ost);
@@ -68,12 +69,15 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<bool>(&m_bJitCreateWIids, ost);
+    tmp = (unsigned long long int)m_kernelExecutionLength;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 }
 
 void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     // Need to revert dbgPrint flag
     //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
+    Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
     Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
     Serializer::DeserialPrimitive(&m_cpuId, ist);
@@ -97,6 +101,8 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_bJitCreateWIids, ist);
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_kernelExecutionLength = tmp;
 }
 
 }}} // namespace

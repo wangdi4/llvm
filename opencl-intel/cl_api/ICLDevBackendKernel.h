@@ -61,6 +61,11 @@ public:
      */
     virtual size_t GetImplicitLocalMemoryBufferSize() const = 0;
 
+     /**
+      * @returns a herustic of the kernel execution length
+      */
+     virtual size_t GetKernelExecutionLength() const = 0;
+
     /**
      * @returns true if the specified kernel has print operation in the kernel body, 
      *  false otherwise

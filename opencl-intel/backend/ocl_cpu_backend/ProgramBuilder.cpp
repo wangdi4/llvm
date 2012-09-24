@@ -53,6 +53,8 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
+#include <algorithm>
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -242,15 +244,24 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
     // This also means that this a 1-sise Jit (no vector kernel)
     std::string wrapperName = pWrapperFunc->getNameStr();
+    std::string vecPrefix = "__Vectorized_.";
+    std::string wrapperVecName = vecPrefix + wrapperName;
     bool bJitCreateWIids = buildResult.GetNoBarrierSet().count(wrapperName);
-    TLLVMKernelInfo info = buildResult.GetKernelsInfo(func);
+    TLLVMKernelInfo localBufferInfo = buildResult.GetKernelsLocalBufferInfo(func);
+
+    TKernelInfo info = buildResult.GetKernelsInfo(wrapperName);
+    TKernelInfo vecinfo = buildResult.GetKernelsInfo(wrapperVecName);
 
     KernelProperties* pProps = new KernelProperties();
 
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);
     pProps->SetHintWGSize(hintWGSize);
-    pProps->SetTotalImplSize(info.stTotalImplSize);
+    pProps->SetTotalImplSize(localBufferInfo.stTotalImplSize);
+    pProps->SetHasBarrier( info.hasBarrier);
+    size_t executionLength = std::max(vecinfo.kernelExecutionLength, info.kernelExecutionLength);
+    pProps->SetKernelExecutionLength(executionLength);
+
     pProps->SetDAZ( pProgram->GetDAZ());
     pProps->SetCpuId( GetCompiler()->GetCpuId() );
     pProps->SetJitCreateWIids(bJitCreateWIids);

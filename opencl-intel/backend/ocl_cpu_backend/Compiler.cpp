@@ -59,6 +59,7 @@ using std::string;
 #include <iostream>
 #include <sstream>
 
+
 extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
 
 
@@ -155,15 +156,26 @@ const FunctionWidthVector& ProgramBuildResult::GetFunctionsWidths() const
     return *m_pFunctionWidths;
 }
 
+void ProgramBuildResult::SetKernelsLocalBufferInfo( KernelsLocalBufferInfoMap* pKernelsInfo)
+{
+    m_pKernelsLocalBufferInfo = pKernelsInfo;
+}
+
 void ProgramBuildResult::SetKernelsInfo( KernelsInfoMap* pKernelsInfo)
 {
     m_pKernelsInfo = pKernelsInfo;
 }
 
-TLLVMKernelInfo ProgramBuildResult::GetKernelsInfo(const llvm::Function* pFunc) const
+TLLVMKernelInfo ProgramBuildResult::GetKernelsLocalBufferInfo(const llvm::Function* pFunc) const
+{
+    assert(m_pKernelsLocalBufferInfo);
+    return (*m_pKernelsLocalBufferInfo)[pFunc];
+}
+
+TKernelInfo ProgramBuildResult::GetKernelsInfo(std::string func) const
 {
     assert(m_pKernelsInfo);
-    return (*m_pKernelsInfo)[pFunc];
+    return (*m_pKernelsInfo)[func];
 }
 
 std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
@@ -315,6 +327,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     // Populate the build results
     //
     std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
+    std::auto_ptr<KernelsLocalBufferInfoMap> kernelsLocalBufferMap( new KernelsLocalBufferInfoMap());
     std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
 
     m_debug = pOptions->GetDebugInfoFlag();
@@ -322,12 +335,14 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
     //dumpModule(*(spModule.get()));
 
+    optimizer.GetKernelsLocalBufferInfo( *kernelsLocalBufferMap.get());
     optimizer.GetKernelsInfo( *kernelsMap.get());
 
     if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
       //Set PrivateMemorySize of pResult
       optimizer.getPrivateMemorySize(pResult->GetPrivateMemorySize());
       pResult->SetFunctionsWidths( vectorizedFunctions.release() );
+      pResult->SetKernelsLocalBufferInfo( kernelsLocalBufferMap.release());
       pResult->SetKernelsInfo( kernelsMap.release());
       fillNoBarrierPathSet(spModule.get(), pResult->GetNoBarrierSet());
     }

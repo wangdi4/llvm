@@ -137,9 +137,11 @@ public:
 
     // Set the kernel information map. 
     // The passed pointer will be owned by the ProgramBuildResult
+    void SetKernelsLocalBufferInfo( KernelsLocalBufferInfoMap* pKernelsInfo);
     void SetKernelsInfo( KernelsInfoMap* pKernelsInfo);
 
-    TLLVMKernelInfo GetKernelsInfo(const llvm::Function* pFunc) const;
+    TLLVMKernelInfo GetKernelsLocalBufferInfo(const llvm::Function* pFunc) const;
+    TKernelInfo GetKernelsInfo(std::string func) const;
 
     std::map<std::string, unsigned int>& GetPrivateMemorySize();
 
@@ -155,6 +157,7 @@ private:
     std::string m_buildLog;
     mutable llvm::raw_string_ostream m_logStream;
     FunctionWidthVector* m_pFunctionWidths; 
+    KernelsLocalBufferInfoMap*      m_pKernelsLocalBufferInfo;
     KernelsInfoMap*      m_pKernelsInfo;
     std::map<std::string, unsigned int> m_privateMemorySizeMap;
     std::set<std::string> m_noBarrierSet;

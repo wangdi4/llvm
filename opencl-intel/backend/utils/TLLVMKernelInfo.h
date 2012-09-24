@@ -27,6 +27,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     std::size_t stTotalImplSize;
   };
 
+  struct TKernelInfo
+  {
+    std::size_t kernelExecutionLength;
+    bool hasBarrier;
+  };
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #endif // TLLVM_KERNEL_INFO_H

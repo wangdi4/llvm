@@ -30,7 +30,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return new LocalBuffers(isNativeDBG);
   }
 
-  void getKernelInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
+  void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
     LocalBuffers *pKU = static_cast<LocalBuffers*>(pPass);
 
     infoMap.clear();

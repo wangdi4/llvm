@@ -24,6 +24,7 @@ File Name:  Optimizer.h
 #include "llvm/ADT/SmallVector.h"
 
 #include <map>
+#include <string>
 
 namespace intel {
     class OptimizerConfig;
@@ -41,7 +42,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 typedef std::pair<llvm::Function *, int> FunctionWidthPair;
 typedef std::vector<FunctionWidthPair> FunctionWidthVector;
-typedef std::map<const llvm::Function*, TLLVMKernelInfo> KernelsInfoMap;
+typedef std::map<const llvm::Function*, TLLVMKernelInfo> KernelsLocalBufferInfoMap;
+typedef std::map<std::string, TKernelInfo> KernelsInfoMap;
 
 
 /**
@@ -68,6 +70,7 @@ public:
 
     void GetVectorizedFunctions(FunctionWidthVector& vector);
 
+    void GetKernelsLocalBufferInfo(KernelsLocalBufferInfoMap& map);
     void GetKernelsInfo(KernelsInfoMap& map);
 
 private:
@@ -79,6 +82,7 @@ private:
     llvm::Pass* m_barrierPass;
     llvm::Module* m_pModule;
     llvm::ModulePass* m_localBuffersPass;
+    llvm::ModulePass* m_kernelInfoPass;
 
     llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
     llvm::SmallVector<int, 16> m_vectWidths;
@@ -88,3 +92,5 @@ private:
 
 
 }}}
+
+

@@ -61,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       AU.addRequired<LocalBuffAnalysis>();
     }
 
-    friend void getKernelInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap);
+    friend void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap);
 
   protected:
     /// @brief Resolves the internal local variables and map them to local buffer

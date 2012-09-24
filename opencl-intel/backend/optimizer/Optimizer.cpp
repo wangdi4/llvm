@@ -78,8 +78,13 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> 
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
-
+llvm::ModulePass *createKernelInfoWrapperPass();
+ 
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
+void getKernelLocalBufferInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
+ 
+void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelInfo>& infoMap);
+
 
 
   /// createStandardModulePasses - Add the standard module passes.  This is
@@ -316,6 +321,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
   } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
+   
+   // Get Some info about the kernel
+   // should be called before BarrierPass and createPrepareKernelArgsPass
+   if(pRtlModule != NULL) {
+     m_kernelInfoPass = createKernelInfoWrapperPass();
+     m_modulePasses.add(m_kernelInfoPass);
+   }
 
   // Adding WG loops
   if (!pConfig->GetLibraryModule()){
@@ -464,7 +476,12 @@ void Optimizer::GetVectorizedFunctions(FunctionWidthVector& vector)
 
 void Optimizer::GetKernelsInfo(KernelsInfoMap& map)
 {
-    getKernelInfoMap(m_localBuffersPass, map);
+    getKernelInfoMap(m_kernelInfoPass, map);
+}
+
+void Optimizer::GetKernelsLocalBufferInfo(KernelsLocalBufferInfoMap& map)
+{
+    getKernelLocalBufferInfoMap(m_localBuffersPass, map);
 }
 
 }}}

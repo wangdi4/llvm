@@ -92,6 +92,11 @@ public:
     virtual bool HasPrintOperation() const;
 
     /**
+     * @returns an estimation of the kernel execution
+     */
+    virtual size_t GetKernelExecutionLength() const;
+
+    /**
      * @returns true if the specified kernel has barrier operation in the kernel body, 
      *  false otherwise
      */
@@ -108,9 +113,11 @@ public:
      */ 
     void SetTotalImplSize(size_t size) { m_totalImplSize = size;}
     void SetOptWGSize(unsigned int size) { m_optWGSize = size;} 
+    void SetKernelExecutionLength(size_t length) { m_kernelExecutionLength = length;}
     void SetReqdWGSize(const size_t* psize );
     void SetHintWGSize(const size_t* psize );
     void SetDAZ(bool value)        { m_DAZ = value; }
+    void SetHasBarrier(bool value) { m_hasBarrier = value; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
@@ -124,6 +131,7 @@ public:
     bool          GetJitCreateWIids() const { return m_bJitCreateWIids;}
 
 protected:
+    bool m_hasBarrier;
     bool m_DAZ;
     Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
     unsigned int m_optWGSize;
@@ -131,6 +139,7 @@ protected:
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation
     size_t m_totalImplSize;
     size_t m_privateMemorySize;
+    size_t m_kernelExecutionLength;
     unsigned int m_minGroupSizeFactorial;
     bool m_bJitCreateWIids;
 
