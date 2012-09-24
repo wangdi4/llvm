@@ -439,6 +439,7 @@ target_link_libraries (${TARGET_NAME}
 
     name_mangle    
     dynamic_load
+    cl_sys_utils
     
     # Internal libs
     ${JITPROFLIB}

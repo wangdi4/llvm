@@ -143,7 +143,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 #define IMG_SET_CALLBACK(CALLBACK, FUNCTION) CALLBACK = FUNCTION;
 
     //supplementing additional data
-    unsigned int TOIndex=TYPE_ORDER_TO_INDEX(pImageAuxData->format.image_channel_data_type, pImageAuxData->format.image_channel_order);
+    cl_channel_type ch_type  = pImageAuxData->format.image_channel_data_type;
+    cl_channel_type ch_order = pImageAuxData->format.image_channel_order;
     memset(pImageAuxData->read_img_callback_int, 0, sizeof(pImageAuxData->read_img_callback_int));
     memset(pImageAuxData->read_img_callback_float, 0, sizeof(pImageAuxData->read_img_callback_float));
     memset(pImageAuxData->coord_translate_f_callback, 0, sizeof(pImageAuxData->coord_translate_f_callback));
@@ -173,65 +174,62 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     
     ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_CpuId);
 
-    for(unsigned int i = 0; i<sizeof(pImageAuxData->read_img_callback_int)/sizeof(pImageAuxData->read_img_callback_int[0]); i++)
+    for(unsigned int i = 0; i<ARRAY_SIZE(pImageAuxData->read_img_callback_int); i++)
     {
-        pImageAuxData->read_img_callback_float[i] = pImageCallbackFuncs->GetUndefReadFloat();
-        pImageAuxData->read_img_callback_int[i] = pImageCallbackFuncs->GetUndefReadInt();
+        pImageAuxData->read_img_callback_float[i] = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_FLOAT);
+        pImageAuxData->read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT);
     }
 
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
         // for integer images and float coordinates
         // nearest filter, and false normalized
-        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetFClampToEdgeFalseNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetFUndefTrans();   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetFUndefTrans();    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, NONE_FALSE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, NONE_FALSE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, CLAMPTOEDGE_FALSE_NEAREST);
 
         //nearest filter, and true normalized
-        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, NONE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, NONE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, CLAMPTOEDGE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, REPEAT_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, MIRRORED_TRUE_NEAREST);
     } else {   //float and unorm images
-        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetFFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetFFNoneFalseNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetFFClampToEdgeFalseNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_NEAREST] = pImageCallbackFuncs->GetFFUndefTrans();   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_NEAREST] = pImageCallbackFuncs->GetFFUndefTrans();    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        // nearest filter, and false normalized
+        pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, CLAMPTOEDGE_FALSE_NEAREST);
 
         //nearest filter, and true normalized
-        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetFFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetFFNoneTrueNearest();
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetFFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetFFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetFFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_NEAREST);//pImageCallbackFuncs->GetFNoneTrueNearest();
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_NEAREST);//pImageCallbackFuncs->GetFNoneTrueNearest();
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, CLAMPTOEDGE_TRUE_NEAREST);//pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_NEAREST);//pImageCallbackFuncs->GetFRepeatTrueNearest();   
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_NEAREST);//pImageCallbackFuncs->GetFMirroredTrueNearest();  
     }
 
     //bilinear filter is undefined for un/signed integer types
 
     if (IsIntDataType(pImageAuxData->format.image_channel_data_type)){
         for (unsigned int i=MIRRORED_TRUE_NEAREST+1;i<32;i++)
-            pImageAuxData->coord_translate_f_callback[i] = pImageCallbackFuncs->GetFUndefTrans();
+            pImageAuxData->coord_translate_f_callback[i] = pImageCallbackFuncs->GetUndefinedCbk(TRANS_CBK_UNDEF_FLOAT);
     } else {
-        //nearest filter, and false normalized
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_FALSE_LINEAR], pImageCallbackFuncs->GetFNoneFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetFNoneFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_LINEAR], pImageCallbackFuncs->GetFClampToEdgeFalseLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_LINEAR], pImageCallbackFuncs->GetFUndefTrans());   //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_LINEAR], pImageCallbackFuncs->GetFUndefTrans());    //REPEAT + NORMALIZED_FALSE MODE IS NOT DEFINED
+        // linear filter, and false normalized
+        pImageAuxData->coord_translate_f_callback[NONE_FALSE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_LINEAR);
+        pImageAuxData->coord_translate_f_callback[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_LINEAR);
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, CLAMPTOEDGE_FALSE_LINEAR);
+        pImageAuxData->coord_translate_f_callback[REPEAT_FALSE_LINEAR] = pImageCallbackFuncs->GetUndefinedCbk(TRANS_CBK_UNDEF_FLOAT_FLOAT);
+        pImageAuxData->coord_translate_f_callback[MIRRORED_FALSE_LINEAR] = pImageCallbackFuncs->GetUndefinedCbk(TRANS_CBK_UNDEF_FLOAT_FLOAT);
 
-        //nearest filter, and true normalized
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[NONE_TRUE_LINEAR], pImageCallbackFuncs->GetFNoneTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetFNoneTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_LINEAR], pImageCallbackFuncs->GetFClampToEdgeTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR], pImageCallbackFuncs->GetFRepeatTrueLinear());
-        IMG_SET_CALLBACK(pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR], pImageCallbackFuncs->GetFMirroredTrueLinear());
+        //linear filter, and true normalized
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_LINEAR);//pImageCallbackFuncs->GetFNoneTrueNearest();
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_LINEAR);//pImageCallbackFuncs->GetFNoneTrueNearest();
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, CLAMPTOEDGE_TRUE_LINEAR);//pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_LINEAR);//pImageCallbackFuncs->GetFRepeatTrueNearest();   
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_LINEAR);//pImageCallbackFuncs->GetFMirroredTrueNearest();  
     }
 
-    ///////////////////////////Read & write image callbacks
+    /////////////////////////////Read & write image callbacks
     void** read_cbk_ptr = NULL;
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
         read_cbk_ptr = pImageAuxData->read_img_callback_int;
@@ -239,34 +237,36 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         read_cbk_ptr = pImageAuxData->read_img_callback_float;
 
     for (unsigned int i=NONE_FALSE_NEAREST;i<NONE_FALSE_LINEAR;i++)
-        read_cbk_ptr[i] = pImageCallbackFuncs->GetNearestNoClamp(TOIndex);
+        read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
+
     if( !IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
         if(pImageAuxData->dim_count == 1)
         {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp1D(TOIndex);
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp1D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
+            read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
+            read_cbk_ptr[CLAMP_TRUE_LINEAR]  = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
         } else if(pImageAuxData->dim_count == 2)
         {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp2D(TOIndex);
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp2D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
+            read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
+            read_cbk_ptr[CLAMP_TRUE_LINEAR]  = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
         }
         else
         {
             for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetLinearNoClamp3D(TOIndex);
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
-            IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_LINEAR], pImageCallbackFuncs->GetLinearClamp3D(TOIndex));
+                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
+            read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
+            read_cbk_ptr[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
         }
     }
-    IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
-    IMG_SET_CALLBACK(read_cbk_ptr[CLAMP_TRUE_NEAREST], pImageCallbackFuncs->GetNearestClamp(TOIndex));
 
-    pImageAuxData->write_img_callback = pImageCallbackFuncs->GetWriteImage(TOIndex);
+    read_cbk_ptr[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
+    read_cbk_ptr[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
+
+    pImageAuxData->write_img_callback = pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type);
 
     return CL_DEV_SUCCESS;
 }

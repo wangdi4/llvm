@@ -47,7 +47,93 @@ File Name:  ImageCallbackLibrary.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-std::string ImageCallbackLibrary::getLibraryBasename() {
+const string channelOrderToPrefix(cl_channel_order _co)
+{
+    // convert from input channel order (starting from 0) to value in cl.h (starting from 0x10B0)
+    // Must match order in cl.h
+    cl_channel_type converted_co = _co + CL_R;
+    std::string toReturn = channelOrderToString(converted_co);
+    // channel_order starts with CL_ that we need to cut
+    toReturn = toReturn.substr(strlen("CL_"), toReturn.size());
+    return toReturn;
+}
+
+const string samplerToAddrModePrefix(SamplerType _sampler)
+{
+    // Do tricks to convert from sampler type to addressing mode
+    int sampler_addr_mode = _sampler & 7;
+    if((sampler_addr_mode == 1) || (sampler_addr_mode == 2))
+        // Need change 1 to 2 and 2 to 1
+        // This could be done with xor with 11, which is bit representation of 3
+        sampler_addr_mode = sampler_addr_mode ^ 3;
+    // add offset. Should match addressing mode constants from cl.h
+    cl_addressing_mode _mode = sampler_addr_mode + CL_ADDRESS_NONE;
+
+    std::string toReturn = addressingModeToString(_mode);
+    // address mode starts with CL_ADDRESS_ that we need to cut
+    toReturn = toReturn.substr(strlen("CL_ADDRESS_"), toReturn.size());
+    return toReturn;
+}
+
+const string imgTypeToDimPrefix(cl_mem_object_type _type)
+{
+    switch(_type)
+    {
+        case CL_MEM_OBJECT_IMAGE1D:
+        case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+        case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+            return "1D";
+        case CL_MEM_OBJECT_IMAGE2D:
+        case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+            return "2D";
+        case CL_MEM_OBJECT_IMAGE3D:
+            return "3D";
+        default:
+            throw Exceptions::DeviceBackendExceptionBase("Invalid type of image object");
+    }
+}
+
+const string channelDataTypeToPrefix(cl_channel_type _ct)
+{
+    // convert from input channel type to value in cl.h
+    // Must match order in cl.h
+    cl_channel_type converted_ct = _ct + CL_SNORM_INT8;
+    std::string toReturn = channelTypeToString(converted_ct);
+    // channel_type starts with CL_ that we need to cut
+    toReturn = toReturn.substr(strlen("CL_"), toReturn.size());
+    return toReturn;
+}
+
+const string VecSizeToPrefix(VecSize _size)
+{
+    switch(_size)
+    {
+    case SCALAR:
+        return "";
+    case SOA4:
+        return "soa4_";
+    case SOA8:
+        return "soa8_";
+    default:
+        throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. Unsupported vector size"));
+    }
+}
+
+const string FilterToPrefix(cl_filter_mode _filterMode)
+{
+    switch(_filterMode)
+    {
+    case CL_FILTER_LINEAR:
+        return "LINEAR";
+    case CL_FILTER_NEAREST:
+        return "NEAREST";
+    default:
+        throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. Unsupported filter mode"));
+    }
+}
+
+std::string ImageCallbackLibrary::getLibraryBasename()
+{
     char szModuleName[MAX_PATH];
     std::string strErr;
 
@@ -71,12 +157,110 @@ std::string ImageCallbackLibrary::getLibraryBasename() {
     return ret;
 }
 
-std::string ImageCallbackLibrary::getLibraryObjectName() {
+std::string ImageCallbackLibrary::getLibraryObjectName()
+{
   return getLibraryBasename() + ".o";
 }
 
-std::string ImageCallbackLibrary::getLibraryRtlName() {
+std::string ImageCallbackLibrary::getLibraryRtlName()
+{
   return getLibraryBasename() + ".rtl";
+}
+
+UndefCbkDesc::UndefCbkDesc(UndefCbkType _type):
+Type(_type)
+{}
+
+std::string UndefCbkDesc::GetName() const
+{
+    switch(Type)
+    {
+    case READ_CBK_UNDEF_INT:
+        return "read_sample_UNDEFINED_QUAD_INT";
+    case READ_CBK_UNDEF_FLOAT:
+        return "read_sample_UNDEFINED_QUAD_FLOAT";
+    case TRANS_CBK_UNDEF_FLOAT:
+        return "trans_coord_float_UNDEFINED";
+    case TRANS_CBK_UNDEF_FLOAT_FLOAT:
+        return "trans_coord_float_float_UNDEFINED";
+    default:
+        throw Exceptions::DeviceBackendExceptionBase("Type of undefined callback is invalid!");
+    }
+}
+
+TransCbkDesc::TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize):
+    IsIntFormat(_isInt),
+    Sampler(_sampler),
+    VectorSize(_vectorSize)
+{}
+
+std::string TransCbkDesc::GetName() const
+{
+    std::stringstream ss;
+    ss<<VecSizeToPrefix(VectorSize);
+    ss<<"trans_coord_float_";
+    if(!IsIntFormat)
+        ss<<"float_";
+
+    ss<<samplerToAddrModePrefix(Sampler)<<"_";
+    std::string isNormalizedStr = "FALSE";
+    if(Sampler & NORMALIZED_SAMPLER)
+        isNormalizedStr = "TRUE";
+    ss<<isNormalizedStr<<"_";
+    if(Sampler & LINEAR_SAMPLER)
+        ss<<"LINEAR";
+    else
+        ss<<"NEAREST";
+    std::string toReturn = ss.str();
+    return toReturn;
+}
+
+ReadCbkDesc::ReadCbkDesc(bool _isClamp,
+cl_channel_order _ch_order,
+cl_channel_type _ch_type,
+cl_filter_mode _filter,
+cl_mem_object_type _imageType,
+VecSize _vectorSize):
+    IsClamp(_isClamp),
+    Filter(_filter),
+    ImageType(_imageType),
+    VectorSize(_vectorSize)
+{
+    Format.image_channel_order = _ch_order;
+    Format.image_channel_data_type = _ch_type;
+}
+
+std::string ReadCbkDesc::GetName() const
+{
+    std::stringstream ss;
+    ss<<VecSizeToPrefix(VectorSize);
+    ss<<"read_sample_";
+    if(Filter == CL_FILTER_NEAREST)
+        ss<<"NEAREST"<<"_";
+    else
+        ss<<"LINEAR"<<imgTypeToDimPrefix(ImageType)<<"_";
+    std::string clampStr = IsClamp ? "CLAMP" : "NO_CLAMP";
+    ss<<clampStr<< "_";
+    ss<<channelOrderToPrefix(Format.image_channel_order)<<"_";
+    ss<<channelDataTypeToPrefix(Format.image_channel_data_type);
+    return ss.str();
+}
+
+WriteCbkDesc::WriteCbkDesc(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize)
+{
+    Format.image_channel_data_type = _ch_type;
+    Format.image_channel_order = _ch_order;
+    VectorSize = _vectorSize;
+}
+
+std::string WriteCbkDesc::GetName() const
+{
+    std::stringstream ss;
+    ss<<VecSizeToPrefix(VectorSize);
+    ss<<"write_sample_";
+    ss<<channelOrderToPrefix(Format.image_channel_order)<<"_";
+    ss<<channelDataTypeToPrefix(Format.image_channel_data_type);
+    return ss.str();
 }
 
 void ImageCallbackLibrary::Load()
@@ -120,503 +304,30 @@ bool ImageCallbackLibrary::LoadExecutable()
 }
 
 ImageCallbackFunctions::ImageCallbackFunctions(CompiledModule* pCompiledModule)
+    :m_pCompiledModule(pCompiledModule)
 {
-    // Total number of coordinate translation callbacks
-    const int TRANS_CBK_COUNT = 20;
-    // last index should be equal to
-    const int INT_FORMATS_COUNT = 18;
-    const int INT_CBK_PER_FORMAT = 3;
-    // Float formats count
-    const int FLOAT_FORMATS_COUNT = 25;
-    const int FLOAT_CBK_PER_FORMAT = 9;
-    // Total number of functions
-    const int32_t FUNCTIONS_COUNT = TRANS_CBK_COUNT + // count translate callbacks first
-             INT_FORMATS_COUNT * INT_CBK_PER_FORMAT + // add integer callbacks
-             FLOAT_FORMATS_COUNT * FLOAT_CBK_PER_FORMAT + // add float callbacks
-             2; // and add two undefined reading callbacks
+}
 
-    // List of function names to retrieve from images module
-    const char* funcNames[FUNCTIONS_COUNT]={
-        "_Z36trans_coord_float_NONE_FALSE_NEAREST9image2d_tDv4_f",
-        "_Z43trans_coord_float_CLAMPTOEDGE_FALSE_NEAREST9image2d_tDv4_f",
-
-        "_Z35trans_coord_float_NONE_TRUE_NEAREST9image2d_tDv4_f",
-        "_Z42trans_coord_float_CLAMPTOEDGE_TRUE_NEAREST9image2d_tDv4_f",
-        "_Z37trans_coord_float_REPEAT_TRUE_NEAREST9image2d_tDv4_f",
-        "_Z39trans_coord_float_MIRRORED_TRUE_NEAREST9image2d_tDv4_f",
-
-        "_Z42trans_coord_float_float_NONE_FALSE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-        "_Z49trans_coord_float_float_CLAMPTOEDGE_FALSE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-
-        "_Z41trans_coord_float_float_NONE_TRUE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-        "_Z48trans_coord_float_float_CLAMPTOEDGE_TRUE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-        "_Z43trans_coord_float_float_REPEAT_TRUE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-        "_Z45trans_coord_float_float_MIRRORED_TRUE_NEAREST9image2d_tDv4_fPDv4_iS1_",
-
-        "_Z35trans_coord_float_NONE_FALSE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-        "_Z42trans_coord_float_CLAMPTOEDGE_FALSE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-
-        "_Z34trans_coord_float_NONE_TRUE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-        "_Z41trans_coord_float_CLAMPTOEDGE_TRUE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-        "_Z36trans_coord_float_REPEAT_TRUE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-        "_Z38trans_coord_float_MIRRORED_TRUE_LINEAR9image2d_tDv4_fPDv4_iS1_",
-        "_Z27trans_coord_float_UNDEFINED9image2d_tDv4_f",
-        "_Z33trans_coord_float_float_UNDEFINED9image2d_tDv4_fPDv4_iS1_",
-
-        "_Z38read_sample_NEAREST_NOCLAMP_RGBA_UINT89image2d_tDv4_iPv",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_UINT89image2d_tDv4_iPv",
-        "_Z23write_sample_RGBA_UINT8PvDv4_j",
-
-        "_Z39read_sample_NEAREST_NOCLAMP_RGBA_UINT169image2d_tDv4_iPv",
-        "_Z37read_sample_NEAREST_CLAMP_RGBA_UINT169image2d_tDv4_iPv",
-        "_Z24write_sample_RGBA_UINT16PvDv4_j",
-
-        "_Z39read_sample_NEAREST_NOCLAMP_RGBA_UINT329image2d_tDv4_iPv",
-        "_Z37read_sample_NEAREST_CLAMP_RGBA_UINT329image2d_tDv4_iPv",
-        "_Z24write_sample_RGBA_UINT32PvDv4_j",
-
-        "_Z37read_sample_NEAREST_NOCLAMP_RGBA_INT89image2d_tDv4_iPv",
-        "_Z35read_sample_NEAREST_CLAMP_RGBA_INT89image2d_tDv4_iPv",
-        "_Z22write_sample_RGBA_INT8PvDv4_i",
-
-        "_Z38read_sample_NEAREST_NOCLAMP_RGBA_INT169image2d_tDv4_iPv",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_INT169image2d_tDv4_iPv",
-        "_Z23write_sample_RGBA_INT16PvDv4_i",
-
-        "_Z38read_sample_NEAREST_NOCLAMP_RGBA_INT329image2d_tDv4_iPv",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_INT329image2d_tDv4_iPv",
-        "_Z23write_sample_RGBA_INT32PvDv4_i",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_R_UINT89image2d_tDv4_iPv",
-        "_Z33read_sample_NEAREST_CLAMP_R_UINT89image2d_tDv4_iPv",
-        "_Z20write_sample_R_UINT8PvDv4_j",
-
-        "_Z36read_sample_NEAREST_NOCLAMP_R_UINT169image2d_tDv4_iPv",
-        "_Z34read_sample_NEAREST_CLAMP_R_UINT169image2d_tDv4_iPv",
-        "_Z21write_sample_R_UINT16PvDv4_j",
-
-        "_Z36read_sample_NEAREST_NOCLAMP_R_UINT329image2d_tDv4_iPv",
-        "_Z34read_sample_NEAREST_CLAMP_R_UINT329image2d_tDv4_iPv",
-        "_Z21write_sample_R_UINT32PvDv4_j",
-
-        "_Z34read_sample_NEAREST_NOCLAMP_R_INT89image2d_tDv4_iPv",
-        "_Z32read_sample_NEAREST_CLAMP_R_INT89image2d_tDv4_iPv",
-        "_Z19write_sample_R_INT8PvDv4_i",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_R_INT169image2d_tDv4_iPv",
-        "_Z33read_sample_NEAREST_CLAMP_R_INT169image2d_tDv4_iPv",
-        "_Z20write_sample_R_INT16PvDv4_i",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_R_INT329image2d_tDv4_iPv",
-        "_Z33read_sample_NEAREST_CLAMP_R_INT329image2d_tDv4_iPv",
-        "_Z20write_sample_R_INT32PvDv4_i",
-
-        "_Z36read_sample_NEAREST_NOCLAMP_RG_UINT89image2d_tDv4_iPv",
-        "_Z34read_sample_NEAREST_CLAMP_RG_UINT89image2d_tDv4_iPv",
-        "_Z21write_sample_RG_UINT8PvDv4_j",
-
-        "_Z37read_sample_NEAREST_NOCLAMP_RG_UINT169image2d_tDv4_iPv",
-        "_Z35read_sample_NEAREST_CLAMP_RG_UINT169image2d_tDv4_iPv",
-        "_Z22write_sample_RG_UINT16PvDv4_j",
-
-        "_Z37read_sample_NEAREST_NOCLAMP_RG_UINT329image2d_tDv4_iPv",
-        "_Z35read_sample_NEAREST_CLAMP_RG_UINT329image2d_tDv4_iPv",
-        "_Z22write_sample_RG_UINT32PvDv4_j",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_RG_INT89image2d_tDv4_iPv",
-        "_Z33read_sample_NEAREST_CLAMP_RG_INT89image2d_tDv4_iPv",
-        "_Z20write_sample_RG_INT8PvDv4_i",
-
-        "_Z36read_sample_NEAREST_NOCLAMP_RG_INT169image2d_tDv4_iPv",
-        "_Z34read_sample_NEAREST_CLAMP_RG_INT169image2d_tDv4_iPv",
-        "_Z21write_sample_RG_INT16PvDv4_i",
-
-        "_Z36read_sample_NEAREST_NOCLAMP_RG_INT329image2d_tDv4_iPv",
-        "_Z34read_sample_NEAREST_CLAMP_RG_INT329image2d_tDv4_iPv",
-        "_Z21write_sample_RG_INT32PvDv4_i",
-
-        /// Float functions        
-        "_Z38read_sample_NEAREST_NOCLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_NEAREST_CLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR2D_NOCLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR2D_CLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR3D_NOCLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR3D_CLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR1D_NOCLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR1D_CLAMP_RGBA_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z23write_sample_RGBA_FLOATPvDv4_f",
-
-        "_Z43read_sample_NEAREST_NOCLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_NEAREST_CLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR2D_NOCLAMP_CH1_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_CLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR3D_NOCLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_CLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR1D_NOCLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_CLAMP_INTENSITY_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z28write_sample_INTENSITY_FLOATPvDv4_f",
-
-        "_Z48read_sample_NEAREST_NOCLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z46read_sample_NEAREST_CLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z53read_sample_LINEAR2D_NOCLAMP_CH1_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR2D_CLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR3D_NOCLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR3D_CLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR1D_NOCLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR1D_CLAMP_INTENSITY_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z33write_sample_INTENSITY_UNORM_INT8PvDv4_f",
-
-        "_Z49read_sample_NEAREST_NOCLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_NEAREST_CLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z54read_sample_LINEAR2D_NOCLAMP_CH1_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR2D_CLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z50read_sample_LINEAR3D_NOCLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR3D_CLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z50read_sample_LINEAR1D_NOCLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR1D_CLAMP_INTENSITY_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z34write_sample_INTENSITY_UNORM_INT16PvDv4_f",
-
-        "_Z48read_sample_NEAREST_NOCLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z46read_sample_NEAREST_CLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z53read_sample_LINEAR2D_NOCLAMP_CH1_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR2D_CLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR3D_NOCLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR3D_CLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR1D_NOCLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR1D_CLAMP_INTENSITY_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z33write_sample_INTENSITY_HALF_FLOATPvDv4_f",
-
-        "_Z43read_sample_NEAREST_NOCLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_NEAREST_CLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR2D_NOCLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_CLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR3D_NOCLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_CLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR1D_NOCLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_CLAMP_RGBA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z28write_sample_RGBA_UNORM_INT8PvDv4_f",
-
-        "_Z44read_sample_NEAREST_NOCLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_NEAREST_CLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z45read_sample_LINEAR2D_NOCLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR2D_CLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z45read_sample_LINEAR3D_NOCLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR3D_CLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z45read_sample_LINEAR1D_NOCLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR1D_CLAMP_RGBA_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z29write_sample_RGBA_UNORM_INT16PvDv4_f",
-
-        "_Z43read_sample_NEAREST_NOCLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_NEAREST_CLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR2D_NOCLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_CLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR3D_NOCLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_CLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR1D_NOCLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_CLAMP_RGBA_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z28write_sample_RGBA_HALF_FLOATPvDv4_f",
-
-        "_Z43read_sample_NEAREST_NOCLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_NEAREST_CLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR2D_NOCLAMP_CH1_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_CLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR3D_NOCLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_CLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR1D_NOCLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_CLAMP_LUMINANCE_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z28write_sample_LUMINANCE_FLOATPvDv4_f",
-
-        "_Z48read_sample_NEAREST_NOCLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z46read_sample_NEAREST_CLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z53read_sample_LINEAR2D_NOCLAMP_CH1_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR2D_CLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR3D_NOCLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR3D_CLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR1D_NOCLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR1D_CLAMP_LUMINANCE_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z33write_sample_LUMINANCE_UNORM_INT8PvDv4_f",
-
-        "_Z49read_sample_NEAREST_NOCLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_NEAREST_CLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z54read_sample_LINEAR2D_NOCLAMP_CH1_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR2D_CLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z50read_sample_LINEAR3D_NOCLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR3D_CLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z50read_sample_LINEAR1D_NOCLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z48read_sample_LINEAR1D_CLAMP_LUMINANCE_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z34write_sample_LUMINANCE_UNORM_INT16PvDv4_f",
-
-        "_Z48read_sample_NEAREST_NOCLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z46read_sample_NEAREST_CLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z53read_sample_LINEAR2D_NOCLAMP_CH1_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR2D_CLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR3D_NOCLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR3D_CLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z49read_sample_LINEAR1D_NOCLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z47read_sample_LINEAR1D_CLAMP_LUMINANCE_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z33write_sample_LUMINANCE_HALF_FLOATPvDv4_f",
-
-        "_Z43read_sample_NEAREST_NOCLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_NEAREST_CLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR2D_NOCLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_CLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR3D_NOCLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_CLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z44read_sample_LINEAR1D_NOCLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_CLAMP_BGRA_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z28write_sample_BGRA_UNORM_INT8PvDv4_f",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z33read_sample_NEAREST_CLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR2D_NOCLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR2D_CLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR3D_NOCLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR3D_CLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR1D_NOCLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR1D_CLAMP_R_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z20write_sample_R_FLOATPvDv4_f",
-
-        "_Z40read_sample_NEAREST_NOCLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z38read_sample_NEAREST_CLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR2D_NOCLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR2D_CLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR3D_NOCLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR3D_CLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR1D_NOCLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR1D_CLAMP_R_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z25write_sample_R_UNORM_INT8PvDv4_f",
-
-        "_Z41read_sample_NEAREST_NOCLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_NEAREST_CLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-		"_Z42read_sample_LINEAR2D_NOCLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-		"_Z40read_sample_LINEAR2D_CLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_NOCLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-		"_Z40read_sample_LINEAR3D_CLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-		"_Z42read_sample_LINEAR1D_NOCLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR1D_CLAMP_R_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z26write_sample_R_UNORM_INT16PvDv4_f",
-
-        "_Z40read_sample_NEAREST_NOCLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z38read_sample_NEAREST_CLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR2D_NOCLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR2D_CLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR3D_NOCLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR3D_CLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR1D_NOCLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR1D_CLAMP_R_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z25write_sample_R_HALF_FLOATPvDv4_f",
-
-        "_Z35read_sample_NEAREST_NOCLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z33read_sample_NEAREST_CLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR2D_NOCLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR2D_CLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR3D_NOCLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR3D_CLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z36read_sample_LINEAR1D_NOCLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_LINEAR1D_CLAMP_A_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z20write_sample_A_FLOATPvDv4_f",
-
-        "_Z40read_sample_NEAREST_NOCLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z38read_sample_NEAREST_CLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR2D_NOCLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR2D_CLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR3D_NOCLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR3D_CLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR1D_NOCLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR1D_CLAMP_A_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z25write_sample_A_UNORM_INT8PvDv4_f",
-
-        "_Z41read_sample_NEAREST_NOCLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_NEAREST_CLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-		"_Z42read_sample_LINEAR2D_NOCLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR2D_CLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_NOCLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR3D_CLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_NOCLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR1D_CLAMP_A_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z26write_sample_A_UNORM_INT16PvDv4_f",
-
-        "_Z40read_sample_NEAREST_NOCLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z38read_sample_NEAREST_CLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR2D_NOCLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR2D_CLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR3D_NOCLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR3D_CLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR1D_NOCLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_LINEAR1D_CLAMP_A_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z25write_sample_A_HALF_FLOATPvDv4_f",
-
-        ///CL_RG
-        "_Z36read_sample_NEAREST_NOCLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z34read_sample_NEAREST_CLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR2D_NOCLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z35read_sample_LINEAR2D_CLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR3D_NOCLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z35read_sample_LINEAR3D_CLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z37read_sample_LINEAR1D_NOCLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z35read_sample_LINEAR1D_CLAMP_RG_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z21write_sample_RG_FLOATPvDv4_f",
-
-        "_Z41read_sample_NEAREST_NOCLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_NEAREST_CLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_NOCLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR2D_CLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_NOCLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR3D_CLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_NOCLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR1D_CLAMP_RG_UNORM_INT89image2d_tDv4_iS_Dv4_fPv",
-        "_Z26write_sample_RG_UNORM_INT8PvDv4_f",
-
-        "_Z42read_sample_NEAREST_NOCLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_NEAREST_CLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR2D_NOCLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR2D_CLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR3D_NOCLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR3D_CLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z43read_sample_LINEAR1D_NOCLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z41read_sample_LINEAR1D_CLAMP_RG_UNORM_INT169image2d_tDv4_iS_Dv4_fPv",
-        "_Z27write_sample_RG_UNORM_INT16PvDv4_f",
-
-        "_Z41read_sample_NEAREST_NOCLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z39read_sample_NEAREST_CLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR2D_NOCLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR2D_CLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR3D_NOCLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR3D_CLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z42read_sample_LINEAR1D_NOCLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z40read_sample_LINEAR1D_CLAMP_RG_HALF_FLOAT9image2d_tDv4_iS_Dv4_fPv",
-        "_Z26write_sample_RG_HALF_FLOATPvDv4_f",
-
-        "_Z30read_sample_UNDEFINED_QUAD_INT9image2d_tDv4_iPv",
-        "_Z32read_sample_UNDEFINED_QUAD_FLOAT9image2d_tDv4_iS_Dv4_fPv"
-    };
-
-    // Make sure the last string is read_sample_undefined_float
-    assert(strcmp(funcNames[FUNCTIONS_COUNT - 1], "_Z32read_sample_UNDEFINED_QUAD_FLOAT9image2d_tDv4_iS_Dv4_fPv") == 0);
-
-    // List of image function pointers
-    llvm::Function* funcPointers[FUNCTIONS_COUNT];
-
-    for (int32_t index=0;index<FUNCTIONS_COUNT;index++){
-        llvm::StringRef fName(funcNames[index]);
-        funcPointers[index] = pCompiledModule->getFunction(fName);
-        if(funcPointers[index] == NULL)
-            throw Exceptions::DeviceBackendExceptionBase(std::string("Image function wasn't found in the module. Make sure image libraries are valid."));
+void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
+{
+    std::string name = _desc.GetName();
+    llvm::StringRef fName(name);
+    llvm::Function* fncPtr = m_pCompiledModule->getFunction(fName);
+    if(fncPtr == NULL)
+    {
+        std::stringstream ss;
+        ss << "Image function " << _desc.GetName() << " wasn't found in the module. Make sure image libraries are valid";
+        throw Exceptions::DeviceBackendExceptionBase(ss.str());
     }
 
-    // Assign JITted function pointers to corresponding members
-
-    //////////////////  Fill in translate callback pointers  //////////////////
-    // indexes used here correspond to indexes in list funcNames
-    m_fpFNoneFalseNearest.Init(funcPointers[0]);
-    m_fpFClampToEdgeFalseNearest.Init(funcPointers[1]);
-    
-    m_fpFNoneTrueNearest.Init(funcPointers[2]);
-    m_fpFClampToEdgeTrueNearest.Init(funcPointers[3]);
-    m_fpFRepeatTrueNearest.Init(funcPointers[4]);
-    m_fpFMirroredTrueNearest.Init(funcPointers[5]);
-
-    m_fpFFNoneFalseNearest.Init(funcPointers[6]);
-    m_fpFFClampToEdgeFalseNearest.Init(funcPointers[7]);
-
-    m_fpFFNoneTrueNearest.Init(funcPointers[8]);
-    m_fpFFClampToEdgeTrueNearest.Init(funcPointers[9]);
-    m_fpFFRepeatTrueNearest.Init(funcPointers[10]);
-    m_fpFFMirroredTrueNearest.Init(funcPointers[11]);
-
-    m_fpFNoneFalseLinear.Init(funcPointers[12]);
-    m_fpFClampToEdgeFalseLinear.Init(funcPointers[13]);
-
-    m_fpFNoneTrueLinear.Init(funcPointers[14]);
-    m_fpFClampToEdgeTrueLinear.Init(funcPointers[15]);
-    m_fpFRepeatTrueLinear.Init(funcPointers[16]);
-    m_fpFMirroredTrueLinear.Init(funcPointers[17]);
-    m_fpFUndefTrans.Init(funcPointers[18]);
-    m_fpFFUndefTrans.Init(funcPointers[19]);
-    assert(TRANS_CBK_COUNT == 20);
-
-    ////////////////// Fill in read callback pointers //////////////////
-
-    int32_t InitIndex = TRANS_CBK_COUNT;
-
-    // number of supported image formats
-    const int32_t IMG_FORMATS_COUNT = INT_FORMATS_COUNT + FLOAT_FORMATS_COUNT;
-    int32_t TypeIndex[IMG_FORMATS_COUNT];
-    TypeIndex[0]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT8, CLK_RGBA);
-    TypeIndex[1]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT16, CLK_RGBA);
-    TypeIndex[2]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT32, CLK_RGBA);
-    TypeIndex[3]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT8, CLK_RGBA);
-    TypeIndex[4]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT16, CLK_RGBA);
-    TypeIndex[5]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT32, CLK_RGBA);
-    TypeIndex[6]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT8, CLK_R);
-    TypeIndex[7]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT16, CLK_R);
-    TypeIndex[8]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT32, CLK_R);
-    TypeIndex[9]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT8, CLK_R);
-    TypeIndex[10]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT16, CLK_R);
-    TypeIndex[11]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT32, CLK_R);
-    TypeIndex[12]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT8, CLK_RG);
-    TypeIndex[13]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT16, CLK_RG);
-    TypeIndex[14]=TYPE_ORDER_TO_INDEX(CLK_UNSIGNED_INT32, CLK_RG);
-    TypeIndex[15]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT8, CLK_RG);
-    TypeIndex[16]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT16, CLK_RG);
-    TypeIndex[17]=TYPE_ORDER_TO_INDEX(CLK_SIGNED_INT32, CLK_RG);
-    assert(INT_FORMATS_COUNT == 18);
-
-    TypeIndex[18]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_RGBA);
-    TypeIndex[19]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_INTENSITY);
-    TypeIndex[20]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_INTENSITY);
-    TypeIndex[21]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_INTENSITY);
-    TypeIndex[22]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_INTENSITY);
-    TypeIndex[23]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_RGBA);
-    TypeIndex[24]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_RGBA);
-    TypeIndex[25]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_RGBA);
-    TypeIndex[26]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_LUMINANCE);
-    TypeIndex[27]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_LUMINANCE);
-    TypeIndex[28]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_LUMINANCE);
-    TypeIndex[29]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_LUMINANCE);
-    TypeIndex[30]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_BGRA);
-    TypeIndex[31]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_R);
-    TypeIndex[32]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_R);
-    TypeIndex[33]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_R);
-    TypeIndex[34]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_R);
-    TypeIndex[35]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_A);
-    TypeIndex[36]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_A);
-    TypeIndex[37]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_A);
-    TypeIndex[38]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_A);
-    TypeIndex[39]=TYPE_ORDER_TO_INDEX(CLK_FLOAT, CLK_RG);
-    TypeIndex[40]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT8, CLK_RG);
-    TypeIndex[41]=TYPE_ORDER_TO_INDEX(CLK_UNORM_INT16, CLK_RG);
-    TypeIndex[42]=TYPE_ORDER_TO_INDEX(CLK_HALF_FLOAT, CLK_RG);
-    assert(IMG_FORMATS_COUNT == 43);
-    assert(INT_FORMATS_COUNT + FLOAT_FORMATS_COUNT == IMG_FORMATS_COUNT);
-
-    // Fill in integer image callbacks
-    for (int32_t i=0;i<INT_FORMATS_COUNT;i++){
-        m_fpNearestNoClamp[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpNearestClamp[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpWriteImage[TypeIndex[i]].Init(funcPointers[InitIndex++]);
+    void* ptr = m_pCompiledModule->getPointerToFunction(fncPtr);
+    if(ptr == NULL)
+    {
+        std::stringstream ss;
+        ss << "Internal error. Failed to retreive pointer to function " << _desc.GetName();
+        throw Exceptions::DeviceBackendExceptionBase(ss.str());
     }
-
-    // Fill in floating point callbacks
-    for (int32_t i=INT_FORMATS_COUNT;i<IMG_FORMATS_COUNT;i++){
-        m_fpNearestNoClamp[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpNearestClamp[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearNoClamp2D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearClamp2D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearNoClamp3D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearClamp3D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearNoClamp1D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpLinearClamp1D[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        m_fpWriteImage[TypeIndex[i]].Init(funcPointers[InitIndex++]);
-        
-    }
-
-    assert(InitIndex == FUNCTIONS_COUNT - 2);
-    // set undefined float reading callback
-    m_fpUndefReadInt.Init(funcPointers[FUNCTIONS_COUNT-2]);
-    m_fpUndefReadFloat.Init(funcPointers[FUNCTIONS_COUNT-1]);
-
-    m_pCompiledModule = pCompiledModule;
+    return ptr;
 }
 
 ImageCallbackLibrary::~ImageCallbackLibrary()

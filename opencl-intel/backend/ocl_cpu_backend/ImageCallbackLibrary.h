@@ -24,50 +24,147 @@ File Name:  ImageCallbackLibrary.h
 #include "StaticObjectLoader.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
+#include "cl_utils.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-// number of reading callbacks = channel types count (15) * channel order count(10)
-#define TYPES_COUNT 15
-#define ORDERS_COUNT 10
-#define MAX_NUM_FORMATS TYPES_COUNT * ORDERS_COUNT
-// for given image channel type and channel order returns index in callback array
-#define TYPE_ORDER_TO_INDEX(t,o) (t*ORDERS_COUNT+o);
-// Number of traslate callbacks is equal to number of possible samplers.
-// So number of callbacks is (addressing modes count (4)) *
-// (normalization options count, normalized or not (2)) *
-// (filtering mode count, linear or nearest (2))
-#define ADDR_MODE_COUNT 4
-#define NORM_OPTIONS 2
-#define FILTER_OPTIONS 2
-#define TRANS_NUM ADDR_MODE_COUNT * NORM_OPTIONS * FILTER_OPTIONS
+// Bitmask for normalized sampler. if sampler & mask != 0 then sampler is normalized
+#define NORMALIZED_SAMPLER 0x08
+// Bitmask for linear sampler. if sampler & mask != 0 then sampler is linear
+#define LINEAR_SAMPLER 0x10
 
 // TODO: ensure it is defined from cl_image_declaration.h
 // indexes of translation callbacks for each type of sampler
 // !!!IMPORTANT!!! These defines should be the same as in cl_image_declaration.h
-#define NONE_FALSE_NEAREST 0x00
-#define CLAMP_FALSE_NEAREST 0x01
-#define CLAMPTOEDGE_FALSE_NEAREST 0x02
-#define REPEAT_FALSE_NEAREST 0x03
-#define MIRRORED_FALSE_NEAREST 0x04
+enum SamplerType
+{
+    NONE_FALSE_NEAREST = 0x00,
+    CLAMP_FALSE_NEAREST = 0x01,
+    CLAMPTOEDGE_FALSE_NEAREST = 0x02,
+    REPEAT_FALSE_NEAREST = 0x03,
+    MIRRORED_FALSE_NEAREST = 0x04,
 
-#define NONE_TRUE_NEAREST 0x08
-#define CLAMP_TRUE_NEAREST 0x09
-#define CLAMPTOEDGE_TRUE_NEAREST 0x0a
-#define REPEAT_TRUE_NEAREST 0x0b
-#define MIRRORED_TRUE_NEAREST 0x0c
+    NONE_TRUE_NEAREST = 0x08,
+    CLAMP_TRUE_NEAREST = 0x09,
+    CLAMPTOEDGE_TRUE_NEAREST = 0x0a,
+    REPEAT_TRUE_NEAREST = 0x0b,
+    MIRRORED_TRUE_NEAREST = 0x0c,
 
-#define NONE_FALSE_LINEAR 0x10
-#define CLAMP_FALSE_LINEAR 0x11
-#define CLAMPTOEDGE_FALSE_LINEAR 0x12
-#define REPEAT_FALSE_LINEAR 0x13
-#define MIRRORED_FALSE_LINEAR 0x14
+    NONE_FALSE_LINEAR = 0x10,
+    CLAMP_FALSE_LINEAR = 0x11,
+    CLAMPTOEDGE_FALSE_LINEAR = 0x12,
+    REPEAT_FALSE_LINEAR = 0x13,
+    MIRRORED_FALSE_LINEAR = 0x14,
 
-#define NONE_TRUE_LINEAR 0x18
-#define CLAMP_TRUE_LINEAR 0x19
-#define CLAMPTOEDGE_TRUE_LINEAR 0x1a
-#define REPEAT_TRUE_LINEAR 0x1b
-#define MIRRORED_TRUE_LINEAR 0x1c
+    NONE_TRUE_LINEAR = 0x18,
+    CLAMP_TRUE_LINEAR = 0x19,
+    CLAMPTOEDGE_TRUE_LINEAR = 0x1a,
+    REPEAT_TRUE_LINEAR = 0x1b,
+    MIRRORED_TRUE_LINEAR = 0x1c,
+
+    SAMPLER_UNDEFINED = 0xFF
+};
+
+// Describes callback type that is used if read_image is called
+// with parameters that by spec produce undefined return value
+enum UndefCbkType
+{
+    // Undefined reading callback with integer coordinates
+    READ_CBK_UNDEF_INT,
+    // Undefined reading callback with floating point coordinates
+    READ_CBK_UNDEF_FLOAT,
+    // Undefined translation callback for floating point coordinates but integer image
+    TRANS_CBK_UNDEF_FLOAT,
+    // Undefined translation callback for floating poitn coordinates and float image
+    TRANS_CBK_UNDEF_FLOAT_FLOAT
+};
+
+// callback vector size
+enum VecSize
+{
+    SCALAR = 1,
+    SOA4 = 4,
+    SOA8 = 8
+};
+
+// Auxiliary functions for image callback names mangling
+const string channelOrderToPrefix(cl_channel_order _co);
+const string samplerToAddrModePrefix(SamplerType _sampler);
+const string imgTypeToDimPrefix(cl_mem_object_type _type);
+const string channelDataTypeToPrefix(cl_channel_type _ct);
+const string VecSizeToPrefix(VecSize _size);
+const string FilterToPrefix(cl_filter_mode _filterMode);
+
+class CbkDesc
+{
+public:
+    virtual std::string GetName() const = 0;
+};
+
+class UndefCbkDesc : public CbkDesc
+{
+public:
+
+    UndefCbkDesc(UndefCbkType _type);
+    virtual std::string GetName() const;
+
+private:
+    UndefCbkType Type;
+};
+
+class TransCbkDesc : public CbkDesc
+{
+public:
+
+    TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize = SCALAR);
+    virtual std::string GetName() const;
+
+private:
+    bool IsIntFormat;
+    SamplerType Sampler;
+    VecSize VectorSize;
+};
+
+class ReadCbkDesc : public CbkDesc
+{
+public:
+    ReadCbkDesc(bool _isClamp,
+        cl_channel_order _ch_order,
+        cl_channel_type _ch_type,
+        cl_filter_mode _filter,
+        // For regular 1.1 images reading callbacks are common for 2D and 3D
+        // so set 2D here for generality
+        cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
+        VecSize _vectorSize = SCALAR);
+
+    virtual std::string GetName() const;
+
+private:
+    cl_image_format     Format;
+    bool                IsClamp;
+    cl_filter_mode      Filter;
+    cl_mem_object_type  ImageType;
+    VecSize             VectorSize;
+};
+
+class WriteCbkDesc : public CbkDesc
+{
+public:
+
+    WriteCbkDesc(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize = SCALAR);
+    // Returns llvm name of a function
+    virtual std::string GetName() const;
+
+private:
+    VecSize VectorSize;
+    cl_image_format Format;
+};
+
+const bool FLT_CBK = false;
+const bool INT_CBK = !FLT_CBK;
+
+const bool CLAMP_CBK = true;
+const bool NO_CLAMP_CBK = !CLAMP_CBK;
 
 // Returns size of array
 #ifndef ARRAY_SIZE
@@ -75,39 +172,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   ((sizeof(a) / sizeof(*(a))) / \
   static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
 #endif
-
-// Auxiliary class for storing image function pointer and name
-class FuncDesc
-{
-public:
-
-    FuncDesc():
-      m_fncPtr(NULL)
-    {}
-
-    void Init(llvm::Function* pFunc)
-    {
-        assert(pFunc != NULL);
-        m_fncPtr = pFunc;
-    }
-
-    void* GetPtr(CompiledModule* pCompiledModule)
-    {
-        assert(pCompiledModule != NULL);
-        if(m_fncPtr == NULL)
-            throw Exceptions::DeviceBackendExceptionBase(std::string("Images internal error. Uninitialized callback function requested"));
-        // Request pointer to function. If it is the first request function is being JITted.
-        void* ptr = pCompiledModule->getPointerToFunction(m_fncPtr);
-        if( ptr == NULL){
-            throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error occurred while jitting image functions"));
-        }
-        return ptr;
-    }
-
-private:
-    /// Pointer to jitted funciton
-    llvm::Function* m_fncPtr;
-};
 
 /**
  *  Holds the entire callback functions set for a specific compiled library (i.e., per architecture)
@@ -119,69 +183,42 @@ public:
 
 private:
 
-#define DECLARE_IMAGE_CALLBACK(NAME)\
-private:\
-    FuncDesc m_fp##NAME;\
-public:\
-    void* Get##NAME()\
-    {\
-        return m_fp##NAME.GetPtr(m_pCompiledModule);\
-    }
-
-#define DECLARE_CALLBACK_ARRAY(NAME, COUNT)\
-private:\
-    FuncDesc m_fp##NAME[COUNT];\
-public:\
-    void* Get##NAME(int idx)\
-    {\
-        assert(idx < COUNT);\
-        return m_fp##NAME[idx].GetPtr(m_pCompiledModule);\
-    }
-
-    //float coordinate translation callbacks
-    DECLARE_IMAGE_CALLBACK(FNoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FUndefTrans)
-    DECLARE_IMAGE_CALLBACK(FFUndefTrans)
-
-    DECLARE_IMAGE_CALLBACK(FNoneTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FRepeatTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FMirroredTrueNearest)
-
-    DECLARE_IMAGE_CALLBACK(FNoneFalseLinear)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeFalseLinear)
-
-    DECLARE_IMAGE_CALLBACK(FNoneTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FClampToEdgeTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FRepeatTrueLinear)
-    DECLARE_IMAGE_CALLBACK(FMirroredTrueLinear)
-
-    DECLARE_IMAGE_CALLBACK(FFNoneFalseNearest)
-    DECLARE_IMAGE_CALLBACK(FFClampToEdgeFalseNearest)
-
-    DECLARE_IMAGE_CALLBACK(FFNoneTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFClampToEdgeTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFRepeatTrueNearest)
-    DECLARE_IMAGE_CALLBACK(FFMirroredTrueNearest)
-
-    //image reading callbacks
-    DECLARE_CALLBACK_ARRAY(NearestNoClamp, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(NearestClamp, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearNoClamp2D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearClamp2D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearNoClamp3D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearClamp3D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearNoClamp1D, MAX_NUM_FORMATS)
-    DECLARE_CALLBACK_ARRAY(LinearClamp1D, MAX_NUM_FORMATS)
-    DECLARE_IMAGE_CALLBACK(UndefReadFloat)
-    DECLARE_IMAGE_CALLBACK(UndefReadInt)
-
-    // image writing callbackS
-    DECLARE_CALLBACK_ARRAY(WriteImage, MAX_NUM_FORMATS)
-
     // Used for function lookup. Not owned by this class
     CompiledModule* m_pCompiledModule;
+
+    void* GetCbkPtr(const CbkDesc& _desc);
+
+public:
+
+    void* GetUndefinedCbk(UndefCbkType _type)
+    {
+        UndefCbkDesc desc(_type);
+        return GetCbkPtr(desc);
+    }
+
+    void* GetTranslationCbk(bool _isInt, SamplerType _sampler)
+    {
+        TransCbkDesc desc(_isInt, _sampler);
+        return GetCbkPtr(desc);
+    }
+
+    void* GetReadingCbk(bool _isClamp,
+                        cl_channel_order _ch_order,
+                        cl_channel_type _ch_type,
+                        cl_filter_mode _filter,
+                        cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
+                        VecSize _vecSize = SCALAR)
+    {
+        ReadCbkDesc desc(_isClamp, _ch_order, _ch_type, _filter, _imageType, _vecSize);
+        return GetCbkPtr(desc);
+    }
+
+    void* GetWritingCbk(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize = SCALAR)
+    {
+        WriteCbkDesc desc(_ch_order, _ch_type, _vectorSize);
+        return GetCbkPtr(desc);
+    }
+
 };
 
 /**

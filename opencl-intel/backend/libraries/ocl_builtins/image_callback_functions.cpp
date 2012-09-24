@@ -68,71 +68,71 @@ ALIGN16 const uint4 BorderColorAlphaUint = {0, 0, 0, 1};
 ALIGN16 const float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
 // utility functions declarations
-int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord);
-int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord);
-float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord);
-int4 __attribute__((overloadable)) ProjectNearest(float4 coord);
-float4 __attribute__((overloadable)) frac(float4 coord);
+int isOutOfBoundsInt(image2d_t image, int4 coord);
+int4 ProjectToEdgeInt(image2d_t image, int4 coord);
+float4 Unnormalize(image2d_t image,float4 coord);
+int4 ProjectNearest(float4 coord);
+float4 frac(float4 coord);
 
-void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData);
+void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData);
 
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT8(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT16(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT32(void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT16(void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT32(void* pPixel);
 
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT16(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT32(void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT32(void* pPixel);
 
-float __attribute__((overloadable)) load_value_INTENSITY_FLOAT(void* pPixel);
-float __attribute__((overloadable)) load_value_INTENSITY_UNORM_INT8(void* pPixel);
-float __attribute__((overloadable)) load_value_INTENSITY_UNORM_INT16(void* pPixel);
-float __attribute__((overloadable)) load_value_INTENSITY_HALF_FLOAT(void* pPixel);
-float __attribute__((overloadable)) load_value_LUMINANCE_FLOAT(void* pPixel);
-float __attribute__((overloadable)) load_value_LUMINANCE_UNORM_INT8(void* pPixel);
-float __attribute__((overloadable)) load_value_LUMINANCE_UNORM_INT16(void* pPixel);
-float __attribute__((overloadable)) load_value_LUMINANCE_HALF_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT16(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_HALF_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT16(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RGBA_HALF_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RGBA_FLOAT(void* pPixel);
+float load_value_INTENSITY_FLOAT(void* pPixel);
+float load_value_INTENSITY_UNORM_INT8(void* pPixel);
+float load_value_INTENSITY_UNORM_INT16(void* pPixel);
+float load_value_INTENSITY_HALF_FLOAT(void* pPixel);
+float load_value_LUMINANCE_FLOAT(void* pPixel);
+float load_value_LUMINANCE_UNORM_INT8(void* pPixel);
+float load_value_LUMINANCE_UNORM_INT16(void* pPixel);
+float load_value_LUMINANCE_HALF_FLOAT(void* pPixel);
+float4 load_pixel_INTENSITY_FLOAT(void* pPixel);
+float4 load_pixel_INTENSITY_UNORM_INT8(void* pPixel);
+float4 load_pixel_INTENSITY_UNORM_INT16(void* pPixel);
+float4 load_pixel_INTENSITY_HALF_FLOAT(void* pPixel);
+float4 load_pixel_LUMINANCE_FLOAT(void* pPixel);
+float4 load_pixel_LUMINANCE_UNORM_INT8(void* pPixel);
+float4 load_pixel_LUMINANCE_UNORM_INT16(void* pPixel);
+float4 load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel);
+float4 load_pixel_RGBA_HALF_FLOAT(void* pPixel);
+float4 load_pixel_RGBA_FLOAT(void* pPixel);
 
-float4 __attribute__((overloadable)) load_pixel_BGRA_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT16(void* pPixel);
+float4 load_pixel_BGRA_UNORM_INT8(void* pPixel);
+float4 load_pixel_RGBA_UNORM_INT8(void* pPixel);
+float4 load_pixel_RGBA_UNORM_INT16(void* pPixel);
 
-int4 __attribute__((overloadable)) load_pixel_R_INT8(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_R_INT16(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_R_INT32(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_R_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_R_UINT8(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_R_UINT16(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_R_UINT32(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT16(void* pPixel);
+int4 load_pixel_R_SIGNED_INT8(void* pPixel);
+int4 load_pixel_R_SIGNED_INT16(void* pPixel);
+int4 load_pixel_R_SIGNED_INT32(void* pPixel);
+float4 load_pixel_R_FLOAT(void* pPixel);
+float4 load_pixel_R_HALF_FLOAT(void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT8(void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel);
+float4 load_pixel_R_UNORM_INT8(void* pPixel);
+float4 load_pixel_R_UNORM_INT16(void* pPixel);
 
-float4 __attribute__((overloadable)) load_pixel_A_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT16(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel);
+float4 load_pixel_A_FLOAT(void* pPixel);
+float4 load_pixel_A_UNORM_INT8(void* pPixel);
+float4 load_pixel_A_UNORM_INT16(void* pPixel);
+float4 load_pixel_A_HALF_FLOAT(void* pPixel);
 
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT8(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT16(void* pPixel);
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT32(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_RG_INT8(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_RG_INT16(void* pPixel);
-int4 __attribute__((overloadable)) load_pixel_RG_INT32(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RG_FLOAT(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT8(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT16(void* pPixel);
-float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT8(void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT16(void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT32(void* pPixel);
+int4 load_pixel_RG_SIGNED_INT8(void* pPixel);
+int4 load_pixel_RG_SIGNED_INT16(void* pPixel);
+int4 load_pixel_RG_SIGNED_INT32(void* pPixel);
+float4 load_pixel_RG_FLOAT(void* pPixel);
+float4 load_pixel_RG_UNORM_INT8(void* pPixel);
+float4 load_pixel_RG_UNORM_INT16(void* pPixel);
+float4 load_pixel_RG_HALF_FLOAT(void* pPixel);
 
 float4 SampleImage1DFloat(float4 Ti0, float4 Ti1, float4 frac);
 
@@ -170,36 +170,36 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 
 /************************Float coordinate translations*************************************/
 
-int4 __attribute__((overloadable)) trans_coord_float_NONE_FALSE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_NONE_FALSE_NEAREST(image2d_t image, float4 coord)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     return ProjectNearest(coord);
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_FALSE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_CLAMP_TO_EDGE_FALSE_NEAREST(image2d_t image, float4 coord)
 {
     return ProjectToEdgeInt(image,ProjectNearest(coord));
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_UNDEFINED(image2d_t image, float4 coord)
+int4 trans_coord_float_UNDEFINED(image2d_t image, float4 coord)
 {
     return int4AllZeros;   //will be background color, but it's a "don't care" situtation
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     int4 result=ProjectNearest(Unnormalize(image, coord));
     return result;
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_TRUE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_CLAMP_TO_EDGE_TRUE_NEAREST(image2d_t image, float4 coord)
 {
     int4 result=ProjectToEdgeInt(image, ProjectNearest(Unnormalize(image, coord)));
     return result;
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
@@ -213,7 +213,7 @@ int4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_NEAREST(image2d
     return urcoord;
 }
 
-int4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_NEAREST(image2d_t image, float4 coord)
+int4 trans_coord_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4AllZeros);
@@ -233,38 +233,38 @@ int4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_NEAREST(image
 
 /***********************float to float images translation functions (which accept and return [square0, square1] coordinates******************/
 
-float4 __attribute__((overloadable)) trans_coord_float_float_NONE_FALSE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_NONE_FALSE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *square0=ProjectNearest(coord);
     return float4AllZeros;
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_CLAMPTOEDGE_FALSE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_CLAMP_TO_EDGE_FALSE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     *square0=ProjectToEdgeInt(image,ProjectNearest(coord));
     return float4AllZeros;
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_UNDEFINED(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_UNDEFINED(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     return float4AllZeros;   //will be background color, but it's a "don't care" situtation
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_NONE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *square0=ProjectNearest(Unnormalize(image, coord));
     return float4AllZeros;
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_CLAMPTOEDGE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_CLAMP_TO_EDGE_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     *square0=ProjectToEdgeInt(image, ProjectNearest(Unnormalize(image, coord)));
     return float4AllZeros;
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
 
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
@@ -279,7 +279,7 @@ float4 __attribute__((overloadable)) trans_coord_float_float_REPEAT_TRUE_NEAREST
     return float4AllZeros;
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     __m128 isZero = _mm_cmpeq_ps(coord, float4AllZeros);
@@ -297,7 +297,7 @@ float4 __attribute__((overloadable)) trans_coord_float_float_MIRRORED_TRUE_NEARE
 }
 
 
-float4 __attribute__((overloadable)) trans_coord_float_NONE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_NONE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     *square0=ProjectNearest(coord - halfhalfhalfzero);
     *square1=ProjectNearest(coord - halfhalfhalfzero) + oneOneOneZero;
@@ -305,7 +305,7 @@ float4 __attribute__((overloadable)) trans_coord_float_NONE_FALSE_LINEAR(image2d
 }
 
 
-float4 __attribute__ ((overloadable)) trans_coord_float_CLAMPTOEDGE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_CLAMP_TO_EDGE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {    
     *square0 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero));
     *square1 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero) + oneOneOneZero);
@@ -313,7 +313,7 @@ float4 __attribute__ ((overloadable)) trans_coord_float_CLAMPTOEDGE_FALSE_LINEAR
 }
 
 
-float4 __attribute__((overloadable)) trans_coord_float_NONE_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_NONE_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     float4 ucoord = Unnormalize(image, coord);
     *square0=ProjectNearest(ucoord - halfhalfhalfzero);
@@ -322,7 +322,7 @@ float4 __attribute__((overloadable)) trans_coord_float_NONE_TRUE_LINEAR(image2d_
 }
 
 
-float4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_CLAMP_TO_EDGE_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     float4 ucoord = Unnormalize(image, coord);
     int4 notClampedSquare0 = ProjectNearest(ucoord - halfhalfhalfzero);
@@ -334,7 +334,7 @@ float4 __attribute__((overloadable)) trans_coord_float_CLAMPTOEDGE_TRUE_LINEAR(i
 }
 
 
-float4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dim));
     float4 ucoord = Unnormalize(image, coord-floor(coord));  //unrepeated coords
@@ -356,7 +356,7 @@ float4 __attribute__((overloadable)) trans_coord_float_REPEAT_TRUE_LINEAR(image2
     return frac(ucoord-halfhalfhalfzero);
 }
 
-float4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
+float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     float4 mcoord=2.0f*rint(0.5f*coord);
@@ -375,17 +375,17 @@ float4 __attribute__((overloadable)) trans_coord_float_MIRRORED_TRUE_LINEAR(imag
 /*******************************************************************UNSIGNED IMAGE TYPES I/IO*****************************************************************************/
 
 
-/*****************************RGBA_UINT8 Image type i/o functions****************************************************/
+/*****************************RGBA_UNSIGNED_INT8 Image type i/o functions****************************************************/
 
 /// Implements nearest callbacks for given image format and border color
 #define IMPLEMENT_READ_SAMPLE_NEAREST(FORMAT, RETURN_TYPE, BORDER_COLOR)\
-RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_NOCLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
+RETURN_TYPE read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
 {\
     void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }\
 \
-RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
+RETURN_TYPE read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
 {\
     int isOOB = isOutOfBoundsInt(image, coord);\
     if (isOOB)\
@@ -395,13 +395,13 @@ RETURN_TYPE __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(ima
 }
 
 #define IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(FORMAT, BORDER_COLOR)\
-float4 __attribute__((overloadable)) read_sample_NEAREST_NOCLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+float4 read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
 {\
     void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }\
 \
-float4 __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+float4 read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
 {\
     int isOOB = isOutOfBoundsInt(image, coord);\
     if (isOOB)\
@@ -410,12 +410,12 @@ float4 __attribute__((overloadable)) read_sample_NEAREST_CLAMP_##FORMAT(image2d_
     return load_pixel_##FORMAT(pixel);\
 }
 
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UINT8,  uint4, BorderColorNoAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UINT16, uint4, BorderColorNoAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UINT32, uint4, BorderColorNoAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT8,  int4, BorderColorNoAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT16, int4, BorderColorNoAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_INT32, int4, BorderColorNoAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UNSIGNED_INT8,  uint4, BorderColorNoAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UNSIGNED_INT16, uint4, BorderColorNoAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_UNSIGNED_INT32, uint4, BorderColorNoAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_SIGNED_INT8,  int4, BorderColorNoAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_SIGNED_INT16, int4, BorderColorNoAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_SIGNED_INT32, int4, BorderColorNoAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT8,  BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT16, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_FLOAT, BorderColorNoAlphaFloat)
@@ -432,35 +432,35 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT8, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT16, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_INT8, int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_INT16, int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_INT32, int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT8, uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT16, uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(R_UINT32, uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT8, int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT16, int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT32, int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_UNSIGNED_INT8, uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_UNSIGNED_INT16, uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(R_UNSIGNED_INT32, uint4, BorderColorAlphaUint)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_HALF_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_FLOAT, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_UNORM_INT8, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_UNORM_INT16, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(A_HALF_FLOAT, BorderColorNoAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT8,  uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT16, uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_UINT32, uint4, BorderColorAlphaUint)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT8,  int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT16, int4, BorderColorAlphaInt)
-IMPLEMENT_READ_SAMPLE_NEAREST(RG_INT32, int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_UNSIGNED_INT8,  uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_UNSIGNED_INT16, uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_UNSIGNED_INT32, uint4, BorderColorAlphaUint)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_SIGNED_INT8,  int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_SIGNED_INT16, int4, BorderColorAlphaInt)
+IMPLEMENT_READ_SAMPLE_NEAREST(RG_SIGNED_INT32, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT8, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT16, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 
-void __attribute__((overloadable)) write_sample_RGBA_UINT8(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     color = min(color, (uint4)(UCHAR_MAX));
     *(char4*)pixel = trunc_v4i32_v4i8(*((int4*)&color));
 }
 
-void __attribute__((overloadable)) write_sample_RG_UINT8(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
@@ -470,7 +470,7 @@ void __attribute__((overloadable)) write_sample_RG_UINT8(void* pixel, uint4 colo
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_UINT8(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
@@ -478,16 +478,16 @@ void __attribute__((overloadable)) write_sample_R_UINT8(void* pixel, uint4 color
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-/*****************************RGBA_UINT16 Image type i/o functions****************************************************/
+/*****************************RGBA_UNSIGNED_INT16 Image type i/o functions****************************************************/
 
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT16(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT16(void* pPixel)
 {
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     return (uint4)i4Val;
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT16(void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
@@ -500,7 +500,7 @@ void __attribute__((overloadable)) write_sample_RGBA_UINT16(void* pixel, uint4 c
     *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_RG_UINT16(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT16(void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
@@ -509,31 +509,31 @@ void __attribute__((overloadable)) write_sample_RG_UINT16(void* pixel, uint4 col
     *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_UINT16(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT16(void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-/*****************************RGBA_UINT32 Image type i/o functions****************************************************/
+/*****************************RGBA_UNSIGNED_INT32 Image type i/o functions****************************************************/
 
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT32(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT32(void* pPixel)
 {
     return (*((uint4*)pPixel));
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_UINT32(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT32(void* pixel, uint4 color)
 {
     (*(uint4*)pixel)=color;
 }
 
-void __attribute__((overloadable)) write_sample_R_UINT32(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT32(void* pixel, uint4 color)
 {
     (*(uint*)pixel)=color.x;
 }
 
-void __attribute__((overloadable)) write_sample_RG_UINT32(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT32(void* pixel, uint4 color)
 {
     (*(uint2*)pixel)=color.lo;
 }
@@ -541,10 +541,10 @@ void __attribute__((overloadable)) write_sample_RG_UINT32(void* pixel, uint4 col
 /*******************************************************************SIGNED IMAGE TYPES I/IO*****************************************************************************/
 
 
-/*****************************RGBA_INT8 Image type i/o functions****************************************************/
+/*****************************RGBA_SIGNED_INT8 Image type i/o functions****************************************************/
 
 
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel)
 {
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
@@ -555,7 +555,7 @@ int4 __attribute__((overloadable)) load_pixel_RGBA_INT8(void* pPixel)
     return (int4)i4Val;
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_INT8(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min((int4)i4Val, i4int16Max);
@@ -564,7 +564,7 @@ void __attribute__((overloadable)) write_sample_RGBA_INT8(void* pixel, int4 colo
     *(unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_INT8(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min((int4)i4Val, i4int16Max);
@@ -573,7 +573,7 @@ void __attribute__((overloadable)) write_sample_R_INT8(void* pixel, int4 color)
     *(char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
 }
 
-void __attribute__((overloadable)) write_sample_RG_INT8(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min((int4)i4Val, i4int16Max);
@@ -581,9 +581,9 @@ void __attribute__((overloadable)) write_sample_RG_INT8(void* pixel, int4 color)
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
 }
-/*****************************RGBA_INT16 Image type i/o functions****************************************************/
+/*****************************RGBA_SIGNED_INT16 Image type i/o functions****************************************************/
 
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT16(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel)
 {
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
@@ -593,7 +593,7 @@ int4 __attribute__((overloadable)) load_pixel_RGBA_INT16(void* pPixel)
     return (int4)i4Val;
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_INT16(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max((int4)i4Val, i4int16Min);
@@ -603,7 +603,7 @@ void __attribute__((overloadable)) write_sample_RGBA_INT16(void* pixel, int4 col
     _mm_storel_epi64((__m128i*)pixel, i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_RG_INT16(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max((int4)i4Val, i4int16Min);
@@ -613,7 +613,7 @@ void __attribute__((overloadable)) write_sample_RG_INT16(void* pixel, int4 color
     ((short*)pixel)[1]=((int4)i4Val).y;
 }
 
-void __attribute__((overloadable)) write_sample_R_INT16(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max((int4)i4Val, i4int16Min);
@@ -622,24 +622,24 @@ void __attribute__((overloadable)) write_sample_R_INT16(void* pixel, int4 color)
     (*(short*)pixel)=((int4)i4Val).x;
 }
 
-/*****************************RGBA_INT32 Image type i/o functions****************************************************/
+/*****************************RGBA_SIGNED_INT32 Image type i/o functions****************************************************/
 
-int4 __attribute__((overloadable)) load_pixel_RGBA_INT32(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT32(void* pPixel)
 {
     return (*((int4*)pPixel));
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_INT32(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT32(void* pixel, int4 color)
 {
     (*(int4*)pixel)=color;
 }
 
-void __attribute__((overloadable)) write_sample_R_INT32(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT32(void* pixel, int4 color)
 {
     (*(int*)pixel)=color.x;
 }
 
-void __attribute__((overloadable)) write_sample_RG_INT32(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT32(void* pixel, int4 color)
 {
     (*(int2*)pixel)=color.lo;
 }
@@ -649,7 +649,7 @@ void __attribute__((overloadable)) write_sample_RG_INT32(void* pixel, int4 color
 
 /***************************************RGBA_UNORM8 Image type i/o functions*****************************************************/
 
-float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT8(void* pPixel)
+float4 load_pixel_RGBA_UNORM_INT8(void* pPixel)
 {
     __m128i i4Val = (__m128i)_mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
@@ -659,7 +659,7 @@ float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT8(void* pPixel)
     return converted;
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT8(void* pixel, float4 color)
+void write_sample_RGBA_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
@@ -671,7 +671,7 @@ void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT8(void* pixel, flo
     *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_RG_UNORM_INT8(void* pixel, float4 color)
+void write_sample_RG_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
@@ -679,13 +679,13 @@ void __attribute__((overloadable)) write_sample_RG_UNORM_INT8(void* pixel, float
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_UNORM_INT8(void* pixel, float4 color)
+void write_sample_R_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_A_UNORM_INT8(void* pixel, float4 color)
+void write_sample_A_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     i4Val = _mm_srli_si128(i4Val, 12);
@@ -694,7 +694,7 @@ void __attribute__((overloadable)) write_sample_A_UNORM_INT8(void* pixel, float4
 
 /***************************************RGBA_UNORM16 Image type i/o functions*****************************************************/
 
-float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT16(void* pPixel)
+float4 load_pixel_RGBA_UNORM_INT16(void* pPixel)
 {
 
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
@@ -703,7 +703,7 @@ float4 __attribute__((overloadable)) load_pixel_RGBA_UNORM_INT16(void* pPixel)
     return _mm_mul_ps(f4Val, f4Unorm16Dim);
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT16(void* pixel, float4 color)
+void write_sample_RGBA_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm16mul, (__m128)f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
@@ -715,7 +715,7 @@ void __attribute__((overloadable)) write_sample_RGBA_UNORM_INT16(void* pixel, fl
     *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_RG_UNORM_INT16(void* pixel, float4 color)
+void write_sample_RG_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
@@ -723,13 +723,13 @@ void __attribute__((overloadable)) write_sample_RG_UNORM_INT16(void* pixel, floa
     *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_UNORM_INT16(void* pixel, float4 color)
+void write_sample_R_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_A_UNORM_INT16(void* pixel, float4 color)
+void write_sample_A_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     i4Val = _mm_srli_si128(i4Val, 12);
@@ -740,7 +740,7 @@ void __attribute__((overloadable)) write_sample_A_UNORM_INT16(void* pixel, float
 
 /***************************************BGRA_UNORM8 Image type i/o functions*****************************************************/
 
-float4 __attribute__((overloadable)) load_pixel_BGRA_UNORM_INT8(void* pPixel)
+float4 load_pixel_BGRA_UNORM_INT8(void* pPixel)
 {
 
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
@@ -752,7 +752,7 @@ float4 __attribute__((overloadable)) load_pixel_BGRA_UNORM_INT8(void* pPixel)
     return (float4)i4Val;
 }
 
-void __attribute__((overloadable)) write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
+void write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
 {
     float4 convertedColor = color.zyxw;
     __m128i i4Val = cvt_to_norm((__m128i)convertedColor, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
@@ -772,199 +772,199 @@ void __attribute__((overloadable)) write_sample_BGRA_UNORM_INT8(void* pixel, flo
 
 /******************************************RGBA_FLOAT image type i/o functions******************************************************/
 
-float4 __attribute__((overloadable)) load_pixel_RGBA_FLOAT(void* pPixel)
+float4 load_pixel_RGBA_FLOAT(void* pPixel)
 {
     return *((float4*)pPixel);
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_FLOAT(void* pixel, float4 color)
+void write_sample_RGBA_FLOAT(void* pixel, float4 color)
 {
     (*(float4*)pixel)=color;
 }
 
 /******************************************RGBA_HALF_FLOAT image type i/o functions******************************************************/
 
-float4 __attribute__((overloadable)) load_pixel_RGBA_HALF_FLOAT(void* pPixel)
+float4 load_pixel_RGBA_HALF_FLOAT(void* pPixel)
 {
     return (float4)vloada_half4(0, (half*)pPixel);
 }
 
-void __attribute__((overloadable)) write_sample_RGBA_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_RGBA_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half4(color, 0, (half*)pixel);
 }
 
-void __attribute__((overloadable)) write_sample_R_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_R_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half(color.x, 0, (half*)pixel);
 }
 
-void __attribute__((overloadable)) write_sample_RG_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_RG_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half2(color.lo, 0, (half*)pixel);
 }
 
-void __attribute__((overloadable)) write_sample_A_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_A_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half(color.w, 0, (half*)pixel); // store alpha channel from pixel (0,0,0,a)
 }
 
-void __attribute__((overloadable)) write_sample_LUMINANCE_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_LUMINANCE_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half(color.x, 0, (half*)pixel);
 }
 
-void __attribute__((overloadable)) write_sample_INTENSITY_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_INTENSITY_HALF_FLOAT(void* pixel, float4 color)
 {
     vstore_half(color.x, 0, (half*)pixel);
 }
 
 /******************************************LUMINANCE image type i/o functions******************************************************/
 
-float __attribute__((overloadable)) load_value_LUMINANCE_FLOAT(void* pPixel)
+float load_value_LUMINANCE_FLOAT(void* pPixel)
 {
     float luminance = *((float*)pPixel);
     return luminance;
 }
 
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_FLOAT(void* pPixel)
+float4 load_pixel_LUMINANCE_FLOAT(void* pPixel)
 {
     float luminance = load_value_LUMINANCE_FLOAT(pPixel);
     float4 res = (float4)(luminance, luminance, luminance, 1.0f);
     return res;
 }
 
-float __attribute__((overloadable)) load_value_LUMINANCE_UNORM_INT8(void* pPixel)
+float load_value_LUMINANCE_UNORM_INT8(void* pPixel)
 {
     uchar val = *(uchar*)pPixel;
     return val * (1.0f/255.0f);
 }
 
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT8(void* pPixel)
+float4 load_pixel_LUMINANCE_UNORM_INT8(void* pPixel)
 {
     float luminance = load_value_LUMINANCE_UNORM_INT8(pPixel);
     return (float4)(luminance, luminance, luminance, 1.0f);
 }
 
-float __attribute__((overloadable)) load_value_LUMINANCE_UNORM_INT16(void* pPixel)
+float load_value_LUMINANCE_UNORM_INT16(void* pPixel)
 {
     ushort val = *(ushort*)pPixel;
     return val * (1.0f/65535.0f);
 }
 
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_UNORM_INT16(void* pPixel)
+float4 load_pixel_LUMINANCE_UNORM_INT16(void* pPixel)
 {
     float luminance = load_value_LUMINANCE_UNORM_INT16(pPixel);
     return (float4)(luminance, luminance, luminance, 1.0f);
 }
 
-float __attribute__((overloadable)) load_value_LUMINANCE_HALF_FLOAT(void* pPixel)
+float load_value_LUMINANCE_HALF_FLOAT(void* pPixel)
 {
     float val = vloada_half(0, (half*)pPixel);
     return val;
 }
 
-float4 __attribute__((overloadable)) load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel)
+float4 load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel)
 {
     float val = load_value_LUMINANCE_HALF_FLOAT(pPixel);
     return (float4)(val, val, val, 1.f);
 }
 
-float __attribute__((overloadable)) load_value_INTENSITY_UNORM_INT8(void* pPixel)
+float load_value_INTENSITY_UNORM_INT8(void* pPixel)
 {
     uchar val = *(uchar*)pPixel;
     return val * (1.0f/255.0f);
 }
 
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT8(void* pPixel)
+float4 load_pixel_INTENSITY_UNORM_INT8(void* pPixel)
 {
     float intensity = load_value_INTENSITY_UNORM_INT8(pPixel);
     return (float4)(intensity, intensity, intensity, intensity);
 }
 
-float __attribute__((overloadable)) load_value_INTENSITY_UNORM_INT16(void* pPixel)
+float load_value_INTENSITY_UNORM_INT16(void* pPixel)
 {
     ushort val = *(ushort*)pPixel;
     return val * (1.0f/65535.0f);
 }
 
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_UNORM_INT16(void* pPixel)
+float4 load_pixel_INTENSITY_UNORM_INT16(void* pPixel)
 {
     float intensity = load_value_INTENSITY_UNORM_INT16(pPixel);
     return (float4)(intensity, intensity, intensity, intensity);
 }
 
-float __attribute__((overloadable)) load_value_INTENSITY_HALF_FLOAT(void* pPixel)
+float load_value_INTENSITY_HALF_FLOAT(void* pPixel)
 {
     float val = vloada_half(0, (half*)pPixel);
     return val;
 }
 
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_HALF_FLOAT(void* pPixel)
+float4 load_pixel_INTENSITY_HALF_FLOAT(void* pPixel)
 {
     float val = load_value_INTENSITY_HALF_FLOAT(pPixel);
     return (float4)(val, val, val, val);
 }
 
-void __attribute__((overloadable)) write_sample_LUMINANCE_FLOAT(void* pixel, float4 color)
+void write_sample_LUMINANCE_FLOAT(void* pixel, float4 color)
 {
     (*(float*)pixel)=color.x;
 }
 
 /******************************************INTENSITY image type i/o functions******************************************************/
 
-float __attribute__((overloadable)) load_value_INTENSITY_FLOAT(void* pPixel)
+float load_value_INTENSITY_FLOAT(void* pPixel)
 {
     float intensity = *((float*)pPixel);
     return intensity;
 }
 
-float4 __attribute__((overloadable)) load_pixel_INTENSITY_FLOAT(void* pPixel)
+float4 load_pixel_INTENSITY_FLOAT(void* pPixel)
 {
     float intensity = load_value_INTENSITY_FLOAT(pPixel);
     return (float4)intensity;
 }
 
-void __attribute__((overloadable)) write_sample_INTENSITY_FLOAT(void* pixel, float4 color)
+void write_sample_INTENSITY_FLOAT(void* pixel, float4 color)
 {
     (*(float*)pixel)=color.x;
 }
 
-void __attribute__((overloadable)) write_sample_INTENSITY_UNORM_INT8(void* pixel, float4 color)
+void write_sample_INTENSITY_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_INTENSITY_UNORM_INT16(void* pixel, float4 color)
+void write_sample_INTENSITY_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_LUMINANCE_UNORM_INT8(void* pixel, float4 color)
+void write_sample_LUMINANCE_UNORM_INT8(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_LUMINANCE_UNORM_INT16(void* pixel, float4 color)
+void write_sample_LUMINANCE_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void __attribute__((overloadable)) write_sample_R_FLOAT(void* pixel, float4 color)
+void write_sample_R_FLOAT(void* pixel, float4 color)
 {
     (*(float*)pixel)=color.x;
 }
 
-void __attribute__((overloadable)) write_sample_RG_FLOAT(void* pixel, float4 color)
+void write_sample_RG_FLOAT(void* pixel, float4 color)
 {
     (*(float2*)pixel)=color.lo;
 }
 
-void __attribute__((overloadable)) write_sample_A_FLOAT(void* pixel, float4 color)
+void write_sample_A_FLOAT(void* pixel, float4 color)
 {
     (*(float*)pixel)=color.w;
 }
@@ -983,8 +983,8 @@ float4 dummyFnc(float4 input)
 }
 
 
-#define IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR1D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+#define IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(TYPE, POST_PROCESSING) \
+    float4 read_sample_LINEAR1D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     int4 point0   = square0;\
     int4 point1   = square1;\
@@ -996,36 +996,36 @@ float4 dummyFnc(float4 input)
     return POST_PROCESSING(result);\
 }
 
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(INTENSITY_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_UNORM_INT8, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(BGRA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RGBA_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(R_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(A_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(INTENSITY_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(INTENSITY_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(INTENSITY_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(INTENSITY_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(LUMINANCE_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(LUMINANCE_UNORM_INT8, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 
 
 // definition for linear read callbacks in case of one channel images
-#define IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+#define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(TYPE, POST_PROCESSING) \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1045,8 +1045,8 @@ IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
 }
 
 // definition for linear read callbacks in case of 4 channel images
-#define IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+#define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(TYPE, POST_PROCESSING) \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1064,35 +1064,35 @@ IMPLEMENT_read_sample_LINEAR1D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
     return POST_PROCESSING(result);\
 }
 
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RGBA_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RGBA_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(INTENSITY_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(INTENSITY_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(INTENSITY_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(INTENSITY_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(LUMINANCE_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(LUMINANCE_UNORM_INT8, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(LUMINANCE_UNORM_INT16, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP_CH1(LUMINANCE_HALF_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RGBA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(BGRA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RGBA_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(R_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(R_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(R_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(R_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(A_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(A_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(A_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(A_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(INTENSITY_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(INTENSITY_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(INTENSITY_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(INTENSITY_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(LUMINANCE_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(LUMINANCE_UNORM_INT8, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(LUMINANCE_UNORM_INT16, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(LUMINANCE_HALF_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 
 
-#define IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(TYPE, POST_PROCESSING) \
-float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_NOCLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+#define IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(TYPE, POST_PROCESSING) \
+float4 read_sample_LINEAR3D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenerate weights for pixels*/\
     \
@@ -1118,35 +1118,35 @@ float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_NOCLAMP_##TYPE(image2
     return POST_PROCESSING(result);\
 }
 
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RGBA_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RGBA_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(INTENSITY_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(INTENSITY_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(INTENSITY_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(INTENSITY_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(LUMINANCE_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(LUMINANCE_UNORM_INT8, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RGBA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(BGRA_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RGBA_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(R_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(R_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(R_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(R_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(A_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(A_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(A_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(A_HALF_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_FLOAT, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_UNORM_INT8, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_UNORM_INT16, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_NOCLAMP(RG_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(INTENSITY_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(INTENSITY_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(INTENSITY_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(INTENSITY_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_UNORM_INT8, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_HALF_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR1D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR1D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR1D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     \
     int4 point0   = square0;\
@@ -1187,7 +1187,7 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_NOCLAMP_CH1_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1207,7 +1207,7 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 }
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-    float4 __attribute__ ((overloadable)) read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
     \
     int4 point00   = square0;\
@@ -1252,7 +1252,7 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-float4 __attribute__ ((overloadable)) read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+float4 read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {\
 \
     int4 point000   = square0;\
@@ -1319,7 +1319,7 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_R_UINT32(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = *((uint*)pPixel);
@@ -1334,7 +1334,7 @@ uint4 __attribute__((overloadable)) load_pixel_R_UINT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT32(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT32(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = *((uint*)pPixel);
@@ -1350,7 +1350,7 @@ uint4 __attribute__((overloadable)) load_pixel_RG_UINT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1)
-int4 __attribute__((overloadable)) load_pixel_R_INT32(void* pPixel)
+int4 load_pixel_R_SIGNED_INT32(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = *((int*)pPixel);
@@ -1365,7 +1365,7 @@ int4 __attribute__((overloadable)) load_pixel_R_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1)
-int4 __attribute__((overloadable)) load_pixel_RG_INT32(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT32(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = *((int*)pPixel);
@@ -1381,7 +1381,7 @@ int4 __attribute__((overloadable)) load_pixel_RG_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1.0)
-float4 __attribute__((overloadable)) load_pixel_R_FLOAT(void* pPixel)
+float4 load_pixel_R_FLOAT(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = *((float*)pPixel);
@@ -1396,7 +1396,7 @@ float4 __attribute__((overloadable)) load_pixel_R_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1.0)
-float4 __attribute__((overloadable)) load_pixel_RG_FLOAT(void* pPixel)
+float4 load_pixel_RG_FLOAT(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = *((float*)pPixel);
@@ -1412,7 +1412,7 @@ float4 __attribute__((overloadable)) load_pixel_RG_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 __attribute__((overloadable)) load_pixel_A_FLOAT(void* pPixel)
+float4 load_pixel_A_FLOAT(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.w = *((float*)pPixel);
@@ -1427,7 +1427,7 @@ float4 __attribute__((overloadable)) load_pixel_A_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (0, 0, 0, a)
-float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
+float4 load_pixel_A_HALF_FLOAT(void* pPixel)
 {
     float val = vloada_half(0, (half*)pPixel);
 
@@ -1444,7 +1444,7 @@ float4 __attribute__((overloadable)) load_pixel_A_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
+float4 load_pixel_R_HALF_FLOAT(void* pPixel)
 {
     float val = vloada_half(0, (half*)pPixel);
 
@@ -1461,7 +1461,7 @@ float4 __attribute__((overloadable)) load_pixel_R_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
+float4 load_pixel_RG_HALF_FLOAT(void* pPixel)
 {
     float2 val = vloada_half2(0, (half*)pPixel);
 
@@ -1478,7 +1478,7 @@ float4 __attribute__((overloadable)) load_pixel_RG_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, b, a)
-uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT8(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel)
 {
     char4 color = *(char4*)pPixel; // nevermind signed/unsigned.
     int4 converted = zext_v4i8_v4i32(color);
@@ -1494,7 +1494,7 @@ uint4 __attribute__((overloadable)) load_pixel_RGBA_UINT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_R_UINT8(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT8(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = (uint)(*((uchar*)pPixel));
@@ -1509,7 +1509,7 @@ uint4 __attribute__((overloadable)) load_pixel_R_UINT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT8(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT8(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = (uint)(*((uchar*)pPixel));
@@ -1525,7 +1525,7 @@ uint4 __attribute__((overloadable)) load_pixel_RG_UINT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_R_UINT16(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = (uint)( *((ushort*)pPixel) );
@@ -1540,7 +1540,7 @@ uint4 __attribute__((overloadable)) load_pixel_R_UINT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 __attribute__((overloadable)) load_pixel_RG_UINT16(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT16(void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
     pixel.x = (uint)( *((ushort*)pPixel) );
@@ -1556,7 +1556,7 @@ uint4 __attribute__((overloadable)) load_pixel_RG_UINT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1.0)
-int4 __attribute__((overloadable)) load_pixel_R_INT8(void* pPixel)
+int4 load_pixel_R_SIGNED_INT8(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = (int)(*((char*)pPixel));
@@ -1571,7 +1571,7 @@ int4 __attribute__((overloadable)) load_pixel_R_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1.0)
-int4 __attribute__((overloadable)) load_pixel_RG_INT8(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT8(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = (int)(*((char*)pPixel));
@@ -1587,7 +1587,7 @@ int4 __attribute__((overloadable)) load_pixel_RG_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT8(void* pPixel)
+float4 load_pixel_A_UNORM_INT8(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 0.f);
     pixel.w = (float)(*((uchar*)pPixel));
@@ -1603,7 +1603,7 @@ float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT16(void* pPixel)
+float4 load_pixel_A_UNORM_INT16(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 0.f);
     pixel.w = (float)*((ushort*)pPixel);
@@ -1619,7 +1619,7 @@ float4 __attribute__((overloadable)) load_pixel_A_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1)
-float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT8(void* pPixel)
+float4 load_pixel_RG_UNORM_INT8(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 255.f); // Make the last value 255 to have 1 after conversion
     pixel.x = (float)(*((uchar*)pPixel));
@@ -1636,7 +1636,7 @@ float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1)
-float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT8(void* pPixel)
+float4 load_pixel_R_UNORM_INT8(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 255.f); // Make the last value 255 to have 1 after conversion
     pixel.x = (float)(*((uchar*)pPixel));
@@ -1652,7 +1652,7 @@ float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1)
-float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT16(void* pPixel)
+float4 load_pixel_RG_UNORM_INT16(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 65535.f); // Make the last value 65535 to have 1 after conversion
     pixel.x = (float)*((ushort*)pPixel);
@@ -1669,7 +1669,7 @@ float4 __attribute__((overloadable)) load_pixel_RG_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1)
-float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT16(void* pPixel)
+float4 load_pixel_R_UNORM_INT16(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 65535.f); // Make the last value 65535 to have 1 after conversion
     pixel.x = (float)*((ushort*)pPixel);
@@ -1685,7 +1685,7 @@ float4 __attribute__((overloadable)) load_pixel_R_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1.0)
-int4 __attribute__((overloadable)) load_pixel_R_INT16(void* pPixel)
+int4 load_pixel_R_SIGNED_INT16(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = (int)(*((short*)pPixel));
@@ -1700,7 +1700,7 @@ int4 __attribute__((overloadable)) load_pixel_R_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1.0)
-int4 __attribute__((overloadable)) load_pixel_RG_INT16(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT16(void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
     pixel.x = (int)(*((short*)pPixel));
@@ -1718,7 +1718,7 @@ int4 __attribute__((overloadable)) load_pixel_RG_INT16(void* pPixel)
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
+void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
 {
     // Calculate required pixel offset
 #ifdef __SSE4_1__
@@ -1738,7 +1738,7 @@ void* __attribute__((overloadable)) extract_pixel_pointer_quad(image2d_t image, 
 // @param coord: (x,y) coordinates of the pixel
 //
 // return: nonzero if the image is out of bounds, otherwise 0
-int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
+int isOutOfBoundsInt(image2d_t image, int4 coord)
 {
     __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
     // Prepare mask for compare mask extraction
@@ -1751,7 +1751,7 @@ int __attribute__((overloadable)) isOutOfBoundsInt(image2d_t image, int4 coord)
     return iBorder;
 }
 
-int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
+int4 ProjectToEdgeInt(image2d_t image, int4 coord)
 {
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     int4 lower = (int4)(0, 0, 0, 0);
@@ -1762,7 +1762,7 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 
 }
 
-float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord)
+float4 Unnormalize(image2d_t image,float4 coord)
 {
     float4 fupper = _mm_load_ps((float*)(&((image_aux_data*)image)->dimf));
     return fupper*coord;
@@ -1770,12 +1770,12 @@ float4 __attribute__((overloadable)) Unnormalize(image2d_t image,float4 coord)
 
     
 //the coordinate here should be unnormalized already
-int4 __attribute__((overloadable)) ProjectNearest(float4 coord)
+int4 ProjectNearest(float4 coord)
 {
     return (int4)_mm_cvtps_epi32(floor(coord));
 }
 
-float4 __attribute__((overloadable)) frac(float4 coord)
+float4 frac(float4 coord)
 {
     return coord-floor(coord);
 }
@@ -1855,12 +1855,12 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 
 //general functions
 
-uint4 __attribute__((overloadable)) read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, void* pData)
+uint4 read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, void* pData)
 {
     return BorderColorNoAlphaUint;  //return all zeros vector
 }
 
-float4 __attribute__ ((overloadable)) read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
 {
     return BorderColorNoAlphaFloat;  //return all zeros vector
 }
