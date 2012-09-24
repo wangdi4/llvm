@@ -96,11 +96,11 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
         long add(long val); //returns new val
         long test_and_set(long comparand, long exchange);
         long exchange(long val);
-        operator long() const; //casting operator
+        operator long() const /*casting operator*/ { return m_val; };
 
     private:
         AtomicCounterNative(const AtomicCounterNative& ac) {m_val = ac.m_val;}
-        volatile long m_val;
+        volatile long m_val __attribute__ ((aligned (sizeof(long)))) ;
     };
 
     /************************************************************************

@@ -155,11 +155,6 @@ OclAutoMutexNative::~OclAutoMutexNative()
     m_mutexObj->Unlock();
 }
 
-AtomicCounterNative::operator long() const
-{
-    return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);
-}
-
 long AtomicCounterNative::operator ++() //prefix, returns new val
 {
     return __sync_add_and_fetch(&m_val, 1);
