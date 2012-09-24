@@ -334,7 +334,7 @@ OclBuiltinImpl workaround_frexp_las = OclBuiltinImpl<frexp_las, [v1f32, v2f32, v
 // We can't call svml function because of bug in SVML library v2.0 and v2.1.
 code workaround_remquo = [{
     $Arg0Type res = __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
-    *$Arg2VarName = convert_$Arg0i32gentype(division($Arg0VarName, $Arg1VarName)) & ($Arg0i32gentype)0x7f;
+    *$Arg2VarName = convert_$Arg0i32gentype($Arg0VarName/$Arg1VarName) & ($Arg0i32gentype)0x7f;
     return __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
 }];
 OclBuiltinImpl workaround_remquo_pas = OclBuiltinImpl<remquo_pas, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, workaround_remquo>;

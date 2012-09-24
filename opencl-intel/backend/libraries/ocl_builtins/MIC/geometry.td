@@ -151,7 +151,7 @@ OclBuiltinImpl normalize_f32_vector = OclBuiltinImpl<normalize, [v2f32, v3f32, v
     flag = _mm512_kortestc(equal, equal);
     norm = flag?1.0:norm;
 
-    double8 result = division(x_dp, (double8)norm);
+    double8 result = x_dp/(double8)norm;
     float16 spResult = _mm512_cvt_roundpd_pslo(result, _MM_FROUND_CUR_DIRECTION);
 
     return spResult$Pattern;
@@ -198,7 +198,7 @@ OclBuiltinImpl normalize_f64_vector = OclBuiltinImpl<normalize, [v2f64, v3f64, v
     flag = _mm512_kortestc(equal, equal);
     norm = flag?1.0:norm;
 
-    double8 result = division(x_norm * norm_o, norm);
+    double8 result = (x_norm * norm_o)/norm;
 
     return result$Pattern;
   }]>;
@@ -701,8 +701,8 @@ OclBuiltinImpl sp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, sp_pro
     double8 y_dp = as_double8(_mm512_cvtpslo_pd( y_reg));
     double8 sum = x_dp * x_dp + y_dp *y_dp;
     double8 length = sqrt(sum);
-    double8 temp_x_dp = division(x_dp, length);
-    double8 temp_y_dp = division(y_dp, length);
+    double8 temp_x_dp = x_dp/length;
+    double8 temp_y_dp = y_dp/length;
     long8 mask; mask = isequal(length, (double8)0.0);
     temp_x_dp = select(temp_x_dp, x_dp, mask);
     temp_y_dp = select(temp_y_dp, y_dp, mask);
@@ -737,8 +737,8 @@ OclBuiltinImpl dp_soa_normalize2_native = OclBuiltinImpl<soa_normalize2, dp_nati
     sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName;
     $Arg0Type length = sqrt(sum);
 
-    *$Arg2VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
-    *$Arg3VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg2VarName = select(new_$Arg0VarName/length, $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg3VarName = select(new_$Arg1VarName/length, $Arg1VarName, isequal(sum, ($NativeArg0Type)0.0) );
   }]>;
 OclBuiltinImpl dp_soa_normalize2_promote = OclBuiltinImpl<soa_normalize2, dp_promote_types, 0, [{
     $NativeArg2Type temp_x;
@@ -774,9 +774,9 @@ OclBuiltinImpl sp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, sp_pro
     double8 z_dp = as_double8(_mm512_cvtpslo_pd(z_reg));
     double8 sum = x_dp * x_dp + y_dp * y_dp + z_dp * z_dp;
     double8 length = sqrt(sum);
-    double8 temp_x_dp = division(x_dp, length);
-    double8 temp_y_dp = division(y_dp, length);
-    double8 temp_z_dp = division(z_dp, length);
+    double8 temp_x_dp = x_dp/length;
+    double8 temp_y_dp = y_dp/length;
+    double8 temp_z_dp = z_dp/length;
     long8 mask; mask = isequal(length, (double8)0.0);
     temp_x_dp = select(temp_x_dp, x_dp, mask);
     temp_y_dp = select(temp_y_dp, y_dp, mask);
@@ -818,9 +818,9 @@ OclBuiltinImpl dp_soa_normalize3_native = OclBuiltinImpl<soa_normalize3, dp_nati
     sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName;
     $Arg0Type length = sqrt(sum);
 
-    *$Arg3VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
-    *$Arg4VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
-    *$Arg5VarName = select(division(new_$Arg2VarName,length), $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
+    *$Arg3VarName = select(new_$Arg0VarName/length, $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg4VarName = select(new_$Arg1VarName/length, $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
+    *$Arg5VarName = select(new_$Arg2VarName/length, $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
   }]>;
 
 OclBuiltinImpl dp_soa_normalize3_promote = OclBuiltinImpl<soa_normalize3, dp_promote_types, 0, [{
@@ -865,10 +865,10 @@ OclBuiltinImpl sp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, sp_pro
     double8 w_dp = as_double8(_mm512_cvtpslo_pd(w_reg));
     double8 sum = x_dp * x_dp + y_dp * y_dp + z_dp * z_dp + w_dp * w_dp;
     double8 length = sqrt(sum);
-    double8 temp_x_dp = division(x_dp, length);
-    double8 temp_y_dp = division(y_dp, length);
-    double8 temp_z_dp = division(z_dp, length);
-    double8 temp_w_dp = division(w_dp, length);
+    double8 temp_x_dp = x_dp/length;
+    double8 temp_y_dp = y_dp/length;
+    double8 temp_z_dp = z_dp/length;
+    double8 temp_w_dp = w_dp/length;
     long8 mask; mask = isequal(length, (double8)0.0);
     temp_x_dp = select(temp_x_dp, x_dp, mask);
     temp_y_dp = select(temp_y_dp, y_dp, mask);
@@ -917,10 +917,10 @@ OclBuiltinImpl dp_soa_normalize4_native = OclBuiltinImpl<soa_normalize4, dp_nati
     sum = new_$Arg0VarName * new_$Arg0VarName + new_$Arg1VarName * new_$Arg1VarName + new_$Arg2VarName * new_$Arg2VarName + new_$Arg3VarName * new_$Arg3VarName;
     $Arg0Type length = sqrt(sum);
 
-    *$Arg4VarName = select(division(new_$Arg0VarName,length), $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
-    *$Arg5VarName = select(division(new_$Arg1VarName,length), $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
-    *$Arg6VarName = select(division(new_$Arg2VarName,length), $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
-    *$Arg7VarName = select(division(new_$Arg3VarName,length), $Arg3VarName, isequal(sum, ($NativeArg3Type)0.0) );
+    *$Arg4VarName = select(new_$Arg0VarName/length, $Arg0VarName, isequal(sum, ($NativeArg0Type)0.0) );
+    *$Arg5VarName = select(new_$Arg1VarName/length, $Arg1VarName, isequal(sum, ($NativeArg1Type)0.0) );
+    *$Arg6VarName = select(new_$Arg2VarName/length, $Arg2VarName, isequal(sum, ($NativeArg2Type)0.0) );
+    *$Arg7VarName = select(new_$Arg3VarName/length, $Arg3VarName, isequal(sum, ($NativeArg3Type)0.0) );
   }]>;
 
 OclBuiltinImpl dp_soa_normalize4_promote = OclBuiltinImpl<soa_normalize4, dp_promote_types, 0, [{
