@@ -113,7 +113,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 		}
 		return errVal;
 	}   
-	pQueueEvent->RemoveFloatingDependence();
+
     if (m_bProfilingEnabled)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
@@ -121,6 +121,12 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
     errVal = Enqueue(pCommand);
 	
+    // RemoveFloatingDependence() got to be after Enqueue; this prevents a situation where the current
+    // command is dependant on another command which just finished (the other one) After ::RegisterEvents
+    // and before ::Enqueue resulting in a situtation where the same command gets submitted twice; once here
+    // by ::Enqueue and the other one by ::NotifuCommandStatusChange of the other command.
+    pQueueEvent->RemoveFloatingDependence();
+
 	if (CL_FAILED(errVal))
 	{
 		pCommand->CommandDone();
