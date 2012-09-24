@@ -43,11 +43,8 @@ define void @B(<16 x i16>* %a, <16 x i16>* %b) nounwind {
 ; KNC: jle
 ; KNC: vpandd _const_{{[0-9]}}(%rip){1to16}, [[V0]], [[V1:%zmm[0-9]+]]
 ; KNC: movq %rsi, [[R2:%[a-z]+]]
-; KNC: vpackstoreld [[V1]]{uint16}, (%rsi)
-; KNC: andq $63, [[R1]]
-; KNC: cmpq $32, [[R1]]
-; KNC: jle
-; KNC: vpackstorehd [[V1]]{uint16}, 64(%rsi)
+; KNC: vpackstore
+; KNC: vpackstore
 ; KNC: ret
 ;
   %1 = load <16 x i16>* %a, align 2
