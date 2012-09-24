@@ -56,10 +56,14 @@ my @threads_order;
 
 sub parse_input
 {
+	my ($ndranges_limit) = @_;
+	
 	my %tmp_ndranges; # ndrange_id -> (coords, cols, raws, pages)
 	my %tmp_thread_to_core; # thread_id -> (core id, hw thread id)
+
+	my $ndranges_processed = 0;
 	
-	while (<>)
+	READ_DATA: while (<>)
 	{
 	   chomp();
 
@@ -98,6 +102,14 @@ sub parse_input
 		   $raws += 0;
 		   $pages += 0;
 
+	   	   ++$ndranges_processed;
+	   	   if (($ndranges_limit > 0) && ($ndranges_processed > $ndranges_limit))
+	   	   {
+	   		   # stop reading input
+	   		   # exit while loop
+	   		   last READ_DATA;
+	   	   }
+
 		   @{$tmp_ndranges{$ndrange_id}} = ($coords, $cols, $raws, $pages);
 	   	   next; # continue to the next iteration
 	   }
@@ -111,6 +123,13 @@ sub parse_input
 
 	   if (! exists $tmp_ndranges{$ndrange_id})
 	   {
+	   		++$ndranges_processed;
+	   		if (($ndranges_limit > 0) && ($ndranges_processed > $ndranges_limit))
+	   		{
+	   			# stop reading input
+	   			# exit while loop
+	   			last READ_DATA;
+	   		}
 	   		@{$tmp_ndranges{$ndrange_id}} = (1); # 1D array by default
 	   }
 	   $threads{$thread_id}{$ndrange_id}[$thread_start_time] 		= $attach;
@@ -562,6 +581,8 @@ Usages:
 	In all cases pass '-' instead of <log-file> to read stdin.
 	Output is printed to stdout in .csv format.
 
+	In order to limit processing of NDRange commands upto <cound> NDRanges use -l <count> with any 
+	invocation format.
 ";	
 }
 
@@ -570,8 +591,9 @@ sub main
 	# defaults
 	$opt_c = -1; # specific command ID to process
 	$opt_s = -1; # the number of WGs required to warm cache
+	$opt_l = -1; # the number of NDRanges to process (unlimited)
 	
-	my $ok = getopts( 'c:s:' );
+	my $ok = getopts( 'c:s:l:' );
 	my $mode = 'global';
 
 	if (!$ok)
@@ -591,6 +613,19 @@ sub main
 	}
 
 	# check  options
+	if (-1 != $opt_l)
+	{
+		if ($opt_l !~ /^[0-9]+$/)
+		{
+			# not a number
+			print "Wrong -l option value: $opt_l\n";
+			help();
+			return 1;
+		}
+		# convert to integer
+		$opt_l += 0;
+	}
+
 	if (-1 != $opt_c)
 	{
 		if ('*' eq $opt_c)
@@ -640,7 +675,7 @@ sub main
 		return 1;		
 	}
 
-	parse_input();
+	parse_input($opt_l);
 
 	if ('global' eq $mode)
 	{

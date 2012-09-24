@@ -8,8 +8,6 @@
 
 #include <omp.h>
 
-extern omp_sched_t use_omp_scheduler;
-
 using namespace Intel::OpenCL::MICDeviceNative;
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
@@ -215,8 +213,6 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 		assert(m_region[0] <= CL_MAX_INT32);
 
         unsigned int limit = (int)m_region[0];
-        omp_set_num_threads( gMicExecEnvOptions.num_of_worker_threads );
-        omp_set_schedule(use_omp_scheduler, 0);
 
 #pragma omp parallel for 
     for (unsigned int i = 0; i < limit; ++i)
@@ -233,9 +229,6 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 
         unsigned int limit_j = (int)m_region[0];
         unsigned int limit_i = (int)m_region[1];
-
-        omp_set_num_threads( gMicExecEnvOptions.num_of_worker_threads );
-        omp_set_schedule(use_omp_scheduler, 0);
 
             #pragma omp parallel for
             for (unsigned int j = 0; j < limit_j; ++j)
@@ -257,9 +250,6 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
         unsigned int limit_j = (int)m_region[0];
         unsigned int limit_i = (int)m_region[1];
         unsigned int limit_k = (int)m_region[2];
-
-        omp_set_num_threads( gMicExecEnvOptions.num_of_worker_threads );
-        omp_set_schedule(use_omp_scheduler, 0);
 
          #pragma omp parallel for
          for (unsigned int j = 0; j < limit_j; ++j)

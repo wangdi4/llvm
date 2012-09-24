@@ -21,17 +21,15 @@
 
 #include <stdlib.h>
 #include <omp.h>
-//#define OMP_SCHED omp_sched_auto
-//#define OMP_SCHED omp_sched_dynamic
-//#define OMP_SCHED omp_sched_static
-#define OMP_SCHED omp_sched_guided
+//#define OMP_SCHED "auto"
+//#define OMP_SCHED "dynamic"
+//#define OMP_SCHED "static"
+#define OMP_SCHED "guided"
 
 //#define KMP_AFFINITY "verbose,granularity=fine,scatter"
 #define KMP_AFFINITY "granularity=fine,scatter"
 //#define KMP_AFFINITY "granularity=fine,compact"
 
-
-omp_sched_t use_omp_scheduler = OMP_SCHED;
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
@@ -1106,7 +1104,9 @@ bool TBBThreadPool::init()
 #endif // ENABLE_MIC_TBB_TRACER
 
     setenv("KMP_AFFINITY",KMP_AFFINITY, 1);
-    setenv("OMP_NESTED", "1", 1);
+    setenv("OMP_NESTED", "true", 1);
+    setenv("OMP_SCHEDULE", OMP_SCHED, 1);
+    setenv("OMP_THREAD_LIMIT", "240", 1);
 
 	// Initialize a order list of HW threads numbers for affinity.
 	if (false == initializeAffinityThreads())
@@ -1519,7 +1519,10 @@ void TaskInterface::PerfDataInit()
 void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, size_t dim_0, size_t dim_1, size_t dim_2 )
 {
     
-    char buffer[10240];
+    vector<char> buffer;
+
+    size_t buffer_capacity = 10240;
+    buffer.resize( buffer_capacity );
 
     size_t cols  = 1;
     size_t raws  = 1;
@@ -1548,16 +1551,27 @@ void TaskInterface::PerfDataFini( unsigned int command_id, unsigned int dims, si
     for (int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
     {
         PerfData& data = m_perf_data[i];
-        char* last = buffer;
+        char* start = &(buffer[0]); 
+        char* last = start;
         last[0] = '\0';
         
         for (unsigned int idx=0; idx<data.processed_indices_current; ++idx)
         {
+            if ((last - start + 32) > buffer_capacity)
+            {
+                buffer_capacity *= 2;
+                buffer.resize( buffer_capacity );
+
+                char* old_start = start;
+                start = &(buffer[0]); 
+                last = start + (last-old_start);
+            }
+
             data.dump_data_item( last, dims, idx );
             last += strlen(last);
         }
         fprintf(MIC_TBB_TRACER_STREAM, MIC_TBB_TRACER_PREFIX "NDRANGE %05d THREAD %03d: attach=%ld detach=%ld search=%ld indices: %s\n", 
-                 command_id, i, data.start_time, data.end_time, data.search_time, buffer);
+                 command_id, i, data.start_time, data.end_time, data.search_time, start);
         fflush(MIC_TBB_TRACER_STREAM);
 
         data.destruct();
