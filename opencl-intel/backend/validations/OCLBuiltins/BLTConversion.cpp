@@ -18,6 +18,7 @@ File Name:  BLTConversion.cpp
 
 #include "BLTConversion.h"
 #include "Conformance/test_common/rounding_mode.h"
+#include <limits.h>
 
 using namespace llvm;
 using std::map;
@@ -26,6 +27,9 @@ using std::vector;
 using namespace Conformance;
 namespace Validation {
 namespace OCLBuiltins {
+
+#define SATURATE true
+#define DONT_SATURATE !SATURATE
 
 // template function to convert from LLVM Typename to Conformance Type from rounding_mode.h
 template<typename T>
@@ -57,16 +61,14 @@ float AsT(const float& R){return R;}
 template<>
 double AsT(const double& R){return R;}
 
-template<typename T1, typename T2, int n, Conformance::RoundingMode round>
-GenericValue lle_X_convert_rmode(llvm::FunctionType *FT,
+template<typename IntType, int n, bool saturate>
+GenericValue lle_X_convert_float2int_rte(llvm::FunctionType *FT,
    const std::vector<llvm::GenericValue> &Args)
 {
-        IsScalarType<T1> _x; UNUSED_ARGUMENT(_x);
-        IsScalarType<T2> _y; UNUSED_ARGUMENT(_y);
+        IsIntegerType<IntType>();
+        IsScalarType<IntType> _x; UNUSED_ARGUMENT(_x);
 
         llvm::GenericValue R;
-        Conformance::Type outType = LLVMTypeToConformanceType<T1>();
-        Conformance::RoundingMode oldRound = set_round( round, outType );
 
         // if it is vector use AggregateVal
         if(n > 1)
@@ -75,19 +77,28 @@ GenericValue lle_X_convert_rmode(llvm::FunctionType *FT,
         llvm::GenericValue arg0 = Args[0];
         for (uint32_t i = 0; i < n; ++i)
         {
-            const T1 nval = (T1) getVal<T2,n>(arg0, i);
-            getRef<T1,n>(R,i) = AsT<T1>(nval);
+            float val = (getVal<float,n>(arg0, i));
+
+            // clamp
+            if(saturate)
+                val = std::max(std::min((float)std::numeric_limits<IntType>::max(), val), (float)std::numeric_limits<IntType>::min());
+            IntType nval = (IntType) (val + 0.5f);
+
+            // make the result even if fractional part == 0.5
+            if((val - (int)val) == 0.5f)
+                nval = (int)(val / 2 + 0.5f) * 2;
+
+            getRef<IntType,n>(R,i) = AsT<IntType>(nval);
         }
-        set_round( oldRound, outType );
         return R;
 }
 
-template<typename T1, typename T2, int n>
+template<typename TDst, typename TSrc, int n, bool saturate>
 llvm::GenericValue lle_X_convert(llvm::FunctionType *FT,
                                  const std::vector<llvm::GenericValue> &Args)
 {
-    IsScalarType<T1> _x; UNUSED_ARGUMENT(_x);
-    IsScalarType<T2> _y; UNUSED_ARGUMENT(_y);
+    IsScalarType<TDst> _x; UNUSED_ARGUMENT(_x);
+    IsScalarType<TSrc> _y; UNUSED_ARGUMENT(_y);
     llvm::GenericValue R;
 
     // if it is vector use AggregateVal
@@ -96,8 +107,13 @@ llvm::GenericValue lle_X_convert(llvm::FunctionType *FT,
     llvm::GenericValue arg0 = Args[0];
     for (uint32_t i = 0; i < n; ++i)
     {
-        const T1 nval = (T1) getVal<T2,n>(arg0, i);
-        getRef<T1,n>(R,i) = AsT<T1>(nval);
+        TSrc val = (TSrc) getVal<TSrc,n>(arg0, i);
+
+        if(saturate)
+            val = std::max(std::min((TSrc)std::numeric_limits<TDst>::max(), val), (TSrc)std::numeric_limits<TDst>::min());
+        TDst nval = (TDst)val;
+
+        getRef<TDst,n>(R,i) = AsT<TDst>(nval);
     }
     return R;
 }
@@ -112,7 +128,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpc"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnc"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnc"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatc"]       = lle_X_convert<float,int8_t,1>;
+    funcNames["lle_X__Z13convert_floatc"]       = lle_X_convert<float,int8_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satc"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rteh"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rteh"] = UnimplementedBuiltin;
@@ -122,7 +138,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtph"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnh"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnh"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floath"]       = lle_X_convert<float,uint8_t,1>;
+    funcNames["lle_X__Z13convert_floath"]       = lle_X_convert<float,uint8_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_sath"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtes"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtes"] = UnimplementedBuiltin;
@@ -132,7 +148,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtps"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtns"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtns"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floats"]       = lle_X_convert<float,int16_t,1>;
+    funcNames["lle_X__Z13convert_floats"]       = lle_X_convert<float,int16_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_sats"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtet"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtet"] = UnimplementedBuiltin;
@@ -142,7 +158,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpt"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnt"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnt"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatt"]       = lle_X_convert<float,uint16_t,1>;
+    funcNames["lle_X__Z13convert_floatt"]       = lle_X_convert<float,uint16_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satt"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtei"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtei"] = UnimplementedBuiltin;
@@ -152,7 +168,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpi"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtni"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtni"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floati"]       = lle_X_convert<float,int32_t,1>;
+    funcNames["lle_X__Z13convert_floati"]       = lle_X_convert<float,int32_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_sati"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtej"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtej"] = UnimplementedBuiltin;
@@ -162,7 +178,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpj"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnj"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnj"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatj"]       = lle_X_convert<float,uint32_t,1>;
+    funcNames["lle_X__Z13convert_floatj"]       = lle_X_convert<float,uint32_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satj"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtel"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtel"] = UnimplementedBuiltin;
@@ -172,7 +188,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpl"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnl"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnl"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatl"]       = lle_X_convert<float,int64_t,1>;
+    funcNames["lle_X__Z13convert_floatl"]       = lle_X_convert<float,int64_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satl"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtem"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtem"] = UnimplementedBuiltin;
@@ -182,7 +198,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnm"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatm"]       = lle_X_convert<float,uint64_t,1>;
+    funcNames["lle_X__Z13convert_floatm"]       = lle_X_convert<float,uint64_t,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtef"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtef"] = UnimplementedBuiltin;
@@ -192,7 +208,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpf"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnf"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnf"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatf"]       = lle_X_convert<float,float,1>;
+    funcNames["lle_X__Z13convert_floatf"]       = lle_X_convert<float,float,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satf"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rted"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rted"] = UnimplementedBuiltin;
@@ -202,7 +218,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_float_sat_rtpd"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_float_rtnd"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_float_sat_rtnd"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_floatd"]       = lle_X_convert<float,double,1>;
+    funcNames["lle_X__Z13convert_floatd"]       = lle_X_convert<float,double,1, DONT_SATURATE>;
     funcNames["lle_X__Z17convert_float_satd"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_c"] = UnimplementedBuiltin;
@@ -212,7 +228,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_c"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_c"]  = lle_X_convert<float,int8_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_c"]  = lle_X_convert<float,int8_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_h"] = UnimplementedBuiltin;
@@ -222,7 +238,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_h"]  = lle_X_convert<float,uint8_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_h"]  = lle_X_convert<float,uint8_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_s"] = UnimplementedBuiltin;
@@ -232,7 +248,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_s"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_s"]  = lle_X_convert<float,int16_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_s"]  = lle_X_convert<float,int16_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_t"] = UnimplementedBuiltin;
@@ -242,7 +258,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_t"]  = lle_X_convert<float,uint16_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_t"]  = lle_X_convert<float,uint16_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_i"] = UnimplementedBuiltin;
@@ -252,7 +268,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_i"]  = lle_X_convert<float,int32_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_i"]  = lle_X_convert<float,int32_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_j"] = UnimplementedBuiltin;
@@ -262,7 +278,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_j"]  = lle_X_convert<float,uint32_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_j"]  = lle_X_convert<float,uint32_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_l"] = UnimplementedBuiltin;
@@ -272,7 +288,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_l"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_l"]  = lle_X_convert<float,int64_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_l"]  = lle_X_convert<float,int64_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_m"] = UnimplementedBuiltin;
@@ -282,7 +298,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_m"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_m"]  = lle_X_convert<float,uint64_t,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_m"]  = lle_X_convert<float,uint64_t,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_f"] = UnimplementedBuiltin;
@@ -292,7 +308,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_f"]  = lle_X_convert<float,float,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_f"]  = lle_X_convert<float,float,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rteDv2_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rteDv2_d"] = UnimplementedBuiltin;
@@ -302,7 +318,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float2_sat_rtpDv2_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float2_rtnDv2_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float2_sat_rtnDv2_d"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float2Dv2_d"]  = lle_X_convert<float,double,2>;
+    funcNames["lle_X__Z14convert_float2Dv2_d"]  = lle_X_convert<float,double,2, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float2_satDv2_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_c"] = UnimplementedBuiltin;
@@ -312,7 +328,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_c"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_c"]  = lle_X_convert<float,int8_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_c"]  = lle_X_convert<float,int8_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_h"] = UnimplementedBuiltin;
@@ -322,7 +338,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_h"]  = lle_X_convert<float,uint8_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_h"]  = lle_X_convert<float,uint8_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_s"] = UnimplementedBuiltin;
@@ -332,7 +348,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_s"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_s"]  = lle_X_convert<float,int16_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_s"]  = lle_X_convert<float,int16_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_t"] = UnimplementedBuiltin;
@@ -342,7 +358,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_t"]  = lle_X_convert<float,uint16_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_t"]  = lle_X_convert<float,uint16_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_i"] = UnimplementedBuiltin;
@@ -352,7 +368,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_i"]  = lle_X_convert<float,int32_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_i"]  = lle_X_convert<float,int32_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_j"] = UnimplementedBuiltin;
@@ -362,7 +378,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_j"]  = lle_X_convert<float,uint32_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_j"]  = lle_X_convert<float,uint32_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_l"] = UnimplementedBuiltin;
@@ -372,7 +388,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_l"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_l"]  = lle_X_convert<float,int64_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_l"]  = lle_X_convert<float,int64_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_m"] = UnimplementedBuiltin;
@@ -382,7 +398,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_m"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_m"]  = lle_X_convert<float,uint64_t,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_m"]  = lle_X_convert<float,uint64_t,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_f"] = UnimplementedBuiltin;
@@ -392,7 +408,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_f"]  = lle_X_convert<float,float,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_f"]  = lle_X_convert<float,float,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rteDv3_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rteDv3_d"] = UnimplementedBuiltin;
@@ -402,7 +418,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float3_sat_rtpDv3_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float3_rtnDv3_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float3_sat_rtnDv3_d"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float3Dv3_d"]  = lle_X_convert<float,double,3>;
+    funcNames["lle_X__Z14convert_float3Dv3_d"]  = lle_X_convert<float,double,3, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float3_satDv3_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_c"] = UnimplementedBuiltin;
@@ -412,7 +428,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_c"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_c"]  = lle_X_convert<float,int8_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_c"]  = lle_X_convert<float,int8_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_h"] = UnimplementedBuiltin;
@@ -422,7 +438,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_h"]  = lle_X_convert<float,uint8_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_h"]  = lle_X_convert<float,uint8_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_s"] = UnimplementedBuiltin;
@@ -432,7 +448,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_s"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_s"]  = lle_X_convert<float,int16_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_s"]  = lle_X_convert<float,int16_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_t"] = UnimplementedBuiltin;
@@ -442,7 +458,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_t"]  = lle_X_convert<float,uint16_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_t"]  = lle_X_convert<float,uint16_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_i"] = UnimplementedBuiltin;
@@ -452,7 +468,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_i"]  = lle_X_convert<float,int32_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_i"]  = lle_X_convert<float,int32_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_j"] = UnimplementedBuiltin;
@@ -462,7 +478,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_j"]  = lle_X_convert<float,uint32_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_j"]  = lle_X_convert<float,uint32_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_l"] = UnimplementedBuiltin;
@@ -472,7 +488,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_l"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_l"]  = lle_X_convert<float,int64_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_l"]  = lle_X_convert<float,int64_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_m"] = UnimplementedBuiltin;
@@ -482,7 +498,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_m"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_m"]  = lle_X_convert<float,uint64_t,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_m"]  = lle_X_convert<float,uint64_t,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_f"] = UnimplementedBuiltin;
@@ -492,7 +508,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_f"]  = lle_X_convert<float,float,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_f"]  = lle_X_convert<float,float,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rteDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rteDv4_d"] = UnimplementedBuiltin;
@@ -502,7 +518,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float4_sat_rtpDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float4_rtnDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float4_sat_rtnDv4_d"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float4Dv4_d"]  = lle_X_convert<float,double,4>;
+    funcNames["lle_X__Z14convert_float4Dv4_d"]  = lle_X_convert<float,double,4, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float4_satDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_c"] = UnimplementedBuiltin;
@@ -512,7 +528,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_c"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_c"]  = lle_X_convert<float,int8_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_c"]  = lle_X_convert<float,int8_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_h"] = UnimplementedBuiltin;
@@ -522,7 +538,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_h"]  = lle_X_convert<float,uint8_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_h"]  = lle_X_convert<float,uint8_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_s"] = UnimplementedBuiltin;
@@ -532,7 +548,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_s"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_s"]  = lle_X_convert<float,int16_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_s"]  = lle_X_convert<float,int16_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_t"] = UnimplementedBuiltin;
@@ -542,7 +558,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_t"]  = lle_X_convert<float,uint16_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_t"]  = lle_X_convert<float,uint16_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_i"] = UnimplementedBuiltin;
@@ -552,7 +568,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_i"]  = lle_X_convert<float,int32_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_i"]  = lle_X_convert<float,int32_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_j"] = UnimplementedBuiltin;
@@ -562,7 +578,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_j"]  = lle_X_convert<float,uint32_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_j"]  = lle_X_convert<float,uint32_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_l"] = UnimplementedBuiltin;
@@ -572,7 +588,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_l"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_l"]  = lle_X_convert<float,int64_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_l"]  = lle_X_convert<float,int64_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_m"] = UnimplementedBuiltin;
@@ -582,7 +598,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_m"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_m"]  = lle_X_convert<float,uint64_t,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_m"]  = lle_X_convert<float,uint64_t,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_f"] = UnimplementedBuiltin;
@@ -592,7 +608,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_f"]  = lle_X_convert<float,float,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_f"]  = lle_X_convert<float,float,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rteDv8_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rteDv8_d"] = UnimplementedBuiltin;
@@ -602,7 +618,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_float8_sat_rtpDv8_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_float8_rtnDv8_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_float8_sat_rtnDv8_d"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_float8Dv8_d"]  = lle_X_convert<float,double,8>;
+    funcNames["lle_X__Z14convert_float8Dv8_d"]  = lle_X_convert<float,double,8, DONT_SATURATE>;
     funcNames["lle_X__Z18convert_float8_satDv8_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_c"] = UnimplementedBuiltin;
@@ -612,7 +628,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_c"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_c"] = lle_X_convert<float,int8_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_c"] = lle_X_convert<float,int8_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_c"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_h"] = UnimplementedBuiltin;
@@ -622,7 +638,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_h"] = lle_X_convert<float,uint8_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_h"] = lle_X_convert<float,uint8_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_s"] = UnimplementedBuiltin;
@@ -632,7 +648,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_s"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_s"] = lle_X_convert<float,int16_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_s"] = lle_X_convert<float,int16_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_t"] = UnimplementedBuiltin;
@@ -642,7 +658,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_t"] = lle_X_convert<float,uint16_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_t"] = lle_X_convert<float,uint16_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_i"] = UnimplementedBuiltin;
@@ -652,7 +668,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_i"] = lle_X_convert<float,int32_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_i"] = lle_X_convert<float,int32_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_j"] = UnimplementedBuiltin;
@@ -662,7 +678,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_j"] = lle_X_convert<float,uint32_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_j"] = lle_X_convert<float,uint32_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_l"] = UnimplementedBuiltin;
@@ -672,7 +688,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_l"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_l"] = lle_X_convert<float,int64_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_l"] = lle_X_convert<float,int64_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_m"] = UnimplementedBuiltin;
@@ -682,7 +698,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_m"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_m"] = lle_X_convert<float,uint64_t,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_m"] = lle_X_convert<float,uint64_t,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_f"] = UnimplementedBuiltin;
@@ -692,7 +708,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_f"] = lle_X_convert<float,float,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_f"] = lle_X_convert<float,float,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rteDv16_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rteDv16_d"] = UnimplementedBuiltin;
@@ -702,7 +718,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_float16_sat_rtpDv16_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_float16_rtnDv16_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_float16_sat_rtnDv16_d"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_float16Dv16_d"] = lle_X_convert<float,double,16>;
+    funcNames["lle_X__Z15convert_float16Dv16_d"] = lle_X_convert<float,double,16, DONT_SATURATE>;
     funcNames["lle_X__Z19convert_float16_satDv16_d"] = UnimplementedBuiltin;
 
 #if 0
@@ -1087,7 +1103,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z14convert_ushortm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_ushort_satm"] = UnimplementedBuiltin;
 #endif 
-    funcNames["lle_X__Z18convert_ushort_rtef"] = lle_X_convert_rmode<uint16_t, float, 1, kRoundToNearestEven>;
+    funcNames["lle_X__Z18convert_ushort_rtef"] = lle_X_convert_float2int_rte<uint16_t, 1, SATURATE>;
 #if 0
     funcNames["lle_X__Z22convert_ushort_sat_rtef"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_ushort_rtzf"] = UnimplementedBuiltin;
@@ -1167,7 +1183,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z15convert_int_rtnj"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_int_sat_rtnj"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z11convert_intj"] = lle_X_convert<int32_t, uint32_t, 1>;
+    funcNames["lle_X__Z11convert_intj"] = lle_X_convert<int32_t, uint32_t, 1, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z15convert_int_satj"] = UnimplementedBuiltin;
     funcNames["lle_X__Z15convert_int_rtel"] = UnimplementedBuiltin;
@@ -1189,7 +1205,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z15convert_int_rtnm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_int_sat_rtnm"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z11convert_intm"] = lle_X_convert<int32_t, uint64_t, 1>;
+    funcNames["lle_X__Z11convert_intm"] = lle_X_convert<int32_t, uint64_t, 1, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z15convert_int_satm"] = UnimplementedBuiltin;
     funcNames["lle_X__Z15convert_int_rtef"] = UnimplementedBuiltin;
@@ -1601,7 +1617,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z18convert_double_rtnf"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_double_sat_rtnf"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z14convert_doublef"] = lle_X_convert<double, float, 1>;
+    funcNames["lle_X__Z14convert_doublef"] = lle_X_convert<double, float, 1, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z18convert_double_satf"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_double_rted"] = UnimplementedBuiltin;
@@ -2093,7 +2109,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z16convert_int2_rtnDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int2_sat_rtnDv2_m"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z12convert_int2Dv2_m"] = lle_X_convert<int32_t, uint64_t, 2>;
+    funcNames["lle_X__Z12convert_int2Dv2_m"] = lle_X_convert<int32_t, uint64_t, 2, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z16convert_int2_satDv2_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int2_rteDv2_f"] = UnimplementedBuiltin;
@@ -2505,7 +2521,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z19convert_double2_rtnDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_double2_sat_rtnDv2_f"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z15convert_double2Dv2_f"] = lle_X_convert<double, float, 2>;
+    funcNames["lle_X__Z15convert_double2Dv2_f"] = lle_X_convert<double, float, 2, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z19convert_double2_satDv2_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_double2_rteDv2_d"] = UnimplementedBuiltin;
@@ -2997,7 +3013,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z16convert_int3_rtnDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int3_sat_rtnDv3_m"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z12convert_int3Dv3_m"] = lle_X_convert<int32_t, uint64_t, 3>;
+    funcNames["lle_X__Z12convert_int3Dv3_m"] = lle_X_convert<int32_t, uint64_t, 3, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z16convert_int3_satDv3_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int3_rteDv3_f"] = UnimplementedBuiltin;
@@ -3560,16 +3576,20 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_uchar4_sat_rtnDv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z14convert_uchar4Dv4_t"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_satDv4_t"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z18convert_uchar4_rteDv4_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_i"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z18convert_uchar4_rteDv4_i"] = lle_X_convert<uint8_t, int32_t, 4, DONT_SATURATE>;
+    funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_i"] = lle_X_convert<uint8_t, int32_t, 4, SATURATE>;
+#if 0
     funcNames["lle_X__Z18convert_uchar4_rtzDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtzDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtpDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtpDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtnDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtnDv4_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_uchar4Dv4_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z18convert_uchar4_satDv4_i"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z14convert_uchar4Dv4_i"] = lle_X_convert<uint8_t, int32_t, 4, DONT_SATURATE>;
+    funcNames["lle_X__Z18convert_uchar4_satDv4_i"] = lle_X_convert<uint8_t, int32_t, 4, SATURATE>;
+#if 0
     funcNames["lle_X__Z18convert_uchar4_rteDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtzDv4_j"] = UnimplementedBuiltin;
@@ -3578,7 +3598,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z22convert_uchar4_sat_rtpDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtnDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtnDv4_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_uchar4Dv4_j"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z14convert_uchar4Dv4_j"] = lle_X_convert<uint8_t, uint32_t, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z18convert_uchar4_satDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rteDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_l"] = UnimplementedBuiltin;
@@ -3601,17 +3623,19 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z14convert_uchar4Dv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_satDv4_m"] = UnimplementedBuiltin;
 #endif 
-    funcNames["lle_X__Z18convert_uchar4_rteDv4_f"] = lle_X_convert_rmode<uint8_t, float, 4, kRoundToNearestEven>;
+    funcNames["lle_X__Z18convert_uchar4_rteDv4_f"] = lle_X_convert_float2int_rte<uint8_t, 4, DONT_SATURATE>;
+    funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_f"] = lle_X_convert_float2int_rte<uint8_t, 4, SATURATE>;
 #if 0
-    funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtzDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtzDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtpDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtpDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtnDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rtnDv4_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z14convert_uchar4Dv4_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z18convert_uchar4_satDv4_f"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z14convert_uchar4Dv4_f"] = lle_X_convert<uint8_t, float, 4, DONT_SATURATE>;;
+    funcNames["lle_X__Z18convert_uchar4_satDv4_f"] = lle_X_convert<uint8_t, float, 4, SATURATE>;
+#if 0
     funcNames["lle_X__Z18convert_uchar4_rteDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z22convert_uchar4_sat_rteDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z18convert_uchar4_rtzDv4_d"] = UnimplementedBuiltin;
@@ -3780,7 +3804,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z23convert_ushort4_sat_rtpDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_ushort4_rtnDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_ushort4_sat_rtnDv4_j"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z15convert_ushort4Dv4_j"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z15convert_ushort4Dv4_j"] = lle_X_convert<uint16_t, uint32_t, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z19convert_ushort4_satDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_ushort4_rteDv4_l"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_ushort4_sat_rteDv4_l"] = UnimplementedBuiltin;
@@ -3840,7 +3866,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z20convert_int4_sat_rtpDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int4_rtnDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int4_sat_rtnDv4_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z12convert_int4Dv4_h"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z12convert_int4Dv4_h"] = lle_X_convert<int32_t, uint8_t, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z16convert_int4_satDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int4_rteDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int4_sat_rteDv4_s"] = UnimplementedBuiltin;
@@ -3901,7 +3929,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z16convert_int4_rtnDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int4_sat_rtnDv4_m"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z12convert_int4Dv4_m"] = lle_X_convert<int32_t, uint64_t, 4>;
+    funcNames["lle_X__Z12convert_int4Dv4_m"] = lle_X_convert<int32_t, uint64_t, 4, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z16convert_int4_satDv4_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int4_rteDv4_f"] = UnimplementedBuiltin;
@@ -3912,7 +3940,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z20convert_int4_sat_rtpDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int4_rtnDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int4_sat_rtnDv4_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z12convert_int4Dv4_f"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z12convert_int4Dv4_f"] = lle_X_convert<int32_t, float, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z16convert_int4_satDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int4_rteDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int4_sat_rteDv4_d"] = UnimplementedBuiltin;
@@ -3942,7 +3972,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_uint4_sat_rtpDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rtnDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rtnDv4_h"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_uint4Dv4_h"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z13convert_uint4Dv4_h"] = lle_X_convert<uint32_t, uint8_t, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z17convert_uint4_satDv4_h"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rteDv4_s"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rteDv4_s"] = UnimplementedBuiltin;
@@ -3972,7 +4004,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_uint4_sat_rtpDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rtnDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rtnDv4_i"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_uint4Dv4_i"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z13convert_uint4Dv4_i"] = lle_X_convert<uint32_t, int32_t, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z17convert_uint4_satDv4_i"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rteDv4_j"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rteDv4_j"] = UnimplementedBuiltin;
@@ -4012,7 +4046,9 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z21convert_uint4_sat_rtpDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rtnDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rtnDv4_f"] = UnimplementedBuiltin;
-    funcNames["lle_X__Z13convert_uint4Dv4_f"] = UnimplementedBuiltin;
+#endif
+    funcNames["lle_X__Z13convert_uint4Dv4_f"] = lle_X_convert<uint32_t, float, 4, DONT_SATURATE>;
+#if 0
     funcNames["lle_X__Z17convert_uint4_satDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_uint4_rteDv4_d"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_uint4_sat_rteDv4_d"] = UnimplementedBuiltin;
@@ -4313,7 +4349,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z19convert_double4_rtnDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_double4_sat_rtnDv4_f"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z15convert_double4Dv4_f"] = lle_X_convert<double, float, 4>;
+    funcNames["lle_X__Z15convert_double4Dv4_f"] = lle_X_convert<double, float, 4, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z19convert_double4_satDv4_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_double4_rteDv4_d"] = UnimplementedBuiltin;
@@ -4805,7 +4841,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z16convert_int8_rtnDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_int8_sat_rtnDv8_m"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z12convert_int8Dv8_m"] = lle_X_convert<int32_t, uint64_t, 8>;
+    funcNames["lle_X__Z12convert_int8Dv8_m"] = lle_X_convert<int32_t, uint64_t, 8, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z16convert_int8_satDv8_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z16convert_int8_rteDv8_f"] = UnimplementedBuiltin;
@@ -5217,7 +5253,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z19convert_double8_rtnDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z23convert_double8_sat_rtnDv8_f"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z15convert_double8Dv8_f"] = lle_X_convert<double, float, 8>;
+    funcNames["lle_X__Z15convert_double8Dv8_f"] = lle_X_convert<double, float, 8, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z19convert_double8_satDv8_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z19convert_double8_rteDv8_d"] = UnimplementedBuiltin;
@@ -5709,7 +5745,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z17convert_int16_rtnDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z21convert_int16_sat_rtnDv16_m"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z13convert_int16Dv16_m"] = lle_X_convert<int32_t, uint64_t, 16>;
+    funcNames["lle_X__Z13convert_int16Dv16_m"] = lle_X_convert<int32_t, uint64_t, 16, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z17convert_int16_satDv16_m"] = UnimplementedBuiltin;
     funcNames["lle_X__Z17convert_int16_rteDv16_f"] = UnimplementedBuiltin;
@@ -6121,7 +6157,7 @@ void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z20convert_double16_rtnDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z24convert_double16_sat_rtnDv16_f"] = UnimplementedBuiltin;
 #endif
-    funcNames["lle_X__Z16convert_double16Dv16_f"] = lle_X_convert<double, float, 16>;
+    funcNames["lle_X__Z16convert_double16Dv16_f"] = lle_X_convert<double, float, 16, DONT_SATURATE>;
 #if 0
     funcNames["lle_X__Z20convert_double16_satDv16_f"] = UnimplementedBuiltin;
     funcNames["lle_X__Z20convert_double16_rteDv16_d"] = UnimplementedBuiltin;
