@@ -485,7 +485,6 @@ endfunction( create_target)
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
   atomic_functions.cpp
-  common_functions.cpp
   conversion_functions.cpp
   geometry_functions.cpp
   image_functions.cpp
@@ -517,7 +516,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 
 # project header files
 list (APPEND HEADER_FILES
-  cl_common_declaration.h
   cl_geom_declaration.h
   cl_image_declaration.h
   cl_integer_declaration.h

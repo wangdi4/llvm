@@ -31,7 +31,6 @@ const int double_const_mantissaBits = 52;
 const int float_const_expOffset = 127;
 const int double_const_expOffset = 1023;
 
-
 // constants defined to simplify naming them from type name
 const char    generic_min_char    =  CHAR_MIN;
 const char    generic_max_char    =  CHAR_MAX;
@@ -49,6 +48,28 @@ const long    generic_min_long    =  LONG_MIN;
 const long    generic_max_long    =  LONG_MAX;
 const ulong   generic_min_ulong   =         0;
 const ulong   generic_max_ulong   = ULONG_MAX;
+
+// sse - common
+const float f4const_oneStorage[4]       = {1.0f, 1.0f, 1.0f, 1.0f};
+const float f4const_minusOneStorage[4]  = {-1.0f, -1.0f, -1.0f, -1.0f};
+const float f4const_minusZeroStorage[4] = {-0.0f, -0.0f, -0.0f, -0.0f};
+const float f4const_nanStorage[4] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+
+const double d2const_oneStorage[2]       = {1.0, 1.0};
+const double d2const_minusZeroStorage[2] = {-0.0, -0.0};
+const double d2const_minusOneStorage[2]  = {-1.0, -1.0};
+const double d2const_nanStorage[2] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
+
+// AVX - common
+const float f8const_oneStorage[8]       = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+const float f8const_minusZeroStorage[8] = {-0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f};
+const float f8const_minusOneStorage[8]  = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+const float f8const_nanStorage[8] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+
+const double d4const_oneStorage[4]       = {1.0, 1.0, 1.0, 1.0};
+const double d4const_minusZeroStorage[4] = {-0.0, -0.0, -0.0, -0.0};
+const double d4const_minusOneStorage[4]  = {-1.0, -1.0, -1.0, -1.0};
+const double d4const_nanStorage[4] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
 
 #ifdef cplusplus
 }

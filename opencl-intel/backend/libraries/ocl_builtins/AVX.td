@@ -12,4 +12,6 @@ class AVX : SSE42 {
       // AVX
       v16i16, v16u16, v8i32, v8u32, v4i64, v4u64, v8f32, v4f64];
   include "avx/math.td"
+  include "avx/common.td"
+
 }
