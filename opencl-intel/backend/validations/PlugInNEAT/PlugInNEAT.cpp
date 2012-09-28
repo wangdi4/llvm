@@ -53,16 +53,6 @@ File Name:  PlugInNEAT.cpp
 #include "cl_types.h"
 #include "CL/cl.h"
 
-// macro to enable calling built-ins with double data type
-// enable macro when NEATALU is ready to work with doubles
-// do not forget to enable tests for doubles then
-// #define BI_DBL_ENABLE
-#ifdef BI_DBL_ENABLE
-#define BI_DBL_CALL(__x) __x;
-#else
-#define BI_DBL_CALL(__x)
-#endif
-
 using namespace llvm;
 using namespace Validation;
 using namespace Validation::Exception;
@@ -3635,14 +3625,13 @@ EXECUTE_MINMAX(max)
 if(Ty->isFloatTy()){\
     Result.NEATVal = NEAT_WRAP::_aluname##_f args ;}\
 else if(Ty->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVal = NEAT_WRAP::_aluname##_d args ;)}\
+    Result.NEATVal = NEAT_WRAP::_aluname##_d args ;}\
 else if(Ty->isVectorTy()){\
     const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();\
     if(TyElem->isFloatTy()){\
     Result.NEATVec = NEAT_WRAP::_aluname##_f argsvec ;}\
 else if(TyElem->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVec = \
-    NEAT_WRAP::_aluname##_d argsvec );}\
+    Result.NEATVec = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
 }\
@@ -3665,14 +3654,13 @@ else{\
 if(Ty->isFloatTy()){\
     Result.NEATVal = NEAT_WRAP::_aluname##_f args ;}\
 else if(Ty->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVal = NEAT_WRAP::_aluname##_d args ;)}\
+    Result.NEATVal = NEAT_WRAP::_aluname##_d args ;}\
 else if(Ty->isVectorTy()){\
     const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();\
     if(TyElem->isFloatTy()){\
     Result.NEATVal = NEAT_WRAP::_aluname##_f argsvec ;}\
 else if(TyElem->isDoubleTy()){\
-    BI_DBL_CALL( Result.NEATVal = \
-    NEAT_WRAP::_aluname##_d argsvec );}\
+    Result.NEATVal = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
 }\
