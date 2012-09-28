@@ -787,7 +787,7 @@ static std::vector<const GlobalVariable *> getLocalVariables(llvm::Module* pModu
        I != E; ++I)
    {
        const uint32_t LOCAL_MEMORY_ADDR_SPACE = 3;
-       // if global variable belongs to address space == LOCAL_MEMORY_ADDR_SPACE 
+       // if global variable belongs to address space == LOCAL_MEMORY_ADDR_SPACE
        // then it is local
        if(I->getType()->getAddressSpace() == LOCAL_MEMORY_ADDR_SPACE)
        {
@@ -858,6 +858,14 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
             localWGSizes[i] = std::min<uint64_t>(
                 globalWGSizes[i],
                 uint64_t(runConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0)));
+            // the values specified in globalWorkSize[0], ..,
+            // globalWorkSize[work_dim - 1] must be evenly divisible by
+            // the corresponding values specified in
+            // localWorkSize[0], .., localWorkSize[work_dim - 1]
+            if (globalWGSizes[i] % localWGSizes[i] != 0)
+            {
+                localWGSizes[i] = 1;
+            }
         }
     }
 
@@ -877,14 +885,14 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // local engines
     std::vector<ExecutionEngine *> localEngines;
     std::vector<NEATPlugIn *> localNEATs;
-    
+
     // total number of local workitems
     const uint32_t totalLocalWIs = localWGSizes[0] * localWGSizes[1] * localWGSizes[2];
     // vector of kernel arguments. used for multiple execution arguments
     typedef std::vector< std::vector<GenericValue> > KernelArgsVector;
     // storage of kernel arguments. each per local work item
     KernelArgsVector localKernelArgVector(totalLocalWIs);
-    
+
     // use interpreterPluggable instead of interpreter
     // this should be called prior to creating EngineBuilder
     LLVMLinkInInterpreterPluggable();
@@ -926,7 +934,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT){
             localNEATs.push_back(pNEAT);
         }
-        
+
         // copy kernel arguments
         localKernelArgVector[idx] = ArgVals;
     }
@@ -1066,7 +1074,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 
     for(std::size_t i=0; i<localsMemVec.size(); ++i)
         delete [] localsMemVec[i];
-    
+
     // release lock
     InterpreterLock->release();
 }

@@ -119,9 +119,9 @@ public:
         size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
         // In production sequence the Runtime calls Executable::PrepareThread()
-        // and Executable::RestoreThreadState() respectively before and 
-        // after executing a work group. 
-        // These routines setup and restore the MXCSR register and zero the upper parts of YMMs. 
+        // and Executable::RestoreThreadState() respectively before and
+        // after executing a work group.
+        // These routines setup and restore the MXCSR register and zero the upper parts of YMMs.
         int rc = m_pContext->PrepareThread();
         if (CL_DEV_FAILED(rc))
         {
@@ -167,7 +167,7 @@ private:
     size_t                      m_stPrivMemAllocSize;
     const BERunOptions*         m_config;
     Sample                      m_sample;
-    unsigned int                m_vectorSize; // vector size that was actually used 
+    unsigned int                m_vectorSize; // vector size that was actually used
 };
 
 class OpenCLBinaryContext
@@ -220,6 +220,14 @@ public:
                     workInfo.localWorkSize[i] =
                         std::min<uint32_t>( static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]),
                          pRunConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0));
+                    // the values specified in globalWorkSize[0], ..,
+                    // globalWorkSize[work_dim - 1] must be evenly divisible by
+                    // the corresponding values specified in
+                    // localWorkSize[0], .., localWorkSize[work_dim - 1]
+                    if (static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]) % workInfo.localWorkSize[i] != 0)
+                    {
+                        workInfo.localWorkSize[i] = 1;
+                    }
                 }
             }
         }
@@ -248,6 +256,7 @@ public:
         for (size_t i=0; i < m_dim; ++i)
         {
             m_regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i]/m_spBinary->GetWorkGroupSize()[i]);
+            assert( pKernelConfig->GetGlobalWorkSize()[i]%m_spBinary->GetWorkGroupSize()[i] == 0);
         }
     }
 

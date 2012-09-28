@@ -288,7 +288,7 @@ void OpenCLMICBackendRunner::SerializeProgram(ICLDevBackendSerializationService*
 
 void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
                        const ICLDevBackendKernel_* pKernel,
-                       size_t& coiFuncArgsId, 
+                       size_t& coiFuncArgsId,
                        bool isCheckOOBAccess )
 {
     // Get kernel arguments
@@ -328,14 +328,14 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
             // Copy output data from the device.
             char*   bufferPtr;
             m_coiFuncArgs.Map(COI_MAP_READ_ONLY, 0, NULL, (void**)&bufferPtr, coiFuncArgsId);
-            
-            if (isCheckOOBAccess) 
+
+            if (isCheckOOBAccess)
             {
-                
+
                 // Skip the initial padding before copying the actual output.
                 bufferPtr += PaddingSize;
             }
-            
+
             DEBUG(llvm::dbgs()<< "Output data before copying the results.\n");
             DEBUG(llvm::dbgs()<< "First three values (as floats): " << *(float*)pData << ", " << *(((float*)pData) + 1)  << ", " << *(((float*)pData) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as ints): " << *(int*)pData << ", " << *(((int*)pData) + 1)  << ", " << *(((int*)pData) + 2) << ".\n");
@@ -382,6 +382,7 @@ void OpenCLMICBackendRunner::PrepareInputData(    BufferContainerList& input,
         pKernelConfig->GetGlobalWorkOffset(),
         pKernelConfig->GetGlobalWorkSize(),
         pKernelConfig->GetLocalWorkSize());
+    DEBUG(llvm::dbgs()<< "Work dimension: " << pKernelConfig->GetWorkDimension() << "\nGlobal work size: [" << pKernelConfig->GetGlobalWorkSize()[0] << ", " << pKernelConfig->GetGlobalWorkSize()[1] << ", " << pKernelConfig->GetGlobalWorkSize()[2] << "]\nLocal work size: [" << pKernelConfig->GetLocalWorkSize()[0] << ", " << pKernelConfig->GetLocalWorkSize()[1] << ", " << pKernelConfig->GetLocalWorkSize()[2] << "]\n");
 
     // Create the argument buffer
     OpenCLMICArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, m_coiFuncArgs, m_procAndPipe.GetProcessHandler(), isCheckOOBAccess);
@@ -455,7 +456,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
     exeOptions->runSingleWG = pRunConfig->GetValue<bool>(RC_COMMON_RUN_SINGLE_WG, false);
     exeOptions->defaultLocalWGSize = pRunConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, false);
     exeOptions->executeIterationsCount = pRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, false);
-    DEBUG(llvm::dbgs()<< "Local work size: " << exeOptions->defaultLocalWGSize << "\n");
+    DEBUG(llvm::dbgs()<< "Default local work size: " << exeOptions->defaultLocalWGSize << "\n");
 
     // Create buffer with dispatcher data for all kernels.
     m_coiFuncArgs.AddBuffer(sizeof(DispatcherData) * numOfKernels + sizeof(ExecutionOptions),
@@ -468,7 +469,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
     uint32_t numOfTimers = numOfKernels*exeOptions->executeIterationsCount + 1;
     auto_ptr_ex<Sample, ArrayDP<Sample> > micTimers(new Sample[numOfTimers]);
 
-    bool returnValue; 
+    bool returnValue;
 
     DEBUG(llvm::dbgs()<< "Number of buffers for RunFunction function: " << m_coiFuncArgs.GetNumberOfBuffers() << "\n");
 
@@ -485,9 +486,9 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
         &returnValue, sizeof(returnValue),              // Return values that will be passed back
         &barrier                                                    // Barrier to signal when it completes
         ));
-    
+
     CHECK_COI_RESULT(COIEventWait(1, &barrier, -1, true, NULL, NULL));
-    
+
     if (!returnValue)
     {
         throw Exception::OutOfRange("Padding was Mutated!");

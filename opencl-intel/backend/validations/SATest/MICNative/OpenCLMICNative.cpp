@@ -19,7 +19,7 @@ File Name:  OpenCLMICNative.cpp
 #include <assert.h>
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
-#include <common/COIMacros_common.h>                
+#include <common/COIMacros_common.h>
 #include <stdlib.h>
 #include "mic_dev_limits.h"
 #include "WGContext.h"
@@ -388,6 +388,14 @@ void executeKernels(uint32_t         in_BufferCount,
                 if(workDesc.localWorkSize[dim] == 0)
                 {
                     workDesc.localWorkSize[dim] = std::min<uint32_t>( workDesc.globalWorkSize[dim], exeOptions->defaultLocalWGSize);
+                    // the values specified in globalWorkSize[0], ..,
+                    // globalWorkSize[work_dim - 1] must be evenly divisible by
+                    // the corresponding values specified in
+                    // localWorkSize[0], .., localWorkSize[work_dim - 1]
+                    if (workDesc.globalWorkSize[dim] % workDesc.localWorkSize[dim] != 0)
+                    {
+                        workDesc.localWorkSize[dim] = 1;
+                    }
                 }
             }
         }
@@ -443,7 +451,8 @@ void executeKernels(uint32_t         in_BufferCount,
                 // init the work group regions
                 for (size_t j=0; j < workDesc.workDimension; ++j)
                 {
-                    dims[j] = (size_t)( workDesc.globalWorkSize[j]/workDesc.localWorkSize[j]);
+                    dims[j] = (size_t)(workDesc.globalWorkSize[j]/workDesc.localWorkSize[j]);
+                    assert(workDesc.globalWorkSize[j]%workDesc.localWorkSize[j] == 0);
                 }
                 DEBUG_PRINT("Number of work dimensions: %d\n", uint32_t(workDesc.workDimension));
                 DEBUG_PRINT("work dimensions: [%d, %d, %d]\n", uint32_t(dims[0]), int32_t(dims[1]), uint32_t(dims[2]));
@@ -485,25 +494,25 @@ void executeKernels(uint32_t         in_BufferCount,
         }
         DEBUG_PRINT("done.\n");
 
-        *(bool*)in_pReturnValue = true; 
-        for (uint32_t j = 0; j < dispatchers[i].preExeDirectivesCount; ++j) 
+        *(bool*)in_pReturnValue = true;
+        for (uint32_t j = 0; j < dispatchers[i].preExeDirectivesCount; ++j)
         {
             if (directives[j].id == BUFFER && directives[j].bufferDirective.isPadded)
             {
-                // Buffer is padded, need to check for mutations 
+                // Buffer is padded, need to check for mutations
                 DEBUG_PRINT("Checking buffer %d for mutations... ", j);
                 char* bufferPtr = (char*)(in_ppBufferPointers[directives[j].bufferDirective.bufferIndex]);
                 size_t dataSize = directives[j].bufferDirective.mem_obj_desc.dimensions.dim[0];
-                if ( (std::find_if (bufferPtr, 
-                                    bufferPtr + PaddingSize, 
-                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + PaddingSize) 
+                if ( (std::find_if (bufferPtr,
+                                    bufferPtr + PaddingSize,
+                                    std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + PaddingSize)
                         ||
                      (std::find_if (bufferPtr + PaddingSize + dataSize,
-                                    bufferPtr + 2*PaddingSize + dataSize, 
+                                    bufferPtr + 2*PaddingSize + dataSize,
                                     std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + 2*PaddingSize + dataSize) )
                 {
                    DEBUG_PRINT("Padding was mutated!\n");
-                   *(bool*)in_pReturnValue = false; 
+                   *(bool*)in_pReturnValue = false;
                 }
                 else {
                     DEBUG_PRINT("done.\n");
