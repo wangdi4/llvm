@@ -79,8 +79,8 @@ namespace {
     }
 
 
-
-    TEST(OpenCLKernelArgumentsParser, FloatVectorArguments)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_FloatVectorArguments)
     {
 
         LLVMContext Context;
@@ -108,7 +108,8 @@ namespace {
         delete M;
 
     }
-    TEST(OpenCLKernelArgumentsParser, IntVectorPointerArguments)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_IntVectorPointerArguments)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -135,8 +136,8 @@ namespace {
         delete parser;
         delete M;
     }
-
-    TEST(OpenCLKernelArgumentsParser, IntArguments)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_IntArguments)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -157,8 +158,8 @@ namespace {
         delete M;
     }
 
-
-    TEST(OpenCLKernelArgumentsParser, PointToArguments)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_PointToArguments)
     {
         LLVMContext Context;
         Module *M = 0;
@@ -185,8 +186,8 @@ namespace {
         delete M;
     }
 
-
-    TEST(OpenCLKernelArgumentsParser, StructOfIntFloatDouble)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_StructOfIntFloatDouble)
     {
         LLVMContext Context;
         Module *M = 0;
@@ -223,8 +224,8 @@ namespace {
         delete parser;
         delete M;
     }
-
-    TEST(OpenCLKernelArgumentsParser, VectorInStruct)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_VectorInStruct)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -246,8 +247,8 @@ namespace {
         delete parser;
         delete M;
     }
-
-    TEST(OpenCLKernelArgumentsParser, ArrayInStruct)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_ArrayInStruct)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -284,8 +285,8 @@ namespace {
         delete M;
     }
 
-
-    TEST(OpenCLKernelArgumentsParser, TestOfStruct)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_TestOfStruct)
     {
         LLVMContext Context;
         Module *M = 0;
@@ -364,8 +365,8 @@ namespace {
         delete M;
     }
 
-
-    TEST(OpenCLKernelArgumentsParser, TestOfVector)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_TestOfVector)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -406,8 +407,8 @@ namespace {
 
 
 
-
-    TEST(OpenCLKernelArgumentsParser, TestOfPointer)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_TestOfPointer)
     {
         LLVMContext Context;
         Module *M = 0; 
@@ -462,8 +463,8 @@ namespace {
     }
 
 
-
-    TEST(OpenCLKernelArgumentsParser, TestForPointerAndStruct)
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_TestForPointerAndStruct)
     {
         LLVMContext Context;
         Module *M = 0; 

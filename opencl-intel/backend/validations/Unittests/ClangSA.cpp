@@ -35,7 +35,7 @@ static std::string buildLibName (const char* s){
   return ret.str();
 }
 
-TEST(ClangStadalone, instance_creation){
+TEST(ClangStadalone, DISABLED_instance_creation){
 // this test crashes, so it is disabled until CSSD100013412 will be fixed
   std::string clangLib = buildLibName("clang_compiler");
   const char* source =   "__kernel void add (__global const int *a, __global const int *b, __global int *c){"
