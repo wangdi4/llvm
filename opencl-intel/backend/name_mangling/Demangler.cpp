@@ -47,20 +47,20 @@ const char* PREFIX = "_Z";
 size_t PREFIX_LEN = 2;
 //parsing methods for the raw mangled name
 //
-static bool peelPrefix(std::string& s){
+static bool peelPrefix(llvm::StringRef& s){
   if (PREFIX != s.substr(0,PREFIX_LEN) )
       return false;
-  s = s.substr(PREFIX_LEN, s.length()-PREFIX_LEN);
+  s = s.substr(PREFIX_LEN, s.size()-PREFIX_LEN);
   return true;
 }
 
-static std::string peelNameLen(std::string& s){
+static llvm::StringRef peelNameLen(llvm::StringRef& s){
   int len = 0;
-  std::string::const_iterator it = s.begin();
+  llvm::StringRef::const_iterator it = s.begin();
   while(isdigit(*it++))
     ++len;
-  std::string ret = s.substr(0, len);
-  s = s.substr(len, s.length()-len);
+  llvm::StringRef ret = s.substr(0, len);
+  s = s.substr(len, s.size()-len);
   return ret;
 }
 
@@ -85,16 +85,16 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   if (!rawstring || reflection::FunctionDescriptor::nullString() == rawstring)
     return reflection::FunctionDescriptor::null();
   std::stringstream input;
-  std::string mangledName(rawstring);
+  llvm::StringRef mangledName(rawstring);
   //making sure it starts with _Z
   if (false == peelPrefix(mangledName))
     return reflection::FunctionDescriptor::null();
-  std::string nameLen = peelNameLen(mangledName);
+  llvm::StringRef nameLen = peelNameLen(mangledName);
   //cutting the prefix
-  int len = atoi(nameLen.c_str());
+  int len = atoi(nameLen.data());
   std::string functionName = mangledName.substr(0, len);
   std::string parameters =
-    mangledName.substr(len, mangledName.length() - len);
+    mangledName.substr(len, mangledName.size() - len);
   input << parameters;
   DemangleLexer lexer(input);
   DemangleParser parser(lexer);
@@ -128,13 +128,13 @@ public:
 
 //
 //Implementation of an API function.
-std::string stripName(const char* rawstring){
-  std::string mangledName(rawstring);
+llvm::StringRef stripName(const char* rawstring){
+  llvm::StringRef mangledName(rawstring);
   //making sure it starts with _Z
   if (false == peelPrefix(mangledName))
     throw DemanglerException();
   std::string nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.c_str());
-  return mangledName.substr(0, len);
+  return llvm::StringRef(rawstring + PREFIX_LEN + nameLen.length(), len);
 }

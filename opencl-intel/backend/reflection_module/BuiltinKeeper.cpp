@@ -590,7 +590,7 @@ struct RangeUtil{
   }
 
   const FunctionDescriptor& getDescriptor()const{
-    return m_range.first->second;
+    return *m_range.first;
   }
 private:
   BuiltinMap::MapRange& m_range;
@@ -619,8 +619,9 @@ bool BuiltinKeeper::isBuiltin(const std::string& mangledString)const{
   return isBuiltin (demangle(mangledString.c_str()));
 }
 
+#include "BuiltinList.h"
+
 bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
-  #include "BuiltinList.h"
   BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(fd.name);
   RangeUtil range(mr);
   //is cache line present?
@@ -638,7 +639,7 @@ bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
   assert(range.isEmpty() && "internal bug");
   bool bFound = false, bLineCached = false;
   for (size_t i=0 ; i<(sizeof(mangledNames)/sizeof(char*)) ; ++i){
-    std::string strippedName = stripName(mangledNames[i]);
+    llvm::StringRef strippedName = stripName(mangledNames[i]);
     if ( m_descriptorsMap.isInSameCacheLine(fd.name, strippedName) ){
       //cache the builtin we demangle
       FunctionDescriptor candidate = demangle(mangledNames[i]);

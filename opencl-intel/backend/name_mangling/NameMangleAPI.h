@@ -18,6 +18,7 @@
 #include "FunctionDescriptor.h"
 #include <string>
 #include <exception>
+#include "llvm/ADT/StringRef.h"
 
 //
 //Purpose: indicates whether the given string is the named of a mangled fumction
@@ -32,7 +33,7 @@ reflection::FunctionDescriptor demangle(const char* rawstring);
 //Purpose: returns the stripped function name, of the function mangled byu the
 //given string. If the given string is not the mangled name of a builtin, an
 //exception is thrown.
-std::string stripName(const char* rawstring);
+llvm::StringRef stripName(const char* rawstring);
 
 //Purpose: converts the given function descriptor to string that represents
 //the function's prototype.

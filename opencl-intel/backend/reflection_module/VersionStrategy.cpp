@@ -38,6 +38,8 @@ bool PairSW::operator < (const PairSW& that)const{
 }
 
 bool PairSW::compareWild(const std::string& w , const std::string& s)const{
+  if (w.find('*') == std::string::npos)
+    return w == s;
   std::string::const_iterator wb = w.begin(), sb = s.begin();
   while (sb != s.end() && wb != w.end()){
     if ('*' != *wb){

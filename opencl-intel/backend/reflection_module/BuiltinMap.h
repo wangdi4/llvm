@@ -20,11 +20,16 @@
 
 #include <map>
 #include <string>
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/SmallVector.h"
 #include "FunctionDescriptor.h"
 
 namespace reflection{
 
-typedef std::multimap<std::string, FunctionDescriptor> NameToFDMultiMap;
+typedef llvm::SmallVector<FunctionDescriptor, 6> FunctionsVector;
+
+typedef llvm::StringMap<FunctionsVector> NameToFDMultiMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 //Purpose:  maps a 'stripped name' (i.e., the pre-mangled name of the
@@ -36,15 +41,15 @@ typedef std::multimap<std::string, FunctionDescriptor> NameToFDMultiMap;
 ///////////////////////////////////////////////////////////////////////////////
 class BuiltinMap{
 public:
-  typedef NameToFDMultiMap::const_iterator const_iterator;
+  typedef FunctionsVector::const_iterator const_iterator;
 
   typedef std::pair<const_iterator, const_iterator> MapRange;
 
-  /////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
   //Purpose: returns all the builtin overloads associated to the given
   //(stripped) name.
   /////////////////////////////////////////////////////////////////////////////
-  MapRange equalRange(const std::string&) const;
+  MapRange equalRange(llvm::StringRef) const;
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: inserts the given function descriptor to the map
@@ -56,23 +61,9 @@ public:
   //  should reside in the same cache line.
   //Return: true if so, false otherwise.
   /////////////////////////////////////////////////////////////////////////////
-  bool isInSameCacheLine(const std::string&, const std::string&)const;
+  bool isInSameCacheLine(llvm::StringRef, llvm::StringRef)const;
 
 private:
-
-  /////////////////////////////////////////////////////////////////////////////
-  //Purpose: get the 'core name' for the given function name, that is the name
-  //'representing' all the overloaded function of a given conversion.
-  //for example the core name of the functions convert_char, convert_char2, and
-  //convert_char3 is convert_char.
-  /////////////////////////////////////////////////////////////////////////////
-  std::string getConversionCoreName(std::string)const;
-
-  /////////////////////////////////////////////////////////////////////////////
-  //Purpose: indicates whether a given name is the name of a conversion
-  //function.
-  /////////////////////////////////////////////////////////////////////////////
-  bool isConversionFunction(const std::string&) const;
 
   bool isSOAVersion(const std::string&)const;
 
