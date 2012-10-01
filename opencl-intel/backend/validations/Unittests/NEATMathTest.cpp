@@ -4111,8 +4111,8 @@ TYPED_TEST(NEATMaxMinMagTestRun, minmag)
     test.TestOtherValues(NEATFunc, NEATFuncVec, RefFunc);
 }
 
-
-TYPED_TEST(NEATMathTestTwoArgs, remainder)
+// disabled until CSSD100014638 will be resolved
+TYPED_TEST(NEATMathTestTwoArgs, DISABLED_remainder)
 {
     typedef typename TypeParam::Type T;
     typedef typename superT<T>::type sT;
