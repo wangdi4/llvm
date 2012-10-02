@@ -30,6 +30,10 @@ const int float_const_mantissaBits = 23;
 const int double_const_mantissaBits = 52;
 const int float_const_expOffset = 127;
 const int double_const_expOffset = 1023;
+const float float_const_tooSmall = 0x1.0p-63f;
+const double double_const_tooSmall = 0x1.0p-511;
+const float float_const_tooBig = 0x1.0p+63f;
+const double double_const_tooBig = 0x1.0p+511;
 
 // constants defined to simplify naming them from type name
 const char    generic_min_char    =  CHAR_MIN;

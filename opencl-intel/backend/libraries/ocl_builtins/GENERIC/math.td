@@ -242,6 +242,8 @@ OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, frexp_las.Types, 0, fr
 OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, frexp_gas.Types, 0, frexp_svml>;
 
 // hypot
+// NOTE: there is fast inlined implementation of hypot using newton-raphson and quick native_rsqrt function
+// See: hypot_impl_nr in SSE42
 OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, hypot.Types, 0, [{
     return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
