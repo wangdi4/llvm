@@ -355,7 +355,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
 	}
 
 	// else, create new map parameter structure and assign value to it
-	pclDevCmdParamMap = new MapParamPerPtr();
+	pclDevCmdParamMap = new MapParamPerPtr(this);
 	if ( NULL == pclDevCmdParamMap)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -489,14 +489,14 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
 	OclAutoMutex CS(&m_muMappedRegions); // release on return
 
 	// check if the region was mapped before
-	Addr2MapRegionMultiMap::iterator it = m_mapMappedRegions.find(pMapInfo->ptr);
+	Addr2MapRegionMultiMap::iterator it = m_mapMappedRegions.find(pHostMapDataPtr);
     MapParamPerPtr* info = NULL;
     for (; it != m_mapMappedRegions.end(); ++it)
     {
         // In the multimap find() returns pointer to the first element with a given key.
         // All elements with the same key are sequential, so we should just iterate until
         // we encounter first element with different key
-        if (it->first != pMapInfo->ptr)
+        if (it->first != pHostMapDataPtr)
         {
             break;
         }

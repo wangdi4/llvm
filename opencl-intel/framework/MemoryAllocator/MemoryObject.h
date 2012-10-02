@@ -55,7 +55,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t                  refCount;
         size_t                  invalidateRefCount;
         bool                    full_object_ovewrite;
-        MapParamPerPtr() : refCount(0), invalidateRefCount(0) , full_object_ovewrite(false) {};
+		SharedPtr<MemoryObject>	mappedMemObj;			// Need it in order to ensure unmapping of this region before releasing the mem object related.
+        MapParamPerPtr(const SharedPtr<MemoryObject>& memObj) : refCount(0), invalidateRefCount(0) , full_object_ovewrite(false), mappedMemObj(memObj) {};
 	};
 
 	typedef std::pair<mem_dtor_fn,void*> MemDtorNotifyData;
