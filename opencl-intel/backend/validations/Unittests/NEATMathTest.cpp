@@ -1553,8 +1553,8 @@ TYPED_TEST(NEATLogTestRun, half_log2)
     logTest.TestPreciseLog(NEATFunc);
     logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::HALF_LOG2_ERROR), TypeP(0.0));
 }
-
-TYPED_TEST(NEATLogTestRun, log10)
+// disabled until CSSD100014661 will be fixed
+TYPED_TEST(NEATLogTestRun, DISABLED_log10)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;

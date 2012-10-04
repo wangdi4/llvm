@@ -606,7 +606,8 @@ TYPED_TEST(NEATAluTyped, insertelement)
 }
 
 /* test for shufflevector instruction */
-TYPED_TEST(NEATAluTyped, shufflevector)
+// disabled until CSSD100014660 will be fixed
+TYPED_TEST(NEATAluTyped, DISABLED_shufflevector)
 {
     const int NUM_TESTS = 4;
 

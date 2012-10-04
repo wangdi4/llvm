@@ -936,7 +936,8 @@ static void testSmoothstepIntervalResult (NEATValue edge0Val, NEATValue edge1Val
     }
 }
 
-TYPED_TEST(NEATCommonTestThreeArgs, smoothstep)
+// disable until CSSD100014659 wiil be fixed
+TYPED_TEST(NEATCommonTestThreeArgs, DISABLED_smoothstep)
 {
     typedef typename TypeParam::Type TypeP;
     /// If your test doesn't currently support doubles, use SkipDoubleTest
