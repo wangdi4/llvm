@@ -1088,7 +1088,8 @@ TYPED_TEST(NEATExpTestRun, exp2)
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::EXP2_ERROR));
 }
 
-TYPED_TEST(NEATExpTestRun, native_exp2)
+// disabled until bug CSSD100014654 will be fixed
+TYPED_TEST(NEATExpTestRun, DISABLED_native_exp2)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
@@ -1180,7 +1181,8 @@ TYPED_TEST(NEATExpTestRun, native_exp10)
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::NATIVE_EXP10_ERROR));
 }
 
-TYPED_TEST(NEATExpTestRun, half_exp10)
+// disable until bug CSSD100014655 will be fixed
+TYPED_TEST(NEATExpTestRun, DISABLED_half_exp10)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
