@@ -87,7 +87,7 @@ private:
 //
 //Sanity test for the plugin mechanism
 //
-TEST( DISABLED_FEPluginTest, sanity){
+TEST( FEPluginTest, DISABLED_sanity){
 // failes, turned off until CSSD100013413 will be fixed
 #if defined(_WIN32)
   SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "FePluginMock.dll");
@@ -109,7 +109,7 @@ TEST( DISABLED_FEPluginTest, sanity){
 //A basic test for the OclourceRecorder (1.1 capabilities only), which tests
 //that a compiled module is 'connected' to itself.
 //
-TEST(DISABLED_OCLSourceRecorder1_1, sorce_recorder_basic){
+TEST(OCLSourceRecorder1_1, DISABLED_sorce_recorder_basic){
 // disabled until CSSD100013816 will be fixed
   const char* kernelName = "k.cl";;
   const char* kernelContents = "__kernel void a(__global char* a, __global char* b){"
@@ -133,7 +133,7 @@ TEST(DISABLED_OCLSourceRecorder1_1, sorce_recorder_basic){
 //
 //File iterator test
 //
-TEST(DISABLED_OCLSourceRecorder1_1, iterator_test){
+TEST(OCLSourceRecorder1_1, DISABLED_iterator_test){
 // disabled until CSSD100013816 will be fixed
   const char* kernelName = "k.cl";;
   const char* kernelContents = "__kernel void a(__global char* a, __global char* b){"
@@ -226,7 +226,7 @@ static void* addCompile(void* args){
   return NULL;
 }
 
-TEST(DISABLED_OCLSourceRecorder1_1, source_recoder_thread_safety){
+TEST(OCLSourceRecorder1_1, DISABLED_source_recoder_thread_safety){
 // disabled until CSSD100013816 will be fixed
   const int THREAD_NUM=2;
   CompileData* compileData[THREAD_NUM];
@@ -293,7 +293,7 @@ TEST(DISABLED_OCLSourceRecorder1_1, source_recoder_thread_safety){
 //
 //Checks the dependency between a source file and its headers
 //
-TEST(DISABLED_OCLSourceRecorder1_1, header_source_connection){
+TEST(OCLSourceRecorder1_1, DISABLED_header_source_connection){
 // disabled until CSSD100013816 will be fixed
   const char* contents = "veni vidi vichi";
   const char* h1 = "h1";
@@ -355,7 +355,7 @@ TEST(DISABLED_OCLSourceRecorder1_1, header_source_connection){
   CompileDataFactory::free(pFactory);
 }
 
-TEST(DISABLED_OCLSourceRecorder1_1, referenceContension){
+TEST(OCLSourceRecorder1_1, DISABLED_referenceContension){
 // disabled until CSSD100013816 will be fixed
   #if defined(_WIN32)
   SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "OclRecorder.dll");

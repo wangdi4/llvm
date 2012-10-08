@@ -786,7 +786,7 @@ class ComparatorImageTest : public ALUTest {
 
 /// @brief Tests accurate mode of Comparator on Images
 // disabled due to fail on linux. CSSD100013779
-TEST( DISABLED_ComparatorImageTest, ImagesAccurate1D)
+TEST( ComparatorImageTest, DISABLED_ImagesAccurate1D)
 {
     uint64_t width = 99;
     ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE1D;
@@ -800,7 +800,7 @@ TEST( DISABLED_ComparatorImageTest, ImagesAccurate1D)
     TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, 0, 0, 0);
 }
 // disabled due to fail on linux. CSSD100013779
-TEST (DISABLED_ComparatorImageTest, ImagesAccurate1D_arr)
+TEST (ComparatorImageTest, DISABLED_ImagesAccurate1D_arr)
 {
     const uint64_t width = 99;
     const uint64_t arrSize = 7;
@@ -815,7 +815,7 @@ TEST (DISABLED_ComparatorImageTest, ImagesAccurate1D_arr)
     TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, 0, 0, arrSize);
 }
 // disabled due to fail on linux. CSSD100013779
-TEST(DISABLED_ComparatorImageTest, ImagesAccurate2D)
+TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D)
 {
     const uint64_t width = 99;
     const uint64_t height = 11;
@@ -830,7 +830,7 @@ TEST(DISABLED_ComparatorImageTest, ImagesAccurate2D)
     TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, height, 0, 0);
 }
 // disabled due to fail on linux. CSSD100013779
-TEST(DISABLED_ComparatorImageTest, ImagesAccurate2D_arr)
+TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D_arr)
 {
     const uint64_t width = 99;
     const uint64_t height = 11;
@@ -846,7 +846,7 @@ TEST(DISABLED_ComparatorImageTest, ImagesAccurate2D_arr)
     TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width, height, 0, arrSize);
 }
 // disabled due to fail on linux. CSSD100013779
-TEST(DISABLED_ComparatorImageTest, ImagesAccurate3D)
+TEST(ComparatorImageTest, DISABLED_ImagesAccurate3D)
 {
     const uint64_t width = 99;
     const uint64_t height = 11;

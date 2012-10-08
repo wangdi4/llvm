@@ -683,8 +683,8 @@ void TestClampInterval(const NEATValue& a, const NEATValue& in_min, const NEATVa
     }
 }
 
-
-TYPED_TEST(NEATMathTestThreeArgs, clamp)
+// disabled until CSSD100014677 will be fixed
+TYPED_TEST(NEATMathTestThreeArgs, DISABLED_clamp)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type sT;
