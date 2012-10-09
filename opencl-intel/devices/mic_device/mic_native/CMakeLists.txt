@@ -221,9 +221,11 @@ endif( ENABLE_MIC_TBB_TRACER )
 
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( TBB_LIBS_TO_LINK tbb_debug )
+    set( TBB_LIB_TO_LINK tbb_debug )
+    set( TBBMALLOC_LIB_TO_LINK tbbmalloc_debug )
 else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( TBB_LIBS_TO_LINK tbb )
+    set( TBB_LIB_TO_LINK tbb )
+    set( TBBMALLOC_LIB_TO_LINK tbbmalloc )
 endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 
 # MIC linking flags
@@ -243,7 +245,8 @@ list( APPEND MIC_LINK_FLAGS
                 # libs to link
                 -lcoi_device
                 -l${BACKEND_LIB}
-                -l${TBB_LIBS_TO_LINK}
+                -l${TBBMALLOC_LIB_TO_LINK}
+                -l${TBB_LIB_TO_LINK}
                 ${VTUNE_PROFILING_LIB}
                 -lpthread
 
