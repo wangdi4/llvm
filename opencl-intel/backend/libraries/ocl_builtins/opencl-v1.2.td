@@ -769,7 +769,7 @@ let Types = [v4i8,  v8i8,  v16i8,
              v4i64, v8i64, v16i64],
     Attrs = [OVERLOADABLE],
 	NeedForwardDecl = 1	in {
-def soa_any1 : OclBuiltin<"soa_any", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
+def soa_any1 : OclBuiltin<"soa_any1", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
 def soa_any2 : OclBuiltin<"soa_any2", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
 def soa_any3 : OclBuiltin<"soa_any3", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
 def soa_any4 : OclBuiltin<"soa_any4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
@@ -782,15 +782,15 @@ def soa_any16 : OclBuiltin<"soa_any16", (outs i32gentype:$ret), (ins gentype:$x0
 	 gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
 	 gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
 	 gentype:$x14, gentype:$x15), [], []>;
-def soa_all1 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
-def soa_all2 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
-def soa_all3 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
-def soa_all4 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_all1 : OclBuiltin<"soa_all1", (outs i32gentype:$ret), (ins gentype:$x0), [], []>;
+def soa_all2 : OclBuiltin<"soa_all2", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], []>;
+def soa_all3 : OclBuiltin<"soa_all3", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], []>;
+def soa_all4 : OclBuiltin<"soa_all4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
 	gentype:$x2, gentype:$x3), [], []>;
-def soa_all8 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_all8 : OclBuiltin<"soa_all8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
 	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
 	 gentype:$x6, gentype:$x7), [], []>;
-def soa_all16 : OclBuiltin<"soa_all", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
+def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
 	 gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
 	 gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
 	 gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
