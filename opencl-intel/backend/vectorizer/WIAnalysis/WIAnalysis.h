@@ -54,7 +54,8 @@ public:
       PTR_CONSECUTIVE = 2, /// Elements are pointers which are consecutive
       STRIDED         = 3, /// Elements are in strides
       RANDOM          = 4, /// Unknown or non consecutive order
-      NumDeps         = 5  /// Overall amount of dependencies
+      UNSET           = 5, /// This is the initial dependency for all values
+      NumDeps         = 6  /// Overall amount of dependencies
     };
 
     /// The WIAnalysis follows pointer arithmetic
