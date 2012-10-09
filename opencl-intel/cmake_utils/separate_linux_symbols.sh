@@ -32,7 +32,9 @@ fi
 for f in `ls -B --hide="*.${symbolsSuffix}"`
 do
     mimetype=`file -bi $f`
-    if [ "$mimetype" != "application/x-sharedlib" ] && [ "$mimetype" != "application/x-executable" ] ; then
+    isLib=`echo "$mimetype" | grep -c "application/x-sharedlib"`
+    isExe=`echo "$mimetype" | grep -c "application/x-executable"`
+    if [ $isLib -eq 0 ] && [ $isExe -eq 0 ] ; then
         #echo "Skipping non binary file $f"
         continue;
     fi
