@@ -19,9 +19,26 @@
 	OclBuiltinImpl smoothstep_promote 	=	OclBuiltinImpl	<smoothstep,		[v2f32, v3f32], 										0, Promote3>;
 	OclBuiltinImpl smoothstep_expand 	=	OclBuiltinImpl	<smoothstep,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand3>;
 	
-	
-// vector, scalar BI generation 
+// ======GENERIC CPU specific implementation=======================
+//  clamp
+//
+//  Originally fmin/fmax usage in clamp is defined by spec. 
+//  fmin/fmax treats NaNs differently than min/max. 
+//  If one argument is a NaN, fmin() returns the other argument. 
+//  So on CPU fmin checks for NaN in second argument.
+//  Luckily x86 instruction minps, maxps treats NaN is 1st argument correctly 
+//  according to OpenCL 1.2 spec. 
+//  They (minps/maxps) can be used as in original code before tblgen port
+//  MIC part has already correct NaN handling in maxps/minps instructions in both arguments.
+//  MIC does not need this implementation
 
+OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
+  [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return min(max($Arg0VarName, $Arg1VarName), $Arg2VarName);
+  }]>;
+
+// vector, scalar BI generation 
 //======v4f32 and v2f64 implementation===============================  
 
 // max
