@@ -40,7 +40,8 @@
 #include<stdlib.h>
 #include <alloca.h>
 
-#define MEGABYTE (1024*1024)
+#define KILOBYTE 1024
+#define MEGABYTE (1024*KILOBYTE)
 
 // The flag below enables a check that allows only a single use of cl_mem objects
 // The "lock" on the memory object is obtained during the call to NDRange->Init() and is released when the kernel is done executing
@@ -112,7 +113,14 @@ void MemoryAllocator::Release( void )
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MICDeviceConfig *config, unsigned long long maxAllocSize ):
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_config(config), m_maxAllocSize(maxAllocSize)
 {
-    m_2M_BufferMinSize         = config->Device_2MB_BufferMinSizeInMB() * MEGABYTE;
+    m_2M_BufferMinSize         = config->Device_2MB_BufferMinSizeInKB() * KILOBYTE;
+
+    if ((0 < m_2M_BufferMinSize) && (m_2M_BufferMinSize <= PAGE_4K_SIZE))
+    {
+        // no need to use 2MB pages for buffers less or equal to 4KB page
+        m_2M_BufferMinSize = PAGE_4K_SIZE + 1;
+    }
+    
     m_force_immediate_transfer = !(config->Device_LazyTransfer());
     
     if ( NULL != logDesc )

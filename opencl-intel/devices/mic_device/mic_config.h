@@ -44,7 +44,7 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_NUM_CORES					"CL_CONFIG_MIC_DEVICE_NUM_CORES"	        // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0				"CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
 #define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE			"CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
-#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB			"CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB"   // unsigned int in MB
+#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB			"CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB"   // size_t in KB
 #define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE				"CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER				"CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER"        // string
 #define    CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION      "CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION" // string
@@ -82,7 +82,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, false); }
 		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
         // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
-		unsigned int   Device_2MB_BufferMinSizeInMB() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, 0); }
+		size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 0); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
 		string         Device_TbbScheduler()    const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, "auto"); }
 		string         Device_TbbBlockOptimization() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, "default_TBB_tile"); }
@@ -120,7 +120,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_NUM_CORES, Device_NumCores, "0 - use all MIC cores, !=0 - use specified number of cores" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, Device_IgnoreCore0, "1 - do not use 0 (system) MIC core" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, Device_IgnoreLastCore, "1 - do not use last MIC core" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB, Device_2MB_BufferMinSizeInMB, "0 - disabled, !=0 - minimum size of buffer in Megabytes to use 2MB pages"  );
+            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, openmp - openmp simulation, other - tbb::auto_partitioner" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
