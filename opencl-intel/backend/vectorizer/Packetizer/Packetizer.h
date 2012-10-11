@@ -189,41 +189,57 @@ private:
 
   // Transpose functions
 
-  /// @brief Get mangled name for transpose function
+  /// @brief Get appropriate transpose function
   /// @param isLoad True if this is load and transpose, false otherwise
   /// @param origVecType Vector type in the original instruction
+  /// @param isScatterGather True if this is a scatter/gather, false if normal store/load
+  /// @param isMasked True if this is a masked operation, false if a regular op.
   /// @return transpose function to be called
-  Function* getTransposeFunc(bool isLoad, VectorType * origVecType);
+  Function* getTransposeFunc(bool isLoad, VectorType * origVecType, bool isScatterGather, bool isMasked);
 
-  /// @brief Creates load and transpose sequence
+  /// @brief Creates load and transpose sequence 
+  ///        This is the order of the sequence (first load, then transpose), hence the name.
   /// @param I Load instruction
   /// @param loadPtrVal The pointer address which is being loaded
   /// @param loadType The type of the value being loaded
-  void createLoadTranspose(Instruction* I, Value* loadPtrVal, Type* loadType);
+  /// @param Mask Mask value if this is a masked load, null otherwise
+  void createLoadAndTranspose(Instruction* I, Value* loadPtrVal, Type* loadType, Value* Mask);
 
   /// @brief Creates transpose and store sequence
+  ///        This is the order of the sequence (first transpose, then store), hence the name.
   /// @param I Store instruction
   /// @param storePtrVal The pointer address which we are going to store
   /// @param storeType The type of the value being stored
-  void createTransposeStore(Instruction* I, Value* storePtrVal, Type* storeType);
+  /// @param Mask Mask value if this is a masked load, null otherwise
+  void createTransposeAndStore(Instruction* I, Value* storePtrVal, Type* storeType, Value* Mask);
   
   /// @brief Checks whether transpose is possible
   /// @param addr The address which is being loaded from/stored to as part of the transpose
   /// @param origVal The original value that was loaded/stored and needs to be transposed
   /// @param isLoad True if this is load and transpose, false otherwise
+  /// @param isScatterGather True if this is a scatter/gather, false if normal store/load
+  /// @param isMasked True if this is a masked operation, false if a regular op.
   /// @return True if this value can be transposed, False otherwise
-  bool canTransposeMemory(Value* addr, Value* origVal, bool isLoad);
+  bool canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked);
+  
+  /// @brief Obtains information about extracts and inserts that will need to be transposed
+  /// This function has side effects through the m_storeTranspMap, m_loadTranspMap and 
+  /// m_removedInst fields.
+  void obtainTranspose();
 
   /// @brief Obtains the extracts that may need to be transposed
-  /// @param LI The load instruction which may need to perfrom load and transpose
-  void obtainLoadTranspose(LoadInst* LI);
+  /// @param LI The load/masked load instruction which may need to perfrom load and transpose
+  /// @param loadAdd The address being loaded
+  /// @param masked True if this is a masked load, false if regular load
+  void obtainLoadAndTranspose(Instruction* LI, Value* loadAdd, bool masked);
 
   /// @brief Obtains the inserts that may need to be transposed
   /// @param SI The store instruction which may need to perfrom transpose and store
-  void obtainTransposeStore(StoreInst* SI);
+  /// @param storeAdd The address stored to
+  /// @param storeVal The value being stored
+  /// @param masked True if this is a masked store, false if regular store
+  void obtainTransposeAndStore(Instruction* SI, Value* storeAdd, Value* storeVal, bool masked);
 
-  /// @brief Obtains information about extracts and inserts that will need to be transposed
-  void obtainTranspose();
 
   // Utility functions
 
@@ -351,7 +367,7 @@ private:
   /// @param CI call instruction to be packetized
   /// @param scalarParam parameter of scalar function
   /// @returns the parameter for packetized function
-  Value *HandleParamSOA(CallInst* CI, Value *scalarParam);
+  Value *handleParamSOA(CallInst* CI, Value *scalarParam);
 
   /// @brief obtain the scalar elements of the vector param and add their 
   ///        vectors to the arguments list.
@@ -360,7 +376,7 @@ private:
   /// @LibFuncTy - type of packetized builtin.
   /// @param args - vector of arguments to packetized built-in.
   /// @returns true if successfully added vector arguments to args.
-  bool SpreadVectorParam(CallInst* CI, Value *scalarParam,
+  bool spreadVectorParam(CallInst* CI, Value *scalarParam,
                          FunctionType *LibFuncTy, std::vector<Value *> &args);
 
   /// @brief handles case when scalar return value is vector and packetized
@@ -368,20 +384,30 @@ private:
   /// @param CI call instruction to be packetized
   /// @param soaRet return value (instruction Value) of packetized function
   /// @returns the parameter for packetized function
-  bool HandleReturnValueSOA (CallInst* CI, CallInst *soaRet);
+  bool handleReturnValueSOA (CallInst* CI, CallInst *soaRet);
 
   /// @brief handles case when scalar built-in returns a vector and the 
   ///        packetized built-in has return values by pointers.
   /// @param CI - scalar call.
   /// @param newCall - packetized call.
   /// @returns true iff successfully handled return values.
-  bool HandleReturnByPointers (CallInst* CI, CallInst *newCall);
+  bool handleReturnByPointers (CallInst* CI, CallInst *newCall);
 
   /// @brief maps the obtained returned values of the packetized built-in
   ///        to their corresponding scalar in packetizer data structures.
   /// @param CI - scalar call.
   /// @returnedVals - returned values.
-  void MapVectorMultiReturn (CallInst* CI, SmallVectorImpl<Instruction *>& returnedVals);
+  void mapVectorMultiReturn (CallInst* CI, SmallVectorImpl<Instruction *>& returnedVals);
+
+  /// @brief Checks whether packetized loads from the address are scatter-gather
+  /// @param Address Address to check.
+  /// @returns true if a scatter/gather is needed, false otherwise.
+  bool isScatterGatherAddr(Value* Address);
+
+  /// @brief Returns the mask type a transpose function expects
+  /// @param TransFunc Transpose function to which the mask is passed
+  /// @returns the type of the mask
+  Type* getMaskTypeForTranpose(Function* TransFunc);
 
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;

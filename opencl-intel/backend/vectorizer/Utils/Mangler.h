@@ -69,10 +69,13 @@ public:
 
   /// @brief Get mangled name for transpose function
   /// @param isLoad True if this is load and transpose, false otherwise
+  /// @param isScatterGather True if this is a scatter/gather, false if a normal store/load
+  /// @param isMasked True if this is a maked operation, false otherwise
   /// @param origVecType Vector type in the original instruction
   /// @param packetWidth Packetization width
   /// @return name
-  static std::string getTransposeBuiltinName(bool isLoad, VectorType * origVecType, unsigned int packetWidth);
+  static std::string getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,
+          VectorType * origVecType, unsigned int packetWidth);
 
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name

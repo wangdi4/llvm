@@ -152,7 +152,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   {
     Instruction *curInst = *index;
     m_depAnalysis->invalidateDepend(curInst);
-	curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
+    curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
     curInst->eraseFromParent();
   }
 
@@ -204,20 +204,26 @@ bool PacketizeFunction::runOnFunction(Function &F)
   return true;
 }
 
-bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isLoad) {
+bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked) {
   
   // There is no point to transpose uniform value.
   if (m_depAnalysis->whichDepend(origVal) == WIAnalysis::UNIFORM) return false;
 
-  // Currently we only support only we support transpose with consecutive load/store
-  if ( m_depAnalysis->whichDepend(addr) != WIAnalysis::PTR_CONSECUTIVE) return false;
+  // It is possible the address is uniform even when the value isn't.
+  // This can happen in either masked loads with non-uniform mask, masked stores, 
+  // or stores that write different values to the same address (the last case is weird).
+  // Right now we could treat these cases as gathers, but that is very inefficient.
+  // Another option is not to transpose, by uncommenting the line below.
+  // if (m_depAnalysis->whichDepend(addr) == WIAnalysis::UNIFORM) return false;
+  // Finally, the last option is to handle it properly - e.g. a masked load from a
+  // uniform address should be a load+broadcast protected by an allZero branch.
 
   VectorType* origVecType = dyn_cast<VectorType>(origVal->getType());
   // We do not transpose scalars
   if (!origVecType) return false;
 
   // Find (or create) declaration for newly called function
-  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, origVecType, m_packetWidth);
+  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
   Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   // No proper transpose function for this load and packet width
   if (!transposeFuncRT) return false;
@@ -225,11 +231,19 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   return true;
 }
 
-void PacketizeFunction::obtainLoadTranspose(LoadInst* LI) {
-  Value* loadAdd = LI->getPointerOperand();
-  Value* loadVal = LI;
+bool PacketizeFunction::isScatterGatherAddr(Value* Address) {
+  // If the pointer is not consecutive, a gather/scatter is required to access
+  // the vectorized version of Address. Otherwise, we can perform a wide load/store.
+  // Note that we consider uniform as gather/scatter here, even though
+  // you can be more efficient, because currently the appropriate builtin is missing.
+  return (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE);
+}
 
-  if (!canTransposeMemory(loadAdd, loadVal, true)) return;
+void PacketizeFunction::obtainLoadAndTranspose(Instruction* LI, Value* loadAdd, bool masked) {
+
+  bool isScatterGather = isScatterGatherAddr(loadAdd);
+
+  if (!canTransposeMemory(loadAdd, LI, true, isScatterGather, masked)) return;
 
   // Check if the only users of the load instructions are extracts that can be replaced by load + transpose
   SmallVector<ExtractElementInst *, 16> extracts;
@@ -249,11 +263,11 @@ void PacketizeFunction::obtainLoadTranspose(LoadInst* LI) {
   m_loadTranspMap[LI] = extracts;
 }
 
-void PacketizeFunction::obtainTransposeStore(StoreInst* SI) {
-  Value* storeAdd = SI->getPointerOperand();
-  Value* storeVal = SI->getValueOperand();
+void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd, Value* storeVal, bool masked) {
+  
+  bool isScatterGather = isScatterGatherAddr(storeAdd);
 
-  if (!canTransposeMemory(storeAdd, storeVal, false)) return;
+  if (!canTransposeMemory(storeAdd, storeVal, false, isScatterGather, masked)) return;
     
   // Find the first insert of the insert sequence ending with the store instruction
   InsertElementInst *IEI = dyn_cast<InsertElementInst>(storeVal);
@@ -286,16 +300,44 @@ void PacketizeFunction::obtainTransposeStore(StoreInst* SI) {
   m_storeTranspMap[SI] = inserts;
 }
 
-void PacketizeFunction::obtainTranspose() {
-  
+void PacketizeFunction::obtainTranspose() {  
   // Go over all instructions and identify possible load + transpose, tranpose + store
   for (inst_iterator vI = inst_begin(m_currFunc), vE = inst_end(m_currFunc); vI != vE; ++vI) {
     Instruction *I = &*vI;
-
+  
+    Value *Address = NULL, *Val = NULL;
+    bool isTranspose = false, isMasked = false, isStore = false;
+    // First, compute the parameters of the relevant transpose
     if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
-      obtainLoadTranspose(LI);
+      isTranspose = true;
+      Address = LI->getPointerOperand();
     } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
-      obtainTransposeStore(SI);    
+      isTranspose = true;
+      Address = SI->getPointerOperand();
+      Val = SI->getValueOperand();
+      isStore = true;
+    } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
+      // Handle masked versions of load and store
+      StringRef Name = CI->getCalledFunction()->getName();    
+      if (Mangler::isMangledLoad(Name)) {
+        isTranspose = true;
+        Address = CI->getArgOperand(1);
+        isMasked = true;
+      } else if (Mangler::isMangledStore(Name)) {
+        isTranspose = true;
+        Val = CI->getArgOperand(1);
+        Address = CI->getArgOperand(2);
+        isMasked = true;
+        isStore = true;
+      }
+    }
+
+    // Now, actually construct it.
+    if (isTranspose) {
+      if (isStore)
+        obtainTransposeAndStore(I, Address, Val, isMasked);
+      else
+        obtainLoadAndTranspose(I, Address, isMasked);
     }
   }
 }
@@ -378,7 +420,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
       break;
     case Instruction::InsertElement :
       packetizeInstruction(dyn_cast<InsertElementInst>(I));
-	  break;
+    break;
     case Instruction::ExtractElement :
       packetizeInstruction(dyn_cast<ExtractElementInst>(I));
       break;
@@ -1016,7 +1058,21 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     m_removedInsts.insert(CI);
     return;
   }
+
+  // If we already know this is a load-transpose or a transpose-store,
+  // packetize to that.
+  if (m_loadTranspMap.count(CI)) {
+    V_ASSERT((CI->getNumArgOperands() >= 2) && "Not enough operands in load-transpose");
+    createLoadAndTranspose(CI, CI->getArgOperand(1), CI->getType(), CI->getArgOperand(0));
+    return;
+  }
   
+  if (m_storeTranspMap.count(CI)) {
+    V_ASSERT((CI->getNumArgOperands() >= 3) && "Not enough operands in transpose-store");
+    createTransposeAndStore(CI, CI->getArgOperand(2), CI->getArgOperand(1)->getType(), CI->getArgOperand(0));
+    return;
+  }
+
   Function *scalarFunc = origFunc;
   std::string scalarFuncName = origFuncName;
   const char * vectorFuncName;
@@ -1213,7 +1269,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     // spread vector operands.than try to do it.
     if (m_rtServices->alwaysSpreadVectorParams() && curScalarArgType->isVectorTy()) {
       // here we assume that any scalar vector operand must be spread
-      if (!SpreadVectorParam(CI, curScalarArg, LibFuncTy, newArgs)){
+      if (!spreadVectorParam(CI, curScalarArg, LibFuncTy, newArgs)){
         V_ASSERT (0 && "unsupported parameter type");
         return false;
       }
@@ -1227,7 +1283,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     } else if (curScalarArgType->isVectorTy()) {
       // If vectors are not spread then vector arguments should be packetized
       // in SOA form using array of vectors.
-      operand = HandleParamSOA(CI, curScalarArg);
+      operand = handleParamSOA(CI, curScalarArg);
       if (!operand || operand->getType() != neededType) {
         V_ASSERT (0 && "unsupported parameter type");
         return false;
@@ -1285,10 +1341,10 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
     // array of vectors , or it is the return is by pointers as last arguments.
     if (newCall->getType()->isVoidTy()) {
       // return by pointers.
-      return HandleReturnByPointers(CI, newCall);
+      return handleReturnByPointers(CI, newCall);
     } else {
       // return using array of vectors.
-      return HandleReturnValueSOA(CI, newCall);
+      return handleReturnValueSOA(CI, newCall);
     }
   } else {
     Instruction *newFuncCall = VectorizerUtils::getCastedRetIfNeeded(newCall, VectorType::get(CI->getType(), m_packetWidth));
@@ -1326,7 +1382,7 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
   return true;
 }
 
-bool PacketizeFunction::HandleReturnValueSOA(CallInst* CI, CallInst *soaRet){
+bool PacketizeFunction::handleReturnValueSOA(CallInst* CI, CallInst *soaRet){
   // first validate that the new call return is proper array of vectors.
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
   VectorType *aosType = cast<VectorType>(CI->getType());
@@ -1349,11 +1405,11 @@ bool PacketizeFunction::HandleReturnValueSOA(CallInst* CI, CallInst *soaRet){
 
   // Map the elements to fake extracts generated by the scalarizer to
   // the vector elemetns.
-  MapVectorMultiReturn(CI, scalars);
+  mapVectorMultiReturn(CI, scalars);
   return true;
 }
 
-void PacketizeFunction::MapVectorMultiReturn (CallInst* CI,
+void PacketizeFunction::mapVectorMultiReturn (CallInst* CI,
                  SmallVectorImpl<Instruction *>& returnedVals) {
   // Replace fake extracts (generated by the scalarizer), with a vectorized value
   for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
@@ -1376,7 +1432,7 @@ void PacketizeFunction::MapVectorMultiReturn (CallInst* CI,
   }
 }
 
-bool PacketizeFunction::HandleReturnByPointers(CallInst* CI, CallInst *newCall) {
+bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) {
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
   VectorType *vTy = cast<VectorType>(CI->getType());
   unsigned numArgs = newCall->getNumArgOperands();
@@ -1403,11 +1459,11 @@ bool PacketizeFunction::HandleReturnByPointers(CallInst* CI, CallInst *newCall) 
 
   // Map the elements to fake extracts generated by the scalarizer to
   // the vector elemetns.
-  MapVectorMultiReturn(CI, loads);
+  mapVectorMultiReturn(CI, loads);
   return true;
 }
 
-Value *PacketizeFunction::HandleParamSOA(CallInst* CI, Value *scalarParam){
+Value *PacketizeFunction::handleParamSOA(CallInst* CI, Value *scalarParam){
   /// Here we handle vector argument to a scalar built-in by creating an 
   /// array of vectors from the corresponding vectors of it's elements.
   /// Scalar elements are obtained by fake insert calls added by the scalarizer.
@@ -1434,7 +1490,7 @@ Value *PacketizeFunction::HandleParamSOA(CallInst* CI, Value *scalarParam){
   return soaArr;
 }
 
-bool PacketizeFunction::SpreadVectorParam(CallInst* CI, Value *scalarParam,
+bool PacketizeFunction::spreadVectorParam(CallInst* CI, Value *scalarParam,
                          FunctionType *LibFuncTy, std::vector<Value *> &args) {
   /// Here we handle vector argument to a scalar built-in by adding the
   /// corresponding vectors of the it's elements to the argumnet list. the 
@@ -1956,11 +2012,11 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
   return duplicateNonPacketizableInst(AI);
 }
 
-Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecType) {
+Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecType, bool isScatterGather, bool isMasked) {
   
   // Get transpose function name
-  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, origVecType, m_packetWidth);
-  
+  std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
+
   // Get function from RT module
   Function* loadTransposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   V_ASSERT(loadTransposeFuncRT && "Transpose function should exist!");
@@ -1975,18 +2031,28 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecT
   return transposeFunc;
 }
 
-void PacketizeFunction::createLoadTranspose(Instruction* I, Value* loadPtrVal, Type* loadType) {
+Type* PacketizeFunction::getMaskTypeForTranpose(Function* TransFunc) {
+  // Basically, the mask is assumed to be the last parameter
+  // An alternative would be to assume it has a known scalar type, but
+  // this seems slightly better.
+  FunctionType* TransType = TransFunc->getFunctionType();
+  int LastParam = TransType->getNumParams() - 1;    
+  return TransType->getParamType(LastParam);
+}
+
+void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal, Type* loadType, Value* Mask) {
   
   V_ASSERT(isa<VectorType>(loadType) && "loadType is not a vector");
   VectorType* origVecType = cast<VectorType>(loadType);
   unsigned int numDestVectors = origVecType->getNumElements();
   unsigned int numDestVectElems = m_packetWidth;
   Type* destVecType = VectorType::get(origVecType->getElementType(), numDestVectElems);
+  bool isScatterGather = isScatterGatherAddr(loadPtrVal);
+  bool isMasked = (Mask != NULL);
 
   // Obtain load address
   Value* inAddr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(inAddr, loadPtrVal , I);
-  Value* pLoadAddr = inAddr[0];
 
   // Creates: 
   // entry:
@@ -2002,10 +2068,22 @@ void PacketizeFunction::createLoadTranspose(Instruction* I, Value* loadPtrVal, T
 
   // Create transpose function arguments
   IRBuilder<> Builder(I);
-  SmallVector<Value *, 8> funcArgs;
+  SmallVector<Value *, 16> funcArgs;
+
+  // The number of arguments used for input depends on whether this is a load
+  // or a gather. Loads only get one base pointer, gathers receive N pointers
+  // one for each gathered value.
+  int numInputPointers;
+  if (isScatterGather)
+    numInputPointers = m_packetWidth;
+  else
+    numInputPointers = 1;
+
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
-  pLoadAddr = Builder.CreateBitCast(pLoadAddr, origVecType->getPointerTo());
-  funcArgs.push_back(pLoadAddr);
+  for (int i = 0; i < numInputPointers; ++i) {
+    Value* pLoadAddr = Builder.CreateBitCast(inAddr[i], origVecType->getPointerTo());
+    funcArgs.push_back(pLoadAddr);
+  }
 
   Builder.SetInsertPoint(m_currFunc->getEntryBlock().begin());
   for (unsigned int i = 0; i < numDestVectors; ++i) {
@@ -2016,17 +2094,32 @@ void PacketizeFunction::createLoadTranspose(Instruction* I, Value* loadPtrVal, T
     funcArgs.push_back(alloca);
   }
 
-  // Create function call with prepared arguments
+  Function* transposeFunc = getTransposeFunc(true, origVecType, isScatterGather, isMasked);
   Builder.SetInsertPoint(I);
-  Function* transposeFunc = getTransposeFunc(true, origVecType);
+
+  if (isMasked) {
+    // Get a vectorized mask to pass to the transpose function
+    Value* VectorMask;
+    obtainVectorizedValue(&VectorMask, Mask, I);
+
+    // Unfortunately, the transpose functions can not accept an i1 vector,
+    // so we need to zero-extend the mask to the right type first.
+    Type* ExtMaskType = getMaskTypeForTranpose(transposeFunc);  
+    V_ASSERT(ExtMaskType->getScalarSizeInBits() >= VectorMask->getType()->getScalarSizeInBits() &&
+             "Extended mask type smaller than original mask type!");
+    Value* ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
+    funcArgs.push_back(ExtMask);
+  }
+
+  // Create function call with prepared arguments
   CallInst* Call = Builder.CreateCall(transposeFunc, ArrayRef<Value*>(funcArgs));
   VectorizerUtils::SetDebugLocBy(Call, I);
 
   // Create loads from the destination vectors that now contain the transposed matrix 
   SmallVector<Instruction *, 16> SOA;
-  for (unsigned int i = 0; i < numDestVectors; ++i) {
+  for (unsigned int i = numInputPointers; i < numInputPointers + numDestVectors; ++i) {
     // First funcArg is pLoadAddr, only then we have our destination vectors
-    SOA.push_back(Builder.CreateLoad(funcArgs[i + 1]));
+    SOA.push_back(Builder.CreateLoad(funcArgs[i]));
   }
 
   // Map original extracts to their SOA version obtained from the transpose
@@ -2042,16 +2135,17 @@ void PacketizeFunction::createLoadTranspose(Instruction* I, Value* loadPtrVal, T
   m_removedInsts.insert(I);
 }
 
-void PacketizeFunction::createTransposeStore(Instruction* I, Value* storePtrVal, Type* storeType) {
+void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrVal, Type* storeType, Value* Mask) {
 
   V_ASSERT(isa<VectorType>(storeType) && "storeType is not a vector");
   VectorType *origVecType = cast<VectorType>(storeType);
   unsigned int numOrigVectors = origVecType->getNumElements();
+  bool isScatterGather = isScatterGatherAddr(storePtrVal);
+  bool isMasked = (Mask != NULL);
 
   // Obtain store address
   Value *inAddr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(inAddr, storePtrVal, I);
-  Value *pStoreAddr = inAddr[0];
 
   // Obtain the vctorized version of the values need to be transposed and stored
   SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
@@ -2069,15 +2163,45 @@ void PacketizeFunction::createTransposeStore(Instruction* I, Value* storePtrVal,
   IRBuilder<> Builder(I);
 
   // Create transpose function arguments
-  SmallVector<Value*, 8> funcArgs;
-  pStoreAddr = Builder.CreateBitCast(pStoreAddr, origVecType->getPointerTo());
-  funcArgs.push_back(pStoreAddr);
+  SmallVector<Value*, 16> funcArgs;
+
+  // The number of arguments used for output depends on whether this is a store
+  // or a scatter. Stores only get one base pointer, scatters receive N pointers
+  // one for each scattered value.
+  int numOutputPointers;
+  if (isScatterGather)
+    numOutputPointers = m_packetWidth;
+  else
+    numOutputPointers = 1;
+
+  // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
+  for (int i = 0; i < numOutputPointers; ++i) {
+    Value* pStoreAddr = Builder.CreateBitCast(inAddr[i], origVecType->getPointerTo());
+    funcArgs.push_back(pStoreAddr);
+  }
+
   for (unsigned int i = 0; i < numOrigVectors; ++i) {
     funcArgs.push_back(vectorizedInputs[i]);
   }
 
   // Create function call with prepared arguments
-  Function* transposeFunc = getTransposeFunc(false, origVecType);
+  Function* transposeFunc = getTransposeFunc(false, origVecType, isScatterGather, isMasked);
+
+  if (isMasked)
+  {
+    // Get a vectorized mask to pass to the transpose function
+    Value* VectorMask;
+    obtainVectorizedValue(&VectorMask, Mask, I);
+
+    // Unfortunately, the transpose functions can not accept an i1 vector,
+    // so we need to zero-extend the mask to the right type first.
+    Type* ExtMaskType = getMaskTypeForTranpose(transposeFunc);    
+    V_ASSERT(ExtMaskType->getScalarSizeInBits() >= VectorMask->getType()->getScalarSizeInBits() &&
+             "Extended mask type smaller than original mask type!");
+    Value* ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
+    funcArgs.push_back(ExtMask);
+  }
+
   CallInst* Call = Builder.CreateCall(transposeFunc, ArrayRef<Value*>(funcArgs));
   VectorizerUtils::SetDebugLocBy(Call, I);
 
@@ -2089,7 +2213,7 @@ void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
   
   // Check if we can create load + transpose
   if (m_loadTranspMap.count(LI)) {
-    createLoadTranspose(LI, LI->getPointerOperand(), LI->getType());
+    createLoadAndTranspose(LI, LI->getPointerOperand(), LI->getType(), NULL);
     return;
   }
   
@@ -2108,7 +2232,7 @@ void PacketizeFunction::packetizeInstruction(StoreInst *SI) {
 
   // Check if we can create transpose + store
   if (m_storeTranspMap.count(SI)) {
-    createTransposeStore(SI, SI->getPointerOperand(), SI->getValueOperand()->getType());
+    createTransposeAndStore(SI, SI->getPointerOperand(), SI->getValueOperand()->getType(), NULL);
     return;
   }
 

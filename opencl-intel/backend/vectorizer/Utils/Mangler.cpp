@@ -171,14 +171,26 @@ std::string Mangler::demangle_fake_builtin(const std::string& name) {
   return name.substr(start);
 }
 
-std::string Mangler::getTransposeBuiltinName(bool isLoad, VectorType * origVecType, unsigned int packetWidth) {
+std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,
+                          VectorType * origVecType, unsigned int packetWidth) {
+
+  // Is this a masked operation?
+  std::string maskedName = "";
+  if (isMasked)
+    maskedName = "masked_";
 
   // Determine load or store
   std::string baseFuncName;
   if (isLoad) {
-    baseFuncName = "load_transpose_";
+    if (isScatterGather)
+      baseFuncName = "gather_transpose_";
+    else
+      baseFuncName = "load_transpose_";
   } else { // isStore
-    baseFuncName = "transpose_store_";
+    if (isScatterGather)
+      baseFuncName = "transpose_scatter_";
+    else
+      baseFuncName = "transpose_store_";
   }
 
   // Determine vector element type
@@ -192,7 +204,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, VectorType * origVecTy
   }
 
   std::stringstream funcName;
-  funcName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
+  funcName << maskedName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
 
   return funcName.str();
 }

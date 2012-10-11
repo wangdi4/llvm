@@ -43,7 +43,7 @@ void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, 
 
 void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut);
-void transpose_scatetr_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                char4 xIn, char4 yIn, char4 zIn, char4 wIn);
 
 
