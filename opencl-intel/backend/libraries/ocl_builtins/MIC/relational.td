@@ -134,12 +134,12 @@ OclBuiltinImpl isfinite_f32_promote = OclBuiltinImpl<isfinite, [v2f32, v3f32, v4
 OclBuiltinImpl isfinite_f64_v1 = OclBuiltinImpl<isfinite, [v1f64], 0, [{
     return ((as_long($Arg0VarName) & const_dp_exp) < const_dp_exp)?1:0;
   }]>;
+
 OclBuiltinImpl isfinite_f64_v8 = OclBuiltinImpl<isfinite, [v8f64], 0, [{
-    $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
-    __m512i const_vector_exp = (__m512i)((int16)const_dp_exp);
-    __m512i no_sign = _mm512_and_epi32((__m512i)upper, const_vector_exp);
-    __mmask16 isfinite = _mm512_cmplt_epi32(no_sign, const_vector_exp);
-    return ($NativeReturnType)mask2pi(isfinite);
+    __m512i const_vector_exp = (__m512i)((long8)const_dp_exp);
+    __m512i no_sign = _mm512_and_epi64((__m512i)$Arg0VarName, const_vector_exp);
+    __mmask8 isfinite = _mm512_cmplt_epi64(no_sign, const_vector_exp);
+    return ($NativeReturnType)mask2pq(isfinite);
   }]>;
 OclBuiltinImpl isfinite_f64_promote = OclBuiltinImpl<isfinite, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
 OclBuiltinImpl isfinite_f64_expand = OclBuiltinImpl<isfinite, [v16f64], 0, Expand1>;
