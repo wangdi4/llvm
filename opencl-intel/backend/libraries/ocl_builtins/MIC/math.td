@@ -236,7 +236,25 @@ OclBuiltinImpl mask_native_logb_f64_v8 = OclBuiltinImpl<mask_native_logb, [v8f64
 OclBuiltinImpl native_logb_f64_promote = OclBuiltinImpl<native_logb, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote1>;
 OclBuiltinImpl native_logb_f64_expand = OclBuiltinImpl<native_logb, [v16f64], 0, Expand1>;
 
+// There are a set of issues with calling SVML functions:
+// 1. OpenCL compiler do not obey calling convention rules for 3-component
+// vectors: it passes them via stack, but should pass in a register.
+// 2. There is a known SVML issue with passing unalinged pointer to SVML
+// functions: modf, fract, sincos, frexp, remquo and lgamma_r.
+// 3. There is a known SVML with remquo function - because of typo in the
+// header it expects reads the first argument value from zmm0 register, but the
+// second arugment are expected to be on stack. This behaviour are not
+// supported by OpenCL compiler and acknowledged as a bug by SVML team.
+//
+// These are workarounds for the issues described above.
 // ilogb
+OclBuiltinImpl ilogb_svml_f64_v3 = OclBuiltinImpl<ilogb, [v3f64], 0, [{
+    double16 in;
+    in.s012 = $Arg0VarName;
+    int16 out = __ocl_svml_$Target_ilogb16(in);
+    return as_$ReturnType(out.s012);
+  }]>;
+
 OclBuiltinImpl ilogb_svml_f32_v3 = OclBuiltinImpl<ilogb, [v3f32], 0, [{
     float16 in;
     in.s012 = $Arg0VarName;
@@ -252,6 +270,33 @@ OclBuiltinImpl ilogb_svml_f32_v8 = OclBuiltinImpl<ilogb, [v8f32], 0, [{
   }]>;
 
 // ldexp
+OclBuiltinImpl ldexp_svml_v8f64 = OclBuiltinImpl<ldexp, [v8f64], 0, [{
+    double16 f;
+    f.lo = $Arg0VarName;
+    int16 i;
+    i.lo = $Arg1VarName;
+    double16 out = __ocl_svml_$Target_ldexp16(f, i);
+    return as_$ReturnType(out.lo);
+  }]>;
+
+OclBuiltinImpl ldexp_svml_v3f64 = OclBuiltinImpl<ldexp, [v3f64], 0, [{
+    double16 f;
+    f.s012 = $Arg0VarName;
+    int16 i;
+    i.s012 = $Arg1VarName;
+    double16 out = __ocl_svml_$Target_ldexp16(f, i);
+    return as_$ReturnType(out.s012);
+  }]>;
+
+OclBuiltinImpl ldexp_svml_v3 = OclBuiltinImpl<ldexp, [v3f32], 0, [{
+    float16 f;
+    f.s012 = $Arg0VarName;
+    int16 i;
+    i.s012 = $Arg1VarName;
+    float16 out = __ocl_svml_$Target_ldexpf16(f, i);
+    return as_$ReturnType(out.s012);
+  }]>;
+
 OclBuiltinImpl ldexp_svml_v8 = OclBuiltinImpl<ldexp, [v8f32], 0, [{
     float16 f;
     f.lo = $Arg0VarName;
