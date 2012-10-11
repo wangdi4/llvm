@@ -286,9 +286,11 @@ const char* ClErrTxt(cl_err_code error_code)
 
 //just return the DEFINE name as is in a string format
 #define  CASE_DEFINE_RETURN_STRING(def) case (def): return #def
-//a little more complex because this defines are bitfields, se usage below 
-#define  IF_DEFINE_APPEND_STRING(bitfield, def, str, prefix, suffix) if ( ((bitfield) & (def)) != 0 ) str += string(prefix) + #def + string(suffix)
+//a little more complex because this defines are bit fields, se usage below 
+#define DEFAULT_PREFIX " "
+#define DEFAULT_SUFFIX ""
 
+#define IF_DEFINE_APPEND_STRING_DEFAULT(bitfield, def, str) if ( ((bitfield) & (def)) != 0 ) str += string(DEFAULT_PREFIX) + #def + string(DEFAULT_SUFFIX)
 const string channelOrderToString(const cl_channel_order& co)
 {
 	switch (co) {
@@ -351,18 +353,18 @@ const string memTypeToString(const cl_mem_object_type& mo)
 const string memFlagsToString(const cl_mem_flags& flags)
 {
 	string str = "";
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_READ_WRITE,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_WRITE_ONLY,str, ", ", "");
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_READ_ONLY,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_USE_HOST_PTR,str, ", ", "");
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_ALLOC_HOST_PTR,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(flags,CL_MEM_COPY_HOST_PTR,str, ", ", "");
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_WRITE,str); 
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_WRITE_ONLY,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_ONLY,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_USE_HOST_PTR,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_ALLOC_HOST_PTR,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_COPY_HOST_PTR,str);
 	if ( flags == 0)
 		return "None";
 	if ( str == "")
 		return "Not Recognized: " + stringify(flags);
 
-	return string("{") + str.substr(2) + string("}"); //we don't want the first ","
+	return str.substr(strlen(DEFAULT_PREFIX)); //we don't want the first prefix
 }
 
 const string addressingModeToString(const cl_addressing_mode& am)
@@ -391,32 +393,48 @@ const string filteringModeToString(const cl_filter_mode& fm)
 
 const string commandQueuePropertiesToString(const cl_command_queue_properties& prop){
 	string str = "";
-	IF_DEFINE_APPEND_STRING(prop,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(prop,CL_QUEUE_PROFILING_ENABLE,str, ", ", "");
-	//IF_DEFINE_APPEND_STRING(prop,CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT,str); //TODO: extension, add?
+	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_PROFILING_ENABLE,str);
+	//IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT,str); //TODO: extension, add?
 	if ( prop == 0)
 		return "None";
 	if ( str == "")
 		return "Not Recognized: " + stringify(prop);
 
-	return string("{") + str.substr(2) + string("}");
+	return  str.substr(strlen(DEFAULT_PREFIX));
 }
 
+const string deviceTypeToString(const cl_device_type& type)
+{
+	string str = "";
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_DEFAULT,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_CPU,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_GPU,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_ACCELERATOR,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_CUSTOM,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_ALL,str);
+	if ( type == 0)
+		return "None";
+	if ( str == "")
+		return "Not Recognized: " + stringify(type);
+
+	return str.substr(strlen(DEFAULT_PREFIX));
+}
 const string fpConfigToString(const cl_device_fp_config& fp_config)
 {
 	string str = "";
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_DENORM,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_INF_NAN,str, ", ", "");
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_ROUND_TO_ZERO,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_ROUND_TO_INF,str, ", ", "");
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_FMA,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(fp_config,CL_FP_SOFT_FLOAT,str, ", ", "");
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_DENORM,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_INF_NAN,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_ZERO,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_INF,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_FMA,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_SOFT_FLOAT,str);
 	if ( fp_config == 0)
 		return "None";
 	if ( str == "")
 		return "Not Recognized: " + stringify(fp_config);
 
-	return string("{") + str.substr(2) + string("}");
+	return str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string memCacheTypeToString(const cl_device_mem_cache_type& memType)
@@ -444,14 +462,14 @@ const string localMemTypeToString(const cl_device_local_mem_type& memType)
 const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap)
 {
 	string str = "";
-	IF_DEFINE_APPEND_STRING(execCap,CL_EXEC_KERNEL,str, ", ",""); 
-	IF_DEFINE_APPEND_STRING(execCap,CL_EXEC_NATIVE_KERNEL,str, ", ", "");
+	IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_KERNEL,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_NATIVE_KERNEL,str);
 	if ( execCap == 0)
 		return "None";
 	if ( str == "")
 		return "Not Recognized: " + stringify(execCap);
 
-	return string("{") + str.substr(2) + string("}");
+	return str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string commandTypeToString(const cl_command_type& type)
@@ -482,6 +500,42 @@ const string commandTypeToString(const cl_command_type& type)
 		CASE_DEFINE_RETURN_STRING(CL_COMMAND_MIGRATE_MEM_OBJECTS);
 		CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_BUFFER);
 		CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_IMAGE);
+	default:
+		return "Not Recognized";
+	}
+}
+
+const string executionStatusToString(const cl_int& status)
+{
+	switch (status) {
+		CASE_DEFINE_RETURN_STRING(CL_COMPLETE);
+		CASE_DEFINE_RETURN_STRING(CL_RUNNING);
+		CASE_DEFINE_RETURN_STRING(CL_SUBMITTED);
+		CASE_DEFINE_RETURN_STRING(CL_QUEUED);
+	default:
+		return "Not Recognized";
+	}
+}
+
+const string buildStatusToString(const cl_build_status& status)
+{
+	switch (status) {
+		CASE_DEFINE_RETURN_STRING(CL_BUILD_NONE);
+		CASE_DEFINE_RETURN_STRING(CL_BUILD_SUCCESS);
+		CASE_DEFINE_RETURN_STRING(CL_BUILD_ERROR);
+		CASE_DEFINE_RETURN_STRING(CL_BUILD_IN_PROGRESS);
+	default:
+		return "Not Recognized";
+	}
+}
+
+const string binaryTypeToString(const cl_program_binary_type& type)
+{
+	switch (type) {
+		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_NONE);
+		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
+		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_LIBRARY);
+		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
 	default:
 		return "Not Recognized";
 	}

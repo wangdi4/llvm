@@ -70,6 +70,10 @@ NotifierCollection* NotifierCollection::Instance()
 //		return ret;
 //}
 
+bool NotifierCollection::isActive()
+{
+	return !notifiers.empty();
+}
 void NotifierCollection::registerNotifier( oclNotifier *notifier )
 {
 	CHECK_FOR_NULL(notifier);
@@ -128,18 +132,34 @@ void NotifierCollection::ContextFree( cl_context context )
 	NOTIFY(ContextFree, context);	
 }
 
-void NotifierCollection::CommandQueueCreate( cl_command_queue queue, cl_context context, cl_device_id device )
+void NotifierCollection::CommandQueueCreate( cl_command_queue queue )
 {
 	CHECK_FOR_NULL(queue);
-	CHECK_FOR_NULL(context);
-	CHECK_FOR_NULL(device);
-	NOTIFY(CommandQueueCreate, queue, context, device);	
+	NOTIFY(CommandQueueCreate, queue );	
 }
 
 void NotifierCollection::CommandQueueFree( cl_command_queue queue )
 {
 	CHECK_FOR_NULL(queue);
 	NOTIFY(CommandQueueFree, queue);	
+}
+
+void NotifierCollection::EventCreate (cl_event event, bool internalEvent)
+{
+	CHECK_FOR_NULL(event);
+	NOTIFY(EventCreate, event, internalEvent);
+}
+
+void NotifierCollection::EventFree (cl_event event)
+{
+	CHECK_FOR_NULL(event);
+	NOTIFY(EventFree, event);
+}
+
+void NotifierCollection::EventStatusChanged(cl_event event)
+{
+	CHECK_FOR_NULL(event);
+	NOTIFY(EventStatusChanged, event);
 }
 
 void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context )
@@ -229,12 +249,19 @@ void NotifierCollection::CommandCallBack( cl_event event, cl_int event_command_e
 	NOTIFY(CommandCallBack, event, event_command_exec_status, data);
 }
 
-
-void NotifierCollection::releaseCommandData( cl_event event, CommandData* data ){
-	CHECK_FOR_NULL(event);
+void NotifierCollection::releaseCommandData(cl_event *event, CommandData* data){
 	CHECK_FOR_NULL(data);
-	//clReleaseEvent(event); - TODO: uncomment
+	bool ownEvent = data->ownEvent;
+	releaseCommandData(*event,data);
+	if (ownEvent){
+		delete event;
+	}
+}
+void NotifierCollection::releaseCommandData( cl_event event, CommandData* data ){
+	CHECK_FOR_NULL(data);
 	delete data;
+	CHECK_FOR_NULL(event);
+	clReleaseEvent(event);
 }
 
 //the callback attached to the event of a command
@@ -256,9 +283,9 @@ void NotifierCollection::ObjectInfo( const void* obj, const pair<string,string> 
 	NOTIFY(ObjectInfo, obj, data, dataLength);	
 }
 
-void NotifierCollection::ObjectReferenceCount( const void* obj, const int reference_count ){
+void NotifierCollection::ObjectRetain( const void* obj){
 	CHECK_FOR_NULL(obj);
-	NOTIFY(ObjectReferenceCount, obj, reference_count);	
+	NOTIFY(ObjectRetain, obj);	
 }
 
 //used in order to make the supermarket principal work
@@ -278,11 +305,11 @@ CommandData* NotifierCollection::commandEventProfiling( cl_event **pEvent )
 	CommandData* commandData = new CommandData; //dynamic allocation - should be released in the CommandCallBack
 	commandData->ownEvent = true;
 	if (*pEvent != NULL){ 
-		//user has the event, just retain it so we can release it when we want to
-		clRetainEvent( **pEvent);
+		//user has the event, just retain it so we can release it when we want to (retain is only after event is created)
 		commandData->ownEvent = false;
 	} else {
 	*pEvent = new cl_event; //dynamic allocation - we will need to release it in CommandCallBack
+	**pEvent = NULL;
 	}
 	return commandData;
 }
@@ -291,6 +318,10 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
 	CHECK_FOR_NULL(event);
 	CHECK_FOR_NULL(commandData);
+	EventCreate(*event, commandData->ownEvent); //TODO: consider moving it...
+	if (commandData->ownEvent == false){
+		clRetainEvent( *event); //we need to retain it so it won't be released before we have completed with it.
+	}
 	//take id
 	commandData->key = (long) commandsIDs; //TODO: think about guids
 	++commandsIDs;
@@ -317,7 +348,7 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 		releaseCommandData(*event, commandData);
 		}
 	}
-	
+
 	if ( commandData->ownEvent){
 		delete event; //only release the pointer to the event and not the actual object.
 	}

@@ -130,11 +130,15 @@ const string memFlagsToString(const cl_mem_flags& flags);
 const string addressingModeToString(const cl_addressing_mode& am);
 const string filteringModeToString(const cl_filter_mode& fm);
 const string commandQueuePropertiesToString(const cl_command_queue_properties& prop);
+const string deviceTypeToString(const cl_device_type& type);
 const string fpConfigToString(const cl_device_fp_config& fp_config);
 const string memCacheTypeToString(const cl_device_mem_cache_type& memType);
 const string localMemTypeToString(const cl_device_local_mem_type& memType);
 const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap);
 const string commandTypeToString(const cl_command_type& type);
+const string executionStatusToString(const cl_int& status);
+const string buildStatusToString(const cl_build_status& status);
+const string binaryTypeToString(const cl_program_binary_type& type);
 const string addressQualifierToString(const cl_kernel_arg_address_qualifier& AddressQualifer);
 const string accessQualifierToString(const cl_kernel_arg_access_qualifier& AccessQualifier);
 

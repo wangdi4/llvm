@@ -41,17 +41,17 @@ public:
 
 	/* Command Queue Callbacks */
 
-	virtual void CommandQueueCreate (cl_command_queue /* queue */, cl_context /* context */, cl_device_id /* device */)=0;
+	virtual void CommandQueueCreate (cl_command_queue /* queue */)=0;
 
 	virtual void CommandQueueFree (cl_command_queue /* queue */)=0;
 
 	/* Event Callbacks */
 
-	//virtual void EventCreate (cl_event /* event */, cl_command_type /* type */)=0;
+	virtual void EventCreate (cl_event event, bool internalEvent)=0;
 
-	//virtual void EventFree (cl_event /* event */)=0;
+	virtual void EventFree (cl_event event)=0;
 
-	//virtual void EventStatusChanged(cl_event /* event */, cl_int /* execution_status */, cl_long /* epoch_time_stamp */)=0;
+	virtual void EventStatusChanged(cl_event event)=0;
 
 	/* Memory Object Callbacks */
 
@@ -109,7 +109,7 @@ public:
 
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
 
-	virtual void ObjectReferenceCount(const void* /* obj */, const int reference_count)=0;
+	virtual void ObjectRetain( const void* obj)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -131,6 +131,8 @@ public:
 	//deprecated at the moment
 	//oclNotifier* notifiersIterator();
 
+	//check if there is any active notifiers around
+	bool isActive();
 	//use it to register a notifier to the system
 	void registerNotifier( oclNotifier *notifier );
 
@@ -142,6 +144,8 @@ public:
 	void commandQueueProfiling(cl_command_queue_properties &properties);
 	CommandData* commandEventProfiling(cl_event **pEvent);
 	void createCommandEvents(cl_event *event, CommandData *data);
+
+	static void releaseCommandData(cl_event *event, CommandData* data);
 	static void releaseCommandData(cl_event event, CommandData* data);
 
 
@@ -165,17 +169,17 @@ public:
 
 	/* Command Queue Callbacks */
 
-	virtual void CommandQueueCreate (cl_command_queue /* queue */, cl_context /* context */, cl_device_id /* device */);
+	virtual void CommandQueueCreate (cl_command_queue /* queue */);
 
 	virtual void CommandQueueFree (cl_command_queue /* queue */);
 
 	/* Event Callbacks */
 
-	//virtual void EventCreate (cl_event /* event */, cl_command_type /* type */);
+	virtual void EventCreate (cl_event event, bool internalEvent);
 
-	//virtual void EventFree (cl_event /* event */);
+	virtual void EventFree (cl_event event);
 
-	//virtual void EventStatusChanged(cl_event /* event */, cl_int /* execution_status */, cl_long /* epoch_time_stamp */);
+	virtual void EventStatusChanged(cl_event event);
 
 	/* Memory Object Callbacks */
 
@@ -225,7 +229,7 @@ public:
 
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
 
-	virtual void ObjectReferenceCount(const void* /* obj */, const int reference_count);
+	virtual void ObjectRetain( const void* obj);
 
 	virtual ~NotifierCollection();
 private:
