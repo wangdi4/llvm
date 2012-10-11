@@ -16,7 +16,7 @@ File Name:  MICDeviceBackendFactory.h
 
 \*****************************************************************************/
 #pragma once
-#include "cl_dev_backend_api.h"
+
 #include "IAbstractBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

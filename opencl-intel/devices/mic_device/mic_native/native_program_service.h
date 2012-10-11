@@ -102,6 +102,8 @@ public:
 								   cl_work_description_type* pWorkDesc,
 								   ICLDevBackendBinary_** ppOutBinary ) const;
 
+	cl_dev_err_code create_executable(ICLDevBackendExecutable_** ppExecutable) const;
+	
     // singleton
     static ProgramService& getInstance( void )
     {
@@ -109,7 +111,7 @@ public:
         return *m_gProgramService;
     };
 
-    static void createProgramService( void );
+    static cl_dev_err_code createProgramService( void );
     static void releaseProgramService( void );
 
 private:

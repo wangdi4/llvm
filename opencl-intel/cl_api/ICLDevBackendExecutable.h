@@ -2,6 +2,7 @@
 #define ICLDevBackendExecutable_H
 
 #include "cl_device_api.h"
+#include "ICLDevBackendBinary.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -31,6 +32,9 @@ public:
     //virtual cl_dev_err_code ExecuteWholeWorkGroup(
     //    const size_t* workGroupID) = 0;
 
+
+		// Initialize context to with specific number of WorkItems
+		virtual cl_dev_err_code Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin) = 0;
 
 
 		// Prepares current thread for the executable execution

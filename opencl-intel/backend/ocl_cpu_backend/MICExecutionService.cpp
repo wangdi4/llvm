@@ -22,6 +22,7 @@ File Name:  MICExecutionService.cpp
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "Binary.h"
+#include "Executable.h"
 #include "MICDeviceBackendFactory.h"
 #include "MICSerializationService.h"
 #include "MICDetect.h"
@@ -64,6 +65,22 @@ cl_dev_err_code MICExecutionService::GetTargetMachineDescription(
         descriptionSize);
 
     return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code MICExecutionService::CreateExecutable(
+        ICLDevBackendBinary_* pBinary, 
+        void** pExecutionMemoryResources, 
+        unsigned int resourcesCount, 
+        ICLDevBackendExecutable_** ppExecutable) const
+{
+	ICLDevBackendExecutable_ *pExecutable = m_pBackendFactory->CreateExecutable(static_cast<Binary*>(pBinary));
+	if ( NULL == pExecutable )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	
+	*ppExecutable = pExecutable;
+	return CL_DEV_SUCCESS;
 }
 
 }}}

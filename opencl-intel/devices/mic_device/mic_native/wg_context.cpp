@@ -29,6 +29,7 @@
 #include "cl_device_api.h"
 #include "mic_dev_limits.h"
 #include "cl_sys_defines.h"
+#include "native_program_service.h"
 #ifdef WIN32
 #include <windows.h>
 #endif
@@ -42,7 +43,8 @@ WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMe
 	// Create local memory
 	m_pLocalMem = (char*)ALIGNED_MALLOC(MIC_DEV_LCL_MEM_SIZE, MIC_DEV_MAXIMUM_ALIGN);
 	m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN);
-
+	
+	ProgramService::getInstance().create_executable(&m_pContext);
 }
 
 WGContext::~WGContext()
@@ -56,12 +58,17 @@ WGContext::~WGContext()
 	{
 		ALIGNED_FREE(m_pPrivateMem);
 	}
+	
+    if ( NULL != m_pContext )
+    {
+        m_pContext->Release();
+        m_pContext = NULL;
+    }
 }
 
-cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count, PrintfHandle* pPrintHandle)
+cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count, PrintfHandle* pPrintHandle)
 {
 	// Nullify m_pContext in order to be able to use InvalidateContext() in case of failure
-	m_pContext = NULL;
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
 		assert(0);
@@ -87,7 +94,7 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 
 	pBuffPtr[count] = m_pPrivateMem;
 
-	cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
+	cl_dev_err_code rc = m_pContext->Init(pBuffPtr, m_pPrivateMem, pBinary);
 	if (CL_DEV_FAILED(rc))
 	{
 		return CL_DEV_ERROR_FAIL;
@@ -102,11 +109,6 @@ cl_dev_err_code WGContext::CreateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 
 void WGContext::InvalidateContext()
 {
-    if ( NULL != m_pContext )
-    {
-        m_pContext->Release();
-        m_pContext = NULL;
-    }
 	m_pPrintHandle = NULL;
     m_cmdId = (cl_dev_cmd_id)-1;
 }

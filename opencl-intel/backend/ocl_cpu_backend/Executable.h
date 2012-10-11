@@ -24,12 +24,11 @@ File Name:  Executable.h
 #include "cpu_dev_limits.h"
 #include "ImplicitArgsUtils.h"
 #include "ExecutionContext.h"
+#include "Binary.h"
 
 #include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-  class Binary;
 
   // Base executable object which knows how to create an internal context
   // The Execute() method is still not implemented
@@ -42,6 +41,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Initialize context to with specific number of WorkItems 
     virtual cl_dev_err_code Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount);
+
+    // Initialize context to with specific number of WorkItems
+    virtual cl_dev_err_code Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin);
 
     virtual cl_dev_err_code Execute(const size_t* IN pGroupId,
         const size_t* IN pLocalOffset, 

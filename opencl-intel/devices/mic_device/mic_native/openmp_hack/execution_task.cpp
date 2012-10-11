@@ -69,6 +69,10 @@ void foo(char* blob)
 
 volatile unsigned int resume_server_execution = 0;
 
+// Array of WGContext for each worker thread. When task completes, traversing over this array and calling "Relase()" method for each object that is not NULL.
+static WGContext* g_contextArray = NULL;
+
+
 // Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
 void init_device(uint32_t         in_BufferCount,
@@ -81,6 +85,10 @@ void init_device(uint32_t         in_BufferCount,
 {
 	assert(in_MiscDataLength == sizeof(mic_exec_env_options));
 	assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
+
+	cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
+	*pErr = CL_DEV_SUCCESS;
+	
 	// The mic_exec_env_options input.
 	mic_exec_env_options* tEnvOptions = (mic_exec_env_options*)in_pMiscData;
 	assert(tEnvOptions);
@@ -93,20 +101,34 @@ void init_device(uint32_t         in_BufferCount,
 	gMicExecEnvOptions = *tEnvOptions;
 	assert((gMicExecEnvOptions.num_of_worker_threads > 0) && (gMicExecEnvOptions.num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
 
-	ProgramService::createProgramService();
+	*pErr = ProgramService::createProgramService();
+	if ( CL_DEV_FAILED(*pErr) )
+	{
+		return;
+	}
 
-	cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
-	*pErr = CL_DEV_SUCCESS;
+	g_contextArray = new WGContext[MIC_NATIVE_MAX_WORKER_THREADS];
+	if ( NULL == g_contextArray )
+	{
+		ProgramService::releaseProgramService();
+		*pErr = CL_DEV_OUT_OF_MEMORY;
+		return;
+	}
+
 	// Create thread pool singleton instance.
 	ThreadPool* pThreadPool = ThreadPool::getInstance();
 	if (NULL == pThreadPool)
 	{
+		delete g_contextArray;
+		ProgramService::releaseProgramService();
 		*pErr = CL_DEV_OUT_OF_MEMORY;
 		return;
 	}
 	// Initialize the thread pool with "numOfWorkers" workers.
 	if (false == pThreadPool->init())
 	{
+		delete g_contextArray;
+		ProgramService::releaseProgramService();
 		ThreadPool::releaseSingletonInstance();
 		*pErr = CL_DEV_ERROR_FAIL;
 		return;
@@ -123,6 +145,10 @@ void release_device(uint32_t         in_BufferCount,
 					 void*            in_pReturnValue,
 					 uint16_t         in_ReturnValueLength)
 {
+	if ( NULL != g_contextArray )
+	{
+		delete []g_contextArray;
+	}
 	// Release the extra arena allocated on init_device() by pThreadPool->init()
 	ThreadPool::getInstance()->unregisterMasterThread();
 	// Release the thread pool singleton.
@@ -148,12 +174,39 @@ void init_commands_queue(uint32_t         in_BufferCount,
     ThreadPool* pool = ThreadPool::getInstance();
 	pool->registerMasterThread( data->is_in_order_queue );
 
-    assert( NULL == QueueOnDevice::getCurrentQueue() );
+    assert( NULL == QueueOnDevice::getCurrentQueue() && "Queue is already set");
+    if ( NULL != QueueOnDevice::getCurrentQueue() )
+    {
+    	
+    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_INVALID_OPERATION;
+    	return;
+    }
 
     QueueOnDevice* pQueue = new QueueOnDevice( data->is_in_order_queue );
-    QueueOnDevice::setCurrentQueue( pQueue );
+    if ( NULL == pQueue )
+    {
+    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_OUT_OF_MEMORY;
+    	return;
+    }
 
+    // This is TBB master thread. Need to allocate local WG context and store it TLS.
+	WGContext* pCtx = new WGContext();
+	assert(NULL!=pCtx && "Failed to allocate execution context (pCtx)");	
+    if ( NULL == pCtx )
+    {
+    	delete pQueue;
+    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_OUT_OF_MEMORY;
+    	return;
+    }
+
+    // Store local WG context
+    TlsAccessor tlsAccessor;
+	NDrangeTls ndRangeTls(&tlsAccessor);
+	ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, pCtx);
+
+    QueueOnDevice::setCurrentQueue( pQueue );
     pool->wakeup_all();
+    
 }
 
 // release current pipeline command queue. Call it before Pipeline destruction of Command list.
@@ -166,13 +219,26 @@ void release_commands_queue(uint32_t         in_BufferCount,
 					        void*            in_pReturnValue,
 					        uint16_t         in_ReturnValueLength)
 {
+	// For master thread we should access it's TLS to retrieve the WGContext
+	TlsAccessor tlsAccessor;
+	NDrangeTls ndRangeTls(&tlsAccessor);
+	// Get the WGContext instance of this thread
+	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+    assert(NULL != pCtx && "pCtx must be valid");
+    if ( NULL != pCtx )
+    {
+		delete pCtx;
+	}
+
 	ThreadPool* pool = ThreadPool::getInstance();
 
     QueueOnDevice* pQueue = QueueOnDevice::getCurrentQueue();
-    assert(NULL != pQueue);
-    
     QueueOnDevice::setCurrentQueue( NULL );
-    delete pQueue;
+    assert(NULL != pQueue && "pQueue must be valid");
+    if ( NULL != pQueue )
+    {
+    	delete pQueue;
+    }
 
     pool->unregisterMasterThread();
 
@@ -398,9 +464,6 @@ void TaskHandler::setTaskError(cl_dev_err_code errorCode)
 	}
 }
 
-
-
-
 void BlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
 	m_dispatcherData = dispatcherData;
@@ -424,9 +487,6 @@ void BlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLegalBa
 	// Delete this object as the last operation on it.
 	delete this;
 }
-
-
-
 
 void NonBlockingTaskHandler::InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength)
 {
@@ -538,8 +598,6 @@ void TBBNonBlockingTaskHandler::RunTask()
 NDRangeTask::NDRangeTask() : m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
 m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL), m_pCommandTracer(NULL)
 {
-	// Nullify the ICLDevBackendExecutable_* array.
-	memset((ICLDevBackendExecutable_**)m_contextExecutableArr, 0, sizeof(ICLDevBackendExecutable_*) * MIC_NATIVE_MAX_WORKER_THREADS);
 #ifdef ENABLE_MIC_TBB_TRACER
     PerfDataInit();
 #endif // ENABLE_MIC_TBB_TRACER
@@ -693,22 +751,8 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 
 void NDRangeTask::finish(TaskHandler* pTaskHandler)
 {
-	// First of all release all BE execution contexts (For each worker thread).
-	// It is safe to do it now because now the execution of this task was compeleted.
-	// We must do it now because, after this point there is option to delete the BE Program that create the resources for this execution object.
-	for (unsigned int i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; i++)
-	{
-		// In case that worker thread with ID (i + 1) join the execution of this task.
-		if (m_contextExecutableArr[i])
-		{
-			// Release BE executable context
-			((ICLDevBackendExecutable_*)m_contextExecutableArr[i])->Release();
-			m_contextExecutableArr[i] = NULL;
-		}
-	}
-
 	// Release the binary.
-	if (m_pBinary)
+	if (NULL != m_pBinary)
 	{
 		m_pBinary->Release();
 	}
@@ -755,79 +799,95 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 
 cl_dev_err_code NDRangeTask::attachToThread(TlsAccessor* tlsAccessor, size_t uiWorkerId)
 {
-	NDrangeTls ndRangeTls(tlsAccessor);
-	// Get the WGContext instance of this thread
-	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
-	// If didn't created yet for this thread, create it and store it in its TLS.
-	if (NULL == pCtx)
+	WGContext* pCtx = NULL;
+	if ( 0 == uiWorkerId )
 	{
-		// This object will destruct before thread termination
-		pCtx = new WGContext();
-		if (NULL == pCtx)
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
-		ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, pCtx);
+		// For master thread we should access it's TLS to retrieve the WGContext
+		NDrangeTls ndRangeTls(tlsAccessor);
+		// Get the WGContext instance of this thread
+		pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
 	}
+	else
+	{
+		// For workers we should access the global array
+		pCtx = &g_contextArray[uiWorkerId-1];
+	}
+	
+	assert( NULL!=pCtx && "At this point pCtx must be valid");
+	if ( NULL == pCtx)
+	{
+		return CL_DEV_INVALID_OPERATION;
+	}
+
 	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pCtx->GetCmdId())
 	{
-
-		// if it is worker thread and m_contextExecutableArr[uiWorkerId-1] != NULL Release the previous BE executable context and Nullify m_contextExecutableArr[uiWorkerId-1].
-		// It can occur in case that this thread already run in this context and move to different contect (task) and back again.
-		if ((uiWorkerId > 0) && (m_contextExecutableArr[uiWorkerId-1]))
-		{
-			// Need to release the old BE executable
-
-			((ICLDevBackendExecutable_*)m_contextExecutableArr[uiWorkerId-1])->Release();
-			m_contextExecutableArr[uiWorkerId-1] = NULL;
-		}
-		// Set a new Context.
-		cl_dev_err_code ret = pCtx->CreateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
+		// Update context with new binary.
+		cl_dev_err_code ret = pCtx->UpdateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
 		if (CL_DEV_FAILED(ret))
 		{
 			pCtx->InvalidateContext();
 			return ret;
 		}
-		// Register the new BE executable context to m_contextExecutableArr[uiWorkerId-1] in order to release it when this task completes
-		if (uiWorkerId > 0)
-		{
-			m_contextExecutableArr[uiWorkerId-1] = pCtx->GetExecutable();
-			assert(m_contextExecutableArr[uiWorkerId-1]);
-		}
 	}
-	pCtx->GetExecutable()->PrepareThread();
-
-	return CL_DEV_SUCCESS;
+	
+	// Prepare current thread context for execution
+	return pCtx->GetExecutable()->PrepareThread();
 }
 
 cl_dev_err_code	NDRangeTask::detachFromThread(TlsAccessor* tlsAccessor, size_t uiWorkerId)
 {
-	NDrangeTls ndRangeTls(tlsAccessor);
-	// Get the WGContext object of this thread
-	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
-	assert(pCtx);
-	cl_dev_err_code ret = pCtx->GetExecutable()->RestoreThreadState();
-    
-	//For muster threads, must invalidate the context.
-    if (0 == uiWorkerId)
-    {
-        pCtx->InvalidateContext();
-    }
+	WGContext* pCtx = NULL;
+	if ( 0 == uiWorkerId )
+	{
+		// For master thread we should access it's TLS to retrieve the WGContext
+		NDrangeTls ndRangeTls(tlsAccessor);
+		// Get the WGContext instance of this thread
+		pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+	}
+	else
+	{
+		// For workers we should access the global array
+		pCtx = &g_contextArray[uiWorkerId-1];
+	}
 	
+	assert( NULL!=pCtx && "At this point pCtx must be valid");
+	if ( NULL == pCtx)
+	{
+		return CL_DEV_INVALID_OPERATION;
+	}
+
+	// Restore execution state
+	cl_dev_err_code ret = pCtx->GetExecutable()->RestoreThreadState();
+   
 	return ret;
 }
 
 cl_dev_err_code NDRangeTask::executeIteration(TlsAccessor* tlsAccessor, HWExceptionsJitWrapper& hw_wrapper, size_t x, size_t y, size_t z, size_t uiWorkerId)
 {
-	NDrangeTls ndRangeTls(tlsAccessor);
-	// Get the WGContext object of this thread
-	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
-	assert(pCtx);
+	WGContext* pCtx = NULL;
+	if ( 0 == uiWorkerId )
+	{
+		// For master thread we should access it's TLS to retrieve the WGContext
+		NDrangeTls ndRangeTls(tlsAccessor);
+		// Get the WGContext instance of this thread
+		pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+	}
+	else
+	{
+		// For workers we should access the global array
+		pCtx = &g_contextArray[uiWorkerId-1];
+	}
+	
+	assert( NULL!=pCtx && "At this point pCtx must be valid");
+	if ( NULL == pCtx)
+	{
+		return CL_DEV_INVALID_OPERATION;
+	}
 
     ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
-	assert(pExec);
-
+	assert( NULL!=pExec && "At this point pExec must be valid");
+	
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
 	return hw_wrapper.Execute(pExec, groupId, NULL, NULL);
@@ -1248,14 +1308,6 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 
 //    setAffinityForCurrentThread( m_orderHwThreadsIds[ omp_get_thread_num() ] );
         
-	// Set WGContext TLS for this thread.
-	NDrangeTls ndrangeTls(&tlsAccessor);
-    if (NULL == ndrangeTls.getTls(NDrangeTls::WG_CONTEXT))
-    {
-        WGContext* pWGContext = new WGContext();
-        assert(pWGContext);
-        ndrangeTls.setTls(NDrangeTls::WG_CONTEXT, pWGContext);
-    }
 }
 	
 void TBBThreadPool::on_scheduler_exit(bool is_worker)
@@ -1266,12 +1318,6 @@ void TBBThreadPool::on_scheduler_exit(bool is_worker)
 		TlsAccessor tlsAccessor;
 		setWorkerID(&tlsAccessor, INVALID_WORKER_ID);
 //		setScheduler(NULL);
-		NDrangeTls ndRangeTls(&tlsAccessor);
-		WGContext* pWGContext = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
-		if (pWGContext)
-		{
-			delete pWGContext;
-		}
 	}
 }
 

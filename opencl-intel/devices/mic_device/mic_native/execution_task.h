@@ -324,10 +324,6 @@ protected:
 	// CommandTracer object
 	CommandTracer* m_pCommandTracer;
 
-private:
-
-	// Array of ICLDevBackendExecutable_ for each worker thread. When task completes, traversing over this array and calling "Relase()" method for each object that is not NULL.
-	volatile ICLDevBackendExecutable_* volatile m_contextExecutableArr[MIC_NATIVE_MAX_WORKER_THREADS];
 };
 
 

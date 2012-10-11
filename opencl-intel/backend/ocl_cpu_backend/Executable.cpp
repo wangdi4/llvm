@@ -49,11 +49,8 @@ void AfterExecution() { }
 
 Executable::Executable(const Binary* pBin) :
   m_pBinary(pBin), m_pParameters(NULL), m_stParamSize(0),
-  m_uiCSRMask(0), m_uiCSRFlags(0) {    
-  
-  m_DAZ = pBin->GetDAZ();
-  // Initialize callback context with device buffer printer from binary
-  m_callbackContext.SetDevicePrinter(m_pBinary->GetDevicePrinter());
+  m_uiCSRMask(0), m_uiCSRFlags(0)
+{    
 }
 
 Executable::~Executable() {
@@ -64,8 +61,20 @@ void Executable::Release()
     delete this;
 }
 
+// Initialize context to use specific binary with specific number of WorkItems 
+cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin) {
+
+	m_pBinary = static_cast<const Binary*>(pBin);
+	
+	return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
+}
+
 // Initialize context to with specific number of WorkItems 
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount) {
+
+  m_DAZ = m_pBinary->GetDAZ();
+  // Initialize callback context with device buffer printer from binary
+  m_callbackContext.SetDevicePrinter(m_pBinary->GetDevicePrinter());
 
   //Initialize Kernel parameters
   m_stParamSize = m_pBinary->GetKernelParametersSize();

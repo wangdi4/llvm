@@ -49,10 +49,16 @@ using namespace Intel::OpenCL::DeviceBackend;
 // init singleton
 ProgramService* ProgramService::m_gProgramService = NULL;
 
-void ProgramService::createProgramService( void )
+cl_dev_err_code ProgramService::createProgramService( void )
 {
     m_gProgramService = new ProgramService();
     assert( m_gProgramService && "SINK: Cannot create ProgramService" );
+    if ( NULL == m_gProgramService )
+    {
+    	return CL_DEV_OUT_OF_MEMORY;
+    }
+    
+    return CL_DEV_SUCCESS;
 }
 
 void ProgramService::releaseProgramService( void )
@@ -496,7 +502,10 @@ cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKern
 	return GetExecutionService()->CreateBinary(pKernel, pLockedParams, argSize, pWorkDesc, ppOutBinary);
 }
 
-
+cl_dev_err_code ProgramService::create_executable(ICLDevBackendExecutable_** ppExecutable) const
+{
+	return GetExecutionService()->CreateExecutable(NULL, NULL, 0, ppExecutable);
+}
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Interface to the HOST
