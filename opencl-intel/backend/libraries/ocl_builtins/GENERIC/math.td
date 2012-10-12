@@ -177,7 +177,16 @@ OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, fmod.Types, 0, [{
     return __ocl_svml_$Target_fmod$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
-OclBuiltinImpl intel_movemask_impl = OclBuiltinImpl<intel_movemask, intel_movemask.Types, 0, [{
+// intel_movemask scalar
+OclBuiltinImpl intel_scalar_movemask_impl = OclBuiltinImpl<intel_movemask, [v1i8,  v1i16, v1i32, v1i64], 0, [{
+    return $Arg0VarName != 0;
+  }]>;
+
+// intel_movemask vector
+OclBuiltinImpl intel_vector_movemask_impl = OclBuiltinImpl<intel_movemask, [v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                                                                     v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                                     v2i32, v3i32, v4i32, v8i32, v16i32,
+                                                                     v2i64, v3i64, v4i64, v8i64, v16i64], 0, [{
     return any($Arg0VarName);
   }]>;
 

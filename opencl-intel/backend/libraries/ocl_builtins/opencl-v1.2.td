@@ -801,8 +801,10 @@ def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0
 // Helper built-ins
 // intel_movemask
 // custom BI used in GENERIC and CPU for fast detecting analyzing mask in if()
-// its behaivour is equal to _mm_movemask() intrinsic from x86
-// example usage fract
+// for scalar types it returns true if input is NOT equal to zero otherwise returns zero
+// for vector types it returns most significant bit in each vector element compressed to output mask,
+// behaviour is equal to _mm_movemask() intrinsic from x86 SSE
+// example of use: fract
 let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
              v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,

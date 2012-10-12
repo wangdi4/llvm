@@ -65,12 +65,8 @@ OclBuiltinImpl fmin_f32_promote = OclBuiltinImpl<fmin, [v1f32, v2f32, v3f32], 0,
 OclBuiltinImpl fmax_f32_promote = OclBuiltinImpl<fmax, [v1f32, v2f32, v3f32], 0, Promote2>;
 
 // hypot
-// float4, float8 version uses inline NewtonRaphson
-OclBuiltinImpl hypot_v48f32 = OclBuiltinImpl<hypot, [v4f32, v8f32], 0, hypot_impl_nr>;
-// float16 version expands to float8 because we cannot call hypot SVML for v16f32. ABI issue.
-OclBuiltinImpl hypot_v16f32 = OclBuiltinImpl<hypot, [v16f32], 0, Expand2>;
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl hypot_f32_promote = OclBuiltinImpl<hypot, [v1f32, v2f32, v3f32], 0, Promote2>;
+// float, float2, float4, float8 version uses inline NewtonRaphson
+OclBuiltinImpl hypot_v148f32 = OclBuiltinImpl<hypot, [v1f32, v2f32, v4f32, v8f32], 0, hypot_impl_nr>;
 
 // minmag
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
@@ -193,11 +189,16 @@ OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v1f32, v
 OclBuiltinImpl native_recip_f32_expand = OclBuiltinImpl<native_recip, [v8f32, v16f32], 0, Expand1>;
 
 // native_rsqrt
-// leave only implementaion for float4. others sizes are promoted and expanded to float4 version
+// leave only implementaion for float1,4. others sizes are promoted and expanded to float4 version
+OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
+    float4 tmp;
+    tmp.s0 = $Arg0VarName;
+    return as_float4(_mm_rsqrt_ss(tmp)).s0;
+  }]>;
 OclBuiltinImpl native_rsqrt_v4f32_impl = OclBuiltinImpl<native_rsqrt, [v4f32], 0, [{
     return _mm_rsqrt_ps($Arg0VarName);
   }]>;
-OclBuiltinImpl native_rsqrt_f32_promote = OclBuiltinImpl<native_rsqrt, [v1f32, v2f32, v3f32], 0, Promote1>;
+OclBuiltinImpl native_rsqrt_f32_promote = OclBuiltinImpl<native_rsqrt, [v2f32, v3f32], 0, Promote1>;
 OclBuiltinImpl native_rsqrt_f32_expand = OclBuiltinImpl<native_rsqrt, [v8f32, v16f32], 0, Expand1>;
 
 // native_sqrt
@@ -482,8 +483,8 @@ OclBuiltinImpl frexp_las_promote = OclBuiltinImpl<frexp_las, math_svml_vFpvI32_p
 
 // hypot f(vXfX, vXfX)
 // we have inlined version of hypot float. hypot double calls SVML
-OclBuiltinImpl hypot_f64_svml_hack_expand = OclBuiltinImpl<hypot, [v8f64, v16f64], 0, Expand2>;
-OclBuiltinImpl hypot_f64_svml_hack_promote = OclBuiltinImpl<hypot, [v3f64], 0, Promote2_v3_to_v4>;
+OclBuiltinImpl hypot_f64_svml_hack_expand = OclBuiltinImpl<hypot, math_svml_vFvF_expand, 0, Expand2>;
+OclBuiltinImpl hypot_f64_svml_hack_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // ilogb vXI32 = f(vXfX)
 // ilogb float is implemented natively. 
