@@ -22,13 +22,13 @@ endif (BUILD_X64)
 if (BUILD_X64)
     set( CMAKE_ASM_FLAGS               /nologo /c /Zi) # do not quote this!!!!
 else (BUILD_X64)
-    set( CMAKE_ASM_FLAGS               /nologo /c /coff /Zi) # do not quote this!!!!
+    set( CMAKE_ASM_FLAGS               /nologo /safeseh /c /coff /Zi) # do not quote this!!!!
 endif (BUILD_X64)
 
 set( CMAKE_ASM_INCLUDE_DIR_FLAG    /I )
 
 # Compiler switches that CANNOT be modified during makefile generation
-set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS")
+set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
 set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MDd")  #/MTd /Gm
 set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MD")# /Ob0") #/GL") #MT
 
@@ -37,9 +37,9 @@ add_definitions( -DWIN32 )
 
 # Linker switches
 if (BUILD_X64)
-    set (INIT_LINKER_FLAGS        "/MACHINE:X64 /OPT:REF /INCREMENTAL:NO")
+    set (INIT_LINKER_FLAGS        "/MACHINE:X64 /OPT:REF /INCREMENTAL:NO /NXCOMPAT")
 else (BUILD_X64)
-    set (INIT_LINKER_FLAGS        "/MACHINE:X86 /OPT:REF /INCREMENTAL:NO")
+    set (INIT_LINKER_FLAGS        "/MACHINE:X86 /OPT:REF /INCREMENTAL:NO /NXCOMPAT /SAFESEH")
 endif (BUILD_X64)
 
 set (ADD_LINKER_FLAGS_DEBUG "/DEBUG")

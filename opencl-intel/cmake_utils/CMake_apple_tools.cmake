@@ -83,7 +83,7 @@ endif ()
 
 # Compiler switches that CANNOT be modified during makefile generation
 
-set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option")
+set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -fstack-protector")
 #  -funsigned-bitfields" )
 
 set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99" )
