@@ -2090,7 +2090,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     // Create the destination vectors that will contain the transposed matrix
     AllocaInst*  alloca = Builder.CreateAlloca(destVecType);
     // Set alignment of funtion arguments, size in bytes of the destination vector
-    alloca->setAlignment((destVecType->getScalarSizeInBits() / 32) * numDestVectElems);
+    alloca->setAlignment((destVecType->getScalarSizeInBits() / 8) * numDestVectElems);
     funcArgs.push_back(alloca);
   }
 
