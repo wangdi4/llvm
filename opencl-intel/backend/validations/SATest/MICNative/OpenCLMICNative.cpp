@@ -359,6 +359,7 @@ void executeKernels(uint32_t         in_BufferCount,
     uint64_t kernelsArgIndex = 1;
     DEBUG_PRINT("Number of kernels to execute = %d\n", (int)numOfKernels);
     WGContext context;
+    *(bool*)in_pReturnValue = true;
     for (uint64_t i = 0; i < numOfKernels; ++i)
     {
         kernelsArgIndex += dispatchers[i].preExeDirectivesCount;
@@ -494,7 +495,6 @@ void executeKernels(uint32_t         in_BufferCount,
         }
         DEBUG_PRINT("done.\n");
 
-        *(bool*)in_pReturnValue = true;
         for (uint32_t j = 0; j < dispatchers[i].preExeDirectivesCount; ++j)
         {
             if (directives[j].id == BUFFER && directives[j].bufferDirective.isPadded)
