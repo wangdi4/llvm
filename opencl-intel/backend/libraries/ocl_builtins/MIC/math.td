@@ -398,69 +398,9 @@ OclBuiltinImpl workaround_lgamma_r_pas = OclBuiltinImpl<lgamma_r_pas, [v1f32, v2
 OclBuiltinImpl workaround_lgamma_r_gas = OclBuiltinImpl<lgamma_r_gas, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_lgamma_r>;
 OclBuiltinImpl workaround_lgamma_r_las = OclBuiltinImpl<lgamma_r_las, [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v8f64], 0, workaround_lgamma_r>;
 
-// TODO: Temporary workaround. Calling '_half' functions crashes on MIC.
-// half_cos
-OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, half_cos.Types, 0, [{
-    return __ocl_svml_$Target_cos$SVMLSuffix_native($Arg0VarName);
+OclBuiltinImpl fma_f64_v8 = OclBuiltinImpl<fma, [v8f64], 0, [{
+    return _mm512_madd231_pd($Arg2VarName, $Arg0VarName, $Arg1VarName);
   }]>;
-
-// half_exp
-OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, half_exp.Types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_exp2
-OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, half_exp2.Types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_exp10
-OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, half_exp10.Types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_log
-OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, half_log.Types, 0, [{
-    return __ocl_svml_$Target_log$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_log2
-OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, half_log2.Types, 0, [{
-    return __ocl_svml_$Target_log2$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_log10
-OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, half_log10.Types, 0, [{
-    return __ocl_svml_$Target_log10$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_powr
-OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, half_powr.Types, 0, [{
-    return __ocl_svml_$Target_powr$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// half_recip
-OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
-    return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_rsqrt
-OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, half_rsqrt.Types, 0, [{
-    return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_sin
-OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, half_sin.Types, 0, [{
-    return __ocl_svml_$Target_sin$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_sqrt
-OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
-    return __ocl_svml_$Target_sqrt$SVMLSuffix_native($Arg0VarName);
-  }]>;
-
-// half_tan
-OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, half_tan.Types, 0, [{
-    return __ocl_svml_$Target_tan$SVMLSuffix_native($Arg0VarName);
-  }]>;
+OclBuiltinImpl fma_f64_promote = OclBuiltinImpl<fma, [v1f64, v2f64, v3f64, v4f64], 0, NonMaskPromote3>;
+OclBuiltinImpl fma_f64_expand = OclBuiltinImpl<fma, [v16f64], 0, Expand3>;
 

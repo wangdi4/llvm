@@ -19,11 +19,11 @@ const double generic_inv_pi_180 = 57.295779513082320876798154814105;
 
 // common - math
 const int float_const_signMask = 0x7FFFFFFF;
-const long double_const_signMask = 0x7FFFFFFFFFFFFFFF;
+const long double_const_signMask = 0x7FFFFFFFFFFFFFFFL;
 const int float_const_nanStorage = 0x7FFFFFFF;
-const long double_const_nanStorage = 0x7FFFFFFFFFFFFFFF;
+const long double_const_nanStorage = 0x7FFFFFFFFFFFFFFFL;
 const int float_const_expMask = 0x7f800000;
-const long double_const_expMask = 0x7FF0000000000000;
+const long double_const_expMask = 0x7FF0000000000000L;
 const float float_const_fractLimit = 0x1.fffffep-1f;
 const double double_const_fractLimit = 0x1.fffffffffffffp-1f;
 const int float_const_mantissaBits = 23;

@@ -175,22 +175,6 @@ OclBuiltinImpl isnan_f32_v16 = OclBuiltinImpl<isnan, [v16f32], 0, [{
     return mask2pi(nan);
   }]>;
 OclBuiltinImpl isnan_f32_promote = OclBuiltinImpl<isnan, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote1>;
-OclBuiltinImpl isnan_f64_v1 = OclBuiltinImpl<isnan, [v1f64], 0, [{
-    return ((as_long($Arg0VarName) & const_dp_no_sign) > const_dp_exp)?1:0;
-  }]>;
-OclBuiltinImpl isnan_f64_v8 = OclBuiltinImpl<isnan, [v8f64], 0, [{
-    $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
-    $NativeArg0Type lower = ($NativeArg0Type)unpack_lo($Arg0VarName);
-    __m512i upper_no_sign = _mm512_and_epi32((__m512i)(upper), (__m512i)((int16)const_fp_no_sign));
-    __mmask16 nan_type_1 = _mm512_cmpnle_epi32((__m512i)upper, (__m512i)((int16)const_dp_exp_hi));
-    __mmask16 not_zero = _mm512_cmpneq_epi32((__m512i)lower, (__m512i)((int16)0));
-    __mmask16 exp_on = _mm512_cmpeq_epi32((__m512i)upper, (__m512i)((int16)const_dp_exp_hi));
-    __mmask16 nan_type_2 = _mm512_kand(exp_on, not_zero);
-    __mmask16 nan = _mm512_kor(nan_type_1, nan_type_2);
-    return ($NativeReturnType)mask2pi(nan);
-  }]>;
-OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
-OclBuiltinImpl isnan_f64_expand = OclBuiltinImpl<isnan, [v16f64], 0, Expand1>;
 
 // isnormal
 OclBuiltinImpl isnormal_f32_v1 = OclBuiltinImpl<isnormal, [v1f32], 0, [{
@@ -204,19 +188,6 @@ OclBuiltinImpl isnormal_f32_v16 = OclBuiltinImpl<isnormal, [v16f32], 0, [{
     return mask2pi(norm);
   }]>;
 OclBuiltinImpl isnormal_f32_promote = OclBuiltinImpl<isnormal, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote1>;
-OclBuiltinImpl isnormal_f64_v1 = OclBuiltinImpl<isnormal, [v1f64], 0, [{
-    return ( ((as_long($Arg0VarName) & const_dp_exp)!=0) && ( (as_long($Arg0VarName) & const_dp_exp) != const_dp_exp) )?1:0;
-  }]>;
-OclBuiltinImpl isnormal_f64_v8 = OclBuiltinImpl<isnormal, [v8f64], 0, [{
-    __m512i const_vector_exp = (__m512i)((int16)const_dp_exp_hi);
-    $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
-    __m512i no_sign = _mm512_and_epi32((__m512i)upper, const_vector_exp);
-    __mmask16 norm = _mm512_cmplt_epi32(no_sign, const_vector_exp);
-    norm = _mm512_mask_cmpnle_epi32(norm, (__m512i)upper, (__m512i)((int16)0));
-    return as_$ReturnType(mask2pi(norm));
-  }]>;
-OclBuiltinImpl isnormalal_f64_promote = OclBuiltinImpl<isnormal, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
-OclBuiltinImpl isnormal_f64_expand = OclBuiltinImpl<isnormal, [v16f64], 0, Expand1>;
 
 // isordered
 OclBuiltinImpl isordered_f32_v1 = OclBuiltinImpl<isordered, [v1f32], 0, [{
