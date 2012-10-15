@@ -110,7 +110,7 @@ void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, 
 void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
                               
-  
+
   // TODO : check with Tal if for AVX it's better to do inserts instead of broadcast + blend                              
   // Broadcast the loaded values, all but the first element in the register which will be moved there
   int4 xyzw1 = *((int*)pLoadAdd1);
@@ -120,10 +120,10 @@ void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAd
   int4 xyzw;
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   // There's no blendd in AVX, so we use blendps
-  xyzw.s0 = *((int*)pLoadAdd0);                                  // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw1, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
-  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw2, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
-  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw3, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+  xyzw.s0 = *((int*)pLoadAdd0);                                   // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw1, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw2, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
+  xyzw = (int4) _mm_blend_ps((__m128)xyzw, (__m128)xyzw3, 0x8);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
 
   load_transpose_char4x4_common((char16)xyzw, xOut, yOut, zOut, wOut);
 }
@@ -258,14 +258,14 @@ void gather_transpose_char4x8_AVX(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLo
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   // We don't have blendd in AVX, so we use blendps
   xyzwIn0.s0 = *((int*)pLoadAdd0);                                      // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw1, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
-  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw2, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
-  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw3, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw1, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw2, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
+  xyzwIn0 = (int4) _mm_blend_ps((__m128)xyzwIn0, (__m128)xyzw3, 0x8);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
 
   xyzwIn1.s0 = *((int*)pLoadAdd4);                                      // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw5, 0x4);   // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
-  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw6, 0x2);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
-  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw7, 0x1);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw5, 0x2);   // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw6, 0x4);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
+  xyzwIn1 = (int4) _mm_blend_ps((__m128)xyzwIn1, (__m128)xyzw7, 0x8);   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
 
   load_transpose_char4x8_common_AVX((char16)xyzwIn0, (char16)xyzwIn1, xOut, yOut, zOut, wOut);
 }
@@ -442,13 +442,13 @@ void gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* p
   int8 xyzw;
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   xyzw.s0 = *((int*)pLoadAdd0);                                           // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw1, 0x64);  // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw2, 0x32);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw3, 0x16);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw4, 0x8);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw5, 0x4);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw6, 0x2);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
-  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw7, 0x1);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw1, 0x2);  // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw2, 0x4);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw3, 0x8);  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw4, 0x10);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw5, 0x20);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw6, 0x40);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
+  xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw7, 0x80);   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
 
   load_transpose_char4x8_common_AVX2((char32)xyzw, xOut, yOut, zOut, wOut);
 }
