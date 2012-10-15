@@ -26,9 +26,7 @@ File Name:  Executable.cpp
 #include <algorithm>
 #include <assert.h>
 
-
 using namespace Intel::OpenCL::DeviceBackend;
-
 
 #ifdef _WIN32
 #define FORCE_INLINE_PRE __forceinline
@@ -72,6 +70,10 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
 // Initialize context to with specific number of WorkItems 
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount) {
 
+  // Clear FP configuration flags
+  m_uiCSRMask = 0;
+  m_uiCSRFlags = 0;
+  
   m_DAZ = m_pBinary->GetDAZ();
   // Initialize callback context with device buffer printer from binary
   m_callbackContext.SetDevicePrinter(m_pBinary->GetDevicePrinter());
