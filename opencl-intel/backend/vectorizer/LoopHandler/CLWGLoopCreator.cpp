@@ -400,8 +400,10 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
                          latch);
     }
     if (LIDs[dim].size()) {
-      Value *initLID = BinaryOperator::Create(Instruction::Sub, initGID,
+      BinaryOperator *initLID = BinaryOperator::Create(Instruction::Sub, initGID,
           obtainBaseGID(dim), m_dimStr+"sub_lid", m_newEntry);
+      initLID->setHasNoSignedWrap();
+      initLID->setHasNoUnsignedWrap();
       replaceTIDsWithPHI(LIDs[dim], initLID, incBy, head, blocks.m_preHeader,
                          latch);
     }
@@ -447,9 +449,11 @@ CLWGLoopCreator::createLoop(BasicBlock *head, BasicBlock *latch,
       PHINode::Create(m_indTy, 2, m_dimStr+"ind_var", head->begin());
   
   // Increment induction variable.
-  Value *incIndVar = BinaryOperator::Create(Instruction::Add, indVar, 
+  BinaryOperator *incIndVar = BinaryOperator::Create(Instruction::Add, indVar, 
                                     m_constOne, m_dimStr+"inc_ind_var", latch);
-  
+  incIndVar->setHasNoSignedWrap();
+  incIndVar->setHasNoUnsignedWrap();
+
   // Create compare and conditionally branch out from latch.
   Instruction *compare = new ICmpInst(*latch, CmpInst::ICMP_EQ, incIndVar,
                                   loopSize, m_dimStr+"cmp.to.max");
@@ -467,8 +471,10 @@ void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
   assert(TIDs.size() && "unexpected emty tid vector");
   PHINode *dimTID = 
       PHINode::Create(m_indTy, 2, m_dimStr+"tid", head->getFirstNonPHI());
-  Value *incTID = BinaryOperator::Create(Instruction::Add, dimTID, incBy, 
+  BinaryOperator *incTID = BinaryOperator::Create(Instruction::Add, dimTID, incBy, 
                                   m_dimStr+"inc_tid", latch->getTerminator());
+  incTID->setHasNoSignedWrap();
+  incTID->setHasNoUnsignedWrap();
   dimTID->addIncoming(initVal, preHead);  
   dimTID->addIncoming(incTID, latch);
   for (IVec::iterator tidIt = TIDs.begin(), tidE = TIDs.end();
