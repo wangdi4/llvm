@@ -22,7 +22,6 @@ File Name:  Optimizer.cpp
 #include "cl_device_api.h"
 #include "cl_types.h"
 #include "CPUDetect.h"
-//#include "InstToFuncCall.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
@@ -75,13 +74,11 @@ llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
-llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
+llvm::ModulePass *createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
+                                              llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
- 
-void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
-void getKernelLocalBufferInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
  
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelInfo>& infoMap);
 
@@ -353,7 +350,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   {
     m_modulePasses.add(createAddImplicitArgsPass(m_vectFunctions));
     m_modulePasses.add(createResolveWICallPass());
-    m_localBuffersPass = createLocalBuffersPass(debugType == Native);
+    m_localBuffersPass = createLocalBuffersPass(m_kernelsLocalBufferMap, debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
   }
 
@@ -401,7 +398,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // PrepareKernelArgsPass must run in debugging mode as well
   if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
+    m_modulePasses.add(createPrepareKernelArgsPass(m_kernelsLocalBufferMap, m_vectFunctions));
 
   if ( debugType == None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
@@ -481,7 +478,8 @@ void Optimizer::GetKernelsInfo(KernelsInfoMap& map)
 
 void Optimizer::GetKernelsLocalBufferInfo(KernelsLocalBufferInfoMap& map)
 {
-    getKernelLocalBufferInfoMap(m_localBuffersPass, map);
+    map.clear();
+    map.insert(m_kernelsLocalBufferMap.begin(), m_kernelsLocalBufferMap.end());
 }
 
 }}}

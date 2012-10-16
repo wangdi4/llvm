@@ -26,17 +26,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   char LocalBuffers::ID = 0;
 
-  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
-    return new LocalBuffers(isNativeDBG);
-  }
-
-  void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
-    LocalBuffers *pKU = static_cast<LocalBuffers*>(pPass);
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
-    }
+  ModulePass* createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) {
+    return new LocalBuffers(kernelsLocalBufferMap, isNativeDBG);
   }
 
   bool LocalBuffers::runOnModule(Module &M) {
@@ -45,9 +36,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_pLLVMContext = &M.getContext();
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
-    m_mapKernelInfo.clear();
+    m_pMapKernelInfo->clear();
    
-
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(&*fi);
@@ -338,7 +328,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     parseLocalBuffers(pFunc, pLocalMem);
     
-    m_mapKernelInfo[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
+    (*m_pMapKernelInfo)[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
   }
 
   void LocalBuffers::updateUsageBlocks(Function *pFunc) {

@@ -17,7 +17,6 @@ File Name:  PrepareKernelArgs.cpp
 \*****************************************************************************/
 
 #include "PrepareKernelArgs.h"
-
 #include "TypeAlignment.h"
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
@@ -31,14 +30,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
   /// @brief Creates new PrepareKernelArgs module pass
   /// @returns new PrepareKernelArgs module pass  
-  ModulePass* createPrepareKernelArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
-    return new PrepareKernelArgs(vectFunctions);
+  ModulePass* createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
+      SmallVectorImpl<Function*> &vectFunctions) {
+    return new PrepareKernelArgs(kernelsLocalBufferMap, vectFunctions);
   }
 
   char PrepareKernelArgs::ID = 0;
 
-  PrepareKernelArgs::PrepareKernelArgs(SmallVectorImpl<Function*> &vectFunctions) :
-    ModulePass(ID), m_pVectFunctions(&vectFunctions) {
+  PrepareKernelArgs::PrepareKernelArgs(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
+                                       SmallVectorImpl<Function*> &vectFunctions) :
+    ModulePass(ID), m_pkernelsLocalBufferMap(&kernelsLocalBufferMap), m_pVectFunctions(&vectFunctions) {
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
@@ -188,28 +189,52 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     // Handle implicit arguments
     for(unsigned int i=0; i< ImplicitArgsUtils::m_numberOfImplicitArgs; ++i) {
-      const ImplicitArgProperties& implicitArgProp = ImplicitArgsUtils::getImplicitArgProps(i);
+      Value* pArg = NULL;
+      switch(i) {
+      case ImplicitArgsUtils::IA_SLM_BUFFER:
+        {
+          uint64_t slmSizeInBytes = (*m_pkernelsLocalBufferMap)[pFunc].stTotalImplSize;
+          //TODO: when slmSizeInBytes equal 0, we might want to set dummy address for debugging!
+          Type *slmType = ArrayType::get(IntegerType::getInt8Ty(*m_pLLVMContext), slmSizeInBytes);
+          AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
+          //Set alignment of implicit local buffer to max alignment.
+          slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
+          pArg = builder.CreateBitCast(slmBuffer, IntegerType::getInt8PtrTy(*m_pLLVMContext, 3));
+        }
+        break;
+      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
+        {
+          unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+          pArg = builder.CreateAlloca(IntegerType::get(*m_pLLVMContext, uiSizeT));
+        }
+        break;
+      default:
+        {
+          const ImplicitArgProperties& implicitArgProp = ImplicitArgsUtils::getImplicitArgProps(i);
+          size_t alignment = implicitArgProp.m_alignment;
+          // assuming pBuffer is aligned at maximum alignment
+          currOffset = TypeAlignment::align(alignment, currOffset);
 
-      size_t alignment = implicitArgProp.m_alignment;
-      
-      // assuming pBuffer is aligned at maximum alignment
-      currOffset = TypeAlignment::align(alignment, currOffset);
-      
-       //  %0 = getelementptr i8* %pBuffer, i32 currOffset  
-      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currOffset));
-      // %1 = bitcast i8* %0 to type *
-      Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
-      //load type * %1
-      LoadInst* pLoad = builder.CreateLoad(pBitCast);
-      if (alignment > 0) {
-        //load type * %1, align alignment
-        pLoad->setAlignment(alignment);
+          // %0 = getelementptr i8* %pBuffer, i32 currOffset  
+          Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currOffset));
+          // %1 = bitcast i8* %0 to type *
+          Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
+          //load type * %1
+          LoadInst* pLoad = builder.CreateLoad(pBitCast);
+          if (alignment > 0) {
+            //load type * %1, align alignment
+            pLoad->setAlignment(alignment);
+          }
+          pArg = pLoad;
+
+          // Advance the pArgsBuffer offset based on the size
+          currOffset += implicitArgProp.m_size;
+        }
+        break;
       }
 
-      params.push_back(pLoad);
-      
-      // Advance the pArgsBuffer offset based on the size
-      currOffset += implicitArgProp.m_size;
+      assert(pArg && "No value was created for this implicit argument!");
+      params.push_back(pArg);
       ++callIt;
     }
     
