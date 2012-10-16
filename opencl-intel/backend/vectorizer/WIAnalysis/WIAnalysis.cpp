@@ -20,65 +20,50 @@ const unsigned int WIAnalysis::MinIndexBitwidthToPreserve = 16;
 #define PTR WIAnalysis::PTR_CONSECUTIVE
 #define STR WIAnalysis::STRIDED
 #define RND WIAnalysis::RANDOM
-#define UST WIAnalysis::UNSET
 
 /// Dependency maps (define output dependency according to 2 input deps)
 
 static const WIAnalysis::WIDependancy
 add_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
-  /*          UNI, SEQ, PTR, STR, RND, UST */
-  /* UNI */  {UNI, SEQ, PTR, STR, RND, UNI},
-  /* SEQ */  {SEQ, STR, STR, STR, RND, SEQ},
-  /* PTR */  {PTR, STR, STR, STR, RND, PTR},
-  /* STR */  {STR, STR, STR, STR, RND, STR},
-  /* RND */  {RND, RND, RND, RND, RND, RND},
-  /* UST */  {UNI, SEQ, PTR, STR, RND, UST},
+  /*          UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, SEQ, PTR, STR, RND},
+  /* SEQ */  {SEQ, STR, STR, STR, RND},
+  /* PTR */  {PTR, STR, STR, STR, RND},
+  /* STR */  {STR, STR, STR, STR, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
 };
 
 static const WIAnalysis::WIDependancy
 sub_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
-  /*          UNI, SEQ, PTR, STR, RND, UST */
-  /* UNI */  {UNI, STR, RND, RND, RND, UNI},
-  /* SEQ */  {SEQ, RND, RND, RND, RND, SEQ},
-  /* PTR */  {PTR, RND, RND, RND, RND, PTR},
-  /* STR */  {STR, RND, RND, RND, RND, STR},
-  /* RND */  {RND, RND, RND, RND, RND, RND},
-  /* UST */  {UST, STR, RND, RND, RND, UST}
+  /*          UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, STR, RND, RND, RND},
+  /* SEQ */  {SEQ, RND, RND, RND, RND},
+  /* PTR */  {PTR, RND, RND, RND, RND},
+  /* STR */  {STR, RND, RND, RND, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
 };
 
 
 static const WIAnalysis::WIDependancy
 mul_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
-  /*          UNI, SEQ, PTR, STR, RND, UST */
-  /* UNI */  {UNI, STR, STR, STR, RND, UNI},
-  /* SEQ */  {STR, RND, RND, RND, RND, STR},
-  /* PTR */  {STR, RND, RND, RND, RND, STR},
-  /* STR */  {STR, RND, RND, RND, RND, STR},
-  /* RND */  {RND, RND, RND, RND, RND, RND},
-  /* UNI */  {UNI, STR, STR, STR, RND, UST}
+  /*          UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, STR, STR, STR, RND},
+  /* SEQ */  {STR, RND, RND, RND, RND},
+  /* PTR */  {STR, RND, RND, RND, RND},
+  /* STR */  {STR, RND, RND, RND, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
 };
 
 static const WIAnalysis::WIDependancy
 select_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
-  /*          UNI, SEQ, PTR, STR, RND, UST */
-  /* UNI */  {UNI, STR, STR, STR, RND, UNI},
-  /* SEQ */  {STR, SEQ, STR, STR, RND, SEQ},
-  /* PTR */  {STR, STR, PTR, STR, RND, PTR},
-  /* STR */  {STR, STR, STR, STR, RND, STR},
-  /* RND */  {RND, RND, RND, RND, RND, RND},
-  /* UST */  {UNI, SEQ, STR, STR, RND, UST}
+  /*          UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, STR, STR, STR, RND},
+  /* SEQ */  {STR, SEQ, STR, STR, RND},
+  /* PTR */  {STR, STR, PTR, STR, RND},
+  /* STR */  {STR, STR, STR, STR, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
 };
 
-static const WIAnalysis::WIDependancy
-gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
-  /* ptr\index UNI, SEQ, PTR, STR, RND, UST */
-  /* UNI */  {UNI, PTR, RND, RND, RND, UNI},
-  /* SEQ */  {RND, RND, RND, RND, RND, RND},
-  /* PTR */  {PTR, RND, RND, RND, RND, PTR},
-  /* STR */  {RND, RND, RND, RND, RND, RND},
-  /* RND */  {RND, RND, RND, RND, RND, RND},
-  /* UST */  {UNI, PTR, RND, RND, RND, UST}
-};
 
 bool WIAnalysis::runOnFunction(Function &F) {
 
@@ -166,7 +151,6 @@ WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
   if(PrintWiaCheck) {
     outs()<<"whichDepend function "<< "WIA " <<m_deps[val] <<" "<<*val <<" " << "\n";
   }
-  assert((WIAnalysis::UNSET != m_deps[val]) && "should not have unset dependency at this point!");
   return m_deps[val];
 }
 
@@ -182,8 +166,7 @@ bool WIAnalysis::isControlFlowUniform(const Function* F) {
   /// Place out-masks
   for (Function::const_iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     WIAnalysis::WIDependancy dep = whichDepend(it->getTerminator());
-    assert((WIAnalysis::UNSET != dep) && "should not have unset dependency at this point!");
-    if (WIAnalysis::UNIFORM != dep) {
+    if (dep != WIAnalysis::UNIFORM) {
       // Found a branch which diverges on the input
       return false;
     }
@@ -195,11 +178,7 @@ bool WIAnalysis::isControlFlowUniform(const Function* F) {
 WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
   
   if (m_deps.find(val) == m_deps.end()) {
-    if(isa<Instruction>(val)) {
-      m_deps[val] = WIAnalysis::UNSET;
-    } else {
-      m_deps[val] = WIAnalysis::UNIFORM;
-    }
+    m_deps[val] = WIAnalysis::UNIFORM;
   }
   return m_deps[val];
 }
@@ -207,7 +186,7 @@ WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
   V_ASSERT(val && "Bad value");
 
-  if (!isa<Instruction>(val)) {
+  if (! isa<Instruction>(val)) {
     // Not an instruction, must be a constant or an argument
     // Could this vector type be of a constant which
     // is not uniform ?
@@ -219,7 +198,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
 
   // New instruction to consider
   if (m_deps.find(inst) == m_deps.end()) {
-    m_deps[inst] = WIAnalysis::UNSET;
+    m_deps[inst] = WIAnalysis::UNIFORM;
   }
 
   // Our initial value
@@ -264,24 +243,15 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep_simple(const Instruction *I) {
-  // simply check all operands and return:
-  // 1) UNSET if all of the operands are UNSET
-  // 2) UNIFORM if at least one of the operands is UNIFORM, and the rest are allowed to be UNSET
-  // 3) RANDOM otherwise.
-  WIAnalysis::WIDependancy res = WIAnalysis::UNSET;
+  // simply check that all operans are uniform, if so return uniform, else random
   const unsigned nOps = I->getNumOperands();
-  assert(nOps > 0 && "Instruction with no operands fix to return WIAnalysis::UNIFORM!");
   for (unsigned i=0; i<nOps; ++i) {
     const Value *op = I->getOperand(i);
     WIAnalysis::WIDependancy dep = getDependency(op);
-    if (WIAnalysis::UNIFORM == dep) {
-      res = WIAnalysis::UNIFORM;
-    }
-    else if (WIAnalysis::UNSET != dep) {
+    if (dep != WIAnalysis::UNIFORM)
       return WIAnalysis::RANDOM;
-    }
   }
-  return res;
+  return WIAnalysis::UNIFORM;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
@@ -293,10 +263,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   WIAnalysis::WIDependancy dep1 = getDependency(op1);
 
   // For whatever binary operation,
-  // uniform/unset returns uniform if at least one is uniform and unset if both are unset
-  if ((WIAnalysis::UNIFORM == dep0 || WIAnalysis::UNSET == dep0) &&
-      (WIAnalysis::UNIFORM == dep1 || WIAnalysis::UNSET == dep1)) {
-    return (WIAnalysis::UNSET == dep0) ? dep1 : dep0;
+  // uniform returns uniform
+  if ( WIAnalysis::UNIFORM == dep0 && WIAnalysis::UNIFORM == dep1) {
+    return WIAnalysis::UNIFORM;
   }
   
   // FIXME:: assumes that the X value does not cross the +/- border - risky !!!
@@ -334,7 +303,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
     // high bits due to the addition. Addition with uniform preservs WI-dep.
     if (SHL && SHL->getOpcode() == Instruction::Add) {
       Value *addedVal = SHL->getOperand(1);
-      if (getDependency(addedVal) == WIAnalysis::UNIFORM || getDependency(addedVal) == WIAnalysis::UNSET) {
+      if (getDependency(addedVal) == WIAnalysis::UNIFORM) {
         SHL = dyn_cast<BinaryOperator>(SHL->getOperand(0));
       }
     }
@@ -368,8 +337,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::Shl:
-    if ((WIAnalysis::UNIFORM == dep0 || WIAnalysis::UNSET == dep0) ||
-        (WIAnalysis::UNIFORM == dep1 || WIAnalysis::UNSET == dep1)) {
+    if ( WIAnalysis::UNIFORM == dep0 || WIAnalysis::UNIFORM == dep1) {
       // If one of the sides is uniform, then we can adopt
       // the other side (stride*uniform is still stride).
       // stride size is K, where K is the uniform input.
@@ -432,30 +400,23 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
     return WIAnalysis::RANDOM;
   }
 
-  // Iterate over all input dependencies and return
-  // 1) UNSET if all of the inputs are UNSET
-  // 2) UNIFORM if at least one of the inputs is UNIFORM, and the rest are allowed to be UNSET.
-  //    Or if there is no inputs!
-  // 3) RANDOM otherwise.
+  // Iterate over all input dependencies. If all are uniform - propagate it.
+  // otherwise - return RANDOM
   unsigned numParams = inst->getNumArgOperands();
 
-  if(numParams == 0) {
-    return WIAnalysis::UNIFORM;
-  }
-  WIDependancy res = WIAnalysis::UNSET;
+  bool isAllUniform = true;
   for (unsigned i = 0; i < numParams; ++i)
   {
     // Operand 0 is the function's name
     Value* op = inst->getArgOperand(i);
     WIDependancy dep = getDependency(op);
-    if (WIAnalysis::UNIFORM == dep) {
-      res = WIAnalysis::UNIFORM;
-    } else if (WIAnalysis::UNSET != dep) {
-      // Uniformity check failed. no need to continue
-      return WIAnalysis::RANDOM;
+    if (WIAnalysis::UNIFORM != dep) {
+      isAllUniform = false;
+      break; // Uniformity check failed. no need to continue
     }
   }
-  return res;
+  if (isAllUniform) return WIAnalysis::UNIFORM;
+  return WIAnalysis::RANDOM;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst) {
@@ -465,7 +426,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   for (unsigned i=1; i < num; ++i) {
     const Value* op = inst->getOperand(i);
     WIAnalysis::WIDependancy dep = getDependency(op);
-    if (!(WIAnalysis::UNIFORM == dep || WIAnalysis::UNSET == dep)) {
+    if (dep != WIAnalysis::UNIFORM) {
       return WIAnalysis::RANDOM;
     }
   }
@@ -475,7 +436,10 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  return gep_conversion[depPtr][lastIndDep];
+  if (WIAnalysis::UNIFORM == depPtr && WIAnalysis::UNIFORM == lastIndDep)  return WIAnalysis::UNIFORM;
+  if ((WIAnalysis::UNIFORM == depPtr && WIAnalysis::CONSECUTIVE == lastIndDep) ||
+      (WIAnalysis::PTR_CONSECUTIVE == depPtr && WIAnalysis::UNIFORM == lastIndDep)) return WIAnalysis::PTR_CONSECUTIVE;
+  return WIAnalysis::RANDOM;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
@@ -511,8 +475,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const TerminatorInst* inst) {
         // Conditional branch is uniform, if its condition is uniform
         Value* op = brInst->getCondition();
         WIAnalysis::WIDependancy dep = getDependency(op);
-        if (WIAnalysis::UNIFORM == dep || WIAnalysis::UNSET == dep) {
-          return dep;
+        if ( WIAnalysis::UNIFORM == dep ) {
+          return WIAnalysis::UNIFORM;
         }
         return WIAnalysis::RANDOM;
       }
@@ -534,11 +498,11 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const TerminatorInst* inst) {
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const SelectInst* inst) {
   Value* op0 = inst->getOperand(0); // mask
   WIAnalysis::WIDependancy dep0 = getDependency(op0);
-  if (WIAnalysis::UNIFORM == dep0 || WIAnalysis::UNSET == dep0) {
+  if (WIAnalysis::UNIFORM == dep0) {
     Value* op1 = inst->getOperand(1);
     Value* op2 = inst->getOperand(2);
-    WIAnalysis::WIDependancy dep1 = getDependency(op1);
-    WIAnalysis::WIDependancy dep2 = getDependency(op2);
+    WIAnalysis::WIDependancy dep1 =getDependency(op1);
+    WIAnalysis::WIDependancy dep2 =getDependency(op2);
     // In case of constant scalar select we can choose according to the mask.
     if (ConstantInt *C = dyn_cast<ConstantInt>(op0)) {
       uint64_t val = C->getZExtValue();
@@ -568,9 +532,10 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   WIAnalysis::WIDependancy dep0 = getDependency(op0);
 
   // independent remains independent
-  if (WIAnalysis::UNIFORM == dep0 || WIAnalysis::UNSET == dep0) return dep0;
+  if (WIAnalysis::UNIFORM == dep0) return dep0;
 
-  switch (inst->getOpcode()) {
+  switch (inst->getOpcode())
+  {  
   case Instruction::SExt:
   case Instruction::FPTrunc:
   case Instruction::FPExt:
