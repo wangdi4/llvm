@@ -3,6 +3,26 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
 set (TARGET_NAME "ValidationTests")
+
+set(VALIDATIONTEST_SOURCE_FILES
+  DMTest.cpp
+  DMImageTest.cpp
+  CMPTest.cpp
+  OpenCLKernelArgumentsParserTest.cpp
+  OCLKernelDataGeneratorTest.cpp
+  DGTest.cpp
+  Float16Test.cpp
+  NEATALUUtils.cpp
+  NEATALUTest.cpp
+  NEATALUCommonTest.cpp
+  NEATALUConversionTest.cpp
+  NEATALUVLoadStoreTest.cpp
+  NEATValueTest.cpp
+  NEATMathTest.cpp
+  OCLBuiltinParserTest.cpp
+  NEATALUImageTest.cpp
+  )
+
 if (WIN32)
 project( ${TARGET_NAME} )
 
@@ -139,6 +159,7 @@ function( add_c_exe LINKER_SCRIPT COMPILER_SCRIPT_1 COMPILER_SCRIPT_2 OUTPUT_FIL
 list (APPEND C_SOURCE_FILES_2
   SourceRecorder.cpp
   ClangSA.cpp
+  OCLKernelDataGeneratorTest.cpp
 )  
 
   foreach (FILE ${C_SOURCE_FILES_2})
@@ -165,24 +186,9 @@ list (APPEND C_SOURCE_FILES_2
 endfunction( add_c_exe )
 
 #------------------ Main -----------------------
+
 # C source code
-list (APPEND C_SOURCE_FILES
-  DMTest.cpp
-  DMImageTest.cpp
-  CMPTest.cpp
-  OpenCLKernelArgumentsParserTest.cpp
-  DGTest.cpp
-  Float16Test.cpp
-  NEATALUUtils.cpp
-  NEATALUTest.cpp
-  NEATALUCommonTest.cpp
-  NEATALUConversionTest.cpp
-  NEATALUVLoadStoreTest.cpp
-  NEATValueTest.cpp
-  NEATMathTest.cpp
-  OCLBuiltinParserTest.cpp
-  NEATALUImageTest.cpp
-  )
+list (APPEND C_SOURCE_FILES ${VALIDATIONTEST_SOURCE_FILES})
 
  # project header files
 list (APPEND HEADER_FILES
@@ -260,6 +266,7 @@ add_dependencies(${TARGET_NAME}
   OCLRecorderStat
   OCLBuilder
   OpenCLKernelArgumentsParser
+  OCLKernelDataGenerator
   )
 
 add_dependencies(UnitTests ${TARGET_NAME})
@@ -271,25 +278,12 @@ else ()
 set(LLVM_REQUIRES_EH 1)
 # unittests for validation
 add_llvm_executable(${TARGET_NAME}
-  DMTest.cpp
-  DMImageTest.cpp
-  CMPTest.cpp
-  OpenCLKernelArgumentsParserTest.cpp
-  DGTest.cpp
-  Float16Test.cpp
-  NEATALUUtils.h
-  NEATALUUtils.cpp
-  NEATALUTest.cpp
-  NEATALUCommonTest.cpp
-  NEATALUConversionTest.cpp
-  NEATALUVLoadStoreTest.cpp
-  NEATValueTest.cpp
-  NEATMathTest.cpp
-  OCLBuiltinParserTest.cpp
-  OpenCLKernelArgumentsParserTest.cpp
-  NEATALUImageTest.cpp
+  ${VALIDATIONTEST_SOURCE_FILES}
+  # !!!! TODO: SourceRecorder.cpp ClangSA.cpp are not compiler on Win
+  # TODO: add to VALIDATIONTEST_SOURCE_FILES variable
   SourceRecorder.cpp
   ClangSA.cpp
+  OCLKernelDataGeneratorTest.cpp
   )
 
 add_subdirectory(fe_plugin_mock)
@@ -312,6 +306,7 @@ include_directories(${LLVM_MAIN_SRC_DIR}/../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/PlugInNEAT)
 include_directories(${VALIDATIONS_ROOT}/OCLBuilder)
 include_directories(${VALIDATIONS_ROOT}/OCLRecorder)
+include_directories(${VALIDATIONS_ROOT}/OCLKernelDataGenerator)
 include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/Common )
 
@@ -345,10 +340,10 @@ target_link_libraries(${TARGET_NAME}
   LLVMCore
   LLVMAsmParser
   OclPluginManager
-  OpenCLKernelArgumentsParser
   dynamic_load
   OCLRecorderStat
   OCLBuilder
+  OCLKernelDataGenerator
   OpenCLKernelArgumentsParser
 )
 
@@ -361,6 +356,7 @@ add_dependencies(${TARGET_NAME}
   ${PLUGIN_NEAT_LIBS}
   ImathLibd_wrapper
   OclPluginManager
+  OCLKernelDataGenerator
   OpenCLKernelArgumentsParser
   dynamic_load
   OCLRecorderStat

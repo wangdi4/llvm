@@ -73,7 +73,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                     }
                 default:
                     {
-                        throw Exception::ParserBadTypeException("bad type of integer in vector");
+                        throw Exception::ParserBadTypeException(
+                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in vector");
                         break;
                     }
                 }
@@ -123,7 +124,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                             }
                         default:
                             {
-                                throw Exception::ParserBadTypeException("bad type of integer in vector in struct");
+                                throw Exception::ParserBadTypeException(
+                                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in vector in struct");
                                 break;
                             }
                         }
@@ -131,7 +133,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                     }
                 default:
                     {
-                        throw Exception::ParserBadTypeException("bad type in vector in struct");
+                        throw Exception::ParserBadTypeException(
+                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type in vector in struct");
                         break;
                     }
                 }
@@ -139,7 +142,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                 break;
             }
         case Type::PointerTyID:
-            {			
+            {            
                 TypeDesc SubElemDesc(TPOINTER);
                 const PointerType *ptr = cast<PointerType>(structTy->getElementType(i));
                 switch(ptr->getElementType()->getTypeID())
@@ -180,7 +183,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                             }
                         default:
                             {
-                                throw Exception::ParserBadTypeException("bad type of integer in pointer");
+                                throw Exception::ParserBadTypeException(
+                                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in pointer");
                                 break;
                             }
                         }
@@ -232,7 +236,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                                     }
                                 default:
                                     {
-                                        throw Exception::ParserBadTypeException("bad type of integer in vector in pointer");
+                                        throw Exception::ParserBadTypeException(
+                                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in vector in pointer");
                                         break;
                                     }
                                 }
@@ -240,7 +245,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                             }
                         default:
                             {
-                                throw Exception::ParserBadTypeException("bad type in vector in pointer");
+                                throw Exception::ParserBadTypeException(
+                                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type in vector in pointer");
                                 break;
                             }
                         }
@@ -257,7 +263,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                     }
                 default:
                     {
-                        throw Exception::ParserBadTypeException("bad type in pointer");
+                        throw Exception::ParserBadTypeException(
+                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type in pointer");
                         break;
                     }
                 }
@@ -314,7 +321,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                             }
                         default:
                             {
-                                throw Exception::ParserBadTypeException("bad type of integer in vector in pointer");
+                                throw Exception::ParserBadTypeException(
+                                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in vector in pointer");
                                 break;
                             }
                         }
@@ -364,7 +372,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                                     }
                                 default:
                                     {
-                                        throw Exception::ParserBadTypeException("bad type of integer in vector in pointer");
+                                        throw Exception::ParserBadTypeException(
+                                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type of integer in vector in pointer");
                                         break;
                                     }
                                 }
@@ -372,7 +381,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                             }
                         default:
                             {
-                                throw Exception::ParserBadTypeException("bad type in vector in pointer");
+                                throw Exception::ParserBadTypeException(
+                                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type in vector in pointer");
                                 break;
                             }
                             break;
@@ -383,7 +393,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
 
                 default:
                     {
-                        throw Exception::ParserBadTypeException("bad type in vector in pointer");
+                        throw Exception::ParserBadTypeException(
+                            "[OpenCLKernelArgumentsParser::forParserStruct]bad type in vector in pointer");
                         break;
                     }
                 }
@@ -392,7 +403,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
             }
         default:
             {
-                throw Exception::ParserBadTypeException("bad type in vector");
+                throw Exception::ParserBadTypeException(
+                    "[OpenCLKernelArgumentsParser::forParserStruct]bad type in vector");
                 break;
             }
         }
@@ -401,9 +413,9 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
 }
 
 
-std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsParser(const std::string& kernelName, const llvm::Module* programObject) {
-    Function*         m_pKernel;		// kernel to run
-    std::list<IMemoryObjectDescPtr> ListOfArguments;
+OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const std::string& kernelName, const llvm::Module* programObject) {
+    Function*         m_pKernel;        // kernel to run
+    OCLKernelArgumentsList ListOfArguments;
     // Extract 'kernel' function from program
     NamedMDNode* metadata = programObject->getNamedMetadata("opencl.kernels");
 
@@ -468,7 +480,8 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                         }
                     default:
                         {
-                            throw Exception::ParserBadTypeException("bad type of integer in vector");
+                            throw Exception::ParserBadTypeException(
+                                "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type of integer in vector");
                             break;
                         }
                     }
@@ -524,7 +537,8 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                                 }
                             default:
                                 {
-                                    throw Exception::ParserBadTypeException("bad type of integer in vector");
+                                    throw Exception::ParserBadTypeException(
+                                        "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type of integer in vector");
                                     break;
                                 }
                             }
@@ -532,7 +546,8 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                         }
                     default:
                         {
-                            throw Exception::ParserBadTypeException("bad type in vector");
+                            throw Exception::ParserBadTypeException(
+                                "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type in vector");
                             break;
                         }
                     }
@@ -584,7 +599,8 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                                 }
                             default:
                                 {
-                                    throw Exception::ParserBadTypeException("bad type of integer in pointer");
+                                    throw Exception::ParserBadTypeException(
+                                        "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type of integer in pointer");
                                     break;
                                 }
                             }
@@ -636,7 +652,8 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                                         }
                                     default:
                                         {
-                                            throw Exception::ParserBadTypeException("bad type of integer in vector in pointer");
+                                            throw Exception::ParserBadTypeException(
+                                                "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type of integer in vector in pointer");
                                             break;
                                         }
                                     }
@@ -644,29 +661,37 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                                 }
                             default:
                                 {
-                                    throw Exception::ParserBadTypeException("bad type in vector in pointer");
+                                    throw Exception::ParserBadTypeException(
+                                        "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type in vector in pointer");
                                     break;
                                 }
                             }
                             ElemDesc.SetSubTypeDesc(0,SubElemDesc);
                             break;
                         }
-
-
                     case Type::StructTyID:
                         {
                             TypeDesc SubElemDesc=forParserStruct(cast<StructType>(ptr->getElementType()));
                             ElemDesc.SetSubTypeDesc(0,SubElemDesc);
                             break;
+                        }    
+                    case Type::PointerTyID: //pointer to pointer
+                        {
+                            throw Exception::ParserBadTypeException(
+                                "[OpenCLKernelArgumentsParser::KernelArgumentsParser]pointer to pointer");
+                            break;
                         }
                     default:
                         {
-                            throw Exception::ParserBadTypeException("bad type in pointer");
+                            throw Exception::ParserBadTypeException(
+                                "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type in pointer");
                             break;
                         }
                     }
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
+                    BufDesc.SetNumOfElements(1); // one pointer to 0 objects of type TYPE
+                    // in BUFFER desc. thats not pointer desc
                     ListOfArguments.push_back(&BufDesc);
                     break;
                 }
@@ -681,11 +706,36 @@ std::list<IMemoryObjectDescPtr> OpenCLKernelArgumentsParser::KernelArgumentsPars
                 }
             default:
                 {
-                    throw Exception::ParserBadTypeException("bad type");
+                    throw Exception::ParserBadTypeException(
+                        "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type");
                     break;
                 }
             }
         }
     }
     return ListOfArguments;
+}
+
+OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgHeuristics(
+    const OCLKernelArgumentsList &Args, const size_t* globalworksize, const uint64_t dim){
+        OCLKernelArgumentsList result; //result
+        BufferDesc* head; //ptr to each buffer in OCLKernelArgumentsList
+        //each buffer is tree head
+        uint64_t def_size=1;//default number of pointed elems for each ptr
+        uint64_t i;
+
+        for(i=0;i<dim;++i)
+            def_size*=globalworksize[i]; //calculate default size
+
+        for(i=0;i<Args.size();++i){
+            //result.size() trees
+            head = static_cast<BufferDesc*>(Args[i].get()); //set up new head
+            BufferDesc Buffd;
+            //replace number of pointed elements
+            Buffd.SetElementDecs(RecursiveDFS((*head).GetElementDescription(), def_size)); 
+            Buffd.SetNumOfElements(head->NumOfElements());//number elements in the buffer 
+            //is the same
+            result.push_back(&Buffd);//add new buff desc to result
+        }
+        return result;
 }

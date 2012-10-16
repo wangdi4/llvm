@@ -89,8 +89,8 @@ namespace {
         std::string kernelName = "testOfFloatVectorArguments";
         createModule(Context, M, kernelName, "<4 x float> %a, double %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -116,8 +116,8 @@ namespace {
         std::string kernelName = "testOfIntVectorPointerArguments";
         createModule(Context, M, kernelName, "<4 x i32>* %a, i64 %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -144,8 +144,9 @@ namespace {
         std::string kernelName = "testOfIntArguments";
         createModule(Context, M, kernelName, "i30 %a");
         IOpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
+        Validation::OCLKernelArgumentsList argDescriptions;
         try {
-            std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+             argDescriptions = parser->KernelArgumentsParser(kernelName, M);
         }
         catch (Exception::ParserBadTypeException)
         {
@@ -166,8 +167,8 @@ namespace {
         std::string kernelName = "testOfFloatVectorArguments";
         createModule(Context, M, kernelName, "float* %a, i16* %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -194,7 +195,7 @@ namespace {
         std::string kernelName = "testOfStruct";
         createModule(Context, M, kernelName,"{ i32, float, double } %a, float %d");// programObjectStruct);
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions;
+        Validation::OCLKernelArgumentsList argDescriptions;
         try {
             argDescriptions = parser->KernelArgumentsParser(kernelName, M);
         }
@@ -203,7 +204,7 @@ namespace {
             EXPECT_TRUE(false);
             return;
         }
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -232,8 +233,8 @@ namespace {
         std::string kernelName = "testOfVectorInStruct";
         createModule(Context, M, kernelName, "{<100 x i64>} %a");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -255,8 +256,8 @@ namespace {
         std::string kernelName = "testOfArrayInStruct";
         createModule(Context, M, kernelName, "{[5 x i16]} %a, {[10 x <1 x i64>]} %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -293,7 +294,7 @@ namespace {
         std::string kernelName = "testOfStruct";
         createModule(Context, M, kernelName,"{ i64, float, double, <3 x i32>, <4 x float>, [10 x <8 x double>] } %a, i8 %b, float %c, {{{i32, float, <5 x i16>*}}} %d");// programObjectStruct);
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions;
+        Validation::OCLKernelArgumentsList argDescriptions;
         try {
             argDescriptions = parser->KernelArgumentsParser(kernelName, M);
         }
@@ -302,7 +303,7 @@ namespace {
             EXPECT_TRUE(false);
             return;
         }
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());//{ i32, float, double, <3 x i32>, <4 x float>, [10 x <8 x double>] }
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -373,8 +374,8 @@ namespace {
         std::string kernelName = "testOfVector";
         createModule(Context, M, kernelName, "<16 x float> %a, <13 x i64> %b, <1 x double> %c");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -415,8 +416,8 @@ namespace {
         std::string kernelName = "testOfPointer";
         createModule(Context, M, kernelName, "<10000 x i64>* %a, i16* %b, float* %c, double* %d, {i64}* %e");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -471,8 +472,8 @@ namespace {
         std::string kernelName = "TestForPointerAndStruct";
         createModule(Context, M, kernelName, "{{{{{{float*}*}*}*}*}*} %a, {{{{{{i32}*}*}*}*}*}* %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
-        std::list<IMemoryObjectDescPtr> argDescriptions = parser->KernelArgumentsParser(kernelName, M);
-        std::list<IMemoryObjectDescPtr>::iterator it=argDescriptions.begin();
+        Validation::OCLKernelArgumentsList argDescriptions = parser->KernelArgumentsParser(kernelName, M);
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
         BufferDesc buffDsc = GetBufferDescription(it->get());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
@@ -506,6 +507,58 @@ namespace {
         EXPECT_EQ(TINT,elemDesc.GetType());
 
         delete parser;
+        delete M;
+    }
+
+    static void CheckPointers(const TypeDesc Ty)
+    {
+        switch(Ty.GetType()){
+        case TPOINTER:
+            {
+                EXPECT_NE(Ty.GetNumberOfElements(), uint64_t(0));
+                CheckPointers(Ty.GetSubTypeDesc(0));
+                break;
+            }
+        case TVECTOR:
+        case TARRAY:
+            {
+                CheckPointers(Ty.GetSubTypeDesc(0));
+                break;
+            }
+        case TSTRUCT:
+            {
+                uint64_t n_elems = Ty.GetNumOfSubTypes();
+                for(uint64_t i =0;i<n_elems; ++i)
+                {
+                    CheckPointers(Ty.GetSubTypeDesc(i));
+                }
+                break;
+            }
+        default:
+            break;
+        }
+    }
+    // disabled due to bug CSSD100014610
+    TEST(OpenCLKernelArgumentsParser, DISABLED_TestOfHeuristics){
+        llvm::LLVMContext Context;
+        llvm::Module *M = 0;
+
+        std::string kernelName = "testOfdefaultConfig";
+        createModule(Context, M, kernelName, "{float*, i64*,{{{{i64*}*}*}, double*}*}* %a, i64* %b");
+        OpenCLKernelArgumentsParser parser;
+
+        const size_t numOfWorkItems = 100;
+        size_t dim[] = {numOfWorkItems};
+
+        OCLKernelArgumentsList argDescriptions = parser.KernelArgumentsParser(kernelName, M);
+        argDescriptions = OpenCLKernelArgumentsParser::KernelArgHeuristics(argDescriptions, dim, 1);
+
+        Validation::OCLKernelArgumentsList::iterator it=argDescriptions.begin();
+        BufferDesc buffDsc;
+        for(; it!= argDescriptions.end();++it){
+            buffDsc = GetBufferDescription(it->get());
+            CheckPointers(buffDsc.GetElementDescription());
+        }
         delete M;
     }
 

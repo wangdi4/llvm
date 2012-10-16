@@ -76,6 +76,9 @@ namespace Validation { namespace Exception {
     /// Exception for bad type in parser
     DEFINE_VALIDATION_EXCEPTION(ParserBadTypeException)
 
+    /// Exception for bad type in generator
+    DEFINE_VALIDATION_EXCEPTION(GeneratorBadTypeException)
+
 }} // namespace Validation { namespace Exception {
 
 #endif // __EXCEPTION_H__

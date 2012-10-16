@@ -20,12 +20,13 @@ File Name:  IOpenCLKernelArgumentsParser.h
 #ifndef __IOPENCL_KERNEL_ARGUMENTS_PARSER__
 #define __IOPENCL_KERNEL_ARGUMENTS_PARSER__
 #include<string>
-#include<list>
+#include<vector>
 #include"llvm/Module.h"
 #include"IMemoryObjectDesc.h"
 
 namespace Validation
 {
+    typedef std::vector<IMemoryObjectDescPtr> OCLKernelArgumentsList;
     /// @brief Interface to a Kernel Arguments Parser.
     class IOpenCLKernelArgumentsParser
     {
@@ -34,7 +35,7 @@ namespace Validation
         /// @param [IN] programObject LLVM program object
         /// @param [IN] kernelName Name of kernel
         /// @return list of kernel argument descriptions
-        virtual std::list<IMemoryObjectDescPtr> KernelArgumentsParser(const std::string& kernelName,const llvm::Module* programObject) = 0;
+        virtual OCLKernelArgumentsList KernelArgumentsParser(const std::string& kernelName,const llvm::Module* programObject) = 0;
     };
 
 

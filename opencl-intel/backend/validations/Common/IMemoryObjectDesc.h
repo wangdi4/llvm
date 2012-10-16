@@ -73,6 +73,17 @@ namespace Validation
         {   // return wrapped pointer
             return (m_p);
         }
+
+        bool operator <(const IMemoryObjectDescWrapper& foo1) const
+        {
+            return m_p < foo1.m_p;
+        }
+
+        bool operator >(const IMemoryObjectDescWrapper& foo1) const
+        {
+            return m_p > foo1.m_p;
+        }
+
     };
 
     
