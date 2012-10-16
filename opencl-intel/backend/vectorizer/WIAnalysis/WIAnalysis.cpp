@@ -64,6 +64,15 @@ select_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
+static const WIAnalysis::WIDependancy
+gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
+  /* ptr\index UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, PTR, RND, RND, RND},
+  /* SEQ */  {RND, RND, RND, RND, RND},
+  /* PTR */  {PTR, RND, RND, RND, RND},
+  /* STR */  {RND, RND, RND, RND, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
+};
 
 bool WIAnalysis::runOnFunction(Function &F) {
 
@@ -183,26 +192,47 @@ WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
   return m_deps[val];
 }
 
-WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
+bool WIAnalysis::hasDependency(const Value *val) {
+
+  if (!isa<Instruction>(val)) return true;
+  return m_deps.count(val);
+}
+
+void WIAnalysis::calculate_dep(const Value* val) {
   V_ASSERT(val && "Bad value");
 
-  if (! isa<Instruction>(val)) {
-    // Not an instruction, must be a constant or an argument
-    // Could this vector type be of a constant which
-    // is not uniform ?
-    return WIAnalysis::UNIFORM;
-  }
+  // Not an instruction, must be a constant or an argument
+  // Could this vector type be of a constant which
+  // is not uniform ?
+  assert(isa<Instruction>(val) && "Could we reach here with non instruction value?");
 
   const Instruction* inst = dyn_cast<Instruction>(val);
   V_ASSERT(inst && "This Value is not an Instruction");
 
-  // New instruction to consider
-  if (m_deps.find(inst) == m_deps.end()) {
-    m_deps[inst] = WIAnalysis::UNIFORM;
+  // We only calculate dependency on unset instructions if all their operands
+  // were already given dependency. This is good for compile time since these
+  // intructions will be visited again after the operands dependency is set.
+  // An exception are phi nodes since they can be the ancestor of themselvs in
+  // the def-use chain. Note that in this case we force the phi to have the 
+  // pre header value already calculated.
+  if (!hasDependency(inst)) {
+    unsigned int unsetOpNum = 0;
+    for(unsigned i=0; i<inst->getNumOperands(); ++i) {
+      if (!hasDependency(inst->getOperand(i))) unsetOpNum++;
+    }
+    if (isa<PHINode>(inst)) {
+      // We do not calculate PhiNode with all incoming values unset
+      if(unsetOpNum == inst->getNumOperands()) return;
+    }
+    else {
+      // We do not calculate non-PhiNode instruction that have unset operands
+      if(unsetOpNum > 0) return;
+    }
   }
 
   // Our initial value
-  WIDependancy orig = m_deps[inst];
+  bool hasOriginal = hasDependency(inst);
+  WIDependancy orig = getDependency(inst);
   WIDependancy dep = orig;
 
   // LLVM does not have compile time polymorphisms
@@ -227,7 +257,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
   else if (const VAArgInst *VAI = dyn_cast<VAArgInst>(inst))                  dep = calculate_dep(VAI);
 
   // If the value was changed in this calculation
-  if (dep!=orig) {
+  if (!hasOriginal || dep!=orig) {
     // Save the new value of this instruction
     m_deps[inst] = dep;
     // Register for update all of the dependent values of this updated
@@ -238,8 +268,6 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Value* val) {
       m_pChangedNew->insert(*it);
     }
   }
-
-  return dep;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep_simple(const Instruction *I) {
@@ -436,23 +464,23 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  if (WIAnalysis::UNIFORM == depPtr && WIAnalysis::UNIFORM == lastIndDep)  return WIAnalysis::UNIFORM;
-  if ((WIAnalysis::UNIFORM == depPtr && WIAnalysis::CONSECUTIVE == lastIndDep) ||
-      (WIAnalysis::PTR_CONSECUTIVE == depPtr && WIAnalysis::UNIFORM == lastIndDep)) return WIAnalysis::PTR_CONSECUTIVE;
-  return WIAnalysis::RANDOM;
+  return gep_conversion[depPtr][lastIndDep];
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
   unsigned num = inst->getNumIncomingValues();
   std::vector<WIDependancy> dep;
-  for (unsigned i=0; i < num; ++i)
-  {
+  for (unsigned i=0; i < num; ++i) {
+    // For phi we ignore unset incoming values, so cases 
+    // like loop with consecutive variable that is increased 
+    // by uniform will be considered consecutive.
     Value* op = inst->getIncomingValue(i);
-    dep.push_back(getDependency(op));
+    if (hasDependency(op)) dep.push_back(getDependency(op));
   }
-  WIDependancy totalDep = dep[0];
+  assert(dep.size() > 0 && "We should not reach here with All incoming values are unset");
 
-  for (unsigned i=1; i < num; ++i)
+  WIDependancy totalDep = dep[0];
+  for (unsigned i=1; i < dep.size(); ++i)
   {
     totalDep = select_conversion[totalDep][dep[i]];
   }

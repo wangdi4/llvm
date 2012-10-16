@@ -87,7 +87,7 @@ private:
     /// @brief Calculate the dependency type for the instruction
     /// @param inst Instruction to inspect
     /// @return Type of dependency.
-    WIDependancy calculate_dep(const Value* val);
+    void calculate_dep(const Value* val);
     WIDependancy calculate_dep(const BinaryOperator* inst);
     WIDependancy calculate_dep(const CallInst* inst);
     WIDependancy calculate_dep(const GetElementPtrInst* inst);
@@ -110,6 +110,10 @@ private:
     /// @return Dependency type. Returns Uniform for unknown type
     WIDependancy getDependency(const Value *val);
 
+    /// @brief return true if there is calculated dependency type for requested value
+    /// @param val Value to examine
+    /// @return true if value has dependency type, false otherwise.
+    bool hasDependency(const Value *val);
     
 
     /// @brief  LLVM Interface
