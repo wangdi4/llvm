@@ -323,7 +323,7 @@ namespace intel {
     if (pGep1 && pGep1->getPointerOperand() == pPhiNode && pGep1->getNumIndices() == 1 && pGep1->hasOneUse()) {
       return 0;
     }
-    if (pGep2 && pGep2->getPointerOperand() == pPhiNode && pGep2->getNumIndices() == 1 && pGep1->hasOneUse()) {
+    if (pGep2 && pGep2->getPointerOperand() == pPhiNode && pGep2->getNumIndices() == 1 && pGep2->hasOneUse()) {
       return 1;
     }
     // This is not a supported case for simplifying PhiNode.
