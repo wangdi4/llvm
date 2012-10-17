@@ -89,7 +89,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code CompileProgram(SharedPtr<Program>   program, 
+        cl_err_code CompileProgram(const SharedPtr<Program>&   program, 
                                    cl_uint              num_devices, 
                                    const cl_device_id*  device_list, 
                                    cl_uint              num_input_headers, 
@@ -114,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code LinkProgram(SharedPtr<Program> program, 
+        cl_err_code LinkProgram(const SharedPtr<Program>& program, 
                                 cl_uint             num_devices, 
                                 const cl_device_id* device_list, 
                                 cl_uint             num_input_programs, 
@@ -136,7 +136,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Sagi Shahar
 		* Date:			January 2012
 		******************************************************************************************/
-        cl_err_code BuildProgram(SharedPtr<Program> program, 
+        cl_err_code BuildProgram(const SharedPtr<Program>& program, 
                                  cl_uint                num_devices, 
                                  const cl_device_id*    device_list, 
                                  const char*            options, 
@@ -153,7 +153,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         PREPARE_SHARED_PTR(BuildTask);
-        BuildTask(_cl_context_int* context);
+        BuildTask(_cl_context_int* context,
+					const SharedPtr<Program>&      			pProg,
+					const ConstSharedPtr<FrontEndCompiler>& pFECompiler);
 
 	    virtual bool	Execute() = 0;
 
@@ -162,12 +164,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void    DoneWithDependencies(SharedPtr<OclEvent> pEvent); 
 
         unsigned int    Launch();
+		
+		virtual	void	SetComplete(cl_int returnCode); 
 
     protected:
 
         BuildTask(cl_context context);
 
         ~BuildTask();
+
+        SharedPtr<Program>					m_pProg;
+        ConstSharedPtr<FrontEndCompiler>	m_pFECompiler;
 
     private:
 
@@ -177,9 +184,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
             BuildTaskSharedPtr(BuildTask* ptr) : SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(ptr), SharedPtr<BuildTask>(ptr) { }
         };
+		
     };
-
-
 
     class CompileTask : public BuildTask
     {
@@ -190,13 +196,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static SharedPtr<CompileTask> Allocate(
             _cl_context_int*        context,
             cl_device_id            deviceID,
-            ConstSharedPtr<FrontEndCompiler> pFECompiler,
+            const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
             const char*             szSource,
             unsigned int            uiNumHeaders,
             const char**            pszHeaders,
             char**					pszHeadersNames,
             const char*             szOptions,
-            SharedPtr<Program>      pProg)
+			const SharedPtr<Program>&      pProg)
         {
             return SharedPtr<CompileTask>(new CompileTask(context, deviceID,
                 pFECompiler, szSource, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions, pProg));
@@ -211,26 +217,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         CompileTask(_cl_context_int*        context,
                     cl_device_id            deviceID,
-                    ConstSharedPtr<FrontEndCompiler> pFECompiler,
+					const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
                     const char*             szSource,
                     unsigned int            uiNumHeaders,
                     const char**            pszHeaders,
                     char**					pszHeadersNames,
                     const char*             szOptions,
-                    SharedPtr<Program>      pProg);
+                    const SharedPtr<Program>&      pProg);
 
         ~CompileTask();
 
         cl_device_id            m_deviceID;
-        ConstSharedPtr<FrontEndCompiler> m_pFECompiler;
 
         const char*             m_szSource;
         unsigned int            m_uiNumHeaders;
         const char**            m_pszHeaders;
         const char**            m_pszHeadersNames;
         const char*             m_szOptions;
-
-        SharedPtr<Program> m_pProg;
     };
 
 
@@ -243,12 +246,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static SharedPtr<LinkTask> Allocate(
             _cl_context_int*         context,
             cl_device_id            deviceID,
-            ConstSharedPtr<FrontEndCompiler> pFECompiler,
+            const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
             IOCLDeviceAgent*		 pDeviceAgent,
             SharedPtr<Program>*      ppBinaries,
             unsigned int             uiNumBinaries,
             const char*              szOptions,
-            SharedPtr<Program>       pProg)
+            const SharedPtr<Program>& pProg)
         {
             return SharedPtr<LinkTask>(new LinkTask(context, deviceID, pFECompiler, pDeviceAgent, ppBinaries, uiNumBinaries, szOptions, pProg));
         }
@@ -262,24 +265,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         LinkTask(_cl_context_int*         context,
                  cl_device_id            deviceID,
-                 ConstSharedPtr<FrontEndCompiler> pFECompiler,
+                 const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
                  IOCLDeviceAgent*		 pDeviceAgent,
                  SharedPtr<Program>*               ppBinaries,
                  unsigned int            uiNumBinaries,
                  const char*             szOptions,
-                 SharedPtr<Program>                pProg);
+                 const SharedPtr<Program>&  pProg);
 
         ~LinkTask();
 
         cl_device_id            m_deviceID;
-        ConstSharedPtr<FrontEndCompiler>       m_pFECompiler;
         IOCLDeviceAgent*        m_pDeviceAgent;
 
-        SharedPtr<Program>* m_ppPrograms;
+        SharedPtr<Program>* 	m_ppPrograms;
         unsigned int            m_uiNumPrograms;
         const char*             m_szOptions;
-
-        SharedPtr<Program> m_pProg;
     };
 
 
@@ -298,7 +298,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             char**        	  pszHeadersNames,
             unsigned int        uiNumBinaries,
             SharedPtr<Program>*           ppBinaries,
-            SharedPtr<Program>            pProg,
+            const SharedPtr<Program>&     pProg,
             const char*         szOptions,
             pfnNotifyBuildDone  pfn_notify,
             void*               user_data)
@@ -318,11 +318,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
                       cl_uint             num_devices,
                       const cl_device_id* deviceID,
                       unsigned int        uiNumHeaders,
-                      SharedPtr<Program>*           ppHeaders,
+                      SharedPtr<Program>* ppHeaders,
                       char**        	  pszHeadersNames,
                       unsigned int        uiNumBinaries,
-                      SharedPtr<Program>*           ppBinaries,
-                      SharedPtr<Program>            pProg,
+                      SharedPtr<Program>* ppBinaries,
+                      const SharedPtr<Program>& pProg,
                       const char*         szOptions,
                       pfnNotifyBuildDone  pfn_notify,
                       void*               user_data);
@@ -339,9 +339,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         unsigned int        m_uiNumBinaries;
         SharedPtr<Program>* m_ppBinaries;
 
-        SharedPtr<Program> m_pProg;
-
-        const char*         m_szOptions;
+		const char*         m_szOptions;
 
         pfnNotifyBuildDone  m_pfn_notify; 
         void*               m_user_data;

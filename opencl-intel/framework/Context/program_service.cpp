@@ -49,7 +49,9 @@ using namespace Intel::OpenCL::TaskExecutor;
 // Since we need the PostBuildTask to be executed even when a build fail in order to clean up all the used resources.
 // All the tasks return CL_BUILD_SUCCESS even on error and use program state to notify error.
 
-BuildTask::BuildTask(_cl_context_int* context) : BuildEvent(context)
+BuildTask::BuildTask(_cl_context_int* context,
+						const SharedPtr<Program>& pProg,
+						const ConstSharedPtr<FrontEndCompiler>& pFECompiler) : BuildEvent(context), m_pProg(pProg), m_pFECompiler(pFECompiler)
 {
 }
 
@@ -73,18 +75,32 @@ unsigned int BuildTask::Launch()
     return TaskExecutor::GetTaskExecutor()->Execute(new BuildTaskSharedPtr(this));
 }
 
+void BuildTask::SetComplete(cl_int returnCode)
+{
+	// We must assing NULL to shared pointers in order to remove reference count and avoid
+	// a raise condition during program release
+	m_pProg = NULL;
+	m_pFECompiler = NULL;
+	BuildEvent::SetComplete(returnCode);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
+
 CompileTask::CompileTask(_cl_context_int*        context,
                          cl_device_id            deviceID,
-                         ConstSharedPtr<FrontEndCompiler> pFECompiler,
+                         const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
                          const char*             szSource,
                          unsigned int            uiNumHeaders,
                          const char**            pszHeaders,
                          char**                  pszHeadersNames,
                          const char*             szOptions,
-                         SharedPtr<Program>      pProg) : 
-BuildTask(context), 
-m_deviceID(deviceID), m_pFECompiler(pFECompiler), m_szSource(szSource), m_uiNumHeaders(uiNumHeaders),
-m_pszHeaders(pszHeaders), m_pszHeadersNames((const char**)pszHeadersNames), m_szOptions(szOptions), m_pProg(pProg)
+                         const SharedPtr<Program>&  pProg) : 
+BuildTask(context, pProg, pFECompiler), 
+m_deviceID(deviceID), m_szSource(szSource), m_uiNumHeaders(uiNumHeaders),
+m_pszHeaders(pszHeaders), m_pszHeadersNames((const char**)pszHeadersNames), m_szOptions(szOptions)
 {
 }
 
@@ -134,20 +150,20 @@ bool CompileTask::Execute()
     delete[] pBinary;
     SetComplete(CL_BUILD_SUCCESS);
 
-	  return true;
+	return true;
 }
 
 LinkTask::LinkTask(_cl_context_int*               context, 
                    cl_device_id             deviceID, 
-                   ConstSharedPtr<FrontEndCompiler>  pFECompiler, 
+                   const ConstSharedPtr<FrontEndCompiler>&  pFECompiler, 
                    IOCLDeviceAgent*   pDeviceAgent, 
                    SharedPtr<Program>*                ppPrograms, 
                    unsigned int             uiNumPrograms, 
                    const char*              szOptions, 
-                   SharedPtr<Program>                 pProg) :
-BuildTask(context), 
-m_deviceID(deviceID), m_pFECompiler(pFECompiler), m_pDeviceAgent(pDeviceAgent), m_ppPrograms(ppPrograms), 
-m_uiNumPrograms(uiNumPrograms), m_szOptions(szOptions), m_pProg(pProg)
+                   const SharedPtr<Program>&                 pProg) :
+BuildTask(context, pProg, pFECompiler), 
+m_deviceID(deviceID), m_pDeviceAgent(pDeviceAgent), m_ppPrograms(ppPrograms), 
+m_uiNumPrograms(uiNumPrograms), m_szOptions(szOptions)
 {
 }
 
@@ -181,20 +197,20 @@ bool LinkTask::Execute()
         ppBinaries = new const void*[1];
 		    if (NULL == ppBinaries)
 		    {
-			      m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
-            m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
-            SetComplete(CL_BUILD_SUCCESS);
-            return true;
+			    m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+				m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
+				SetComplete(CL_BUILD_SUCCESS);
+				return true;
 		    }
 
         puiBinariesSizes = new size_t[1];
         if (NULL == puiBinariesSizes)
         {
-			      delete[] ppBinaries;
-            m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
-            m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
-            SetComplete(CL_BUILD_SUCCESS);
-            return true;
+			    delete[] ppBinaries;
+				m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+				m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
+				SetComplete(CL_BUILD_SUCCESS);
+				return true;
         }
 
         ppBinaries[0] = m_pProg->GetBinaryInternal(m_deviceID);
@@ -202,19 +218,19 @@ bool LinkTask::Execute()
     }
     else
     {
-		    ppBinaries = new const void*[m_uiNumPrograms];
-		    if (NULL == ppBinaries)
-		    {
-			      m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
-            m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
-            SetComplete(CL_BUILD_SUCCESS);
-            return true;
-		    }
+		ppBinaries = new const void*[m_uiNumPrograms];
+		if (NULL == ppBinaries)
+		{
+			m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
+			m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
+			SetComplete(CL_BUILD_SUCCESS);
+			return true;
+		}
 
         puiBinariesSizes = new size_t[m_uiNumPrograms];
         if (NULL == puiBinariesSizes)
         {
-			      delete[] ppBinaries;
+			delete[] ppBinaries;
             m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
             m_pProg->SetBuildLogInternal(m_deviceID, "Out of memory encountered\n");
             SetComplete(CL_BUILD_SUCCESS);
@@ -331,49 +347,20 @@ PostBuildTask::PostBuildTask(_cl_context_int* context,
                              SharedPtr<Program>*ppHeaders, 
                              char** pszHeadersNames,
                              unsigned int uiNumBinaries, 
-                             SharedPtr<Program>*ppBinaries, 
-                             SharedPtr<Program>pProg,
+                             SharedPtr<Program>* ppBinaries, 
+                             const SharedPtr<Program>& pProg,
                              const char* szOptions,
                              pfnNotifyBuildDone pfn_notify, 
                              void *user_data) :
-BuildTask(context),
+BuildTask(context, pProg, ConstSharedPtr<FrontEndCompiler>()),
 m_num_devices(num_devices), m_deviceID(deviceID), m_uiNumHeaders(uiNumHeaders), m_ppHeaders(ppHeaders),
 m_pszHeadersNames(pszHeadersNames), m_uiNumBinaries(uiNumBinaries), m_ppBinaries(ppBinaries), 
-m_pProg(pProg), m_szOptions(szOptions), m_pfn_notify(pfn_notify), m_user_data(user_data)
+m_szOptions(szOptions), m_pfn_notify(pfn_notify), m_user_data(user_data)
 {
 }
 
 PostBuildTask::~PostBuildTask()
 {
-    if (m_deviceID)
-    {
-        delete[] m_deviceID;
-        m_deviceID = NULL;
-    }
-
-    if (m_ppHeaders)
-    {
-        delete[] m_ppHeaders;
-        m_ppHeaders = NULL;
-    }
-
-    if (m_pszHeadersNames)
-    {
-        delete[] m_pszHeadersNames;
-        m_pszHeadersNames = NULL;
-    }
-
-    if (m_ppBinaries)
-    {
-        delete[] m_ppBinaries;
-        m_ppBinaries = NULL;
-    }
-
-    if (m_szOptions)
-    {
-        delete[] m_szOptions;
-        m_szOptions = NULL;
-    }
 }
 
 bool PostBuildTask::Execute()
@@ -433,6 +420,36 @@ bool PostBuildTask::Execute()
         m_pfn_notify(program, m_user_data);
     }
 
+    if (m_deviceID)
+    {
+        delete[] m_deviceID;
+        m_deviceID = NULL;
+    }
+
+    if (m_ppHeaders)
+    {
+        delete[] m_ppHeaders;
+        m_ppHeaders = NULL;
+    }
+
+    if (m_pszHeadersNames)
+    {
+        delete[] m_pszHeadersNames;
+        m_pszHeadersNames = NULL;
+    }
+
+    if (m_ppBinaries)
+    {
+        delete[] m_ppBinaries;
+        m_ppBinaries = NULL;
+    }
+
+    if (m_szOptions)
+    {
+        delete[] m_szOptions;
+        m_szOptions = NULL;
+    }
+	
     if (bBuildFailed)
     {
         SetComplete(CL_BUILD_PROGRAM_FAILURE);
@@ -449,7 +466,7 @@ ProgramService::~ProgramService()
 {
 }
 
-cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program, 
+cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program, 
                                            cl_uint num_devices, 
                                            const cl_device_id *device_list, 
                                            cl_uint num_input_headers, 
@@ -852,7 +869,7 @@ cl_err_code ProgramService::CompileProgram(SharedPtr<Program>program,
     return CL_SUCCESS;
 }
 
-cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program, 
+cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program, 
                                         cl_uint num_devices, 
                                         const cl_device_id *device_list, 
                                         cl_uint num_input_programs, 
@@ -1129,7 +1146,7 @@ cl_err_code ProgramService::LinkProgram(SharedPtr<Program>program,
     return CL_SUCCESS;
 }
 
-cl_err_code ProgramService::BuildProgram(SharedPtr<Program>program, cl_uint num_devices, const cl_device_id *device_list, const char *options, pfnNotifyBuildDone pfn_notify, void *user_data)
+cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_uint num_devices, const cl_device_id *device_list, const char *options, pfnNotifyBuildDone pfn_notify, void *user_data)
 {
     if (program->GetNumKernels() > 0)
     {

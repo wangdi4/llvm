@@ -44,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// OCLObject implementation
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const { return CL_INVALID_VALUE; }
 
-		void        SetComplete(cl_int returnCode);
+		virtual void        SetComplete(cl_int returnCode);
 
 	protected:
 
