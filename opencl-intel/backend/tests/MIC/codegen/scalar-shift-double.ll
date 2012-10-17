@@ -1,4 +1,4 @@
-; XFAIL: *
+; XFAIL: win32
 ; RUN: llc < %s -march=y86-64 -mcpu=knc | FileCheck %s
 
 define i32 @bar(i32 %x, i32 %y, i32 %z) nounwind readnone {
