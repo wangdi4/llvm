@@ -775,7 +775,7 @@ void OpenCLReferenceRunner::ParseToModule( const IProgram* program )
                                            LLVM module");
     }
 
-  DEBUG(dbgs() << "Module LLVM code: " << *m_pModule << "\n");
+    DEBUG(dbgs() << "Module LLVM code: " << *m_pModule << "\n");
 }
 
 // find OpenCL __local variables in module

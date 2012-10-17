@@ -64,10 +64,13 @@ else ()
   set (ICC_PLATFORM intel64)
 endif ()
 
+if (WIN32)
 get_target_property( lib_dir NEAT_wrapper lib_dir )
+link_directories( ${lib_dir} )
+endif (WIN32)
 set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
 set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
-link_directories( ${lib_dir} ${intel_lib_dir} )
+link_directories( ${intel_lib_dir} )
 
 include_directories(
     ${VALIDATIONS_ROOT}/SATest
