@@ -220,6 +220,9 @@ cl_int CL_API_CALL clGetPlatformInfo(
             case OPENCL_1_2:
                 crtVersion.assign(INTEL_OPENCL_1_2_PVER_STR, strlen( INTEL_OPENCL_1_2_PVER_STR ) );
                 break;
+            case OPENCL_2_0:
+                crtVersion.assign(INTEL_OPENCL_2_0_PVER_STR, strlen( INTEL_OPENCL_2_0_PVER_STR ) );
+                break;
             }
             RetSize = strnlen_s( crtVersion.c_str(), MAX_STRLEN );
             RetSize++;
@@ -2942,6 +2945,10 @@ cl_int getAssocDevices(
                 ( *outDevList )[ j++ ] = inDevList[ i ];
             }
         }
+        if( j == 0 )
+        {
+            errCode = CL_INVALID_PROGRAM;
+        }
     }
     else
     {
@@ -2967,11 +2974,16 @@ cl_int getAssocDevices(
                 ( *outDevList )[ i++ ] = itr->first;
             }
         }
+        if( i == 0 )
+        {
+            errCode = CL_INVALID_PROGRAM;
+        }
     }
 FINISH:
     if( ( CL_SUCCESS != errCode ) && *outDevList )
     {
         delete[] *outDevList;
+        *outDevList = NULL;
     }
     return errCode;
 }
@@ -3052,6 +3064,7 @@ cl_int CL_API_CALL clBuildProgram(
     errCode = getAssocDevices( device_list, &deviceList, in_programs, crtProg->m_contextCRT,
         CL_PROGRAM_BINARY_TYPE_NONE,
         &num_devices);
+    
     if( CL_SUCCESS != errCode )
     {
         goto FINISH;
@@ -3142,9 +3155,10 @@ FINISH:
             crtData = NULL;
         }
     }
-    if( ( NULL == device_list ) && deviceList )
+    if( deviceList )
     {
         delete[] deviceList;
+        deviceList = NULL;
     }
     return errCode;
 }
@@ -3240,9 +3254,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     // Iterate over the contexts
     itr = crtCtx->m_contexts.begin();
     for(;itr != crtCtx->m_contexts.end(); itr++)
-    {
-        CrtContextInfo* ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue(itr->first);
-
+    {        
         cl_device_id* outDevices = new cl_device_id[num_devices];
         if (NULL == outDevices)
         {
@@ -3250,11 +3262,14 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
             goto FINISH;
         }
 
+        cl_platform_id pId;
+        itr->first->dispatch->clGetPlatformIDs(1, &pId, NULL );
+
         cl_uint matchDevices = 0;
         crtCtx->GetDevicesByPlatformId(
             num_devices,
             deviceList,
-            ctxInfo->m_crtPlatform->m_platformIdDEV,
+            pId,
             &matchDevices,
             outDevices);
 
@@ -3264,17 +3279,26 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
             continue;
         }
 
+        cl_program* devPrograms = new cl_program[ num_input_programs ];
+
+        int p = 0;
+        for( std::vector<CrtProgram*>::iterator pItr = in_programs.begin(); pItr != in_programs.end(); pItr++ )
+        {
+            devPrograms[ p++ ] = (*pItr)->m_ContextToProgram[ itr->first ];
+        }        
+
         cl_program devPro = itr->second.clLinkProgram(
             itr->first,
             matchDevices,
             outDevices,
             options,
             num_input_programs,
-            input_programs,
+            devPrograms,
             buildCompleteFn,
             crtData,
             &errCode);
-
+        
+        delete[] devPrograms;        
         delete[] outDevices;
 
         if( devPro )
@@ -3339,9 +3363,16 @@ FINISH:
             program = NULL;
         }
     }
-    if( ( NULL == device_list ) && deviceList )
+
+    if( deviceList )
     {
         delete[] deviceList;
+        deviceList = NULL;
+    }
+    
+    if( errcode_ret )
+    {
+        *errcode_ret = errCode;
     }
     return program;
 }
@@ -3496,9 +3527,11 @@ FINISH:
             crtData = NULL;
         }
     }
-    if( ( NULL == device_list ) && deviceList )
+
+    if( deviceList )
     {
         delete[] deviceList;
+        deviceList = NULL;
     }
     return errCode;
 }

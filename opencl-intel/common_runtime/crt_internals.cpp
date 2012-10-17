@@ -2654,6 +2654,10 @@ cl_uint GetPlatformVersion( const char* platform_version )
     {
         version = OPENCL_1_2;
     }
+    else if( !sub.compare( "2.0" ) )
+    {
+        version = OPENCL_2_0;
+    }
     return version;
 }
 
