@@ -92,6 +92,7 @@ public:
     bool   GetDAZ() const                  {return m_DAZ; }
     const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
+    size_t GetImplicitLocalMemoryBufferSize() const {return m_totalImplSize;}
 
     ICLDevBackendBufferPrinter* GetDevicePrinter() const { return m_pPrinter;}
     
@@ -120,6 +121,7 @@ private:
     std::vector<ExplicitLocalMemArgument> m_kernelLocalMem;
     char                    m_pLocalParamsBase[CPU_MAX_PARAMETER_SIZE*4 + TypeAlignment::MAX_ALIGNMENT];
     unsigned int            m_uiWGSize;
+    size_t                  m_totalImplSize;
     bool                    m_DAZ;
     Intel::CPUId            m_cpuId;
     bool                    m_bJitCreateWIids;

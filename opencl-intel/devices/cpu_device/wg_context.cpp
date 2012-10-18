@@ -99,7 +99,7 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 
 	InvalidateContext();
 
-	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
+	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
 
 	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;

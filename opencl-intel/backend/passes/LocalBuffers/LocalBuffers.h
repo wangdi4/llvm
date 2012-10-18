@@ -44,8 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Constructor with debug parameter
     /// @param isNatveiDBG true if native debug set
-    LocalBuffers(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) :
-      ModulePass(ID), m_pMapKernelInfo(&kernelsLocalBufferMap), m_isNativeDBG(isNativeDBG) {}
+    LocalBuffers(bool isNativeDBG) : ModulePass(ID), m_isNativeDBG(isNativeDBG) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -94,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     LocalBuffAnalysis       *m_localBuffersAnalysis;
 
     /// @brief map between kernel and its kernel info
-    std::map<const Function*, TLLVMKernelInfo>  *m_pMapKernelInfo;
+    std::map<const Function*, TLLVMKernelInfo>  m_mapKernelInfo;
 
     /// @brief vector of llvm instructions
     typedef std::vector<llvm::Instruction*> TInstVector;

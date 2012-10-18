@@ -48,26 +48,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             return m_instance;
         }
 
-        /// @brief Get a dummy function set to be used instead of the actual
+        /// @brief Get a dummy function set to be used instead of the actuall
         ///        vectorized function set
         SmallVectorImpl<Function*> &getDummyFuncSet()
         {
             m_vectFunctions.clear();
             return m_vectFunctions;
         }
-
-        /// @brief Get a dummy map from function to TLLVMKernelInfo to be used instead of the actual map
-        std::map<const llvm::Function*, TLLVMKernelInfo> &getDummyLocalBufferMap()
-        {
-            m_kernelsLocalBufferMap.clear();
-            return m_kernelsLocalBufferMap;
-        }
     private:
         PassesWrappersSupporter() {}
 
         static PassesWrappersSupporter * m_instance;
         llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
-        std::map<const llvm::Function*, TLLVMKernelInfo> m_kernelsLocalBufferMap;
     };
     PassesWrappersSupporter * PassesWrappersSupporter::m_instance = NULL;
 
@@ -94,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     {
     public:
         LocalBuffersWrapper() :
-          LocalBuffers(PassesWrappersSupporter::getInstance()->getDummyLocalBufferMap(), false)
+          LocalBuffers(false)
           {}
         static char ID;
     };
@@ -103,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     {
     public:
         LocalBuffersWithDebugWrapper() :
-          LocalBuffers(PassesWrappersSupporter::getInstance()->getDummyLocalBufferMap(), true)
+          LocalBuffers(true)
           {}
         static char ID;
     };

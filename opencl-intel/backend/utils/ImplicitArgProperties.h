@@ -33,9 +33,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       
     /// @brief Implicit argument's alignment
     size_t m_alignment; 
-
-    /// @brief Indicates if implicit argument is initialized by the wrapper
-    bool m_bInitializedByWrapper; 
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
