@@ -45,7 +45,7 @@ void ExecutionCommand::init_profiling_mode()
 
     cl_ulong time_sum = 0;
 
-    COINotificationCallbackSetContext(this);
+    registerProfilingContext();
 
     for (unsigned int i = 0; i < MIC_DEVICE_EXECUTION_OVERHEAD_LOOP_COUNT; ++i)
     {
@@ -66,7 +66,7 @@ void ExecutionCommand::init_profiling_mode()
         time_sum += (m_cmdCompletionTime - m_cmdRunningTime);
     }
 
-    COINotificationCallbackSetContext(NULL);
+    unregisterProfilingContext();
 
     m_cmdRunningTime = 0;
     m_cmdCompletionTime = 0;
@@ -122,7 +122,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
             init_profiling_mode();
         }
 
-		COINotificationCallbackSetContext(this);
+		registerProfilingContext(true);
 
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
@@ -138,7 +138,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
 												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this));
-		COINotificationCallbackSetContext(NULL);
+		unregisterProfilingContext();
 		if (result != COI_SUCCESS)
 		{
             assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
@@ -207,7 +207,7 @@ cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallback
 	return verifyCreation(new NDRange(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
 
-void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo)
+void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, const char* pKernelParams, vector<kernel_arg_buffer_info>& oBuffsInfo)
 {
 	size_t stOffset = 0;
 	// Lock required memory objects
@@ -221,7 +221,10 @@ void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kern
 			)
 
 		{
-			oBuffsInfo.push_back( kernel_arg_buffer_info(stOffset, i) );
+			if (NULL != *((IOCLDevMemoryObject**)(pKernelParams+stOffset)))
+			{
+				oBuffsInfo.push_back( kernel_arg_buffer_info(stOffset, i) );
+			}
 			// TODO support of 32 / 64 bit on host (device always 64 bit) --> stOffset += sizeof(uint64_t);
 			stOffset += sizeof(IOCLDevMemoryObject*);
 		}
@@ -311,7 +314,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		buffsInfoVector.reserve(uiNumArgs);
 
 		// Get the amount of buffers in kernel args and info of their offset in blob and their index in pArgs
-		getKernelArgBuffersCount(uiNumArgs, pArgs, buffsInfoVector);
+		getKernelArgBuffersCount(uiNumArgs, pArgs, pKernelParams, buffsInfoVector);
 		// The amount of buffers in kernel args
 		unsigned int numOfBuffersInKernelArgs = buffsInfoVector.size();
 
@@ -328,7 +331,8 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		// If the CommandList is OOO
 		if (false == dispatcherData.isInOrderQueue)
 		{
-			// We should add additional directive for post execution (BARRIER directive)
+			// We should add additional directive for pre and post execution (BARRIER directive)
+			numPreDirectives ++;
 			numPostDirectives ++;
 		}
 
@@ -447,9 +451,17 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
 		{
-			postExeDirectives[currPostDirectiveIndex].id = BARRIER;
-			postExeDirectives[currPostDirectiveIndex].barrierDirective.end_barrier = m_completionBarrier.cmdEvent;
+			// Register start barrier for this command.
+			registerProfilingContext();
+			COIEventRegisterUserEvent(&(m_startBarrier.cmdEvent));
+			unregisterProfilingContext();
 
+			preExeDirectives[currPreDirectiveIndex].id = BARRIER;
+			preExeDirectives[currPreDirectiveIndex].barrierDirective.barrier = m_startBarrier.cmdEvent;
+			currPreDirectiveIndex ++;
+
+			postExeDirectives[currPostDirectiveIndex].id = BARRIER;
+			postExeDirectives[currPostDirectiveIndex].barrierDirective.barrier = m_completionBarrier.cmdEvent;
 			currPostDirectiveIndex ++;
 		}
 
@@ -550,7 +562,7 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 {
 	cl_dev_err_code returnError = CL_DEV_SUCCESS;
 	// directive_pack for preExeDirective
-	directive_pack preExeDirective;
+	directive_pack preExeDirective[2];
 	// directive_pack for preExeDirective
 	directive_pack postExeDirective;
 
@@ -608,9 +620,9 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 		// Add the destination buffer and set its directive as pre exe directive
 		outCoiBuffsArr.push_back(pMicMemObj->clDevMemObjGetCoiBufferHandler());
 		outAccessFlagArr.push_back(dstBuffAccessFlag);
-		memset(&preExeDirective, 0, sizeof(directive_pack));
-		preExeDirective.id = BUFFER;
-		preExeDirective.bufferDirective.bufferIndex = 0;
+		memset(&preExeDirective, 0, sizeof(preExeDirective));
+		preExeDirective[0].id = BUFFER;
+		preExeDirective[0].bufferDirective.bufferIndex = 0;
 		fillMemObjDispatcherData.preExeDirectivesCount = 1;
 
 		fillMemObjDispatcherData.postExeDirectivesCount = 0;
@@ -619,9 +631,18 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == fillMemObjDispatcherData.isInOrderQueue)
 		{
+			// Register start barrier for this command.
+			registerProfilingContext();
+			COIEventRegisterUserEvent(&(m_startBarrier.cmdEvent));
+			unregisterProfilingContext();
+
+			preExeDirective[1].id = BARRIER;
+			preExeDirective[0].barrierDirective.barrier = m_startBarrier.cmdEvent;
+			fillMemObjDispatcherData.preExeDirectivesCount ++;
+
 			// Set the post exe directive
 			postExeDirective.id = BARRIER;
-			postExeDirective.barrierDirective.end_barrier = m_completionBarrier.cmdEvent;
+			postExeDirective.barrierDirective.barrier = m_completionBarrier.cmdEvent;
 			fillMemObjDispatcherData.postExeDirectivesCount = 1;
 		}
 
@@ -639,7 +660,7 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 		// register misc_data
 		m_miscDatahandler.registerMiscData(outCoiBuffsArr, outAccessFlagArr);
 
-		returnError = m_dispatcherDatahandler.init(fillMemObjDispatcherData, &preExeDirective, &postExeDirective, NULL, &tProcess);
+		returnError = m_dispatcherDatahandler.init(fillMemObjDispatcherData, preExeDirective, &postExeDirective, NULL, &tProcess);
 		if (CL_DEV_FAILED(returnError))
 		{
 			break;

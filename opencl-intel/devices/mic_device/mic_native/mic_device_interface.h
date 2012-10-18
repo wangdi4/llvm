@@ -100,7 +100,7 @@ struct buffer_directive
 
 struct barrier_directive
 {
-	COIEVENT end_barrier;
+	COIEVENT barrier;
 };
 
 struct printf_directive

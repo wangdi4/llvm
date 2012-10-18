@@ -35,7 +35,6 @@ class CommandSynchHandler;
 
 class Command : public NotificationPort::CallBack
 {
-
 public:
 
 	struct command_event_struct
@@ -52,6 +51,12 @@ public:
 	virtual void fireCallBack(void* arg);
 
 	virtual void eventProfilingCall(COI_NOTIFICATIONS& type);
+
+	/* Register this command to COIContext if needed */
+	void registerProfilingContext(bool mayReplaceByUserEvent = false);
+	
+	/* Unregister COIContext */
+	static void unregisterProfilingContext() { COINotificationCallbackSetContext(NULL); };
 
 protected:
 
@@ -80,6 +85,8 @@ protected:
 	   In case of error which indicate by 'm_lastError' or 'otherErr' will notify the framework for completion and delete this object. */
 	cl_dev_err_code executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr = false);
 
+	// Contains COIEVENT that will signal when the Command will start.
+    command_event_struct m_startBarrier;
 	// Contains COIEVENT that will signal when the Command will finish.
     command_event_struct m_completionBarrier;
 
@@ -204,9 +211,9 @@ public:
 		// If not register yet
 		if (false == completionBarrier.isRegister)
 		{
-			COINotificationCallbackSetContext(pCommand);
+			pCommand->registerProfilingContext();
 			COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
-			COINotificationCallbackSetContext(NULL);
+			pCommand->unregisterProfilingContext();
 			completionBarrier.isRegister = true;
 		}
 		return NULL;

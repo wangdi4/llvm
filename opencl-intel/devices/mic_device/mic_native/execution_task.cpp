@@ -415,7 +415,7 @@ TaskHandler* TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevice* queue,
 				if (BARRIER == postExeDirectivesArr[i].id)
 				{
 					// Signal user completion barrier
-					COIRESULT coiErr = COIEventSignalUserEvent(postExeDirectivesArr[i].barrierDirective.end_barrier);
+					COIRESULT coiErr = COIEventSignalUserEvent(postExeDirectivesArr[i].barrierDirective.barrier);
 					assert(COI_SUCCESS == coiErr);
 					break;
 				}
@@ -556,12 +556,41 @@ void NonBlockingTaskHandler::FinishTask(COIEVENT& completionBarrier, bool isLega
 		delete [] m_lockBufferLengths;
 	}
 
-	// Signal user completion barrier
-	coiErr = COIEventSignalUserEvent(completionBarrier);
-	assert(COI_SUCCESS == coiErr);
+	// Copying the completion barrier to local barrier because have to delete "this" first in order to ensure printf flush before signaling.
+	COIEVENT localCompletionBarrier = completionBarrier;
 
 	// Delete this object as the last operation on it.
 	delete this;
+
+	// Signal user completion barrier
+	coiErr = COIEventSignalUserEvent(localCompletionBarrier);
+	assert(COI_SUCCESS == coiErr);
+}
+
+
+void NonBlockingTaskHandler::StartTaskSignaling()
+{
+	bool findBarrier = false;
+	// find start barrier in pre exexution directives.
+	unsigned int numOfPreExeDirectives = m_dispatcherData->preExeDirectivesCount;
+	if (numOfPreExeDirectives > 0)
+	{
+		// get teh pointer to postExeDirectivesArr
+		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)m_dispatcherData + m_dispatcherData->preExeDirectivesArrOffset);
+		// traverse over the postExeDirectivesArr
+		for (unsigned int i = 0; i < numOfPreExeDirectives; i++)
+		{
+			if (BARRIER == preExeDirectivesArr[i].id)
+			{
+				// Signal user start barrier
+				COIRESULT coiErr = COIEventSignalUserEvent(preExeDirectivesArr[i].barrierDirective.barrier);
+				assert(COI_SUCCESS == coiErr);
+				findBarrier = true;
+				break;
+			}
+		}
+	}
+	assert(findBarrier);
 }
 
 
@@ -664,8 +693,8 @@ cl_dev_err_code NDRangeTask::init(TaskHandler* pTaskHandler)
 					break;
 				}
 			case PRINTF:
+			case BARRIER:
 				{
-					//TODO
 					break;
 				}
 			default:
@@ -760,7 +789,7 @@ void NDRangeTask::finish(TaskHandler* pTaskHandler)
 				{
 					findBarrier = true;
 					// set the signal user barrier (Will signal on destruction)
-					completionBarrier = postExeDirectivesArr[i].barrierDirective.end_barrier;
+					completionBarrier = postExeDirectivesArr[i].barrierDirective.barrier;
 					break;
 				}
 			case PRINTF:

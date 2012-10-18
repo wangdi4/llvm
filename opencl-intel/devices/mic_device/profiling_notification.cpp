@@ -17,7 +17,7 @@ bool ProfilingNotification::registerProfilingNotification(COIPROCESS coiProcess)
 	{
 		return false;
 	}
-	COINotificationCallbackSetContext(NULL);
+	Command::unregisterProfilingContext();
 	return true;
 }
 	

@@ -73,7 +73,7 @@ void FillMemObjTask::finish(TaskHandler* pTaskHandler)
 		assert(postExeDirective.id == BARRIER);
 		findBarrier = true;
 		// set the signal user barrier (Will signal on destruction)
-		completionBarrier = postExeDirective.barrierDirective.end_barrier;
+		completionBarrier = postExeDirective.barrierDirective.barrier;
 	}
 	// Last command, Do NOT call any method of this object after it perform.
 	pTaskHandler->FinishTask(completionBarrier, findBarrier);

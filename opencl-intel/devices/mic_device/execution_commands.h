@@ -94,7 +94,7 @@ private:
 
 	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 
-	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, vector<kernel_arg_buffer_info>& oBuffsInfo);
+	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, const char* pKernelParams, vector<kernel_arg_buffer_info>& oBuffsInfo);
 
 	/* Release resources. */
 	void releaseResources(bool releaseCoiObjects = true);

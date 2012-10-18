@@ -89,6 +89,9 @@ public:
 	/* Run the task */
 	virtual void RunTask() = 0;
 
+	/* It will call from 'run()' method (of m_task) as the first command in order to inform that the command start in case of NonBlocking task. */
+	virtual void StartTaskSignaling() = 0;
+
 	/* Set errorCode as this task error (Do nothing if errorCode = CL_DEV_SUCCESS) */
 	void setTaskError(cl_dev_err_code errorCode);
 
@@ -139,6 +142,9 @@ public:
 
 	virtual void RunTask();
 
+	/* Do nothing in case of in order because the task start immediatly. */
+	virtual void StartTaskSignaling() {};
+
 protected:
 
 	virtual ~BlockingTaskHandler() {};
@@ -155,6 +161,8 @@ class NonBlockingTaskHandler : public TaskHandler
 public:
 
 	virtual void InitTask(dispatcher_data* dispatcherData, misc_data* miscData, uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength);
+
+	virtual void StartTaskSignaling();
 
 protected:
 

@@ -61,6 +61,12 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 	return err;
 }
 
+void Command::registerProfilingContext(bool mayReplaceByUserEvent)
+{
+	// If in order queue or it is command that does not control by user events than set this command as the context otherwise set NULL as the context.
+	((m_pCommandList->isInOrderCommandList()) || (false == mayReplaceByUserEvent)) ? COINotificationCallbackSetContext(this) : COINotificationCallbackSetContext(NULL);
+}
+
 void Command::fireCallBack(void* arg)
 {
 	// Set end coi execution time for the tracer. (Notification)
@@ -92,8 +98,22 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
 	case BUFFER_OPERATION_COMPLETE:
 		// This case should be overwrite in Buffer command (In case of Buffer command only)
 		break;
-	case RUN_FUNCTION_COMPLETE:
 	case USER_EVENT_SIGNALED:
+		if (0 == m_cmdRunningTime)
+		{
+			//change m_cmdRunningTime to 1 in order to ensure that next time this "if" will return false; (otherwise m_commandTracer.set_current_time_coi_execution_time_end(); will not invoke in case that profiling is off)
+			m_cmdRunningTime = 1;
+			assert(0 == m_cmdCompletionTime);
+			// Set end coi execution time for the tracer. (COI RUNNING)
+			m_commandTracer.set_current_time_coi_execution_time_start();
+			if (m_pCmd->profiling) 
+			{
+				m_cmdRunningTime = HostTime();
+			}
+			break;
+		}
+		// Continue to RUN_FUNCTION_COMPLETE functionality if 0 != m_cmdRunningTime
+	case RUN_FUNCTION_COMPLETE:
 		// Set end coi execution time for the tracer. (COI COMPLETED)
 		m_commandTracer.set_current_time_coi_execution_time_end();
 		if (m_pCmd->profiling) 

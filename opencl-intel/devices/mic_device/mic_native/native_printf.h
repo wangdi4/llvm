@@ -32,9 +32,15 @@ class PrintfHandle
 {
 public:
 
-	virtual ~PrintfHandle() {};
+	PrintfHandle();
+
+	virtual ~PrintfHandle();
 
 	int print(const char* buffer);
+
+private:
+
+	bool m_flushAtExit;
 };
 
 class MICNativeBackendPrintfFiller : public Intel::OpenCL::DeviceBackend::ICLDevBackendBufferPrinter

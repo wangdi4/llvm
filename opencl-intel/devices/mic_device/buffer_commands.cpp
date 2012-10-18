@@ -127,7 +127,7 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
 
 	// Nullify NotificationCallBack context such that the next command will not set this command context. (Actually it is in order to avoid many changes in command status in case of rectangular operation,
 	// We want to set context to the first and the last command only.
-	COINotificationCallbackSetContext(NULL);
+	Command::unregisterProfilingContext();
 
     if (!ok)
     {
@@ -261,14 +261,14 @@ void BufferCommands::eventProfilingCall(COI_NOTIFICATIONS& type)
 void BufferCommands::CopyRegion(mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
 {
 	// Set this object to be the context when notifying for event status change. (For the first command in case of rectangular operation)
-	COINotificationCallbackSetContext(this);
+	registerProfilingContext();
 	CopyRegionInternal( pMemCopyInfo, chunk_consumer );
-	COINotificationCallbackSetContext(NULL);
+	unregisterProfilingContext();
 
 	// Set this object to be the context when notifying for event status change. (For the last command in case of rectangular operation, or for first and last command in case of regular operatiron)
-	COINotificationCallbackSetContext(this);
+	registerProfilingContext();
     chunk_consumer->process_finish();
-	COINotificationCallbackSetContext(NULL);
+	unregisterProfilingContext();
 }
 
 void BufferCommands::CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer )
@@ -305,7 +305,7 @@ COIEVENT BufferCommands::ForceTransferToDevice( const MICDevMemoryObject* mem_ob
 
     COIEVENT transfer_event;
 
-	COINotificationCallbackSetContext(this);
+	registerProfilingContext();
 
     COIRESULT coi_result = COIBufferSetState( 
                         mem_obj->clDevMemObjGetCoiBufferHandler(),  // Buffer to transfer
@@ -317,7 +317,7 @@ COIEVENT BufferCommands::ForceTransferToDevice( const MICDevMemoryObject* mem_ob
 
     assert( (COI_SUCCESS == coi_result) && "Wrong params for COIBufferSetState" );
 
-	COINotificationCallbackSetContext(NULL);
+	unregisterProfilingContext();
 
     // this is an optimization - if failed, nothing to do
     return ((COI_SUCCESS == coi_result) ? transfer_event : last_chunk_event);
@@ -978,21 +978,21 @@ cl_dev_err_code UnmapMemObject::execute()
 		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 
 		// Set this object to be the context when notifying for event status change. (For the first command in case of rectangular operation)
-		COINotificationCallbackSetContext(this);
+		registerProfilingContext();
 		// Init map handler iterator and traversing over it.
 		coiMapParam.initMapHandleIterator();
 		while (coiMapParam.hasNextMapHandle())
 		{
 			UnmapMemoryChunkStruct::Chunk tChunk(coiMapParam.getNextMapHandle());
 			unmapper.process_chunk(tChunk);
-			COINotificationCallbackSetContext(NULL);
+			unregisterProfilingContext();
 		}
 
 		// Set this object to be the context when notifying for event status change. (For the last command in case of rectangular operation, or for first and last command in case of regular operatiron)
-		COINotificationCallbackSetContext(this);
+		registerProfilingContext();
 		// Call to 'process_finish()' in order to complete the last unmap operations.
 		unmapper.process_finish();
-		COINotificationCallbackSetContext(NULL);
+		unregisterProfilingContext();
 
 		if (unmapper.error_occured())
         {
