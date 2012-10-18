@@ -195,6 +195,9 @@ tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
 {
 	assert(m_pTbbNDRangeTask);
 	assert(m_taskHandler);
+
+	m_taskHandler->StartTaskSignaling();
+
 #ifdef NDRANGE_UNIT_TEST
 	foo(m_lockedParams);
 	m_pTaskExecutor->finish(m_taskHandler);
