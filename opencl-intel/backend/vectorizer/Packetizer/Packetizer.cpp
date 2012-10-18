@@ -1517,7 +1517,8 @@ bool PacketizeFunction::spreadVectorParam(CallInst* CI, Value *scalarParam,
 }
 
 bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
-              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool obtainTransStore) {
+              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool prePacketization) {
+
   V_ASSERT(IEI && "IEI is NULL");        
   Value *assembledVector = IEI->getOperand(0);
   // assembly of vectors should start with undef
@@ -1532,6 +1533,10 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   // currently we support only cases where AOSVectorWidth <= m_packetWidth
   if (AOSVectorWidth > m_packetWidth) return false;
   if (AOSVectorWidth < 2) return false;
+
+  // This controls the heuristic described below, which is relevant only
+  // if prePacketization is true.
+  bool isTransposeSeq = !prePacketization;
    
   std::vector<bool> indicesPresent(AOSVectorWidth, false);
   // For each of the items we are trying to fetch
@@ -1545,19 +1550,62 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
     unsigned idx = CI->getZExtValue();
     if (idx >= AOSVectorWidth) return false;
     indicesPresent[idx] = true;
-  
-    if (!obtainTransStore) {
+
+    Value *insertedValue = IEI->getOperand(1);
+    // obtainInsertElts can be allowed either before or after packetization.
+    // The former happens when we scan for inserts to generate load+transpose and transpose+store sequences.
+    // The latter during packetization of Insert instructions to create register-to-register transposes.
+    // The code looks different at those stages, hence this if.
+    if (!prePacketization) {
       // We would like to create transpose sequence only if the inputs
       // are already in SoA, since otherwise we will have to gather the SoA
-      // inputs of the transpose. In case we are scanning for transpose+store
-      // we don't have the information about future packetized instructions,
-      // so we avoid this check and therefore we always transpose+store.
-      // TODO:: need to find better solution for this case and for DRL entries.
-      Value *insertedValue = IEI->getOperand(1);
+      // inputs of the transpose.
+      // Since we are post-packetization, the inputs have already been packetized,
+      // so we can check this directly.
+      // TODO:: need to find better solution for DRL entries.
       if (!m_VCM.count(insertedValue)) return false;
       VCMEntry * foundEntry = m_VCM[insertedValue];
       if (foundEntry->vectorValue == NULL) return false;
+    } else {
+      // The previous code path only works for post-vectorization obtain calls.
+      // For the other case, we use a heuristic solution.
+      // Specifically, we do not want to create a transpose if all of
+      // the inserts either:
+      // a) Come from a load that will not be widened (non-consecutive address), or
+      // b) Are uniform values.
+      // This is because we expect the vectorizer to turn most things that
+      // are not uniform or gathers into SoA.
+      // Note that this is probably not a good idea for MIC, since it has
+      // real gathers. However MIC does not use transpose builtins yet,
+      // so that is irrelevant.
+      bool badForTranspose = false;
+
+      if (isa<LoadInst>(insertedValue)) {
+        LoadInst *LI = cast<LoadInst>(insertedValue);
+        Value *Address = LI->getPointerOperand();
+        if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
+          badForTranspose = true;
+      } else if (isa<CallInst>(insertedValue)) {
+        // Masked loads are represented as special call instructions,
+        // handle them the same as normal loads.
+        CallInst *CI = cast<CallInst>(insertedValue);
+        StringRef Name = CI->getCalledFunction()->getName();
+        if (Mangler::isMangledLoad(Name)) {
+          Value *Address = CI->getArgOperand(1);
+          if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
+            badForTranspose = true;
+        }
+      }
+
+      if (m_depAnalysis->whichDepend(insertedValue) == WIAnalysis::UNIFORM) {
+        badForTranspose = true;
+      }
+
+      // avoidTranspose should end up true only if for ALL inserts,
+      // badForTranspose is true.
+      isTransposeSeq |= !badForTranspose;
     }
+
     // saves original value
     InsertEltSequence[idx] = IEI;
     // must have one InsertElementUse (except for the last)
@@ -1576,8 +1624,8 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   for (unsigned i=0; i < AOSVectorWidth; ++i) {
     if (!indicesPresent[i]) return false;
   }
-  // success!
-  return true;
+
+  return isTransposeSeq;
 }
 
 // the algorithm transpose [n x m] matrices where n <= m by iteratively merging 

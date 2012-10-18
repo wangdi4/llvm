@@ -243,15 +243,15 @@ private:
 
   // Utility functions
 
-  /// @brief checks whether IEI is the start vector assembly sequence to bo scattered
+  /// @brief checks whether IEI is the start vector assembly sequence to be transposed
   /// @param IEI canadidate to be the insertElement in a vector assemby sequence
   /// @param InsertEltSequence will hold the entire insert sequence according to index of inserted element
   /// @param AOSVectorWidth will hold the width of the assembled vector
   /// @param lastInChain will hold the last instruction in the def-use chain
-  /// @param obtainStoreTrans true if we obtain the insert sequence for transpose and store operation
-  /// @return true iff IEI is the start vector assembly sequence to bo scattered
+  /// @param prePacketization true if this runs on unpacketized code, false otherwise
+  /// @return true iff IEI is the start vector assembly sequence to be transposed
   bool obtainInsertElts(InsertElementInst *IEI, InsertElementInst** InsertEltSequence,
-              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool obtainTransStore = false);
+              unsigned &AOSVectorWidth, Instruction *& lastInChain, bool prePacketization = false);
 
   /// @brief generets shuffle sequeces that perform transpose and breakdown to scattered vectors
   /// @param loc location to put shuffle instructions
