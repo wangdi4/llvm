@@ -404,6 +404,10 @@ namespace Validation
         return NEATALU::shuffle2 (vec1,vec2,mask);
     }
 
+    NEATValue NEAT_WRAP::atomic_xchg_fd ( NEATValue * p, const NEATValue& val) {
+        return NEATALU::atomic_xchg (p, val);
+    }
+
     NEATValue NEAT_WRAP::fpext_f2d(const NEATValue& a) {
         return NEATALU::fpext<float,double>(a);
     }

@@ -311,6 +311,7 @@ namespace llvm {
         DECLARE_EXECUTE(cross);
         DECLARE_EXECUTE(shuffle);
         DECLARE_EXECUTE(shuffle2);
+        DECLARE_EXECUTE(atomic_xchg);
 
 #undef DECLARE_EXECUTE_ALL_N
 #undef DECLARE_EXECUTE_N

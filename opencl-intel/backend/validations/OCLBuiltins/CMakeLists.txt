@@ -39,6 +39,7 @@ add_llvm_library(OCLBuiltins
   BLTRelational.cpp
   BLTAsyncCopiesAndPrefetch.cpp
   BLTMiscellaneousVector.cpp
+  BLTAtomic.cpp
   OCLBuiltinParser.cpp
   OCLBuiltins.cpp
   VLoadStore.cpp

@@ -605,6 +605,73 @@ TYPED_TEST(NEATAluTyped, insertelement)
     }
 }
 
+
+/* test for atomic_xchg (NEATValue *p, NEATValue val) instruction.  It swaps the old value 
+stored at location p with new value given by val. Returns old value. */
+TYPED_TEST(NEATAluTyped, atomic_xchg)
+{
+    const int NUM_TESTS = 100;
+
+    TypeParam ARG1_first[NUM_TESTS];
+    TypeParam ARG1_second[NUM_TESTS];
+    TypeParam ARG2_first[NUM_TESTS];
+    TypeParam ARG2_second[NUM_TESTS];
+
+    if(sizeof(TypeParam) == sizeof(float)) {
+        GenerateRandomVectors(F32, &ARG1_first[0], V1, NUM_TESTS);
+        GenerateRandomVectors(F32, &ARG1_second[0], V1, NUM_TESTS);
+        GenerateRandomVectors(F32, &ARG2_first[0], V1, NUM_TESTS);
+        GenerateRandomVectors(F32, &ARG2_second[0], V1, NUM_TESTS);
+    } else if(sizeof(TypeParam) == sizeof(double)){
+        // currently atomic_xchg is used for the single precision floating point data only
+        return;
+    } else {
+        GTEST_FAIL();
+    }
+
+    for(int testIdx = 0; testIdx < NUM_TESTS; testIdx ++)
+    {
+        NEATValue oneAcc = NEATValue(ARG1_first[testIdx]);
+        NEATValue twoAcc = NEATValue(ARG2_first[testIdx]);
+        
+        if(ARG1_first[testIdx] > ARG1_second[testIdx])
+            std::swap(ARG1_first[testIdx],ARG1_second[testIdx]);
+
+        if(ARG2_first[testIdx] > ARG2_second[testIdx])
+            std::swap(ARG2_first[testIdx],ARG2_second[testIdx]);
+
+        NEATValue oneInt = NEATValue(ARG1_first[testIdx], ARG1_second[testIdx]);
+        NEATValue twoInt = NEATValue(ARG2_first[testIdx], ARG2_second[testIdx]);
+        // test atomic_xchg(accurate, accurate)
+        NEATValue pointed = oneAcc;
+        NEATValue testVal = NEATALU::atomic_xchg(&pointed,twoAcc);
+        
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(pointed, twoAcc));
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(testVal, oneAcc));
+
+        // test atomic_xchg(interval, accurate)
+        pointed = oneInt;
+        testVal = NEATALU::atomic_xchg(&pointed,twoAcc);
+        
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(pointed, twoAcc));
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(testVal, oneInt));
+
+        // test atomic_xchg(accurate, interval)
+        pointed = oneAcc;
+        testVal = NEATALU::atomic_xchg(&pointed,twoInt);
+        
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(pointed, twoInt));
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(testVal, oneAcc));
+
+        // test atomic_xchg(interval, interval)
+        pointed = oneInt;
+        testVal = NEATALU::atomic_xchg(&pointed,twoInt);
+        
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(pointed, twoInt));
+        EXPECT_TRUE(NEATValue::areEqual<TypeParam>(testVal, oneInt));
+    }
+}
+
 /* test for shufflevector instruction */
 // disabled until CSSD100014660 will be fixed
 TYPED_TEST(NEATAluTyped, DISABLED_shufflevector)

@@ -3285,6 +3285,8 @@ public:
     static NEATVector shuffle ( const NEATVector& vec1, const std::vector<uint32_t>& mask);
     static NEATVector shuffle2 ( const NEATVector& vec1, const NEATVector& vec2,  const std::vector<uint32_t>& mask);
 
+    static NEATValue atomic_xchg ( NEATValue * p, const NEATValue& val );
+
     template<typename S, typename D>
     // fpext float to double is the only valid fpext so far
     static NEATValue fpext(const NEATValue& a)

@@ -218,7 +218,6 @@ namespace Validation
     NEAT_ONEARG_H(native_cos)
     NEAT_ONEARG_H(half_cos)
 
-
     static NEATValue sincos_f(const NEATValue& a, NEATValue * y);
     static NEATVector sincos_f(const NEATVector& vec1, NEATVector& vec2);
     static NEATValue sincos_d(const NEATValue& a, NEATValue * y);
@@ -262,13 +261,14 @@ namespace Validation
 
     NEAT_THREEARG_H(mad)
 
-
     static NEATValue  extractelement_fd ( const NEATVector& vec, const uint32_t& idx );
     static NEATVector insertelement_fd ( NEATVector vec, const NEATValue elt, const uint32_t& idx );
     static NEATVector shufflevector_fd ( const NEATVector& vec1, const NEATVector& vec2, const std::vector<uint32_t>& mask);
 
     static NEATVector shuffle_fd ( const NEATVector& vec1, const std::vector<uint32_t>& mask);
     static NEATVector shuffle2_fd ( const NEATVector& vec1, const NEATVector& vec2, const std::vector<uint32_t>& mask);
+
+    static NEATValue atomic_xchg_fd ( NEATValue * p, const NEATValue& val);
 
     static NEATValue fpext_f2d(const NEATValue& a);
     static NEATVector bitcast_d2f (const NEATValue& a);
@@ -392,7 +392,6 @@ namespace Validation
     NEAT_ONEARG_H(degrees)
     NEAT_ONEARG_H(sign)
 
-
     NEAT_TWOARG_H(step)
     static NEATVector step_f(const NEATValue& edge, const NEATVector& x);
     static NEATVector step_d(const NEATValue& edge, const NEATVector& x);
@@ -431,7 +430,6 @@ namespace Validation
     NEAT_TWOARG_H(minmag)
     NEAT_THREEARG_H(fma)
 
-
     static NEATValue nan_f(const uint32_t& y);
     static NEATValue nan_d(const uint64_t& y);
     static NEATVector nan_f(const std::vector<uint32_t>& vec);
@@ -440,7 +438,6 @@ namespace Validation
     NEAT_ONEARG_H(rint)
     NEAT_ONEARG_H(round)
     NEAT_ONEARG_H(trunc)
-
 
     static NEATValue convert_float(int8_t* src);
     static NEATValue convert_float(uint8_t* src);

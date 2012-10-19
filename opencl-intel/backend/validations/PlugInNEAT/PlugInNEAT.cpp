@@ -2060,6 +2060,26 @@ void NEATPlugIn::execute_shuffle2(Function *F,
     Result.NEATVec = NEAT_WRAP::shuffle2_fd(ValArg0.NEATVec, ValArg1.NEATVec, mask_vec);
 }
 
+///////////////// atomic_xchg built-in function ///////////////////////
+void NEATPlugIn::execute_atomic_xchg(Function *F,
+                 const std::map<Value *, NEATGenericValue> &ArgVals,
+                 NEATGenericValue& Result,
+                 const OCLBuiltinParser::ArgVector& ArgList){
+    Function::arg_iterator Fit = F->arg_begin();
+    Value *arg0 = Fit++;
+    const Type *Ty0 = arg0->getType();
+    Value *arg1 = Fit++;
+    const Type *Ty1 = arg1->getType();
+    if((!m_NTD.IsNEATSupported(Ty0)) || (!m_NTD.IsNEATSupported(Ty1))) return;
+
+    const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
+    const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
+
+    NEATValue * pNeatVal = static_cast<NEATValue *>(ValArg0.PointerVal);
+
+    Result.NEATVal = NEAT_WRAP::atomic_xchg_fd(pNeatVal, ValArg1.NEATVal);
+}
+
 ///////////////// cross built-in function ///////////////////////
 void NEATPlugIn::execute_cross(Function *F,
                  const std::map<Value *, NEATGenericValue> &ArgVals,
@@ -3983,6 +4003,7 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
     HANDLE_BI_EXECUTE(186, select) // built-in, not instruction
     HANDLE_BI_EXECUTE(187, shuffle);
     HANDLE_BI_EXECUTE(188, shuffle2);
+    HANDLE_BI_EXECUTE(189, atomic_xchg);
     return false;
 }
 

@@ -351,6 +351,14 @@ namespace Validation
         return shuffleLocal(vec1, vec2, mask, str); 
     }
 
+    NEATValue NEATALU::atomic_xchg ( NEATValue * p, const NEATValue& val ) {
+        NEATValue old = *p;
+
+        *p = val;
+
+        return old;
+    }
+
     Validation::NEATVector NEATALU::read_imagef_src_noneat( void *imageData, Conformance::image_descriptor *imageInfo, 
         float x, float y, float z, Conformance::image_sampler_data *imageSampler )
     {
