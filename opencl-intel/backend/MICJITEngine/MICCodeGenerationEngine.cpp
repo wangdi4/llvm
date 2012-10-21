@@ -27,6 +27,7 @@
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
 #include "MICJITEngine/include/ModuleJITHolder.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
 #include <cassert>
 #include <cstdio>
 #include <memory>
@@ -251,19 +252,24 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     // Exclude FMA instructions when FP_CONTRACT is disabled
     bool IsContractionsAllowed = !local_mod.getNamedMetadata("opencl.disabled.FP_CONTRACT");
 
+    std::auto_ptr<OpenCLAliasAnalysis> openCLAA(new OpenCLAliasAnalysis());
+
     // Add the piggy-back to communicate with the LLVM->PIL converter
     //TODO: add support for printing assermbly, PIL, etc.
-    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF, IsContractionsAllowed));
+    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF, IsContractionsAllowed, openCLAA.get()));
 
     // Ask the target to add backend passes as necessary.
     CodeGenOpt::Level OLvl = CodeGenOpt::Default;
     LLVMTargetMachine &LTM = static_cast<LLVMTargetMachine&>(TM);
     MCContext *MCC = 0;
+
+    PM.add(openCLAA.release());   
+
     if (LTM.addCommonCodeGenPasses(PM, OLvl, false, MCC, true)) {
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }
-
+    
     PM.run(local_mod);
 
     if (OutF)

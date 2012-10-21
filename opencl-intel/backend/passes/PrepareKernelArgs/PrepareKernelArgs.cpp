@@ -129,12 +129,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     llvm::Function::arg_iterator callIt = pFunc->arg_begin();
     
     // TODO :  get common code from the following 2 for loops into a function
-    
+
     // Handle explicit arguments
-    for(std::vector<cl_kernel_argument>::const_iterator argIterator = arguments.begin(), e = arguments.end(); 
-        argIterator != e; ++argIterator) {
+    for(unsigned ArgNo = 0; ArgNo <  arguments.size(); ++ArgNo) {
         
-      cl_kernel_argument arg = *argIterator;
+      cl_kernel_argument arg = arguments[ArgNo];
       
       // Align the current pArgsBuffer offset based on the alignment of the argument we are about to load
       currOffset = TypeAlignment::align(TypeAlignment::getAlignment(arg), currOffset);
@@ -175,10 +174,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         if (alignment > 0) {
           pLoad->setAlignment(TypeAlignment::getAlignment(arg));
         }
-        
         pLoadedValue = pLoad;
       }
-      
+     
+      // Here we mark the load instructions from the struct that are the actual parameters for 
+      // the original kernel's restricted formal parameters  
+      // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining 
+      // does not maintain the restrict information.
+      Instruction* pLoadedValueInst = cast<Instruction>(pLoadedValue);
+      if (pFunc->paramHasAttr(ArgNo+1, Attribute::NoAlias)) {
+        pLoadedValueInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
+      }
+
       params.push_back(pLoadedValue);
       
       // Advance the pArgsBuffer offset based on the size
