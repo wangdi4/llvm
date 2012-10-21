@@ -292,9 +292,8 @@ static void convertToRef(const char* from[width::OCL_VERSIONS],
     to[i] = llvm::StringRef(from[i]);
 }
 
-#include "CustomVersionMaping.h"
-
 void BuiltinKeeper::initHardCodeStrategy(){
+  #include "CustomVersionMaping.h"
   width::V sizes[] = {width::SCALAR, width::TWO, width::THREE, width::FOUR,
     width::EIGHT, width::SIXTEEN};
   llvm::ArrayRef<width::V> arrSizes(sizes);
@@ -602,28 +601,22 @@ static bool isOverloaded(const std::string& name){
   return prefix == name.substr(0, prefix.length());
 }
 
-bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
-  reflection::width::V allWidth[] = {width::SCALAR, width::TWO, width::FOUR,
-    width::EIGHT, width::SIXTEEN, width::THREE};
-  for (unsigned i=0 ; i<width::OCL_VERSIONS; ++i){
-    reflection::width::V w = allWidth[i];
-    VersionCBMap::const_iterator it =
-      m_exceptionsMap.find(std::make_pair(name, w));
-    if (m_exceptionsMap.end() != it)
-      return true;
-  }
-  return false;
-}
-
 bool BuiltinKeeper::isBuiltin(const std::string& mangledString)const{
   if (mangledString.empty())
     return false;
-  bool isBi = isInExceptionMap(mangledString);
-  if ( !isOverloaded(mangledString) )
-    return isBi;
-  //we need to execute isBuiltin(FunctionDescriptor) whenever the function
-  //isn't overloaded, since it has a side effect
-  return isBuiltin (demangle(mangledString.c_str())) || isBi;
+  if ( !isOverloaded(mangledString) ){
+    reflection::width::V allWidth[] = {width::SCALAR, width::TWO, width::THREE,
+    width::FOUR, width::EIGHT, width::SIXTEEN};
+    for (unsigned i=0 ; i<width::OCL_VERSIONS; ++i){
+      reflection::width::V w = allWidth[i];
+      VersionCBMap::const_iterator it =
+        m_exceptionsMap.find(std::make_pair(mangledString, w));
+      if (m_exceptionsMap.end() != it)
+        return true;
+    }
+    return false;
+  }
+  return isBuiltin (demangle(mangledString.c_str()));
 }
 
 #include "BuiltinList.h"

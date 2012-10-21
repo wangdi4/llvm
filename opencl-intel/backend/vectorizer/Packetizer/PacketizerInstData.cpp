@@ -10,6 +10,7 @@
 
 namespace intel {
 
+
 Instruction *PacketizeFunction::findInsertPoint(Value * val)
 {
   if (!isa<Instruction>(val))
@@ -29,12 +30,11 @@ Instruction *PacketizeFunction::findInsertPoint(Value * val)
   return --iter;
 }
 
+
 void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValue,
                                               Instruction * origInst)
 {
-  V_ASSERT((
-    origValue->getType()->isIntegerTy() ||
-    origValue->getType()->isFloatingPointTy())
+  V_ASSERT((origValue->getType()->isIntegerTy() || origValue->getType()->isFloatingPointTy())
     && "Trying to get a packetized value of non-primitive type!");
   if (isa<Instruction>(origValue))
   {

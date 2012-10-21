@@ -17,10 +17,6 @@ RuntimeServices * RuntimeServices::get() {
   return m_singleton;
 }
 
-bool RuntimeServices::isFakedFunction(StringRef)const{
-  return false;
-}
-
 RuntimeServices * RuntimeServices::m_singleton = NULL;
 
 } // namespace

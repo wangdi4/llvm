@@ -153,7 +153,6 @@ defm f16 : _OCLTYPE2_<"f16", 16, "half">;
 defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
-def image2d: OclType<"image2d_t", "image2d_t", 1, 0, 0>;
 
 class TypeNameList<list<string> names> {
   list<string> Names = names;

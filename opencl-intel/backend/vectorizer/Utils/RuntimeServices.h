@@ -85,11 +85,6 @@ public:
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(const std::string &func_name) const = 0;
 
-  /// @brief Check if function a 'faked function', (i.e., if the given name is
-  //  has a definition in the builtin-runtime module, or is it just a
-  //  synthesized name for internal usage.
-  virtual bool isFakedFunction(StringRef)const;
-
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 

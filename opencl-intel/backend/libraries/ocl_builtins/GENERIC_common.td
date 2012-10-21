@@ -194,4 +194,3 @@
 
 include "GENERIC/math.td"
 include "GENERIC/common.td"
-include "GENERIC/images.td"
