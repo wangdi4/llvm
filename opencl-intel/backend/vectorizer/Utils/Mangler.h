@@ -49,7 +49,9 @@ public:
   /// @param name Name of function
   /// @return True if store
   static bool isMangledStore(const std::string& name);
-  /// @brief Is this a mangled function call ?
+  /// @brief Is this a mangled function call? More concretely, does the given
+  //  string represent the name of a function that starts with the prefix 'mask_',
+  //  that was previously synthesized by the Predicator.
   /// @param name Name of function
   /// @return True if mangled
   static bool isMangledCall(const std::string& name);
@@ -70,7 +72,7 @@ public:
   /// @brief Get mangled name for transpose function
   /// @param isLoad True if this is load and transpose, false otherwise
   /// @param isScatterGather True if this is a scatter/gather, false if a normal store/load
-  /// @param isMasked True if this is a maked operation, false otherwise
+  /// @param isMasked True if this is a masked operation, false otherwise
   /// @param origVecType Vector type in the original instruction
   /// @param packetWidth Packetization width
   /// @return name
@@ -132,10 +134,10 @@ private:
   static const std::string prefix_scatter;
   /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
-  /// @brief mangling fake extract calls used for vectorization of 
+  /// @brief mangling fake extract calls used for vectorization of
   ///        scalar built-ins that return a vector
   static const std::string fake_prefix_extract;
-  /// @brief mangling fake isnert calls used for vectorization of 
+  /// @brief mangling fake insert calls used for vectorization of
   ///        scalar built-ins that have vector arguments.
   static const std::string fake_prefix_insert;
 

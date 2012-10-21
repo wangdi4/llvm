@@ -133,7 +133,7 @@ const char *volacanoScalarSelect[] = {
 OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
                              const char  **scalarSelects):
 m_runtimeModule(runtimeModule),
-m_packetizationWidth(0) { 
+m_packetizationWidth(0) {
   initDotMap();
   initScalarSelectSet(scalarSelects);
 }
@@ -219,7 +219,7 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   // them first.
   if (isWorkItemBuiltin(func_name))  return true;
   if (isSafeLLVMIntrinsic(func_name)) return true;
-  
+
   // If it is not a built-in, don't know if it has side effect.
   Function *funcRT = findInRuntimeModule(func_name);
   if (!funcRT) return false;
@@ -227,8 +227,8 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   // Special case built-ins that access memory but has no side effects.
   if (isSyncWithNoSideEfffect(func_name)) return true;
   if (isImageDescBuiltin(func_name)) return true;
-  
-  // All built-ins that does not access memory and does not throw 
+
+  // All built-ins that does not access memory and does not throw
   // have no side effects.
   return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
 }
@@ -236,23 +236,24 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
 bool OpenclRuntime::isSafeToSpeculativeExecute(const std::string &func_name) const {
   // Work item builtins are not in runtime module so check them first.
   if (isWorkItemBuiltin(func_name)) return true;
-  
+
   // Can not say anything on non - builtin function.
   Function *funcRT = findInRuntimeModule(func_name);
   if (!funcRT) return false;
-  
+
   // Special case built-ins that access memory but can be speculatively executed.
   if (isImageDescBuiltin(func_name)) return true;
-  
-  // All built-ins that does not access memory and does not throw 
+
+  // All built-ins that does not access memory and does not throw
   // can be speculatively executed.
   return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
 }
 
 bool OpenclRuntime::isExpensiveCall(const std::string &func_name) const {
-   if (0 == func_name.find("_Z12read_image")) return true;
-   if (0 == func_name.find("_Z13write_image")) return true;
-   return false;
+  if (!isMangledName(func_name.c_str()))
+    return false;
+  StringRef stripped = stripName(func_name.c_str()); 
+  return stripped.startswith("read_image") || stripped.startswith("write_image");
 }
 
 bool OpenclRuntime::isWorkItemBuiltin(const std::string &func_name) const {
@@ -317,6 +318,17 @@ bool OpenclRuntime::isMaskedFunctionCall(const std::string &func_name) const{
   return false;
 }
 
+bool OpenclRuntime::isFakedFunction(StringRef fname)const{
+  bool isFake = Mangler::isFakeInsert(fname) ||
+    Mangler::isFakeExtract(fname) || Mangler::isFakeBuiltin(fname);
+  if (isFake)
+    return true;
+  Function* pMaskedFunction = findInRuntimeModule(fname);
+  //Since not all faked builtins can be discovered by name, we need to make
+  //the function resides within the runtime module.
+  return (pMaskedFunction == NULL);
+}
+
 bool OpenclRuntime::isWriteImage(const std::string &funcName) const{
   return false;
 }
@@ -343,7 +355,7 @@ bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
 extern "C" {
   void* createOpenclRuntimeSupport(const Module *runtimeModule) {
     V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::OpenclRuntime * rt = 
+    intel::OpenclRuntime * rt =
       new intel::OpenclRuntime(runtimeModule);
     intel::RuntimeServices::set(rt);
     return (void*)(rt);

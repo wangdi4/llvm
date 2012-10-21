@@ -5,6 +5,11 @@
 #include <cassert>
 #include <sstream>
 
+//name mangled related
+#include "NameMangleAPI.h"
+#include "FunctionDescriptor.h"
+#include "Type.h"
+
 const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
 const std::string Mangler::mask_prefix_load     = "masked_load_align";
@@ -16,6 +21,17 @@ const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
 const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
 const std::string Mangler::fake_prefix_insert   = "fake.insert.element";
+
+llvm::StringRef imageFunctions[] = {
+    "read_imagei",
+    "read_imageui",
+    "write_imagei",
+    "write_imageui"
+};
+
+const char* IMG_MASK_PREFIX = "mask_";
+
+unsigned IMG_SIZE = sizeof(imageFunctions)/sizeof(imageFunctions[0]);
 
 static const char* getGatherScatterTypeName(Type *ElemTy) {
   if (ElemTy->isIntegerTy(8)) return "i8";
@@ -35,8 +51,21 @@ inline std::string toString (const T& elem) {
 }
 
 std::string Mangler::mangle(const std::string& name) {
-  static unsigned int serial = 0;
+  if (::isMangledName(name.c_str())){
+    llvm::StringRef stripped = stripName(name.c_str()); 
+    for (unsigned i=0 ; i<IMG_SIZE ; ++i){
+      if (imageFunctions[i] == stripped){
+        reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
+        fdesc.name = IMG_MASK_PREFIX + fdesc.name;
+        std::vector<reflection::Type*>& params = fdesc.parameters;
+        reflection::Type intType(reflection::primitives::INT);
+        params.insert(params.begin(), &intType);
+        return ::mangle(fdesc);
+      }
+    }
+  }
   // Attach a serial number to each function decleration
+  static unsigned int serial = 0;
   std::string suffix = toString(serial++);
   return mask_prefix_func+suffix+mask_delim+name;
 }
@@ -97,6 +126,17 @@ std::string Mangler::getFakeInsertName() {
 
 
 std::string Mangler::demangle(const std::string& name) {
+  if (::isMangledName(name.c_str())){
+    llvm::StringRef stripped = stripName(name.c_str());
+    if (stripped.startswith(IMG_MASK_PREFIX)){
+      for (unsigned i=0 ; i<IMG_SIZE ; ++i){
+        //in the case of image functions, the name should be unchanged, since
+        //masked functions are 'real functions' to be looked in the reflection module
+        if (stripped.endswith(imageFunctions[i]))
+          return name;
+      }
+    }
+  }
   V_ASSERT(name.find(mask_prefix_func) != name.npos && "not a mangled function");
   // Format:
   // masked_83_function

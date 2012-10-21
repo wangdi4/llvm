@@ -813,3 +813,20 @@ let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
     NeedForwardDecl = 1 in {
 def intel_movemask: OclBuiltin<"intel_movemask", (outs si32gentype:$ret), (ins gentype:$x), [], []>;
 }
+
+//Image Builtins
+
+let Types = [v2i32, v2f32],
+  IsDeclOnly = 1, NeedForwardDecl = 1,
+  Attrs = [CONSTFUNC, OVERLOADABLE] in {
+  def read_imagei : OclBuiltin<"read_imagei", (outs v4i32:$ret), (ins image2d:$img, v1i32:$sampler, gentype:$coord), [], []>;
+  def read_imageui : OclBuiltin<"read_imageui", (outs v4u32:$ret), (ins image2d:$img, v1i32:$sampler, gentype:$coord), [], []>;
+  def read_imagef : OclBuiltin<"read_imagef", (outs v4f32:$ret), (ins image2d:$img, v1i32:$sampler, gentype:$coord), [], []>;
+}
+
+let Types = [v2i32, v2f32],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+  def mask_read_imagei : OclBuiltin<"mask_read_imagei", (outs v4i32:$ret), (ins v1i32:$mask, image2d:$img, v1u32:$sampler, gentype:$coord), [], []>;
+  def mask_read_imageui : OclBuiltin<"mask_read_imageui", (outs v4u32:$ret), (ins v1i32:$mask, image2d:$img, v1u32:$sampler, gentype:$coord), [], []>;
+  def mask_read_imagef : OclBuiltin<"mask_read_imagef", (outs v4f32:$ret), (ins v1i32:$mask, image2d:$img, v1u32:$sampler, gentype:$coord), [], []>;
+}

@@ -11,6 +11,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/InstrTypes.h"
+#include "llvm/Type.h"
 
 #include "VectorizerUtils.h"
 #include "Specializer.h"
@@ -113,7 +115,7 @@ bool Predicator::hasOutsideUsers(Instruction* inst, Loop* loop) {
       }
     }
   }
-  // no outside userss
+  // no outside users
   return false;
 }
 
@@ -291,7 +293,7 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
   // for each BB
   for (Function::iterator BB = F->begin(), BBE = F->end(); BB != BBE ; ++BB) {
     parent.addBasicBlock(BB);
-    // for each loop which we have registerd
+    // for each loop which we have registered
     for (DenseMap<Loop*, SchedulingScope*>::iterator mapit =
          scopes.begin(), map_e = scopes.end(); mapit != map_e ; ++mapit ) {
       Loop* loop = mapit->first;
@@ -353,7 +355,7 @@ void Predicator::linearizeFunction(Function* F,
     V_ASSERT(next_after_loop && "nothing comes after this loop");
     V_ASSERT(next      && "nothing comes after this block");
     // Perform the actual linearization of a single basic block
-    // This will adjust the outgoing esged of each BB
+    // This will adjust the outgoing edged of each BB
     LinearizeBlock(current, next, next_after_loop);
   }
 }
@@ -364,7 +366,7 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
-  // We do not touch blocks which are loop heaers
+  // We do not touch blocks which are loop headers
   // is this the only condition ?
   if (loop && loop->getHeader() == BB) return;
 
@@ -386,9 +388,9 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
   }
 
   // Convert all PHI nodes collected
-  for (SmallInstVector::iterator it = PhiInstrVector.begin(); 
+  for (SmallInstVector::iterator it = PhiInstrVector.begin();
                                  it != PhiInstrVector.end(); it++) {
-    PHINode *phi = dyn_cast<PHINode>(*it); 
+    PHINode *phi = dyn_cast<PHINode>(*it);
     V_ASSERT(
       m_outMask.find(std::make_pair(phi->getIncomingBlock(0), BB)) !=
       m_outMask.end());
@@ -425,9 +427,8 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
 Function* Predicator::createPredicatedFunction(Instruction *inst,
                                                Value* pred,
                                                const std::string& name) {
-
   // If we have created this function in the past, return it
-  if (m_externalFunections.find(name) != m_externalFunections.end()) {
+  if (m_externalFunections.find(name) != m_externalFunections.end()){
     return m_externalFunections[name];
   }
 
@@ -438,7 +439,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 
   /// all other arguments are the arguments of the instruction
   if (CallInst *CI = dyn_cast<CallInst>(inst)){
-    for (unsigned j = 0; j < CI->getNumArgOperands(); ++j) {
+    for (unsigned j = 0; j < CI->getNumArgOperands(); ++j){
       args.push_back(CI->getArgOperand(j)->getType());
     }
   } else {
@@ -448,7 +449,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
     }
   }
 
-  // Generate the function decleration. Return type and args.
+  // Generate the function declaration. Return type and args.
   FunctionType* type = FunctionType::get( inst->getType(), args, false);
 
   // Declare function
@@ -461,7 +462,6 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 }
 
 Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
-
   // Preplace Load with call to function
   if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
     Function* func =
@@ -501,20 +501,45 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
   // Replace function call with masked function call
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
-    //Get type name
     std::string desc = call->getCalledFunction()->getName();
-    Function* func =
-      createPredicatedFunction(call, pred, Mangler::mangle(desc));
-
-    // copy predicator and original parameters list
-    std::vector<Value*> params;
-    params.push_back(pred);
-    for (unsigned j = 0; j < call->getNumArgOperands(); ++j) {
-      params.push_back(call->getArgOperand(j));
+    std::string maskedName = Mangler::mangle(desc);
+    //if the predicated is a faked one, we need to create it artificially.
+    //Otherwise, we simply import it from the builtin module.
+    Function* func;
+    if (m_rtServices->isFakedFunction(maskedName))
+      func = createPredicatedFunction(call, pred, maskedName);
+    else {
+      Function* pMaskedfunc = m_rtServices->findInRuntimeModule(maskedName);
+      V_ASSERT(pMaskedfunc && "function not found in runtime module");
+      Type* pMaskTy = pMaskedfunc->getFunctionType()->getParamType(0);
+      pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
+      Module* pCurrentModule = call->getParent()->getParent()->getParent();
+      func = cast<Function>( pCurrentModule->getOrInsertFunction(
+        maskedName,
+        pMaskedfunc->getFunctionType())
+      );
     }
-
+    const FunctionType* pFuncTy = func->getFunctionType();
+    std::vector<Value*> params;
+    // insert the mask as the first actual parameter
+    params.push_back(pred);
+    // copy predicator and original parameters list
+    for (unsigned j = 0; j < call->getNumArgOperands(); ++j)
+      params.push_back(call->getArgOperand(j));
+    //we might need to cast struct pointers, if they are not defined in this
+    //module
+    V_ASSERT(params.size() == pFuncTy->getNumParams() &&
+      "parameter number mismatch");
+    for (unsigned i=1 ; i<params.size() ; ++i){
+      Value* pParami = params[i];
+      const Type* pParamTy = pParami->getType();
+      if (pParamTy->isPointerTy() && cast<PointerType>(pParamTy)->getElementType()->isStructTy()){
+        Type* pTargetTy = pFuncTy->getParamType(i);
+        params[i] = VectorizerUtils::getCastedArgIfNeeded(pParami, pTargetTy, call);
+      }
+    }
     CallInst* pcall =
-      CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
+      CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();
@@ -593,8 +618,8 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
     }
   }
 }
-void Predicator::predicateSideEffectInstructions() {
 
+void Predicator::predicateSideEffectInstructions() {
   // For each instruction which we intended to predicate
   for(SmallInstVector::iterator
       it = m_toPredicate.begin(),
@@ -622,7 +647,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
 
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
-  
+
   // incase a block post dominates the entry block and is not in a loop
   // then all the instructions within it will be executed once and only once
   // so no need for masking
@@ -703,7 +728,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   // Get incoming mask for the block.
   Value* entry_mask_p = m_inMask[BB];
   Value* entry_mask   = new LoadInst(entry_mask_p, "entry_mask", br);
-  
+
   /// Handles the out mask for the edge inside the loop.
   Value* local_edge_mask_p = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
@@ -719,7 +744,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   Value* who_left_tr = BinaryOperator::Create(Instruction::And,
                                      entry_mask, exitCond , "who_left_tr", br);
   if (L->getExitingBlock()) {
-    V_ASSERT(BB == L->getExitingBlock() && 
+    V_ASSERT(BB == L->getExitingBlock() &&
         "incase there is only one exiting block it should be the current");
     // Incase there is only one exiting block can use the incoming mask
     // of the preheader since all work items entering the loop will exit
@@ -756,13 +781,13 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     if (!L->getExitingBlock()) {
       // There are more than one exiting block than we need to update loop
       // mask with negation of exit edge .
-      Value* who_left_tr_not = 
+      Value* who_left_tr_not =
           BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
       Value* loopMask   = new LoadInst(loopMask_p, "loop_mask", br);
       newLoopMask = BinaryOperator::Create(
       Instruction::And, loopMask, who_left_tr_not, "loop_mask", br);
     }
-    
+
     if (!curLoopMask) curLoopMask = newLoopMask;
     new StoreInst(newLoopMask, loopMask_p, br);
     L = L->getParentLoop();
@@ -770,7 +795,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   /// ----  Create the exit condition. When to leave the loop
   V_ASSERT(m_allzero && "Unable to find allzero func");
-  CallInst *call_allzero = 
+  CallInst *call_allzero =
       CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
 
   // Make sure the exit block is the first successor.
@@ -911,7 +936,7 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   } else {
     // in-loop split
     maskOutgoing_fork(BB);
-  } 
+  }
 }
 
 void Predicator::maskIncoming_optimized(BasicBlock *BB, BasicBlock* pred) {
@@ -1108,7 +1133,7 @@ void Predicator::predicateFunction(Function *F) {
 
 
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    
+
     // Assert that each block has at most two preds
     V_ASSERT(std::distance(pred_begin(it), pred_end(it))<3 && "Phi canon failed");
 
