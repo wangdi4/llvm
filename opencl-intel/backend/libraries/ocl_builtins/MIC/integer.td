@@ -310,20 +310,7 @@ OclBuiltinImpl upsample_v16_u8u16 = OclBuiltinImpl<upsample, [v16u8, v16u16], 0,
     uint16 r = as_uint16(_mm512_or_epi32(_mm512_sll_epi32((__m512i)t0, (__m512i)(int16)$BitWidth), (__m512i)t1));
     return convert_$ReturnType(r);
   }]>;
-OclBuiltinImpl upsample_v8_u32 = OclBuiltinImpl<upsample, [v8u32], 0, [{
-    uint16 val;
-    val.hi = $Arg0VarName;
-    val.lo = $Arg1VarName;
-    // Note that MIC (KNC) is an in-order core without register renaming.
-    // The following instructions are independent as their mask values have no
-    // overlap and hence has the shorter latency.
-    __m512 $ReturnVarName = _mm512_undefined_ps();
-    $ReturnVarName = _mm512_mask_shuf128x32($ReturnVarName, 0x0A0A, (__m512)val, _MM_PERM_DDCC, _MM_PERM_BDAC);
-    $ReturnVarName = _mm512_mask_shuf128x32($ReturnVarName, 0xA0A0, (__m512)val, _MM_PERM_DDCC, _MM_PERM_DBCA);
-    $ReturnVarName = _mm512_mask_shuf128x32($ReturnVarName, 0x0505, (__m512)val, _MM_PERM_BBAA, _MM_PERM_DBCA);
-    $ReturnVarName = _mm512_mask_shuf128x32($ReturnVarName, 0x5050, (__m512)val, _MM_PERM_BBAA, _MM_PERM_BDAC);
-    return as_$ReturnType($ReturnVarName);
-  }]>;
+
 OclBuiltinImpl upsample_promote_u8u16 = OclBuiltinImpl<upsample, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8/*,  v16u8*/,
                                                                   v1u16, v2u16, v3u16, v4u16, v8u16/*, v16u16*/], 0, NonMaskPromote2>;
 OclBuiltinImpl upsample_promote_u32   = OclBuiltinImpl<upsample, [v1u32, v2u32, v3u32, v4u32/*, v8u32, v16u32*/], 0, [{

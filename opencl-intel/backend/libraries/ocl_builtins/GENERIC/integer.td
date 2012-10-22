@@ -200,3 +200,11 @@ OclBuiltinImpl upsample_igeneric = OclBuiltinImpl<upsample, [ v1i8,  v2i8,  v3i8
                                                              v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return as_$ReturnType(upsample(as_u$Arg0Type($Arg0VarName), $Arg1VarName));
   }]>;
+// upsample for v8u32
+OclBuiltinImpl upsample_v8_u32 = OclBuiltinImpl<upsample, [v8u32], 0, [{
+    uint16 val;
+    val.s02468ace = $Arg1VarName;
+    val.s13579bdf = $Arg0VarName;
+    return as_$ReturnType(val);
+  }]>;
+
