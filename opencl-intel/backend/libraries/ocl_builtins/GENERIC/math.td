@@ -500,42 +500,42 @@ OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, half_cos.Types, 0, [{
 
 // half_divide
 OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, half_divide.Types, 0, [{
-    return __ocl_svml_$Target_div$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
+    return __ocl_svml_$Target_div$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_exp
 OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, half_exp.Types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_exp$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_exp2
 OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, half_exp2.Types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_exp2$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_exp10
 OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, half_exp10.Types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_exp10$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_log
 OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, half_log.Types, 0, [{
-    return __ocl_svml_$Target_log$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_log$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_log2
 OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, half_log2.Types, 0, [{
-    return __ocl_svml_$Target_log2$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_log2$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_log10
 OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, half_log10.Types, 0, [{
-    return __ocl_svml_$Target_log10$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_log10$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_powr
 OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, half_powr.Types, 0, [{
-    return __ocl_svml_$Target_powr$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
+    return __ocl_svml_$Target_powr$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_recip
@@ -545,7 +545,7 @@ OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0,
 
 // half_rsqrt
 OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, half_rsqrt.Types, 0, [{
-    return __ocl_svml_$Target_rsqrt$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_rsqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_sin
@@ -555,7 +555,7 @@ OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, half_sin.Types, 0, [{
 
 // half_sqrt
 OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
-    return __ocl_svml_$Target_sqrt$SVMLSuffix_half($Arg0VarName);
+    return __ocl_svml_$Target_sqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_tan
