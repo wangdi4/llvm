@@ -718,6 +718,26 @@ public:
         return oneUlp;
     }
 
+    // this functions add ulps ULPs to the InOut value, but doesn't
+    // perform any typecasting
+    template<typename T>
+    static void JustAddUlps(T * InOut, double ulps)
+    {
+        typedef typename downT<T>::type DownT;
+        int n;
+        T ref = *InOut;
+        T ulp = ComputeUlp(ref); // calc ulp for ref value
+
+        // limit expand
+        T result = CimathLibd::imf_frexp (ref , &n);
+        if((!Utils::IsDenorm<DownT>(ref)) && CimathLibd::imf_fabs(result) == (T)0.5)
+        {
+            ulp /= (T)2.;
+        }
+        T res = ref+ulp*((T)ulps); // add ulps to ref
+        *InOut = res;
+    }
+
     template<typename T>
     static void ExpandFloatInterval(T * minInOut, T * maxInOut, double ulps)
     {
@@ -5667,12 +5687,14 @@ public:
 
         sT minA = RefALU::add( sT(*flushedX.GetMin<T>()), sT(*e2sub.GetMin<T>()) );
         sT maxA = RefALU::add( sT(*flushedX.GetMax<T>()), sT(*e2sub.GetMax<T>()) );
-        ExpandFloatInterval<sT>(&minA, &maxA, localErr);
+        JustAddUlps<sT>(&minA, (-localErr));
+        JustAddUlps<sT>(&maxA, localErr);
 
         // edge1 - edge0
         sT minB = RefALU::add( sT(*flushedEdge1.GetMin<T>()), sT(*e2sub.GetMin<T>()) );
         sT maxB = RefALU::add( sT(*flushedEdge1.GetMax<T>()), sT(*e2sub.GetMax<T>()) );
-        ExpandFloatInterval<sT>(&minB, &maxB, localErr);
+        JustAddUlps<sT>(&minB, (-localErr));
+        JustAddUlps<sT>(&maxB, localErr);
 
         // (x - edge0) / (edge1 - edge0)
         if ( (Utils::le(minB,sT(0.0)) && Utils::le(sT(0.0),maxB)) ||
@@ -5697,7 +5719,8 @@ public:
         val[7] = RefALU::mul(maxA, RefALU::div(one,maxB) );
 
         Combine(val, RES_COUNT, min, max);
-        ExpandFloatInterval<sT>(&min, &max, DIV_ERROR);
+        JustAddUlps<sT>(&min, (-divSetUlps<T>()));
+        JustAddUlps<sT>(&max, divSetUlps<T>());
 
         // and compute t = clamp ((x - edge0) / (edge1 - edge0), 0, 1);
         sT minT, maxT;
@@ -5745,6 +5768,7 @@ public:
         ExpandFloatInterval<sT>(&min, &max, 3, (localErr*3.0)); // const 3 is used in 3 operations
 
         return NEATValue(castDown(min), castDown(max));
+
     }
 
     // smoothstep function for vector arguments.
