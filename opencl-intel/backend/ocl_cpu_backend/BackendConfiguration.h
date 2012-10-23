@@ -69,7 +69,7 @@ public:
 
     // CompilerConfiguration methods
     void LoadDefaults();
-    void LoadConfig();
+    virtual void LoadConfig();
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
     bool IsValidTransposeSize();
@@ -105,7 +105,7 @@ public:
 
     bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
 
-private:
+protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
     ETransposeSize m_transposeSize;
@@ -122,6 +122,7 @@ class MICCompilerConfig: public CompilerConfig, public IMICCompilerConfig
 {
 public:
     // MIC CompilerConfiguration methods
+    void LoadConfig();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
     std::string GetCpuArch() const     { return CompilerConfig::GetCpuArch(); }

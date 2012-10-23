@@ -145,7 +145,7 @@ void CompilerConfig::SkipBuiltins()
 void CompilerConfig::LoadConfig()
 {
     //TODO: Add validation code
-    if (const char *pEnv = getenv("VOLCANO_ARCH"))
+    if (const char *pEnv = getenv("VOLCANO_CPU_ARCH"))
     {
         m_cpuArch = pEnv;
     }
@@ -164,6 +164,31 @@ void CompilerConfig::LoadConfig()
     {
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
+    }
+#ifndef NDEBUG
+    if (getenv("VOLCANO_DEBUG"))
+    {
+      llvm::DebugFlag = true;
+    }
+    if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
+    {
+      llvm::SetCurrentDebugType(pEnv);
+    }
+#endif
+}
+
+void MICCompilerConfig::LoadConfig()
+{
+    //TODO: Add validation code
+
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE")) 
+    {
+        unsigned int size;
+        if ((std::stringstream(pEnv) >> size).fail()) 
+        {
+            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
+        }
+        m_transposeSize = ETransposeSize(size);
     }
 #ifndef NDEBUG
     if (getenv("VOLCANO_DEBUG"))
