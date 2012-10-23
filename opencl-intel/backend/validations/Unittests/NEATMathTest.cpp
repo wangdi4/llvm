@@ -418,7 +418,8 @@ TYPED_TEST(NEATMathTestOneArg, asinh)
     }
 }
 
-TYPED_TEST(NEATMathTestOneArg, acosh)
+// disabled until CSSD100014795 will be fixed
+TYPED_TEST(NEATMathTestOneArg, DISABLED_acosh)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type sT;
