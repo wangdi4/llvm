@@ -100,7 +100,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     // TODO: found out how to pass environment variables to the lit scripts.
     // LIT doesn't enherit environment variables, so it looses SINK_LD_LIBRARY_PATH,
     // so we will look for svml library near the executable.
-    std::string svmlPath =  (SVML_LIBRARY_PATH) ?
+    std::string svmlPath =  (SVML_LIBRARY_PATH) ? 
       std::string(SVML_LIBRARY_PATH) :
       //std::string(SVML_LIBRARY_PATH);
       pathName;
@@ -110,7 +110,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     std::string svmlFileName = std::string("__ocl_svml_") + pCPUPrefix + ".so";
     if (std::string(pCPUPrefix) == "b2")
     {
-        svmlFileName += ".3.0";
+        svmlFileName += ".2.0";
     }
     // Load SVML built-ins library.
     res = COIProcessLoadLibraryFromFile(
@@ -134,7 +134,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     }
 
     // Create a pipeline associated with process created earlier.
-    res =
+    res = 
         COIPipelineCreate(
         m_process,          // Process to associate the pipeline with
         NULL,               // Do not set any sink thread affinity for the pipeline

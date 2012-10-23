@@ -2149,7 +2149,7 @@ void DynamicLibraryLoader::Load()
     const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
     const char* pAdditionalSuffix = "";
     if (m_cpuId.GetCPU() == Intel::MIC_KNC)
-        pAdditionalSuffix = ".3.0";
+        pAdditionalSuffix = ".2.0";
 
     // Load SVML functions
 #if defined (_WIN32)
