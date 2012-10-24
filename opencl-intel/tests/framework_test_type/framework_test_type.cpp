@@ -533,14 +533,14 @@ int main(int argc, char** argv)
 
     if (rc == 0) {
         printf("\n==============\nTEST SUCCEDDED\n==============\n");
-        return 1;
+        return 0;
     }
     else {
         printf("\n==============\nTEST FAILED\n==============\n");
-        return 0;
+        return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 
