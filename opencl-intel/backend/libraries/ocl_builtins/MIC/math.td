@@ -455,3 +455,8 @@ OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
     return __ocl_svml_$Target_sqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
+// half_recip
+OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
+    return 1.f/$Arg0VarName;
+  }]>;
+
