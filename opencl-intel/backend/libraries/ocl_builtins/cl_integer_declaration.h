@@ -254,9 +254,11 @@
 	}\
 	_8##UI##8 __attribute__((overloadable)) FUNC(_8##UI##8 x, _8##UI##8 y)\
 	{\
-		_8##UI##32 x2 = convert_##UN##int8 (x);\
-		_8##UI##32 y2 = convert_##UN##int8 (y);\
-		return convert_##UN##char8 ( FUNC ( x2,  y2 ) ); \
+		_16##UI##8 x2, y2, res;\
+    x2.s02468ACE = x;\
+		y2.s02468ACE = y;\
+    res = FUNC(x2,y2);\
+		return res.s02468ACE; \
 	}
 
 #define DEF_INT_PROMOTE16(FUNC, UN, UI)\
