@@ -388,6 +388,12 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
     return read_cbk((void*)image, trans_position, pData);
 }
 
+uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, int2 coord)
+{
+  if (mask) return read_imageui(image, sampler, coord);
+  return (uint4)(0, 0, 0, 0);
+}
+
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, int4 coord)
 {
     void* pData =((image_aux_data*)image)->pData;
@@ -408,6 +414,12 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
     return read_cbk((void*)image, trans_position, pData);
 }
 
+uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, float2 coord)
+{
+  if (mask) return read_imageui(image, sampler, coord);
+  return (uint4)(0,0,0,0);
+}
+
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
@@ -425,6 +437,11 @@ void  __attribute__((overloadable)) write_imageui(image2d_t image, int2 coord, u
     cbk(pixel, color);
 }
 
+void  __attribute__((overloadable)) mask_write_imageui(int mask, image2d_t image, int2 coord, uint4 color)
+{
+  if (mask) write_imageui(image, coord, color);
+}
+
 /******************************************SIGNED INT I/O FUNCTIONS (read_imagei)*************************************************************/
 
 int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampler, int2 coord)
@@ -436,6 +453,12 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
     int4 trans_position=coord_cbk((void*)image, coord4);
     return read_cbk((void*)image, trans_position, pData);
+}
+
+int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, int2 coord)
+{
+  if (mask) return read_imagei(image, sampler, coord);
+  return (int4)(0, 0, 0, 0);
 }
 
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, int4 coord)
@@ -458,6 +481,12 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
     return read_cbk((void*)image, trans_position, pData);
 }
 
+int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, float2 coord)
+{
+  if (mask) return read_imagei(image, sampler, coord);
+  return (int4)(0, 0, 0, 0);
+}
+
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
@@ -475,6 +504,10 @@ void  __attribute__((overloadable)) write_imagei(image2d_t image, int2 coord, in
     cbk(pixel, color);
 }
 
+void  __attribute__((overloadable)) mask_write_imagei(int mask, image2d_t image, int2 coord, int4 color){
+  if (mask) write_imagei(image, coord, color);
+}
+
 /***********************************FLOAT IMAGE I/O FUNCTIONS (read_imagef)********************************************************/
 
 
@@ -489,6 +522,12 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     float4 dummy1;
     int4 trans_position=coord_cbk((void*)image, coord4);
     return read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+}
+
+float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, int2 coord)
+{
+  if (mask) return read_imagef(image, sampler, coord);
+  return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, int4 coord)
@@ -515,6 +554,12 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     return read_cbk((void*)image, square0, square1, fraction, pData);
 }
 
+float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, float2 coord)
+{
+    if (mask) return read_imagef(image, sampler, coord);
+    return (float4)(0.f, 0.f, 0.f, 0.f);
+}
+
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
@@ -531,6 +576,11 @@ void  __attribute__((overloadable)) write_imagef(image2d_t image, int2 coord, fl
     void* pixel = extract_pixel(image, coord);
     Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
     cbk(pixel, color);
+}
+
+void  __attribute__((overloadable)) mask_write_imagef(int mask, image2d_t image, int2 coord, float4 color)
+{
+  if (mask) write_imagef(image, coord, color);
 }
 
 /// 1_2 image functions
@@ -758,6 +808,12 @@ float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
     return read_cbk((void*)image, coord4, dummy0, dummy1, pData);
 }
 
+float4 __attribute__((overloadable)) mask_read_imagef (int mask, image2d_t image, int2 coord)
+{
+  if (mask) return read_imagef(image, coord);
+  return (float4)(0.f, 0.f, 0.f, 0.f);
+}
+
 int4 __attribute__((overloadable)) read_imagei (image2d_t image, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
@@ -767,6 +823,12 @@ int4 __attribute__((overloadable)) read_imagei (image2d_t image, int2 coord)
     return read_cbk((void*)image, coord4, pData);
 }
 
+int4 __attribute__((overloadable)) mask_read_imagei (int mask, image2d_t image, int2 coord)
+{
+  if (mask) return read_imagei(image, coord);
+  return (int4)(0, 0, 0, 0);
+}
+
 uint4 __attribute__((overloadable)) read_imageui (image2d_t image, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
@@ -774,6 +836,12 @@ uint4 __attribute__((overloadable)) read_imageui (image2d_t image, int2 coord)
     void* pData =((image_aux_data*)image)->pData;
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
     return read_cbk((void*)image, coord4, pData);
+}
+
+uint4 __attribute__((overloadable)) mask_read_imageui (int mask, image2d_t image, int2 coord)
+{
+  if (mask) return read_imageui(image, coord);
+  return (uint4)(0, 0, 0, 0);
 }
 
 float4 __attribute__((overloadable)) read_imagef (image3d_t image, int4 coord)

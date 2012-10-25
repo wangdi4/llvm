@@ -813,3 +813,4 @@ let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
     NeedForwardDecl = 1 in {
 def intel_movemask: OclBuiltin<"intel_movemask", (outs si32gentype:$ret), (ins gentype:$x), [], []>;
 }
+
