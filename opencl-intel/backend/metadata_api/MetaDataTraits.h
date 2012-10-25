@@ -1,0 +1,354 @@
+/****************************************************************************
+  Copyright (c) Intel Corporation (2012,2013).
+
+  INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+  LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+  ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+  PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+  DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+  PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+  including liability for infringement of any proprietary rights, relating to
+  use of the code. No license, express or implied, by estoppels or otherwise,
+  to any intellectual property rights is granted herein.
+
+  Traits class for the metadata leaf objects ( "values" ).
+  Supported types include: std::string, llvm::Value inherited classes, MetaDataObjectHandle wrapped classes
+
+  File Name: MetaDataTraits.h
+
+  \****************************************************************************/
+#ifndef METADATATRAITS_H
+#define METADATATRAITS_H
+
+#include "MetaDataObject.h"
+#include "llvm/Value.h"
+#include "llvm/Constants.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Metadata.h"
+#include "llvm/Type.h"
+#include "llvm/Support/Atomic.h"
+#include "llvm/Support/DataTypes.h"
+#include <list>
+
+namespace Intel
+{
+///
+// Generic template for the traits types.
+// Assumes the the T type is inherited from the llvm::Value
+// (in CPP0X we solve this problem - below )
+template< class T, typename C = void >
+struct MDValueTraits
+{
+    // Value type that will be used in the metadata containers
+    typedef T* value_type;
+
+    ///
+    // Loads the given value_type from the given node
+    static value_type load(llvm::Value* pNode)
+    {
+        if( NULL == pNode )
+        {
+            // it is ok to pass NULL nodes - part of support for optional values
+            return NULL;
+        }
+
+        value_type pT = llvm::dyn_cast<T>(pNode);
+        if( NULL == pT )
+        {
+            throw "can't load value, wrong node type";
+        }
+
+        return pT;
+    }
+
+    ///
+    // Creates the new metadata node from the given value_type
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return const_cast<value_type>(val);
+    }
+
+    ///
+    // Indicates that the value_type was changed
+    static bool dirty(const value_type& val)
+    {
+        return false;
+    }
+
+    ///
+    // Discard value changes
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    ///
+    // Save the given value to the target node
+    static void save(llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load() != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
+    }
+};
+
+///
+// Metadata traits specialization for the std::string type
+// We are storing std::string by value
+template<>
+struct MDValueTraits<std::string, void>
+{
+    typedef std::string value_type;
+
+    static  value_type load(llvm::Value* pNode)
+    {
+        if( NULL == pNode)
+        {
+            return std::string();
+        }
+
+        llvm::MDString* mdStr = llvm::dyn_cast<llvm::MDString>(pNode);
+        if( !mdStr )
+        {
+            throw "can't load string, wrong node type";
+        }
+        return mdStr->getString();
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return llvm::MDString::get(context, val);
+    }
+
+    static bool dirty(const value_type& val )
+    {
+        return false;
+    }
+
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    static void save(llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
+    }
+};
+
+template<>
+struct MDValueTraits<bool, void>
+{
+    typedef bool value_type;
+
+    static value_type load( llvm::Value* pNode)
+    {
+        //we allow for NULL value loads
+        if( NULL == pNode )
+        {
+            return value_type();
+        }
+
+        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        if( !pval )
+        {
+            throw "can't load bool value, wrong node type";
+        }
+        return pval->isOne();
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return val ? llvm::ConstantInt::getTrue(context) : llvm::ConstantInt::getFalse(context);
+    }
+
+    static bool dirty(const value_type& val )
+    {
+        return false;
+    }
+
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
+    }
+};
+
+template<>
+struct MDValueTraits<int64_t, void>
+{
+    typedef int64_t value_type;
+
+    static value_type load( llvm::Value* pNode)
+    {
+        //we allow for NULL value loads
+        if( NULL == pNode )
+        {
+            return value_type();
+        }
+
+        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        if( !pval )
+        {
+            throw "can't load bool value, wrong node type";
+        }
+        return pval->getValue().getSExtValue();
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), val);
+    }
+
+    static bool dirty(const value_type& val )
+    {
+        return false;
+    }
+
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
+    }
+};
+
+template<>
+struct MDValueTraits<int32_t, void>
+{
+    typedef int32_t value_type;
+
+    static value_type load( llvm::Value* pNode)
+    {
+        //we allow for NULL value loads
+        if( NULL == pNode )
+        {
+            return value_type();
+        }
+
+        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        if( !pval )
+        {
+            throw "can't load bool value, wrong node type";
+        }
+        return (int32_t)pval->getValue().getSExtValue();
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), val);
+    }
+
+    static bool dirty(const value_type& val )
+    {
+        return false;
+    }
+
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
+    }
+};
+
+
+#if _HAS_CPP0X
+template<class T>
+struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Value, T >::value>::type >
+{
+    typedef T* value_type;
+
+    static value_type load(llvm::Value* pNode)
+    {
+        if( NULL == pNode)
+        {
+            return NULL;
+        }
+
+        value_type pT = llvm::dyn_cast<T>(pNode);
+        if( NULL == pT)
+        {
+            throw "can't local value , wrong node type";
+        }
+        return pT;
+    }
+
+    static llvm::Value* generateValue( llvm::LLVMContext& context, const value_type& val )
+    {
+        return const_cast<value_type>(val);
+    }
+
+    static bool dirty(const value_type& val)
+    {
+        return false;
+    }
+
+    static void discardChanges(value_type& val)
+    {
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+            //llvm::MDNode::deleteTemporary(trgt);
+        }
+    }
+};
+#endif
+
+template< class T>
+struct MDValueTraits<MetaObjectHandle<T>, void>
+{
+    typedef MetaObjectHandle<T> value_type;
+
+    static value_type load( llvm::Value* pNode)
+    {
+        llvm::MDNode* pMDNode = NULL == pNode ? NULL : llvm::dyn_cast<llvm::MDNode>(pNode);
+        return MetaObjectHandle<T>(new T(pMDNode));
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return val->generateNode(context);
+    }
+
+    static bool dirty(const value_type& val)
+    {
+        return val->dirty();
+    }
+
+    static void discardChanges(value_type& val)
+    {
+        val->discardChanges();
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        val->save(context, llvm::cast<llvm::MDNode>(trgt));
+    }
+};
+
+} //namespace
+#endif

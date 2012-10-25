@@ -1,0 +1,264 @@
+/****************************************************************************
+  Copyright (c) Intel Corporation (2012,2013).
+
+  INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+  LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+  ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+  PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+  DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+  PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+  including liability for infringement of any proprietary rights, relating to
+  use of the code. No license, express or implied, by estoppels or otherwise,
+  to any intellectual property rights is granted herein.
+
+  NOTE: THIS FILE IS AUTO-GENERATED. PLEASE DO NOT CHANGE - YOUR CHANGES WILL BE
+        LOST.
+
+  File Name: MetaDataApi.cpp
+
+  \****************************************************************************/
+<%namespace name="utils" file="MetaDataApiIterators.def.mak"/>
+<%namespace file="MetaDataApi.def.mak" import="*"/>
+#include "MetaDataApi.h"
+
+namespace Intel
+{
+
+<%utils:iterate_structs args="typename">
+<%type=schema[typename]%>
+
+///
+// Ctor - loads the ${class_name(typename)} from the given metadata node
+//
+${class_name(typename)}::${class_name(typename)}(const llvm::MDNode* pNode, bool isNamed):
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    %if schema[element['metatype']]['is_container'] == False:
+    ${member_name(element)}(get${element['name']}Node(pNode, isNamed)),\
+    %elif schema[element['metatype']]['container_type'] == 'struct':
+    ${member_name(element)}(${class_name(element['metatype'])}::get(get${element['name']}Node(pNode, isNamed))),\
+    %else:
+    ${member_name(element)}(get${element['name']}Node(pNode, isNamed)),\
+    %endif
+    </%utils:iterate_struct_elements>
+    m_id( getIdNode(pNode, isNamed)),
+    m_pNode(pNode)
+{}
+
+///
+// Default Ctor - creates the empty, not named ${class_name(typename)} object
+//
+${class_name(typename)}::${class_name(typename)}():
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    %if element['location'] == 'named':
+        %if schema[element['metatype']]['is_container'] == False:
+    ${member_name(element)}("${element['key']}"),\
+        %elif schema[element['metatype']]['container_type'] == 'struct':
+    ${member_name(element)}(${class_name(element['metatype'])}::get("${element['key']}")),\
+        %else:
+    ${member_name(element)}("${element['key']}"),\
+        %endif
+    %else:
+        %if schema[element['metatype']]['is_container'] == True and schema[element['metatype']]['container_type'] == 'struct':
+    ${member_name(element)}(${class_name(element['metatype'])}::get()),\
+        %endif
+    %endif
+    </%utils:iterate_struct_elements>
+    m_pNode(NULL)
+{}
+
+///
+// Ctor - creates the empty, named ${class_name(typename)} object
+//
+${class_name(typename)}::${class_name(typename)}(const char* name):
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    %if element['location'] == 'named':
+        %if schema[element['metatype']]['is_container'] == False:
+    ${member_name(element)}("${element['key']}"),\
+        %elif schema[element['metatype']]['container_type'] == 'struct':
+    ${member_name(element)}(${class_name(element['metatype'])}::get("${element['key']}")),\
+        %else:
+    ${member_name(element)}("${element['key']}"),\
+        %endif
+    %else:
+        %if schema[element['metatype']]['is_container'] == True and schema[element['metatype']]['container_type'] == 'struct':
+    ${member_name(element)}(${class_name(element['metatype'])}::get()),\
+        %endif
+    %endif
+    </%utils:iterate_struct_elements>
+    m_id(name),
+    m_pNode(NULL)
+{}
+
+///
+// Returns true if any of the ${class_name(typename)}`s members has changed
+bool ${class_name(typename)}::dirty() const
+{
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    if( ${member_name(element)}.dirty() )
+    {
+        return true;
+    }\
+    </%utils:iterate_struct_elements>
+    return false;
+}
+
+///
+// Discards the changes done to the ${class_name(typename)} instance
+void ${class_name(typename)}::discardChanges()
+{
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    ${member_name(element)}.discardChanges();\
+    </%utils:iterate_struct_elements>
+}
+
+
+///
+// Generates the new MDNode hierarchy for the given structure
+llvm::Value* ${class_name(typename)}::generateNode(llvm::LLVMContext& context) const
+{
+    llvm::SmallVector< llvm::Value*, 5> args;
+
+    if( m_id.hasValue() )
+    {
+        args.push_back(m_id.generateNode(context));
+    }
+
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    args.push_back( ${member_name(element)}.generateNode(context));\
+    </%utils:iterate_struct_elements>
+
+    return llvm::MDNode::get(context, args);
+}
+
+///
+// Saves the structure changes to the given MDNode
+void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNode) const
+{
+    assert( pNode && "The target node should be valid pointer");
+
+    // we assume that underlying metadata node has not changed under our foot
+    if( pNode == m_pNode && !dirty() )
+    {
+        return;
+    }
+    // check that we could save the new information to the given node without regenerating it
+    if( !compatibleWith(pNode) )
+    {
+        pNode->replaceAllUsesWith(generateNode(context));
+        llvm::MDNode::deleteTemporary(pNode);
+        return;
+    }
+
+    <%utils:iterate_struct_elements parent="${type}" args="element">
+    ${member_name(element)}.save(context, llvm::cast<llvm::MDNode>(get${element['name']}Node(pNode, m_id.hasValue())));\
+    </%utils:iterate_struct_elements>
+}
+
+<%utils:iterate_struct_elements parent="${type}" args="element">
+%if schema[element['metatype']]['is_container'] == False:
+llvm::Value* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const
+%else:
+llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const
+%endif
+{
+    if( !pParentNode )
+    {
+        return NULL;
+    }
+
+    int offset = isNamed ? 1 :0;
+%if element['location'] == 'positional':
+    %if schema[element['metatype']]['is_container'] == False:
+    return pParentNode->getOperand(${element['index']} + offset);
+    %else:
+    return llvm::dyn_cast<llvm::MDNode>(pParentNode->getOperand(${element['index']} + offset));
+    %endif
+%else:
+    for(NodeIterator i = NodeIterator(pParentNode, ${first_named_index(type)}+offset), e = NodeIterator(pParentNode); i != e; ++i )
+    {
+        if( isNamedNode(i.get(), "${element['key']}") )
+        {
+    %if schema[element['metatype']]['is_container'] == False:
+            return i.get();
+    %else:
+            return llvm::dyn_cast<llvm::MDNode>(i.get());
+    %endif
+        }
+    }
+    return NULL;
+%endif
+}
+</%utils:iterate_struct_elements>
+
+///
+// Returns the meta data node for the id name
+llvm::Value* ${class_name(typename)}::getIdNode(const llvm::MDNode* pNode, bool isNamed)
+{
+    if( !isNamed )
+    {
+        return NULL; //the structure is not named
+    }
+
+    if( NULL == pNode)
+    {
+        return NULL; //this is allowed for optional nodes
+    }
+
+    if( pNode->getNumOperands() < 1)
+    {
+        throw "Named value doesn't have a name node";
+    }
+
+    llvm::MDString* pIdNode = llvm::dyn_cast<llvm::MDString>(pNode->getOperand(0));
+
+    if( NULL == pIdNode )
+    {
+        throw "Named list id node is not a string";
+    }
+
+    return pIdNode;
+}
+
+</%utils:iterate_structs>
+
+
+
+
+///
+// dtor
+MetaDataUtils::~MetaDataUtils()
+{
+    assert(!dirty() && "There were changes in the metadata hierarchy. Either save or discardChanges should be called");
+}
+
+bool isNamedNode(const llvm::Value* pNode, const char* name)
+{
+    const llvm::MDNode* pMDNode = llvm::dyn_cast<llvm::MDNode>(pNode);
+
+    if( !pMDNode )
+    {
+        return false;
+    }
+
+    if( pMDNode->getNumOperands() < 1 )
+    {
+        return false;
+    }
+
+    const llvm::MDString* pIdNode = llvm::dyn_cast<const llvm::MDString>(pMDNode->getOperand(0));
+    if( !pIdNode )
+    {
+        return false;
+    }
+
+    llvm::StringRef id = pIdNode->getString();
+    if( id.compare(name) )
+    {
+        return false;
+    }
+    return true;
+}
+
+
+
+}

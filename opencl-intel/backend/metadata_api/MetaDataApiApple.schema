@@ -1,0 +1,63 @@
+{
+    "root":     {
+                    "elements": [
+                        {
+                            "name":     "Kernels",
+                            "key":      "opencl.kernels",
+                            "metatype": "kernels"
+                        }
+                    ]
+                },
+    "kernels" : {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "kernel"
+                },
+    "kernel" :  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "Function",
+                            "metatype": "function",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type",
+                            "name":     "ArgTypes",
+                            "metatype": "arglist",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type_qual",
+                            "name":     "ArgTypeQual",
+                            "metatype": "arglist",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_name",
+                            "name":     "ArgName",
+                            "metatype": "arglist",
+                            "optional": true
+                        }
+                    ]
+                },
+    "function": {
+                    "is_container":     false,
+                    "type":             "llvm::Function"
+                },
+    "arglist":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "argitem"
+                },
+    "argitem": {
+                    "is_container":     false,
+                    "type":             "std::string"
+                }
+}
