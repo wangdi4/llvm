@@ -75,28 +75,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->getArgumentList().size() >= NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
-        
+
       // Iterating over explicit arguments
       Function::arg_iterator DestI = pFunc->arg_begin();
-      
+
       // Go over the explicit arguments
       for ( unsigned int  i = 0;
         i < pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS; ++i ) {
           ++DestI;
       }
-      
+
       // Retrieve all the implicit arguments which are not NULL
-      
+
       if ( NULL != ppLocalMem ) {
           *ppLocalMem = DestI;
       }
       ++DestI;
-      
+
       if ( NULL != ppWorkDim ) {
           *ppWorkDim = DestI;
       }
       ++DestI;
-      
+
       if ( NULL != ppWGId ) {
           *ppWGId = DestI;
       }
@@ -106,12 +106,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           *ppBaseGlbId = DestI;
       }
       ++DestI;
-      
+
       if ( NULL != ppCtx ) {
           *ppCtx = DestI;
       }
       ++DestI;
-      
+
       if ( NULL != ppLocalId ) {
           *ppLocalId = DestI;
       }
@@ -161,8 +161,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-void CompilationUtils::parseKernelArguments(  Module* pModule, 
-                                              Function* pFunc, 
+void CompilationUtils::parseKernelArguments(  Module* pModule,
+                                              Function* pFunc,
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments) {
   // Check maximum number of arguments to kernel
   NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
@@ -176,9 +176,9 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   if (pFunc->getName().startswith("____Vectorized_.")) {
     std::string scalarFuncName = pFunc->getName().slice(16,llvm::StringRef::npos).str();
     pFunc=pFunc->getParent()->getFunction("__" + scalarFuncName);
-  }  
+  }
 
-  MDNode *FuncInfo = NULL; 
+  MDNode *FuncInfo = NULL;
   for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
     FuncInfo = MDArgInfo->getOperand(i);
     Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
@@ -186,7 +186,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
     if(pFunc == dyn_cast<Function>(field0))
       break;
   }
- 
+
   if( NULL == FuncInfo )
   {
       throw Exceptions::CompilerException("Intenal error: can't find the function info for the scalarized function");
@@ -199,7 +199,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
     MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
     MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-    
+
     if (tag->getString() == "image_access_qualifier") {
       MDImgAccess = tmpMD;
       break;
@@ -281,7 +281,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
             // Setup image pointer
             if(curArg.type != CL_KRNL_ARG_INT) {
               ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
-              
+
               curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
               break;
             }
@@ -346,7 +346,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
       {
         llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
         curArg.type = CL_KRNL_ARG_VECTOR;
-        curArg.size_in_bytes = (unsigned int)pVector->getNumElements();
+        curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
         curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
       }
       break;
@@ -364,8 +364,8 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   }
 }
 
-void CompilationUtils::getKernelsMetadata( Module* pModule, 
-                                      const SmallVectorImpl<Function*>& pVectFunctions, 
+void CompilationUtils::getKernelsMetadata( Module* pModule,
+                                      const SmallVectorImpl<Function*>& pVectFunctions,
                                       std::map<Function*, MDNode*>& /* OUT */ kernelMetadata) {
 
   NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
@@ -387,7 +387,7 @@ void CompilationUtils::getKernelsMetadata( Module* pModule,
     }
 
     // Get appropriate vector function
-    Function *vecFunc = ( (size_t)vecIndex < pVectFunctions.size() ) ? 
+    Function *vecFunc = ( (size_t)vecIndex < pVectFunctions.size() ) ?
         pVectFunctions[vecIndex] : NULL;
 
     // Map scalar function
