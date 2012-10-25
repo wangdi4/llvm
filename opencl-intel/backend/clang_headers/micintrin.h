@@ -1276,79 +1276,6 @@ _mm512_mask_xor_epi64(__m512i v1_old, __mmask8 k1, __m512i v2, __m512i v3)
 }
 
 /*
- * bit-interleave int32 vectors.
- *    Performs an element-by-element bitwise interleave, using a 1:1 or 2:1
- *    pattern, between int32 vector 'v2' and int32 vector 'v3'.
- */
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_bitinterleave11_epi32(__m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_bitinterleave11pi512((__v16si)v2, (__v16si)v3);
-}
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_bitinterleave11_epi32(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_mask_bitinterleave11pi512((__v16si)v1_old, k1, (__v16si)v2, (__v16si)v3);
-}
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_bitinterleave21_epi32(__m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_bitinterleave21pi512((__v16si)v2, (__v16si)v3);
-}
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_bitinterleave21_epi32(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_mask_bitinterleave21pi512((__v16si)v1_old, k1, (__v16si)v2, (__v16si)v3);
-}
-
-/*
- * Clamp to zero int32 vector.
- *    Performs an element-by-element clamp of int32 vector 'v2' to the range
- *    between zero and int32 vector 'v3'.
- *
- *    A negative value for either source will generate a zero result.
- *    Another way to view this intrinsic is as returning for each element
- *    the lesser of the two sources, but never less than 0.
- */
-
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_clampz_epi32(__m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_clampzpi512((__v16si)v2, (__v16si)v3);
-}
-__inline__ __m512i __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_clampz_epi32(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3)
-{
-  return (__v8di)__builtin_ia32_mask_clampzpi512((__v16si)v1_old, k1, (__v16si)v2, (__v16si)v3);
-}
-
-/*
- * Clamp to zero float32 vector.
- *    Performs an element-by-element clamp of float32 vector 'v2' to the range
- *    between zero and float32 vector 'v3'.
- *
- *    When a negative clamping value is provided, then it behaves
- *    as if the user has reversed the instruction.
- *    The intrinsic has the following property:
- *        clampz(x,y) == -clampz(-x,-y)
- *    If the clamping limit (v3) is a NaN, the instruction returns
- *    a zero with the sign of the clamped value (second operand).
- *    If both are NaNs, the instruction returns a positive zero.
- */
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_clampz_ps(__m512 v2, __m512 v3)
-{
-  return __builtin_ia32_clampzps512(v2, v3);
-}
-__inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_mask_clampz_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3)
-{
-  return __builtin_ia32_mask_clampzps512(v1_old, k1, v2, v3);
-}
-
-/*
  * Compare float32, float64 or int32 vectors and set mask.
  *    Performs an element-by-element comparison between vectors
  *    'v1' and 'v2'.  The resulting truth value is returned
@@ -4859,48 +4786,6 @@ _mm512_mask_reduce_gmax_pd(__mmask8 k1, __m512d v1)
  */
 
 /*
- * 1:1 bit interleave.
- *
- *    Performs a 1:1 bit interleave of the operand (r1) and operand (r2).
- */
-__inline__ unsigned short __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave11_16(unsigned short r1, unsigned short r2)
-{
-  return __builtin_ia32_bitinterleave11w(r1, r2);
-}
-__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave11_32(unsigned int r1, unsigned int r2)
-{
-  return __builtin_ia32_bitinterleave11d(r1, r2);
-}
-__inline__ unsigned long __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave11_64(unsigned long r1, unsigned long r2)
-{
-  return __builtin_ia32_bitinterleave11q(r1, r2);
-}
-
-/*
- * 2:1 bit interleave.
- *
- *    Performs a 2:1 bit interleave of the operand (r1) and operand (r2).
- */
-__inline__ unsigned short __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave21_16(unsigned short r1, unsigned short r2)
-{
-  return __builtin_ia32_bitinterleave21w(r1, r2);
-}
-__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave21_32(unsigned int r1, unsigned int r2)
-{
-  return __builtin_ia32_bitinterleave21d(r1, r2);
-}
-__inline__ unsigned long __attribute__((__always_inline__, __nodebug__))
-_mm_bitinterleave21_64(unsigned long r1, unsigned long r2)
-{
-  return __builtin_ia32_bitinterleave21q(r1, r2);
-}
-
-/*
  * Fast Bit Scan Forward.
  *
  *    Searches the source operand (r2) for the least significant set bit
@@ -5116,35 +5001,6 @@ __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
 _mm_getvxcsr(void)
 {
   return __builtin_ia32_getvxcsr();
-}
-
-
-/*
- * Set per-quad mask.
- *
- *    For each quad (that is, each set of four 4-bit-aligned bits, such as
- *    bits 0-3 or 4-7) within the first qquad (16-bits) in the source operand
- *    (r2), the 4 bits are ORed together, and the corresponding bit of the
- *    result is set to the result of the OR.
- *
- *    This instruction is used to determine how many and which quads are
- *    mask-enabled in a qquad, where a quad is 2x2 pixels and a qquad is
- *    4x4 pixels (four quads), stored in a single vector register.
- */
-__inline__ unsigned short __attribute__((__always_inline__, __nodebug__))
-_mm_quadmask16_16(unsigned short r2)
-{
-  return __builtin_ia32_quadmask16w(r2);
-}
-__inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
-_mm_quadmask16_32(unsigned int r2)
-{
-  return __builtin_ia32_quadmask16d(r2);
-}
-__inline__ unsigned long __attribute__((__always_inline__, __nodebug__))
-_mm_quadmask16_64(unsigned long r2)
-{
-  return __builtin_ia32_quadmask16q(r2);
 }
 
 /*

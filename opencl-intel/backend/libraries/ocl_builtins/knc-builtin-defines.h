@@ -691,24 +691,55 @@ double8 __attribute__((overloadable)) shuffle2_long_x16(double16 x, double16 y, 
 uchar __attribute__((__always_inline__, overloadable))
 _mask16z8(ushort m16)
 {
-    uint r = _mm_bitinterleave11_32(m16, m16); // 0a0b ->  00aa00bb or a0b0 -> aa00bb00
-    uint hi = _mm_quadmask16_32(r >> 16);
-    uint lo = _mm_quadmask16_32(r);
-    return (hi << 4) | lo;
+    // TODO: find out effective analogue
+
+    ushort mask = 0xAAAA; 
+    if(m16 & mask) // 10101010101010101010
+    {
+        m16 >>= 1;
+    }
+    uchar ret = m16 & 1;
+    ret |= (m16 & 4) >> 1;
+    ret |= (m16 & 0x10) >> 2;
+    ret |= (m16 & 0x40) >> 3;
+    ret |= (m16 & 0x100) >> 4;
+    ret |= (m16 & 0x400) >> 5;
+    ret |= (m16 & 0x1000) >> 6;
+    ret |= (m16 & 0x4000) >> 7;
+    return ret;
 }
 
 // 00000000abcdefgh -> 0a0b0c0d0e0f0g0h
 ushort __attribute__((__always_inline__, overloadable))
 _mask8z16e(uchar m8) // even
-{
-    return _mm_bitinterleave11_16(0, m8);
+{  
+    // TODO: find out effective analogue
+    ushort ret = 0, tmp = m8;
+    ret |= (tmp & 2) << 1;
+    ret |= (tmp & 4) << 2;
+    ret |= (tmp & 8) << 3;
+    ret |= (tmp & 0x10) << 4;
+    ret |= (tmp & 0x20) << 5;
+    ret |= (tmp & 0x40) << 6;
+    ret |= (tmp & 0x80) << 7;
+    return ret;
 }
 
 // 00000000abcdefgh -> a0b0c0d0e0f0g0h0
 ushort __attribute__((__always_inline__, overloadable))
 _mask8z16o(uchar m8) // odd
 {
-    return _mm_bitinterleave11_16(m8, 0);
+    // TODO: find out effective analogue
+    ushort ret = 0, tmp = m8;
+    ret |= (tmp & 1) << 1;
+    ret |= (tmp & 2) << 2;
+    ret |= (tmp & 4) << 3;
+    ret |= (tmp & 8) << 4;
+    ret |= (tmp & 0x10) << 5;
+    ret |= (tmp & 0x20) << 6;
+    ret |= (tmp & 0x40) << 7;
+    ret |= (tmp & 0x80) << 8;
+    return ret;
 }
 
 // x < 0
