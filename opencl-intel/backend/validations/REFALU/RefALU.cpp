@@ -130,7 +130,7 @@ namespace Validation
     template<>
     double RefALU::sin<double>(const double &a)
     {
-        return Conformance::reference_sin(a);
+        return (double)Conformance::reference_sinl(a);
     }
     template<>
     long double RefALU::sin<long double>(const long double &a)
@@ -146,7 +146,7 @@ namespace Validation
     template<>
     double RefALU::cos<double>(const double &a)
     {
-        return Conformance::reference_cos(a);
+        return (double)Conformance::reference_cosl(a);
     }
     template<>
     long double RefALU::cos<long double>(const long double &a)
@@ -162,7 +162,7 @@ namespace Validation
     template<>
     double RefALU::tan<double>(const double &a)
     {
-        return Conformance::reference_tan(a);
+        return (double)Conformance::reference_tanl(a);
     }
     template<>
     long double RefALU::tan<long double>(const long double &a)
@@ -178,7 +178,7 @@ namespace Validation
     template<>
     double RefALU::tanpi<double>(const double &a)
     {
-        return Conformance::reference_tanpi(a);
+        return (double)Conformance::reference_tanpil(a);
     }
     template<>
     long double RefALU::tanpi<long double>(const long double &a)
@@ -194,7 +194,7 @@ namespace Validation
     template<>
     double RefALU::asin<double>(const double &a)
     {
-        return Conformance::reference_asin(a);
+        return (double)Conformance::reference_asinl(a);
     }
     template<>
     long double RefALU::asin<long double>(const long double &a)
@@ -210,7 +210,7 @@ namespace Validation
     template<>
     double RefALU::acos<double>(const double& a)
     {
-        return Conformance::reference_acos(a);
+        return (double)Conformance::reference_acosl(a);
     }
     template<>
     long double RefALU::acos<long double>(const long double& a)
@@ -226,7 +226,7 @@ namespace Validation
     template<>
     double RefALU::atan<double>(const double &a)
     {
-        return Conformance::reference_atan(a);
+        return (double)Conformance::reference_atanl(a);
     }
     template<>
     long double RefALU::atan<long double>(const long double &a)
@@ -242,7 +242,7 @@ namespace Validation
     template<>
     double RefALU::sinh<double>(const double &a)
     {
-        return Conformance::reference_sinh(a);
+        return (double)Conformance::reference_sinhl(a);
     }
     template<>
     long double RefALU::sinh<long double>(const long double &a)
@@ -258,7 +258,7 @@ namespace Validation
     template<>
     double RefALU::cosh<double>(const double &a)
     {
-        return Conformance::reference_cosh(a);
+        return (double)Conformance::reference_coshl(a);
     }
     template<>
     long double RefALU::cosh<long double>(const long double &a)
@@ -274,7 +274,7 @@ namespace Validation
     template<>
     double RefALU::tanh<double>(const double &a)
     {
-        return Conformance::reference_tanh(a);
+        return (double)Conformance::reference_tanhl(a);
     }
     template<>
     long double RefALU::tanh<long double>(const long double &a)
@@ -290,7 +290,7 @@ namespace Validation
     template<>
     double RefALU::sinpi<double>(const double &a)
     {
-        return Conformance::reference_sinpi(a);
+        return (double)Conformance::reference_sinpil(a);
     }
     template<>
     long double RefALU::sinpi<long double>(const long double &a)
@@ -306,7 +306,7 @@ namespace Validation
     template<>
     double RefALU::cospi<double>(const double &a)
     {
-        return Conformance::reference_cospi(a);
+        return (double)Conformance::reference_cospil(a);
     }
     template<>
     long double RefALU::cospi<long double>(const long double &a)
@@ -322,7 +322,7 @@ namespace Validation
     template<>
     double RefALU::asinpi<double>(const double &a)
     {
-        return Conformance::reference_asinpi(a);
+        return (double)Conformance::reference_asinpil(a);
     }
     template<>
     long double RefALU::asinpi<long double>(const long double &a)
@@ -338,7 +338,7 @@ namespace Validation
     template<>
     double RefALU::acospi<double>(const double &a)
     {
-        return Conformance::reference_acospi(a);
+        return (double)Conformance::reference_acospil(a);
     }
     template<>
     long double RefALU::acospi<long double>(const long double &a)
@@ -354,7 +354,7 @@ namespace Validation
     template<>
     double RefALU::atanpi<double>(const double &a)
     {
-        return Conformance::reference_atanpi(a);
+        return (double)Conformance::reference_atanpil(a);
     }
     template<>
     long double RefALU::atanpi<long double>(const long double &a)
@@ -370,7 +370,7 @@ namespace Validation
     template<>
     double RefALU::atan2<double>(const double &x, const double &y)
     {
-        return Conformance::reference_atan2(x,y);
+        return (double)Conformance::reference_atan2l(x,y);
     }
     template<>
     long double RefALU::atan2<long double>(const long double &x,const long double &y)
@@ -386,7 +386,7 @@ namespace Validation
     template<>
     double RefALU::atan2pi<double>(const double &x, const double &y)
     {
-        return Conformance::reference_atan2pi(x,y);
+        return (double)Conformance::reference_atan2pil(x,y);
     }
     template<>
     long double RefALU::atan2pi<long double>(const long double &x,const long double &y)
@@ -402,7 +402,7 @@ namespace Validation
     template<>
     double RefALU::ceil<double>(const double& x)
     {
-        return Conformance::reference_ceil(x);
+        return (double)Conformance::reference_ceill(x);
     }
     template<>
     long double RefALU::ceil<long double>(const long double& x)
@@ -449,7 +449,7 @@ namespace Validation
     template<>
     double RefALU::exp<double>(const double& x)
     {
-        return Conformance::reference_exp(x);
+        return (double)Conformance::reference_expl(x);
     }
     template<>
     long double RefALU::exp<long double>(const long double& x)
@@ -465,7 +465,7 @@ namespace Validation
     template<>
     double RefALU::exp2<double>(const double& x)
     {
-        return Conformance::reference_exp2(x);
+        return (double)Conformance::reference_exp2l(x);
     }
     template<>
     long double RefALU::exp2<long double>(const long double& x)
@@ -481,7 +481,7 @@ namespace Validation
     template<>
     double RefALU::exp10<double>(const double& x)
     {
-        return Conformance::reference_exp10(x);
+        return (double)Conformance::reference_exp10l(x);
     }
     template<>
     long double RefALU::exp10<long double>(const long double& x)
@@ -497,7 +497,7 @@ namespace Validation
     template<>
     double RefALU::expm1<double>(const double& x)
     {
-        return Conformance::reference_expm1(x);
+        return (double)Conformance::reference_expm1l(x);
     }
     template<>
     long double RefALU::expm1<long double>(const long double& x)
@@ -513,7 +513,7 @@ namespace Validation
     template<>
     double RefALU::log2<double>(const double& x)
     {
-        return Conformance::reference_log2(x);
+        return (double)Conformance::reference_log2l(x);
     }
     template<>
     long double RefALU::log2<long double>(const long double& x)
@@ -529,7 +529,7 @@ namespace Validation
     template<>
     double RefALU::log10<double>(const double& x)
     {
-        return Conformance::reference_log10(x);
+        return (double)Conformance::reference_log10l(x);
     }
     template<>
     long double RefALU::log10<long double>(const long double& x)
@@ -545,7 +545,7 @@ namespace Validation
     template<>
     double RefALU::log<double>(const double& x)
     {
-        return Conformance::reference_log(x);
+        return (double)Conformance::reference_logl(x);
     }
     template<>
     long double RefALU::log<long double>(const long double& x)
@@ -561,7 +561,7 @@ namespace Validation
     template<>
     double RefALU::log1p<double>(const double& x)
     {
-        return Conformance::reference_log1p(x);
+        return (double)Conformance::reference_log1pl(x);
     }
     template<>
     long double RefALU::log1p<long double>(const long double& x)
@@ -577,7 +577,7 @@ namespace Validation
     template<>
     double RefALU::logb<double>(const double& x)
     {
-        return Conformance::reference_logb(x);
+        return (double)Conformance::reference_logbl(x);
     }
     template<>
     long double RefALU::logb<long double>(const long double& x)
@@ -593,7 +593,7 @@ namespace Validation
     template<>
     int RefALU::ilogb<double>(const double& x)
     {
-        return Conformance::reference_ilogb(x);
+        return (double)Conformance::reference_ilogbl(x);
     }
     template<>
     int RefALU::ilogb<long double>(const long double& x)
@@ -609,7 +609,7 @@ namespace Validation
     template<>
     double RefALU::pow<double>(const double& x, const double& y)
     {
-        return Conformance::reference_pow(x, y);
+        return (double)Conformance::reference_powl(x, y);
     }
     template<>
     long double RefALU::pow<long double>(const long double& x, const long double& y)
@@ -625,7 +625,7 @@ namespace Validation
     template<>
     double RefALU::powr<double>(const double& x, const double& y)
     {
-        return Conformance::reference_powr(x, y);
+        return (double)Conformance::reference_powrl(x, y);
     }
     template<>
     long double RefALU::powr<long double>(const long double& x, const long double& y)
@@ -641,7 +641,7 @@ namespace Validation
     template<>
     double RefALU::pown<double>(const double& x, const int& y)
     {
-        return Conformance::reference_pown(x, y);
+        return (double)Conformance::reference_pownl(x, y);
     }
     template<>
     long double RefALU::pown<long double>(const long double& x, const int& y)
@@ -658,7 +658,7 @@ namespace Validation
     template<>
     double RefALU::cbrt<double>(const double &a)
     {
-        return Conformance::reference_cbrt(a);
+        return (double)Conformance::reference_cbrtl(a);
     }
     template<>
     long double RefALU::cbrt<long double>(const long double &a)
@@ -674,7 +674,7 @@ namespace Validation
     template<>
     double RefALU::sqrt<double>(const double &a)
     {
-        return Conformance::reference_sqrt(a);
+        return (double)Conformance::reference_sqrtl(a);
     }
     template<>
     long double RefALU::sqrt<long double>(const long double &a)
@@ -690,7 +690,7 @@ namespace Validation
     template<>
     double RefALU::rsqrt<double>(const double &a)
     {
-        return Conformance::reference_rsqrt(a);
+        return (double)Conformance::reference_rsqrtl(a);
     }
     template<>
     long double RefALU::rsqrt<long double>(const long double &a)
@@ -722,7 +722,7 @@ namespace Validation
     template<>
     double RefALU::floor<double>(const double& a)
     {
-        return Conformance::reference_floor(a);
+        return (double)Conformance::reference_floorl(a);
     }
     template<>
     long double RefALU::floor<long double>(const long double& a)
@@ -741,7 +741,10 @@ namespace Validation
     template<>
     double RefALU::fract<double>(const double& a, double* b)
     {
-        return Conformance::reference_fract(a, b);
+        long double tmp;
+        double res = (double)Conformance::reference_fractl(a, &tmp);
+        *b = (double)tmp;
+        return res;
     }
     template<>
     long double RefALU::fract<long double>(const long double& a, long double* b)
@@ -757,7 +760,7 @@ namespace Validation
     template<>
     double RefALU::hypot<double>(const double& x, const double& y)
     {
-        return Conformance::reference_hypot( x, y );
+        return (double)Conformance::reference_hypotl( x, y );
     }
     template<>
     long double RefALU::hypot<long double>(const long double& x, const long double& y)
@@ -773,7 +776,7 @@ namespace Validation
     template<>
     double RefALU::frexp<double>(const double& x, int * exp)
     {
-        return Conformance::reference_frexp(x,exp);
+        return (double)Conformance::reference_frexpl(x,exp);
     }
     template<>
     long double RefALU::frexp<long double>(const long double& x, int * exp)
@@ -789,7 +792,7 @@ namespace Validation
     template<>
     double RefALU::ldexp<double>(const double& x, const int& n)
     {
-        return Conformance::reference_ldexp(x,n);
+        return (double)Conformance::reference_ldexpl(x,n);
     }
     template<>
     long double RefALU::ldexp<long double>(const long double& x, const int& n)
@@ -837,7 +840,7 @@ namespace Validation
     template<>
     double RefALU::rint<double>(const double& x)
     {
-        return Conformance::reference_rint(x);
+        return (double)Conformance::reference_rintl(x);
     }
     template<>
     long double RefALU::rint<long double>(const long double& x)
@@ -856,7 +859,10 @@ namespace Validation
     template<>
     double RefALU::modf<double>(const double& x, double * iptr)
     {
-        return Conformance::reference_modf(x,iptr);
+        long double res_integral = (long double)(*iptr);
+        long double res_fractional = Conformance::reference_modfl(x,&res_integral);
+        *iptr = (double)res_integral;
+        return (double)res_fractional;
     }
     template<>
     long double RefALU::modf<long double>(const long double& x, long double * iptr)
@@ -872,7 +878,7 @@ namespace Validation
     template<>
     double RefALU::rootn<double>(const double& x, const int& y)
     {
-        return Conformance::reference_rootn(x,y);
+        return (double)Conformance::reference_rootnl(x,y);
     }
     template<>
     long double RefALU::rootn<long double>(const long double& x, const int& y)
@@ -888,7 +894,7 @@ namespace Validation
     template<>
     double RefALU::asinh<double>(const double& x)
     {
-        return Conformance::reference_asinh(x);
+        return (double)Conformance::reference_asinhl(x);
     }
     template<>
     long double RefALU::asinh<long double>(const long double& x)
@@ -904,7 +910,7 @@ namespace Validation
     template<>
     double RefALU::acosh<double>(const double& x)
     {
-        return Conformance::reference_acosh(x);
+        return (double)Conformance::reference_acoshl(x);
     }
     template<>
     long double RefALU::acosh<long double>(const long double& x)
@@ -920,7 +926,7 @@ namespace Validation
     template<>
     double RefALU::atanh<double>(const double& x)
     {
-        return Conformance::reference_atanh(x);
+        return (double)Conformance::reference_atanhl(x);
     }
     template<>
     long double RefALU::atanh<long double>(const long double& x)
@@ -956,7 +962,7 @@ namespace Validation
     template<>
     double RefALU::nextafter<double>(const double& x, const double& y)
     {
-        return Conformance::reference_nextafter(x,y);
+        return (double)Conformance::reference_nextafterl(x,y);
     }
     template<>
     long double RefALU::nextafter<long double>(const long double& x,const long double& y)
@@ -973,7 +979,7 @@ namespace Validation
     template<>
     double RefALU::fmod<double>(const double& x, const double& y)
     {
-        return Conformance::reference_fmod(x,y);
+        return (double)Conformance::reference_fmodl(x,y);
     }
     template<>
     long double RefALU::fmod<long double>(const long double& x,const long double& y)
@@ -990,7 +996,7 @@ namespace Validation
     template<>
     double RefALU::fdim<double>(const double& x, const double& y)
     {
-        return Conformance::reference_fdim(x,y);
+        return (double)Conformance::reference_fdiml(x,y);
     }
     template<>
     long double RefALU::fdim<long double>(const long double& x,const long double& y)
@@ -1007,7 +1013,7 @@ namespace Validation
     template<>
     double RefALU::lgamma<double>(const double& x)
     {
-        return Conformance::reference_lgamma(x);
+        return (double)Conformance::reference_lgammal(x);
     }
     template<>
     long double RefALU::lgamma<long double>(const long double& x)
@@ -1023,7 +1029,7 @@ namespace Validation
     template<>
     double RefALU::lgamma_r<double>(const double& x, int32_t* signp)
     {
-        return Conformance::reference_lgamma_r(x, signp);
+        return (double)Conformance::reference_lgamma_rl(x, signp);
     }
     template<>
     long double RefALU::lgamma_r<long double>(const long double& x, int32_t* signp)
@@ -1040,7 +1046,7 @@ namespace Validation
     template<>
     double RefALU::mad<double>(const double& a, const double& b, const double& c)
     {
-        return Conformance::reference_mad(a, b, c);
+        return (double)Conformance::reference_madl(a, b, c);
     }
     template<>
     long double RefALU::mad<long double>(const long double& a, const long double& b, const long double& c)
@@ -1088,7 +1094,7 @@ namespace Validation
     template<>
     double RefALU::remainder<double>(const double& x, const double& y)
     {
-        return Conformance::reference_remainderl(x, y);
+        return (double)Conformance::reference_remainderl(x, y);
     }
     template<>
     long double RefALU::remainder<long double>(const long double& x, const long double& y)
@@ -1105,7 +1111,7 @@ namespace Validation
     template<>
     double RefALU::remquo<double>(const double& x, const double& y, int32_t* quo)
     {
-        return Conformance::reference_remquol(x, y, quo);
+        return (double)Conformance::reference_remquol(x, y, quo);
     }
     template<>
     long double RefALU::remquo<long double>(const long double& x, const long double& y, int32_t* quo)
@@ -1114,4 +1120,20 @@ namespace Validation
         return Conformance::reference_remquol(x, y, quo);
     }
     
+    template<>
+    float RefALU::fma(const float& a, const float& b, const float& c)
+    {
+        return (float)Conformance::reference_fma(a, b, c);
+    }
+    template<>
+    double RefALU::fma(const double& a, const double& b, const double& c)
+    {
+        return (double)Conformance::reference_fmal(a, b, c);
+    }
+    template<>
+    long double RefALU::fma(const long double& a, const long double& b, const long double& c)
+    {
+        return Conformance::reference_fmal(a, b, c);
+    }
+
 } // end namespace validation

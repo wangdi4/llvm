@@ -224,19 +224,19 @@ File Name:  oclbuiltin_d.cl
     KERNEL_BI_ONEARG(atanpi)
     KERNEL_BI_ONEARG(cos)
     KERNEL_BI_ONEARG(cosh)
-    // KERNEL_BI_ONEARG(cospi) disabled until CSSD100014647 will be fixed
-    // KERNEL_BI_ONEARG(exp) disabled until CSSD100014647 will be fixed
-    // KERNEL_BI_ONEARG(exp2) disabled until CSSD100014647 will be fixed
-    // KERNEL_BI_ONEARG(exp10) disabled until CSSD100014647 will be fixed
-    // KERNEL_BI_ONEARG(expm1) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_ONEARG(cospi)
+    KERNEL_BI_ONEARG(exp)
+    KERNEL_BI_ONEARG(exp2)
+    KERNEL_BI_ONEARG(exp10)
+    KERNEL_BI_ONEARG(expm1)
     KERNEL_BI_ONEARG(log)
     KERNEL_BI_ONEARG(log2)
     KERNEL_BI_ONEARG(log10)
-    // KERNEL_BI_ONEARG(log1p) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_ONEARG(log1p)
     KERNEL_BI_ONEARG(logb)
 
     KERNEL_BI_ONEARG(ceil)
-    // KERNEL_BI_TWOARGS(pow) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_TWOARGS(pow)
 
     KERNEL_BI_THREEARGS(clamp) // gentype clamp (gentype x, gentype minval, gentype maxval)
 
@@ -267,9 +267,9 @@ File Name:  oclbuiltin_d.cl
     KERNEL_BI_ONEARG(tanpi)
     KERNEL_BI_ONEARG(fabs)
  
-    // KERNEL_BI_ONEARG(asinh) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_ONEARG(asinh)
     KERNEL_BI_ONEARG(acosh)
-    // KERNEL_BI_ONEARG(atanh) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_ONEARG(atanh)
 
 __kernel void vload_d(__global double * input,  __global int * input_int, 
                       __global double * output, __global double * output2)
@@ -352,9 +352,8 @@ __kernel void mix_s_d(__global double * input,  __global int * input_int,
     OUTPUT_ONE_VEC_FLOAT(tid)
 } 
 
-    //KERNEL_BI_NORMALIZE(normalize) disabled until CSSD100014647 will be fixed
-/*
-disabled until CSSD100014647 will be fixed
+    KERNEL_BI_NORMALIZE(normalize)
+
 __kernel void cross_d(__global double * input,  __global int * input_int, 
                       __global double * output, __global double * output2) // gentypef step (double edge, gentypef x)
 {
@@ -363,12 +362,14 @@ __kernel void cross_d(__global double * input,  __global int * input_int,
     uint tid = 0;
     a3_in.s0 = input[tid]; a3_in.s1 = input[tid+1]; a3_in.s2 = input[tid+2];  
     a4_in.s012 = a3_in; a4_in.s3 = input[tid+3];
+    b3_in.s0 = input[tid+4]; b3_in.s1 = input[tid+5]; b3_in.s2 = input[tid+6];
+    b4_in.s012 = b3_in; b4_in.s3 = input[tid+7];
     a3_out = cross(a3_in, b3_in);  a4_out = cross(a4_in, b4_in);
     output[tid] = a3_out.s0; output[tid+1] = a3_out.s1; output[tid+2] = a3_out.s2;
     output[tid+3] = a4_out.s0; output[tid+4] = a4_out.s1; output[tid+5] = a4_out.s2; output[tid+6] = a4_out.s3;
 }
-*/
-    // KERNEL_BI_GEOM_ONEARG(length) disabled until CSSD100014647 will be fixed
+
+    KERNEL_BI_GEOM_ONEARG(length)
     KERNEL_BI_GEOM_TWOARGS(distance)
 /*
 disabled until CSSD100014650 will be fixed
@@ -399,31 +400,31 @@ __kernel void convert_double_long_d(__global double * input, __global int * inpu
 }
 */
  
-    // KERNEL_BI_FOUT_FIN_IIN(rootn) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_FOUT_FIN_IIN(rootn)
     KERNEL_BI_FOUT_FIN_IIN(ldexp) // doublen ldexp (doublen x, intn k)
     KERNEL_BI_SINGLE_POW(ldexp)  // doublen ldexp (doublen x, int k)
 
-    // KERNEL_BI_TWOOUTARGS(modf) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_TWOOUTARGS(modf)
     KERNEL_BI_FREXP(frexp)
   
     KERNEL_BI_TWOARGS(maxmag)
     KERNEL_BI_TWOARGS(minmag)
     KERNEL_BI_TWOARGS(copysign)
-    // KERNEL_BI_TWOARGS(nextafter) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_TWOARGS(nextafter)
     KERNEL_BI_TWOARGS(fdim)
-    // KERNEL_BI_THREEARGS(fma) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_THREEARGS(fma)
     KERNEL_BI_THREEARGS(mad)
     KERNEL_BI_ONEARG(rint)
     KERNEL_BI_ONEARG(round)
     KERNEL_BI_ONEARG(trunc)
-    // KERNEL_BI_ONEARG(cbrt) disabled until CSSD100014647 will be fixed
-    // KERNEL_BI_TWOARGS(powr) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_ONEARG(cbrt)
+    KERNEL_BI_TWOARGS(powr)
     KERNEL_BI_TWOARGS(fmod)
     KERNEL_BI_TWOARGS(fmin)  // gentype fmin (gentype x, gentype y)
     KERNEL_BI_TWOARGS(fmax)  // gentype fmax (gentype x, gentype y)
     KERNEL_BI_MINMAX(fmin)   // gentype fmax (gentype x, double y)
     KERNEL_BI_MINMAX(fmax)   // gentype fmax (gentype x, double y)
-    // KERNEL_BI_SINGLE_POW(pown) disabled until CSSD100014647 will be fixed
+    KERNEL_BI_SINGLE_POW(pown)
 
 __kernel void ilogb_d(__global double * input, __global int * input_int, 
                       __global double * output, __global double * output2)

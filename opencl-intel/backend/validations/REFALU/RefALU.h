@@ -400,11 +400,8 @@ namespace Validation
             return Utils::IsNaN(x);
         }
 
-        template<typename T>
-        static T fma(const T& a, const T& b, const T& c)
-        {
-            return precision_cast(a) * precision_cast(b) + c;
-        }
+        template<typename T> static T fma(const T& a, const T& b, const T& c);
+
         /// Test for sign bit.
         template<typename T>  static T signbit(const T& x);
 

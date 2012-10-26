@@ -67,7 +67,7 @@ namespace OCLBuiltins {
         T norm = RefALU::rsqrt(len);
         for (uint32_t i = 0; i < n; ++i)
         {
-            getRef<T,n>(R,i) = RefALU::div(getVal<T,n>(R,i), norm);
+            getRef<T,n>(R,i) = RefALU::mul(getVal<T,n>(arg0, i), norm);
         }
         return R;
     }
@@ -82,7 +82,7 @@ namespace OCLBuiltins {
         T len = T(0);
         for (uint32_t i = 0; i < n; ++i)
         {
-            len += RefALU::add(len, RefALU::mul(getVal<T,n>(arg0, i), getVal<T,n>(arg0, i)));
+            len = RefALU::add(len, RefALU::mul(getVal<T,n>(arg0, i), getVal<T,n>(arg0, i)));
         }
         getRef<T>(R) = RefALU::sqrt(len);
         return R;
@@ -126,7 +126,7 @@ namespace OCLBuiltins {
         getRef<T,n>(R,2) = ( getVal<T,n>(arg0, 0) * getVal<T,n>(arg1, 1) ) - ( getVal<T,n>(arg0, 1) * getVal<T,n>(arg1, 0) );
 
         if( n == 4)
-            getRef<T,n>(R,2) = T(0);
+            getRef<T,n>(R,3) = T(0);
 
         return R;
     }
