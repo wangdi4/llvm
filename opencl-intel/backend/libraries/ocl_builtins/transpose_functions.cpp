@@ -25,6 +25,7 @@
 #include "transpose_functions.h"
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#include "masked_load_store_functions.h"
 #include <intrin.h>
 
 
@@ -44,7 +45,7 @@
 /// @param yOut   - Row 1 of the transposed matrix
 /// @param zOut   - Row 2 of the transposed matrix
 /// @param wOut   - Row 3 of the transposed matrix
-void load_transpose_char4x4_common(char16 xyzwIn, char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x4_common(char16 xyzwIn, char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
   
   char16 xyzw = xyzwIn;                                                     // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
   *xOut = xyzw.s048C;                                                       // x0  D  D  D x1  D  D  D x2  D  D  D x3  D  D  D 
@@ -59,7 +60,7 @@ void load_transpose_char4x4_common(char16 xyzwIn, char4* xOut, char4* yOut, char
   *wOut = xyzw.s048C;                                                       // w0  D  D  D w1  D  D  D w2  D  D  D w3  D  D  D
 }
 
-void load_transpose_char4x4(char4* pLoadAdd, char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x4(char4* pLoadAdd, char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
   // We load "char16", meaning we load the full matrix in a single load
   char* tmpLoadAdd = (char*)pLoadAdd;
   char16 xyzw = vload16(0, tmpLoadAdd); // unaligned load
@@ -74,7 +75,7 @@ void load_transpose_char4x4(char4* pLoadAdd, char4* xOut, char4* yOut, char4* zO
 /// @param yIn    - Row 1 of the matrix to be transposed
 /// @param zIn    - Row 2 of the matrix to be transposed
 /// @param wIn    - Row 3 of the matrix to be transposed
-void transpose_store_char4x4_common(char16* xyzw, char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x4_common(char16* xyzw, char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
 
   char16 x;
   char16 y;
@@ -94,7 +95,7 @@ void transpose_store_char4x4_common(char16* xyzw, char4 xIn, char4 yIn, char4 zI
   *xyzw = (char16) _mm_unpacklo_epi16((__m128i)xy, (__m128i)zw);            // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
 }
 
-void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
 
   char16 xyzw;
   transpose_store_char4x4_common(&xyzw, xIn, yIn, zIn, wIn);
@@ -104,13 +105,23 @@ void transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, 
   vstore16(xyzw, 0, tmpStoreAdd);  // unaligned store
 }
 
+void __inline__ __attribute__((always_inline)) masked_load_transpose_char4x4(char4* pLoadAdd, char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask) {
+  char4 xyzw[4];
+  masked_load_char4x4(pLoadAdd, xyzw, mask);
+  load_transpose_char4x4(xyzw, xOut, yOut, zOut, wOut);
+}
 
 
+void __inline__ __attribute__((always_inline)) masked_transpose_store_char4x4(char4* pStoreAdd, char4 xIn, char4 yIn, char4 zIn, char4 wIn, int4 mask) {  
+  char4 xyzw[4];
+  transpose_store_char4x4(xyzw, xIn, yIn, zIn, wIn);
+  masked_store_char4x4(pStoreAdd, xyzw, mask);
+}
 
-void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
                               
-
+  
   // TODO : check with Tal if for AVX it's better to do inserts instead of broadcast + blend                              
   // Broadcast the loaded values, all but the first element in the register which will be moved there
   int4 xyzw1 = *((int*)pLoadAdd1);
@@ -128,10 +139,10 @@ void gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAd
   load_transpose_char4x4_common((char16)xyzw, xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
 
-  int4 xyzw;
+  int4 xyzw = 0;
   transpose_store_char4x4_common((char16*)&xyzw, xIn, yIn, zIn, wIn);
 
   *((int*)pStoreAdd0) = xyzw.s0;
@@ -140,6 +151,42 @@ void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pSto
   *((int*)pStoreAdd3) = xyzw.s3;
 }
 
+
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask){
+  if (all(mask)) {
+    gather_transpose_char4x4( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                            xOut, yOut, zOut, wOut);
+    return;
+  }
+
+  char4 dummy;
+
+  char4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  char4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  char4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  char4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+
+	gather_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3, xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4 xIn, char4 yIn, char4 zIn, char4 wIn, int4 mask) {
+  if (all(mask)) {
+    transpose_scatter_char4x4(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+
+  char4 dummy;
+
+  char4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  char4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  char4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  char4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+
+	transpose_scatter_char4x4(xyzw0, xyzw1, xyzw2, xyzw3, xIn, yIn, zIn, wIn);
+}
 
 #endif // defined(__AVX__)
 
@@ -150,6 +197,8 @@ void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pSto
 
 #if defined(__AVX__)
 
+typedef __v32qi char32;
+
 /// @brief Receives char8x4 matrix as 2 halfs (2 char4x4 matrixes) using 2 char16, 
 ///        transposes it and outputs the rows of the transposed matrix.
 /// @param xyzw0In  - Upper part of the char8x4 matrix to be transposed
@@ -158,7 +207,7 @@ void transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pSto
 /// @param yIn      - Row 1 of the transposed matrix
 /// @param zIn      - Row 2 of the transposed matrix
 /// @param wIn      - Row 3 of the transposed matrix
-void load_transpose_char4x8_common_AVX(char16 xyzw0In, char16 xyzw1In, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x8_common_AVX(char16 xyzw0In, char16 xyzw1In, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
   
   char16 xyzw0 = xyzw0In;
   char16 xyzw1 = xyzw1In;
@@ -189,13 +238,19 @@ void load_transpose_char4x8_common_AVX(char16 xyzw0In, char16 xyzw1In, char8* xO
   *wOut = w.s02468ACE;
 }
 
-void load_transpose_char4x8_AVX(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x8_AVX(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
   // We load "char16", meaning we load the full matrix in a 2 loads
   char* tmpLoadAdd = (char*)pLoadAdd;
   char16 xyzw0 = vload16(0, tmpLoadAdd);                                  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 
   char16 xyzw1 = vload16(1, tmpLoadAdd);                                  // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
   
   load_transpose_char4x8_common_AVX(xyzw0, xyzw1, xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_load_transpose_char4x8(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask) {
+  char32 xyzw;
+  masked_load_char4x8(pLoadAdd, (char4*)&xyzw, mask);
+  load_transpose_char4x8((char4*)&xyzw, xOut, yOut, zOut, wOut);
 }
 
 /// @brief Receives char4x8 matrix as 4 matrix rows, transposes it and outputs the matrix
@@ -206,7 +261,7 @@ void load_transpose_char4x8_AVX(char4* pLoadAdd, char8* xOut, char8* yOut, char8
 /// @param yIn    - Row 1 of the matrix to be transposed
 /// @param zIn    - Row 2 of the matrix to be transposed
 /// @param wIn    - Row 3 of the matrix to be transposed
-void transpose_store_char4x8_common_AVX(char16* xyzw0, char16* xyzw1, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x8_common_AVX(char16* xyzw0, char16* xyzw1, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char16 x;
   char16 y;
@@ -227,7 +282,7 @@ void transpose_store_char4x8_common_AVX(char16* xyzw0, char16* xyzw1, char8 xIn,
   *xyzw1 = (char16) _mm_unpackhi_epi16((__m128i)xy, (__m128i)zw);         // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
 }
 
-void transpose_store_char4x8_AVX(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x8_AVX(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char16 xyzw0;
   char16 xyzw1;
@@ -239,7 +294,14 @@ void transpose_store_char4x8_AVX(char4* pStoreAdd, char8 xIn, char8 yIn, char8 z
   vstore16(xyzw1, 1, tmpStoreAdd);
 }
 
-void gather_transpose_char4x8_AVX(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) masked_transpose_store_char4x8(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn, int8 mask) {
+  
+  char32 xyzw;
+  transpose_store_char4x8((char4*)&xyzw, xIn, yIn, zIn, wIn);
+  masked_store_char4x8(pStoreAdd, (char4*)&xyzw, mask);
+}
+
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x8_AVX(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                                   char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
                                   char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
   
@@ -270,12 +332,12 @@ void gather_transpose_char4x8_AVX(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLo
   load_transpose_char4x8_common_AVX((char16)xyzwIn0, (char16)xyzwIn1, xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_char4x8_AVX(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_char4x8_AVX(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                    char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
                                    char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
 
-  int4 xyzw0;
-  int4 xyzw1;
+  int4 xyzw0 = 0;
+  int4 xyzw1 = 0;
   transpose_store_char4x8_common_AVX((char16*)&xyzw0, (char16*)&xyzw1, xIn, yIn, zIn, wIn);
 
   *((int*)pStoreAdd0) = xyzw0.s0;
@@ -288,12 +350,61 @@ void transpose_scatter_char4x8_AVX(char4* pStoreAdd0, char4* pStoreAdd1, char4* 
   *((int*)pStoreAdd7) = xyzw1.s3;
 }
 
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
+                              char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask) {
+  if (all(mask)) {
+    gather_transpose_char4x8( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                            pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                            xOut, yOut, zOut, wOut);
+    return;
+  }
+
+  char4 dummy;  
+
+  char4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  char4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  char4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  char4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+  char4* xyzw4 = mask.s4 ? pLoadAdd4 : &dummy;
+  char4* xyzw5 = mask.s5 ? pLoadAdd5 : &dummy;
+  char4* xyzw6 = mask.s6 ? pLoadAdd6 : &dummy;
+  char4* xyzw7 = mask.s7 ? pLoadAdd7 : &dummy;
+
+	gather_transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
+                               char8 xIn, char8 yIn, char8 zIn, char8 wIn, int8 mask){
+  if (all(mask)) {
+    transpose_scatter_char4x8(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+  
+  char4 dummy;
+  
+  char4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  char4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  char4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  char4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+  char4* xyzw4 = mask.s4 ? pStoreAdd4 : &dummy;
+  char4* xyzw5 = mask.s5 ? pStoreAdd5 : &dummy;
+  char4* xyzw6 = mask.s6 ? pStoreAdd6 : &dummy;
+  char4* xyzw7 = mask.s7 ? pStoreAdd7 : &dummy;
+
+	transpose_scatter_char4x8(xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xIn, yIn, zIn, wIn);
+}
 #endif // defined(__AVX__)
 
 
 #if defined(__AVX2__)
-
-typedef __v32qi char32;
 
 /// @brief Receives char8x4 matrix as char32, transposes it and outputs the rows
 ///        of the transposed matrix
@@ -302,12 +413,12 @@ typedef __v32qi char32;
 /// @param yOut   - Row 1 of the transposed matrix
 /// @param zOut   - Row 2 of the transposed matrix
 /// @param wOut   - Row 3 of the transposed matrix
-void load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 
   // TODO : Replace this shuffles with shuffle instead of shuffle builtin
   // when shuffle, shuffle2 with const mask passes will be supported in the BE
   char32 xyzw = xyzwIn;                                                     //x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-  char32 dummy;
+  char32 dummy = (char32)_mm256_setzero_si256();
   xyzw =  __builtin_shufflevector (xyzw, dummy,                             // x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 w0 w1 w2 w3 | x4 x5 x6 x7 y4 y5 y6 y7 z4 z5 z6 z7 w4 w5 w6 w7
           0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15,
           16, 20, 24, 28, 17, 21, 25, 29, 18, 22, 26, 30, 19, 23, 27, 31);
@@ -331,6 +442,7 @@ void load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut,
           {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,  31});
   */
   // TODO : using builtin shuffles does not create optimal code
+  
   char16 x = (char16) _mm256_extracti128_si256((__m256i)xz, 0);             // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
   char16 y = (char16) _mm256_extracti128_si256((__m256i)yw, 0);             // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
   char16 z = (char16) _mm256_extracti128_si256((__m256i)xz, 1);             // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
@@ -341,9 +453,10 @@ void load_transpose_char4x8_common_AVX2(char32 xyzwIn, char8* xOut, char8* yOut,
   *yOut = y.s02468ACE;
   *zOut = z.s02468ACE;
   *wOut = w.s02468ACE;
+
 }
 
-void load_transpose_char4x8_AVX2(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x8_AVX2(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 
   // We load "int8", meaning we load the full matrix in a single load
   int* tmpLoadAdd = (int*)pLoadAdd;
@@ -359,7 +472,7 @@ void load_transpose_char4x8_AVX2(char4* pLoadAdd, char8* xOut, char8* yOut, char
 /// @param yIn      - Row 1 of the matrix to be transposed
 /// @param zIn      - Row 2 of the matrix to be transposed
 /// @param wIn      - Row 3 of the matrix to be transposed
-void transpose_store_char4x8_common_AVX2(char32* xyzwOut, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x8_common_AVX2(char32* xyzwOut, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char16 x;
   char16 y;
@@ -415,7 +528,7 @@ void transpose_store_char4x8_common_AVX2(char32* xyzwOut, char8 xIn, char8 yIn, 
   *xyzwOut = xyzw;
 }
 
-void transpose_store_char4x8_AVX2(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x8_AVX2(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
   
   char32 xyzw;
   transpose_store_char4x8_common_AVX2(&xyzw, xIn, yIn, zIn, wIn);
@@ -425,8 +538,7 @@ void transpose_store_char4x8_AVX2(char4* pStoreAdd, char8 xIn, char8 yIn, char8 
   vstore8((int8)xyzw, 0, tmpStoreAdd);
 }
 
-
-void gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                                     char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
                                     char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 
@@ -439,7 +551,7 @@ void gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* p
   int8 xyzw6 = *((int*)pLoadAdd6);
   int8 xyzw7 = *((int*)pLoadAdd7);
 
-  int8 xyzw;
+  int8 xyzw = 0;
   // TODO : Replace this blend built-in with ?: when clang bug will be fixed
   xyzw.s0 = *((int*)pLoadAdd0);                                           // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
   xyzw = (int8) _mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw1, 0x2);  // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
@@ -453,11 +565,11 @@ void gather_transpose_char4x8_AVX2( char4* pLoadAdd0, char4* pLoadAdd1, char4* p
   load_transpose_char4x8_common_AVX2((char32)xyzw, xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_char4x8_AVX2(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_char4x8_AVX2(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                     char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
                                     char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
 
-  int8 xyzw;
+  int8 xyzw = 0;
   transpose_store_char4x8_common_AVX2((char32*)&xyzw, xIn, yIn, zIn, wIn);
 
   *((int*)pStoreAdd0) = xyzw.s0;
@@ -474,7 +586,7 @@ void transpose_scatter_char4x8_AVX2(char4* pStoreAdd0, char4* pStoreAdd1, char4*
 
 #if defined(__AVX__)
 
-void load_transpose_char4x8(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_char4x8(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 #if defined(__AVX2__)
   load_transpose_char4x8_AVX2(pLoadAdd, xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
@@ -482,7 +594,7 @@ void load_transpose_char4x8(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zO
 #endif
 }
 
-void transpose_store_char4x8(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_char4x8(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
 #if defined(__AVX2__)
   transpose_store_char4x8_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
@@ -491,7 +603,7 @@ void transpose_store_char4x8(char4* pStoreAdd, char8 xIn, char8 yIn, char8 zIn, 
 }
 
 
-void gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
                               char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 #if defined(__AVX2__)
@@ -505,7 +617,7 @@ void gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAd
 #endif
 }
 
-void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
                                char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
 #if defined(__AVX2__)
@@ -527,8 +639,8 @@ void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pSto
 
 #if defined(__AVX__)
 
-void transpose_int4x4_AVX(int4 xyzw0, int4 xyzw1, int4 xyzw2, int4 xyzw3,
-            int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+void __inline__ __attribute__((always_inline)) transpose_int4x4_AVX(int4 xyzw0, int4 xyzw1, int4 xyzw2, int4 xyzw3,
+  int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
                                                                             // xyzw0 = x0 y0 z0 w0 
                                                                             // xyzw1 = x1 y1 z1 w1
@@ -548,9 +660,10 @@ void transpose_int4x4_AVX(int4 xyzw0, int4 xyzw1, int4 xyzw2, int4 xyzw3,
   *yOut = (int4) _mm_unpackhi_epi32((__m128i)xy02, (__m128i)xy13);          // y0 y1 y2 y3
   *zOut = (int4) _mm_unpacklo_epi32((__m128i)zw02, (__m128i)zw13);          // z0 z1 z2 z3
   *wOut = (int4) _mm_unpackhi_epi32((__m128i)zw02, (__m128i)zw13);          // w0 w1 w2 w3
+  
 }
 
-void load_transpose_int4x4_AVX(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x4_AVX(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
   // pLoadAdd[0]  = x0 y0 z0 w0
   // pLoadAdd[1]  = x1 y1 z1 w1
@@ -566,7 +679,7 @@ void load_transpose_int4x4_AVX(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOu
   // wOut         = w0 w1 w2 w3
 }
 
-void transpose_store_int4x4_AVX(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_int4x4_AVX(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 
   // xIn          = x0 x1 x2 x3
   // yIn          = y0 y1 y2 y3
@@ -582,8 +695,20 @@ void transpose_store_int4x4_AVX(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, i
   // pStoreAdd[3] = x3 y3 z3 w3
 }
 
+void __inline__ __attribute__((always_inline)) masked_load_transpose_int4x4(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut, int4 mask) {
 
-void gather_transpose_int4x4_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+  int4 xyzw[4];
+  masked_load_int4x4(pLoadAdd, xyzw, mask);
+  load_transpose_int4x4(xyzw, xOut, yOut, zOut, wOut);  
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_store_int4x4(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn, int4 mask) {
+  int4 xyzw[4];
+  transpose_store_int4x4(xyzw, xIn, yIn, zIn, wIn);
+  masked_store_int4x4(pStoreAdd, xyzw, mask);
+}
+
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x4_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                                  int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
   // pLoadAdd0    = x0 y0 z0 w0
@@ -600,7 +725,7 @@ void gather_transpose_int4x4_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAd
   // wOut         = w0 w1 w2 w3
 }
 
-void transpose_scatter_int4x4_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x4_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                                int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 
   // xIn          = x0 x1 x2 x3
@@ -617,6 +742,43 @@ void transpose_scatter_int4x4_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSto
   // pStoreAdd3   = x3 y3 z3 w3
 }
 
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_int4x4(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                             int4* xOut, int4* yOut, int4* zOut, int4* wOut, int4 mask){
+  if (all(mask)) {
+    gather_transpose_int4x4( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                            xOut, yOut, zOut, wOut);
+    return;
+  }
+  
+  int4 dummy;
+
+  int4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  int4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  int4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  int4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+
+	gather_transpose_int4x4(xyzw0, xyzw1, xyzw2, xyzw3, xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_int4x4(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                              int4 xIn, int4 yIn, int4 zIn, int4 wIn, int4 mask){
+
+  if (all(mask)) {
+    transpose_scatter_int4x4(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+
+
+  int4 dummy;
+
+  int4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  int4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  int4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  int4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+
+	transpose_scatter_int4x4(xyzw0, xyzw1, xyzw2, xyzw3, xIn, yIn, zIn, wIn);
+}
 
 #endif // defined(__AVX__)
 
@@ -634,7 +796,7 @@ void transpose_scatter_int4x4_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSto
 ///                 In case of isLoad is true ywOut will contain rows 1,3 of the transposed matrix,
 ///                 otherwise it will contain rows 2,3.
 /// @param isLoad   - indicates if the origen of the operation is load\store.
-void transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23,
+void __inline__ __attribute__((always_inline)) transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23,
             int8* xzOut, int8* ywOut, bool isLoad) {
   // TODO: load + permd creates:
   // vmovdqa  (%eax), %ymm1
@@ -681,7 +843,7 @@ void transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23,
 /// @param yOut     - Row 1 of the transposed matrix
 /// @param zOut     - Row 2 of the transposed matrix
 /// @param wOut     - Row 3 of the transposed matrix
-void load_transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
                                                                    // xyzw01 = x0 y0 z0 w0 x1 y1 z1 w1
                                                                    // xyzw23 = x2 y2 z2 w2 x3 y3 z3 w3
@@ -697,7 +859,7 @@ void load_transpose_int4x4_common_AVX2(int8 xyzw01, int8 xyzw23, int4* xOut, int
   *wOut = yw.s4567;                                                         // w0 w1 w2 w3
 }
 
-void load_transpose_int4x4_AVX2(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x4_AVX2(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 
   // We load "int8", meaning we load the full matrix in 2 loads
   int* tmpLoadAdd = (int*)pLoadAdd;
@@ -707,7 +869,7 @@ void load_transpose_int4x4_AVX2(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zO
   load_transpose_int4x4_common_AVX2(xyzw01, xyzw23, xOut, yOut, zOut, wOut);
 }
 
-void transpose_store_int4x4_AVX2(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_int4x4_AVX2(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 
   int8 xy = {xIn, yIn};                                                     // x0 x1 x2 x3 y0 y1 y2 y3
   int8 zw = {zIn, wIn};                                                     // z0 z1 z2 z3 w0 w1 w2 w3
@@ -724,9 +886,7 @@ void transpose_store_int4x4_AVX2(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, 
   vstore8(xyzw23, 1, tmpStoreAdd);
 }
 
-
-
-void gather_transpose_int4x4_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x4_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                                   int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
   
   int8 xyzw01 = {*pLoadAdd0, *pLoadAdd1};                                   // x0 y0 z0 w0 x1 y1 z1 w1
@@ -735,7 +895,7 @@ void gather_transpose_int4x4_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadA
   load_transpose_int4x4_common_AVX2(xyzw01, xyzw23, xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_int4x4_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x4_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                                int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 
   int8 xy = {xIn, yIn};                                                     // x0 x1 x2 x3 y0 y1 y2 y3
@@ -757,7 +917,7 @@ void transpose_scatter_int4x4_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSt
 
 #if defined(__AVX__)
 
-void load_transpose_int4x4(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x4(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 #if defined(__AVX2__)
   load_transpose_int4x4_AVX2(pLoadAdd, xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
@@ -765,7 +925,7 @@ void load_transpose_int4x4(int4* pLoadAdd, int4* xOut, int4* yOut, int4* zOut, i
 #endif
 }
 
-void transpose_store_int4x4(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn)  {
+void __inline__ __attribute__((always_inline)) transpose_store_int4x4(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 wIn)  {
 #if defined(__AVX2__)
   transpose_store_int4x4_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
@@ -773,8 +933,7 @@ void transpose_store_int4x4(int4* pStoreAdd, int4 xIn, int4 yIn, int4 zIn, int4 
 #endif
 }
 
-
-void gather_transpose_int4x4(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x4(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                              int4* xOut, int4* yOut, int4* zOut, int4* wOut) {
 #if defined(__AVX2__)
   gather_transpose_int4x4_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
@@ -783,7 +942,7 @@ void gather_transpose_int4x4(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, 
 #endif
 }
 
-void transpose_scatter_int4x4(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x4(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                                int4 xIn, int4 yIn, int4 zIn, int4 wIn) {
 #if defined(__AVX2__)
   transpose_scatter_int4x4_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
@@ -801,7 +960,7 @@ void transpose_scatter_int4x4(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAd
 
 #if defined(__AVX__)
 
-void load_transpose_int4x8_AVX(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x8_AVX(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
 
   int4 x0;
   int4 y0;
@@ -837,7 +996,12 @@ void load_transpose_int4x8_AVX(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOu
 
 }
 
-void transpose_store_int4x8_AVX(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+void __inline__ __attribute__((always_inline)) masked_load_transpose_int4x8(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut, int8 mask) {
+  int4 xyzw[8];
+  masked_load_int4x8(pLoadAdd, xyzw, mask);
+  load_transpose_int4x8(xyzw, xOut, yOut, zOut, wOut);
+}
+void __inline__ __attribute__((always_inline)) transpose_store_int4x8_AVX(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
   
   int4 x0 = xIn.s0123;
   int4 y0 = yIn.s0123;
@@ -862,9 +1026,14 @@ void transpose_store_int4x8_AVX(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, i
                                                                             // x7 y7 z7 w7
 }
 
+void __inline__ __attribute__((always_inline)) masked_transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn, int8 mask) {
+  
+  int4 xyzw[8];
+  transpose_store_int4x8(xyzw, xIn, yIn, zIn, wIn);
+  masked_store_int4x8(pStoreAdd, xyzw, mask);
+}
 
-
-void gather_transpose_int4x8_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x8_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                                  int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
                                  int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
 
@@ -899,7 +1068,7 @@ void gather_transpose_int4x8_AVX(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAd
           0, 1, 2, 3, 4, 5, 6, 7);
 }
 
-void transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                                   int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
                                   int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
   int4 x0 = xIn.s0123;
@@ -925,6 +1094,58 @@ void transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSto
                                                                             // x7 y7 z7 w7
 }
 
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_int4x8(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+                             int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
+                             int8* xOut, int8* yOut, int8* zOut, int8* wOut, int8 mask) {
+  if (all(mask)) {
+    gather_transpose_int4x8( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                            pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                            xOut, yOut, zOut, wOut);
+    return;
+  }
+
+  int4 dummy;
+
+  int4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  int4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  int4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  int4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+  int4* xyzw4 = mask.s4 ? pLoadAdd4 : &dummy;
+  int4* xyzw5 = mask.s5 ? pLoadAdd5 : &dummy;
+  int4* xyzw6 = mask.s6 ? pLoadAdd6 : &dummy;
+  int4* xyzw7 = mask.s7 ? pLoadAdd7 : &dummy;
+
+	gather_transpose_int4x8( xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_int4x8(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+                              int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
+                              int8 xIn, int8 yIn, int8 zIn, int8 wIn, int8 mask){
+  if (all(mask)) {
+    transpose_scatter_int4x8(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+
+  int4 dummy;
+  
+  int4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  int4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  int4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  int4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+  int4* xyzw4 = mask.s4 ? pStoreAdd4 : &dummy;
+  int4* xyzw5 = mask.s5 ? pStoreAdd5 : &dummy;
+  int4* xyzw6 = mask.s6 ? pStoreAdd6 : &dummy;
+  int4* xyzw7 = mask.s7 ? pStoreAdd7 : &dummy;
+
+	transpose_scatter_int4x8(xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xIn, yIn, zIn, wIn);
+}
+
 #endif // defined(__AVX__)
 
 #if defined(__AVX2__)
@@ -939,7 +1160,7 @@ void transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSto
 /// @param yOut    - Row 1 of the transposed matrix
 /// @param zOut    - Row 2 of the transposed matrix
 /// @param wOut    - Row 3 of the transposed matrix
-void transpose_int4x8_common_AVX2(int8 xyzw04, int8 xyzw15, int8 xyzw26, int8 xyzw37,
+void __inline__ __attribute__((always_inline)) transpose_int4x8_common_AVX2(int8 xyzw04, int8 xyzw15, int8 xyzw26, int8 xyzw37,
              int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
   
   // TODO : Replace these unpacks with shuffle2 instead of unpack intrinsics
@@ -959,7 +1180,7 @@ void transpose_int4x8_common_AVX2(int8 xyzw04, int8 xyzw15, int8 xyzw26, int8 xy
 
 
 
-void gather_transpose_int4x8_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x8_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                                   int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
                                   int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
                                   // TODO: creates
@@ -987,7 +1208,7 @@ void gather_transpose_int4x8_AVX2(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadA
                                                                             // wOut = w0 w1 w2 w3 w4 w5 w6 w7
 }
 
-void transpose_scatter_int4x8_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x8_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                                    int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
                                    int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
   int8 xyzw04;
@@ -1018,16 +1239,13 @@ void transpose_scatter_int4x8_AVX2(int4* pStoreAdd0, int4* pStoreAdd1, int4* pSt
   *pStoreAdd7 = xyzw37.s4567;                                               // x7 y7 z7 w7
 }
 
-
-
-
-void load_transpose_int4x8_AVX2(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x8_AVX2(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
   gather_transpose_int4x8_AVX2(&(pLoadAdd[0]), &(pLoadAdd[1]), &(pLoadAdd[2]), &(pLoadAdd[3]),
                                &(pLoadAdd[4]), &(pLoadAdd[5]), &(pLoadAdd[6]), &(pLoadAdd[7]),
                                xOut, yOut, zOut, wOut);
 }
 
-void transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
 
   transpose_scatter_int4x8_AVX2(&(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]),
                                 &(pStoreAdd[4]), &(pStoreAdd[5]), &(pStoreAdd[6]), &(pStoreAdd[7]),
@@ -1039,7 +1257,7 @@ void transpose_store_int4x8_AVX2(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, 
 
 #if defined(__AVX__)
 
-void load_transpose_int4x8(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_int4x8(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
 #if defined(__AVX2__)
   load_transpose_int4x8_AVX2(pLoadAdd, xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
@@ -1047,7 +1265,7 @@ void load_transpose_int4x8(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, i
 #endif
 }
 
-void transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
 #if defined(__AVX2__)
   transpose_store_int4x8_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
@@ -1055,7 +1273,7 @@ void transpose_store_int4x8(int4* pStoreAdd, int8 xIn, int8 yIn, int8 zIn, int8 
 #endif
 }
 
-void gather_transpose_int4x8(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_int4x8(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, int4* pLoadAdd3,
                              int4* pLoadAdd4, int4* pLoadAdd5, int4* pLoadAdd6, int4* pLoadAdd7,
                              int8* xOut, int8* yOut, int8* zOut, int8* wOut) {
 #if defined(__AVX2__)
@@ -1063,13 +1281,13 @@ void gather_transpose_int4x8(int4* pLoadAdd0, int4* pLoadAdd1, int4* pLoadAdd2, 
                                pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
                                xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
-   gather_transpose_int4x8_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+  gather_transpose_int4x8_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
                                pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
                                xOut, yOut, zOut, wOut);
 #endif
 }
 
-void transpose_scatter_int4x8(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_int4x8(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
                               int4* pStoreAdd4, int4* pStoreAdd5, int4* pStoreAdd6, int4* pStoreAdd7,
                               int8 xIn, int8 yIn, int8 zIn, int8 wIn) {
 #if defined(__AVX2__)
@@ -1092,26 +1310,118 @@ void transpose_scatter_int4x8(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAd
 
 #if defined(__AVX__)
 
-void load_transpose_float4x4_AVX(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
-  load_transpose_int4x4_AVX((int4*)pLoadAdd, (int4*)xOut, (int4*)yOut, (int4*)zOut, (int4*)wOut);
+void __inline__ __attribute__((always_inline)) transpose_float4x4_AVX(float4 xyzw0, float4 xyzw1, float4 xyzw2, float4 xyzw3,
+  float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+
+                                                                            // xyzw0 = x0 y0 z0 w0 
+                                                                            // xyzw1 = x1 y1 z1 w1
+                                                                            // xyzw2 = x2 y2 z2 w2
+                                                                            // xyzw3 = x3 y3 z3 w3
+
+  // TODO : Replace these unpacks with shuffle2 instead of unpack intrinsics
+  // when shuffle, shuffle2 with const mask passes will be supported in the BE
+  float4 xy02 = (float4) _mm_unpacklo_ps((__m128)xyzw0, (__m128)xyzw2);     // x0 x2 y0 y2
+  float4 zw02 = (float4) _mm_unpackhi_ps((__m128)xyzw0, (__m128)xyzw2);     // z0 z2 w0 w2
+  float4 xy13 = (float4) _mm_unpacklo_ps((__m128)xyzw1, (__m128)xyzw3);     // x1 x3 y1 y3
+  float4 zw13 = (float4) _mm_unpackhi_ps((__m128)xyzw1, (__m128)xyzw3);     // z1 z3 w1 w3
+
+  // TODO : Replace these unpacks with shuffle2 instead of unpack intrinsics
+  // when shuffle, shuffle2 with const mask passes will be supported in the BE
+  *xOut = (float4) _mm_unpacklo_ps((__m128)xy02, (__m128)xy13);             // x0 x1 x2 x3
+  *yOut = (float4) _mm_unpackhi_ps((__m128)xy02, (__m128)xy13);             // y0 y1 y2 y3
+  *zOut = (float4) _mm_unpacklo_ps((__m128)zw02, (__m128)zw13);             // z0 z1 z2 z3
+  *wOut = (float4) _mm_unpackhi_ps((__m128)zw02, (__m128)zw13);             // w0 w1 w2 w3
+  
+}
+
+void __inline__ __attribute__((always_inline)) load_transpose_float4x4_AVX(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+  // pLoadAdd[0]  = x0 y0 z0 w0
+  // pLoadAdd[1]  = x1 y1 z1 w1
+  // pLoadAdd[2]  = x2 y2 z2 w2
+  // pLoadAdd[3]  = x3 y3 z3 w3
+
+  transpose_float4x4_AVX(pLoadAdd[0], pLoadAdd[1], pLoadAdd[2], pLoadAdd[3],
+            xOut, yOut, zOut, wOut);
+
+  // xOut         = x0 x1 x2 x3
+  // yOut         = y0 y1 y2 y3
+  // zOut         = z0 z1 z2 z3
+  // wOut         = w0 w1 w2 w3
 }
 
 void transpose_store_float4x4_AVX(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
-  transpose_store_int4x4_AVX((int4*)pStoreAdd, (int4)xIn, (int4)yIn, (int4)zIn, (int4)wIn);
+  // xIn          = x0 x1 x2 x3
+  // yIn          = y0 y1 y2 y3
+  // zIn          = z0 z1 z2 z3
+  // wIn          = w0 w1 w2 w3
+
+  transpose_float4x4_AVX(xIn, yIn, zIn, wIn,
+            &(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]));
+  
+  // pStoreAdd[0] = x0 y0 z0 w0
+  // pStoreAdd[1] = x1 y1 z1 w1
+  // pStoreAdd[2] = x2 y2 z2 w2
+  // pStoreAdd[3] = x3 y3 z3 w3
 }
 
+void __inline__ __attribute__((always_inline)) masked_load_transpose_float4x4(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut, int4 mask) {
+  float4 xyzw[4] = {0};
+  masked_load_float4x4(pLoadAdd, xyzw, mask);
+  load_transpose_float4x4(xyzw, xOut, yOut, zOut, wOut);
+}
 
+void __inline__ __attribute__((always_inline)) masked_transpose_store_float4x4(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn, int4 mask) {
+  float4 xyzw[4];
+  transpose_store_float4x4(xyzw, xIn, yIn, zIn, wIn);
+  masked_store_float4x4(pStoreAdd, xyzw, mask);  
+}
 
-void gather_transpose_float4x4_AVX(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_float4x4_AVX(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
                               float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
-  gather_transpose_int4x4((int4*)pLoadAdd0, (int4*)pLoadAdd1, (int4*)pLoadAdd2, (int4*)pLoadAdd3,
-                          (int4*)xOut, (int4*)yOut, (int4*)zOut, (int4*)wOut);
+  transpose_float4x4_AVX(*pLoadAdd0, *pLoadAdd1, *pLoadAdd2, *pLoadAdd3,
+                        xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_float4x4_AVX(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_float4x4_AVX(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
                                float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
-  transpose_scatter_int4x4((int4*)pStoreAdd0, (int4*)pStoreAdd1, (int4*)pStoreAdd2, (int4*)pStoreAdd3,
-                           (int4)xIn, (int4)yIn, (int4)zIn, (int4)wIn);
+  transpose_float4x4_AVX(xIn, yIn, zIn, wIn,
+                        pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
+}
+
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_float4x4(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                               float4* xOut, float4* yOut, float4* zOut, float4* wOut, int4 mask){
+  if (all(mask)) {
+    gather_transpose_float4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
+    return;
+  }
+  
+  float4 dummy = 0;
+
+  float4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  float4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  float4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  float4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+
+	gather_transpose_float4x4( xyzw0, xyzw1, xyzw2, xyzw3,
+                            xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_float4x4(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                                float4 xIn, float4 yIn, float4 zIn, float4 wIn, int4 mask) {
+  if (all(mask)) {
+    transpose_scatter_float4x4(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+
+  float4 dummy;
+
+  float4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  float4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  float4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  float4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+
+	transpose_scatter_float4x4(xyzw0, xyzw1, xyzw2, xyzw3, xIn, yIn, zIn, wIn);
 }
 
 #endif // defined(__AVX__)
@@ -1130,7 +1440,7 @@ void transpose_scatter_float4x4_AVX(float4* pStoreAdd0, float4* pStoreAdd1, floa
 ///                 In case of isLoad is true ywOut will contain rows 1,3 of the transposed matrix,
 ///                 otherwise it will contain rows 2,3.
 /// @param isLoad   - indicates if the origen of the operation is load\store.
-void transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23,
+void __inline__ __attribute__((always_inline)) transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23,
             float8* xz, float8* yw, bool isLoad) {
 
   // TODO: load + permd creates:
@@ -1178,7 +1488,7 @@ void transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23,
 /// @param yOut     - Row 1 of the transposed matrix
 /// @param zOut     - Row 2 of the transposed matrix
 /// @param wOut     - Row 3 of the transposed matrix
-void load_transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
 
   float8 xz;
   float8 yw;
@@ -1192,7 +1502,7 @@ void load_transpose_float4x4_common_AVX2(float8 xyzw01, float8 xyzw23, float4* x
   *wOut = yw.s4567;
 }
 
-void load_transpose_float4x4_AVX2(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_float4x4_AVX2(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
 
   // We load "float8", meaning we load the full matrix in 2 loads
   float* tmpLoadAdd = (float*)pLoadAdd;
@@ -1203,7 +1513,8 @@ void load_transpose_float4x4_AVX2(float4* pLoadAdd, float4* xOut, float4* yOut, 
             xOut, yOut, zOut, wOut);
 }
 
-void transpose_store_float4x4_AVX2(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
+
+void __inline__ __attribute__((always_inline)) transpose_store_float4x4_AVX2(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
 
   float8 xy = {xIn, yIn};                                                   // x0 x1 x2 x3 y0 y1 y2 y3
   float8 zw = {zIn, wIn};                                                   // z0 z1 z2 z3 w0 w1 w2 w3
@@ -1220,8 +1531,7 @@ void transpose_store_float4x4_AVX2(float4* pStoreAdd, float4 xIn, float4 yIn, fl
   vstore8(xyzw23, 1, tmpStoreAdd);
 }
 
-
-void gather_transpose_float4x4_AVX2(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_float4x4_AVX2(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
                                     float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
 
   float8 xyzw01 = {*pLoadAdd0, *pLoadAdd1};                                // x0 y0 z0 w0 x1 y1 z1 w1
@@ -1231,7 +1541,7 @@ void gather_transpose_float4x4_AVX2(float4* pLoadAdd0, float4* pLoadAdd1, float4
             xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_float4x4_AVX2(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_float4x4_AVX2(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
                                float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
   float8 xy = {xIn, yIn};                                                   // x0 x1 x2 x3 y0 y1 y2 y3
   float8 zw = {zIn, wIn};                                                   // z0 z1 z2 z3 w0 w1 w2 w3
@@ -1252,7 +1562,7 @@ void transpose_scatter_float4x4_AVX2(float4* pStoreAdd0, float4* pStoreAdd1, flo
 
 #if defined(__AVX__)
 
-void load_transpose_float4x4(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_float4x4(float4* pLoadAdd, float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
 #if defined(__AVX2__)
   load_transpose_float4x4_AVX2(pLoadAdd, xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
@@ -1260,7 +1570,7 @@ void load_transpose_float4x4(float4* pLoadAdd, float4* xOut, float4* yOut, float
 #endif
 }
 
-void transpose_store_float4x4(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_float4x4(float4* pStoreAdd, float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
 #if defined(__AVX2__)
   transpose_store_float4x4_AVX2(pStoreAdd, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
@@ -1268,8 +1578,7 @@ void transpose_store_float4x4(float4* pStoreAdd, float4 xIn, float4 yIn, float4 
 #endif
 }
 
-
-void gather_transpose_float4x4(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) gather_transpose_float4x4(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
                                float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
 #if defined(__AVX2__)
   gather_transpose_float4x4_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3, xOut, yOut, zOut, wOut);
@@ -1278,7 +1587,7 @@ void gather_transpose_float4x4(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLo
 #endif
 }
 
-void transpose_scatter_float4x4(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_float4x4(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
                                float4 xIn, float4 yIn, float4 zIn, float4 wIn) {
 #if defined(__AVX2__)
   transpose_scatter_float4x4_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, xIn, yIn, zIn, wIn);
@@ -1296,7 +1605,7 @@ void transpose_scatter_float4x4(float4* pStoreAdd0, float4* pStoreAdd1, float4* 
 
 #if defined(__AVX__)
 
-void transpose_float4x8(float4 xyzw0, float4 xyzw1, float4 xyzw2, float4 xyzw3, float4 xyzw4, float4 xyzw5, float4 xyzw6, float4 xyzw7,
+void __inline__ __attribute__((always_inline)) transpose_float4x8(float4 xyzw0, float4 xyzw1, float4 xyzw2, float4 xyzw3, float4 xyzw4, float4 xyzw5, float4 xyzw6, float4 xyzw7,
             float8* xOut, float8* yOut, float8* zOut, float8* wOut) {
   
   // TODO : Replace this shuffle with { xyzw0,  xyzw4} instead of shuffle builtin
@@ -1325,7 +1634,7 @@ void transpose_float4x8(float4 xyzw0, float4 xyzw1, float4 xyzw2, float4 xyzw3, 
   *wOut = (float8) _mm256_unpackhi_ps((__m256)zw0246, (__m256)zw1357);            // w0 w1 w2 w3 w4 w5 w6 w7
 }
 
-void transpose_float8x4(float8 xIn, float8 yIn, float8 zIn, float8 wIn,
+void __inline__ __attribute__((always_inline)) transpose_float8x4(float8 xIn, float8 yIn, float8 zIn, float8 wIn,
             float4* xyzw0, float4* xyzw1, float4* xyzw2, float4* xyzw3, float4* xyzw4, float4* xyzw5, float4* xyzw6, float4* xyzw7) {
   
   // TODO : Replace these unpacks with shuffle2 instead of unpack intrinsics
@@ -1354,33 +1663,94 @@ void transpose_float8x4(float8 xIn, float8 yIn, float8 zIn, float8 wIn,
 }
 
 
-
-void load_transpose_float4x8(float4* pLoadAdd, float8* xOut, float8* yOut, float8* zOut, float8* wOut) {
+void __inline__ __attribute__((always_inline)) load_transpose_float4x8(float4* pLoadAdd, float8* xOut, float8* yOut, float8* zOut, float8* wOut) {
   
   transpose_float4x8(pLoadAdd[0], pLoadAdd[1], pLoadAdd[2], pLoadAdd[3], pLoadAdd[4], pLoadAdd[5], pLoadAdd[6], pLoadAdd[7],
                 xOut, yOut, zOut, wOut);
 }
 
-void transpose_store_float4x8(float4* pStoreAdd, float8 xIn, float8 yIn, float8 zIn, float8 wIn) {
+void __inline__ __attribute__((always_inline)) transpose_store_float4x8(float4* pStoreAdd, float8 xIn, float8 yIn, float8 zIn, float8 wIn) {
   
   transpose_float8x4(xIn, yIn, zIn, wIn,
             &(pStoreAdd[0]), &(pStoreAdd[1]), &(pStoreAdd[2]), &(pStoreAdd[3]), &(pStoreAdd[4]), &(pStoreAdd[5]), &(pStoreAdd[6]), &(pStoreAdd[7]));
 }
 
+void __inline__ __attribute__((always_inline)) masked_load_transpose_float4x8(float4* pLoadAdd, float8* xOut, float8* yOut, float8* zOut, float8* wOut, int8 mask) {
+  float4 xyzw[8] = {0};
+  masked_load_float4x8(pLoadAdd, xyzw, mask);
+  load_transpose_float4x8(xyzw, xOut, yOut, zOut, wOut);
+}
 
-void gather_transpose_float4x8(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) masked_transpose_store_float4x8(float4* pStoreAdd, float8 xIn, float8 yIn, float8 zIn, float8 wIn, int8 mask) {
+  float4 xyzw[8];
+  transpose_store_float4x8(xyzw, xIn, yIn, zIn, wIn);
+  masked_store_float4x8(pStoreAdd, xyzw, mask);
+}
+
+void __inline__ __attribute__((always_inline)) gather_transpose_float4x8(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
                                float4* pLoadAdd4, float4* pLoadAdd5, float4* pLoadAdd6, float4* pLoadAdd7,
                                float8* xOut, float8* yOut, float8* zOut, float8* wOut) {
   transpose_float4x8(*pLoadAdd0, *pLoadAdd1, *pLoadAdd2, *pLoadAdd3, *pLoadAdd4, *pLoadAdd5, *pLoadAdd6, *pLoadAdd7,
                 xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_float4x8(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) transpose_scatter_float4x8(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
                                 float4* pStoreAdd4, float4* pStoreAdd5, float4* pStoreAdd6, float4* pStoreAdd7,
                                 float8 xIn, float8 yIn, float8 zIn, float8 wIn) {
   transpose_float8x4(xIn, yIn, zIn, wIn,
             pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3, pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
 }
 
+void __inline__ __attribute__((always_inline)) masked_gather_transpose_float4x8(float4* pLoadAdd0, float4* pLoadAdd1, float4* pLoadAdd2, float4* pLoadAdd3,
+                               float4* pLoadAdd4, float4* pLoadAdd5, float4* pLoadAdd6, float4* pLoadAdd7,
+                               float8* xOut, float8* yOut, float8* zOut, float8* wOut, int8 mask){  
+  if (all(mask)) {
+    gather_transpose_float4x8( pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+                            pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
+                            xOut, yOut, zOut, wOut);
+    return;
+  }
+
+  float4 dummy = 0;
+
+  float4* xyzw0 = mask.s0 ? pLoadAdd0 : &dummy;
+  float4* xyzw1 = mask.s1 ? pLoadAdd1 : &dummy;
+  float4* xyzw2 = mask.s2 ? pLoadAdd2 : &dummy;
+  float4* xyzw3 = mask.s3 ? pLoadAdd3 : &dummy;
+  float4* xyzw4 = mask.s4 ? pLoadAdd4 : &dummy;
+  float4* xyzw5 = mask.s5 ? pLoadAdd5 : &dummy;
+  float4* xyzw6 = mask.s6 ? pLoadAdd6 : &dummy;
+  float4* xyzw7 = mask.s7 ? pLoadAdd7 : &dummy;
+
+	gather_transpose_float4x8( xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) masked_transpose_scatter_float4x8(float4* pStoreAdd0, float4* pStoreAdd1, float4* pStoreAdd2, float4* pStoreAdd3,
+                              float4* pStoreAdd4, float4* pStoreAdd5, float4* pStoreAdd6, float4* pStoreAdd7,
+                              float8 xIn, float8 yIn, float8 zIn, float8 wIn, int8 mask){
+  if (all(mask)) {
+    transpose_scatter_float4x8(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                            pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
+                            xIn, yIn, zIn, wIn);
+    return;
+  }
+
+  float4 dummy;
+  
+  float4* xyzw0 = mask.s0 ? pStoreAdd0 : &dummy;
+  float4* xyzw1 = mask.s1 ? pStoreAdd1 : &dummy;
+  float4* xyzw2 = mask.s2 ? pStoreAdd2 : &dummy;
+  float4* xyzw3 = mask.s3 ? pStoreAdd3 : &dummy;
+  float4* xyzw4 = mask.s4 ? pStoreAdd4 : &dummy;
+  float4* xyzw5 = mask.s5 ? pStoreAdd5 : &dummy;
+  float4* xyzw6 = mask.s6 ? pStoreAdd6 : &dummy;
+  float4* xyzw7 = mask.s7 ? pStoreAdd7 : &dummy;
+
+	transpose_scatter_float4x8(xyzw0, xyzw1, xyzw2, xyzw3,
+                            xyzw4, xyzw5, xyzw6, xyzw7,
+                            xIn, yIn, zIn, wIn);
+}
 
 #endif // defined(__AVX__)

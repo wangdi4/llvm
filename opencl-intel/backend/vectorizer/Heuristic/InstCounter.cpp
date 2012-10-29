@@ -1,3 +1,6 @@
+#include <iomanip>
+#include <sstream>
+
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -17,10 +20,17 @@ void initializePostDominanceFrontierPass(PassRegistry&);
 
 // Costs for transpose functions
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
+   { "load_transpose_char4x4", 8 },
+   { "transpose_store_char4x4", 8 },
+   { "masked_load_transpose_char4x4", 12 },
+   { "masked_transpose_store_char4x4", 12 },
    { "load_transpose_float4x8", 60 },
    { "transpose_store_float4x8", 60 },
-   { "load_transpose_char4x4", 10 },
-   { "transpose_store_char4x4", 10 },
+   { "masked_load_transpose_float4x8", 120},
+   { "masked_transpose_store_float4x8", 120},
+   { "masked_gather_transpose_float4x8", 120},
+   { "masked_transpose_scatter_float4x8", 120},
+
 
    // The line below must be the last line in the DB,
    // serving as a terminator.
@@ -125,8 +135,6 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
       m_totalWeight += Probability * TripCount * 
                        getInstructionWeight(I, MemOpCostMap);
-//      Debug(I->getOpcodeName());
-//      Debug(m_totalWeight);
     }
   }
 
@@ -366,7 +374,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return estimateCall(called);
     
   // GEP and PHI nodes are free
-  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I))
+  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I))
     return 0;
 
   // Shuffles/extracts/inserts are mostly representative
@@ -380,7 +388,13 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     VectorType* ResType = dyn_cast<VectorType>(I->getType());
     assert(OpType && "Shuffle with a non-vector type!");
 
-    // A shuffle between different types can't be cheap, even if
+    Value* Mask = I->getOperand(2);
+    // Check whether this shuffle is a part of a broadcast sequence.
+    // If it is, the price is 0, since we already paid for the insert.
+    if (isa<ConstantAggregateZero>(Mask))
+      return DEFAULT_WEIGHT;
+
+    // A shuffle between different types won't be cheap, even if
     // the types are sensible. This should, amongst other things,
     // make revectorization from 4 to 8 less appealing.
     if (ResType != OpType)
@@ -813,7 +827,7 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
   // TODO: Add image reads?  
   std::vector<Instruction*> DataUsers;
 
-  // First, find everything all GEP instructions. 
+  // First, find all GEP instructions. 
   // This used to be LoadInst but was changed to GEP.
   // LoadInst seems to make intuitive sense, but in fact also counts loads from allocas.
   // Why would there even be allocas at this stage? Because of soa builtins that return

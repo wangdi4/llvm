@@ -397,6 +397,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createAggressiveDCEPass());          // Delete dead instructions
     m_modulePasses.add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
     m_modulePasses.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
+    m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well

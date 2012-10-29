@@ -489,6 +489,7 @@ list (APPEND OCL_SOURCE_FILES
   geometry_functions.cpp
   image_functions.cpp
   integer_functions.cpp
+  masked_load_store_functions.cpp
   misc_functions.cpp
   relational_functions.cpp
   transpose_functions.cpp
@@ -520,10 +521,12 @@ list (APPEND HEADER_FILES
   cl_image_declaration.h
   cl_integer_declaration.h
   cl_relational_declaration.h
+  masked_load_store_functions.h
   mic_defines.h
   mic_intrinsic_common_vars.h
   mic_cl_relational_declaration.h
   mic_cl_geometry_declaration.h
+  transpose_functions.h
   )
 
 # convert everything to full paths
