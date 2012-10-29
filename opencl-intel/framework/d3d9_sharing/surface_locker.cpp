@@ -32,7 +32,7 @@ namespace Intel { namespace OpenCL { namespace Framework
     {
         D3DLOCKED_RECT lockedRect;
 
-        HRESULT res = pSurface->LockRect(&lockedRect, NULL, 0);
+        HRESULT res = pSurface->LockRect(&lockedRect, NULL, m_flags);
         assert(D3D_OK == res);
         m_pitch = lockedRect.Pitch;
         res = pSurface->UnlockRect();
