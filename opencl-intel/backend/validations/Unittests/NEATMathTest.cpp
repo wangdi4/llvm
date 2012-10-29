@@ -1042,8 +1042,8 @@ TYPED_TEST(NEATExpTestRun, DISABLED_native_exp)
     expTest.TestPreciseExp(NEATFunc);
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::NATIVE_EXP_ERROR));
 }
-
-TYPED_TEST(NEATExpTestRun, half_exp)
+// disabled until bug CSSD100014841 will be fixed
+TYPED_TEST(NEATExpTestRun, DISABLED_half_exp)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
@@ -1113,6 +1113,7 @@ TYPED_TEST(NEATExpTestRun, DISABLED_native_exp2)
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::NATIVE_EXP2_ERROR));
 }
 
+// disabled until bug CSSD100014842 will be fixed
 TYPED_TEST(NEATExpTestRun, half_exp2)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -1159,6 +1160,7 @@ TYPED_TEST(NEATExpTestRun, exp10)
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::EXP10_ERROR));
 }
 
+// disabled until bug CSSD100014844 will be fixed
 TYPED_TEST(NEATExpTestRun, native_exp10)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -2310,6 +2312,7 @@ void fabsReference(const NEATValue& inVal, T * refMinOut, T * refMaxOut) {
         *refMaxOut = refMax;
 }
 
+// disabled until CSSD100014845 will be fixed
 TYPED_TEST(NEATMathTestOneArg, fabs)
 {
     typedef typename TypeParam::Type TypeP;
