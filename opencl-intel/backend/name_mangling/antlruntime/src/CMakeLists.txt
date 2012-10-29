@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.4)
 
+
 include_directories(${ANTLR_INCLUDE_DIR})
 
 set (ANTLR_SRC
@@ -41,3 +42,5 @@ endif(WIN32)
 add_library(${TARGET_NAME} STATIC
   ${ANTLR_SRC}
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

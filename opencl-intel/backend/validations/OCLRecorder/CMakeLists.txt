@@ -121,6 +121,9 @@ else(WIN32)
 add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT)
 endif(WIN32)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
+set_target_properties( OCLRecorderStat PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
+
 install(TARGETS ${TARGET_NAME} 
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib

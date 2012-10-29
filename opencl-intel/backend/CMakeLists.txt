@@ -23,7 +23,7 @@ endif ()
 message ("LLVM_TARGETS_TO_BUILD: ${LLVM_TARGETS_TO_BUILD}")
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
-
+set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
@@ -102,8 +102,6 @@ function(use_eh val)
         endif()    
     endif()
 endfunction(use_eh)
-    
-
 
 #
 # Usage
@@ -259,37 +257,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
     #set_target_properties( GoogleTest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
     #set_target_properties( LLVMUnitTests PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
     #set_target_properties( UnitTestMain PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
-
-    set_target_properties( OclCpuBackEnd PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-    set_target_properties( OclCpuDebugging PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-    set_target_properties( OclUtils PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-    set_target_properties( OclOptimizer PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
-
-    set_target_properties( AddImplicitArgs PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( BuiltInFuncImport PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( DebugInfoPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( InstToFuncCall PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( LocalBuffers PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( LocalBuffAnalysis PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( ModuleCleanup PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( PrepareKernelArgs PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( PreventDivCrashes PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( PrintIRPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( ProfilingInfoPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( RelaxedPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( ResolveWICall PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( ShiftZeroUpperBits PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( ShuffleCallToInst PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( UndefExternalFuncs PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-    set_target_properties( KernelInfo PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
     
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        if (WIN32)
-            set_target_properties( WrapSvmlPass PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend/ocl_passes )
-        endif (WIN32)
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    
-    #set_target_properties( OclRecorder PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
     set_target_properties( check PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
     set_target_properties( check.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
     set_target_properties( check_barrier PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )

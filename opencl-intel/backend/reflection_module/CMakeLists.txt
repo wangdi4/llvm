@@ -41,3 +41,5 @@ target_link_libraries(
   name_mangle
   LLVMSupport
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

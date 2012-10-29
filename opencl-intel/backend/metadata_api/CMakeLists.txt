@@ -27,6 +27,9 @@ add_custom_command(
    COMMENT "running ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp"
 )
 
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
+
 add_library(
   ${TARGET_NAME}
   STATIC
@@ -43,5 +46,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/gen
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 
 add_subdirectory(tests)

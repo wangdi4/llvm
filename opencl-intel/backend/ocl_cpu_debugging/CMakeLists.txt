@@ -217,8 +217,8 @@ else (WIN32)
     target_link_libraries( ${TARGET_NAME} protobuf pthread )
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
 endif (WIN32)
-set_target_properties( protobuf PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/ocl_backend )
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 
 add_dependencies(${TARGET_NAME}     
     ${LLVM_LIBS}

@@ -23,3 +23,4 @@ target_link_libraries(${TARGET_NAME}
     OclUtils
 )
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

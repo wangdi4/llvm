@@ -23,6 +23,8 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/../lib)
 
 target_link_libraries(${TARGET_NAME} dynamic_load)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
+
 install(TARGETS ${TARGET_NAME} ${TARGET_NAME}
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION bin

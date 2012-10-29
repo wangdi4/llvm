@@ -57,4 +57,6 @@ target_link_libraries(
   LLVMSupport
 )
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
+
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

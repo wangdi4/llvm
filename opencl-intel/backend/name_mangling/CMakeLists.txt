@@ -49,3 +49,5 @@ target_link_libraries(
   ${TARGET_NAME}
   antlr
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

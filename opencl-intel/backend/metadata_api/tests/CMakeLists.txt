@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.4)
 
-set(TARGET_NAME MetaDataApiTest)
+set(TARGET_NAME test_metadataapi)
 
 project (${TARGET_NAME})
 
@@ -24,6 +24,8 @@ target_link_libraries(
   LLVMBitReader
   LLVMAsmParser
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
 install(FILES metadatatest.ll DESTINATION bin)
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

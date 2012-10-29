@@ -6,3 +6,4 @@ add_library( ${TARGET_NAME} STATIC
   DynamicLib.cpp
 )
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
