@@ -385,6 +385,10 @@ struct mic_exec_env_options {
     uint32_t            min_work_groups_number; // recommended amount of workgroups per NDRange
     mic_TBB_scheduler   tbb_scheduler;
     mic_TBB_block_optimization tbb_block_optimization;
+    
+    // BUGBUG: TBB slowness workaround
+    uint32_t			workers_per_queue;		// Temporary W/O for conformance slowness.
+    											// This should limit number of workers serving one queue.
 	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 

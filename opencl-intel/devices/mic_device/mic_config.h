@@ -52,6 +52,8 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				"CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION" // bool
 
+// BUGBUG: TBB slowness workaroung
+#define    CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE			"CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE"	// unsigned int
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
@@ -81,6 +83,9 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		unsigned int   Device_NumCores()        const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_CORES, 0); }
 		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, false); }
 		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
+		// BUGBUG: TBB slowness workaround
+		unsigned int   Device_WorkerPerQueue()	const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, 0); }
+		
         // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
 		size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 0); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
@@ -126,6 +131,9 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, Device_TbbTrapWorkers, "1 - do not allow TBB workers to leave arena. Deadlocks if more than a single queue." );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, Device_LazyTransfer, "1 - perform host->device transfer only when really required");
+            
+            //BUGBUG: TBB slowness
+            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, Device_WorkerPerQueue, "Limit number of worker therads per in-order queue, 0 = no limit");
             
             std::cout << std::endl;
             

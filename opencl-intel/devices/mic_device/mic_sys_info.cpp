@@ -308,7 +308,7 @@ cl_uint MICSysInfo::getNumOfComputeUnits(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumThreads;
+        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumThreads-4;
     }
     return 0;
 }

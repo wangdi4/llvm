@@ -119,6 +119,8 @@ void init_device(uint32_t         in_BufferCount,
 		*pErr = CL_DEV_ERROR_FAIL;
 		return;
 	}
+	
+    pThreadPool->wakeup_all();
 }
 
 // release the device thread pool. Call it before process destruction.
@@ -191,8 +193,6 @@ void init_commands_queue(uint32_t         in_BufferCount,
 	ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, pCtx);
 
     QueueOnDevice::setCurrentQueue( pQueue );
-    pool->wakeup_all();
-    
 }
 
 // release current pipeline command queue. Call it before Pipeline destruction of Command list.
@@ -1073,6 +1073,19 @@ bool ThreadPool::initializeAffinityThreads()
 		gMicExecEnvOptions.num_of_worker_threads = m_orderHwThreadsIds.size();
 	}
 
+	// BUGBUG: Temporary fix, until TBB performance issue is resolved.
+	// In case we will have explicit limit of workers per queue;
+#if 1
+	if ( 0 == gMicExecEnvOptions.workers_per_queue )
+	{
+		gMicExecEnvOptions.workers_per_queue = gMicExecEnvOptions.num_of_worker_threads;
+	}
+	
+	gMicExecEnvOptions.min_work_groups_number = gMicExecEnvOptions.workers_per_queue * 2;
+#else	
+	gMicExecEnvOptions.min_work_groups_number = gMicExecEnvOptions.num_of_worker_threads * 2;
+#endif	
+
 	initializeReserveAffinityThreadIds();
 
 	return true;
@@ -1208,8 +1221,22 @@ void TBBThreadPool::registerMasterThread(bool affinitize)
 	// If the scheduler didn't set yet and I'm not a worker (I'm muster thread)
 	if ( (NULL == pScheduler) && (!isWorkerScheduler(&tlsAccessor)) )
 	{
+#if 1
+	// BUGBUG: work around for TBB slowness. affinize=true for pipe master threads
+	if ( affinitize )
+	{
+		// TBB can create more thread than req.
+		setScheduler(&tlsAccessor, new tbb::task_scheduler_init(gMicExecEnvOptions.workers_per_queue));
+	}
+	else
+	{
 		// TBB can create more thread than req.
 		setScheduler(&tlsAccessor, new tbb::task_scheduler_init(m_numOfWorkers));
+	}		
+#else	
+		// TBB can create more thread than req.
+		setScheduler(&tlsAccessor, new tbb::task_scheduler_init(m_numOfWorkers));
+#endif		
 	}
 	if (affinitize)
 	{

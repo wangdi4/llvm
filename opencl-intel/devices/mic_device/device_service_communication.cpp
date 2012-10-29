@@ -309,6 +309,9 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		mic_device_options.kernel_safe_mode         = pDevServiceComm->m_config->Device_safeKernelExecution();
 		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
         mic_device_options.trap_workers             = pDevServiceComm->m_config->Device_TbbTrapWorkers();
+        
+        //BUGBUG: TBB slowness workaround
+        mic_device_options.workers_per_queue		= pDevServiceComm->m_config->Device_WorkerPerQueue();
 
         string tbb_scheduler = pDevServiceComm->m_config->Device_TbbScheduler();
      
