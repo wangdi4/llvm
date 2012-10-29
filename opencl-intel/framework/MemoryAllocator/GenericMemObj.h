@@ -160,8 +160,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // copy all data required for sub-buffer
         cl_err_code InitializeSubObject(  cl_mem_flags		clMemFlags,
                                           GenericMemObject& parent,
-                                          const size_t*     origin,
-                                          const size_t*     region );
+                                          const size_t     origin[MAX_WORK_DIM],
+                                          const size_t     region[MAX_WORK_DIM] );
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
                                                   SharedPtr<FissionableDevice> dev,

@@ -865,7 +865,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
             return CL_COMPILE_PROGRAM_FAILURE;
         }
     }
-
+	delete[] pszHeaders;
     return CL_SUCCESS;
 }
 

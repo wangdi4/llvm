@@ -299,13 +299,13 @@ cl_err_code GenericMemObject::Initialize(
 cl_err_code GenericMemObject::InitializeSubObject(
                                             cl_mem_flags      clMemFlags,
                                             GenericMemObject& parent,
-                                            const size_t*     origin,
-                                            const size_t*     region )
+                                            const size_t     origin[MAX_WORK_DIM],
+                                            const size_t     region[MAX_WORK_DIM])
 {
     // sub-buffer related - used by internal functions call later in this function
     SharedPtr<GenericMemObject> pParent = &parent;
 	m_pParentObject = &parent;
-    MEMCPY_S( m_stOrigin, sizeof(m_stOrigin), origin, sizeof(m_stOrigin) );
+    MEMCPY_S( m_stOrigin, sizeof(m_stOrigin), origin, sizeof(origin) );
 
     // copy everything from GenericMemObject class only excluding parent classes
 
@@ -926,6 +926,9 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 {
 	const cl_buffer_region* region = static_cast<const cl_buffer_region*>(buffer_create_info);
 
+	size_t pSzOrigin[MAX_WORK_DIM] = {region->origin};
+	size_t pSzSize[MAX_WORK_DIM] = {region->size};
+
     if (m_clMemObjectType != CL_MEM_OBJECT_BUFFER)
     {
         return CL_INVALID_OPERATION;
@@ -948,7 +951,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, &(region->origin),  &(region->size));
+	cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,  pSzSize);
 	if ( CL_FAILED(err) )
 	{
 		pSubBuffer->Release();
