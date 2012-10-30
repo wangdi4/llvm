@@ -61,6 +61,8 @@ using std::exception;
 #include "BufferContainerList.h"
 #include "OpenCLArgsBuffer.h"
 #include "ContainerCopier.h"
+#include "OpenCLKernelArgumentsParser.h"
+#include "OCLKernelDataGenerator.h"
 
 #include "InterpreterPlugIn.h"
 #include "InterpreterPluggable.h"
@@ -122,7 +124,7 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(programConfig);
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
-    ParseToModule(program);
+    m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
 
     for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
         it != pProgramConfig->endKernels();
@@ -250,14 +252,31 @@ void OpenCLReferenceRunner::WriteBufferContainer(const std::string& filename,
 
 
 
-void OpenCLReferenceRunner::ReadInputBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer )
+void OpenCLReferenceRunner::ReadInputBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer, const uint64_t seed )
 {
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
+    switch(pKernelConfig->GetInputFileType())
+    {
+        case Random:
+        {
+            OpenCLKernelArgumentsParser parser;
+            OCLKernelArgumentsList args = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
+            args = OpenCLKernelArgumentsParser::KernelArgHeuristics(args, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
+            OCLKernelDataGeneratorConfig *cfg = OCLKernelDataGeneratorConfig::defaultConfig(args);
+            cfg->setSeed(seed);
+            OCLKernelDataGenerator gen(args, *cfg);
 
-    ReadBufferContainer(pKernelConfig->GetInputFilePath(),
-                        pKernelConfig->GetInputFileType(),
-                        pContainer);
+            gen.Read(pContainer);
+            break;
+        }
+        default:
+        {
+            ReadBufferContainer(pKernelConfig->GetInputFilePath(),
+                pKernelConfig->GetInputFileType(),
+                pContainer);
+        }
+    }
 }
 
 void OpenCLReferenceRunner::ReadReferenceBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer )
@@ -729,55 +748,6 @@ OpenCLReferenceRunner::ReadIntegerFromBuffer(
         APInt(numOfBits, uVal);
 }
 
-void OpenCLReferenceRunner::ParseToModule( const IProgram* program )
-{
-    const OpenCLProgram *oclProgram = static_cast<const OpenCLProgram *>(program);
-
-    cl_prog_container_header *oclProgramContainerHeader =
-        oclProgram->GetProgramContainer();
-    unsigned int oclProgramContainerSize = oclProgram->GetProgramContainerSize();
-
-    // Input parameters validation
-    if(0 == oclProgramContainerSize || 0 == oclProgramContainerHeader)
-    {
-        throw TestReferenceRunnerException("Program container is invalid.");
-    }
-
-    //////////////////////////////////////////////////////////////////////
-    // Create llvm module from program.
-
-    // TODO: check all pointer initializations.
-    m_pLLVMContext = new LLVMContext;
-    if (0 == m_pLLVMContext)
-    {
-        throw TestReferenceRunnerException("Unable to create LLVM context.");
-    }
-
-    const char* pIR;    // Pointer to LLVM representation
-    pIR = (const char*)oclProgramContainerHeader +
-        sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-    size_t stIRsize = oclProgramContainerHeader->container_size -
-        sizeof(cl_llvm_prog_header);
-    // Create Memory buffer to store IR data
-    StringRef bitCodeStr(pIR, stIRsize);
-    MemoryBuffer* pMemBuffer = MemoryBuffer::getMemBufferCopy(bitCodeStr);
-    if (0 == pMemBuffer)
-    {
-        throw TestReferenceRunnerException("Can't create LLVM memory buffer from\
-                                           program bytecode.");
-    }
-
-    std::string strLastError;
-    m_pModule = ParseBitcodeFile(pMemBuffer, *m_pLLVMContext, &strLastError);
-    if (0 == pMemBuffer)
-    {
-        throw TestReferenceRunnerException("Unable to parse bytecode into\
-                                           LLVM module");
-    }
-
-    DEBUG(dbgs() << "Module LLVM code: " << *m_pModule << "\n");
-}
-
 // find OpenCL __local variables in module
 static std::vector<const GlobalVariable *> getLocalVariables(llvm::Module* pModule)
 {
@@ -814,7 +784,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     InterpreterLock->acquire();
 
     BufferContainerList input;
-    ReadInputBuffer(pKernelConfig, &input);
+    ReadInputBuffer(pKernelConfig, &input,
+        runConfig->GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0));
 
     // memory for storing kernel data marked with local addr space
     // Warning!: method delete [] is called on scratchMem

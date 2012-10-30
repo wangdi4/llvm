@@ -31,6 +31,7 @@ namespace Validation
         // Common options
         RC_COMMON_DEFAULT_LOCAL_WG_SIZE,
         RC_COMMON_RUN_SINGLE_WG,
+        RC_COMMON_RANDOM_DG_SEED,
 
         // Back-end runner specific options
         RC_BR_BUILD_ITERATIONS_COUNT,
@@ -84,6 +85,7 @@ namespace Validation
         bool m_runSingleWG;
         bool m_buildOnly;
         uint32_t m_defaultLocalWGSize;
+        uint64_t m_RandomDataGeneratorSeed;
         uint32_t  m_buildIterationsCount;
         uint32_t  m_executeIterationsCount;
         std::string m_cpuArch;
@@ -100,6 +102,7 @@ namespace Validation
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
     template<> uint32_t BERunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const;
+    template<> uint64_t BERunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const;
     template<> std::string BERunOptions::GetValue<std::string>(RunConfigurationOption rc, std::string defaultValue) const;
     template<> Intel::OpenCL::DeviceBackend::ETransposeSize 
         BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc, 
@@ -143,10 +146,12 @@ namespace Validation
         bool m_useFmaNEAT;
         bool m_runSingleWG;
         uint32_t m_defaultLocalWGSize;
+        uint64_t m_RandomDataGeneratorSeed;
     };
 
     template<> bool ReferenceRunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
     template<> uint32_t ReferenceRunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const;
+    template<> uint64_t ReferenceRunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const;
 
     /// @brief This class contain OpenCL test run information
     class OpenCLRunConfiguration : public IRunConfiguration

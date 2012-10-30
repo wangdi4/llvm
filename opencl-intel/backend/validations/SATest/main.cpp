@@ -22,6 +22,7 @@ File Name:  main.cpp
 
 #include <string>
 #include <iostream>
+#include <time.h>
 
 // Command line options
 #include "llvm/Support/CommandLine.h"
@@ -220,6 +221,12 @@ TimePasses("dump-time-passes",
            llvm::cl::ValueOptional,
            llvm::cl::desc("Generates compilation time detailed report for all the passes and print it to the file <filename>. The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
+
+// Seed for random input data generator
+llvm::cl::opt<uint64_t>
+RandomDGSeed("seed",
+                   llvm::cl::desc("Seed for random input data generator. Zero seed means generate new one"),
+                   llvm::cl::init(time(NULL)));
 
 // Command line example:
 // SATest.exe -OCL -config=test.cfg

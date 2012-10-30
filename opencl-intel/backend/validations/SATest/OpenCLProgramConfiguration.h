@@ -31,7 +31,8 @@ namespace Validation
     enum DataFileType
     {
         Binary,
-        Xml
+        Xml,
+        Random
     };
 
     /// @brief enum for OpenCL program file type

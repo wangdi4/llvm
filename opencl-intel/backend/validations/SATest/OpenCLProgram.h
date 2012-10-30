@@ -22,6 +22,7 @@ File Name: OpenCLProgram.h
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 #include "OpenCLProgramConfiguration.h"
+#include "llvm/Module.h"
 
 #include <string>
 
@@ -48,6 +49,11 @@ public:
     /// @brief Returns size of program container
     /// @return Size of program container of this OpenCL program
     unsigned int GetProgramContainerSize() const;
+
+    /// @brief Extracts LLVM program from 'program' and parse it
+    ///        and create a LLVM module.
+    /// @return module
+    llvm::Module* ParseToModule(void) const;
 
 private:
     /// @brief create OpenCL program from BC type

@@ -51,6 +51,11 @@ size_t ComparisonResults::GetMismatchCount()
     return mismatches.size();
 }
 
+bool ComparisonResults::isFailed()
+{
+    return (0 != GetMismatchCount());
+}
+
 void ComparisonResults::ReportDetail()
 {
     if(!mismatches.empty())

@@ -38,6 +38,15 @@ namespace Validation
             {
                 // buffer
                 BufferDesc * bdesc = static_cast<BufferDesc *>(pDesc.get());
+                //dereference the pointers
+                TypeDesc Ty = bdesc->GetElementDescription();
+                if(Ty.GetType() == TPOINTER)
+                {
+                    //recalculate number of elements in buffer
+                    bdesc->SetNumOfElements(bdesc->NumOfElements()*Ty.GetNumberOfElements());
+                    Ty = Ty.GetSubTypeDesc(0);//dereference the pointer
+                    bdesc->SetElementDecs(Ty);//set up new descriptor
+                }
                 pBC->CreateBuffer(*bdesc);
             }
             else if(pDesc->GetName() == ImageDesc::GetImageDescName())

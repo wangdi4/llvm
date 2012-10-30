@@ -53,6 +53,8 @@ namespace Validation {
 
         virtual size_t GetMismatchCount() = 0;
 
+        virtual bool isFailed() = 0;
+
         virtual void Clear() = 0;
 
         /// @brief returns pointer to object that contains statistics data

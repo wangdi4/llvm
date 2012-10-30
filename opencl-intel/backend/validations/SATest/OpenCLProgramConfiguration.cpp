@@ -146,6 +146,9 @@ DataFileType OpenCLKernelConfiguration::GetDataFileType(const string& strFileTyp
     if( strFileType == "xml" )
         return Xml;
 
+    if( strFileType == "random" )
+        return Random;
+
     throw Exception::InvalidArgument("file types other than binary or XML are not supported");
 }
 

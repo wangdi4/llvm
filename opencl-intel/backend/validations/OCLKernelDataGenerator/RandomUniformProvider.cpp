@@ -16,7 +16,6 @@ File Name: RandomUniformProvider.cpp
 
 \*****************************************************************************/
 #include "RandomUniformProvider.h"
-#include <time.h>
 #include <iostream>
 #include "FloatOperations.h"
 
@@ -24,11 +23,7 @@ using namespace Validation;
 
 RandomUniformProvider::RandomUniformProvider(const uint64_t seed)
 {
-    if(seed!=0)
-        m_seed = seed;
-    else {
-        m_seed = time(NULL)+rand();
-    }
+    m_seed = seed;
     InitGenerator();
 }
 

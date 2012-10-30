@@ -66,6 +66,8 @@ namespace Validation
         /// @brief Number of mismatched values in mismatch container
         size_t GetMismatchCount();
 
+        bool isFailed();
+
         void Report();
 
         void ReportDetail();

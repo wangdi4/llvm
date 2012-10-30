@@ -31,6 +31,8 @@ File Name:  OpenCLBackendRunner.cpp
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
+#include "OCLKernelDataGenerator.h"
+#include "OpenCLKernelArgumentsParser.h"
 
 #include <llvm/ADT/OwningPtr.h>
 #include <llvm/Support/MemoryBuffer.h>
@@ -60,6 +62,7 @@ OpenCLBackendRunner::OpenCLBackendRunner(const BERunOptions& runConfig)
 {
     OpenCLBackendWrapper::Init(runConfig);
     m_pServiceFactory = OpenCLBackendWrapper::GetInstance().GetBackendServiceFactory();
+    m_RandomDataGeneratorSeed = runConfig.GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0);
 }
 
 OpenCLBackendRunner::~OpenCLBackendRunner()
@@ -83,6 +86,7 @@ ICLDevBackendProgram_* OpenCLBackendRunner::CreateProgram(const OpenCLProgram * 
     {
         throw Exception::TestRunnerException("Create program failed.\n");
     }
+    m_pModule = oclProgram->ParseToModule();
 
     return pProgram;
 }
@@ -151,6 +155,18 @@ void OpenCLBackendRunner::LoadInputBuffer(OpenCLKernelConfiguration* pKernelConf
         {
             XMLBufferContainerListReader reader( pKernelConfig->GetInputFilePath() );
             reader.Read(pContainer);
+            break;
+        }
+    case Random:
+        {
+            OpenCLKernelArgumentsParser parser;
+            OCLKernelArgumentsList argDescriptions = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
+            argDescriptions = OpenCLKernelArgumentsParser::KernelArgHeuristics(argDescriptions, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
+            OCLKernelDataGeneratorConfig *cfg = OCLKernelDataGeneratorConfig::defaultConfig(argDescriptions);
+            cfg->setSeed(m_RandomDataGeneratorSeed);
+            OCLKernelDataGenerator gen(argDescriptions, *cfg);
+
+            gen.Read(pContainer);
             break;
         }
     default:

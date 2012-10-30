@@ -104,11 +104,6 @@ namespace Validation
             const unsigned int numOfBits,
             llvm::GenericValue &val );
 
-        /// @brief Extracts LLVM program from 'program' and parse it
-        ///        and create a LLVM module.
-        /// @param [IN] program   Test program to execute.
-        void ParseToModule( const IProgram* program );
-
         /// @brief Prepares list of arguments to run test program.
         /// @param [OUT] ArgVals  List of LLVM data type values, which contains 
         ///                       references to 'real values' stored into 'Args'.
@@ -155,7 +150,8 @@ namespace Validation
         /// @brief Loads the input buffer according to kernel configuration.
         /// @param pKernelConfig    [in] kernel specific configuration
         /// @param pContainer       [in,out] input data container
-        void ReadInputBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer );
+        /// @param seed [in] seed for random data generator
+        void ReadInputBuffer(OpenCLKernelConfiguration* pKernelConfig, IContainer* pContainer, const uint64_t seed );
 
         /// @brief Loads the reference buffer according to kernel configuration.
         /// @param pKernelConfig    [in] kernel specific configuration

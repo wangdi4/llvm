@@ -96,6 +96,9 @@ DumpJIT;
 extern llvm::cl::opt<std::string>
 TimePasses;
 
+extern llvm::cl::opt<uint64_t>
+RandomDGSeed;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -159,6 +162,18 @@ namespace Validation
             return m_buildIterationsCount;
         case RC_COMMON_DEFAULT_LOCAL_WG_SIZE :
             return m_defaultLocalWGSize;
+        default:
+            return defaultValue;
+        }
+    }
+
+    template<>
+    uint64_t BERunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const
+    {
+        switch(rc)
+        {
+        case RC_COMMON_RANDOM_DG_SEED:
+            return m_RandomDataGeneratorSeed;
         default:
             return defaultValue;
         }
@@ -234,6 +249,7 @@ namespace Validation
         m_useVTune = ::UseVTune;
         m_printBuildLog = ::PrintBuildLog;
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
+        m_RandomDataGeneratorSeed = ::RandomDGSeed;
         m_optimizedLLVMIRDumpFile = ::OptimizedLLVMIRDumpFile;
         m_PrintIRAfter = ::PrintIRAfter;
         m_PrintIRBefore = ::PrintIRBefore;
@@ -313,12 +329,25 @@ namespace Validation
         }
     }
 
+    template <>
+    uint64_t ReferenceRunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const
+    {
+        switch(rc)
+        {
+        case RC_COMMON_RANDOM_DG_SEED:
+            return m_RandomDataGeneratorSeed;
+        default:
+            return defaultValue;
+        }
+    }
+
     void ReferenceRunOptions::InitFromCommandLine()
     {
         m_useNEAT = ::UseNEAT;
         m_useFmaNEAT = ::UseFmaNEAT;
         m_runSingleWG = ::RunSingleWG;
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
+        m_RandomDataGeneratorSeed = ::RandomDGSeed;
     }
 
     void OpenCLRunConfiguration::InitFromCommandLine()

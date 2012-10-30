@@ -494,7 +494,7 @@ namespace{
         BufferDesc buffDsc = GetBufferDescription(buff->GetMemoryObjectDesc());
         EXPECT_EQ(BufferDesc::GetBufferDescName(),buffDsc.GetName());
         TypeDesc elemDesc = buffDsc.GetElementDescription();
-        EXPECT_EQ(TPOINTER, elemDesc.GetType());
+        EXPECT_EQ(TLONG, elemDesc.GetType());
 
         delete M;
 

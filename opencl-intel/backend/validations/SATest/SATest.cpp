@@ -26,7 +26,9 @@ File Name:  SATest.cpp
 
 #include "IComparisonResults.h"
 #include "ComparisonResults.h"
-#include "PerformancePrinter.h" 
+#include "PerformancePrinter.h"
+#include "OpenCLRunConfiguration.h"
+#include "OpenCLProgramConfiguration.h"
 
 #include <memory>
 #include <string>
@@ -97,6 +99,19 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 
         if( spCompResult->isFailed() )
         {
+            const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(m_pProgramConfiguration);
+            for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
+                it!=pProgramConfig->endKernels(); ++it)
+            {
+                if((*it)->GetInputFileType() == Random &&
+                    spCompResult->GetComparison((*it)->GetKernelName().c_str())->isFailed())
+                {
+                    std::cout << "Seed = " << 
+                        static_cast<const ReferenceRunOptions*>(pRunConfiguration->GetReferenceRunnerConfiguration())->
+                        GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED,0) << std::endl;
+                    break;
+                }
+            }
             throw Exception::TestFailException("Comparison failed.");
         }
     }

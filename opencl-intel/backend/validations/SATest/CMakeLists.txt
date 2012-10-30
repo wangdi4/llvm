@@ -90,6 +90,8 @@ include_directories(
     ${VALIDATIONS_ROOT}/InterpreterPluggable
     ${VALIDATIONS_ROOT}/PlugInNEAT
     ${VALIDATIONS_ROOT}/OCLBuilder
+    ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
+    ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
 )
 
 set (SATest_INCLUDE_FILES
@@ -219,6 +221,8 @@ set (LLVM_LIBS
 
 set (SATest_DEPS
     DataManager
+    OpenCLKernelArgumentsParser
+    OCLKernelDataGenerator
     Comparator
     OCLInterpreter
     LLVMInterpreterPluggable

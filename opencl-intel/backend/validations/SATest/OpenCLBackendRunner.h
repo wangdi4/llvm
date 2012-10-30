@@ -27,6 +27,7 @@ File Name:  OpenCLBackendRunner.h
 #include "IBufferContainerList.h"
 
 #include "cl_dev_backend_api.h"
+#include "llvm/Module.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -91,6 +92,9 @@ namespace Validation
 
     protected:
         ICLDevBackendServiceFactory* m_pServiceFactory;
+        llvm::Module* m_pModule;
+        //needed for Random Data Generator
+        uint64_t m_RandomDataGeneratorSeed;
     };
 }
 

@@ -36,6 +36,10 @@ File Name:  OpenCLProgram.cpp
 #include <memory.h>
 #include <fstream>
 
+#define DEBUG_TYPE "OpenCLProgram"
+// debug macros
+#include "llvm/Support/Debug.h"
+
 using namespace Validation;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::FECompilerAPI;
@@ -215,4 +219,51 @@ void OpenCLProgram::setContainer()
   pContainer->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
   pContainer->description.bin_ver_major = 1;
   pContainer->description.bin_ver_minor = 1;
+}
+
+llvm::Module* OpenCLProgram::ParseToModule(void) const{
+    llvm::Module* ret;
+    cl_prog_container_header *oclProgramContainerHeader =
+        this->GetProgramContainer();
+    unsigned int oclProgramContainerSize = this->GetProgramContainerSize();
+
+    // Input parameters validation
+    if(0 == oclProgramContainerSize || 0 == oclProgramContainerHeader)
+    {
+        throw Exception::TestReferenceRunnerException("Program container is invalid.");
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    // Create llvm module from program.
+
+    // TODO: check all pointer initializations.
+    llvm::LLVMContext* pLLVMContext = new llvm::LLVMContext;
+    if (0 == pLLVMContext)
+    {
+        throw Exception::TestReferenceRunnerException("Unable to create LLVM context.");
+    }
+
+    const char* pIR;    // Pointer to LLVM representation
+    pIR = (const char*)oclProgramContainerHeader +
+        sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+    size_t stIRsize = oclProgramContainerHeader->container_size -
+        sizeof(cl_llvm_prog_header);
+    // Create Memory buffer to store IR data
+    llvm::StringRef bitCodeStr(pIR, stIRsize);
+    llvm::MemoryBuffer* pMemBuffer = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);
+    if (0 == pMemBuffer)
+    {
+        throw Exception::TestReferenceRunnerException("Can't create LLVM memory buffer from\
+                                           program bytecode.");
+    }
+
+    std::string strLastError;
+    ret = ParseBitcodeFile(pMemBuffer, *pLLVMContext, &strLastError);
+    if (0 == pMemBuffer)
+    {
+        throw Exception::TestReferenceRunnerException("Unable to parse bytecode into\
+                                           LLVM module");
+    }
+  DEBUG(llvm::dbgs() << "Module LLVM code: " << *ret << "\n");
+  return ret;
 }
