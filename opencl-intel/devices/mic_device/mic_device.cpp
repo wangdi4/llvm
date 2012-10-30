@@ -347,6 +347,7 @@ cl_dev_err_code MICDevice::CreateCommandList( bool external_list,
     }
     if (external_list)
     {
+        OclAutoMutex lock( &m_commandListsSetLock );
         m_commandListsSet.insert(tCommandList);
     }
     *list = (void*)tCommandList;
@@ -423,6 +424,7 @@ cl_dev_err_code MICDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
     // If the reference counter = 0.
     if ((true == removeObject) && (CL_DEV_SUCCEEDED(res)))
     {
+        OclAutoMutex lock( &m_commandListsSetLock );
         m_commandListsSet.erase(pList);
         delete(pList);
     }

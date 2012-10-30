@@ -77,6 +77,7 @@ private:
     NotificationPort*               m_pNotificationPort;
 
     set<CommandList*>               m_commandListsSet;
+    OclMutex                        m_commandListsSetLock;
     
     PerformanceDataStore            m_overhead_data;
 
