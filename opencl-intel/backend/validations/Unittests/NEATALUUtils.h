@@ -102,6 +102,9 @@ namespace Validation {
         bool res = true;
         typedef typename  downT<T>::type dT;
 
+        if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
+            return false;
+
         dT min = *test.GetMin<dT>();
         dT max = *test.GetMax<dT>();
 
@@ -224,6 +227,9 @@ namespace Validation {
     static bool TestIntExpanded(T refMinIn, T refMaxIn, NEATValue test, float ulps)
     {
         typedef typename downT<T>::type dT;
+
+        if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
+            return false;
 
         bool res = true;
         T refMin, refMax;
@@ -348,6 +354,9 @@ namespace Validation {
         bool res = true;
         typedef typename  downT<T>::type dT;
 
+        if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
+            return false;
+
         dT min = *test.GetMin<dT>();
         dT max = *test.GetMax<dT>();
 
@@ -418,6 +427,9 @@ namespace Validation {
         // ref4ulps is used to calculate 1 ULP for functions mix and dot
         // it is max abs value from input values
         typedef typename downT<T>::type dT;
+
+        if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
+            return false;
 
         bool res = true;
         T refMin, refMax;

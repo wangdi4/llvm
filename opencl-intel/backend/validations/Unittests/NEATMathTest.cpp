@@ -418,8 +418,7 @@ TYPED_TEST(NEATMathTestOneArg, asinh)
     }
 }
 
-// disabled until CSSD100014795 will be fixed
-TYPED_TEST(NEATMathTestOneArg, DISABLED_acosh)
+TYPED_TEST(NEATMathTestOneArg, acosh)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type sT;
@@ -684,8 +683,8 @@ void TestClampInterval(const NEATValue& a, const NEATValue& in_min, const NEATVa
     }
 }
 
-// disabled until CSSD100014677 will be fixed
-TYPED_TEST(NEATMathTestThreeArgs, DISABLED_clamp)
+
+TYPED_TEST(NEATMathTestThreeArgs, clamp)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type sT;
@@ -1207,8 +1206,8 @@ TYPED_TEST(NEATExpTestRun, DISABLED_half_exp10)
     expTest.TestPreciseExp(NEATFunc);
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::HALF_EXP10_ERROR));
 }
-// disabled until CSSD100014782 will be fixed
-TYPED_TEST(NEATExpTestRun, DISABLED_expm1)
+
+TYPED_TEST(NEATExpTestRun, expm1)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
@@ -1556,8 +1555,8 @@ TYPED_TEST(NEATLogTestRun, half_log2)
     logTest.TestPreciseLog(NEATFunc);
     logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::HALF_LOG2_ERROR), TypeP(0.0));
 }
-// disabled until CSSD100014661 will be fixed
-TYPED_TEST(NEATLogTestRun, DISABLED_log10)
+
+TYPED_TEST(NEATLogTestRun, log10)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
@@ -2312,8 +2311,7 @@ void fabsReference(const NEATValue& inVal, T * refMinOut, T * refMaxOut) {
         *refMaxOut = refMax;
 }
 
-// disabled until CSSD100014845 will be fixed
-TYPED_TEST(NEATMathTestOneArg, DISABLED_fabs)
+TYPED_TEST(NEATMathTestOneArg, fabs)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;
@@ -4118,8 +4116,8 @@ TYPED_TEST(NEATMaxMinMagTestRun, minmag)
     test.TestOtherValues(NEATFunc, NEATFuncVec, RefFunc);
 }
 
-// disabled until CSSD100014638 will be resolved
-TYPED_TEST(NEATMathTestTwoArgs, DISABLED_remainder)
+
+TYPED_TEST(NEATMathTestTwoArgs, remainder)
 {
     typedef typename TypeParam::Type T;
     typedef typename superT<T>::type sT;

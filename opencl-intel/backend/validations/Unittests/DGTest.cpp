@@ -1853,6 +1853,47 @@ template <typename T> void TestGenerateRandomVectorsAutoSeed(DataTypeVal dataTyp
     }
 }
 
+template <typename T> void TestGenerateRandomVectorsAutoSeedFloat(DataTypeVal dataTypeVal)
+{
+    const uint32_t NUM_TESTS = 100;
+    T data1[NUM_TESTS*16], data2[NUM_TESTS*16];
+    uint64_t seed1, seed2;
+
+    for(uint32_t vecSize = uint32_t(V2); vecSize<uint32_t(INVALID_WIDTH); vecSize++)
+    {
+        for(uint32_t i=0;i<NUM_TESTS*16;i++) {
+            data1[i] = T(0.f);
+            data2[i] = T(0.f);
+        }
+        SetSeed(0); //set initial seed, random
+
+        for(uint32_t buffLen = 1; buffLen <= NUM_TESTS; buffLen++)
+        {
+            VectorWidthWrapper vecWidth;
+            vecWidth.SetValue(VectorWidth(vecSize));
+            /// generates buffLen number of random vectors of vecSize width of dataTypeVal data type
+            GenerateRandomVectorsAutoSeed(dataTypeVal, &data1[0], VectorWidth(vecSize), buffLen);
+            seed1 = GetCurrentSeed();
+            GenerateRandomVectorsAutoSeed(dataTypeVal, &data2[0], VectorWidth(vecSize), buffLen);
+            seed2 = GetCurrentSeed();
+            EXPECT_EQ(seed2,(seed1+GetUpdateConst())); // new seed should be equal to previous seed plus constant
+
+            uint32_t diffCnt = 0;
+            for(uint32_t i=0;i<buffLen;i++) {
+                for(uint32_t j=0;j<vecWidth.GetSize();j++) {
+                    EXPECT_FALSE(Utils::IsNaN(data1[i*vecWidth.GetSize()+j]));
+                    EXPECT_FALSE(Utils::IsNaN(data2[i*vecWidth.GetSize()+j]));
+
+                    if(data1[i*vecWidth.GetSize()+j] != data2[i*vecWidth.GetSize()+j])
+                        diffCnt++;
+                }
+            }
+            if(diffCnt == 0)
+                llvm::errs()<<"[DATA GENERATOR WARNING] zero differences from "<<buffLen*vecWidth.GetSize()<<" elements\n";
+        }
+    }
+}
+
 TYPED_TEST(DataGeneratorTypedUnsigned, GenerateRandomVectorsAutoSeed)
 {
     DataTypeVal dataTypeVal;
@@ -1911,5 +1952,5 @@ TYPED_TEST(DataGeneratorTypedFloat, GenerateRandomVectorsAutoSeed)
 
     EXPECT_NE(dataTypeVal, INVALID_DATA_TYPE);
 
-    TestGenerateRandomVectorsAutoSeed<TypeParam>(dataTypeVal);
+    TestGenerateRandomVectorsAutoSeedFloat<TypeParam>(dataTypeVal);
 }

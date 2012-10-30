@@ -79,7 +79,7 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const float *arr,
     vecWidth.SetValue(VectorWidth(vecW));
     
     uint8_t low8 = 0x01; // min exponent value for normalized float 8 bits
-    uint8_t high8 = 0xfe; // max exponent value for normalized float 8 bits
+    uint8_t high8 = 0xfe; // max exponent value for normalized float 8 bits, 0xff is used to represent INF and NaN
     dataTypeExp.SetValue(U8);
     DataGenerator::SetRandomFromRangeMethod(bcfm,dataTypeExp,vecWidth,n,low8,high8);
 
@@ -135,7 +135,7 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const double *arr,
     vecWidth.SetValue(VectorWidth(vecW));
     
     uint16_t low11 = 0x0001; // min exponent value for normalized double 11 bits
-    uint16_t high11 = 0x07ff; // max exponent value for normalized double 11 bits
+    uint16_t high11 = 0x07fe; // max exponent value for normalized double 11 bits, 0x07ff is used to represent INF and NaN
     dataTypeExp.SetValue(U16);
     DataGenerator::SetRandomFromRangeMethod(bcfm,dataTypeExp,vecWidth,n,low11,high11);
 

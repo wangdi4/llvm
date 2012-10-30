@@ -73,7 +73,6 @@ public:
        typedef double type ;
 };
 
-
 TEST(NEATAlu, NEATRef)
 {
     EXPECT_EQ(0.6f, RefALU::add<float>(0.2f, 0.4f));
@@ -245,6 +244,78 @@ void BasicTest(NEATScalarBinaryOp ScalarOp,NEATVectorBinaryOp VectorOp,
             EXPECT_TRUE(passed)<<"aSeed = "<<aSeed<<" bSeed = "<<bSeed;
         }
     }
+}
+
+
+// tested functions should return false if NEATValue is wrong, i.e Unknown or Unwritten for Interval
+//  or NEATValue is not Accurate for Accurate functions
+TYPED_TEST(NEATAluTyped, TestExpanded)
+{
+    typedef typename sT<TypeParam>::type SuperT;
+
+    TypeParam a1 = -12.0;
+    TypeParam a2 = 15.0;
+    TypeParam a3 = 10.0;
+
+    SuperT refAcc = SuperT(a1);
+    SuperT refMinIn = SuperT(a1);
+    SuperT refMaxIn = SuperT(a2);
+    SuperT ref4ulps = SuperT(a3);
+    float ulps = 5.0;
+
+    NEATValue unwr = NEATValue(NEATValue::UNWRITTEN);
+    NEATValue unkn = NEATValue(NEATValue::UNKNOWN);
+    NEATValue any = NEATValue(NEATValue::ANY);
+
+    SuperT refMinExp = refMinIn;
+    SuperT refMaxExp = refMaxIn;
+
+    NEATALU::ExpandFloatInterval(&refMinExp, &refMaxExp, ulps);
+    NEATValue intervalExp = NEATValue(TypeParam(refMinExp),TypeParam(refMaxExp));
+
+
+    SuperT refAccExpMin = refAcc;
+    SuperT refAccExpMax = refAcc;
+
+    NEATALU::ExpandFloatInterval(&refAccExpMin, &refAccExpMax, ulps);
+    NEATValue accExp = NEATValue(TypeParam(refAccExpMin),TypeParam(refAccExpMax));
+
+    EXPECT_FALSE(TestAccExpanded<SuperT>(refAcc, unwr, ulps));
+    EXPECT_FALSE(TestAccExpanded<SuperT>(refAcc, unkn, ulps));
+    EXPECT_FALSE(TestAccExpanded<SuperT>(refAcc, any, ulps));
+
+    EXPECT_TRUE (TestAccExpanded<SuperT>(refAcc, accExp, ulps));
+
+    EXPECT_FALSE(TestIntExpanded<SuperT>(refMinIn, refMaxIn, unwr, ulps));
+    EXPECT_FALSE(TestIntExpanded<SuperT>(refMinIn, refMaxIn, unkn, ulps));
+    EXPECT_FALSE(TestIntExpanded<SuperT>(refMinIn, refMaxIn, any, ulps));
+
+    EXPECT_TRUE (TestIntExpanded<SuperT>(refMinIn, refMaxIn, intervalExp, ulps));
+
+    EXPECT_FALSE(TestAccExpandedDotMix<SuperT>(refAcc, unwr, ref4ulps, ulps));
+    EXPECT_FALSE(TestAccExpandedDotMix<SuperT>(refAcc, unkn, ref4ulps, ulps));
+    EXPECT_FALSE(TestAccExpandedDotMix<SuperT>(refAcc, any, ref4ulps, ulps));
+
+    EXPECT_TRUE (TestAccExpandedDotMix<SuperT>(refAcc, accExp, ref4ulps, ulps));
+
+    EXPECT_FALSE(TestIntExpandedDotMix<SuperT>(refMinIn, refMaxIn, unwr, ref4ulps, ulps));
+    EXPECT_FALSE(TestIntExpandedDotMix<SuperT>(refMinIn, refMaxIn, unkn, ref4ulps, ulps));
+    EXPECT_FALSE(TestIntExpandedDotMix<SuperT>(refMinIn, refMaxIn, any, ref4ulps, ulps));
+
+    EXPECT_TRUE (TestIntExpandedDotMix<SuperT>(refMinIn, refMaxIn, intervalExp, ref4ulps, ulps));
+
+
+    const uint32_t NUM_EDGE_VALS = 2;
+    SuperT edgeVals[NUM_EDGE_VALS] = { (SuperT)0.0, (SuperT)-0.0 };
+
+    EXPECT_FALSE(TestNeatAcc<SuperT>(unwr, accExp, refAcc, ulps, edgeVals, NUM_EDGE_VALS));
+    EXPECT_FALSE(TestNeatAcc<SuperT>(unkn, accExp, refAcc, ulps, edgeVals, NUM_EDGE_VALS));
+    EXPECT_FALSE(TestNeatAcc<SuperT>(any, accExp, refAcc, ulps, edgeVals, NUM_EDGE_VALS));
+    EXPECT_FALSE(TestNeatAcc<SuperT>(intervalExp, accExp, refAcc, ulps, edgeVals, NUM_EDGE_VALS));
+
+    NEATValue acc = NEATValue(TypeParam(refAcc));
+    EXPECT_TRUE (TestNeatAcc<SuperT>(acc, accExp, refAcc, ulps, edgeVals, NUM_EDGE_VALS));
+ 
 }
 
 /// Tests NEAT addition including vector function and corner values
@@ -6614,8 +6685,8 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
     }
 }
 
-// disable until bug CSSD100013866 will be fixed
-TYPED_TEST(NEATAluTypedMath, DISABLED_atan2)
+
+TYPED_TEST(NEATAluTypedMath, atan2)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type SuperT;
