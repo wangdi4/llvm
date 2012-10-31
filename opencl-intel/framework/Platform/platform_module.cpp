@@ -771,22 +771,21 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         *num_devices = numOutputDevices;
         return CL_SUCCESS;
     }
+    
+    //Else, if the user only needs some of the sub-devices we'll provide, adjust the number of output device to equal the number of entries in the device id list
+    if (numOutputDevices > num_entries)
+    {
+    	numOutputDevices = num_entries;
+    }
 
-	tNumDevices = numOutputDevices;
+    tNumDevices = numOutputDevices;
 
     if (0 == num_entries)
     {
         return CL_INVALID_VALUE;
     }
 
-    if (numOutputDevices > num_entries)
-    {
-        return CL_INVALID_VALUE;
-    }
-    else
-    {
-        numSubdevicesToCreate = numOutputDevices;
-    }
+    numSubdevicesToCreate = numOutputDevices;
 
     cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numSubdevicesToCreate];
     if (NULL == subdevice_ids)

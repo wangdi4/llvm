@@ -445,7 +445,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         //If the user doesn't actually want fission, no reason to send it to the device, just return the size
         if (NULL == out_devices)
         {
-            *num_devices = (cl_uint)partitionIndex - 1;
+            *num_devices = 1;
             return CL_SUCCESS;
         }
 		dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &requestedUnits, out_devices);

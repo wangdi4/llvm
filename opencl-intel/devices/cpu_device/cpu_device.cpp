@@ -1593,6 +1593,10 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 			    pNewsubdeviceId->legal_core_ids[core] = (cl_uint)requestedUnits[core];
 			}
 			*subdevice_ids = pNewsubdeviceId;
+			if (NULL != num_subdevices)
+			{
+				*num_subdevices = 1;
+			}
 
             return CL_DEV_SUCCESS;
         }
@@ -1655,6 +1659,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 			{
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
+				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_ERROR_FAIL;
 			}
 
@@ -1664,6 +1669,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
+				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_ERROR_FAIL;
 			}
 
@@ -1674,6 +1680,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				delete[] pAffinityPermutation;
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
+				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
 
@@ -1686,6 +1693,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				delete pNewTaskDispatcher;
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
+				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
 			GenerateAffinityPermutation(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units, pAffinityPermutation);
@@ -1704,6 +1712,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 			{
 				//Can happen if init failed on the other thread
 				delete pList;
+				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
 			pList->task_dispatcher = pList->subdevice_id->task_dispatcher;
