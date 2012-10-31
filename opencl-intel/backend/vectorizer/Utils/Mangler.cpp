@@ -16,6 +16,7 @@ const std::string Mangler::mask_prefix_load     = "masked_load_align";
 const std::string Mangler::mask_prefix_store    = "masked_store_align";
 const std::string Mangler::prefix_gather        = "internal.gather";
 const std::string Mangler::prefix_scatter       = "internal.scatter";
+const std::string Mangler::prefetch             = "prefetch";
 const std::string Mangler::name_allOne          = "allOne";
 const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
@@ -127,6 +128,22 @@ std::string Mangler::getFakeInsertName() {
   return fake_prefix_insert+suffix;
 }
 
+std::string Mangler::getVectorizedPrefetchName(const std::string& name, int packetWidth) {
+  std::string mangledName = name;
+  // First remove masked function prefix.
+  if (isMangledCall(mangledName))
+    mangledName = demangle(mangledName);
+
+  reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
+  //Currently, we only support two dimension images to be masked.
+  // original (scalar) data type
+  const reflection::Type* scalarType = static_cast<reflection::Pointer*>(prefetchDesc.parameters[0])->getPointee();
+  // create vectorized data type for packed prefetch
+  reflection::Vector vectorizedType(scalarType, packetWidth);
+  reflection::Pointer vectorizedPrt(&vectorizedType);
+  prefetchDesc.parameters[0] = &vectorizedPrt;
+  return ::mangle(prefetchDesc);
+}
 
 std::string Mangler::demangle(const std::string& name) {
   if (::isMangledName(name.c_str())){
@@ -169,6 +186,16 @@ bool Mangler::isMangledGather(const std::string& name) {
 
 bool Mangler::isMangledScatter(const std::string& name) {
   return name.find(prefix_scatter) != std::string::npos;
+}
+
+bool Mangler::isMangledPrefetch(const std::string& name) {
+  std::string mangledName = name;
+  // First remove masked function prefix.
+  if (isMangledCall(mangledName))
+    mangledName = demangle(mangledName);
+
+  reflection::FunctionDescriptor fdesc = ::demangle(mangledName.c_str());
+  return fdesc.name == prefetch;
 }
 
 bool Mangler::isFakeExtract(const std::string& name) {

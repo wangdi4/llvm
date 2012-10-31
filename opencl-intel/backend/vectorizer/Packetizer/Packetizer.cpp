@@ -695,7 +695,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
 
   Type *ElemTy = 0;
-  if (MO.Data) {
+  if (MO.type == STORE) {
     ElemTy = MO.Data->getType();
   } else {
     ElemTy = MO.Orig->getType();
@@ -760,7 +760,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     MO.Base = BitCastInst::CreatePointerCast(MO.Base, baseType->getPointerTo(), "bitcast2Scalar", MO.Orig);
   }
 
-  if (MO.Data)
+  if (MO.type == STORE)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
   // Remove address space from pointer type
@@ -775,11 +775,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   args.push_back(MO.Mask);
   args.push_back(MO.Base);
   args.push_back(MO.Index);
-  if (MO.Data) args.push_back(MO.Data);
+  if (MO.type == STORE) args.push_back(MO.Data);
   args.push_back(ConstantInt::get(i32Ty, MO.IndexValidBits));
   args.push_back(ConstantInt::get(i1Ty, MO.IndexIsSigned));
 
-  if (MO.Data) {
+  if (MO.type == STORE) {
     V_ASSERT(VecElemTy == MO.Data->getType() && "Invalid vector type");
   }
 
@@ -794,6 +794,24 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
 
   return newCaller;
+}
+
+Value* PacketizeFunction::obtainNumElemsForConsecutivePrefetch(Value* scalarVal, Instruction* I) {
+  // The following expression is used to compute packetized number of elements to prefetch.
+  // Number of scalar elements to prefetch after vectorization for *consecutive* memory access pattern.
+  // scalarElems = m_packetWidth + scalarVal - 1;
+  // Next compute minimal number of vector elements to prefetch, which cover all elements
+  // vectorElems = (scalarElems + m_packetWidth – 1) / m_packetWidth or
+  // vectorElems = (scalarVal + 2*m_packetWidth - 2) / m_packetWidth
+
+  V_ASSERT(dyn_cast<IntegerType>(scalarVal->getType()) && "integer type argument is expected!");
+  IntegerType *indexType = cast<IntegerType>(scalarVal->getType());
+  Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
+  Constant *two = ConstantInt::get(indexType, 2);
+  BinaryOperator *doubledVecWidth = BinaryOperator::CreateMul(vecWidthVal, two, "doubledPacketSize", I);
+  BinaryOperator *doubledVecWidthM2 = BinaryOperator::CreateSub(doubledVecWidth, two, "doubledPacketSizeM2", I);
+  BinaryOperator *paddedPackedIndex = BinaryOperator::CreateAdd(scalarVal, doubledVecWidthM2, "paddedPackedIndex", I);
+  return cast<Value>(BinaryOperator::CreateSDiv(paddedPackedIndex, vecWidthVal, "vectorNumElems", I));
 }
 
 Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &MO) {
@@ -814,15 +832,34 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   PointerType *vectorInPtr = PointerType::get(vectorElementType, inPtr->getAddressSpace());
   Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr, "ptrTypeCast", MO.Orig);
 
-
-  if (!MO.Data) {
+  switch (MO.type) {
+  case LOAD: {
     // Create a "vectorized" load
     return new LoadInst(bitCastPtr, MO.Orig->getName(), false, MO.Alignment, MO.Orig);
-  } else {
+  }
+  case STORE: {
     Value *vData;
     obtainVectorizedValue(&vData, MO.Data, MO.Orig);
     // Create a "vectorized" store
     return new StoreInst(vData, bitCastPtr, false, MO.Alignment, MO.Orig);
+  }
+  case PREFETCH: {
+    // Leave the scalar pointer as prefetch argument, but increase number of elements in 16 times.
+    SmallVector<Value*, 4> args;
+    args.push_back(bitCastPtr);
+    // Packetized version assumed number of elements to prefetch to be unifom accross all packed functions.
+    // This assumption could harm only performance and should not break functional execution.
+    V_ASSERT(dyn_cast<CallInst>(MO.Orig) && "call instruction is expected!");
+    CallInst *CI = cast<CallInst>(MO.Orig);
+    Value *NumOfElements[MAX_PACKET_WIDTH];
+    obtainMultiScalarValues(NumOfElements, CI->getArgOperand(1), MO.Orig);
+    args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
+    std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+    return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args, MO.Orig);
+  }
+  default:
+    V_ASSERT(false && "unexpected type of memory operation");
+    return 0;
   }
 }
 
@@ -857,24 +894,42 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
   PointerType *VecTy = PointerType::get(VecElemTy, PtrTy->getAddressSpace());
   Value *bitCastPtr = new BitCastInst(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
-
-  // If this is a store
-  if (MO.Data) {
-    obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
-  }
+  Type *DT = VecElemTy;
 
   // Implement the function call
   SmallVector<Value*, 8> args;
 
-  args.push_back(MO.Mask);
-  if (MO.Data) args.push_back(MO.Data);
-  args.push_back(bitCastPtr);
-
-  Type *DT = cast<PointerType>(bitCastPtr->getType())->getElementType();
-  if (MO.Data) DT = Type::getVoidTy(DT->getContext());
+  switch(MO.type) {
+    case LOAD:
+      args.push_back(MO.Mask);
+      args.push_back(bitCastPtr);
+      break;
+    case STORE:
+      args.push_back(MO.Mask);
+      obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
+      args.push_back(MO.Data);
+      args.push_back(bitCastPtr);
+      DT = Type::getVoidTy(DT->getContext());
+      break;
+    case PREFETCH: {
+      args.push_back(bitCastPtr);
+      // Packetized version assumed number of elements to prefetch to be unifom accross all packed functions.
+      // This assumption could harm only performance and should not break functional execution.
+      V_ASSERT(dyn_cast<CallInst>(MO.Orig) && "call instruction is expected!");
+      CallInst *CI = cast<CallInst>(MO.Orig);
+      Value *NumOfElements[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(NumOfElements, CI->getArgOperand(2), MO.Orig);
+      args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
+      name = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+      DT = MO.Orig->getType();
+      break;
+    }
+    default:
+      V_ASSERT(false && "unexpected type of memory operation");
+      break;
+  }
   return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args, MO.Orig);
 }
-
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
   // First, try to handle cases that WIAnalysis found to be consecutive.
@@ -1002,11 +1057,17 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   obtainBaseIndex(MO);
 
   // Find the data type;
-  Type *DT;
-  if (MO.Data) {
-    DT = MO.Data->getType(); // stored type
-  } else {
-    DT = MO.Orig->getType(); // loaded type
+  Type *DT = NULL;
+  switch (MO.type) {
+  case STORE:
+    DT = MO.Data->getType();
+    break;
+  case LOAD:
+    DT = MO.Orig->getType();
+    break;
+  case PREFETCH:
+    DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
+    break;
   }
 
   // Not much we can do for load of non-scalars
@@ -1083,17 +1144,46 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
 
   // Handle packetization of load/store ops
   if (Mangler::isMangledLoad(scalarFuncName) ||
-       Mangler::isMangledStore(scalarFuncName)) {
+      Mangler::isMangledStore(scalarFuncName) ||
+      Mangler::isMangledPrefetch(scalarFuncName)) {
     MemoryOperation MO;
-    MO.Mask = CI->getArgOperand(0);
-    if (Mangler::isMangledStore(scalarFuncName)) {
+    if (Mangler::isMangledPrefetch(scalarFuncName)) {
+      MO.Ptr = (isMangled) ? CI->getArgOperand(1) : CI->getArgOperand(0);
+      if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Ptr))
+      {
+        // since we are never getting uniform values from other dependencies
+        // (even though sub consecutive consecutive = uniform)
+        // we can just not packetize all uniform values
+        if (isMangled) {
+          // strip "mask" prefix
+          SmallVector<Value*, 4> args;
+          args.push_back(MO.Ptr);
+          args.push_back(CI->getArgOperand(2));
+          VCMEntry * newEntry = allocateNewVCMEntry();
+          newEntry->isScalarRemoved = false;
+          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), Mangler::demangle(scalarFuncName), CI->getType(), args, CI);
+          m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
+          m_removedInsts.insert(CI);
+          return;
+        } else {
+          return useOriginalConstantInstruction(CI);
+        }
+      }
+      MO.Data = 0;
+      MO.Mask = (isMangled) ? CI->getArgOperand(0) : 0;
+      MO.type = PREFETCH;
+    } else if (Mangler::isMangledStore(scalarFuncName)) {
+      MO.Mask = CI->getArgOperand(0);
       MO.Ptr = CI->getArgOperand(2);
       MO.Data = CI->getArgOperand(1);
       MO.Alignment = Mangler::getMangledStoreAlignment(scalarFuncName);
+      MO.type = STORE;
     } else {
+      MO.Mask = CI->getArgOperand(0);
       MO.Ptr = CI->getArgOperand(1);
       MO.Data = 0;
       MO.Alignment = Mangler::getMangledLoadAlignment(scalarFuncName);
+      MO.type = LOAD;
     }
 
     MO.Base = 0;
@@ -1554,7 +1644,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
     unsigned idx = CI->getZExtValue();
     if (idx >= AOSVectorWidth) return false;
     indicesPresent[idx] = true;
-    
+
     Value *insertedValue = IEI->getOperand(1);
     // obtainInsertElts can be allowed either before or after packetization.
     // The former happens when we scan for inserts to generate load+transpose and transpose+store sequences.
@@ -2277,6 +2367,7 @@ void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
   MO.Base = 0;
   MO.Index = 0;
   MO.Orig = LI;
+  MO.type = LOAD;
   return packetizeMemoryOperand(MO);
 }
 
@@ -2296,6 +2387,7 @@ void PacketizeFunction::packetizeInstruction(StoreInst *SI) {
   MO.Base = 0;
   MO.Index = 0;
   MO.Orig = SI;
+  MO.type = STORE;
   return packetizeMemoryOperand(MO);
 }
 

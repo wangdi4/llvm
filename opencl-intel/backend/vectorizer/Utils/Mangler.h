@@ -41,6 +41,11 @@ public:
   /// @param indexType type of index element
   /// @return name
   static std::string getGatherScatterInternalName(bool isGather, Type *maskType, VectorType *retDataVecTy, Type *indexType);
+  /// @brief Get mangled name for vectorized prefetch built-in.
+  /// @param name name of original prefetch built-in name.
+  /// @param packetWidth width of vector data type for prefetch.
+  /// @return mangled name for prefetch built-in with vector argument
+  static std::string getVectorizedPrefetchName(const std::string& name, int packetWidth);
   /// @brief Is this a mangled load instruction
   /// @param name Name of function
   /// @return True if load
@@ -63,6 +68,10 @@ public:
   /// @param name Name of function
   /// @return True if mangled
   static bool isMangledScatter(const std::string& name);
+  /// @brief Is this a mangled 'prefetch' function call (masked version is also supported).
+  /// @param name Name of function
+  /// @return True if mangled 'prefetch' function call
+  static bool isMangledPrefetch(const std::string& name);
   /// @brief Is this a special function which checks the mask.
   ///  Is this a call to 'all-one' or 'all-zero' ?
   /// @param name Name of function
@@ -132,6 +141,8 @@ private:
   static const std::string prefix_gather;
   /// @brief mangling of internal scatter operations
   static const std::string prefix_scatter;
+  /// @brief mangling of 'prefetch' function call
+  static const std::string prefetch;
   /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
   /// @brief mangling fake extract calls used for vectorization of

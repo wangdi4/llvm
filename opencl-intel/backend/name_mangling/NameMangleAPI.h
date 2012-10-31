@@ -21,7 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 
 //
-//Purpose: indicates whether the given string is the named of a mangled fumction
+//Purpose: indicates whether the given string is the named of a mangled function
 //Return: true if rawString is the name of a mangled function, false otherwise.
 bool isMangledName(const char* rawString);
 

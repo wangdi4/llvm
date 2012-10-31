@@ -19,17 +19,19 @@
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
-
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
 
-
-
 namespace intel {
 
-
+/// Enumeration to represent memory operation type
+enum MemoryOperationType {
+  LOAD,
+  STORE,
+  PREFETCH
+};
 /// A struct to represent a memory operation such as
-/// load/store or masked load/store. 
+/// load/store or masked load/store.
 struct MemoryOperation {
   // Memory operation fields
   Value *Mask;
@@ -48,6 +50,7 @@ struct MemoryOperation {
   unsigned int IndexValidBits;
   // Original Instruction
   Instruction *Orig;
+  MemoryOperationType type;
 };
 
 /// @brief Packetization pass used to for converting code in functions
@@ -133,18 +136,18 @@ private:
   /// @param extracts - container to fill.
   /// @param allUsersExtract - true if all users are extract instructions.
   bool obtainExtracts(Value  *vectorValue,
-                      SmallVectorImpl<ExtractElementInst *> &extracts, 
+                      SmallVectorImpl<ExtractElementInst *> &extracts,
                       bool &allUsersExtract);
 
   ///@brief creates the transpose shuffle sequence for 4x4 matirx
   ///@param IN input vectors
   ///@param OUT output vectors
   ///@param generatedShuffles std vector with all generated shuffles
-  void obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN, 
+  void obtainTranspVals32bitV4(SmallVectorImpl<Value *> &IN,
                                SmallVectorImpl<Instruction *> &OUT,
                                std::vector<Instruction *> &generatedShuffles,
                                Instruction *loc);
-  
+
   ///@brief creates the transpose shuffle sequence for 8x8 matirx
   ///@param IN input vectors
   ///@param OUT output vectors
@@ -154,9 +157,15 @@ private:
                                std::vector<Instruction *> &generatedShuffles,
                                Instruction *loc);
 
+  ///@brief creates sequence to compute number of vector elements to prefetch in case of consecutive memory pattern access.
+  ///@param scalarVal scalarValue to packetize
+  ///@param I instruction which uses scalarValue (should be call of prefetch built-in)
+  ///@return packetized scalar value.
+  Value* obtainNumElemsForConsecutivePrefetch(Value* scalarVal, Instruction* I);
+
   // Packetize load/store family of functions
 
-  /// @brief Fill the MemoryOperation Index, Base fieds in case the 
+  /// @brief Fill the MemoryOperation Index, Base fieds in case the
   ///        pointer can be represented as ptr = base + pointer.
   /// @param MO - memory operation to check.
   void obtainBaseIndex(MemoryOperation &MO);
@@ -197,7 +206,7 @@ private:
   /// @return transpose function to be called
   Function* getTransposeFunc(bool isLoad, VectorType * origVecType, bool isScatterGather, bool isMasked);
 
-  /// @brief Creates load and transpose sequence 
+  /// @brief Creates load and transpose sequence
   ///        This is the order of the sequence (first load, then transpose), hence the name.
   /// @param I Load instruction
   /// @param loadPtrVal The pointer address which is being loaded
@@ -212,7 +221,7 @@ private:
   /// @param storeType The type of the value being stored
   /// @param Mask Mask value if this is a masked load, null otherwise
   void createTransposeAndStore(Instruction* I, Value* storePtrVal, Type* storeType, Value* Mask);
-  
+
   /// @brief Checks whether transpose is possible
   /// @param addr The address which is being loaded from/stored to as part of the transpose
   /// @param origVal The original value that was loaded/stored and needs to be transposed
@@ -221,9 +230,9 @@ private:
   /// @param isMasked True if this is a masked operation, false if a regular op.
   /// @return True if this value can be transposed, False otherwise
   bool canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked);
-  
+
   /// @brief Obtains information about extracts and inserts that will need to be transposed
-  /// This function has side effects through the m_storeTranspMap, m_loadTranspMap and 
+  /// This function has side effects through the m_storeTranspMap, m_loadTranspMap and
   /// m_removedInst fields.
   void obtainTranspose();
 
@@ -255,7 +264,7 @@ private:
 
   /// @brief generets shuffle sequeces that perform transpose and breakdown to scattered vectors
   /// @param loc location to put shuffle instructions
-  /// @param inputVecotrs input vectored to be transposed 
+  /// @param inputVecotrs input vectored to be transposed
   /// @param transposedVectors will hold the transposed output vectors
   /// @param generatedShuffles std vector to hold all generated shuffles.
   void generateShuffles (unsigned AOSVectorWidth, Instruction *loc,
@@ -335,7 +344,7 @@ private:
   /// @brief Release all allocations of VCM entries
   void releaseAllVCMEntries();
 
-  
+
   /// @brief updating the VCM with return value packetized call instruction
   /// @param CI - original call
   /// @param newCall - new packetized call
@@ -351,7 +360,7 @@ private:
   /// @return true if all arguments were succesfully obtained
   bool obtainNewCallArgs(CallInst *CI, const Function *LibFunc, bool isMangled,
                bool isMaskedFunctionCall, std::vector<Value *>& newArgs);
- 
+
   /// @brief Find the insertElement roots of packetized vector type.
   //  Fill an array of the newly packetized values.
   //  We use the obtainVectorizedValue to convert each of the values.
@@ -369,7 +378,7 @@ private:
   /// @returns the parameter for packetized function
   Value *handleParamSOA(CallInst* CI, Value *scalarParam);
 
-  /// @brief obtain the scalar elements of the vector param and add their 
+  /// @brief obtain the scalar elements of the vector param and add their
   ///        vectors to the arguments list.
   /// @param CI - scalar call.
   /// @scalarParam - current scalar param (of vector type)
@@ -386,7 +395,7 @@ private:
   /// @returns the parameter for packetized function
   bool handleReturnValueSOA (CallInst* CI, CallInst *soaRet);
 
-  /// @brief handles case when scalar built-in returns a vector and the 
+  /// @brief handles case when scalar built-in returns a vector and the
   ///        packetized built-in has return values by pointers.
   /// @param CI - scalar call.
   /// @param newCall - packetized call.
@@ -477,9 +486,9 @@ private:
   int m_nonConsecCtr;
   /// @brief counter of cases when packetizing is cancelled because of unavailability of vectorized version of a function
   int m_noVectorFuncCtr;
-  /// @brief counter of unsupported corner cases when packetizing is cancelled 
+  /// @brief counter of unsupported corner cases when packetizing is cancelled
   int m_cannotHandleCtr;
-  
+
 };
 
 } //namespace
