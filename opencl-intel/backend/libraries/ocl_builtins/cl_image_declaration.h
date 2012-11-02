@@ -66,11 +66,16 @@ typedef float4 (*Image_FF_COORD_CBK) (void*, float4, int4*, int4*);
 // Image reading callback typedefs
 // Reading from uint32_t image.
 typedef uint4 (*Image_UI_READ_CBK) (void* image, int4 coord, void* pData);
-// Raeding from signed int image
+typedef void (*SOA4_Image_UI_READ_CBK) (void* image, int4 coord_x, int4 coord_y, void* pData, uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w);
+typedef void (*SOA8_Image_UI_READ_CBK) (void* image, int8 coord_x, int8 coord_y, void* pData, uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w);
+
+
+// Reading from signed int image
 typedef int4 (*Image_I_READ_CBK) (void* image, int4 coord, void* pData);
 // read callback for float images and float coordinates takes
 // translated coordinates and i0,j0,k0,i1,j1,k1 components for interpolation
 typedef float4 (*Image_F_READ_CBK) (void* image, int4 square0, int4 square1, float4 coord, void* pData);
+
 // read callback for float images and integer coordinates
 typedef float4 (*Image_FI_READ_CBK) (void* image, int4 coord, int4 dummy0, float4 dummy1, void* pData);
 
@@ -78,6 +83,10 @@ typedef float4 (*Image_FI_READ_CBK) (void* image, int4 coord, int4 dummy0, float
 typedef void (*Image_UI_WRITE_CBK) (void*, uint4);
 typedef void (*Image_I_WRITE_CBK) (void*, int4);
 typedef void (*Image_F_WRITE_CBK) (void*, float4);
+
+typedef void (*SOA4_Image_UI_WRITE_CBK) (void*, void*, void*, void*, uint4, uint4, uint4, uint4);
+typedef void (*SOA8_Image_UI_WRITE_CBK) (void*, void*, void*, void*, void*, void*, void*, void*, uint8, uint8, uint8, uint8);
+
 
 #define ALIGN16 __attribute__ ((aligned(16)))
 // Image description. Contains all data about image and required callback functions
@@ -97,7 +106,11 @@ typedef struct _image_aux_data
 	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
 	void*			read_img_callback_int[32];   // the list of integer image reader & filter callbacks
 	void*			read_img_callback_float[32]; // the list of float   image reader & filter callbacks
+	void*			soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
+	void*			soa8_read_img_callback_int[32]; // the list of soa8 integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
+    void*			soa4_write_img_callback;    // the write image sampler callback
+    void*			soa8_write_img_callback;    // the write image sampler callback
 
 	int dimSub1[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension subtracted by one
 												// Used to optimize coordinates computation not to subtract by one for each read

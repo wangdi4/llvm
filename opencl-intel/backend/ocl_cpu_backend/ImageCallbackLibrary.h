@@ -105,11 +105,12 @@ class UndefCbkDesc : public CbkDesc
 {
 public:
 
-    UndefCbkDesc(UndefCbkType _type);
+    UndefCbkDesc(UndefCbkType _type, VecSize _vecSize = SCALAR);
     virtual std::string GetName() const;
 
 private:
     UndefCbkType Type;
+    VecSize Size;
 };
 
 class TransCbkDesc : public CbkDesc
@@ -190,9 +191,10 @@ private:
 
 public:
 
-    void* GetUndefinedCbk(UndefCbkType _type)
+    void* GetUndefinedCbk(UndefCbkType _type,
+                   VecSize _vecSize = SCALAR)
     {
-        UndefCbkDesc desc(_type);
+        UndefCbkDesc desc(_type, _vecSize);
         return GetCbkPtr(desc);
     }
 

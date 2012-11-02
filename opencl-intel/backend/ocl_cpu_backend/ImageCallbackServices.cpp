@@ -77,6 +77,32 @@ const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned i
     return (&supportedImageFormats[0]);
 }
 
+bool IsSOASupported(int dt)
+{
+    switch(dt)
+    {
+    case CLK_UNSIGNED_INT8:
+    case CLK_UNSIGNED_INT16:
+    case CLK_UNSIGNED_INT32:
+        return true;
+    case CLK_SIGNED_INT8:
+    case CLK_SIGNED_INT16:
+    case CLK_SIGNED_INT32:
+    case CLK_SNORM_INT8:
+    case CLK_SNORM_INT16:
+    case CLK_UNORM_INT8:
+    case CLK_UNORM_INT16:
+    case CLK_UNORM_SHORT_565:
+    case CLK_UNORM_SHORT_555:
+    case CLK_UNORM_INT_101010:
+    case CLK_HALF_FLOAT:
+    case CLK_FLOAT:
+        return false;
+    default:
+        throw Exceptions::DeviceBackendExceptionBase(std::string("Unkown channel type"));
+    }
+}
+
 bool IsIntDataType(int dt)
 {
     switch(dt)
@@ -119,7 +145,6 @@ bool IsImageArray(cl_mem_obj_descriptor* pImageObject)
 
 cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const
 {
-
   // make sure that object passed here is image. Otherwise
     if (pImageObject->memObjType == CL_MEM_OBJECT_BUFFER){
       pImageObject->imageAuxData=NULL;
@@ -141,6 +166,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->array_size = -1;
 
 #define IMG_SET_CALLBACK(CALLBACK, FUNCTION) CALLBACK = FUNCTION;
+#define SET_IF_NOT_NULL(DST_PTR, SRC_PTR) if(SRC_PTR != NULL) DST_PTR = SRC_PTR;
 
     //supplementing additional data
     cl_channel_type ch_type  = pImageAuxData->format.image_channel_data_type;
@@ -178,6 +204,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     {
         pImageAuxData->read_img_callback_float[i] = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_FLOAT);
         pImageAuxData->read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT);
+        pImageAuxData->soa4_read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT, SOA4);
+        pImageAuxData->soa8_read_img_callback_int[i]   = pImageCallbackFuncs->GetUndefinedCbk(READ_CBK_UNDEF_INT, SOA8);
     }
 
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
@@ -237,7 +265,15 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         read_cbk_ptr = pImageAuxData->read_img_callback_float;
 
     for (unsigned int i=NONE_FALSE_NEAREST;i<NONE_FALSE_LINEAR;i++)
+    {
         read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
+        // Currently we have SOA implementation only for integer images
+        if(IsSOASupported(pImageAuxData->format.image_channel_data_type))
+        {
+            SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[i], pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA4));
+            SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[i], pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA8));
+        }
+    }
 
     if( !IsIntDataType(pImageAuxData->format.image_channel_data_type))
     {
@@ -261,6 +297,13 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
             read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
             read_cbk_ptr[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
         }
+    }
+    if(IsSOASupported(pImageAuxData->format.image_channel_data_type))
+    {
+        SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA4));
+        SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[CLAMP_FALSE_NEAREST], pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA8));
+        SET_IF_NOT_NULL(pImageAuxData->soa4_write_img_callback, pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type, SOA4));
+        SET_IF_NOT_NULL(pImageAuxData->soa8_write_img_callback, pImageCallbackFuncs->GetWritingCbk(ch_order, ch_type, SOA8));
     }
 
     read_cbk_ptr[CLAMP_FALSE_NEAREST] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);

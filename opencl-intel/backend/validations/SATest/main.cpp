@@ -19,6 +19,7 @@ File Name:  main.cpp
 #include "SATestException.h"
 #include "IRunConfiguration.h"
 #include "llvm/Support/DataTypes.h"
+#include "exceptions.h"
 
 #include <string>
 #include <iostream>
@@ -267,6 +268,12 @@ int main(int argc, char *argv[])
     {
         // Exception occurred during test run process
         std::cerr << "Validation exception occurred: " << e.what() << endl;
+        return int(e.GetErrorCode());
+    }
+    catch (Exceptions::DeviceBackendExceptionBase e)
+    {
+        // Exception occured inside the backend
+        std::cerr << "Backend exception occured: "<< e.what() << endl;
         return int(e.GetErrorCode());
     }
 }

@@ -166,23 +166,24 @@ std::string ImageCallbackLibrary::getLibraryRtlName()
 {
   return getLibraryBasename() + ".rtl";
 }
-
-UndefCbkDesc::UndefCbkDesc(UndefCbkType _type):
-Type(_type)
+UndefCbkDesc::UndefCbkDesc(UndefCbkType _type, VecSize _vecSize):
+Type(_type),
+Size(_vecSize)
 {}
 
 std::string UndefCbkDesc::GetName() const
 {
+    std::string vecStr = VecSizeToPrefix(Size);
     switch(Type)
     {
     case READ_CBK_UNDEF_INT:
-        return "read_sample_UNDEFINED_QUAD_INT";
+        return vecStr + "read_sample_UNDEFINED_QUAD_INT";
     case READ_CBK_UNDEF_FLOAT:
-        return "read_sample_UNDEFINED_QUAD_FLOAT";
+        return vecStr + "read_sample_UNDEFINED_QUAD_FLOAT";
     case TRANS_CBK_UNDEF_FLOAT:
-        return "trans_coord_float_UNDEFINED";
+        return vecStr + "trans_coord_float_UNDEFINED";
     case TRANS_CBK_UNDEF_FLOAT_FLOAT:
-        return "trans_coord_float_float_UNDEFINED";
+        return vecStr + "trans_coord_float_float_UNDEFINED";
     default:
         throw Exceptions::DeviceBackendExceptionBase("Type of undefined callback is invalid!");
     }
