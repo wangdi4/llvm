@@ -98,7 +98,7 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     SCAL_VALUE( CL_DEVICE_MAX_CONSTANT_ARGS,            cl_uint,                        MIC_MAX_CONSTANT_ARGS           ),
     SCAL_VALUE( CL_DEVICE_LOCAL_MEM_TYPE,               cl_device_local_mem_type,       CL_GLOBAL                       ),
     SCAL_VALUE( CL_DEVICE_LOCAL_MEM_SIZE,               cl_ulong,                       MIC_DEV_LCL_MEM_SIZE            ),
-    SCAL_VALUE( CL_DEVICE_ERROR_CORRECTION_SUPPORT,     cl_bool,                        CL_FALSE                        ),
+    SCAL_VALUE( CL_DEVICE_ERROR_CORRECTION_SUPPORT,     cl_bool,                        CL_TRUE                         ),
     FUNC_VALUE( CL_DEVICE_PROFILING_TIMER_RESOLUTION,                                   get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_ENDIAN_LITTLE,                cl_bool,                        CL_TRUE                         ),
     SCAL_VALUE( CL_DEVICE_AVAILABLE,                    cl_bool,                        CL_TRUE                         ),
