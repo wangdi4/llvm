@@ -1270,6 +1270,9 @@ void TBBThreadPool::on_scheduler_entry(bool is_worker)
 		// Affinities this thread if needed
 		bool affRes = setAffinityForCurrentThread(uiWorkerId);
 		assert(affRes);
+
+        NDrangeTls ndRangeTls(&tlsAccessor);
+        ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, &g_contextArray[uiWorkerId-1]);
 	}
 	setWorkerID(&tlsAccessor, uiWorkerId);
 }
@@ -1280,7 +1283,12 @@ void TBBThreadPool::on_scheduler_exit(bool is_worker)
 	if (is_worker)
 	{
 		TlsAccessor tlsAccessor;
+
+        NDrangeTls ndRangeTls(&tlsAccessor);
+        ndRangeTls.setTls(NDrangeTls::WG_CONTEXT, NULL);
+
 		setWorkerID(&tlsAccessor, INVALID_WORKER_ID);
+
 		setScheduler(&tlsAccessor, NULL);
 	}
 }
