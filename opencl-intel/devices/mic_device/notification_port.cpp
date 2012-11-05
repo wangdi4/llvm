@@ -210,9 +210,10 @@ int NotificationPort::initialize(uint16_t maxBarriers)
 	return SUCCESS;
 }
 
-int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::CallBack *callBack, void *arg)
+NotificationPort::ERROR_CODE NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::CallBack *callBack, void *arg)
 {
     COIRESULT result = COI_SUCCESS;
+    ERROR_CODE return_value = SUCCESS;
 
 	assert(callBack && "Error - callBack must be non-NULL pointer");
 	pthread_mutex_lock(&m_mutex);
@@ -236,17 +237,23 @@ int NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::Call
 
 	m_lastCallBackAge ++;
 
-	m_operationMask[ADD] = true;
-
-	result = COIEventSignalUserEvent(m_barriers[0]);
-	assert(result == COI_SUCCESS && "Signal main barrier failed");
+    if (1 == m_pendingNotificationArr.size())
+    {
+    	m_operationMask[ADD] = true;
+    	result = COIEventSignalUserEvent(m_barriers[0]);
+    	assert(result == COI_SUCCESS && "Signal main barrier failed");
+        if (COI_SUCCESS != result)
+        {
+            return_value = CREATE_BARRIER_FAILURE;
+        }
+    }
 
 	pthread_mutex_unlock(&m_mutex);
 
-	return SUCCESS;
+	return return_value;
 }
 
-int NotificationPort::release()
+NotificationPort::ERROR_CODE NotificationPort::release()
 {
 	COIRESULT result = COI_SUCCESS;
 
@@ -273,7 +280,7 @@ int NotificationPort::release()
 
 	pthread_mutex_unlock(&m_mutex);
 
-	return 0;
+	return SUCCESS;
 }
 
 void* NotificationPort::ThreadEntryPoint(void *threadObject)

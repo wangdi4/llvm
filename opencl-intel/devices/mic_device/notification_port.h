@@ -54,9 +54,9 @@ public:
 	   Do NOT delete this object it will delete itself when the worker thread will finish its work. */
 	static NotificationPort* notificationPortFactory(uint16_t maxBarriers);
 
-	int addBarrier(const COIEVENT& barrier, NotificationPort::CallBack* callBack, void* arg);
+	ERROR_CODE addBarrier(const COIEVENT& barrier, NotificationPort::CallBack* callBack, void* arg);
 
-	int release();
+	ERROR_CODE release();
 
 	/* This method blocks the calling thread until all the notification ports threads finish their life cycle. 
 	   The calling thread have to call release() of each notification port before. */
