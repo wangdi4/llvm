@@ -108,16 +108,16 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008 	
         set_target_properties( ${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll /DELAYLOAD:task_executor.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_debug.dll /DELAYLOAD:task_executor.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll"
 	    )
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
     else(${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.	
-	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_debug.dll /DELAYLOAD:task_executor.dll /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll /DELAYLOAD:task_executor.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll /PDBSTRIPPED:${PDB_NAME}")
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     

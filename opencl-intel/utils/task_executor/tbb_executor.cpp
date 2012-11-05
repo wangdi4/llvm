@@ -1440,9 +1440,9 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 	Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
 
 #ifdef _DEBUG
-		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_preview_debug.dll");
 #else
-		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_preview.dll");
 #endif
 
 	bLoadRes = m_dllTBBLib.Load(tbbPath);
@@ -1450,6 +1450,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 	{
 		LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath);
 	}
+
 #endif
 
 	return bLoadRes;
