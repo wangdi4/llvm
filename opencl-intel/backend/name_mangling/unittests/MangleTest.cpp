@@ -20,6 +20,7 @@
 #include "antlr/ANTLRException.hpp"
 #include "Type.h"
 #include "FunctionDescriptor.h"
+#include "TypeCast.h"
 #include <algorithm>
 #include <cctype>
 
@@ -297,6 +298,13 @@ TEST(MangleBasic, scalardouble){
   fd.name = "foo";
   fd.parameters.push_back(&primitiveDouble);
   ASSERT_STREQ("_Z3food", mangle(fd).c_str());
+}
+
+TEST(Type, TypeCast){
+  reflection::Type primitiveInt(reflection::primitives::INT);
+  reflection::Vector vectorInt(&primitiveInt, 4);
+  ASSERT_EQ( NULL, reflection::cast<reflection::Vector>(&primitiveInt));
+  ASSERT_EQ( &vectorInt, reflection::cast<reflection::Vector>(&vectorInt));
 }
 
 }

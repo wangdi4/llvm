@@ -126,6 +126,10 @@ bool Type::eq(const Type* t)const{
   return m_primitive == t->m_primitive;
 }
 
+bool Type::isPrimiteTy()const{
+  return true;
+}
+
 //
 //Pointer
 //
@@ -171,6 +175,10 @@ bool Pointer::eq(const Type* t)const{
 const Type* Pointer::getPointee()const{
   return m_pType;
 }
+
+bool Pointer::isPrimiteTy()const{
+  return false;
+}
 //
 //Vector
 //
@@ -208,6 +216,9 @@ bool Vector::eq(const Type* t)const{
   return pVec && (m_len == pVec->m_len) && (m_primitive == pVec->m_primitive);
 }
 
+bool Vector::isPrimiteTy()const{
+  return false;
+}
 //
 //UserDefinedTy
 //
@@ -236,5 +247,16 @@ bool UserDefinedTy::eq(const Type* t)const{
   const UserDefinedTy* pTy = dynamic_cast<const UserDefinedTy*>(t);
   return pTy && (m_name == pTy->m_name);
 }
+
+bool UserDefinedTy::isPrimiteTy()const{
+  return false;
+}
+//
+//static enums
+//
+TypeEnum Type::enumTy = PrimitveTy;
+TypeEnum Pointer::enumTy   = PointerTy;
+TypeEnum Vector::enumTy    = VectorTy;
+TypeEnum UserDefinedTy::enumTy = StructTy;
 
 }//end reflection

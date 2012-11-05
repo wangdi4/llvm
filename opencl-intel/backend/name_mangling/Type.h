@@ -44,9 +44,17 @@ enum Primitive{
   DOUBLE,
   NONE
 };
+
 //parses the given string into its corresponding nominal value
 Primitive parseType(const std::string&);
-}
+}//end namespace primitives
+
+enum TypeEnum{
+  PrimitveTy,
+  PointerTy,
+  VectorTy,
+  StructTy
+};
 
 //total number of primitive types
 const int NUM_TYPES = 13;
@@ -90,6 +98,11 @@ struct Type{
   //appropriate visit method in the given visitor
   //
   virtual void accept(TypeVisitor*)const;
+  //
+  //Purpose: return true if the object represents a primitve type.
+  virtual bool isPrimiteTy()const;
+
+  static TypeEnum enumTy;
 protected:
   //
   //returns true if the given type is a subclass, or the same type as that of
@@ -122,6 +135,8 @@ struct Pointer: Type{
   //return the type the pointer is pointing at
   const Type* getPointee()const;
   void accept(TypeVisitor*)const;
+  bool isPrimiteTy()const;
+  static TypeEnum enumTy;
 protected:
   bool eq(const Type*)const;
 private:
@@ -138,6 +153,8 @@ struct Vector: Type{
   int getLen()const;
   Vector* clone()const;
   void accept(TypeVisitor*)const;
+  bool isPrimiteTy()const;
+  static TypeEnum enumTy;
 protected:
   bool eq(const Type*)const;
 private:
@@ -152,6 +169,8 @@ struct UserDefinedTy: Type{
   void accept(TypeVisitor*)const;
   std::string toString()const;
   primitives::Primitive getPrimitive()const;
+  bool isPrimiteTy()const;
+  static TypeEnum enumTy;
 protected:
   bool eq(const Type*)const;
   std::string m_name;
