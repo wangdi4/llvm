@@ -166,7 +166,6 @@ public:
         return NULL;
     }
 
-#if TBB_PREVIEW_DETERMINISTIC_REDUCE
     //! Task type used to combine the partial results of parallel_deterministic_reduce.
     /** @ingroup algorithms */
     template<typename Body>
@@ -245,7 +244,6 @@ public:
             return this;
         }
     }
-#endif /* TBB_PREVIEW_DETERMINISTIC_REDUCE */
 } // namespace internal
 //! @endcond
 } //namespace interfaceX
@@ -253,9 +251,7 @@ public:
 //! @cond INTERNAL
 namespace internal {
     using interface6::internal::start_reduce;
-#if TBB_PREVIEW_DETERMINISTIC_REDUCE
     using interface6::internal::start_deterministic_reduce;
-#endif
     //! Auxiliary class for parallel_reduce; for internal use only.
     /** The adaptor class that implements \ref parallel_reduce_body_req "parallel_reduce Body"
         using given \ref parallel_reduce_lambda_req "anonymous function objects".
@@ -458,7 +454,6 @@ Value parallel_reduce( const Range& range, const Value& identity, const RealBody
 }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
-#if TBB_PREVIEW_DETERMINISTIC_REDUCE
 //! Parallel iteration with deterministic reduction and default partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
@@ -500,7 +495,6 @@ Value parallel_deterministic_reduce( const Range& range, const Value& identity, 
     return body.result();
 }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
-#endif /* TBB_PREVIEW_DETERMINISTIC_REDUCE */
 //@}
 
 } // namespace tbb

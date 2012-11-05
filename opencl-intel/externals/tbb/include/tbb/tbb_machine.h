@@ -181,6 +181,8 @@ template<> struct atomic_selector<8> {
         #elif __MINGW32__
             #include "machine/linux_ia32.h"
         #endif
+    #elif (TBB_USE_ICC_BUILTINS && __TBB_ICC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/icc_generic.h"
     #elif defined(_M_IX86)
         #include "machine/windows_ia32.h"
     #elif defined(_M_X64) 
@@ -193,10 +195,18 @@ template<> struct atomic_selector<8> {
 #pragma managed(pop)
 #endif
 
+#elif __TBB_DEFINE_MIC
+
+    #include "machine/mic_common.h"
+    //TODO: check if ICC atomic intrinsics are available for MIC
+    #include "machine/linux_intel64.h"
+
 #elif __linux__ || __FreeBSD__ || __NetBSD__
 
     #if (TBB_USE_GCC_BUILTINS && __TBB_GCC_BUILTIN_ATOMICS_PRESENT)
         #include "machine/gcc_generic.h"
+    #elif (TBB_USE_ICC_BUILTINS && __TBB_ICC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/icc_generic.h"
     #elif __i386__
         #include "machine/linux_ia32.h"
     #elif __x86_64__
@@ -211,8 +221,10 @@ template<> struct atomic_selector<8> {
     #include "machine/linux_common.h"
 
 #elif __APPLE__
-
-    #if __i386__
+    //TODO:  TBB_USE_GCC_BUILTINS is not used for Mac, Sun, Aix
+    #if (TBB_USE_ICC_BUILTINS && __TBB_ICC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/icc_generic.h"
+    #elif __i386__
         #include "machine/linux_ia32.h"
     #elif __x86_64__
         #include "machine/linux_intel64.h"
@@ -247,6 +259,8 @@ template<> struct atomic_selector<8> {
     #define __TBB_64BIT_ATOMICS 1
 #endif
 
+//TODO: replace usage of these functions with usage of tbb::atomic, and then remove them
+//TODO: map functions with W suffix to use cast to tbb::atomic and according op, i.e. as_atomic().op()
 // Special atomic functions
 #if __TBB_USE_FENCED_ATOMICS
     #define __TBB_machine_cmpswp1   __TBB_machine_cmpswp1full_fence
@@ -261,7 +275,11 @@ template<> struct atomic_selector<8> {
         #define __TBB_FetchAndIncrementWacquire(P)  __TBB_machine_fetchadd8acquire(P,1)
         #define __TBB_FetchAndDecrementWrelease(P)  __TBB_machine_fetchadd8release(P,(-1))
     #else
-        #error Define macros for 4-byte word, similarly to the above __TBB_WORDSIZE==8 branch.
+        #define __TBB_machine_fetchadd4             __TBB_machine_fetchadd4full_fence
+        #define __TBB_machine_fetchstore4           __TBB_machine_fetchstore4full_fence
+        #define __TBB_FetchAndAddWrelease(P,V)      __TBB_machine_fetchadd4release(P,V)
+        #define __TBB_FetchAndIncrementWacquire(P)  __TBB_machine_fetchadd4acquire(P,1)
+        #define __TBB_FetchAndDecrementWrelease(P)  __TBB_machine_fetchadd4release(P,(-1))
     #endif /* __TBB_WORDSIZE==4 */
 #else /* !__TBB_USE_FENCED_ATOMICS */
     #define __TBB_FetchAndAddWrelease(P,V)      __TBB_FetchAndAddW(P,V)
