@@ -48,10 +48,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitForEvents(Command* wfe) = 0;
         virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) = 0;
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) = 0;
-
+		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent ) = 0;
+		
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
-		virtual cl_err_code NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
+		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
 	};
 
 	class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
@@ -64,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
         virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
         virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code	WaitForCompletion(SharedPtr<QueueEvent> pEvent );
+		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
 	protected:
@@ -80,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 
-        cl_err_code EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+        cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
 
 	};
 }}}    // Intel::OpenCL::Framework

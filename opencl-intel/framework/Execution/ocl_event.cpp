@@ -59,15 +59,19 @@ static const char UNUSED_ATTR *GetEventStateName(const cl_int state)
 
 OclEvent::OclEvent(_cl_context_int* context)
 	: OCLObject<_cl_event_int>(context, "OclEvent"),
-	  m_numOfDependencies(0),
-	  m_complete(false), m_returnCode(CL_SUCCESS),
-	m_eventState(EVENT_STATE_CREATED),
-	m_pContext(NULL),
-	m_pCurrentEvent(NULL)
+	  	m_numOfDependencies(0),
+	  	m_returnCode(CL_SUCCESS),
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT		
+		m_pCurrentEvent(NULL),
+#else		
+		m_complete(false),
+#endif		
+		m_eventState(EVENT_STATE_CREATED),
+		m_pContext(NULL)
 {
 	if (NULL != context)
 	{
-		m_pContext = SharedPtr<Context>((Context*)(context->object));
+		m_pContext = (Context*)(context->object);
 	}
 }
 
@@ -102,10 +106,10 @@ void OclEvent::ExpungeObservers(ObserversList_t &list)
  * Sugaring over AddDependentOnMulti, mainly to stay backwards compatible.
  * @param pDependsOnEvent
  */
-void OclEvent::AddDependentOn( SharedPtr<OclEvent> pDependsOnEvent)
+void OclEvent::AddDependentOn( const SharedPtr<OclEvent>& pDependsOnEvent)
 {
-	SharedPtr<OclEvent>evtList[1];
-	evtList[0] = pDependsOnEvent;
+	SharedPtr<OclEvent> evtList[] = {pDependsOnEvent};
+	
 	return AddDependentOnMulti(1, evtList);
 }
 
@@ -116,15 +120,30 @@ void OclEvent::AddDependentOn( SharedPtr<OclEvent> pDependsOnEvent)
  */
 void OclEvent::AddDependentOnMulti(unsigned int count, SharedPtr<OclEvent>* pDependencyList)
 {
+	if ( 0 == count )
+	{
+		return;
+	}
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
+	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, NULL);
+	assert(OCL_EVENT_COMPLETED!=pPrevEvent && "Event was already set as completed");
+	if ( OCL_EVENT_COMPLETED == pPrevEvent )
+	{
+		return;
+	}
+#else
 	assert(!m_complete && "A weird race happened and an event finished during AddDependentOnMulti.");
     if (m_complete)
     {
     	return;
     }
+#endif
 
 	bool bLastWasNull = false;
 	// set the counter first, to make sure we register/process all events even if some instantaneously fire.
 	m_numOfDependencies.add(count);
+	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+	
 	for (unsigned int i = 0; i < count; ++i)
 	{
 		SharedPtr<OclEvent>& evt = pDependencyList[i];
@@ -159,19 +178,24 @@ void OclEvent::AddObserver(SmartPtr<IEventObserver>* pObserver)
 {
 	m_ObserversListGuard.Lock();
     IEventObserver* observer = pObserver->GetPtr();
+    
+    cl_int currExecState = GetEventExecState();
+    cl_int expectedState = observer->GetExpectedExecState(); 
 
-	if (observer->GetExpectedExecState() >= GetEventExecState())
+	if (expectedState >= currExecState)
 	{
 		//event completed while we were registering, or already happened, notify immediately
 		m_ObserversListGuard.Unlock();
 		cl_int retcode = GetReturnCode();
-		retcode = retcode < 0 ? retcode : observer->GetExpectedExecState();
+		// Evgeny: Should find another way to propogate the EXEC_STATE.
+		//			retcode has one notation
+		retcode = retcode < 0 ? retcode : expectedState;
 		observer->ObservedEventStateChanged(this, retcode);
         delete pObserver;
 	}
 	else
 	{
-		switch(observer->GetExpectedExecState())
+		switch(expectedState)
 		{
 		case CL_COMPLETE:
 			m_CompleteObserversList.push_back(pObserver);
@@ -239,7 +263,7 @@ OclEventState OclEvent::SetEventState(const OclEventState newEventState)
  * Notifies us that pEvent that we were listening on, has completed
  * Assumes we are called on our required event, or on error.
  */
-cl_err_code OclEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode)
+cl_err_code OclEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode)
 {
 	assert(returnCode <= 0 && "OclEvent got a non complete return code.");
 
@@ -259,17 +283,19 @@ cl_err_code OclEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_i
 
 void OclEvent::NotifyComplete(cl_int returnCode)
 {
-	assert(!m_complete && "Trying second notification");
 	//block further requests to add notifiers
-	m_complete = true;
-
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-
 	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, OCL_EVENT_COMPLETED);
-	if ( NULL != pPrevEvent )
+	assert(OCL_EVENT_COMPLETED!=pPrevEvent && "Event was already set as completed");
+	//printf("this=%p, NotifyComplete() - pPrevEvent=%p\n", (void*)this, (void*)pPrevEvent);
+	if ( (NULL != pPrevEvent) && (OCL_EVENT_COMPLETED!=pPrevEvent) )
 	{
+		//printf("this=%p, Signaling event %p\n", (void*)this, (void*)pPrevEvent);
 		pPrevEvent->Signal();
 	}
+#else
+	assert(!m_complete && "Trying second notification");
+	m_complete = true;
 #endif
 
 	NotifyObservers(returnCode);
@@ -288,7 +314,7 @@ void OclEvent::NotifyRunning()
 }
 
 
-void OclEvent::DoneWithDependencies(SharedPtr<OclEvent> pEvent)
+void OclEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 {
 	if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
 	{
@@ -345,18 +371,21 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 ******************************************************************/
 void OclEvent::Wait()
 {
+#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
 	if ( !m_complete )
 	{
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_SPIN
 		WaitSpin();
+    }
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_YIELD
+	if ( !m_complete )
+	{
 		WaitYield();
+    }
 #elif OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-		WaitOSEvent();
+	WaitOSEvent();
 #else
 #error "Please define which wait method OclEvent should use. See ocl_event.h"
 #endif
-    }
 }
 
 void OclEvent::WaitSpin()
@@ -375,8 +404,23 @@ void OclEvent::WaitYield()
 void OclEvent::WaitOSEvent()
 {
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-	Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent =
-		((Context*)(GetParentHandle()->object))->GetOSEvent();
+	// Check if event already completed, exit
+	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, NULL);
+	if ( OCL_EVENT_COMPLETED == pPrevEvent )
+	{
+		return;
+	}
+	
+	if ( NULL != pPrevEvent )
+	{
+		// There is another OS event allocated, wait for it
+		//printf("Wait(1) event %p\n", (void*)pPrevEvent);
+		pPrevEvent->Wait();
+		return;
+	}
+	
+	// If not allocate OS event to wait on
+	Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent = ((Context*)(GetParentHandle()->object))->GetOSEvent();
 	if ( NULL == pOsEvent )
 	{
 		assert ( pOsEvent && "Can't retive OS event");
@@ -384,7 +428,7 @@ void OclEvent::WaitOSEvent()
 		return;
 	}
 
-	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, pOsEvent);
+	pPrevEvent = m_pCurrentEvent.test_and_set(NULL, pOsEvent);
 	if ( NULL != pPrevEvent )
 	{
 		// If previous value is set, the event is completed or already set

@@ -16,8 +16,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual ~EventCallback() {}
 
-        virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode = CL_SUCCESS);
-
+		// IEventObserver
+        cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
 		cl_int GetExpectedExecState() const { return m_eventCallbackExecState; }
 
 	private:

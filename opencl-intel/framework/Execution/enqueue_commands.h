@@ -142,7 +142,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual bool IsDependentOnEvents() const { return false; }
 
         // Debug functions
-        virtual const char*     GetCommandName() const                              { return "UNKNOWN"; }
+        virtual const char*     GetCommandName() const =0;
         
         // GPA related functions
         virtual ocl_gpa_command* GPA_GetCommand() { return m_pGpaCommand; }
@@ -164,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //  1. The descriptor value will be set with NULL
         //  2. additional event will be added to dependency list
         //  3. On resolution the provided memory location will be update with device descriptor value
-        cl_err_code GetMemObjectDescriptor(SharedPtr<MemoryObject> pMemObj, IOCLDevMemoryObject* *ppDevMemObj);
+        cl_err_code GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pMemObj, IOCLDevMemoryObject* *ppDevMemObj);
 
         // AcquireMemoryObjects() brings required memory objects to the target device and lock them there
         // Must be called from Execute() and accompanied by call to RelinquishMemoryObjects during CommandDone().
@@ -175,40 +175,40 @@ namespace Intel { namespace OpenCL { namespace Framework {
             SharedPtr<MemoryObject> pMemObj;
             MemoryObject::MemObjUsage access_rights;
 
-            MemoryObjectArg( SharedPtr<MemoryObject> a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
+            MemoryObjectArg( const SharedPtr<MemoryObject>& a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
             MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT) {};
             MemoryObjectArg(const MemoryObjectArg& other) : pMemObj(other.pMemObj), access_rights(other.access_rights) { }
         };
 
         typedef list<MemoryObjectArg>   MemoryObjectArgList;
 
-        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& mem_objs, SharedPtr<FissionableDevice> pDev = NULL ) 
+        cl_err_code AcquireMemoryObjects( const MemoryObjectArgList& mem_objs, const SharedPtr<FissionableDevice> pDev = NULL ) 
         { 
             return AcquireMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        cl_err_code AcquireMemoryObjects( MemoryObjectArg arg, SharedPtr<FissionableDevice> pDev = NULL  )
+        cl_err_code AcquireMemoryObjects( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev = NULL  )
         { 
             return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
         };
 
-        cl_err_code AcquireMemoryObjects( SharedPtr<MemoryObject> pMemObj, MemoryObject::MemObjUsage access_rights, SharedPtr<FissionableDevice> pDev = NULL  )
+        cl_err_code AcquireMemoryObjects( const SharedPtr<MemoryObject>& pMemObj, MemoryObject::MemObjUsage access_rights, const SharedPtr<FissionableDevice>& pDev = NULL  )
         { 
             MemoryObjectArg arg( pMemObj, access_rights ); 
             return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObjectArgList& mem_objs, SharedPtr<FissionableDevice> pDev = NULL ) 
+        void        RelinquishMemoryObjects( const MemoryObjectArgList& mem_objs, const SharedPtr<FissionableDevice>& pDev = NULL ) 
         { 
             RelinquishMemoryObjectsInt( &mem_objs, NULL, pDev ); 
         };
         
-        void        RelinquishMemoryObjects( MemoryObjectArg arg, SharedPtr<FissionableDevice> pDev = NULL ) 
+        void        RelinquishMemoryObjects( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev = NULL ) 
         { 
             RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
         };
 
-        void        RelinquishMemoryObjects( SharedPtr<MemoryObject> pMemObj, MemoryObject::MemObjUsage access_rights, SharedPtr<FissionableDevice> pDev = NULL ) 
+        void        RelinquishMemoryObjects( const SharedPtr<MemoryObject>& pMemObj, MemoryObject::MemObjUsage access_rights, const SharedPtr<FissionableDevice>& pDev = NULL ) 
         { 
             MemoryObjectArg arg( pMemObj, access_rights ); 
             RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
@@ -233,9 +233,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		Command& operator=(const Command&);
         // return true if ready
-        bool AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<FissionableDevice> pDev );
-        cl_err_code AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev );
-        void RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev );
+        bool AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
+        cl_err_code AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
+        void RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
                 
         bool                        m_memory_objects_acquired;
        
@@ -286,6 +286,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MemoryCommand( SharedPtr<IOclCommandQueueBase> cmdQueue ) : Command(cmdQueue) {}
+        
     protected:        
         cl_dev_cmd_param_rw m_rwParams;
 

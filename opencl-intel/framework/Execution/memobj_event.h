@@ -43,7 +43,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         static SharedPtr<MemoryObjectEvent> Allocate(IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice)
         {
-            return SharedPtr<MemoryObjectEvent>(new MemoryObjectEvent(ppDevMemObj, pMemObject, pDevice));
+            return new MemoryObjectEvent(ppDevMemObj, pMemObject, pDevice);
         }
 
 		// Get the context to which the event belongs.
@@ -53,15 +53,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			{return CL_INVALID_OPERATION;}
 
 		// IEventObserver
-		cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode = CL_SUCCESS);
+		cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
 
 	protected:
 
-        MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice );
+        MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, const SharedPtr<MemoryObject>& pMemObject, const SharedPtr<FissionableDevice>& pDevice );
 
 		virtual ~MemoryObjectEvent();        
 
-		IOCLDevMemoryObject*	*m_ppDevMemObj;
+		IOCLDevMemoryObject*			*m_ppDevMemObj;
 		SharedPtr<MemoryObject>			m_pMemObject;
 		SharedPtr<FissionableDevice>	m_pDevice;
 

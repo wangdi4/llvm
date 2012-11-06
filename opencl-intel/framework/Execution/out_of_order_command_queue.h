@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
 
 		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor);
+		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
 		// No need for explicit "send commands to device" method, commands are submitted as they become ready
 		virtual cl_err_code SendCommandsToDevice() {return CL_SUCCESS; }
 

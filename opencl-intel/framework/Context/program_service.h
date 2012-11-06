@@ -161,7 +161,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	    virtual long	Release();
 
-        virtual void    DoneWithDependencies(SharedPtr<OclEvent> pEvent); 
+        virtual void    DoneWithDependencies(const SharedPtr<OclEvent>& pEvent); 
 
         unsigned int    Launch();
 		
@@ -204,8 +204,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const char*             szOptions,
 			const SharedPtr<Program>&      pProg)
         {
-            return SharedPtr<CompileTask>(new CompileTask(context, deviceID,
-                pFECompiler, szSource, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions, pProg));
+            return new CompileTask(context, deviceID,
+                pFECompiler, szSource, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions, pProg);
         }
 
 	    virtual bool	Execute();
@@ -253,7 +253,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const char*              szOptions,
             const SharedPtr<Program>& pProg)
         {
-            return SharedPtr<LinkTask>(new LinkTask(context, deviceID, pFECompiler, pDeviceAgent, ppBinaries, uiNumBinaries, szOptions, pProg));
+            return new LinkTask(context, deviceID, pFECompiler, pDeviceAgent, ppBinaries, uiNumBinaries, szOptions, pProg);
         }
 
 	    virtual bool	Execute();
@@ -303,8 +303,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             pfnNotifyBuildDone  pfn_notify,
             void*               user_data)
         {
-            return SharedPtr<PostBuildTask>(new PostBuildTask(context, num_devices, deviceID, uiNumHeaders, ppHeaders, pszHeadersNames, uiNumBinaries,
-                ppBinaries, pProg, szOptions, pfn_notify, user_data));
+            return new PostBuildTask(context, num_devices, deviceID, uiNumHeaders, ppHeaders, pszHeadersNames, uiNumBinaries,
+                ppBinaries, pProg, szOptions, pfn_notify, user_data);
         }
 
 	    virtual bool	Execute();

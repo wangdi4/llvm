@@ -129,7 +129,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * Sugaring over AddDependentOnMulti.
 		 * @param pDependsOnEvent
 		 */
-        void                    AddDependentOn(SharedPtr<OclEvent> pDependsOnEvent );
+        void                    AddDependentOn(const SharedPtr<OclEvent>& pDependsOnEvent );
 
 		/**
 		 * Add events to observe, to depend on their state.
@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		/**
 		 * Bogus dependency add.
 		 */
-		void				AddFloatingDependence() { ++m_numOfDependencies; }
+		void				AddFloatingDependence() { ++m_numOfDependencies; SetEventState(EVENT_STATE_HAS_DEPENDENCIES);}
 		/**
 		 * Bogus dependency remove.
 		 */
@@ -153,7 +153,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool               HasDependencies() const	{ return m_numOfDependencies > 0;}
 
 		// Implementation IEventObserver
-		virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode = CL_SUCCESS);
+		virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode = CL_SUCCESS);
 
 		// Blocking function, returns after NotifyComplete is done
 		virtual void    Wait();
@@ -171,7 +171,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OclEvent(const std::string& typeName);
 		virtual ~OclEvent();
 
-		virtual void   DoneWithDependencies(SharedPtr<OclEvent> pEvent);
+		virtual void   DoneWithDependencies(const SharedPtr<OclEvent>& pEvent);
 
 		virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 		virtual void   NotifySubmitted();
@@ -200,12 +200,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Intel::OpenCL::Utils::OclMutex			m_ObserversListGuard;
 
 		Intel::OpenCL::Utils::AtomicCounter		m_numOfDependencies;
-		volatile bool							m_complete;
 		
+	
 		cl_int                                  m_returnCode;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-		Intel::OpenCL::Utils::OclOsDependentEvent m_osEvent;
+		Intel::OpenCL::Utils::AtomicPointer<Intel::OpenCL::Utils::OclOsDependentEvent> m_pCurrentEvent;
+#else
+		volatile bool							m_complete;
 #endif
 
 	private:        
@@ -218,8 +220,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         };
 
-		OclEventState                           m_eventState;
-        SharedPtr<Context> m_pContext;
+		volatile OclEventState  m_eventState;
+        SharedPtr<Context>		m_pContext;
 
 		/**
 		 * Make sure the list is empty, and all related dependencies are released.
@@ -235,9 +237,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 */
 		void NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_int retCode);
 
-#if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
-		Intel::OpenCL::Utils::AtomicPointer<Intel::OpenCL::Utils::OclOsDependentEvent> m_pCurrentEvent;
-#endif
 };
 
 }}}    // Intel::OpenCL::Framework

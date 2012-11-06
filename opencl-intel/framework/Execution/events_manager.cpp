@@ -225,7 +225,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
  * are removed from the list
  * 
  ******************************************************************/
-cl_err_code EventsManager::RegisterEvents(SharedPtr<OclEvent> pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
+cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
 {
 	cl_start;
     // Check input parameters
@@ -316,7 +316,7 @@ bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* even
  * The function returns pointer to a QueueEvent that is attached with the related
  * Command object.
  ******************************************************************/
-void EventsManager::RegisterQueueEvent(SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl)
+void EventsManager::RegisterQueueEvent(const SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl)
 {
 	assert(pEvent);
     m_mapEvents.AddObject(pEvent);

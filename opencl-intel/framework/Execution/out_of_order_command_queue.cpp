@@ -69,8 +69,9 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      {
          return CL_OUT_OF_HOST_MEMORY;
      }
-     pDepOnAll->GetEvent()->Release();
      // This floating dependence will be resolved at the completion of clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
+     pDepOnAll->GetEvent()->AddFloatingDependence();
+     pDepOnAll->GetEvent()->Release();
 	 m_depOnAll = pDepOnAll;
 	 return CL_SUCCESS;	
 }
@@ -80,7 +81,11 @@ long OutOfOrderCommandQueue::Release()
     const long ref = IOclCommandQueueBase::Release();
     if (0 == ref && m_depOnAll)
     {
+    	m_depOnAll->GetEvent()->RemoveFloatingDependence();
+    	m_depOnAll = NULL;
+#if 0    	
         delete m_depOnAll;
+#endif        
     }
     return ref;
 }
@@ -134,10 +139,12 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 		cmdEvent->AddDependentOn( prev_barrier->GetEvent() );
 	}
 
+#if 0
 	//Todo: get rid of the WHITE->RED->YELLOW color cycle by changing event's listener behaviour
     cmdEvent->AddFloatingDependence();
 	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
     cmdEvent->RemoveFloatingDependence();
+#endif    
 	return CL_SUCCESS;
 }
 
@@ -153,10 +160,14 @@ cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
         cmdEvent.RemoveFloatingDependence();
         return ret;
     }
+#if 0
     cmdEvent.AddFloatingDependence();
     cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+#endif    
     m_depOnAll->GetEvent()->AddDependentOn(&cmdEvent);
+#if 0    
     cmdEvent.RemoveFloatingDependence();
+#endif    
     return CL_SUCCESS;
 }
 
@@ -168,8 +179,10 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
 		OclAutoMutex mu(&m_muLastBarrer);
 		
         // Prevent barrier from firing until we're done enqueuing it to avoid races
+#if 0        
         cmdEvent->AddFloatingDependence();
         cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+#endif        
         cmdEvent.IncRefCnt();   // TODO: add a comment why this is necessary
         Command* prev_barrier = m_lastBarrier.exchange(barrier);
         if ( NULL != prev_barrier )
@@ -177,8 +190,10 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
         	// Need to remove pendency from the previous barrier
             prev_barrier->GetEvent().DecRefCnt();
         }
-        const cl_err_code ret = AddDependentOnAll(barrier);		
+        const cl_err_code ret = AddDependentOnAll(barrier);
+#if 0        
         cmdEvent->RemoveFloatingDependence();
+#endif        
         return ret;
     }
     return EnqueueWaitForEvents(barrier);
@@ -190,7 +205,9 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 
 	SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
     cmdEvent.IncRefCnt();   // TODO: add a comment why this is necessary
+#if 0    
 	cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+#endif	
 	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
 	Command* prev_barrier = (Command*)(m_lastBarrier.exchange(cmd));
 	if ( NULL != prev_barrier)
@@ -212,7 +229,7 @@ cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;	
 }
 
-cl_err_code OutOfOrderCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
 {	
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
@@ -257,6 +274,8 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 
     SharedPtr<QueueEvent> pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
     SharedPtr<QueueEvent> pCommandEvent      = cmd->GetEvent();
+
+	pNewDepnOnAllEvent->AddFloatingDependence();
     pNewDepnOnAllEvent->Release();
     
     // First of all create a new "depends on all" object and put it in place.
@@ -265,8 +284,10 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 
 	Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
     SharedPtr<QueueEvent> pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
+#if 0    
 	pOldDepOnAllEvent->AddFloatingDependence();
 	pOldDepOnAllEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+#endif	
 	pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
 	pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;

@@ -80,8 +80,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				return pOclObject.DynamicCast<EventClass>();
 			}
 
-            void        RegisterQueueEvent(SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl);
-        cl_err_code RegisterEvents(SharedPtr<OclEvent> pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
+        void        RegisterQueueEvent(const SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl);
+        cl_err_code RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
 
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
 

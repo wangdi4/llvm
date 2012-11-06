@@ -154,7 +154,7 @@ cl_err_code ImmediateCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code ImmediateCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code ImmediateCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
 {
 	return CL_SUCCESS;
 }

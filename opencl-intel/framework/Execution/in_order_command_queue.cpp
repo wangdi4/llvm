@@ -58,12 +58,6 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
     {
         cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }
-    SharedPtr<QueueEvent> pEvent = cmd->GetEvent();
-    pEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-    if (!pEvent->HasDependencies())
-    {
-        pEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
-    }
     m_submittedQueue.PushBack(cmd);
 
 	Flush(false);	// Solves the issue of event state reported to user
@@ -81,7 +75,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 	return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( SharedPtr<QueueEvent> pEvent, OclEventState prevColor, OclEventState newColor )
+cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
 {
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{

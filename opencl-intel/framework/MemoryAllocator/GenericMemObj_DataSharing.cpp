@@ -52,7 +52,7 @@ SharedPtr<OclEvent>  GenericMemObject::release_data_sharing_lock(SharedPtr<DataC
     {
         // no races here because pointer to the event was removed from Sharing Group before, 
         // so there is no way to get this pointer in more places
-        returned_event->SetComplete();
+        returned_event->SetEventState(EVENT_STATE_DONE);
         returned_event = NULL;
     }
 

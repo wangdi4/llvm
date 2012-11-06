@@ -31,7 +31,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice) :
+MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, const SharedPtr<MemoryObject>& pMemObject, const SharedPtr<FissionableDevice>& pDevice) :
 	OclEvent(pMemObject->GetParentHandle()), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
 {
 	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
@@ -41,7 +41,7 @@ MemoryObjectEvent::~MemoryObjectEvent()
 {
 }
 
-cl_err_code MemoryObjectEvent::ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode )
+cl_err_code MemoryObjectEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode )
 {
 	if ( returnCode == CL_SUCCESS )
 	{

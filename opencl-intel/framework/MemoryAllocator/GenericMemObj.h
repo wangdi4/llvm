@@ -181,7 +181,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
             static SharedPtr<DataCopyEvent> Allocate(_cl_context_int* context)
             {
-                return SharedPtr<DataCopyEvent>(new GenericMemObject::DataCopyEvent(context));
+                return new GenericMemObject::DataCopyEvent(context);
             }
 
 	        // Get the return code of the command associated with the event.
@@ -191,12 +191,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
             void SetCompletionRequired () { m_completion_required = true; };
             bool IsCompletionRequired() const { return m_completion_required; };
-
-            void SetComplete() 
-            { 
-                NotifyComplete( CL_SUCCESS ); 
-                //RemovePendency( NULL );// Why we need this?
-            };
 
         private:
 

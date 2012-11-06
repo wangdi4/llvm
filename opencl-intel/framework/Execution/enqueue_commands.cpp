@@ -78,8 +78,6 @@ Command::Command( SharedPtr<IOclCommandQueueBase> cmdQueue ):
 	memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
 	m_Event->SetCommand(this);
 
-	//m_Event->AddPendency(NULL);  // NULL because dependency is released in case of failure by IOclCommandQueueBase
-
 	assert(m_pCommandQueue);
 	m_pDevice = m_pCommandQueue->GetDefaultDevice();
 
@@ -255,7 +253,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     return res;
 }
 
-cl_err_code	Command::GetMemObjectDescriptor(SharedPtr<MemoryObject> pMemObj, IOCLDevMemoryObject* *ppMemObj)
+cl_err_code	Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pMemObj, IOCLDevMemoryObject* *ppMemObj)
 {
     if (NULL == pMemObj)
     {
@@ -282,7 +280,7 @@ cl_err_code	Command::GetMemObjectDescriptor(SharedPtr<MemoryObject> pMemObj, IOC
 
 // return true if ready
 inline
-bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<FissionableDevice> pDev  )
+bool Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
 {
     assert( NULL != arg.pMemObj );
     SharedPtr<OclEvent> mem_event = arg.pMemObj->LockOnDevice( pDev, arg.access_rights );
@@ -295,7 +293,7 @@ bool Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, SharedPtr<Fission
     return (NULL == mem_event);
 }
 
-cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev )
+cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
 {
     if ( m_memory_objects_acquired )
     {
@@ -304,39 +302,31 @@ cl_err_code Command::AcquireMemoryObjectsInt( MemoryObjectArgList* pList, Memory
 
     m_memory_objects_acquired = true;
 
-    if (NULL == pDev)
-    {
-        pDev = m_pDevice;
-    }
-    
+    const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
+
     bool ready = true;
 
     if (NULL != pList)
     {
-        MemoryObjectArgList::iterator it     = pList->begin();
-        MemoryObjectArgList::iterator it_end = pList->end();
+        MemoryObjectArgList::const_iterator it     = pList->begin();
+        MemoryObjectArgList::const_iterator it_end = pList->end();
 
         for (; it != it_end; ++it )
         {
-            MemoryObjectArg& arg = *it;
-            ready = ready & AcquireSingleMemoryObject( arg, pDev );
+            const MemoryObjectArg& arg = *it;
+            ready = ready & AcquireSingleMemoryObject( arg, targetDevice );
         }
     }
     else
     {
         assert( NULL != pSingle);
-        ready = AcquireSingleMemoryObject( *pSingle, pDev );
-    }
-
-    if (false == ready)
-    {       
-		m_Event->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+        ready = AcquireSingleMemoryObject( *pSingle, targetDevice );
     }
 
     return (ready) ? CL_SUCCESS : CL_NOT_READY;
 }
 
-void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObjectArg* pSingle, SharedPtr<FissionableDevice> pDev )
+void Command::RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
 {
     if ( !m_memory_objects_acquired )
     {
@@ -344,27 +334,24 @@ void Command::RelinquishMemoryObjectsInt( MemoryObjectArgList* pList, MemoryObje
     }
 
     m_memory_objects_acquired = false;
-
-    if (NULL == pDev)
-    {
-        pDev = m_pDevice;
-    }
+    
+    const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
 
     if (NULL != pList)
     {      
-        MemoryObjectArgList::iterator it     = pList->begin();
-        MemoryObjectArgList::iterator it_end = pList->end();
+        MemoryObjectArgList::const_iterator it     = pList->begin();
+        MemoryObjectArgList::const_iterator it_end = pList->end();
 
         for (; it != it_end; ++it )
         {
-            MemoryObjectArg& arg = *it;            
-            arg.pMemObj->UnLockOnDevice( pDev, arg.access_rights ); 
+            const MemoryObjectArg& arg = *it;            
+            arg.pMemObj->UnLockOnDevice( targetDevice, arg.access_rights ); 
         }
     }
     else
     {
         assert( NULL != pSingle );
-        pSingle->pMemObj->UnLockOnDevice( pDev, pSingle->access_rights );
+        pSingle->pMemObj->UnLockOnDevice( targetDevice, pSingle->access_rights );
     }
 }
 

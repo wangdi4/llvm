@@ -280,7 +280,7 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
 	}
 }
 
-void QueueEvent::IncludeProfilingInfo( ConstSharedPtr<QueueEvent> other )
+void QueueEvent::IncludeProfilingInfo( const ConstSharedPtr<QueueEvent>& other )
 {
 	assert( NULL != other );
 
@@ -309,7 +309,7 @@ void QueueEvent::IncludeProfilingInfo( ConstSharedPtr<QueueEvent> other )
 /******************************************************************
 *
 ******************************************************************/
-cl_err_code QueueEvent::ObservedEventStateChanged(SharedPtr<OclEvent>pEvent, cl_int returnCode)
+cl_err_code QueueEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode)
 {
 	if (CL_SUCCESS > returnCode)
 	{
@@ -361,7 +361,7 @@ OclEventState QueueEvent::SetEventState(OclEventState newColor)
 	return retval;
 }
 
-void QueueEvent::DoneWithDependencies(SharedPtr<OclEvent> pEvent)
+void QueueEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 {
     if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {

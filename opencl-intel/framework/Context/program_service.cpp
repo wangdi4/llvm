@@ -64,7 +64,7 @@ long BuildTask::Release()
     return 0;
 }
 
-void BuildTask::DoneWithDependencies(SharedPtr<OclEvent> pEvent)
+void BuildTask::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 {
     Launch();
     BuildEvent::DoneWithDependencies(pEvent);

@@ -462,12 +462,19 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         return err;
     }
 
-    SharedPtr<QueueEvent> barrierEvent = pBarrierCommand->GetEvent();
-    m_pEventsManager->RegisterQueueEvent(barrierEvent, pEvent);
+	if ( NULL != pEvent )
+	{
+		const SharedPtr<QueueEvent>& barrierEvent = pBarrierCommand->GetEvent();
+		m_pEventsManager->RegisterQueueEvent(barrierEvent, pEvent);
+	}
+	
     err = pCommandQueue->EnqueueBarrierWaitEvents(pBarrierCommand, uiNumEvents, pEventList);
     if (CL_FAILED(err))
     {
-        m_pEventsManager->ReleaseEvent(barrierEvent->GetHandle());
+		if ( NULL != pEvent )
+		{
+        	m_pEventsManager->ReleaseEvent(pBarrierCommand->GetEvent()->GetHandle());
+		}        
         pBarrierCommand->CommandDone();
         delete pBarrierCommand;
     }
@@ -479,45 +486,7 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
 {
-	cl_err_code errVal;
-	if (NULL == pEvent)
-	{
-		return CL_INVALID_VALUE;
-	}
-
-	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
-	if (NULL == pCommandQueue)
-	{
-		return CL_INVALID_COMMAND_QUEUE;
-	}
-
-	// Create Command
-	Command* pMarkerCommand = new MarkerCommand(pCommandQueue, 0);
-	if (NULL == pMarkerCommand)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-	errVal = pMarkerCommand->Init();
-	if ( CL_FAILED(errVal) )
-	{
-		delete pMarkerCommand;
-		return errVal;
-	}
-
-	SharedPtr<QueueEvent> pMarkerEvent = pMarkerCommand->GetEvent();
-	m_pEventsManager->RegisterQueueEvent(pMarkerEvent, pEvent);
-
-	errVal = pCommandQueue->EnqueueMarkerWaitForEvents(pMarkerCommand);
-	if(CL_FAILED(errVal))
-	{
-		m_pEventsManager->ReleaseEvent(pMarkerEvent->GetHandle());
-		pMarkerCommand->CommandDone();
-		delete pMarkerCommand;
-		return errVal;
-	}
-
-	return errVal;
+	return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
 }
 
 /******************************************************************
@@ -567,42 +536,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 {
-	cl_err_code errVal;
-	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
-	if (NULL == pCommandQueue)
-	{
-		return CL_INVALID_COMMAND_QUEUE;
-	}
-
-	// Create Command
-
-	Command* pBarrierCommand = new BarrierCommand(pCommandQueue, 0);
-	if (NULL == pBarrierCommand)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-	errVal = pBarrierCommand->Init();
-	if(CL_FAILED(errVal))
-	{
-		delete pBarrierCommand;
-		return errVal;
-	}
-
-	SharedPtr<QueueEvent> pBarrierEvent = pBarrierCommand->GetEvent();
-    // TODO: remove this, because no one is going to unregister the event in case of success
-	//m_pEventsManager->RegisterQueueEvent(pBarrierEvent, NULL);
-
-	errVal = pCommandQueue->EnqueueBarrierWaitForEvents(pBarrierCommand);
-	if(CL_FAILED(errVal))
-	{
-		// m_pEventsManager->ReleaseEvent(pBarrierEvent->GetHandle());
-		pBarrierCommand->CommandDone();
-		delete pBarrierCommand;
-		return errVal;
-	}
-
-	return errVal;
+	return EnqueueBarrierWithWaitList(clCommandQueue, 0, NULL, NULL);
 }
 
 

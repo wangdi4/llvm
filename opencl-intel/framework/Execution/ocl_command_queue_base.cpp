@@ -83,9 +83,8 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 	
         __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
     }
-
-
 #endif // ITT
+
 	cl_err_code errVal = CL_SUCCESS;
 	// If blocking and no event, than it is needed to create dummy cl_event for wait
 	cl_event waitEvent = NULL;
@@ -164,9 +163,8 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 /**
  * @fn cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
  */
-cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
+cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pQueueEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
 {    
-    SharedPtr<QueueEvent> pQueueEvent = cmd.GetEvent();
     m_pEventsManager->RegisterQueueEvent(pQueueEvent, NULL);    
     
     const cl_err_code errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
@@ -179,59 +177,63 @@ cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint 
     return CL_SUCCESS;
 }
 
-cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
+cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
 {
-    QueueEvent& event = *wfe->GetEvent();
-    event.AddFloatingDependence();
-    cl_err_code errVal = EnqueueWaitEventsProlog(*wfe, uNumEventsInWaitList, cpEventWaitList);
+    const SharedPtr<QueueEvent>& pCmdEvent = cmd->GetEvent();
+    
+    pCmdEvent->AddFloatingDependence();
+    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
     if (CL_FAILED(errVal))
     {
-        event.RemoveFloatingDependence();
+        pCmdEvent->RemoveFloatingDependence();
         return errVal;
     }
-	errVal = EnqueueWaitForEvents(wfe);
-    event.RemoveFloatingDependence();
-    m_pEventsManager->ReleaseEvent(event.GetHandle());
+	errVal = EnqueueWaitForEvents(cmd);
+    pCmdEvent->RemoveFloatingDependence();
+    m_pEventsManager->ReleaseEvent(pCmdEvent->GetHandle());
 	return errVal;
 }
 
 /**
  * @fn cl_err_code IOclCommandQueueBase::EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEvetsInWaitList, const cl_event* pEventWaitList)
  */
-cl_err_code IOclCommandQueueBase::EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEvetsInWaitList, const cl_event* pEventWaitList)
+cl_err_code IOclCommandQueueBase::EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
 {
-    QueueEvent& event = *cmd->GetEvent();
-    event.AddFloatingDependence();
-    cl_err_code errVal = EnqueueWaitEventsProlog(*cmd, uNumEvetsInWaitList, pEventWaitList);
+    const SharedPtr<QueueEvent>& pCmdEvent = cmd->GetEvent();
+    
+    pCmdEvent->AddFloatingDependence();
+    
+    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
     if (CL_FAILED(errVal))
     {
-        event.RemoveFloatingDependence();
+        pCmdEvent->RemoveFloatingDependence();
         return errVal;
     }
     errVal = EnqueueMarkerWaitForEvents(cmd);
-    event.RemoveFloatingDependence();
+    pCmdEvent->RemoveFloatingDependence();
     return errVal;
 }
 
 /**
  * @fn cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
  */
-cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
+cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
 {
-    QueueEvent& event = *cmd->GetEvent();
-    event.AddFloatingDependence();
-    cl_err_code errVal = EnqueueWaitEventsProlog(*cmd, uNumEventsInWaitList, pEventWaitList);
+    const SharedPtr<QueueEvent>& pCmdEvent = cmd->GetEvent();
+    
+    pCmdEvent->AddFloatingDependence();
+    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
     if (CL_FAILED(errVal))
     {
-        event.RemoveFloatingDependence();
+        pCmdEvent->RemoveFloatingDependence();
         return errVal;
     }
     errVal = EnqueueBarrierWaitForEvents(cmd);
-    event.RemoveFloatingDependence();
+    pCmdEvent->RemoveFloatingDependence();
     return errVal;
 }
 
-cl_err_code IOclCommandQueueBase::WaitForCompletion(SharedPtr<QueueEvent> pEvent)
+cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>& pEvent)
 {
 	// Make blocking flush to ensure everything ends in the device's command list before we join its execution
 	Flush(true);

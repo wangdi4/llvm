@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		friend class Command;		
         static SharedPtr<QueueEvent> Allocate(SharedPtr<IOclCommandQueueBase> cmdQueue)
         {
-            return SharedPtr<QueueEvent>(new QueueEvent(cmdQueue));
+            return new QueueEvent(cmdQueue);
         }
 
         ~QueueEvent();
@@ -69,17 +69,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
 
 		//Override to notify my command about failed events it depended on
-		virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode); 
+		virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode); 
 
 		// profiling support
 		cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		void		SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
 
 		// include times from other command into me
-		void		IncludeProfilingInfo( ConstSharedPtr<QueueEvent> other );
+		void		IncludeProfilingInfo( const ConstSharedPtr<QueueEvent>& other );
 
         void        SetCommand(Command* cmd) { m_pCommand = cmd;  }
-		Command*                GetCommand() const                                  { return m_pCommand; }
+		Command*    GetCommand() const                                  { return m_pCommand; }
 
 		OclEventState           SetEventState(OclEventState newColor); //returns the previous color
 
@@ -87,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         QueueEvent( SharedPtr<IOclCommandQueueBase> cmdQueue);
 
         //overrides from OclEvent
-        virtual void   DoneWithDependencies(SharedPtr<OclEvent> pEvent);
+        virtual void   DoneWithDependencies(const SharedPtr<OclEvent>& pEvent);
         virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
 
 		SProfilingInfo			m_sProfilingInfo;
