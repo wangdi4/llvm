@@ -320,7 +320,7 @@ TEST(FrameworkTestType, Test_clRelaxedFunctionTest)
 }
 
 
-TEST(FrameworkTestType, Test_EnqueueNativeKernelTest)
+TEST(FrameworkTestType, DISABLED_Test_EnqueueNativeKernelTest)
 {
     EXPECT_TRUE(EnqueueNativeKernelTest());
 }

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 
+extern cl_device_type gDeviceType;
+
 struct arg_struct
 {
 	int* inp1;
@@ -24,7 +26,6 @@ void CL_CALLBACK NativeFunc(void* args)
 bool EnqueueNativeKernelTest()
 {
 
-	cl_device_type    deviceType = CL_DEVICE_TYPE_CPU;
 	cl_device_id      deviceId;
 	cl_device_id*     devices = NULL;
 	cl_uint           numDevices = 0;
@@ -47,9 +48,9 @@ bool EnqueueNativeKernelTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	/* Get the number of requested devices */
-	err |= clGetDeviceIDs(platform,  deviceType, 0, NULL, &numDevices );
+	err |= clGetDeviceIDs(platform,  gDeviceType, 0, NULL, &numDevices );
 	devices = (cl_device_id *) malloc( numDevices * sizeof( cl_device_id ) );
-	err |= clGetDeviceIDs(platform,  deviceType, numDevices, devices, NULL );
+	err |= clGetDeviceIDs(platform,  gDeviceType, numDevices, devices, NULL );
 	deviceId = devices[0];
 	free(devices);
 	devices = NULL;
