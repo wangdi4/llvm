@@ -253,7 +253,7 @@ TEST(FrameworkTestType, Test_clCreateImageTest)
     EXPECT_TRUE(clCreateImageTest());
 }
 
-TEST(FrameworkTestType, Test_clImageExecuteTest)
+TEST(FrameworkTestType, DISABLED_Test_clImageExecuteTest)
 {
     EXPECT_TRUE(clImageExecuteTest());
 }
@@ -400,7 +400,7 @@ TEST(FrameworkTestType, Test_CreateReleaseOOOQueueTest)
     EXPECT_TRUE(CreateReleaseOOOQueueTest());
 }
 
-TEST(FrameworkTestType, Test_EventDependenciesTest)
+TEST(FrameworkTestType, DISABLED_Test_EventDependenciesTest)
 {
     EXPECT_TRUE(EventDependenciesTest());
 }
