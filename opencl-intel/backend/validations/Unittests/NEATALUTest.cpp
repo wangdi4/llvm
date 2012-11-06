@@ -9487,8 +9487,8 @@ TYPED_TEST(NEATNormalizeRun, normalize)
 
 }
 
-
-TYPED_TEST(NEATNormalizeRun, fast_normalize)
+//disabled until bug CSSD100014921 will be fixed
+TYPED_TEST(NEATNormalizeRun, DISABLED_fast_normalize)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type T;
