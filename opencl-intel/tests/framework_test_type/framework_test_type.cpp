@@ -400,7 +400,7 @@ TEST(FrameworkTestType, Test_CreateReleaseOOOQueueTest)
     EXPECT_TRUE(CreateReleaseOOOQueueTest());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_EventDependenciesTest)
+TEST(FrameworkTestType, Test_EventDependenciesTest)
 {
     EXPECT_TRUE(EventDependenciesTest());
 }
