@@ -19,7 +19,13 @@ set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/librari
 if (KNC_CARD)
         set( BACKEND_VTUNE_DIR 		 -L ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
         set( VTUNE_PROFILING_LIB     -ljitprofiling)  
-	set( BACKEND_FILES_TO_COPY
+
+        set( MIC_TBB_PATH            ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/tbb )
+		set( MIC_TBB_HEADERS_PATH    ${MIC_TBB_PATH}/include )
+		set( MIC_TBB_LIB_PATH_DEBUG  ${MIC_TBB_PATH}/bin/Knc_Debug )
+		set( MIC_TBB_LIB_PATH_RELEASE  ${MIC_TBB_PATH}/bin/Knc_Release )
+        
+		set( BACKEND_FILES_TO_COPY
 								${BACKEND_SVML_DIR}/__ocl_svml_b2.so.3.0
 								)
 else (KNC_CARD)
@@ -48,10 +54,6 @@ else ()
         endif ()
     endif (NOT TMP_ICC_INSTALL_DIR)
 	
-	set( MIC_TBB_PATH ${TMP_ICC_INSTALL_DIR}/../tbb )
-	set( MIC_TBB_HEADERS_PATH ${MIC_TBB_PATH}/include )
-	set( MIC_TBB_LIB_PATH ${MIC_TBB_PATH}/lib/mic )
-
     if (TMP_ICC_INSTALL_DIR)
         # if environment ICC_INSTALL_DIR is set
         set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/compilervars.sh" )
@@ -221,10 +223,12 @@ endif( ENABLE_MIC_TBB_TRACER )
 
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( TBB_LIB_TO_LINK tbb_debug )
+    set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_DEBUG} )
+    set( TBB_LIB_TO_LINK tbb_preview_debug )
     set( TBBMALLOC_LIB_TO_LINK tbbmalloc_debug )
 else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( TBB_LIB_TO_LINK tbb )
+    set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_RELEASE} )
+    set( TBB_LIB_TO_LINK tbb_preview )
     set( TBBMALLOC_LIB_TO_LINK tbbmalloc )
 endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 
