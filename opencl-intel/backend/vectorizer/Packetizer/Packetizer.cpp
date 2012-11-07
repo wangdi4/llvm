@@ -695,10 +695,19 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
 
   Type *ElemTy = 0;
-  if (MO.type == STORE) {
+
+  switch (MO.type) {
+  case STORE:
     ElemTy = MO.Data->getType();
-  } else {
+    break;
+  case LOAD:
     ElemTy = MO.Orig->getType();
+    break;
+  case PREFETCH:
+    ElemTy = cast<PointerType>(MO.Ptr->getType())->getElementType();
+    break;
+  default:
+    V_ASSERT(false && "Invalid memory operation tiple");
   }
 
   VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
@@ -788,8 +797,23 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     RetTy = VecElemTy;
   }
 
-  bool is_gather = (MO.Data == NULL);
-  std::string name = Mangler::getGatherScatterInternalName(is_gather, MO.Mask->getType(), VecElemTy, IndexTy);
+  Mangler::GatherScatterType type = Mangler::Scatter;
+
+  switch (MO.type) {
+  case STORE:
+    type = Mangler::Scatter;
+    break;
+  case LOAD:
+    type = Mangler::Gather;
+    break;
+  case PREFETCH:
+    type = Mangler::GatherPrefetch;
+    break;
+  default:
+    V_ASSERT(false && "Invalid memory type");
+  }
+
+  std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
 
@@ -898,7 +922,6 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
 
   // Implement the function call
   SmallVector<Value*, 8> args;
-
   switch(MO.type) {
     case LOAD:
       args.push_back(MO.Mask);
@@ -1644,7 +1667,6 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
     unsigned idx = CI->getZExtValue();
     if (idx >= AOSVectorWidth) return false;
     indicesPresent[idx] = true;
-
     Value *insertedValue = IEI->getOperand(1);
     // obtainInsertElts can be allowed either before or after packetization.
     // The former happens when we scan for inserts to generate load+transpose and transpose+store sequences.

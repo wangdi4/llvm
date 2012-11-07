@@ -1,6 +1,7 @@
 #ifndef __MICRESOLVER_H_
 #define __MICRESOLVER_H_
 #include "Resolver.h"
+#include "Mangler.h"
 
 using namespace llvm;
 
@@ -31,7 +32,7 @@ private:
   /// @param Index index value
   /// @param Data data to store value for scatter (NULL for gather)
   /// @return the new call instruction for gather/scatter
-  Instruction* CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data);
+  Instruction* CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type);
 
   /// @brief Fix base address and index of gather/scatter instruction if needed to be fixed.
   /// @param caller Instruction to resolve

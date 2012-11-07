@@ -13,6 +13,11 @@ using namespace llvm;
 class Mangler {
 public:
 
+  enum GatherScatterType { Gather,
+                           Scatter,
+                           GatherPrefetch,
+                           ScatterPrefetch };
+
   /// @brief De-Mangle function call
   /// @param name name to de-mangle
   /// @return De-mangled name
@@ -32,7 +37,7 @@ public:
   /// @param isGather true for gather instruction, false for scatter instruction
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @return name
-  static std::string getGatherScatterName(bool isMasked, bool isGather, VectorType *retDataVecTy);
+  static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType, VectorType *retDataVecTy);
   /// @brief Get internal mangled name for gather or scatter instruction
   /// (this name will be resolved at Resolver pass, thus it is for vectorizer internal use only)
   /// @param isGather true for gather instruction, false for scatter instruction
@@ -40,7 +45,7 @@ public:
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @param indexType type of index element
   /// @return name
-  static std::string getGatherScatterInternalName(bool isGather, Type *maskType, VectorType *retDataVecTy, Type *indexType);
+  static std::string getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, VectorType *retDataVecTy, Type *indexType);
   /// @brief Get mangled name for vectorized prefetch built-in.
   /// @param name name of original prefetch built-in name.
   /// @param packetWidth width of vector data type for prefetch.
@@ -72,6 +77,10 @@ public:
   /// @param name Name of function
   /// @return True if mangled 'prefetch' function call
   static bool isMangledPrefetch(const std::string& name);
+  /// @brief Is this a mangled 'gather prefetch' function call (masked version is also supported).
+  /// @param name Name of function
+  /// @return True if mangled 'gather prefetch' function call
+  static bool isMangeledGatherPrefetch(const std::string& name);
   /// @brief Is this a special function which checks the mask.
   ///  Is this a call to 'all-one' or 'all-zero' ?
   /// @param name Name of function
@@ -141,6 +150,10 @@ private:
   static const std::string prefix_gather;
   /// @brief mangling of internal scatter operations
   static const std::string prefix_scatter;
+  /// @brief mangling of internal gather prefetch operations
+  static const std::string prefix_gather_prefetch;
+  /// @brief mangling of internal scatter prefetch operations
+  static const std::string prefix_scatter_prefetch;
   /// @brief mangling of 'prefetch' function call
   static const std::string prefetch;
   /// @brief mangling of fake built-ins used for vectorization

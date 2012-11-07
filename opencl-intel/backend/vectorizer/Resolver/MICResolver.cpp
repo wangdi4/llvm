@@ -3,7 +3,6 @@
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "MICResolver.h"
-#include "Mangler.h"
 #include "Logger.h"
 #include "llvm/Constants.h"
 #include "VectorizerUtils.h"
@@ -80,7 +79,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     Value *Index = getConsecutiveConstantVector(IndTy, RetTy->getNumElements());
 
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::Gather);
     return true;
   }
 
@@ -126,7 +125,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     Value *Index = getConsecutiveConstantVector(IndTy, DataTy->getNumElements());
 
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, Data);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, Data, Mangler::Scatter);
     return true;
   }
 
@@ -138,7 +137,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     Value *IsSigned  = caller->getArgOperand(4);
 
     FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::Gather);
     return true;
   }
 
@@ -151,7 +150,19 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     Value *IsSigned  = caller->getArgOperand(5);
 
     FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, Data);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, Data, Mangler::Scatter);
+    return true;
+  }
+
+  if (Mangler::isMangeledGatherPrefetch(calledName)) {
+    Value *Mask      = caller->getArgOperand(0);
+    Value *Ptr       = caller->getArgOperand(1);
+    Value *Index     = caller->getArgOperand(2);
+    Value *ValidBits = caller->getArgOperand(3);
+    Value *IsSigned  = caller->getArgOperand(4);
+   
+    FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::GatherPrefetch);
     return true;
   }
 
@@ -159,18 +170,33 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
   return false;
 }
 
-Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data) {
+Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
   Module *pModule = caller->getParent()->getParent()->getParent();
-  V_ASSERT((Data ? Data->getType() : caller->getType())->isVectorTy() && "Data value type is not a vector");
-  VectorType *dataTy = cast<VectorType>(Data ? Data->getType() : caller->getType());
+  V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
 
-  const bool isGather = (Data == NULL);
-  const bool isScatter = (Data != NULL);
+  VectorType *dataTy = NULL; 
+
+  switch (type) {
+  case Mangler::GatherPrefetch: {
+    Type * ElemTy = cast<PointerType>(Ptr->getType())->getElementType();
+    dataTy = VectorType::get(ElemTy, 16);
+    break;
+  }
+  case Mangler::Gather:
+    dataTy = cast<VectorType>(caller->getType());
+    break;
+  case Mangler::Scatter:
+    dataTy = cast<VectorType>(Data->getType());
+    break;
+  default:
+    V_ASSERT(false && "Illegal GatheScatterType ");
+  }
+
   const bool isUniformMask = !(Mask->getType()->isVectorTy());
   const bool isMasked = !(isUniformMask && isa<Constant>(Mask) && cast<Constant>(Mask)->isAllOnesValue());
 
   // Get Gather/Scatter function name
-  std::string name = Mangler::getGatherScatterName(isMasked, isGather, dataTy);
+  std::string name = Mangler::getGatherScatterName(isMasked, type, dataTy);
 
   if(isMasked && isUniformMask) {
     // We have uniform mask (not known to be 1), need to broadcast it
@@ -182,7 +208,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   if(isMasked) args.push_back(Mask);
   args.push_back(Ptr);
   args.push_back(Index);
-  if(isScatter) args.push_back(Data);
+  if(type == Mangler::Scatter) args.push_back(Data);
 
   // Create new gather/scatter caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, caller->getType(), args, caller);
@@ -192,7 +218,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   // Remove and erase caller from function
   caller->eraseFromParent();
 
-  V_PRINT(DEBUG_TYPE, "Generated "<<(isGather?"gather ":"scatter ")<<*newCaller<<"\n");
+  V_PRINT(DEBUG_TYPE, "Generated "<<(type == Mangler::Gather ? "gather " : type == Mangler::Scatter ? "scatter " : "prefetch gather " )<<*newCaller<<"\n");
   return newCaller;
 }
 
