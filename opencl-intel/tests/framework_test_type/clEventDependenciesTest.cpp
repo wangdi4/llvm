@@ -23,6 +23,7 @@
 #include "FrameworkTest.h"
 
 #define TEST_SIZE 100
+#define TEST_COUNT 100000
 
 extern cl_device_type gDeviceType;
 
@@ -43,12 +44,6 @@ bool EventDependenciesTest()
     err = clGetPlatformIDs(1,&platform,NULL);
     bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
     if (!bResult)    return bResult;
-
-	int TEST_COUNT = 10000;
-	if ( gDeviceType == CL_DEVICE_TYPE_ACCELERATOR ) 
-	{
-		TEST_COUNT = 1000;
-	}
 
     // init device
     err     = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
