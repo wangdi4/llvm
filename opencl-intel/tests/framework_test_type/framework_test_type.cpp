@@ -253,7 +253,7 @@ TEST(FrameworkTestType, Test_clCreateImageTest)
     EXPECT_TRUE(clCreateImageTest());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clImageExecuteTest)
+TEST(FrameworkTestType, Test_clImageExecuteTest)
 {
     EXPECT_TRUE(clImageExecuteTest());
 }
@@ -320,7 +320,7 @@ TEST(FrameworkTestType, Test_clRelaxedFunctionTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_EnqueueNativeKernelTest)
+TEST(FrameworkTestType, Test_EnqueueNativeKernelTest)
 {
     EXPECT_TRUE(EnqueueNativeKernelTest());
 }
