@@ -24,6 +24,7 @@ File Name:  BLTMiscellaneousVector.h
 #include "Helpers.h"
 #include "IBLTMapFiller.h"
 #include "RefALU.h"
+#include "Utils.h"
 
 namespace Validation {
 namespace OCLBuiltins {
@@ -45,8 +46,14 @@ namespace OCLBuiltins {
 
         R.AggregateVal.resize(n);
 
+        int m = (int)arg0.AggregateVal.size();
+        // For shuffle, only the ilogb(2m-1) least significant bits of each mask 
+        // element are considered. Other bits in the mask shall be ignored.
+
+        unsigned mask = (1 << shuffleGetNumMaskBits(m)) - 1;
+
         for( uint32_t i=0; i<n; i++) {
-            unsigned j = (unsigned)getVal<T2,n>(arg1, i);
+            unsigned j = (unsigned)getVal<T2,n>(arg1, i) & mask;
             getRef<T1,n>(R, i) = getRef<T1,n>(arg0, j);
         }
 
@@ -64,16 +71,19 @@ namespace OCLBuiltins {
 
         R.AggregateVal.resize(n);
 
+        int m = (int)arg0.AggregateVal.size();
+        assert(m == (int)arg1.AggregateVal.size() && "both arg0 and arg1 vectors should have the same size");
+        // For shuffle2, only the ilogb(2m-1)+1 least significant bits of each mask 
+        // element are considered. Other bits in the mask shall be ignored.
+
+        unsigned mask = (1 << (shuffleGetNumMaskBits(m) + 1)) - 1;
+
         for( uint32_t i=0; i<n; i++) {
-            unsigned j = (unsigned)getVal<T2,n>(arg2, i);
+            unsigned j = (unsigned)getVal<T2,n>(arg2, i) & mask;
             if(j < arg0.AggregateVal.size()) {
                 getRef<T1,n>(R, i) = getRef<T1,n>(arg0, j);
             } else {
-                if(j < arg0.AggregateVal.size() + arg1.AggregateVal.size()) {
-                    getRef<T1,n>(R, i) = getRef<T1,n>(arg1,j-arg0.AggregateVal.size());
-                } else {
-                    throw Exception::InvalidArgument("lle_X_shuffle2: Wrong element selector value ");
-                }
+                getRef<T1,n>(R, i) = getRef<T1,n>(arg1,j-arg0.AggregateVal.size());
             }
         }
 

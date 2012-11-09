@@ -2049,6 +2049,9 @@ void NEATPlugIn::execute_shuffle2(Function *F,
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
 
+    if (ValArg0.NEATVec.GetSize() != ValArg1.NEATVec.GetSize())
+        throw Exception::NEATTrackFailure("[NEATPlugIn::execute_shuffle2]: wrong vector size.");
+
     GenericValue ValArg2 = GetGenericArg(2);
 
    std::vector<uint32_t> mask_vec;
