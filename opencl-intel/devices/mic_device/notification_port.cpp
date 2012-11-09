@@ -22,7 +22,7 @@ OclMutex*       NotificationPort::m_notificationThreadsMutex = NULL;
 class NotificationPort::StaticInitializer
 {
 public:
-    StaticInitializer() 
+    StaticInitializer()
     {
         m_NotificationThreadsSet   = new set<pthread_t>;
         m_notificationThreadsMutex = new OclMutex;
@@ -34,7 +34,7 @@ public:
         {
             delete m_notificationThreadsMutex;
             m_notificationThreadsMutex = NULL;
-            
+
             delete m_NotificationThreadsSet;
             m_NotificationThreadsSet = NULL;
         }
@@ -66,7 +66,7 @@ void NotificationPort::waitForAllNotificationPortThreads()
     {
         return;
     }
-    
+
 	{
 		// Get snapshot of the current threads alive.
 		OclAutoMutex lock(m_notificationThreadsMutex);
@@ -84,7 +84,7 @@ void NotificationPort::waitForAllNotificationPortThreads()
 		}
 
 		liveThreadsSnapshot.clear();
-		
+
 		{
 			// Get snapshot of the current threads alive.
 			OclAutoMutex lock(m_notificationThreadsMutex);
@@ -93,7 +93,7 @@ void NotificationPort::waitForAllNotificationPortThreads()
 	}
 
     init_statics.Release();
-    
+
 }
 
 NotificationPort::NotificationPort(void) : m_poc(0), m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED)
@@ -428,7 +428,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 
 void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
 {
-	m_maxBarriers =   + (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
+	m_maxBarriers +=   (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
 	assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
 	m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
 	assert(m_barriers && "memory allocation failed for m_barriers");
