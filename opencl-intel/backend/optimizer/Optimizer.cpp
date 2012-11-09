@@ -66,6 +66,8 @@ extern "C" llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
 #endif
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
+extern "C" llvm::FunctionPass *createPrefetchPass();
+ 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
@@ -79,7 +81,7 @@ llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
- 
+
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
 void getKernelLocalBufferInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
  
@@ -423,6 +425,20 @@ Optimizer::Optimizer( llvm::Module* pModule,
     // *** keep this optimization last, or at least after function inlining! ***
     if (!pConfig->GetLibraryModule())
       m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
+
+    // Add prefetches only for MIC, if not in debug mode, and don't change the
+    // library
+    if (debugType == None && !pConfig->GetLibraryModule() &&
+        pConfig->GetCpuId().GetCPU() == Intel::MIC_KNC) {
+      m_modulePasses.add(createPrefetchPass());
+
+      m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
+      m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
+      m_modulePasses.add(llvm::createGVNPass());
+#ifdef _DEBUG
+      m_modulePasses.add(llvm::createVerifierPass());
+#endif
+    }
 }
 
 void Optimizer::Optimize()

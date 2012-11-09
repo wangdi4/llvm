@@ -420,6 +420,7 @@ set( BACKEND_PASSES
     ShuffleCallToInst
     UndefExternalFuncs
     KernelInfo
+    Prefetch
 )
 
 if (WIN32)
