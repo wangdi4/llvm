@@ -156,20 +156,22 @@ namespace Validation
         static const int TANPI_ERROR = 6;
 
         // These values are provided by SVML team and used by back-end compiler.
-        static const int NATIVE_RECIP_ERROR = 4990;
-        static const int NATIVE_DIVIDE_ERROR = 16800000;
-        static const int NATIVE_SIN_ERROR = 2230;
-        static const int NATIVE_COS_ERROR = 2230;
-        static const int NATIVE_TAN_ERROR = 5;
-        static const int NATIVE_SQRT_ERROR = 3590;
-        static const int NATIVE_RSQRT_ERROR = 3590;
-        static const int NATIVE_EXP_ERROR = 1260;
-        static const int NATIVE_EXP2_ERROR = 1230;
-        static const int NATIVE_EXP10_ERROR = 1280;
-        static const int NATIVE_LOG_ERROR = 7200;
-        static const int NATIVE_LOG2_ERROR = 651;
-        static const int NATIVE_LOG10_ERROR = 651;
-        static const int NATIVE_POWR_ERROR = 1310;
+#define NATIVE_FUNCTIONS_ERROR 8192
+#define NATIVE_FUNCTIONS_ERROR_DOUBLE 134217728 //2^27
+        static const int NATIVE_RECIP_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_DIVIDE_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_SIN_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_COS_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_TAN_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_SQRT_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_RSQRT_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_EXP_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_EXP2_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_EXP10_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_LOG_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_LOG2_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_LOG10_ERROR = NATIVE_FUNCTIONS_ERROR;
+        static const int NATIVE_POWR_ERROR = NATIVE_FUNCTIONS_ERROR;
 
         static const int HALF_EXP_ERROR = 8192;
         static const int HALF_EXP2_ERROR = 8192;
