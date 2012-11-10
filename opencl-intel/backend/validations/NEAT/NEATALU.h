@@ -759,9 +759,10 @@ public:
 
         // check if refMax on the boundary of higher exponent
         // and if refMax is normal number
-        if((!Utils::IsDenorm<DownT>(refMax)) && CimathLibd::imf_fabs(result) == (T)0.5)
+        if((!(Utils::IsDenorm<T>(refMax) || Utils::IsDenorm<DownT>(refMax) || ( DownT(refMax)==DownT(0.0)&&T(refMax)!=T(0.0)) )) &&
+            CimathLibd::imf_fabs(result) == (T)0.5)
         {
-            ulpMax /= (T)2.;            
+            ulpMax /= (T)2.;
         }
 
         T resMax = refMax+ulpMax*((T)ulps); // add ulps to ref
@@ -794,11 +795,12 @@ public:
 
         // check if refMin on the boundary of higher exponent
         // and if result is normal number
-        if((!Utils::IsDenorm<DownT>(refMin)) && CimathLibd::imf_fabs(result) == (T)0.5)
+        if((!(Utils::IsDenorm<T>(refMin) || Utils::IsDenorm<DownT>(refMin) || ( DownT(refMin)==DownT(0.0)&&T(refMin)!=T(0.0)) )) &&
+            CimathLibd::imf_fabs(result) == (T)0.5)
         {
              ulpMin /= (T)2.;
         }
-        
+
         T resMin = refMin-ulpMin*((T)(ulps)); // add ulps to ref
         T refMin_add = resMin+ulpMin*((T)ulps); // add ulps to ref
         if( refMin_add < refMin)
