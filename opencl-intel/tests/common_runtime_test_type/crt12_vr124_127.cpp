@@ -23,6 +23,9 @@
 #include <vector>
 #include "dynamic_array.h"
 
+#define CPU_DEVICE 0
+#define GPU_DEVICE 1
+
 class CRT12_VR_124_127: public CommonRuntime{};
 
 
@@ -564,4 +567,203 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	//read from GPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
+}
+//|	TEST: CRT12_VR_124_127.subBufferSync
+//|
+//|	Purpose
+//|	-------
+//|	
+//|	Verify that OCL platform can support and use one sub buffer on two devices in the same time  
+//|
+//|	Method
+//|	------
+//|
+//|	1. Create a shared context queues etc
+//| 2. Create 2 buffers 
+//| 3. split the buffers into 4 sub buffers (2 for each device)
+//| 4. copy sub buffer from the input buffer to result buffer 
+//|	5. validate result
+//|
+//|	Pass criteria
+//|	-------------
+//|
+//|	the memory object is recognized in each of the devices.
+//|
+
+void validateSubBuffer(OpenCLDescriptor ocl_descriptor, cl_mem_flags input_flags, cl_mem_flags output_flags, cl_int first_device, cl_int second_device){
+cl_uint work_dim = 1;
+	size_t global_work_size = 1;
+	size_t local_work_size = 1;
+	cl_buffer_region region;
+	DynamicArray<cl_int> buffer1(2);
+	DynamicArray<cl_int> buffer2(2);
+	cl_mem sub_buffers[4];
+	buffer1.dynamic_array[0] = 1;
+	buffer1.dynamic_array[1] = 2;
+	memset(buffer2.dynamic_array,0,sizeof(cl_int));
+	
+	//initialize cl_buffer_region
+	region.origin=0;
+	region.size=sizeof(cl_int);
+
+	// set up shared context, program and queues with kernel1
+	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "buffer_sync_kernel.cl")); 
+
+	// create the buffer objects 
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, input_flags|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*2, buffer1.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,output_flags|CL_MEM_USE_HOST_PTR,sizeof(cl_int)*2,buffer2.dynamic_array));
+
+	//split buffer into 4 sub buffers.
+	//buffers in place 0 and 1 are input. 2 and 3 are output.
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[0],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[2],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	//change region
+	region.origin=sizeof(cl_int);
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[1],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[3],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	
+	//create user event
+	ASSERT_NO_FATAL_FAILURE(createUserEvent(&ocl_descriptor.events[0], ocl_descriptor.context));
+
+	//create kernel and set arguments.
+	/*
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "kernel_1"));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&ocl_descriptor.buffers[0]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
+	*/
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "copy_buffer"));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&sub_buffers[0]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[3]));
+	
+	// enqueue kernel on first device
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,1,ocl_descriptor.events,NULL));
+
+	//set new arguments
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&sub_buffers[1]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[2]));
+	
+	// enqueue kernel on second device
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,1,ocl_descriptor.events,NULL));
+	
+	//run kernels
+	ASSERT_NO_FATAL_FAILURE(setUserEventStatus(ocl_descriptor.events[0],CL_COMPLETE));
+	finish(ocl_descriptor.queues[first_device]);
+	finish(ocl_descriptor.queues[second_device]);
+
+	//read the complete buffer with CPU device
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,NULL,NULL,NULL));
+	finish(ocl_descriptor.queues[0]);
+
+	//validate result
+	ASSERT_EQ(2,buffer2.dynamic_array[0]) << "result is not 2 as expected";
+	ASSERT_EQ(1,buffer2.dynamic_array[1]) << "result is not 1 as expected";	
+}
+
+//like the preveuios methood but each device will run in his own time
+void validateSubBufferOneByOne(OpenCLDescriptor ocl_descriptor, cl_mem_flags input_flags, cl_mem_flags output_flags, cl_int first_device, cl_int second_device){
+cl_uint work_dim = 1;
+	size_t global_work_size = 1;
+	size_t local_work_size = 1;
+	cl_buffer_region region;
+	DynamicArray<cl_int> buffer1(2);
+	DynamicArray<cl_int> buffer2(2);
+	cl_mem sub_buffers[4];
+	buffer1.dynamic_array[0] = 1;
+	buffer1.dynamic_array[1] = 2;
+	memset(buffer2.dynamic_array,0,sizeof(cl_int));
+	
+	//initialize cl_buffer_region
+	region.origin=0;
+	region.size=sizeof(cl_int);
+
+	// set up shared context, program and queues with kernel1
+	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "buffer_sync_kernel.cl")); 
+
+	// create the buffer objects 
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, input_flags|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*2, buffer1.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,output_flags|CL_MEM_USE_HOST_PTR,sizeof(cl_int)*2,buffer2.dynamic_array));
+
+	//split buffer into 4 sub buffers.
+	//buffers in place 0 and 1 are input. 2 and 3 are output.
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[0],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[2],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	//change region
+	region.origin=sizeof(cl_int);
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[1],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[3],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
+	
+	//create kernel and set arguments.
+	/*
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "kernel_1"));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&ocl_descriptor.buffers[0]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
+	*/
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "copy_buffer"));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&sub_buffers[0]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[3]));
+	
+	// enqueue kernel on first device and run on first device
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	finish(ocl_descriptor.queues[first_device]);
+	
+	//set new arguments
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&sub_buffers[1]));
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[2]));
+	
+	// enqueue kernel on second device and run on second device
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	finish(ocl_descriptor.queues[second_device]);
+
+	//read the complete buffer with CPU device
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,NULL,NULL,NULL));
+	finish(ocl_descriptor.queues[0]);
+
+	//validate result
+	ASSERT_EQ(2,buffer2.dynamic_array[0]) << "result is not 2 as expected";
+	ASSERT_EQ(1,buffer2.dynamic_array[1]) << "result is not 1 as expected";	
+}
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadWriteCPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_WRITE,CL_MEM_READ_WRITE,CPU_DEVICE,CPU_DEVICE)); 
+}
+
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadOnlyWriteOnlyCPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_ONLY,CL_MEM_WRITE_ONLY,CPU_DEVICE,CPU_DEVICE)); 
+}
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadWriteGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_WRITE,CL_MEM_READ_WRITE,GPU_DEVICE,GPU_DEVICE)); 
+}
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadOnlyWriteOnlyGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_ONLY,CL_MEM_WRITE_ONLY,GPU_DEVICE,GPU_DEVICE)); 
+}
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadWriteGPUCPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_WRITE,CL_MEM_READ_WRITE,GPU_DEVICE,CPU_DEVICE)); 
+}
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadOnlyWriteOnlyGPUCPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_ONLY,CL_MEM_WRITE_ONLY,GPU_DEVICE,CPU_DEVICE)); 
+}
+
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadWriteCPUGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_WRITE,CL_MEM_READ_WRITE,CPU_DEVICE,GPU_DEVICE)); 
+}
+
+
+TEST_F(CRT12_VR_124_127, SubBufferOneByOneReadWriteCPUGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_WRITE,CL_MEM_READ_WRITE,CPU_DEVICE,CPU_DEVICE)); 
+}
+
+
+TEST_F(CRT12_VR_124_127, SubBufferOneByOneReadOnlyWriteOnlyCPUGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_ONLY,CL_MEM_WRITE_ONLY,GPU_DEVICE,CPU_DEVICE)); 
+}
+
+
+TEST_F(CRT12_VR_124_127, SubBufferSyncReadOnlyWriteOnlyCPUGPU){
+	ASSERT_NO_FATAL_FAILURE(validateSubBuffer(ocl_descriptor,CL_MEM_READ_ONLY,CL_MEM_WRITE_ONLY,CPU_DEVICE,GPU_DEVICE)); 
 }
