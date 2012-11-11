@@ -439,7 +439,8 @@ cl_dev_err_code MICSysInfo::get_variable_info(
 
     switch (param)
     {
-		case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
+        // Temporary disable until fission implementation
+		//case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
         case( CL_DEVICE_MAX_COMPUTE_UNITS):
         {
             if(! process_info_params( sizeof(cl_uint), buf_size, buf, filled_buf_size ))

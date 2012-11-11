@@ -56,7 +56,10 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     SCAL_VALUE( CL_DEVICE_TYPE,                         cl_device_type,                 CL_DEVICE_TYPE_ACCELERATOR      ),
     SCAL_VALUE( CL_DEVICE_VENDOR_ID,                    cl_uint,                        VENDOR_ID                       ),
     FUNC_VALUE( CL_DEVICE_MAX_COMPUTE_UNITS,                                            get_variable_info               ),
-	FUNC_VALUE( CL_DEVICE_PARTITION_MAX_SUB_DEVICES,                                    get_variable_info               ),
+    // Temporary disable until fission implementation
+	//FUNC_VALUE( CL_DEVICE_PARTITION_MAX_SUB_DEVICES,                                    get_variable_info               ),
+    SCAL_VALUE( CL_DEVICE_PARTITION_MAX_SUB_DEVICES,    cl_uint,                        0                               ),
+	
     SCAL_VALUE( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,     cl_uint,                        MIC_MAX_WORK_ITEM_DIMENSIONS    ),
     SCAL_VALUE( CL_DEVICE_MAX_WORK_GROUP_SIZE,          size_t,                         MIC_MAX_WORK_GROUP_SIZE         ),
     ARRY_VALUE( CL_DEVICE_MAX_WORK_ITEM_SIZES,          size_t,                         MIC_MAX_WORK_ITEM_SIZES         ),
