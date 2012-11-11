@@ -308,6 +308,12 @@ cl_uint MICSysInfo::getNumOfComputeUnits(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
+        // this calculation mshould imic the calculation done at device startup in TBB init procedure 
+        // but because info may be queued yed before the device was start - we cannot use the data from real device.
+        // we also cannot calculate it here as calculation requires configuration file that is created in 
+        // device constructor on host. 
+        // In any case data end user cannot influence the real calculations as all coniguration switches are hidden.
+        // So return the default HW threads count - (real number of HW cores - 1)*4
         return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumThreads-4;
     }
     return 0;

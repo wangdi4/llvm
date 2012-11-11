@@ -85,12 +85,10 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
 		// BUGBUG: TBB slowness workaround
 		unsigned int   Device_WorkerPerQueue()	const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, 0); }
-		
-        // BUGBUG: COI still does not support sub-buffering with parent buffers backed by HUGE pages. Temporary disable HUGE pages. 
-		size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 0); }
+		size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 512); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
 		string         Device_TbbScheduler()    const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, "auto"); }
-		string         Device_TbbBlockOptimization() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, "default_TBB_tile"); }
+		string         Device_TbbBlockOptimization() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, "rows"); }
 		bool           Device_TbbTrapWorkers()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, false); }
 		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
 		// Device safe mode setup
