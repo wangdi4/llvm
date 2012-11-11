@@ -981,10 +981,25 @@ void ThreadPool::releaseSingletonInstance()
 
 bool ThreadPool::initializeAffinityThreads()
 {
+    CPU_ZERO( &m_globalWorkersAffinityMask );
+
+    // initialize global affinity as set by COI/uOS
+    // Do this just for the case function will exit in the middle, so that the mask will be 
+    // usable in any case.
+	if (0 != sched_getaffinity( 0, sizeof(m_globalWorkersAffinityMask), &m_globalWorkersAffinityMask))
+	{
+		//Report Error
+		printf("ThreadPool GetThreadAffinityMask error: %d\n", errno);
+        assert( false && "sched_getaffinity returned error" );
+		return false;
+	}
+
+
 	if (false == gMicExecEnvOptions.use_affinity)
 	{
 		return true;
 	}
+    
 	map< unsigned int, vector<unsigned int> > coreToThreadsMap;
 	map< unsigned int, vector<unsigned int> >::iterator it;
 	ifstream ifs("/proc/cpuinfo", ifstream::in);
@@ -1035,6 +1050,9 @@ bool ThreadPool::initializeAffinityThreads()
 	}
 	ifs.close();
 
+    // start calculating device global affinity mask
+    CPU_ZERO( &m_globalWorkersAffinityMask );
+    
 	it     = coreToThreadsMap.begin();
 	if (coreToThreadsMap.end() != it)
 	{
@@ -1059,7 +1077,12 @@ bool ThreadPool::initializeAffinityThreads()
                 {
                   return false;
                 }
-				m_orderHwThreadsIds.push_back(it->second[i]);
+
+                int uOSprocessorID = it->second[i];
+                
+				m_orderHwThreadsIds.push_back(uOSprocessorID);
+                CPU_SET( uOSprocessorID, &m_globalWorkersAffinityMask );
+                
 				currRegisterCores ++;
             }
 		}
@@ -1192,11 +1215,54 @@ bool TBBThreadPool::init()
 		return false;
 	}
 
+    cpu_set_t saved_process_mask;
+
+    // TBB uses process affinity mask to calculate the number of physical processors to use and 
+    // the maximum number of workers to be created for all arenas overall.
+    // We need to limit number of physical processes to use to only the subset that was really requested.
+    if (true == gMicExecEnvOptions.use_affinity)
+    {
+        // save real process affinity mask
+    	if (0 != sched_getaffinity( 0, sizeof(saved_process_mask), &saved_process_mask))
+    	{
+    		//Report Error
+    		printf("ThreadPool GetThreadAffinityMask error: %d\n", errno);
+            assert( false && "sched_getaffinity returned error" );
+    		return false;
+    	}
+
+        // set workers affinity mask
+        if (0 != sched_setaffinity( 0, sizeof( cpu_set_t ), getGlobalWorkersAffinityMask()))
+        {
+            //Report Error
+            printf("ThreadPool Set Global Workers Affinity Mask error: %d\n", errno);
+            assert( false && "sched_setaffinity returned error" );
+            return false;            
+        }
+    }
+
 	m_numOfWorkers = gMicExecEnvOptions.num_of_worker_threads;
 	// Set tbb observe - true
 	observe(true);
+    
 	// Create extra arena in order to avoid worker threads termination when the last command queue terminates
+	// Do not set master thread affinity on current thread as this is a service pipeline thread and not a queue thread.
+	// We are also going to reset affinity mask after anyway.
 	registerMasterThread(false);
+
+    // Restore the original process affinity mask. Required to allow this service pipeline thread 
+    // to execute on physical processors not used for NDRanges execution.
+    if (true == gMicExecEnvOptions.use_affinity)
+    {
+        // restore real process affinity mask
+        if (0 != sched_setaffinity( 0, sizeof( saved_process_mask ), &saved_process_mask))
+        {
+            //Report Error
+            printf("ThreadPool Set Global Workers Affinity Mask error: %d\n", errno);
+            assert( false && "sched_setaffinity returned error" );
+        }
+    }
+    
 	return true;
 }
 

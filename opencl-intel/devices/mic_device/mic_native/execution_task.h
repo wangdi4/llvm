@@ -507,6 +507,9 @@ protected:
 	   This method assume that this thread is going to close, and does not change the affinity setting of it. */
 	bool releaseReservedAffinity();
 
+    /* Returns global workers affinity mask */
+    const cpu_set_t* getGlobalWorkersAffinityMask() const { return &m_globalWorkersAffinityMask; };
+
 	/* Return the next available worker ID (Use it for workers only. (The first ID is 1) */
 	unsigned int getNextWorkerID() { unsigned int myID = m_NextWorkerID++;
 									 assert(myID <= MIC_NATIVE_MAX_WORKER_THREADS);
@@ -536,6 +539,9 @@ private:
 
 	// Lock keeper for m_reserveHwThreadsIDs
 	pthread_mutex_t m_reserveHwThreadsLock;
+
+    // Global workers affinity mask 
+    cpu_set_t m_globalWorkersAffinityMask;
 
 	// The singleton thread pool
 	static ThreadPool* m_singleThreadPool;
