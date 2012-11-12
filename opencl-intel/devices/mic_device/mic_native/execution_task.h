@@ -228,7 +228,7 @@ public:
         void work_group_start();
         void work_group_end();
         
-        void append_data_item( unsigned int n_coords, unsigned int col, unsigned int raw = 0, unsigned int page = 0 );
+        void append_data_item( unsigned int n_coords, unsigned int col, unsigned int row = 0, unsigned int page = 0 );
         
         static void global_init();
     private:
@@ -398,9 +398,9 @@ public:
         static ExecutorFunc affinity_block_default[MAX_WORK_DIM];
         static ExecutorFunc openmp_block_default[MAX_WORK_DIM];
 
-        static ExecutorFunc auto_block_raw[MAX_WORK_DIM];
-        static ExecutorFunc affinity_block_raw[MAX_WORK_DIM];
-        static ExecutorFunc openmp_block_raw[MAX_WORK_DIM];
+        static ExecutorFunc auto_block_row[MAX_WORK_DIM];
+        static ExecutorFunc affinity_block_row[MAX_WORK_DIM];
+        static ExecutorFunc openmp_block_row[MAX_WORK_DIM];
 
         static ExecutorFunc auto_block_column[MAX_WORK_DIM];
         static ExecutorFunc affinity_block_column[MAX_WORK_DIM];

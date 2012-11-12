@@ -83,50 +83,50 @@ private:
 };
 
 //
-//   Optimize access by Raw (split by column)
+//   Optimize access by Row (split by row)
 //
 
-typedef BlockedRange BlockedRangeByRaw1d;
+typedef BlockedRange BlockedRangeByRow1d;
 
-class BlockedRangeByRaw2d 
+class BlockedRangeByRow2d 
 {
 public:
-    BlockedRangeByRaw2d() : m_cols(), m_rows() {};
+    BlockedRangeByRow2d() : m_cols(), m_rows() {};
         
-    BlockedRangeByRaw2d( BlockedRange::BlockedRangeValueType min_rows, 
+    BlockedRangeByRow2d( BlockedRange::BlockedRangeValueType min_rows, 
                          BlockedRange::BlockedRangeValueType max_rows, 
                          BlockedRange::BlockedRangeValueType min_cols, 
                          BlockedRange::BlockedRangeValueType max_cols, 
                          BlockedRange::BlockedRangeSizeType  grain = 1 ) : 
         m_rows(min_rows,max_rows,grain), m_cols(min_cols,max_cols)  {};
 
-    BlockedRangeByRaw2d( const BlockedRangeByRaw2d& o ) : 
+    BlockedRangeByRow2d( const BlockedRangeByRow2d& o ) : 
         m_rows(o.m_rows), m_cols(o.m_cols) {};
     
-    BlockedRangeByRaw2d(const tbb::blocked_range2d<int>& tbb_r) :
+    BlockedRangeByRow2d(const tbb::blocked_range2d<int>& tbb_r) :
         m_rows(tbb_r.rows()), m_cols(tbb_r.cols(),1) {};
     
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& rows() const { return m_rows; };
-    const BlockedRangeByRaw1d& cols() const { return m_cols; };
+    const BlockedRangeByRow1d& rows() const { return m_rows; };
+    const BlockedRangeByRow1d& cols() const { return m_cols; };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_rows.grainsize(); };
 
     // make me the right side of the range, update other to be the left side of the range
     // first try to split columns
-    BlockedRangeByRaw2d( BlockedRangeByRaw2d& o, tbb::split ) : 
+    BlockedRangeByRow2d( BlockedRangeByRow2d& o, tbb::split ) : 
         m_rows(o.m_rows), m_cols(o.m_cols)
     {
-        if (m_cols.size() > 1)
+        if (m_rows.size() > 1)
         {
-            m_cols = BlockedRange( o.m_cols, tbb::split() );
+            m_rows = BlockedRange( o.m_rows, tbb::split() );
         }
         else
         {
-            m_rows = BlockedRange( o.m_rows, tbb::split() );
+            m_cols = BlockedRange( o.m_cols, tbb::split() );
         }
     }
     
@@ -135,12 +135,12 @@ private:
    BlockedRange  m_cols;    
 };
 
-class BlockedRangeByRaw3d 
+class BlockedRangeByRow3d 
 {
 public:
-    BlockedRangeByRaw3d() : m_pages(), m_cols(), m_rows() {};
+    BlockedRangeByRow3d() : m_pages(), m_cols(), m_rows() {};
         
-    BlockedRangeByRaw3d( BlockedRange::BlockedRangeValueType min_pages, 
+    BlockedRangeByRow3d( BlockedRange::BlockedRangeValueType min_pages, 
                          BlockedRange::BlockedRangeValueType max_pages, 
                          BlockedRange::BlockedRangeValueType min_rows, 
                          BlockedRange::BlockedRangeValueType max_rows, 
@@ -149,34 +149,34 @@ public:
                          BlockedRange::BlockedRangeSizeType  grain = 1 ) : 
         m_pages(min_pages,max_pages), m_rows(min_rows,max_rows,grain), m_cols(min_cols,max_cols)  {};
 
-    BlockedRangeByRaw3d( const BlockedRangeByRaw3d& o ) : 
+    BlockedRangeByRow3d( const BlockedRangeByRow3d& o ) : 
         m_pages(o.m_pages), m_rows(o.m_rows), m_cols(o.m_cols) {};
     
-    BlockedRangeByRaw3d(const tbb::blocked_range3d<int>& tbb_r) :
+    BlockedRangeByRow3d(const tbb::blocked_range3d<int>& tbb_r) :
         m_pages(tbb_r.pages(), 1), m_rows(tbb_r.rows()), m_cols(tbb_r.cols(), 1) {};
     
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_pages.empty() || m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_pages.is_divisible() || m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& pages() const { return m_pages; };
-    const BlockedRangeByRaw1d& rows()  const { return m_rows;  };
-    const BlockedRangeByRaw1d& cols()  const { return m_cols;  };
+    const BlockedRangeByRow1d& pages() const { return m_pages; };
+    const BlockedRangeByRow1d& rows()  const { return m_rows;  };
+    const BlockedRangeByRow1d& cols()  const { return m_cols;  };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_rows.grainsize(); };
 
     // make me the right side of the range, update other to be the left side of the range
     // first try to split columns
-    BlockedRangeByRaw3d( BlockedRangeByRaw3d& o, tbb::split ) : 
+    BlockedRangeByRow3d( BlockedRangeByRow3d& o, tbb::split ) : 
         m_pages(o.m_pages), m_rows(o.m_rows), m_cols(o.m_cols)
     {
         if (m_pages.size() > 1)
         {
             m_pages = BlockedRange( o.m_pages, tbb::split() );
         } 
-        else if (m_cols.size() > 1)
+        else if (m_rows.size() > 1)
         {
-            m_cols = BlockedRange( o.m_cols, tbb::split() );
+            m_rows = BlockedRange( o.m_rows, tbb::split() );
         }
         else
         {
@@ -191,10 +191,10 @@ private:
 };
 
 //
-//   Optimize access by Column (split by row)
+//   Optimize access by Column (split by column)
 //
 
-typedef BlockedRangeByRaw1d BlockedRangeByColumn1d;
+typedef BlockedRangeByRow1d BlockedRangeByColumn1d;
 
 class BlockedRangeByColumn2d 
 {
@@ -218,8 +218,8 @@ public:
     bool empty()                  const { return (m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& rows() const { return m_rows; };
-    const BlockedRangeByRaw1d& cols() const { return m_cols; };
+    const BlockedRangeByRow1d& rows() const { return m_rows; };
+    const BlockedRangeByRow1d& cols() const { return m_cols; };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_cols.grainsize(); };
 
@@ -228,13 +228,13 @@ public:
     BlockedRangeByColumn2d( BlockedRangeByColumn2d& o, tbb::split ) : 
         m_rows(o.m_rows), m_cols(o.m_cols)
     {
-        if (m_rows.size() > 1)
+        if (m_cols.size() > 1)
         {
-            m_rows = BlockedRange( o.m_rows, tbb::split() );
+            m_cols = BlockedRange( o.m_cols, tbb::split() );
         }
         else
         {
-            m_cols = BlockedRange( o.m_cols, tbb::split() );
+            m_rows = BlockedRange( o.m_rows, tbb::split() );
         }
     }
     
@@ -267,9 +267,9 @@ public:
     bool empty()                  const { return (m_pages.empty() || m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_pages.is_divisible() || m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& pages() const { return m_pages; };
-    const BlockedRangeByRaw1d& rows()  const { return m_rows;  };
-    const BlockedRangeByRaw1d& cols()  const { return m_cols;  };
+    const BlockedRangeByRow1d& pages() const { return m_pages; };
+    const BlockedRangeByRow1d& rows()  const { return m_rows;  };
+    const BlockedRangeByRow1d& cols()  const { return m_cols;  };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_cols.grainsize(); };
 
@@ -282,13 +282,13 @@ public:
         {
             m_pages = BlockedRange( o.m_pages, tbb::split() );
         } 
-        else if (m_rows.size() > 1)
+        else if (m_cols.size() > 1)
         {
-            m_rows = BlockedRange( o.m_rows, tbb::split() );
+            m_cols = BlockedRange( o.m_cols, tbb::split() );
         }
         else
         {
-            m_cols = BlockedRange( o.m_cols, tbb::split() );
+            m_rows = BlockedRange( o.m_rows, tbb::split() );
         }
     }
     
@@ -302,7 +302,7 @@ private:
 //   Split By Tile
 //
 
-typedef BlockedRangeByRaw1d BlockedRangeByTile1d;
+typedef BlockedRangeByRow1d BlockedRangeByTile1d;
 
 class BlockedRangeByTile2d 
 {
@@ -326,8 +326,8 @@ public:
     bool empty()                  const { return (m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& rows() const { return m_rows; };
-    const BlockedRangeByRaw1d& cols() const { return m_cols; };
+    const BlockedRangeByRow1d& rows() const { return m_rows; };
+    const BlockedRangeByRow1d& cols() const { return m_cols; };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_cols.grainsize(); };
 
@@ -375,9 +375,9 @@ public:
     bool empty()                  const { return (m_pages.empty() || m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_pages.is_divisible() || m_rows.is_divisible() || m_cols.is_divisible()); };
 
-    const BlockedRangeByRaw1d& pages() const { return m_pages; };
-    const BlockedRangeByRaw1d& rows()  const { return m_rows;  };
-    const BlockedRangeByRaw1d& cols()  const { return m_cols;  };
+    const BlockedRangeByRow1d& pages() const { return m_pages; };
+    const BlockedRangeByRow1d& rows()  const { return m_rows;  };
+    const BlockedRangeByRow1d& cols()  const { return m_cols;  };
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return m_cols.grainsize(); };
 

@@ -455,9 +455,9 @@ DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_default,     auto_executor,      BlockedR
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_default, affinity_executor,  BlockedRangeByDefaultTBB );
 DEFINE_EXECUTOR_DIMS_ARRAY( openmp_block_default,   openmp_executor,    BlockedRangeByDefaultTBB );
 
-DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_raw,         auto_executor,      BlockedRangeByRaw );
-DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_raw,     affinity_executor,  BlockedRangeByRaw );
-DEFINE_EXECUTOR_DIMS_ARRAY( openmp_block_raw,       openmp_executor,    BlockedRangeByRaw );
+DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_row,         auto_executor,      BlockedRangeByRow );
+DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_row,     affinity_executor,  BlockedRangeByRow );
+DEFINE_EXECUTOR_DIMS_ARRAY( openmp_block_row,       openmp_executor,    BlockedRangeByRow );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_column,      auto_executor,      BlockedRangeByColumn );   
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_column,  affinity_executor,  BlockedRangeByColumn );
@@ -470,10 +470,10 @@ DEFINE_EXECUTOR_DIMS_ARRAY( openmp_block_tile,      openmp_executor,    BlockedR
 TBBNDRangeTask::TBBNDRangeExecutor::ExecutorFunc*  
 TBBNDRangeTask::TBBNDRangeExecutor::g_executor[mic_TBB_scheduler_LAST][mic_TBB_block_by_LAST] = 
 {
-                  /* default by TBB tile */   /* by_raw  */         /* by_column */         /* by_tile */
-/* auto     */{   auto_block_default,         auto_block_raw,       auto_block_column,      auto_block_tile         },
-/* affinity */{   affinity_block_default,     affinity_block_raw,   affinity_block_column,  affinity_block_tile     },
-/* openmp   */{   openmp_block_default,       openmp_block_raw,     openmp_block_column,    openmp_block_tile       }
+                  /* default by TBB tile */   /* by_row  */         /* by_column */         /* by_tile */
+/* auto     */{   auto_block_default,         auto_block_row,       auto_block_column,      auto_block_tile         },
+/* affinity */{   affinity_block_default,     affinity_block_row,   affinity_block_column,  affinity_block_tile     },
+/* openmp   */{   openmp_block_default,       openmp_block_row,     openmp_block_column,    openmp_block_tile       }
 };
 
 tbb::task* TBBNDRangeTask::TBBNDRangeExecutor::execute()
