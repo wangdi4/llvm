@@ -861,10 +861,14 @@ int __attribute__((overloadable)) movemask ( long4 mask )
 
 int __attribute__((overloadable)) movemask ( int8 mask )
 {
+#ifdef __AVX__ 
+	return _mm256_movemask_ps((__m256)mask);
+#else
 	int res = movemask(mask.hi);
 	res = res << 4;
 	res |= movemask(mask.lo);
 	return res;
+#endif
 }
 
 int __attribute__((overloadable)) movemask ( long8 mask )

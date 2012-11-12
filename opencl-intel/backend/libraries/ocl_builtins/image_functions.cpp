@@ -239,15 +239,10 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d
     return pixel;
 }
 
-void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_t image, sampler_t sampler,float idxFloat)
+void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_t image, float idxFloat)
 {
-    int isNormalized = sampler & NORMALIZED_SAMPLER;
-    if(isNormalized)
-    {
-        idxFloat = idxFloat * ((image_aux_data*)image)->array_size;
-    }
     // First convert integer image index
-    int idx = floor(idxFloat + 0.5f);
+    int idx = rint(idxFloat);
     // clamp idx to edge
     if(idx < 0)
     {
@@ -260,15 +255,10 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_
     return ptr;
 }
 
-void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_array_t image, sampler_t sampler,float idxFloat)
+void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_array_t image, float idxFloat)
 {
-    int isNormalized = sampler & NORMALIZED_SAMPLER;
-    if(isNormalized)
-    {
-        idxFloat = idxFloat * ((image_aux_data*)image)->array_size;
-    }
     // First convert integer image index
-    int idx = floor(idxFloat + 0.5f);
+    int idx = rint(idxFloat);
     // clamp idx to edge
     if(idx < 0)
     {
@@ -772,7 +762,7 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
 {
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0;
-    void* pData = GetImagePtr(image, sampler, coord.z);
+    void* pData = GetImagePtr(image, coord.z);
     Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
     int4 square0, square1;
@@ -797,7 +787,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t
 {
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
-    void* pData = GetImagePtr(image, sampler, coord.z);
+    void* pData = GetImagePtr(image, coord.z);
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
     int4 trans_position = coord_cbk((void*)image, internal_coord);
@@ -821,7 +811,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler
 {
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
-    void* pData = GetImagePtr(image, sampler, coord.z);
+    void* pData = GetImagePtr(image, coord.z);
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
     int4 trans_position = coord_cbk((void*)image, internal_coord);
@@ -910,7 +900,7 @@ float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_
 float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_t sampler, float2 coord)
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
-    void* pData = GetImagePtr(image, sampler, coord.y);
+    void* pData = GetImagePtr(image, coord.y);
     Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
     int4 square0, square1;
@@ -933,7 +923,7 @@ int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t 
 int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t sampler, float2 coord)
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
-    void* pData = GetImagePtr(image, sampler, coord.y);
+    void* pData = GetImagePtr(image, coord.y);
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
     int4 trans_position = coord_cbk((void*)image, internal_coord);
@@ -955,7 +945,7 @@ uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_
 uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_t sampler, float2 coord)
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
-    void* pData = GetImagePtr(image, sampler, coord.y);
+    void* pData = GetImagePtr(image, coord.y);
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
     Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
     int4 trans_position = coord_cbk((void*)image, internal_coord);
