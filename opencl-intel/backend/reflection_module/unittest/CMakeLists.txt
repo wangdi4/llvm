@@ -35,12 +35,7 @@ target_link_libraries(
   LLVMAsmParser
 )
 
-#this ll file is used by the unittest 
-file(COPY
-  mybi.ll
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
+install(FILES mybi.ll DESTINATION bin)
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
