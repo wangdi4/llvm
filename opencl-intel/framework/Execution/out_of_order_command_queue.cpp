@@ -188,12 +188,13 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
         if ( NULL != prev_barrier )
         {
         	// Need to remove pendency from the previous barrier
-            prev_barrier->GetEvent().DecRefCnt();
+            //prev_barrier->GetEvent().DecRefCnt();
         }
         const cl_err_code ret = AddDependentOnAll(barrier);
 #if 0        
-        cmdEvent->RemoveFloatingDependence();
-#endif        
+		cmdEvent->RemoveFloatingDependence();
+#endif
+		cmdEvent.DecRefCnt();
         return ret;
     }
     return EnqueueWaitForEvents(barrier);
