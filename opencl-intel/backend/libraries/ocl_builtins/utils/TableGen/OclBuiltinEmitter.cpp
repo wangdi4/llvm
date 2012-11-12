@@ -1277,14 +1277,16 @@ OclBuiltinEmitter::run(raw_ostream& OS)
 
     const OclBuiltinImpl* Impl = m_DB.getOclBuiltinImpl(P);
     if (!Impl) {
-      GENOCL_WARNING("'" << P->getName() << "' has no implementation.\n");
+      GENOCL_WARNING("'" << P->getName() << "' has no implementation, for target:'"
+      << m_DB.getTarget() << "'\n");
       continue;
     }
 
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
       std::string impl = Impl->getCImpl((*J)->getName());
       if (impl.empty()) {
-        GENOCL_WARNING("'" << P->getName() << "' has no implementation on type '" << (*J)->getName() << "'.\n");
+        GENOCL_WARNING("'" << P->getName() << "' has no implementation on type '"
+          << (*J)->getName() << "', for target: '" << m_DB.getTarget() << "'\n");
         continue;
       }
       OS << Impl->getCImpl((*J)->getName()) << '\n';
