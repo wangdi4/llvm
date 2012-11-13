@@ -222,28 +222,19 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   // This pointer will *magically* get updated during PM.run()
   ModuleJITHolder* MJH = 0;
 
-  // Override default to generate verbose assembly.
-  TM.setAsmVerbosityDefault(true);
-
   {
     // Open the file.
+    FILE* OutF = 0;
     std::string PrintFilename("outf.s");
     std::string error;
     OwningPtr<tool_output_file> Out(new tool_output_file(PrintFilename.data(),
                                     error, 0));
-    if (!error.empty()) {
-      errs() << error << '\n';
-      return 0;
-    }
-
-    FILE* OutF = 0;
-    if (!PrintFilename.empty()) {
+    if (error.empty())
       OutF = fopen(PrintFilename.data(), "w");
-      if (!OutF) {
-        errs() << "Unable to open file " << PrintFilename << "\n";
-        return 0;
-      }
-    }
+
+    // Override default to generate verbose assembly.
+    if (OutF)
+      TM.setAsmVerbosityDefault(true);
 
     // need to do switch lowering before code generation
     PM.add(createLowerSwitchPass());
@@ -269,7 +260,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }
-    
+
     PM.run(local_mod);
 
     if (OutF)
@@ -280,7 +271,8 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     }
 
     // If we reached this far, keep the file
-    Out->keep();
+    if (Out)
+      Out->keep();
 
     // if we use an injected module we need to transform the jit holder
     // so the original module functions point into the jit buffer
