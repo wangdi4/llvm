@@ -278,19 +278,25 @@ cl_err_code	Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pMemO
 	return CL_SUCCESS;
 }
 
-// return true if ready
+// return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
 inline
-bool Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
+cl_err_code Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
 {
     assert( NULL != arg.pMemObj );
-    SharedPtr<OclEvent> mem_event = arg.pMemObj->LockOnDevice( pDev, arg.access_rights );
+    SharedPtr<OclEvent> mem_event = NULL;
+	cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, &mem_event );
+
+	if (CL_SUCCESS != errCode)
+	{
+		return errCode;
+	}
 
     if (NULL != mem_event)
     {
         m_Event->AddDependentOn( mem_event );
     }
 
-    return (NULL == mem_event);
+    return (NULL != mem_event) ? CL_NOT_READY : errCode;
 }
 
 cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
@@ -304,7 +310,8 @@ cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, 
 
     const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
 
-    bool ready = true;
+    cl_err_code retErrCode = CL_SUCCESS;
+	cl_err_code errCode = CL_SUCCESS;
 
     if (NULL != pList)
     {
@@ -314,16 +321,20 @@ cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, 
         for (; it != it_end; ++it )
         {
             const MemoryObjectArg& arg = *it;
-            ready = ready & AcquireSingleMemoryObject( arg, targetDevice );
+            errCode = AcquireSingleMemoryObject( arg, targetDevice );
+			if ((CL_SUCCESS != errCode) && ((CL_SUCCESS == retErrCode) || (CL_NOT_READY == retErrCode)))
+			{
+				retErrCode = errCode;
+			}
         }
     }
     else
     {
         assert( NULL != pSingle);
-        ready = AcquireSingleMemoryObject( *pSingle, targetDevice );
+        retErrCode = AcquireSingleMemoryObject( *pSingle, targetDevice );
     }
 
-    return (ready) ? CL_SUCCESS : CL_NOT_READY;
+    return retErrCode;
 }
 
 void Command::RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
@@ -537,12 +548,12 @@ cl_err_code CopyMemObjCommand::Init()
  ******************************************************************/
 cl_err_code CopyMemObjCommand::Execute()
 {
-    if (CL_NOT_READY == AcquireMemoryObjects(m_objs))
+	cl_err_code res = AcquireMemoryObjects(m_objs);
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
+        return res;
     }
         
-	cl_err_code res = CL_SUCCESS;
 
 	/// at this phase we know the m_pDstMemObj is valid on target device
 	res = CopyOnDevice(m_pDevice);
@@ -915,11 +926,12 @@ cl_err_code MapMemObjCommand::Execute()
     {
         return CL_NOT_READY;
     }
-    
-    if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObj, m_pActualMappingDevice))
+
+	cl_err_code res = AcquireMemoryObjects( m_pMemObj, m_pActualMappingDevice);
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
     
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
     // Prepare command.
@@ -1203,11 +1215,12 @@ cl_err_code UnmapMemObjectCommand::Execute()
     {
         return CL_NOT_READY;
     }
-    
-    if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObject, m_pActualMappingDevice))
+
+	cl_err_code res = AcquireMemoryObjects( m_pMemObject, m_pActualMappingDevice);
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
         
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
@@ -1493,10 +1506,11 @@ cl_err_code NativeKernelCommand::Init()
  ******************************************************************/
 cl_err_code NativeKernelCommand::Execute()
 {
-    if (CL_NOT_READY == AcquireMemoryObjects(m_MemOclObjects))
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
     
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
@@ -1707,9 +1721,10 @@ cl_err_code NDRangeKernelCommand::Init()
 cl_err_code NDRangeKernelCommand::Execute()
 {
 	// Set location
-	if (CL_NOT_READY == AcquireMemoryObjects(m_MemOclObjects) )
-	{
-        return CL_NOT_READY;
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+    if ( CL_SUCCESS != res )
+    {
+        return res;
 	}
 
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
@@ -1939,10 +1954,11 @@ cl_err_code ReadMemObjCommand::Execute()
 {
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
-    if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObj, MemoryObject::READ_ONLY ))
+	cl_err_code res = AcquireMemoryObjects( m_pMemObj, MemoryObject::READ_ONLY );
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
 
 	SharedPtr<OclEvent> pObjEvent;
 	cl_err_code clErr = m_pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
@@ -2245,10 +2261,11 @@ cl_err_code WriteMemObjCommand::Init()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Execute()
 {  
-    if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObj ))
+	cl_err_code res = AcquireMemoryObjects( m_pMemObj );
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
 
     SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
  	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
@@ -2406,10 +2423,11 @@ cl_err_code FillMemObjCommand::Execute()
 		return clErr;
 	}
 
-    if (CL_NOT_READY == AcquireMemoryObjects( m_pMemObj ))
+	cl_err_code res = AcquireMemoryObjects( m_pMemObj );
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
 
 	m_fillCmdParams.dim_count    = m_numOfDimms;
     for( int i=0 ; i<MAX_WORK_DIM ; ++i)
@@ -2531,10 +2549,11 @@ cl_err_code MigrateMemObjCommand::Init()
  ******************************************************************/
 cl_err_code MigrateMemObjCommand::Execute()
 {
-    if (CL_NOT_READY == AcquireMemoryObjects( m_MemObjects ))
+	cl_err_code res = AcquireMemoryObjects( m_MemObjects );
+    if ( CL_SUCCESS != res )
     {
-        return CL_NOT_READY;
-    }
+        return res;
+	}
 
 	prepare_command_descriptor(CL_DEV_CMD_MIGRATE, &m_migrateCmdParams, sizeof(cl_dev_cmd_param_migrate));
 

@@ -28,6 +28,7 @@
 #include "GenericMemObj.h"
 
 #include <Device.h>
+#include <algorithm>
 #include <assert.h>
 #include "cl_sys_defines.h"
 
@@ -41,9 +42,12 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-GenericMemObject::GenericMemObject(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
+GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :
 	MemoryObject(pContext),
-    m_BS(NULL), m_active_groups_count(0)
+	m_active_groups_count(0),
+    m_BS(NULL),
+	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL), 
+	m_updateParentFlag(0)
 {
 	INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
@@ -410,7 +414,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 }
 
 
-const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( ConstSharedPtr<FissionableDevice> dev ) const
+const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( const ConstSharedPtr<FissionableDevice>& dev ) const
 {
     TDevice2DescPtrMap::const_iterator found = m_device_2_descriptor_map.find( dev );
     return (found != m_device_2_descriptor_map.end()) ? found->second : NULL;
@@ -451,7 +455,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
 }
 
 cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
-                                                    SharedPtr<FissionableDevice> dev,
+                                                    const SharedPtr<FissionableDevice>& dev,
                                                     GenericMemObjectBackingStore* bs,
                                                     IOCLDevMemoryObject** dev_object )
 {
@@ -467,7 +471,7 @@ cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
     return CL_DEV_FAILED(devErr) ? CL_OUT_OF_RESOURCES : CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::CreateDeviceResource(SharedPtr<FissionableDevice> pDevice)
+cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
 {
     DeviceDescriptor* desc = get_device( pDevice );
 
@@ -485,7 +489,7 @@ cl_err_code GenericMemObject::CreateDeviceResource(SharedPtr<FissionableDevice> 
     return allocate_object_for_sharing_group((unsigned int)desc->m_sharing_group_id);
 }
 
-cl_err_code GenericMemObject::GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
+cl_err_code GenericMemObject::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
 {
 	assert(NULL != ppDevObject);
 
@@ -502,14 +506,14 @@ cl_err_code GenericMemObject::GetDeviceDescriptor(SharedPtr<FissionableDevice> p
     return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::UpdateDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject)
+cl_err_code GenericMemObject::UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject)
 {
 	assert(0 && "GenericMemObject is not supporting this operation");
 	return CL_INVALID_OPERATION;
 }
 
 cl_err_code	GenericMemObject::MemObjCreateDevMappedRegion(
-                                        SharedPtr<FissionableDevice> pDevice,
+                                        const SharedPtr<FissionableDevice>& pDevice,
 										cl_dev_cmd_param_map*	cmd_param_map,
 										void** pHostMapDataPtr )
 {
@@ -541,7 +545,7 @@ cl_err_code	GenericMemObject::MemObjCreateDevMappedRegion(
 }
 
 cl_err_code	GenericMemObject::MemObjReleaseDevMappedRegion(
-                                            SharedPtr<FissionableDevice> pDevice,
+                                            const SharedPtr<FissionableDevice>& pDevice,
 											cl_dev_cmd_param_map*	cmd_param_map,
 											void* pHostMapDataPtr )
 {
@@ -591,7 +595,7 @@ cl_err_code GenericMemObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapIn
                       pMapInfo->pitch[0], pMapInfo->pitch[1] );
 }
 
-cl_err_code GenericMemObject::NotifyDeviceFissioned(SharedPtr<FissionableDevice> parent, size_t count, SharedPtr<FissionableDevice>* children)
+cl_err_code GenericMemObject::NotifyDeviceFissioned(const SharedPtr<FissionableDevice>& parent, size_t count, SharedPtr<FissionableDevice>* children)
 {
     // TODO: DK: What should I do here?
     return CL_SUCCESS;
@@ -959,9 +963,78 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		return err;
 	}
 
+	// add pSubBuffer to parent m_subBuffersList
+	addSubBuffer(pSubBuffer);
+
 	assert(NULL != ppBuffer);
 	*ppBuffer = pSubBuffer;
 	return CL_SUCCESS;
+}
+
+void GenericMemObject::addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer)
+{
+	assert(NULL != pSubBuffer && "pSubBuffer must be valid pointer");
+	acquireBufferSyncLock();
+	TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
+	// If MEMORY_MODE_NORMAL mode check if the new sub-buffer is overlap with other sub-buffer.
+	if (MEMORY_MODE_NORMAL == getHierarchicalMemoryMode())
+	{
+		size_t candidateOrigin = (size_t)pSubBuffer->m_BS->GetRawData();
+		assert(pSubBuffer->m_BS->GetDimCount() == 1 && "SubBuffer dimension must be 1");
+		size_t start, end;
+		for (unsigned int i = 0; i < pSubBuffersList->size(); i++)
+		{
+			start = (size_t)pSubBuffersList->at(i)->m_BS->GetRawData();
+			end = start + pSubBuffersList->at(i)->m_BS->GetRawDataSize();
+			// If the new sub-buffer origin is in current sub-buffer range --> overlap
+			if ((candidateOrigin >= start) && (candidateOrigin < end))
+			{
+				// Switch to overlapping mode.
+				setHierarchicalMemoryMode(MEMORY_MODE_OVERLAPPING);
+				TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
+				// push all the sub-buffers to updateParentList in order to update the parent at the next memory request.
+				pUpdateParentList->insert(pUpdateParentList->end(), pSubBuffersList->begin(), pSubBuffersList->end());
+				setUpdateParentFlag(true);
+				break;
+			}
+		}
+	}
+	// Add pSubBuffer to m_subBuffersList
+	pSubBuffersList->push_back(pSubBuffer);
+	releaseBufferSyncLock();
+}
+
+void GenericMemObject::updateHierarchicalMemoryMode()
+{
+	// If we in MEMORY_MODE_NORMAL mode, the deletion of sub-buffer cannot change the mode --> finish.
+	if (MEMORY_MODE_NORMAL == getHierarchicalMemoryMode())
+	{
+		return;
+	}
+	TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
+	vector<sub_buffer_region> vSubBuffersRegion;
+	sub_buffer_region tSubBufferRegion;
+	// Add sub-buffers regions to vector
+	for (unsigned int i = 0; i < pSubBuffersList->size(); i++)
+	{
+		vSubBuffersRegion.push_back( sub_buffer_region((size_t)(pSubBuffersList->at(i)->m_BS->GetRawData()), pSubBuffersList->at(i)->m_BS->GetRawDataSize()) );
+	}
+	// Sort the sub-buffers region according to origion
+	sort(vSubBuffersRegion.begin(), vSubBuffersRegion.end(), tSubBufferRegion);
+	bool isSwitchToNormal = true;
+	// Check in the sorted vector if the next sub-buffer is in the current sub-buffer, if so --> overlapping.
+	for (unsigned int i = 1; i < vSubBuffersRegion.size(); i++)
+	{
+		if (vSubBuffersRegion[i].m_origin < (vSubBuffersRegion[i - 1].m_origin + vSubBuffersRegion[i - 1].m_size))
+		{
+			isSwitchToNormal = false;
+			break;
+		}
+	}
+	if (isSwitchToNormal)
+	{
+		setHierarchicalMemoryMode(MEMORY_MODE_NORMAL);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1269,8 +1342,8 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 // SingleUnifiedSubBuffer C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
-	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer)
+GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
+	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer), m_isZombie(false)
 {
 }
 
@@ -1289,7 +1362,7 @@ cl_err_code GenericMemObjectSubBuffer::Initialize(
 
 cl_err_code GenericMemObjectSubBuffer::create_device_object(
                                                     cl_mem_flags clMemFlags,
-                                                    SharedPtr<FissionableDevice> dev,
+                                                    const SharedPtr<FissionableDevice>& dev,
                                                     GenericMemObjectBackingStore* bs,
                                                     IOCLDevMemoryObject** dev_object )
 {
@@ -1320,7 +1393,7 @@ cl_err_code GenericMemObjectSubBuffer::create_device_object(
 }
 
 
-bool GenericMemObjectSubBuffer::IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice)
+bool GenericMemObjectSubBuffer::IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice)
 {
 	// Need to check only for sub-buffers
 

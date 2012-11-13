@@ -147,11 +147,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL id data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage ) = 0;
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent ) = 0;
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
-        virtual void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage ) = 0;
+        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) = 0;
 
         //
         // end of ownership and data validity management
@@ -249,15 +249,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // create resource of memory object for specific device.
 		// this pure virtual function need to be implemented in the buffer or image class
-		virtual cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice) = 0;
+		virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice) = 0;
 
 		// Return device resource of the memory object, associated with give device
 		// Return NULL if object was not allocated for the specific device
-		virtual cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, SharedPtr<OclEvent> OUT *ppEvent) = 0;
+		virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject, SharedPtr<OclEvent> OUT *ppEvent) = 0;
 
 		// Return device resource of the memory object, associated with give device
 		// This method is call when delayes Gfx Acquire operation is completed
-		virtual cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject) = 0;
+		virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject) = 0;
 
 		// Maps a memory object region to the host space and returns a pointer to it.
 		// The function returns a pointer to the mapped region.
@@ -324,7 +324,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Rami Jioussy
 		* Date:			August 2010
 		******************************************************************************************/
-		virtual bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice) = 0;
+		virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice) = 0;
 
 		// Registers a callback to be called upon MemoryObject Destructor execution and before
 		// any resources are being freed.
@@ -338,10 +338,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			void		NotifyDestruction();
 
 			// Low level mapped region creation function
-			virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
+			virtual	cl_err_code	MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>&,
 							cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr) = 0;
 
-			virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
+			virtual	cl_err_code	MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
 				cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr) = 0;
 
             typedef std::multimap<void*, MapParamPerPtr*>   Addr2MapRegionMultiMap;

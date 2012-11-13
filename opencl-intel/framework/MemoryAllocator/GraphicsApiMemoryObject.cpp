@@ -51,29 +51,31 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
-     * @fn  SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
+     * @fn  cl_err_code GraphicsApiMemoryObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent )
      */
 
-    SharedPtr<OclEvent> GraphicsApiMemoryObject::LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
+	cl_err_code GraphicsApiMemoryObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent )
     {
+		*pOutEvent = NULL;
 		OclAutoMutex mu(&m_muAcquireRelease);
         if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
-            return NULL;
+            return CL_SUCCESS;
         }
-		return m_itCurrentAcquriedObject->second->LockOnDevice(dev, usage);
+
+		return m_itCurrentAcquriedObject->second->LockOnDevice(dev, usage, pOutEvent);
     }
 
     /**
-     * @fn  void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
+     * @fn  cl_err_code GraphicsApiMemoryObject::UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
      */
 
-    void GraphicsApiMemoryObject::UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
+    cl_err_code GraphicsApiMemoryObject::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
     {
 		OclAutoMutex mu(&m_muAcquireRelease);
         if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )
         {
-            return;
+            return CL_SUCCESS;
         }
         return m_itCurrentAcquriedObject->second->UnLockOnDevice(dev, usage);
     }
@@ -112,7 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  cl_err_code GraphicsApiMemoryObject::CreateDeviceResource(SharedPtr<FissionableDevice> pDevice)
      */
 
-    cl_err_code GraphicsApiMemoryObject::CreateDeviceResource(SharedPtr<FissionableDevice> pDevice)
+    cl_err_code GraphicsApiMemoryObject::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
     {
         return CL_SUCCESS;
     }
@@ -121,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  bool GraphicsApiMemoryObject::IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice)
      */
 
-    bool GraphicsApiMemoryObject::IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice)
+    bool GraphicsApiMemoryObject::IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice)
     {
         return true;
     }
@@ -131,7 +133,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      *      cl_dev_cmd_param_map* cmd_param_map)
      */
 
-    cl_err_code	GraphicsApiMemoryObject::MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice> pDevice,
+    cl_err_code	GraphicsApiMemoryObject::MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>& pDevice,
         cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr)
     {
 		OclAutoMutex mu(&m_muAcquireRelease);
@@ -147,7 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      *      cl_dev_cmd_param_map* cmd_param_map)
      */
 
-    cl_err_code	GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice> pDevice,
+    cl_err_code	GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>& pDevice,
         cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr)
     {
 		OclAutoMutex mu(&m_muAcquireRelease);
@@ -230,7 +232,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      *      IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
      */
 
-    cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
+    cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
     {
 		OclAutoMutex mu(&m_muAcquireRelease);
 
@@ -285,7 +287,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 	
     }
 
-	cl_err_code GraphicsApiMemoryObject::UpdateDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject)
+	cl_err_code GraphicsApiMemoryObject::UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT *ppDevObject)
 	{
 		OclAutoMutex mu(&m_muAcquireRelease);
 

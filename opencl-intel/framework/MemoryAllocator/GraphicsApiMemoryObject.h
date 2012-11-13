@@ -74,8 +74,8 @@ namespace Intel { namespace OpenCL { namespace Framework
         cl_err_code SetAcquireCmdEvent(SharedPtr<OclEvent> pEvent); // Set Event of Acquire command that belongs to the object.
 
         // inherited methods:
-        virtual SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
-        virtual void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent );
+        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);        
 		
@@ -84,15 +84,15 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
 
-        virtual cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice);
+        virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
 
-        virtual cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice,
+        virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice,
             IOCLDevMemoryObject** ppDevObject, SharedPtr<OclEvent>* ppEvent);
 
-		virtual cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> IN pDevice,
+		virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice,
 			IOCLDevMemoryObject* OUT *ppDevObject);
 
-        virtual bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice);
+        virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
@@ -108,10 +108,10 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         // inherited methods:
 
-        virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
+        virtual	cl_err_code	MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
             cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
 
-        virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
+        virtual	cl_err_code	MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
             cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr);
 
 

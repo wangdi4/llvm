@@ -48,6 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	class Context;
     class GenericMemObjectBackingStore;
+	class GenericMemObjectSubBuffer;
 
     const unsigned int MAX_DEVICE_SHARING_GROUP_ID =    // how many sharing groups are supported
                                     MAX( (unsigned int)CL_DEV_MAX_BUFFER_SHARING_GROUP_ID,
@@ -63,13 +64,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	**********************************************************************************************/
 	class GenericMemObject: public MemoryObject, public IOCLDevRTMemObjectService
 	{
+
+	friend class DataCopyJointEvent;
+
 	public:		
 
         PREPARE_SHARED_PTR(GenericMemObject);
 
-        static SharedPtr<GenericMemObject> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+        static SharedPtr<GenericMemObject> Allocate(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType)
         {
-            return SharedPtr<GenericMemObject>(new GenericMemObject(pContext, clObjType));
+            return new GenericMemObject(pContext, clObjType);
         }
 	
 		// MemoryObject methods
@@ -88,22 +92,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_err_code UpdateHostPtr(cl_mem_flags	clMemFlags, void* pHostPtr) {return CL_INVALID_OPERATION;}
 
-        // returns NULL id data is ready and locked on given device, 
+        // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        SharedPtr<OclEvent> LockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent );
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
-        void UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage );
+		virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
-		cl_err_code CreateDeviceResource(SharedPtr<FissionableDevice> pDevice);
-		cl_err_code GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent);
-		cl_err_code UpdateDeviceDescriptor(SharedPtr<FissionableDevice> pDevice, IOCLDevMemoryObject* *ppDevObject);
+		cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
+		cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent);
+		cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject);
 
         // return TRUE is device can support this sub-buffer - as for alignment and other requirements.
         // assume that all devices do support all sub-buffer alignments.
-		bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice) { return true; }
+		bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice) { return true; }
 
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
                                     cl_buffer_create_type buffer_create_type,
@@ -139,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		size_t GetSlicePitchSize() const;
 
 		// IDeviceFissionObserver interface
-		cl_err_code NotifyDeviceFissioned(SharedPtr<FissionableDevice> parent, size_t count, SharedPtr<FissionableDevice>* children);
+		cl_err_code NotifyDeviceFissioned(const SharedPtr<FissionableDevice>& parent, size_t count, SharedPtr<FissionableDevice>* children);
 
 		// IOCLDevRTMemObjectService Methods
 		cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
@@ -154,8 +158,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code dev_error );
 
     protected:
+
+		unsigned int                        m_active_groups_count; // groups with allocated device objects
+
+		typedef vector< SharedPtr<GenericMemObjectSubBuffer> >			TSubBufferList;
+
+		enum hierarchical_memory_mode
+		{
+			MEMORY_MODE_NORMAL = 0,
+			MEMORY_MODE_OVERLAPPING
+		};
 		
-        GenericMemObject(SharedPtr<Context> pContext, cl_mem_object_type clObjType);
+        GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType);
 
         // copy all data required for sub-buffer
         cl_err_code InitializeSubObject(  cl_mem_flags		clMemFlags,
@@ -164,11 +178,76 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                           const size_t     region[MAX_WORK_DIM] );
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
-                                                  SharedPtr<FissionableDevice> dev,
+                                                  const SharedPtr<FissionableDevice>& dev,
                                                   GenericMemObjectBackingStore* bs,
                                                   IOCLDevMemoryObject** dev_object );
 
+		// set the sharing group ID of destDev in pSharingGroupId.
+		bool getDeviceSharingGroupId(const ConstSharedPtr<FissionableDevice>& destDev, unsigned int* pSharingGroupId);
+
+		// Sync the parent data with its sub-buffers data in case that 'isParent' == true or 'm_updateParentList' is not empty.
+		// devSharingGroupId is the destination device that 'this' memory object should move.
+		// usage - the ask usage memory.
+		// return SharedPtr<OclEvent> if during the update, one of the operations was async. otherwise return NULL.
+		cl_err_code updateParent(unsigned int devSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<OclEvent>* pOutEvent);
+
+		// returns NULL if data is ready and locked on given device, 
+        // non-NULL if data is in the process of copying. Returned event may be added to dependency list
+        // by the caller
+		// alreadyLock is default false, if true than do NOT acquire_data_sharing_lock, and lockOnDeviceInt will release the lock for the caller.
+		SharedPtr<OclEvent> lockOnDeviceInt( unsigned int devSharingGroupId, IN MemObjUsage usage, bool alreadyLock = false );
+
+		// release data locking on device. 
+        // MUST pass the same usage value as LockOnDevice
+		void unLockOnDeviceInt( unsigned int devSharingGroupId, IN MemObjUsage usage );
+
+		// Lock the parent m_buffersSyncLock mutex. 
+		// (use m_buffersSyncLock only by 'acquireBufferSyncLock()' and 'releaseBufferSyncLock()' methods becuase we should use the parent instance for the whole hierarchical memory group).
+		inline void acquireBufferSyncLock() { getParentMemObj().m_buffersSyncLock.Lock(); };
+
+		// UnLock the parent m_buffersSyncLock mutex. 
+		// (use m_buffersSyncLock only by 'acquireBufferSyncLock()' and 'releaseBufferSyncLock()' methods becuase we should use the parent instance for the whole hierarchical memory group).
+		inline void releaseBufferSyncLock() { getParentMemObj().m_buffersSyncLock.Unlock(); };
+
+		// Return the hierarchical_memory_mode of this hierarchical memory group. (use m_hierarchicalMemoryMode only by 'getHierarchicalMemoryMode()' and 'setHierarchicalMemoryMode()' methods)
+		inline hierarchical_memory_mode getHierarchicalMemoryMode() 
+		{ 
+			assert((((long)(getParentMemObj().m_hierarchicalMemoryMode == MEMORY_MODE_NORMAL)) || ((long)(getParentMemObj().m_hierarchicalMemoryMode == MEMORY_MODE_OVERLAPPING))) && "m_hierarchicalMemoryMode can be MEMORY_MODE_NORMAL or MEMORY_MODE_OVERLAPPING");
+			return (hierarchical_memory_mode)(long)(getParentMemObj().m_hierarchicalMemoryMode); 
+		};
+
+		// Set the hierarchical_memory_mode of this hierarchical memory group. (use m_hierarchicalMemoryMode only by 'getHierarchicalMemoryMode()' and 'setHierarchicalMemoryMode()' methods)
+		inline void setHierarchicalMemoryMode(hierarchical_memory_mode mode) { getParentMemObj().m_hierarchicalMemoryMode.exchange(mode); };
+
+		// Get m_subBuffersList of this hierarchical memory group. (use 'm_subBuffersList' only by getting it from this method.)
+		inline TSubBufferList* getSubBuffersListPtr() { return  &(getParentMemObj().m_subBuffersList); };
+		
+		// Get m_updateParentList of this hierarchical memory group. (use 'm_updateParentList' only by getting it from this method.)
+		inline TSubBufferList* getUpdateParentListPtr() { return &(getParentMemObj().m_updateParentList); };
+
+		/* Set m_updateParentFlag of the parent to 'updateParent' value.
+		   if m_updateParentList of the parent is not empty than call it with 'true' otherwise with 'false' */
+		inline void setUpdateParentFlag(bool updateParent) 
+		{ 
+			assert(getParentMemObj().m_updateParentList.size() > 0 && "If the list is empty than we should not update the parent");
+			getParentMemObj().m_updateParentFlag.exchange(updateParent); 
+		};
+
+		// retun the parent memory object.
+		virtual GenericMemObject& getParentMemObj() { return *this; };
+
     private:
+
+		// The stages in UpdateParent pipeline.
+		enum update_parent_stage
+		{
+			PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE = 0,
+			PARENT_STAGE_MOVE_ALL_CHILDS_TO_PARENT_DEVICE,
+			PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE,
+			PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE,
+			PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE,
+			PARENT_STAGE_FINAL
+		};
 
         //
         // Internal DataCopyEvent
@@ -192,40 +271,172 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void SetCompletionRequired () { m_completion_required = true; };
             bool IsCompletionRequired() const { return m_completion_required; };
 
-        private:
+        protected:
 
             DataCopyEvent(_cl_context_int* context) : OclEvent(context), m_completion_required(false)
             {
                 SetEventState(EVENT_STATE_HAS_DEPENDENCIES); 
             };
 
+			virtual ~DataCopyEvent() {};
+
+		private:
+
             bool m_completion_required;
-    
-	        virtual ~DataCopyEvent() {};        
 
 	        // A MemObjectEvent object cannot be copied
 	        DataCopyEvent(const DataCopyEvent&);           // copy constructor
 	        DataCopyEvent& operator=(const DataCopyEvent&);// assignment operator
         };
 
+		//
+        // Internal DataCopyJointEvent - Event that manage the pipeline of UpdateParent process.
+        //
+		class DataCopyJointEvent : public DataCopyEvent
+		{
+		public:
+
+			PREPARE_SHARED_PTR(DataCopyJointEvent);
+
+			static SharedPtr<DataCopyJointEvent> Allocate(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>* pOutEvent)
+            {
+                return new GenericMemObject::DataCopyJointEvent(context, destDevSharingGroupId, usage, isParent, pMemObj, parentValidGrpId, pOutEvent);
+            }
+
+			// Set the next stage to exexute in UpdateParent pipeline after all the previous stage events will complete.
+			inline void setNextStageToExecute(GenericMemObject::update_parent_stage stage)
+			{
+				m_nextStage = stage;
+			}
+
+			// Return the parent valid sharing group ID that set in event creation.
+			inline unsigned int getParentValidSharingGroupID()
+			{
+				return m_parentValidGroupId;
+			}
+
+			// Set the updateChildList.
+			inline void setUpdateChildList(const vector<GenericMemObjectSubBuffer*>& updateChildList)
+			{
+				assert(m_updateParentList.size() == 0 && "The size of m_updateParentList must be 0 when calling to setUpdateChildList()");
+				m_updateParentList = updateChildList;
+			}
+
+			// Get the updateChildList.
+			inline vector<GenericMemObjectSubBuffer*>& getUpdateChildList()
+			{
+				return m_updateParentList;
+			}
+
+			// Clear the content of m_updateParentList
+			inline void resetUpdateChildList()
+			{
+				m_updateParentList.clear();
+			}
+
+			// Set the zombieBuffersList
+			inline void setZombieBuffersList(const TSubBufferList& zombieBuffersList)
+			{
+				assert(m_zombieBuffersList.size() == 0 && "The size of m_zombieBuffersList must be 0 when calling to setZombieBuffersList()");
+				m_zombieBuffersList = zombieBuffersList;
+			}
+
+			// Get the zombieBuffersList.
+			inline TSubBufferList& getZombieBuffersList()
+			{
+				return m_zombieBuffersList;
+			}
+
+			// Clear the content of m_zombieBuffersList
+			inline void resetZombieBuffersList()
+			{
+				m_zombieBuffersList.clear();
+			}
+
+			// Set the parentChildList.
+			inline void setParentChildList(const TSubBufferList& parentChildList)
+			{
+				assert(m_subBuffersList.size() == 0 && "The size of m_subBuffersList must be 0 when calling to setParentChildList()");
+				m_subBuffersList = parentChildList;
+			}
+
+			// Get the parentChildList.
+			inline vector< SharedPtr< GenericMemObjectSubBuffer> >& getParentChildList()
+			{
+				return m_subBuffersList;
+			}
+
+			// call it if the caller shall erase zombies.
+			inline void setEraseZombies()
+			{
+				m_eraseZombiesFromParentList = true;
+			}
+
+			inline bool isEraseZombies()
+			{
+				return m_eraseZombiesFromParentList;
+			}
+
+		protected:
+
+			// Overwrite OCLEvent method.
+			// Will call when all the events that this event dependent on will complete.
+			// It call to the next stage of UpdateParent pipeline.
+			virtual void DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
+			{
+				cl_err_code errCode = CL_SUCCESS;
+				errCode = m_pMemObj->updateParentInt(m_destDevSharingGroupId, m_memoryUsage, m_isParent, this, m_nextStage, m_pOutEvent);
+				assert(CL_SUCCESS == errCode && "In case that errCode is not CL_SUCCESS ==> invalidate the event //TODO");
+			}
+
+		private:
+
+			DataCopyJointEvent(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>* pOutEvent) : DataCopyEvent(context), 
+				m_destDevSharingGroupId(destDevSharingGroupId), m_memoryUsage(usage), m_isParent(isParent), m_pMemObj(pMemObj), m_parentValidGroupId(parentValidGrpId), m_eraseZombiesFromParentList(false), m_pOutEvent(pOutEvent)
+            {
+			};
+
+			virtual ~DataCopyJointEvent() {};
+
+	        // A MemObjectEvent object cannot be copied
+	        DataCopyJointEvent(const DataCopyJointEvent&);           // copy constructor
+	        DataCopyJointEvent& operator=(const DataCopyJointEvent&);// assignment operator
+
+			unsigned int							m_destDevSharingGroupId;
+			MemObjUsage								m_memoryUsage;
+			bool									m_isParent;
+			GenericMemObject*						m_pMemObj;
+
+			GenericMemObject::update_parent_stage	m_nextStage;
+			unsigned int							m_parentValidGroupId;
+
+			bool									m_eraseZombiesFromParentList;
+
+			vector<GenericMemObjectSubBuffer*>		m_updateParentList;
+			TSubBufferList							m_zombieBuffersList;
+			TSubBufferList							m_subBuffersList;
+
+			SharedPtr<OclEvent>*					m_pOutEvent;
+		};
+
         //
         // END OF Internal DataCopyEvent
         //
 
 		// Low level mapped region creation function
-		virtual	cl_err_code	MemObjCreateDevMappedRegion(SharedPtr<FissionableDevice>,
+		virtual	cl_err_code	MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>&,
 			cl_dev_cmd_param_map*	cmd_param_map, void** pHostMapDataPtr);
 		// Low level mapped region release function
-		virtual	cl_err_code	MemObjReleaseDevMappedRegion(SharedPtr<FissionableDevice>,
+		virtual	cl_err_code	MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
 			cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr);
 
         struct DeviceDescriptor
         {
-            SharedPtr<FissionableDevice>              m_pDevice;
-            size_t							m_sharing_group_id;
-            size_t							m_alignment;
+            SharedPtr<FissionableDevice>				m_pDevice;
+            size_t										m_sharing_group_id;
+            size_t										m_alignment;
 
-            DeviceDescriptor( SharedPtr<FissionableDevice> dev, size_t group, size_t alignment ) :
+            DeviceDescriptor( const SharedPtr<FissionableDevice>& dev, size_t group, size_t alignment ) :
                     m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment) {};
 
             DeviceDescriptor( const DeviceDescriptor& o ) :
@@ -233,10 +444,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         };
 
-        typedef std::list<DeviceDescriptor>                     TDeviceDescList;
-        typedef std::list<DeviceDescriptor*>                    TDeviceDescPtrList;
-        typedef std::map<ConstSharedPtr<FissionableDevice>,DeviceDescriptor*>  TDevice2DescPtrMap;
-        typedef std::vector<const IOCLDeviceAgent*>             TDevAgentsVector;
+        typedef std::list<DeviceDescriptor>										TDeviceDescList;
+        typedef std::list<DeviceDescriptor*>									TDeviceDescPtrList;
+        typedef std::map<ConstSharedPtr<FissionableDevice>,DeviceDescriptor*>	TDevice2DescPtrMap;
+        typedef std::vector<const IOCLDeviceAgent*>								TDevAgentsVector;
 
         // data copy state
         enum DataCopyState
@@ -299,7 +510,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         TDevice2DescPtrMap                  m_device_2_descriptor_map;
 
         GenericMemObjectBackingStore*       m_BS;
-        unsigned int                        m_active_groups_count; // groups with allocated device objects
 
         // FSM for data sharing:
         enum DataSharingFSM_State
@@ -352,9 +562,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OclSpinMutex                        m_global_lock;         // lock for control structures changes
 
         cl_err_code allocate_object_for_sharing_group( unsigned int group_id );
-        const DeviceDescriptor* get_device( ConstSharedPtr<FissionableDevice> dev ) const;
+        const DeviceDescriptor* get_device( const ConstSharedPtr<FissionableDevice>& dev ) const;
 
-        DeviceDescriptor* get_device( ConstSharedPtr<FissionableDevice> dev )
+        DeviceDescriptor* get_device( const ConstSharedPtr<FissionableDevice>& dev )
         { return const_cast<DeviceDescriptor*>( ConstSharedPtr<GenericMemObject>(this)->get_device(dev) ); };
 
         IOCLDevMemoryObject* device_object( const SharingGroup& group )
@@ -371,19 +581,94 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         void          remove_device_objects(void);
 
+		// define the current memory mode status (Of all hierarchical group). Use only the parent instance.
+		AtomicCounter										m_hierarchicalMemoryMode;
+
+		// Vector of all my sub-buffers. Use only the parent instance.
+		TSubBufferList										m_subBuffersList;
+
+		// Vector of sub buffers that should update the parent before the next memory object request. Use only the parent instance.
+		TSubBufferList										m_updateParentList;
+
+		AtomicCounter										m_updateParentFlag;
+
+		// Mutex for parent buffer / sub-buffers sync. Use only the parent instance.
+		OclSpinMutex										m_buffersSyncLock;
+
+		// Call it when new sub-buffer creates.
+		// pSubBuffer is the sub-buffer that created.
+		// add pSubBuffer to m_subBuffersList and update m_hierarchicalMemoryMode.
+		void addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer);
+
+		struct sub_buffer_region
+		{
+			sub_buffer_region() : m_origin(0), m_size(0)
+			{
+			}
+			sub_buffer_region(size_t origin, size_t size) : m_origin(origin), m_size(size)
+			{
+			}
+			size_t m_origin;
+			size_t m_size;
+			bool operator() (sub_buffer_region first, sub_buffer_region second) { return (first.m_origin < second.m_origin); };
+		};
+
+		// Call it after erasing sub-buffer(s) from m_subBuffersList.
+		// It update m_hierarchicalMemoryMode if needed.
+		// Assume that the caller own m_buffersSyncLock mutex
+		void updateHierarchicalMemoryMode();
+
+		/* The UpdateParent pipeline implementation */
+		cl_err_code updateParentInt(unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<DataCopyJointEvent> dataCopyJointEvent, update_parent_stage stage, SharedPtr<OclEvent>* pOutEvent);
+
+		/* If this buffer is valid on preferedDevice than lock on it, otherwise lock on the first device that it valid on, if it is not valid on all devices than lock on 'preferedDevice'.
+		   esume that the LockOnDevice() operation will not sent async operation because the device is alreay on the device.
+		   pDeviceLocked will store the index of the sharing group that the device is locked on. 
+		   Assume that the caller own m_buffersSyncLock mutex */
+		void findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked);
+
+		/* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent m_updateParentList. 
+		   Assume that the caller own m_buffersSyncLock mutex. */
+		inline void unlockOnDeviceAndRemoveFromUpdateList(unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj)
+		{
+			TSubBufferList* tUpdateParentListPtr = getUpdateParentListPtr();
+			unlockOnDeviceAndRemoveFromListInt(tUpdateParentListPtr, parentValidSharingGroupId, pMemObj);
+			if (0 == tUpdateParentListPtr->size())
+			{
+				setUpdateParentFlag(false);
+			}
+		};
+
+		/* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent m_subBuffersList.
+		   Assume that the caller own m_buffersSyncLock mutex*/
+		inline void unlockOnDeviceAndRemoveFromChildList(unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj)
+		{
+			unlockOnDeviceAndRemoveFromListInt(getSubBuffersListPtr(), parentValidSharingGroupId, pMemObj);
+		};
+
+		/* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent list 'parentList'.
+		   Assume that the caller own m_buffersSyncLock mutex*/
+		void unlockOnDeviceAndRemoveFromListInt(TSubBufferList* parentList, unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj);
+
+		/* Return true if m_updateParentFlag != 0 --> if m_updateParentList of the parent is not empty. */
+		inline bool getUpdateParentFlag() { return (0 != (long)(getParentMemObj().m_updateParentFlag));  };
 	};
 
 	class GenericMemObjectSubBuffer : public GenericMemObject
 	{
+
+	friend class GenericMemObject;
+
 	public:
-		GenericMemObjectSubBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
-        PREPARE_SHARED_PTR(GenericMemObjectSubBuffer);
+		PREPARE_SHARED_PTR(GenericMemObjectSubBuffer);
 
-        static SharedPtr<GenericMemObjectSubBuffer> Allocate(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType,
+		GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
+
+        static SharedPtr<GenericMemObjectSubBuffer> Allocate(const SharedPtr<Context>& pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType,
             GenericMemObject& buffer)
         {
-            return SharedPtr<GenericMemObjectSubBuffer>(new GenericMemObjectSubBuffer(pContext, pOclEntryPoints, clObjType, buffer));
+            return new GenericMemObjectSubBuffer(pContext, pOclEntryPoints, clObjType, buffer);
         }
 
 		cl_err_code Initialize(
@@ -399,18 +684,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
 			const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) {return CL_INVALID_MEM_OBJECT;}
 
-		bool IsSupportedByDevice(SharedPtr<FissionableDevice> pDevice);
+		bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
 
         cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
+		// returns NULL if data is ready and locked on given device, 
+        // non-NULL if data is in the process of copying. Returned event may be added to dependency list by the caller
+		// Overwrite parent implementation.
+		virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent );
+
+		// release data locking on device. 
+        // MUST pass the same usage value as LockOnDevice
+		// Overwrite parent implementation.
+		virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+
 	protected:
         
-        GenericMemObjectSubBuffer(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
+        GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
-                                                  SharedPtr<FissionableDevice> dev,
+                                                  const SharedPtr<FissionableDevice>& dev,
                                                   GenericMemObjectBackingStore* bs,
                                                   IOCLDevMemoryObject** dev_object );
+
+		// Return parent memory object.
+		virtual GenericMemObject& getParentMemObj() { return (GenericMemObject&)m_rBuffer; };
 
 		// do not implement
         GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer&);
@@ -419,6 +717,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
         
         const GenericMemObject& m_rBuffer;
+
+		volatile bool m_isZombie;
 
 	};
 

@@ -232,8 +232,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
 
 		Command& operator=(const Command&);
-        // return true if ready
-        bool AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
+        // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
+        cl_err_code AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
         cl_err_code AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
         void RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
                 
