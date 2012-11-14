@@ -175,19 +175,22 @@ void OclEvent::AddObserver(const SharedPtr<IEventObserver>& pObserver)
 	m_ObserversListGuard.Lock();
     IEventObserver* observer = pObserver.GetPtr();
 
-	if (observer->GetExpectedExecState() >= GetEventExecState())
+    cl_int currExecState = GetEventExecState();
+    cl_int expectedState = observer->GetExpectedExecState(); 
+
+	if (expectedState >= currExecState)
 	{
 		//event completed while we were registering, or already happened, notify immediately
 		m_ObserversListGuard.Unlock();
 		cl_int retcode = GetReturnCode();
 		// Evgeny: Should find another way to propogate the EXEC_STATE.
 		//			retcode has one notation
-		retcode = retcode < 0 ? retcode : observer->GetExpectedExecState();
+		retcode = retcode < 0 ? retcode : expectedState;
 		observer->ObservedEventStateChanged(this, retcode);
 	}
 	else
 	{
-		switch(observer->GetExpectedExecState())
+		switch(expectedState)
 		{
 		case CL_COMPLETE:
 			m_CompleteObserversList.push_back(pObserver);
