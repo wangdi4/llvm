@@ -44,7 +44,7 @@ class GenericImageArray : public GenericMemObject, public IMemoryObjectArray
 {
 public:    
 
-    PREPARE_SHARED_PTR(GenericImageArray);
+    PREPARE_SHARED_PTR(GenericImageArray)
 
     static SharedPtr<GenericImageArray> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {

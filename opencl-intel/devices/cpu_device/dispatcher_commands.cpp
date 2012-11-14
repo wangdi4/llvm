@@ -102,16 +102,11 @@ DispatcherCommand::~DispatcherCommand()
 #endif
 }
 
-inline WGContext* DispatcherCommand::GetWGContext(unsigned int id)
-{
-	return m_pTaskDispatcher->GetWGContext(id);
-}
-
 void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
 {
 	if ( CL_COMPLETE == uStatus )
 	{
-		void* pTaskPtr = TAS(&cmd->device_agent_data, NULL);
+		void* pTaskPtr = cmd->device_agent_data;
 		// If the ITask pointer still exists we need reduce reference count
 		// and release ITask object
 		if ( NULL != pTaskPtr )
@@ -209,7 +204,7 @@ template <class ITaskClass>
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
-cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -227,7 +222,7 @@ cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc*
 #endif
 
 	assert(pTask);
-	*pTask = static_cast<ITaskBase*>(pCommand);
+	*pTask = pCommand;
 
 	return CL_DEV_SUCCESS;
 }
@@ -357,7 +352,7 @@ bool ReadWriteMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Copy memory object execution
-cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	CopyMemObject* pCommand = new CopyMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -512,7 +507,7 @@ bool CopyMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Native function execution
-cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	NativeFunction* pCommand = new NativeFunction(pTD, pCmd);
 	if (NULL == pCommand)
@@ -610,7 +605,7 @@ bool NativeFunction::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Map buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	MapMemObject* pCommand = new MapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -694,7 +689,7 @@ bool MapMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Unmap buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	UnmapMemObject* pCommand = new UnmapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -757,7 +752,7 @@ bool UnmapMemObject::Execute()
 // OCL Kernel execution
 Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
-cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 #ifdef __INCLUDE_MKL__
 	// First to check if the requried NDRange is one of the built-in kernels
@@ -1062,12 +1057,11 @@ bool NDRange::Finish(FINISH_REASON reason)
 }
 
 
-int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+int NDRange::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", (int)GetCurrentThreadId(), (int)uiWorkerId, (int)m_pCmd->id);
 #endif
-	assert(uiWorkerId != (unsigned int)-1);
 
 #ifdef _DEBUG
 	long lVal = m_lFinish.test_and_set(0, 0);
@@ -1077,24 +1071,23 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	}
 	++m_lAttaching ;
 #endif
-
-	WGContext* pCtx = GetWGContext(uiWorkerId);
-	if ( NULL == pCtx )
+	
+    if ( NULL == pWgContext )
 	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context"));
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
 #ifdef _DEBUG
 	--m_lAttaching ;
 #endif	
 		return (cl_int)CL_DEV_ERROR_FAIL;
 	}
-
+    WGContext* pCtx = static_cast<WGContext*>(pWgContext);
 	if (m_lNDRangeId != pCtx->GetNDRCmdId() )
 	{
 		cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
 		if ( CL_DEV_FAILED(ret) )
 		{
-			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to create new WG context, Id:%d, ERR:%x"), uiWorkerId, ret);
+            CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to create new execution context, Id:%d, ERR:%x"), pCtx->GetThreadId(), ret);
 			m_lastError = (int)ret;
 	#ifdef _DEBUG
 			--m_lAttaching ;
@@ -1156,7 +1149,7 @@ int NDRange::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups
 	return CL_DEV_SUCCESS;
 }
 
-int NDRange::DetachFromThread(unsigned int uiWorkerId)
+int NDRange::DetachFromThread(WGContextBase* pWgContext)
 {
 	// End execution task
 #if defined(USE_ITT)
@@ -1168,14 +1161,9 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 		__itt_task_end(m_pGPAData->pDeviceDomain);
 	}
 #endif // ITT
-
-    WGContext* pCtx = GetWGContext(uiWorkerId);
-	if ( NULL == pCtx )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context, Id:%d"), uiWorkerId);
-		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
-		return (cl_int)CL_DEV_ERROR_FAIL;
-	}
+    
+    WGContext* const pCtx = static_cast<WGContext*>(pWgContext);
+    assert(NULL != pCtx);
 	if (NULL == pCtx->GetExecutable())
 	{
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
@@ -1188,7 +1176,7 @@ int NDRange::DetachFromThread(unsigned int uiWorkerId)
 
 }
 
-void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
 {
 #ifdef _DEBUG
 	long lVal = m_lFinish.test_and_set(0, 0);
@@ -1196,8 +1184,8 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 	++ m_lExecuting;
 #endif
 
-	assert(GetWGContext(uiWorkerId));
-    ICLDevBackendExecutable_* pExec = GetWGContext(uiWorkerId)->GetExecutable();
+	assert(NULL != pWgContext);
+    ICLDevBackendExecutable_* pExec = static_cast<WGContext*>(pWgContext)->GetExecutable();
 	// We always start from (0,0,0) and process whole WG
 	// No Need in parameters now
 #ifdef _DEBUG
@@ -1222,7 +1210,7 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 				//Optionally override the iteration to be executed if an affinity permutation is defined
 	if (m_bAllowAffinityPermutation)
 	{
-		groupId[0] = m_pAffinityPermutation[uiWorkerId];
+		groupId[0] = m_pAffinityPermutation[pWgContext->GetThreadId()];
 		assert((0 == y) && (0 == z));
 	}
 #endif
@@ -1241,7 +1229,7 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWork
 
 }
 
-void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
+void NDRange::ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext)
 {
 #ifdef _DEBUG
     long lVal = m_lFinish.test_and_set(0, 0);
@@ -1249,8 +1237,8 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
     ++ m_lExecuting;
 #endif
 
-    assert(GetWGContext(uiWorkerId));
-    ICLDevBackendExecutable_* pExec = GetWGContext(uiWorkerId)->GetExecutable();
+    assert(NULL != pWgContext);
+    ICLDevBackendExecutable_* pExec = static_cast<WGContext*>(pWgContext)->GetExecutable();
 	if (NULL == pExec)
 	{
 		#ifdef _DEBUG
@@ -1288,7 +1276,7 @@ void NDRange::ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId)
 ///////////////////////////////////////////////////////////////////////////
 // OCL Fill buffer/image execution
 
-cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	FillMemObject* pCommand = new FillMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -1418,7 +1406,7 @@ bool FillMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Migrate buffer/image execution
 
-cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
+cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 	MigrateMemObject* pCommand = new MigrateMemObject(pTD, pCmd);
 	if (NULL == pCommand)

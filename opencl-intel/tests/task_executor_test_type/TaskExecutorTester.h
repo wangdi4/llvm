@@ -1,0 +1,130 @@
+// Copyright (c) 2006-2012 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+#pragma once
+
+#include "task_executor.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_object_pool.h"
+
+using namespace Intel::OpenCL::TaskExecutor;
+using Intel::OpenCL::Utils::SharedPtr;
+
+class WGContextPool : public IWGContextPool
+{
+    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) { return m_pool.Malloc(); }
+
+    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) { m_pool.Free(wgContext); }
+
+private:
+
+    Intel::OpenCL::Utils::ObjectPool<WGContextBase> m_pool;
+};
+
+/**
+ * This class represents a tester object for TaskExecutor module.
+ * Currently just testing of TBBTaskExecutor is implemented.
+ */
+class TaskExecutorTester
+{
+public:
+
+    TaskExecutorTester()
+    {
+        if (NULL == m_pTaskExecutor)
+        {
+            m_pTaskExecutor = Intel::OpenCL::TaskExecutor::GetTaskExecutor();
+            m_pTaskExecutor->Init(0, NULL);            
+        }
+        m_pTaskExecutor->SetWGContextPool(&m_wgContextPool);
+    }
+
+    ~TaskExecutorTester()
+    {
+        m_pTaskExecutor->SetWGContextPool(NULL);
+    }
+
+    ITaskExecutor& GetTaskExecutor() { return *m_pTaskExecutor; }
+
+private:
+
+    static ITaskExecutor* m_pTaskExecutor;
+    WGContextPool m_wgContextPool;
+
+};
+
+class TesterTaskSet : public ITaskSet
+{
+public:
+
+    PREPARE_SHARED_PTR(TesterTaskSet)
+
+    static SharedPtr<TesterTaskSet> Allocate(unsigned int uiNumDims) { return SharedPtr<TesterTaskSet>(new TesterTaskSet(uiNumDims)); }    
+
+    // overriden methods:
+
+    virtual bool CompleteAndCheckSyncPoint() { return false; }
+	
+    virtual bool SetAsSyncPoint() { return false; }
+
+    virtual bool IsCompleted() const { return m_bIsComplete; }
+
+    virtual long Release() { return 0; }
+
+    virtual int	Init(size_t region[], unsigned int& regCount)
+    {
+        for (unsigned int i = 0; i < m_uiNumDims; i++)
+        {
+            region[i] = 1;
+        }
+        regCount = m_uiNumDims;
+        return 0;
+    }
+
+    virtual int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) { return 0; }
+
+    virtual int	DetachFromThread(WGContextBase* pWgContext) { return 0; }
+
+    virtual void ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) { }
+
+    virtual void ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext = NULL) { }
+
+	virtual bool Finish(FINISH_REASON reason)
+    {
+        m_bIsComplete = true;
+        return true;
+    }
+
+private:
+
+    TesterTaskSet(unsigned int uiNumDims) : m_bIsComplete(false), m_uiNumDims(uiNumDims) { }
+
+    bool m_bIsComplete;
+    const unsigned int m_uiNumDims;
+
+};
+
+class TesterAffinityChangeObserver : public IAffinityChangeObserver
+{
+public:
+
+    void NotifyAffinity(unsigned int tid, unsigned int core) { }
+
+};

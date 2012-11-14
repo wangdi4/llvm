@@ -28,9 +28,10 @@ template<typename RESOURCE_TYPE, typename DEV_TYPE>
 D3DContext<RESOURCE_TYPE, DEV_TYPE>::D3DContext(const cl_context_properties* clProperties, cl_uint uiNumDevices,
     cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
     void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
-    ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions, bool bIsInteropUserSync) :
+    ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
+    const ContextModule& contextModule, bool bIsInteropUserSync) :
 Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
-    pclErr, pOclEntryPoints, pGPAData),
+    pclErr, pOclEntryPoints, pGPAData, contextModule),
     m_pD3DDevice(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync), m_pd3dDefinitions(pd3d9Definitions)
 {        
     /* The spec states that we should return "CL_INVALID_D3D9_DEVICE_Intel if the value of the property CL_CONTEXT_D3D9_DEVICE_Intel is non-NULL and does not specify a valid

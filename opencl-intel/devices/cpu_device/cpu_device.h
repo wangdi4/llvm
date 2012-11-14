@@ -32,7 +32,7 @@
 #include "cpu_config.h"
 #include "backend_wrapper.h"
 #include "task_executor.h"
-
+#include "wg_context_pool.h"
 #include <cl_synch_objects.h>
 
 
@@ -61,6 +61,7 @@ private:
 	cl_int					m_iLogHandle;
 	cl_dev_cmd_list			m_defaultCommandList;
     OpenCLBackendWrapper    m_backendWrapper;
+    WgContextPool           m_wgContextPool;
 
     size_t GetMaxSupportedPixelSize();
 
@@ -107,8 +108,7 @@ public:
 
 	// Device entry points
 	cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list);
-	cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);
-	cl_dev_err_code clDevRetainCommandList( cl_dev_cmd_list IN list);
+	cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);	
 	cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
 	cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 	cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
@@ -135,6 +135,8 @@ public:
 	cl_ulong	clDevGetPerformanceCounter();
 	cl_dev_err_code	clDevSetLogger(IOCLDevLogDescriptor *);
 	void		clDevCloseDevice(void);
+    void        clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id);
+    void        clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
 
 	const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const {return *this;}
 

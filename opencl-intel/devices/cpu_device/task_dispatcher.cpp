@@ -26,13 +26,12 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-
 #include "cpu_logger.h"
 #include "cpu_config.h"
 #include "task_executor.h"
 #include "task_dispatcher.h"
 #include "dispatcher_commands.h"
-
+#include "cl_shared_ptr.hpp"
 #include <cl_synch_objects.h>
 #include <cl_sys_info.h>
 #include <cl_utils.h>
@@ -46,47 +45,39 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
-
-#if defined(_WIN32)
-  #if defined(__WIN_XP__)
-    #error "Windows XP is not supported"
-  #endif
-__declspec(thread) WGContext* t_context = NULL;
-#else
-__thread WGContext* t_context = NULL;
-#endif
-
-extern void RegisterContextReleaseRoutine();
-
-void ReleaseThreadLocalContext()
-{
-	if ( NULL != t_context )
-	{
-		delete t_context;
-		t_context = NULL;
-	}
-}
+using Intel::OpenCL::Utils::SharedPtr;
 
 class InPlaceTaskList : public ITaskList
 {
 public:
-	InPlaceTaskList(bool bImmediate = true);
+
+    PREPARE_SHARED_PTR(InPlaceTaskList)
+
+    static SharedPtr<InPlaceTaskList> Allocate(WGContextBase* pMasterWGContext, bool bImmediate = true)
+    {
+        return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, bImmediate));
+    }
+	
 	virtual ~InPlaceTaskList();
 
-	virtual unsigned int	Enqueue(SmartPtr<ITaskBase> * pTaskBase);
+	virtual unsigned int	Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
 	virtual bool			Flush();
 	//Todo: WaitForCompletion only immediately returns if bImmediate is true
-	virtual te_wait_result  WaitForCompletion(ITaskBase* pTask) { return TE_WAIT_COMPLETED; };
+	virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
     virtual void            Retain();
 	virtual void			Release();
+    std::string GetTypeName() const { return "InPlaceTaskList"; }
 
 protected:
-    bool m_immediate;
+	WGContextBase* const m_pMasterWGContext;
+    bool m_immediate;    
 
-    virtual void ExecuteInPlace(SmartPtr<ITaskBase>* pTaskBase);
+    InPlaceTaskList(WGContextBase* pMasterWGContext, bool bImmediate = true);
+
+    virtual void ExecuteInPlace(const SharedPtr<ITaskBase>& pTaskBase);
 };
 
-InPlaceTaskList::InPlaceTaskList(bool bImmediate) : m_immediate(bImmediate)
+InPlaceTaskList::InPlaceTaskList(WGContextBase* pMasterWGContext, bool bImmediate) : m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate)
 {
     //No support for just synchronous at the moment
     assert(m_immediate);
@@ -96,7 +87,7 @@ InPlaceTaskList::~InPlaceTaskList()
 {
 }
 
-unsigned int InPlaceTaskList::Enqueue(SmartPtr<ITaskBase> *pTaskBase)
+unsigned int InPlaceTaskList::Enqueue(const SharedPtr<ITaskBase>& pTaskBase)
 {
     if (m_immediate)
     {
@@ -124,13 +115,13 @@ void InPlaceTaskList::Release()
 
 }
 
-void InPlaceTaskList::ExecuteInPlace(SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase> *pTaskBase)
+void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTaskBase)
 {
     static size_t firstWGID[] = {0, 0, 0};
     assert(pTaskBase);
-    if ((*pTaskBase)->IsTaskSet())
+    if (pTaskBase->IsTaskSet())
     {
-        ITaskSet* pTaskSet = static_cast<ITaskSet*>(pTaskBase->GetPtr());
+        ITaskSet* pTaskSet = static_cast<ITaskSet*>(pTaskBase.GetPtr());
         size_t dim[MAX_WORK_DIM];
         unsigned int dimCount;
         int res = pTaskSet->Init(dim, dimCount);
@@ -138,19 +129,19 @@ void InPlaceTaskList::ExecuteInPlace(SmartPtr<Intel::OpenCL::TaskExecutor::ITask
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
-        res = pTaskSet->AttachToThread(0, dim[0] * dim[1] * dim[2], firstWGID, dim);
+        res = pTaskSet->AttachToThread(m_pMasterWGContext, dim[0] * dim[1] * dim[2], firstWGID, dim);
         if (res != 0)
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
-        pTaskSet->ExecuteAllIterations(dim, 0);
-        pTaskSet->DetachFromThread(0);
+        pTaskSet->ExecuteAllIterations(dim, m_pMasterWGContext);
+        pTaskSet->DetachFromThread(m_pMasterWGContext);
         pTaskSet->Finish(FINISH_COMPLETED);
         pTaskSet->Release();
     }
     else
     {
-        ITask* pTask = static_cast<ITask*>(pTaskBase->GetPtr());
+        ITask* pTask = static_cast<ITask*>(pTaskBase.GetPtr());
         pTask->Execute();
         pTask->Release();
     }
@@ -204,13 +195,7 @@ TaskDispatcher::~TaskDispatcher()
 	{
 		delete []m_pWGContexts;
 		m_pWGContexts = NULL;
-	}
-    //Check if the thread closing us happens to have used our services
-    if (NULL != t_context)
-    {
-        delete t_context;
-        t_context = NULL;
-    }
+	}    
 	if (m_bTEActivated)
 	{	
 		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "TaskExecutor::GetTaskExecutor()->Deactivate();");
@@ -274,15 +259,15 @@ cl_dev_err_code TaskDispatcher::init()
 	}
 
 	//Pin threads
-	ITaskSet* pAffinitizeThreads = new AffinitizeThreads(m_uiNumThreads, 0, m_pObserver, this);
+    SharedPtr<ITaskSet> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver, this);
 	if (NULL == pAffinitizeThreads)
 	{
 		//Todo
 		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    m_pTaskExecutor->Execute(new WeakPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(pAffinitizeThreads));
-	m_pTaskExecutor->WaitForCompletion(NULL);
+    m_pTaskExecutor->Execute(SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(pAffinitizeThreads), NULL);
+	m_pTaskExecutor->WaitForCompletion(NULL, NULL);
 	
 	return CL_DEV_SUCCESS;
 }
@@ -315,11 +300,11 @@ createCommandList
 		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, void** OUT list)
+cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list)
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
 	assert( list );
-    ITaskList* pList = NULL;
+    SharedPtr<ITaskList> pList = NULL;
 
     bool isInPlace   = (0 != ((int)props & (int)CL_DEV_LIST_IN_PLACE));
     if (!isInPlace)
@@ -329,45 +314,25 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
         CommandListCreationParam p;
         p.isOOO       = isOOO;
         p.isSubdevice = isSubdevice;
-	    pList = m_pTaskExecutor->CreateTaskList(&p);
-        GetWGContext(0);
+	    pList = m_pTaskExecutor->CreateTaskList(&p, pSubdevTaskExecData);
     }
     else
     {
         //Todo: handle non-immediate lists
-        pList = new InPlaceTaskList();
+        pList = InPlaceTaskList::Allocate(m_pTaskExecutor->GetWGContext(true));
     }
-	*list = pList;
+	*list = pList.GetPtr();    
 	if ( NULL == pList )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
+    pList.IncRefCnt();
 
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), pList);
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), pList.GetPtr());
 	return CL_DEV_SUCCESS;
 }
-/******************************************************************************************************************
-retainCommandList
-	Description
-		Increments the command list reference count.
-	Input
-		list						A valid handle to device command list
-	Output
-		None
-	Returns
-		CL_DEV_SUCCESS				The function is executed successfully
-		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
-*******************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::retainCommandList( cl_dev_cmd_list IN list)
-{
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
-	ITaskList* pList = (ITaskList*)list;
-	pList->Retain();
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
-	return CL_DEV_SUCCESS;
-}
 /********************************************************************************************************************
 releaseCommandList
 	Description
@@ -386,8 +351,8 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
-	ITaskList* pList = (ITaskList*)list;
-	pList->Release();
+	SharedPtr<ITaskList> pList = (ITaskList*)list;
+    pList.DecRefCnt();
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
 	return CL_DEV_SUCCESS;
 }
@@ -417,12 +382,12 @@ cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN li
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
-	ITaskBase* pTaskToWait = NULL;
+	SharedPtr<ITaskBase> pTaskToWait = NULL;
 	if ( NULL != cmdToWait )
 	{
 		// At this stage we assume that cmdToWait is a valid pointer
 		// Appropriate reference count is done in runtime
-		void* pTaskPtr = TAS(&cmdToWait->device_agent_data, NULL);
+		void* pTaskPtr = cmdToWait->device_agent_data;
 		// Check if the command is already completed but it can be just before a call to the notification function.
 		// and we are not sure that RT got the completion notification.
 		// Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
@@ -440,15 +405,12 @@ cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN li
 	if ( NULL != pTaskToWait )
 	{
 		// Try to wait for command
-		if ( !pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res) )
+		if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)
 		{
 			((ITaskList*)list)->Flush();
 			res = TE_WAIT_MASTER_THREAD_BLOCKING;
 		}
-		// When waiting for specific task we should release it's reference
-		// Since the pointer was acquired in this function
 		pTaskToWait->Release();
-
 		// If the task is not completed at this stage we can't make further call to blocking wait
 		// becaue we are not having the task pointer and we can't set it back because its not thread safe
 		retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
@@ -500,9 +462,7 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 {
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"), list);
 
-	ITaskList*	pList;
-
-	pList = (ITaskList*)list;
+	SharedPtr<ITaskList> pList = (ITaskList*)list;
 	// If list id is 0, submit tasks directly to execution
 	if ( NULL == pList )
 	{
@@ -510,7 +470,7 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
         p.isOOO = false;
         p.isSubdevice = false;
 		// Create temporary list
-		pList = m_pTaskExecutor->CreateTaskList(&p);
+		pList = m_pTaskExecutor->CreateTaskList(&p, NULL);
 	}
 
 	// Lock current list for insert operations
@@ -521,7 +481,6 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 	if ( NULL == list )
 	{
 		pList->Flush();
-		pList->Release();
 	}
 
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), list);
@@ -531,42 +490,23 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 //---------------------------------------------------------------------------
 // Private functions
 
-WGContext* TaskDispatcher::GetWGContext(unsigned int id)
-{
-    if (0 == id)
-    {
-        if (NULL == t_context)
-        {
- 			t_context = new WGContext();
-	 		if ( CL_DEV_FAILED(t_context->Init()) )
-			{
-				delete t_context;
-				t_context = NULL;		
-			}
-			RegisterContextReleaseRoutine();
-       }
-       return t_context;
-    }
-    return m_pWGContexts + (id - 1);
-}
-
-cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
+cl_dev_err_code TaskDispatcher::NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
 {
 	CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
 		pCmd->id, pCmd->type, iRetCode);
 
-	TaskFailureNotification* pTask = new TaskFailureNotification(this, pCmd, iRetCode);
+    SharedPtr<TaskFailureNotification> pTask = TaskFailureNotification::Allocate(this, pCmd, iRetCode);
 	if ( NULL == pTask )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	pList->Enqueue(new WeakPtr<ITaskBase>(pTask));
+	pList->Enqueue(SharedPtr<ITaskBase>(pTask));
 
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count)
+cl_dev_err_code TaskDispatcher::SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count)
 {
 	for (unsigned int i=0; i<count; ++i)
 	{
@@ -574,11 +514,12 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_des
 		fnDispatcherCommandCreate_t*	fnCreate = m_vCommands[cmds[i]->type];
 
 		// Create appropriate command
-		ITaskBase* pCommand;
-		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);
+		SharedPtr<ITaskBase> pCommand;
+		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);        
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
-			pList->Enqueue(new WeakPtr<ITaskBase>(pCommand));
+            pCommand.IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
+			pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
 		} else
 		{
 			// Try to notify about the error in the same list
@@ -587,7 +528,6 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_des
 			{
 				return rc;
 			}
-
 		}
 	}
 
@@ -622,13 +562,29 @@ bool TaskDispatcher::TaskFailureNotification::Execute()
 	return true;
 }
 
+void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer)
+{
+    return m_pTaskExecutor->CreateSubdevice(uiNumSubdevComputeUnits, pLegalCores, observer);
+}
+
+void TaskDispatcher::waitUntilEmpty(void* pSubdevData)
+{
+    m_pTaskExecutor->WaitUntilEmpty(pSubdevData);
+}
+
+void TaskDispatcher::releaseSubdevice(void* pSubdevData)
+{
+    m_pTaskExecutor->ReleaseSubdevice(pSubdevData);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService, MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) 
+SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService,
+    MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData) 
 	: TaskDispatcher(devId, pDevCallbacks, programService, memAlloc, logDesc, cpuDeviceConfig, pObserver),
-	m_thread(NULL),	m_legalCoreIDs(legalCoreIDs)
+	m_legalCoreIDs(legalCoreIDs), m_pSubdevTaskExecData(pSubdevTaskExecData)
 {
 	m_uiRefCount = 2; // We start with reference count of two
 					 // The first item is for cpu device level release
@@ -643,13 +599,6 @@ SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
 
 void SubdeviceTaskDispatcher::Release()
 {
-	if ( m_threadInitSuccessful)
-	{
-		// When release from application thread need to send notificaiton to worker thread
-		m_commandListsForFlushing.PushBack(NULL);
-                m_NonEmptyQueue.Signal();
-	}
-
 	// Must wait until SubDevice worker thread finishes shutdown sequence.
 	// Use thread reentered mutex, to be able to not to wait while shuting down from the same thread
 	m_muDestructReady.Lock();
@@ -665,43 +614,13 @@ void SubdeviceTaskDispatcher::Release()
 
 cl_dev_err_code SubdeviceTaskDispatcher::init()
 {
-	m_threadInitSuccessful = false;
-
-    m_thread = new SubdeviceTaskDispatcherThread(this);
-    if ( NULL == m_thread )
-    {
-    	return CL_DEV_OUT_OF_MEMORY;
-    }
-	
-	m_thread->Start();
-	
-	m_threadInitComplete.Wait();
-	
-	return m_threadInitSuccessful ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
+	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props props, cl_dev_cmd_list *list)
+cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props props, void* IN pSubdevTaskExecData, cl_dev_cmd_list *list)
 {
 	props = (cl_dev_cmd_list_props)((unsigned int)props | (unsigned int)CL_DEV_LIST_SUBDEVICE);
-	return TaskDispatcher::createCommandList(props, list);
-}
-
-cl_dev_err_code SubdeviceTaskDispatcher::flushCommandList(cl_dev_cmd_list IN list)
-{
-    retainCommandList(list);
-	m_commandListsForFlushing.PushBack(list);
-    m_NonEmptyQueue.Signal();
-    
-	return CL_DEV_SUCCESS;
-}
-
-cl_dev_err_code SubdeviceTaskDispatcher::commandListWaitCompletion(cl_dev_cmd_list list, cl_dev_cmd_desc* cmdToWait)
-{
-	// Push SYNC command to sub-device queue
-	m_commandListsForFlushing.PushBack(SUB_DEVICE_SYNC_COMMAND);
-    m_NonEmptyQueue.Signal();
-	m_evWaitForCompletion.Wait();
-	return CL_DEV_SUCCESS;
+	return TaskDispatcher::createCommandList(props, pSubdevTaskExecData, list);
 }
 
 cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
@@ -721,112 +640,6 @@ bool SubdeviceTaskDispatcher::isDestributedAllocationRequried()
 {
 	// Always partially allocate resources
 	return true;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-SubdeviceTaskDispatcherThread::SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher) :
-	OclThread("SubdeviceDispatcherWorkerThread", true /*AutoDelete*/), m_dispatcher(dispatcher)
-{
-    m_partitioner = NULL;
-}
-
-SubdeviceTaskDispatcherThread::~SubdeviceTaskDispatcherThread()
-{
-}
-
-RETURN_TYPE_ENTRY_POINT SubdeviceTaskDispatcherThread::Run()
-{
-	if ( NULL != m_dispatcher->m_legalCoreIDs )
-	{
-		clSetThreadAffinityToCore(m_dispatcher->m_legalCoreIDs[0]);
-	}
-
-	//Ensure our allocations occur on the right node, if applicable
-	clNUMASetLocalNodeAlloc();
-	
-	WGContext* pLocalWGContext = m_dispatcher->GetWGContext(0);
-	if ( NULL == pLocalWGContext )
-	{
-		m_dispatcher->m_threadInitComplete.Signal();
-		return (RETURN_TYPE_ENTRY_POINT)0;
-	}
-	
-	//Creation of this object must be in the thread routine
-	m_partitioner = TaskExecutor::CreateThreadPartitioner(m_dispatcher->m_pObserver, m_dispatcher->m_uiNumThreads, m_dispatcher->m_legalCoreIDs);
-	if ( NULL == m_partitioner )
-	{
-		delete pLocalWGContext;
-		m_dispatcher->m_threadInitComplete.Signal();
-		return (RETURN_TYPE_ENTRY_POINT)0;
-	}
-
-	if ( !m_partitioner->Activate() )
-	{
-		delete m_partitioner;
-		delete pLocalWGContext;
-		m_dispatcher->m_threadInitComplete.Signal();
-		return (RETURN_TYPE_ENTRY_POINT)0;
-	}
-
-	// Worker thread are running and affinitize at this point
-	// Now we need allocate locar resources
-	if ( CL_DEV_FAILED(m_dispatcher->TaskDispatcher::init()) )	// Call base class method
-	{
-		m_partitioner->Deactivate();
-		delete m_partitioner;
-		delete pLocalWGContext;
-		m_dispatcher->m_threadInitComplete.Signal();
-		return (RETURN_TYPE_ENTRY_POINT)0;
-	}
-	
-	m_dispatcher->m_muDestructReady.Lock(); // Catch destruction mutex, should be release before thread exists
-	m_dispatcher->m_threadInitSuccessful = true;
-	m_dispatcher->m_threadInitComplete.Signal();
-	
-	// Start proccesing now
-	do 
-	{
-		cl_dev_cmd_list list;
-		while (!m_dispatcher->m_commandListsForFlushing.TryPop(list))
-		{
-                        m_dispatcher->m_NonEmptyQueue.Wait();
-		}
-
-		if ( NULL == list ) // Thread termination command
-		{
-			break;
-		}
-		if ( SUB_DEVICE_SYNC_COMMAND == list )
-		{
-			m_dispatcher->m_evWaitForCompletion.Signal();
-			continue;
-		}
-		m_dispatcher->internalFlushCommandList(list);
-	} while(true);
-
-	assert(NULL != m_partitioner);
-	m_partitioner->Deactivate();
-	delete m_partitioner;
-
-	bool bDispatcherDelete = ((m_dispatcher->m_uiRefCount--) == 1);
-	m_dispatcher->m_muDestructReady.Unlock();
-
-	if ( bDispatcherDelete )
-	{
-		// The local WGContext will be destroyed as part of the m_dispatcher destructor
-		delete m_dispatcher;
-	}
-	else
-	{
-		// Task Dispatcher continue to exist, need to destroy local WGContext
-		assert(NULL != pLocalWGContext);
-		ReleaseThreadLocalContext();
-	}
-
-	return (RETURN_TYPE_ENTRY_POINT)0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -856,35 +669,34 @@ int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
 	return CL_DEV_SUCCESS;
 }
 
-int AffinitizeThreads::AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+int AffinitizeThreads::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 	return CL_DEV_SUCCESS;
 }
 
-int AffinitizeThreads::DetachFromThread(unsigned int uiWorkerId)
+int AffinitizeThreads::DetachFromThread(WGContextBase* pWgContext)
 {
 	return CL_DEV_SUCCESS;
 }
 
-void AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+void AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
 {
 	if (m_failed)
 	{
 		return;
 	}
 	
-	if ( uiWorkerId > 0 )
+    WGContext* pContext = (WGContext*)pWgContext;
+    assert (NULL!= pContext);
+    if (!pContext->DoesBelongToMasterThread())
 	{
 		if ( m_pTD->isThreadAffinityRequried() )
 		{
-			m_pObserver->NotifyAffinity(uiWorkerId, uiWorkerId);
+            m_pObserver->NotifyAffinity(pContext->GetThreadId(), Intel::OpenCL::Utils::GetCpuId());
 		}
 		
 		// Set NUMA node prior to allocation
 		clNUMASetLocalNodeAlloc();
-		
-		WGContext* pContext = m_pTD->GetWGContext(uiWorkerId);
-		assert (NULL!= pContext);
 		pContext->Init();
 	}		
 

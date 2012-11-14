@@ -42,6 +42,7 @@
 #include <cl_sys_defines.h>
 #include "ocl_itt.h"
 #include "cl_shared_ptr.h"
+#include "cl_device_api.h"
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -91,9 +92,14 @@ struct CommandListCreationParam
 
 /////////////////////////////////////////////////////////////////////////////
 // ITaskBase interface - defines a basic set of functions
-class ITaskBase
+class ITaskBase : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
 {
 public:
+
+    PREPARE_SHARED_PTR(ITaskBase)
+
+    virtual ~ITaskBase() { }
+
 	// Returns whether the executed task is a task set.
     virtual bool	IsTaskSet() const = 0;
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
@@ -112,6 +118,9 @@ public:
 
     // Releases task object, shall be called instead of delete operator.
     virtual long	Release() = 0;
+
+    // overriden from ReferenceCountedObject
+    std::string GetTypeName() const { return "ITaskBase"; }
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -119,6 +128,9 @@ public:
 class ITask : public ITaskBase
 {
 public:
+
+    PREPARE_SHARED_PTR(ITask)
+
 	bool	IsTaskSet() const {return false;}
 	// Task execution routine, will be called by task executor
 	// return false when task execution fails
@@ -132,6 +144,9 @@ public:
 class ITaskSet: public ITaskBase
 {
 public:
+
+    PREPARE_SHARED_PTR(ITaskSet)
+
 	bool	IsTaskSet() const {return true;}
 	// Initialization function. This functions is called before the "main loop"
 	// Generally initializes internal data structures
@@ -141,22 +156,19 @@ public:
 	virtual int		Init(size_t region[], unsigned int& regCount) = 0;
 
 	// Is called when the task is going to be called for the first time
-	// within specific thread. uiWorkerId specifies the worker thread id.
-	// If uiWorkerId = -1, this info is not available.
+	// within specific thread. 
 	// Returns 0, if attach process succeeded, otherwise -1
-	virtual int	AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
+	virtual int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
 
-	// Is called when the task will not be executed by the specific thread
-	// uiWorkerId specifies the worker thread id.
-	// If uiWorkerId = -1, this info is not available.
+	// Is called when the task will not be executed by the specific thread	
 	// Returns 0, if detach process succeeded, otherwise -1
-	virtual int	DetachFromThread(unsigned int uiWorkerId) = 0;
+	virtual int	DetachFromThread(WGContextBase* pWgContext) = 0;
 
 	// "Main loop"
 	// The function is called with different 'inx' parameters for each iteration number
-	virtual void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId = -1) = 0;
+	virtual void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) = 0;
 
-    virtual void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId = -1) = 0;
+    virtual void	ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext = NULL) = 0;
 
     // Final stage, free execution resources
 	// Return false when command execution fails
@@ -165,13 +177,16 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 // ITaskList interface - defines a function set for task list handling
-class ITaskList
+class ITaskList : public Intel::OpenCL::Utils::ReferenceCountedObject
 {
 public:
+
+    PREPARE_SHARED_PTR(ITaskList)
+
     // Enqueue a given task for execution, the function is asynchronous and exits immediately.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
-	virtual unsigned int	Enqueue(Intel::OpenCL::Utils::SmartPtr<ITaskBase>* pTask) = 0; // Dynamically detect Task or TaskSet
+	virtual unsigned int	Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
 
 	// Ensures that all task were send to execution, non-blocking function
     virtual bool			Flush() = 0;
@@ -179,13 +194,15 @@ public:
 	// Add the calling thread to execution pool
 	// Function blocks, until the pTask is completed or in case of NULL
 	// all tasks belonging to the list are completed.
-	virtual te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) = 0;
+    virtual te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;    
 
-    // Increments Reference Count if required
-    virtual void            Retain() = 0;
-    
-    // Releases task object, shall be called instead of delete operator.
-    virtual void			Release() = 0;
+};
+
+// IAffinityChangeObserver - recieves notification on change of thread affinity
+class IAffinityChangeObserver
+{
+public:
+	virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
 };
 
 // Implementation specific class
@@ -195,7 +212,24 @@ public:
 	// Init task executor to use uiNumThreads for execution
 	// if uiNumThreads == 0, number of threads will be defined by implementation
 	// Returns 0, if succeeded, else -1
-	virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
+    virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
+
+    /**
+     * Set the IWGContextPool of the device agent
+     * @param wgContextPool the IWGContextPool to be set
+     */
+    virtual void SetWGContextPool(IWGContextPool* pWgContextPool) = 0;
+
+    /**
+     * @param bBelongsToMasterThread whether the WG context belong to a master thread
+     * @return a pointer to an allocated work group context for a worker thread or NULL if the IWGContextPool is not available any more
+     */
+    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) = 0;
+
+    /**
+     * @param pWgContext a pointer to a work group context for a worker thread to be freed
+     */
+    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) = 0;
 
 	// Activate thread pool. All worker threads are created
 	virtual bool Activate() = 0;
@@ -206,22 +240,46 @@ public:
 	// Return number of initialized worker threads
 	virtual unsigned int GetNumWorkingThreads() const = 0;
 
-	virtual ITaskList* CreateTaskList(CommandListCreationParam* param) = 0;
+    // pSubdevTaskExecData is private data of the TaskExecutor for the specific sub-device or NULL for the root device
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData) = 0;
 
-	// Execute task immediately, independently to "listed" tasks
-    virtual unsigned int Execute(Intel::OpenCL::Utils::SmartPtr<ITaskBase> * pTask) = 0; // Dynamically detect Task or TaskSet
+	// Execute task immediately, independently to "listed" tasks. If pSubdevTaskExecData is not NULL, the task will be executed on this sub-device
+    virtual unsigned int Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL) = 0; // Dynamically detect Task or TaskSet
 
 	// Add the calling thread to execution pool
 	// Function blocks, until all independent tasks are completed.
 	// Return false, if the calling thread was not joined the execution
-	virtual te_wait_result WaitForCompletion(ITaskBase * pTask) = 0;
+	// If pSubdevTaskExecData is not NULL, wait on this sub-device
+	virtual te_wait_result WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData = NULL) = 0;
 
-	virtual void ReleasePerThreadData() = 0;
+	virtual ocl_gpa_data* GetGPAData() const = 0;    
 
-	virtual ocl_gpa_data* GetGPAData() const = 0;
+    /**
+     * @param uiNumSubdevComputeUnits   number of computing units in the sub-device
+     * @return a pointer to an object representing the sub-device in the TaskExecutor module
+     * @param pLegalCores       an array of the core IDs which it is legal for the worker threads to affinitize to (size of the array is uiNumSubdevComputeUnits)
+     * @param observer          the IAffinityChangeObserver that observers changes in the affinity of worker threads																		
+     */
+    virtual void* CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer) = 0;
+
+    /**
+     * Release a sub-device
+     * @param pSubdevData a pointer to the object representing the sub-device in the TaskExecutor module
+     */
+    virtual void ReleaseSubdevice(void* pSubdevData) = 0;
+
+    /**
+     * Wait until all work in a sub-device is complete
+     * @param pSubdevData a pointer to the object representing the sub-device in the TaskExecutor module
+     */
+    virtual void WaitUntilEmpty(void* pSubdevData) = 0;
 
 protected:
-	ocl_gpa_data *m_pGPAData;
+
+    ITaskExecutor() : m_pGPAData(NULL) { }
+
+	ocl_gpa_data *m_pGPAData;    
+    
 };
 
 // Function which retrieves TaskExecutor singleton object
@@ -235,15 +293,5 @@ public:
     virtual bool Activate()   = 0;
     virtual void Deactivate() = 0;
 };
-
-// IAffinityChangeObserver - recieves notification on change of thread affinity
-class IAffinityChangeObserver
-{
-public:
-	virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
-};
-
-// Factory function to instantiate the appropriate partitioner object
-TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs = 0);
 
 }}}

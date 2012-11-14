@@ -21,6 +21,9 @@
 #include "cpu_dev_test.h"
 #include "task_executor.h"
 #include "cl_synch_objects.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_object_pool.h"
+#include "cl_device_api.h"
 
 #include <stdio.h>
 #ifdef _WIN32
@@ -42,7 +45,10 @@ class TestSet : public ITaskSet
 	volatile int* m_pDone;
 	AtomicCounter	m_attached;
 public:
-	TestSet(int id, volatile int* pDone) : m_id(id),m_pDone(pDone), m_attached(0) {}
+	
+    PREPARE_SHARED_PTR(TestSet)
+
+    static SharedPtr<TestSet> Allocate(int id, volatile int* pDone) { return SharedPtr<TestSet>(new TestSet(id, pDone)); }
 
 	bool SetAsSyncPoint()
 	{
@@ -70,7 +76,7 @@ public:
 		region[0] = 1000;
 		return 0;
 	}
-	int		AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+	int		AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 	{
 		m_attached++;
 #ifdef EXTENDED_PRINT
@@ -78,7 +84,7 @@ public:
 #endif
 		return 0;
 	}
-	int		DetachFromThread(unsigned int uiWorkerId)
+	int		DetachFromThread(WGContextBase* pWgContext)
 	{
 		m_attached--;
 #ifdef EXTENDED_PRINT
@@ -86,7 +92,7 @@ public:
 #endif
 		return 0;
 	}
-	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId)
+	void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
 	{
 		//printf("TestSet::ExecuteIteration() - %d executing\n", uiWorkerId);
 		for (unsigned int i=0;i<x;++i)
@@ -95,7 +101,7 @@ public:
 		}
 
 	}
-    void	ExecuteAllIterations(size_t* x, unsigned int uiWorkerId)
+    void	ExecuteAllIterations(size_t* x, WGContextBase* pWgContext)
     {
         return;
     }
@@ -113,6 +119,11 @@ public:
 		delete this;
         return 0;
 	}
+
+private:
+
+    TestSet(int id, volatile int* pDone) : m_id(id),m_pDone(pDone), m_attached(0) {}
+
 };
 
 RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
@@ -122,10 +133,10 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
     p.isOOO = false;
     p.isSubdevice = false;
  
-	ITaskList* pList = pTE->CreateTaskList(&p);
+    SharedPtr<ITaskList> pList = pTE->CreateTaskList(&p, NULL);
 
 	volatile int done = 0;
-	pList->Enqueue(new WeakPtr<ITaskBase>(new TestSet(1, &done)));
+    pList->Enqueue(SharedPtr<ITaskBase>(TestSet::Allocate(1, &done)));
 	pList->Flush();
 	te_wait_result res = pList->WaitForCompletion(NULL);
 	while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
@@ -134,22 +145,34 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 		res = pList->WaitForCompletion(NULL);
 	}
 	
-	pList->Release();
 	return 0;
 }
+
+class WGContextPool : public IWGContextPool
+{
+    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) { return m_pool.Malloc(); }
+
+    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) { m_pool.Free(wgContext); }
+
+private:
+
+    Intel::OpenCL::Utils::ObjectPool<WGContextBase> m_pool;
+};
 
 bool test_task_executor()
 {
 	printf("test_task_executor - Start test\n");
 
+    WGContextPool pool;
 	for(int i=0; i<100; ++i)
 	{
-		ITaskExecutor* pTaskExecutor = GetTaskExecutor();
+		ITaskExecutor* pTaskExecutor = GetTaskExecutor();        
+        pTaskExecutor->SetWGContextPool(&pool);
 		pTaskExecutor->Activate();
 		CommandListCreationParam p;
 		p.isOOO = false;
 		p.isSubdevice = false;
-		ITaskList *pList = pTaskExecutor->CreateTaskList(&p);
+        SharedPtr<ITaskList> pList = pTaskExecutor->CreateTaskList(&p, NULL);
 #if 0
 #ifdef _WIN32
 		HANDLE hMaster = (HANDLE)_beginthreadex(NULL, 0, &MasterThread, GetTaskExecutor(), 0, NULL);
@@ -161,7 +184,7 @@ bool test_task_executor()
 		volatile int done = 0;
 
 
-        pList->Enqueue(new WeakPtr<ITaskBase>(new TestSet(0, &done)));
+        pList->Enqueue(SharedPtr<ITaskBase>(TestSet::Allocate(0, &done)));
 		pList->Flush();
 		te_wait_result res = pList->WaitForCompletion(NULL);
 		while ( (TE_WAIT_MASTER_THREAD_BLOCKING == res) && !done)
@@ -169,8 +192,6 @@ bool test_task_executor()
 			SLEEP(100);
 			res = pList->WaitForCompletion(NULL);
 		}
-
-		pList->Release();
 
 #if 0
 #ifdef _WIN32

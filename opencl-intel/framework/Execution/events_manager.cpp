@@ -36,6 +36,7 @@
 #include "cl_utils.h"
 #include "cl_local_array.h"
 #include "enqueue_commands.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -344,11 +345,11 @@ cl_err_code EventsManager::SetEventCallBack(cl_event evt, cl_int execType, Intel
 	{
 		return CL_INVALID_VALUE;
 	}
-	EventCallback* pNewCallback = new EventCallback(fn, pUserData, execType);
+    SharedPtr<EventCallback> pNewCallback = EventCallback::Allocate(fn, pUserData, execType);
 	if (NULL == pNewCallback)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-    pEvent->AddObserver(new WeakPtr<IEventObserver>(pNewCallback));
+    pEvent->AddObserver(SharedPtr<IEventObserver>(pNewCallback));
 	return CL_SUCCESS;
 }

@@ -30,7 +30,6 @@
 #include "cl_types.h"
 #include "Logger.h"
 #include "cl_synch_objects.h"
-#include "ocl_object_base.h"
 #include "cl_shared_ptr.h"
 #include "cl_framework.h"
 
@@ -55,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* so it represents that the object is still "alive" and visible to the user.
 	**********************************************************************************************/
 	template <class HandleType, class ParentHandleType = _cl_context_int> 
-    class OCLObject : public OCLObjectBase
+    class OCLObject : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
 	{
 	public:
 
@@ -72,16 +71,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/		
         OCLObject(ParentHandleType* context, const std::string& typeName);
-		
-        /******************************************************************************************
-        * Function: 	Cleanup    
-        * Description:	Used to cleanup data before deletion. But can be done differentially if
-        *               application is terminated or not.
-        * Arguments:	
-        * Author:		Arnon Peleg
-        * 
-        ******************************************************************************************/	
-        virtual void Cleanup( bool bIsTerminate = false ) const { return; }
 
         /******************************************************************************************
         * Function: 	NotifyInvisible    
@@ -157,25 +146,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate;}
 
-    protected:
+        std::string GetTypeName() const { return m_typename; }
 
-        /******************************************************************************************
-		* Function: 	operator new
-		* Description:	prevent users of OCLObject from allocating objects by themselves. The
-        *               semantics is not changed.
-		* Author:		Aharon Abramson
-		* Date:			March 2012
-		******************************************************************************************/
-        void* operator new(size_t size) { return ::operator new(size); }
-
-        /******************************************************************************************
-		* Function: 	operator new
-		* Description:	prevent users of OCLObject from deleting objects by themselves. The
-        *               semantics is not changed.
-		* Author:		Aharon Abramson
-		* Date:			March 2012
-		******************************************************************************************/
-        void operator delete(void* p) { ::operator delete(p); }
+    protected:        
 
         /******************************************************************************************
 		* Function: 	~OCLObject
@@ -189,44 +162,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
 		HandleType	m_handle;									// the OpenCL handle of the object        
-        /******************************************************************************************
-		* Function: 	IncRefCnt
-		* Description:	increment the dependency counter
-		* Arguments:		
-        * Return:       the new value of the counter
-		* Author:		Aharon Abramson
-		* Date:			March 2012
-		******************************************************************************************/			
-        long IncRefCnt() const { return ++m_uiPendency; }
-
 		cl_int								m_iId;				// object id
         Intel::OpenCL::Utils::AtomicCounter	m_uiRefCount;		// reference count
 
 		ParentHandleType*					m_pParentHandle;	// the OpenCL handle of the parent the object belongs to
 
-		bool		m_bTerminate;
-        /******************************************************************************************
-		* Function: 	DecRefCnt
-		* Description:	decrement the dependency counter
-		* Arguments:		
-        * Return:       the new value of the counter
-		* Author:		Aharon Abramson
-		* Date:			March 2012
-		******************************************************************************************/			
-        long DecRefCnt() const { return --m_uiPendency; }
+		bool		m_bTerminate;        
 
-        /**
-         * Return: the current value of the counter
-         */
-        long GetRefCnt() const { return m_uiPendency; }
+        const std::string m_typename;
 
         DECLARE_LOGGER_CLIENT;
 
-	private:
-
-		mutable Intel::OpenCL::Utils::AtomicCounter	m_uiPendency;		// recall the number of dependent resources - will be 
-											                            // used in order to ensure that current object is ready 
-											                            // for deletion		
 	};
 #include "cl_object.hpp"
 

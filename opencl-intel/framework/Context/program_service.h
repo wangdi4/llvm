@@ -152,10 +152,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        PREPARE_SHARED_PTR(BuildTask);
-        BuildTask(_cl_context_int* context,
-					const SharedPtr<Program>&      			pProg,
-					const ConstSharedPtr<FrontEndCompiler>& pFECompiler);
+        PREPARE_SHARED_PTR(BuildTask)
 
 	    virtual bool	Execute() = 0;
 
@@ -167,31 +164,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		virtual	void	SetComplete(cl_int returnCode); 
 
+        std::string GetTypeName() const { return "BuildTask"; }
+
+        virtual void Cleanup(bool bIsTerminate = false) { delete this; }
+
     protected:
 
-        BuildTask(cl_context context);
+        BuildTask(_cl_context_int* context,
+					const SharedPtr<Program>&      			pProg,
+					const ConstSharedPtr<FrontEndCompiler>& pFECompiler);
 
         ~BuildTask();
 
         SharedPtr<Program>					m_pProg;
         ConstSharedPtr<FrontEndCompiler>	m_pFECompiler;
 
-    private:
-
-        class BuildTaskSharedPtr : public SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, public SharedPtr<BuildTask>
-        {
-        public:
-
-            BuildTaskSharedPtr(BuildTask* ptr) : SmartPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(ptr), SharedPtr<BuildTask>(ptr) { }
-        };
-		
     };
 
     class CompileTask : public BuildTask
     {
     public:
 
-        PREPARE_SHARED_PTR(CompileTask);                
+        PREPARE_SHARED_PTR(CompileTask)
 
         static SharedPtr<CompileTask> Allocate(
             _cl_context_int*        context,
@@ -241,7 +235,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        PREPARE_SHARED_PTR(LinkTask);        
+        PREPARE_SHARED_PTR(LinkTask)
 
         static SharedPtr<LinkTask> Allocate(
             _cl_context_int*         context,
@@ -287,7 +281,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
 
-        PREPARE_SHARED_PTR(PostBuildTask);        
+        PREPARE_SHARED_PTR(PostBuildTask)
 
         static SharedPtr<PostBuildTask> Allocate(
             _cl_context_int*    context,

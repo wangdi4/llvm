@@ -75,7 +75,7 @@ class D3DContext : public Context
 
 public:
 
-    PREPARE_SHARED_PTR(D3DContext);
+    PREPARE_SHARED_PTR(D3DContext)
 
     static SharedPtr<D3DContext> Allocate(const cl_context_properties* clProperties, cl_uint uiNumDevices,
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
@@ -192,7 +192,7 @@ protected:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3DDevice, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3dDefinitions,
-        bool bIsInteropUserSync = false);
+        const ContextModule& contextModule, bool bIsInteropUserSync = false);
 
     
     IUnknown* const m_pD3DDevice;
@@ -234,7 +234,7 @@ class D3D9Context : public D3DContext<IDirect3DResource9, IDirect3DDevice9>
 
 public:
 
-    PREPARE_SHARED_PTR(D3D9Context);
+    PREPARE_SHARED_PTR(D3D9Context)
 
     /**
      * @brief   Constructor.
@@ -257,10 +257,10 @@ public:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false)
+        const ContextModule& contextModule, bool bIsInteropUserSync = false)
     {
         return SharedPtr<D3D9Context>(new D3D9Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-            pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync));
+            pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync));
     }
 
     /**
@@ -336,9 +336,9 @@ private:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false) :
+        const ContextModule& contextModule, bool bIsInteropUserSync = false) :
     D3DContext<IDirect3DResource9, IDirect3DDevice9>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) { }
+        pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync) { }
 
     map<const IDirect3DSurface9*, SurfaceLocker*> m_surfaceLockers;        
 
@@ -351,7 +351,7 @@ class D3D11Context : public D3DContext<ID3D11Resource, ID3D11Device>
 {
 public:
 
-    PREPARE_SHARED_PTR(D3D11Context);
+    PREPARE_SHARED_PTR(D3D11Context)
 
     /**
      * @param   clProperties            context's properties.
@@ -372,10 +372,10 @@ public:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false)
+        const ContextModule& contextModule, bool bIsInteropUserSync = false)
     {        
         return SharedPtr<D3D11Context>(new D3D11Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-            pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync));
+            pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync));
     }
 
     ~D3D11Context()
@@ -416,9 +416,9 @@ private:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        bool bIsInteropUserSync = false) :
+         const ContextModule& contextModule, bool bIsInteropUserSync = false) :
     D3DContext<ID3D11Resource, ID3D11Device>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
-        pD3D9Device, iDevType, pd3d9Definitions, bIsInteropUserSync) 
+        pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync) 
     { 
         pD3D9Device->AddRef();
     }
