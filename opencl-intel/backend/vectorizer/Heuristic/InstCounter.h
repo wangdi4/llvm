@@ -171,7 +171,7 @@ namespace intel {
     static const float TID_EQUALITY_PENALTY;
 
     // Special cases for cheap calls. This is clearly overfitting...
-    static const int CALL_CLAMP_WEIGHT = 4;
+    static const int CALL_CLAMP_WEIGHT = 2;
     static const int CALL_FLOOR_WEIGHT = 2;
 public:
     // Ratio multiplier
