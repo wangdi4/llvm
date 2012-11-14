@@ -4,8 +4,8 @@
  
 define i1 @testbt( i32 %shift, i32 %mask){
 ; CHECK: movl %edi, %ecx
-; CHECK: shll %cl, %edx
-; CHECK: testl %edx, %esi
+; CHECK: shll %cl, [[R1:%[a-z]+]] 
+; CHECK: testl [[R1]], %esi
   %1 = shl i32 1, %shift
   %2 = and i32 %1, %mask
   %ret = icmp eq i32 %2, 0

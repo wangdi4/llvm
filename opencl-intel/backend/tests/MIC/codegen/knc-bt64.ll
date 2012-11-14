@@ -4,8 +4,8 @@
 
 define i1 @testbt( i64 %shift, i64 %mask){
 ; CHECK: movl %edi, %ecx
-; CHECK: shlq %cl, %rdx
-; CHECK: testq %rdx, %rsi 
+; CHECK: shlq %cl, [[R1:%[a-z]+]]
+; CHECK: testq [[R1]], %rsi 
   %1 = shl i64 1, %shift
   %2 = and i64 %1, %mask
   %ret = icmp eq i64 %2, 0

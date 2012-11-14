@@ -14,8 +14,8 @@ target datalayout = "e-p:64:64"
 
 define i32 @func() nounwind {
 ; CHECK: func:
-; CHECK: movq      z(%rip), %rdx
-; CHECK: movl      (%rdx), %eax
+; CHECK: movq      z(%rip), [[R1:%[a-z]+]] 
+; CHECK: movl      ([[R1]]), %eax
   %p = getelementptr [2 x i32*]* @z, i32 0, i64 0
   %1 = load i32** %p
   %2 = load i32* %1

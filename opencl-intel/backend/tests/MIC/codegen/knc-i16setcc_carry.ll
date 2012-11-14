@@ -10,7 +10,7 @@ target datalayout = "e-p:64:64"
 define i16 @i16setcc_carry(i16 %arg0, i16 %arg1) {
 ; KNC: i16setcc_carry:
 ; KNC: cmpw %si, %di
-; KNC: movzbl %al, %eax
+; KNC: movzbl 
 
 entry:
   %cmp = icmp ult i16 %arg0, %arg1

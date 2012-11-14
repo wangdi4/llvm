@@ -6,9 +6,9 @@
 target datalayout = "e-p:64:64"
 
 define float @f1(<16 x i32>* %arg0) {
-; KNC: valignd   $11, (%rdi), %zmm1, %zmm2
-; KNC: valignd   $10, (%rdi), %zmm1, %zmm3
-; KNC: vaddps    %zmm2, %zmm3, %zmm0{%k1}
+; KNC: valignd   $11, (%rdi), [[R1:%zmm[0-9]+]], [[R2:%zmm[0-9]+]]
+; KNC: valignd   $10, (%rdi), [[R1]], [[R3:%zmm[0-9]+]]
+; KNC: vaddps    [[R2]], [[R3]], %zmm0{%k1}
 
 entry:
   %v = load <16 x i32>* %arg0
