@@ -34,6 +34,8 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
+extern void ReleaseThreadLocalContext();
+
 extern char clCPUDEVICE_CFG_PATH[];
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -56,7 +58,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         strcat_s(clCPUDEVICE_CFG_PATH, MAX_PATH-1, "cl.cfg");
         break;
     case DLL_THREAD_ATTACH:
+        break;
     case DLL_THREAD_DETACH:
+		ReleaseThreadLocalContext();
         break;
     case DLL_PROCESS_DETACH:
         break;
@@ -74,4 +78,9 @@ extern "C" cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param,
                             )
 {
     return CPUDevice::clDevGetDeviceInfo(param, valSize, paramVal, paramValSizeRet);
+}
+
+void RegisterContextReleaseRoutine()
+{
+	// Do nothing on Windows, the context is released by DllMain(DLL_THREAD_DETACH)
 }

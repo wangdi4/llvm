@@ -53,7 +53,7 @@ class D3DResource : public GraphicsApiMemoryObject
 
 public:
 
-    PREPARE_SHARED_PTR(D3DResource)
+    PREPARE_SHARED_PTR(D3DResource);
 
     /**
      * @brief   Finaliser.
@@ -391,7 +391,7 @@ class D3D9Surface : public D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DS
 
 public:
 
-    PREPARE_SHARED_PTR(D3D9Surface)
+    PREPARE_SHARED_PTR(D3D9Surface);
 
     static SharedPtr<D3D9Surface> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {
@@ -493,7 +493,7 @@ class D3D11Buffer : public D3DResource<ID3D11Resource, ID3D11Device>
 
 public:
 
-    PREPARE_SHARED_PTR(D3D11Buffer)
+    PREPARE_SHARED_PTR(D3D11Buffer);
 
     static SharedPtr<D3D11Buffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {
@@ -565,7 +565,7 @@ class D3D11Texture2D : public D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEX
 
 public:
 
-    PREPARE_SHARED_PTR(D3D11Texture2D)
+    PREPARE_SHARED_PTR(D3D11Texture2D);
 
     static SharedPtr<D3D11Texture2D> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {
@@ -627,7 +627,7 @@ class D3D11Texture3D :  public D3DResource<ID3D11Resource, ID3D11Device>
 
 public:
 
-    PREPARE_SHARED_PTR(D3D11Texture3D)
+    PREPARE_SHARED_PTR(D3D11Texture3D);
 
     static SharedPtr<D3D11Texture3D> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {

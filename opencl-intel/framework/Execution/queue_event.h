@@ -51,7 +51,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 
 	public:
-        PREPARE_SHARED_PTR(QueueEvent)
+        PREPARE_SHARED_PTR(QueueEvent);
 		friend class Command;		
         static SharedPtr<QueueEvent> Allocate(SharedPtr<IOclCommandQueueBase> cmdQueue)
         {

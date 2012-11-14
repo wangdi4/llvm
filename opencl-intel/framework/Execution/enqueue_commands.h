@@ -37,6 +37,7 @@
 #include "kernel.h"
 #include <ocl_itt.h>
 #include <list>
+#include "ocl_object_base.h"
 #include "task_executor.h"
 #include "MemoryObject.h"
 
@@ -65,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      * 
      ******************************************************************/
-    class Command : public ICmdStatusChangedObserver
+    class Command : public OCLObjectBase, public ICmdStatusChangedObserver
     {
         
     public:
@@ -156,7 +157,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsBeingDeleted() const { return m_bIsBeingDeleted; }
 
     protected:
-        Command(const Command& O) : ICmdStatusChangedObserver(), m_Event(NULL) {}
+        Command(const Command& O) : OCLObjectBase("Command"), ICmdStatusChangedObserver(), m_Event(NULL) {}
         
         // retrieve device specific descriptor of the memory object.
         // If descriptor is not ready on a device:
@@ -277,7 +278,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 
-        SharedPtr<QueueEvent> m_pQueueEvent;
+        ConstSharedPtr<QueueEvent> m_pQueueEvent;
 
     };
 
@@ -1230,7 +1231,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(ErrorQueueEvent)
+        PREPARE_SHARED_PTR(ErrorQueueEvent);
 
         static SharedPtr<ErrorQueueEvent> Allocate(_cl_context_int* context)
         {
@@ -1257,11 +1258,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class RuntimeCommandTask : public Intel::OpenCL::TaskExecutor::ITask
 	{
 	public:
-
-        PREPARE_SHARED_PTR(RuntimeCommandTask)
-
-        static SharedPtr<RuntimeCommandTask> Allocate() { return SharedPtr<RuntimeCommandTask>(new RuntimeCommandTask()); }
-		
+		RuntimeCommandTask() : m_owner(NULL) {};
 		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
 		// ITask interface
@@ -1272,9 +1269,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		long	Release(); 
 
 	private:
-
-        RuntimeCommandTask() : m_owner(NULL) {};
-
 		CommandSharedPtr<PrePostFixRuntimeCommand>			m_owner;
 		bool								m_bIsCompleted;
 	};
@@ -1318,7 +1312,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 Mode				m_working_mode;
 		 cl_err_code		m_force_error_return;
 		 SharedPtr<ErrorQueueEvent>	m_error_event;
-		 SharedPtr<RuntimeCommandTask> m_task;
+		 RuntimeCommandTask m_task;
     };
 
 }}}    // Intel::OpenCL::Framework

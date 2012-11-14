@@ -233,11 +233,3 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
 {
     return 0 != GetNumaNodeProcessorMask((unsigned char)node, pMask); 
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return the ID of the CPU the current thread is running on
-////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetCpuId()
-{
-    return GetCurrentProcessorNumber();
-}

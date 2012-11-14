@@ -121,13 +121,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	class CTask : public ITaskWrapper
 	{
 	public:
-		CTask(const SharedPtr<ITask>& pTask) : m_pTask(pTask){}
+		CTask(ITask * pTask) : m_pTask(pTask){}
 
 		void Execute(void** pCurrentSet){ m_pTask->Execute(); }
 		void Release(){ m_pTask->Release(); delete this; }
 
 	private:
-		SharedPtr<ITask> m_pTask;	// handle to the actual task
+		ITask * m_pTask;	// handle to the actual task
 	};
 
 	//////////////////////////////////////////////////////////////////////////
@@ -216,8 +216,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		}
 
 		// ITaskList interface
-        unsigned int Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
-		te_wait_result	WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
+        unsigned int Enqueue(SmartPtr<ITaskBase>* pTaskBase);
+		te_wait_result	WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 
         void         Retain() 
@@ -233,8 +233,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			    delete this;
             }
 		}
-
-        std::string GetTypeName() const { return "ThreadTaskListOrderedImpl"; }
 
 	protected:
 		virtual ~ThreadTaskListOrderedImpl() {};
@@ -255,8 +253,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		}
 
 		// ITaskList interface
-        unsigned int Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
-		te_wait_result WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
+        unsigned int Enqueue(SmartPtr<ITaskBase>* pTaskBase);
+		te_wait_result WaitForCompletion(ITaskBase* pTaskToWait) {return TE_WAIT_NOT_SUPPORTED;}
 		bool         Flush() {return true;}
 
         void         Retain() 
@@ -272,8 +270,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			    delete this;
             }
 		}
-
-        std::string GetTypeName() const { return "ThreadTaskListUnOrderedImpl"; }
 
 	protected:
 		virtual ~ThreadTaskListUnOrderedImpl() {};
@@ -294,8 +290,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetNumWorkingThreads() const
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
-		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
-		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}		
+		unsigned int	Execute(SmartPtr<ITaskBase> * pTask);
+		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}
+		void ReleasePerThreadData() {}
 		void Close(bool bCancel);
 		ocl_gpa_data* GetGPAData() const;
 

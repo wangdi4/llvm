@@ -66,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
 
-        PREPARE_SHARED_PTR(FrontEndCompiler)
+        PREPARE_SHARED_PTR(FrontEndCompiler);
 
         static SharedPtr<FrontEndCompiler> Allocate()
         {

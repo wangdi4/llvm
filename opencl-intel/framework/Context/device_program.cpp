@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), 
+DeviceProgram::DeviceProgram() : OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), 
 m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL), 
 m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0), m_parentProgramContext(0),
 m_uiBuildLogSize(0), m_szBuildLog(NULL), m_emptyString('\0'), m_szBuildOptions(NULL), 
@@ -45,7 +45,7 @@ m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_currentAccesses(0)
 }
 
 DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : 
-m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
+OCLObjectBase("DeviceProgram"), m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
 m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), 
 m_programHandle(0), m_parentProgramHandle(0), m_emptyString('\0'), m_szBuildOptions(NULL),
 m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_currentAccesses(0)
@@ -84,7 +84,9 @@ DeviceProgram::~DeviceProgram()
 	{
 		if (0 != m_programHandle)
 		{
+            m_pDevice->GetDeviceBeMutex().Lock();
 			m_pDevice->GetDeviceAgent()->clDevReleaseProgram(m_programHandle);
+            m_pDevice->GetDeviceBeMutex().Unlock();
 		}
 	}
 }

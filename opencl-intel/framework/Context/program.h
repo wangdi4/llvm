@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		Program(SharedPtr<Context> pContext);
 
-        PREPARE_SHARED_PTR(Program)
+        PREPARE_SHARED_PTR(Program);
 
 		Program(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints);
 

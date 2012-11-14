@@ -59,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(IOclCommandQueueBase) 
+        PREPARE_SHARED_PTR(IOclCommandQueueBase);        
 
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);

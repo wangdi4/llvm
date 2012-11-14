@@ -66,6 +66,7 @@ using namespace Intel::OpenCL::Utils;
  *
  ******************************************************************/
 Command::Command( SharedPtr<IOclCommandQueueBase> cmdQueue ):
+    OCLObjectBase("Command"),
     m_Event(QueueEvent::Allocate(cmdQueue)),
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
@@ -90,7 +91,6 @@ Command::Command( SharedPtr<IOclCommandQueueBase> cmdQueue ):
 Command::~Command()
 {
     m_bIsBeingDeleted = true;
-    m_pDevice->GetDeviceAgent()->clDevReleaseCommand(&m_DevCmd);
 	m_pDevice = NULL;
 	GPA_DestroyCommand();
 	m_pCommandQueue = NULL;    
@@ -105,7 +105,7 @@ Command::~Command()
         /* m_Event has already been destroyed - it's deletion triggered the call to ~Command(), so we need to nullify it without decreasing its reference counter, otherwise we would decrement a
             reference counter of an object that had already been destroyed. */
         m_Event.NullifyWithoutDecRefCnt();        
-    }    
+    }
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
 	RELEASE_LOGGER_CLIENT;
@@ -2604,7 +2604,7 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
 	m_relatedUserCommand(relatedUserCommand), 
 	m_working_mode( working_mode ),
 	m_force_error_return(CL_SUCCESS),
-    m_error_event(ErrorQueueEvent::Allocate(cmdQueue->GetParentHandle())), m_task(RuntimeCommandTask::Allocate())
+	m_error_event(ErrorQueueEvent::Allocate(cmdQueue->GetParentHandle()))
 {
 	assert( NULL != m_relatedUserCommand );
 
@@ -2615,7 +2615,7 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
 	m_commandType = relatedUserCommand->GetCommandType();
 	
 	m_error_event->Init( this );
-	m_task->Init( this );
+	m_task.Init( this );
 }
 
 /******************************************************************
@@ -2648,8 +2648,10 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
 	else
 	{
 		m_Event->IncludeProfilingInfo( related_event );
-	}	
-    m_task = NULL;
+	}
+	
+
+
 	return CL_SUCCESS;
 }
 
@@ -2709,7 +2711,7 @@ void PrePostFixRuntimeCommand::DoAction()
 cl_err_code PrePostFixRuntimeCommand::Execute()
 {
 	cl_err_code			ret  = CL_SUCCESS;
-	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(m_task));
+	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(new WeakPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(&m_task));
 
 	if (0 != task_err)
 	{

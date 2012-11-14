@@ -26,7 +26,7 @@
 */
 #include "stdafx.h"
 #include "thread_executor.h"
-#include "cl_shared_ptr.hpp"
+
 #include <process.h>
 #include <cassert>
 
@@ -464,8 +464,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 		size_t lastWGID[3];
 		pFragment->getFirstWGID(firstWGID);
 		pFragment->getLastWGID(lastWGID);
-        // TODO: pass something meaningful to AttachTo/DetachFromThread
-		m_pTaskSet->AttachToThread(NULL, pFragment->Size(), firstWGID, lastWGID);
+		m_pTaskSet->AttachToThread(m_iQueueId, pFragment->Size(), firstWGID, lastWGID);
 		bExecuted = true;
 	}
 	while(pFragment) 
@@ -476,7 +475,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 
 	if ( bExecuted )
 	{
-		m_pTaskSet->DetachFromThread(NULL);
+		m_pTaskSet->DetachFromThread(m_iQueueId);
 	}
 
 	// the job has been finished, we need to modify the global notification flag
@@ -538,8 +537,7 @@ CTaskSetFragment* CTaskSetFragment::ExecuteAndGetNext(unsigned int uiWorkerId)
 		{
 			for(int k=m_iStartX; k<m_iEndX; ++k)
 			{
-                // TODO: pass real WGContext
-				m_pTaskSet->ExecuteIteration(k, j, i, NULL);
+				m_pTaskSet->ExecuteIteration(k, j, i, uiWorkerId);
 			}
 		}
 	}
@@ -548,8 +546,7 @@ CTaskSetFragment* CTaskSetFragment::ExecuteAndGetNext(unsigned int uiWorkerId)
 	if ( NULL == pNext )
 	{
 		// This thread finished execution
-        // TODO: pass real WGContext
-		m_pTaskSet->DetachFromThread(NULL);
+		m_pTaskSet->DetachFromThread(uiWorkerId);
 	}
 
 	// modify the relevant queue's fragments counter
@@ -574,8 +571,7 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 		{
 			for(int k=m_iStartX; k<m_iEndX; ++k)
 			{
-                // TODO: pass real WGContext
-				m_pTaskSet->ExecuteIteration(k, j, i, NULL);
+				m_pTaskSet->ExecuteIteration(k, j, i, uiWorkerId);
 			}
 		}
 	}
@@ -597,8 +593,7 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 #endif
 	getFirstWGID(firstWGID);
 	getLastWGID(lastWGID);
-    // TODO: pass real WGContext
-	return m_pTaskSet->AttachToThread(NULL, Size(), firstWGID, lastWGID);
+	return m_pTaskSet->AttachToThread(uiWorkerId, Size(), firstWGID, lastWGID);
 }
 
 size_t CTaskSetFragment::Size() const
@@ -625,7 +620,7 @@ void CTaskSetFragment::getLastWGID(size_t lastWGID[3]) const
 
 //////////////////////////////////////////////////////////////////////////
 // ThreadTaskListOrderedImpl implementation
-unsigned int ThreadTaskListOrderedImpl::Enqueue(const SharedPtr<ITaskBase>& pTaskBase)
+unsigned int ThreadTaskListOrderedImpl::Enqueue(SmartPtr<ITaskBase>* pTaskBase)
 {
 	if (NULL == m_pSelectedWorkerThread)
 	{
@@ -660,18 +655,18 @@ unsigned int ThreadTaskListOrderedImpl::Enqueue(const SharedPtr<ITaskBase>& pTas
 			}
 		}
 	}
-	if (pTaskBase->IsTaskSet())
+	if ((*pTaskBase)->IsTaskSet())
 	{
-        m_pSelectedWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase.GetPtr(), m_pSelectedWorkerThread->m_iQueueId));
+		m_pSelectedWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase, m_pSelectedWorkerThread->m_iQueueId));
 	}
 	else
 	{
-        m_pSelectedWorkerThread->EnqueueTask(new CTask((ITask*)pTaskBase.GetPtr()));
+		m_pSelectedWorkerThread->EnqueueTask(new CTask((ITask*)pTaskBase));
 	}
 	return 0;
 }
 
-unsigned int ThreadTaskListUnOrderedImpl::Enqueue(const SharedPtr<ITaskBase>& pTaskBase)
+unsigned int ThreadTaskListUnOrderedImpl::Enqueue(SmartPtr<ITaskBase>* pTaskBase)
 {
 	WorkerThread * pWorkerThread = g_obThreadPool[0];
 	int i=1;
@@ -687,13 +682,13 @@ unsigned int ThreadTaskListUnOrderedImpl::Enqueue(const SharedPtr<ITaskBase>& pT
 		++i;
 	}
 
-	if (pTaskBase->IsTaskSet())
+	if ((*pTaskBase)->IsTaskSet())
 	{
-        pWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase.GetPtr(), pWorkerThread->m_iQueueId));
+		pWorkerThread->EnqueueTask(new CTaskSet((ITaskSet*)pTaskBase, pWorkerThread->m_iQueueId));
 	}
 	else
 	{
-        pWorkerThread->EnqueueTask(new CTask((ITask*)pTaskBase.GetPtr()));
+		pWorkerThread->EnqueueTask(new CTask((ITask*)pTaskBase));
 	}
 	return 0;
 }
@@ -758,9 +753,8 @@ ITaskList* ThreadTaskExecutor::CreateTaskList(bool OOO)
 	}
 	return  new ThreadTaskListOrderedImpl();
 }
-unsigned int ThreadTaskExecutor::Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData)
+unsigned int ThreadTaskExecutor::Execute(SmartPtr<ITaskBase> * pTask)
 {
-    assert(pSubdevTaskExecData != NULL);    // executing on a sub-device isn't yet implemented
 	int ret = m_MyList.Enqueue(pTask);
 	m_MyList.Flush();
 	return ret;

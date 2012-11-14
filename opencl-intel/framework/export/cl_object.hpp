@@ -7,7 +7,8 @@
 
 template <class HandleType, class ParentHandleType>
 OCLObject<HandleType,ParentHandleType>::OCLObject(ParentHandleType* parent, const std::string& typeName) : 
-	m_iId(0), m_uiRefCount(1), m_pParentHandle(parent), m_bTerminate(false), m_typename(typeName), m_pLoggerClient(NULL)
+	OCLObjectBase(typeName), m_iId(0), m_uiRefCount(1), m_pParentHandle(parent),
+	m_bTerminate(false), m_pLoggerClient(NULL), m_uiPendency(0)
 {
 	m_handle.object = this;
 	if ( NULL != parent )

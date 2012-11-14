@@ -43,7 +43,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 class TaskDispatcher;
 
-typedef cl_dev_err_code fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+typedef cl_dev_err_code fnDispatcherCommandCreate_t(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
 // Base class for handling dispatcher command execution
 // All Commands will be implement this interface
@@ -54,7 +54,8 @@ public:
     virtual ~DispatcherCommand();
 
 protected:
-    void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
+    void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
+    inline WGContext*   GetWGContext(unsigned int id);
 
 	cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam);
 
@@ -72,7 +73,7 @@ protected:
 };
 
 template<class ITaskClass>
-	class CommandBaseClass : public ITaskClass, public DispatcherCommand
+	class CommandBaseClass : public DispatcherCommand, public ITaskClass
 {
 public:
 	CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
@@ -80,27 +81,33 @@ public:
 	{
 		m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
 		m_aIsSyncPoint = FALSE;
+		m_aRefCount = 2;	// Starting reference count is 2:
+							// first is used for reference in the device agent and 
+							// second in task executor
 	}
-
-    ~CommandBaseClass()
-    {
-    }
 
 	// ITaskBase
 	bool	SetAsSyncPoint();
 	bool	CompleteAndCheckSyncPoint();
 	bool	IsCompleted() const {return m_bCompleted;}
-    long    Release() { return 0; }
+    long    Release()
+	{
+		long prev = m_aRefCount--;
+		if ( prev == 1 )
+			delete this;
+		return 0;
+	}
 
 protected:
 	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
+	Intel::OpenCL::Utils::AtomicCounter	m_aRefCount;
 };
 
 // OCL Read/Write buffer execution
 class ReadWriteMemObject : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();
@@ -114,7 +121,7 @@ protected:
 class CopyMemObject : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
@@ -130,7 +137,7 @@ protected:
 class NativeFunction : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
@@ -148,7 +155,7 @@ protected:
 class MapMemObject : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
@@ -164,7 +171,7 @@ protected:
 class UnmapMemObject : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
@@ -180,7 +187,7 @@ protected:
 class NDRange : public CommandBaseClass<ITaskSet>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     static unsigned int RGBTable[COLOR_TABLE_SIZE];
     static AtomicCounter RGBTableCounter;
@@ -190,10 +197,10 @@ public:
 
 	// ITaskSet interface
 	int	    Init(size_t region[], unsigned int &regCount);
-	int	    AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int	    DetachFromThread(WGContextBase* pWgContext);
-	void    ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext); 
-    void    ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext);
+	int	    AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	int	    DetachFromThread(unsigned int uiWorkerId);
+	void    ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
+    void    ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId);
 	bool    Finish(FINISH_REASON reason);
 
 protected:
@@ -234,7 +241,7 @@ protected:
 class FillMemObject : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();
@@ -248,7 +255,7 @@ protected:
 class MigrateMemObject  :public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask);
 
     // ITask interface
     bool    Execute();

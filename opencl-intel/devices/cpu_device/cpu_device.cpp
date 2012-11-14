@@ -74,9 +74,16 @@ static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     CPU_MAX_WORK_GROUP_SIZE
     };
 
-static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES_NUMA[] = 
     {
         CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+        CL_DEVICE_PARTITION_BY_COUNTS,
+        CL_DEVICE_PARTITION_EQUALLY,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+    };
+
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+    {
         CL_DEVICE_PARTITION_BY_COUNTS,
         CL_DEVICE_PARTITION_EQUALLY,
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
@@ -127,7 +134,6 @@ typedef struct _cl_dev_internal_subdevice_id
 	TaskDispatcher*                     task_dispatcher;
 	Intel::OpenCL::Utils::AtomicCounter task_dispatcher_ref_count;
 	volatile bool                       task_dispatcher_init_complete;
-    void*    taskExecutorData;
 } cl_dev_internal_subdevice_id;
 
 typedef struct _cl_dev_internal_cmd_list
@@ -211,14 +217,16 @@ cl_dev_err_code CPUDevice::Init()
     }
 
     m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GLOBAL_MEM_SIZE, m_pProgramService->GetImageService());
-    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
+    m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService,
+    m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
     if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
     
-    m_pTaskDispatcher->setWgContextPool(&m_wgContextPool);
-    return m_pTaskDispatcher->init();
+    ret = m_pTaskDispatcher->init();
+
+    return ret;
 }
 
 cl_dev_err_code CPUDevice::QueryHWInfo()
@@ -231,8 +239,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    const size_t szScoreboardSize = m_numCores + 1;   // TODO: return it to m_numCores once the bug in TBB described in TBBTaskExecutor::m_pScheduler is resolved
-	m_pComputeUnitScoreboard = new ThreadMapping[szScoreboardSize];
+	m_pComputeUnitScoreboard = new ThreadMapping[m_numCores];
 	if (NULL == m_pComputeUnitScoreboard)
 	{
 		delete[] m_pComputeUnitMap;
@@ -247,17 +254,14 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 	}
 
 	//Todo: calculate the real map here
-	for (unsigned long i = 0; i < szScoreboardSize; ++i)
+	for (unsigned long i = 0; i < m_numCores; ++i)
 	{
+		m_pComputeUnitMap[i]                    = i;
+		m_pCoreToThread[i]                      = i;
 		m_pComputeUnitScoreboard[i].os_tid      = 0;
 		m_pComputeUnitScoreboard[i].core_in_use = false;
 		m_pComputeUnitScoreboard[i].core        = -1;
 	}
-    for (unsigned int i = 0; i < m_numCores; i++)
-    {
-        m_pComputeUnitMap[i] = i;
-        m_pCoreToThread[i] = i;
-    }
 	return CL_DEV_SUCCESS;
 }
 
@@ -1196,17 +1200,33 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         
 
         case CL_DEVICE_PARTITION_PROPERTIES:
-            *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                return CL_DEV_INVALID_VALUE;
+                const cl_device_partition_property* pSupportedProperties;
+                bool bNumaSupported = false;
+#ifndef _WIN32 //Numa support disabled for windows machines
+                    bNumaSupported = (0 < GetMaxNumaNode());
+#endif
+                if (bNumaSupported)
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_NUMA);
+                }
+                else
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
+                }
+                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                //if OUT paramVal is NULL it should be ignored
+                if(NULL != paramVal)
+                {
+                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
+                }
+                return CL_DEV_SUCCESS;
             }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                MEMCPY_S(paramVal, sizeof(CPU_SUPPORTED_FISSION_MODES), CPU_SUPPORTED_FISSION_MODES, sizeof(CPU_SUPPORTED_FISSION_MODES));
-            }
-            return CL_DEV_SUCCESS;
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
@@ -1392,7 +1412,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				}
 				subdevice_ids[i] = pNewsubdeviceId;
             }
-            break;
+            return CL_DEV_SUCCESS;
         }
 
     case CL_DEV_PARTITION_BY_COUNTS:
@@ -1411,6 +1431,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 }
                 totalNumUnits += partitionSizes[i];
             }
+			//Disallow partitions that equal the sub-device
             if (totalNumUnits > availableComputeUnits)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1470,7 +1491,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				}
 				subdevice_ids[i] = pNewsubdeviceId;
             }
-            break;
+            return CL_DEV_SUCCESS;
         }
 
     case CL_DEV_PARTITION_AFFINITY_NUMA:
@@ -1541,13 +1562,13 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				lastUsedIdx += pNewsubdeviceId->num_compute_units;
 
 				subdevice_ids[i] = pNewsubdeviceId;
-                if (sizes != NULL)
-                {
-                    sizes[i] = pNewsubdeviceId->num_compute_units;
-                }
+                                if (sizes != NULL)
+                                {
+                                    sizes[i] = pNewsubdeviceId->num_compute_units;
+                                }
 
 			}
-            break;
+            return CL_DEV_SUCCESS;
         }
 
     case CL_DEV_PARTITION_BY_NAMES:
@@ -1600,7 +1621,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 				*num_subdevices = 1;
 			}
 
-            break;
+            return CL_DEV_SUCCESS;
         }
     //Non-supported modes
     case CL_DEV_PARTITION_AFFINITY_L1:
@@ -1613,23 +1634,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
         return CL_DEV_INVALID_VALUE;
 
     }
-
-    // create sub-devices in TaskExecutor
-    for (size_t i = 0; i < *num_subdevices; i++)
-    {
-        cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
-        subdevId.taskExecutorData = m_pTaskDispatcher->createSubdevice(subdevId.num_compute_units, subdevId.legal_core_ids, *this);
-        if (NULL == subdevId.taskExecutorData)
-        {
-            for (size_t j = 0; j < i; j++)
-            {
-                m_pTaskDispatcher->releaseSubdevice(((cl_dev_internal_subdevice_id*)subdevice_ids[j])->taskExecutorData);
-            }
-            return CL_DEV_OUT_OF_MEMORY;
-        }
-    }
-
-    return CL_DEV_SUCCESS;
+    return CL_DEV_INVALID_VALUE;
 }
 /****************************************************************************************************************
  clDevReleaseSubdevice
@@ -1645,7 +1650,6 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 	if (NULL != pSubdeviceData)
 	{
 		delete pSubdeviceData->legal_core_ids;
-        m_pTaskDispatcher->releaseSubdevice(pSubdeviceData->taskExecutorData);
 		delete pSubdeviceData;
 	}
     return CL_DEV_SUCCESS;
@@ -1692,8 +1696,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				return CL_DEV_ERROR_FAIL;
 			}
 
-            TaskDispatcher* pNewTaskDispatcher = new SubdeviceTaskDispatcher(pSubdeviceData->num_compute_units, pSubdeviceData->legal_core_ids, m_uiCpuId, m_pFrameworkCallBacks,
-                                                                             m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this, pSubdeviceData->taskExecutorData);
+			TaskDispatcher* pNewTaskDispatcher = new SubdeviceTaskDispatcher(pSubdeviceData->num_compute_units, pSubdeviceData->legal_core_ids, m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
 			if (NULL == pNewTaskDispatcher)
 			{
 				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
@@ -1706,7 +1709,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 
 			pNewTaskDispatcher->setAffinityPermutation(pAffinityPermutation);
 			//From here on, no need to delete pAffinityPermutation on failure as the new dispatcher owns the pointer
-            cl_dev_err_code ret = pNewTaskDispatcher->init();
+			cl_dev_err_code ret = pNewTaskDispatcher->init();
 			if (CL_DEV_FAILED(ret))
 			{
 				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
@@ -1738,24 +1741,11 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 			pList->task_dispatcher = pList->subdevice_id->task_dispatcher;
 		}
 	}
-    void* const pSubdevTaskExecData = NULL != pList->subdevice_id ? ((cl_dev_internal_subdevice_id*)pList->subdevice_id)->taskExecutorData : NULL;
-    cl_dev_err_code ret = pList->task_dispatcher->createCommandList(props, pSubdevTaskExecData, &pList->cmd_list);
+
+    cl_dev_err_code ret  = pList->task_dispatcher->createCommandList(props,&pList->cmd_list);
     *list = pList;
     return ret;
 }
-
-void CPUDevice::clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id)
-{
-    if (NULL != subdevice_id)
-    {
-        m_pTaskDispatcher->waitUntilEmpty(((cl_dev_internal_subdevice_id*)subdevice_id)->taskExecutorData);
-    }
-    else
-    {
-        m_pTaskDispatcher->waitUntilEmpty(NULL);
-    }
-}
-
 /****************************************************************************************************************
  clDevFlushCommandList
     Call TaskDispatcher to flush command list
@@ -1770,7 +1760,20 @@ cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
     }
 	return pList->task_dispatcher->flushCommandList(pList->cmd_list);
 }
-
+/****************************************************************************************************************
+ clDevRetainCommandList
+    Call TaskDispatcher to retain command list
+********************************************************************************************************************/
+cl_dev_err_code CPUDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevRetainCommandList Function enter"));
+    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    if (NULL == pList)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+    return pList->task_dispatcher->retainCommandList(pList->cmd_list);
+}
 /****************************************************************************************************************
  clDevReleaseCommandList
     Call TaskDispatcher to release command list
@@ -1811,16 +1814,6 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 	delete pList;
 	return CL_DEV_SUCCESS;
 }
-
-/****************************************************************************************************************
- clDevReleaseCommand
-********************************************************************************************************************/
-void CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
-{
-    SharedPtr<ITaskBase> ptr = (ITaskBase*)cmdToRelease->device_agent_data;
-    ptr.DecRefCnt();    // see IncRefCnt in TaskDispatcher::SubmitTaskArray
-}
-
 /****************************************************************************************************************
  clDevCommandListExecute
     Call TaskDispatcher to execute command list
@@ -2076,7 +2069,6 @@ void CPUDevice::clDevCloseDevice(void)
     }
     if ( NULL != m_pTaskDispatcher )
     {
-        m_pTaskDispatcher->setWgContextPool(NULL);
         delete m_pTaskDispatcher;
         m_pTaskDispatcher = NULL;
     }
@@ -2098,7 +2090,6 @@ void CPUDevice::clDevCloseDevice(void)
 		m_pComputeUnitScoreboard = NULL;
 	}
     
-    m_wgContextPool.Clear();    // we have to clear the pool before the BE wrapper is terminated, because ~WGContext still needs it
     m_backendWrapper.Terminate();
 
     delete this;

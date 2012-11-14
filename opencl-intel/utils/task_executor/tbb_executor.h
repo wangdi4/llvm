@@ -26,78 +26,125 @@
 */
 #pragma once
 
-#include <set>
 #include "task_executor.h"
 #include <tbb/tbb.h>
 
 #include "cl_synch_objects.h"
 #include "cl_dynamic_lib.h"
-#include "arena_handler.h"
-#include "cl_shared_ptr.h"
-#include "cl_synch_objects.h"
-#include "base_command_list.h"
 
-using Intel::OpenCL::Utils::SharedPtr;
-using Intel::OpenCL::Utils::AtomicPointer;
-using Intel::OpenCL::Utils::OclMutex;
+using Intel::OpenCL::Utils::SmartPtr;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
+	#define INVALID_WORKER_ID		0xFFFFFFFF
+	#define WORKER_SCHEDULER_ID		((tbb::task_scheduler_init*)(-1))
+	#define IMPLICIT_SCHEDULER_ID	((tbb::task_scheduler_init*)(-2))
 	#define MAX_BATCH_SIZE			128 
+
+	class ThreadIDAllocator
+	{
+	public:
+		ThreadIDAllocator(unsigned int uiNumOfThreads);
+
+		unsigned int GetNextAvailbleId();	// Return available Id, and increase ref. count
+											// -1 return is there is no available id's, ref. count is not increased
+		void ReleaseId(unsigned int uiId);	// Release Available id and decreases reference count
+
+		long GetRefCount() { return m_aRefCount;}
+
+	protected:
+		// can't be deleted
+		~ThreadIDAllocator() {};
+
+		unsigned int							m_uiNumThreads;
+		//The variables below are used to ensure working threads have unique IDs in the range [0, numThreads - 1]
+		//The idea is that as threads enter the pool they get a unique identifier (NextAvailableThreadId) and use the thread ID from gAvailableThreadIds in that index
+		//When a thread leaves the pool, it decrements NextAvailableThreadId and writes his id to gAvailableThreadIds in the previous value
+		Intel::OpenCL::Utils::AtomicBitField	m_aThreadAvailabilityMask;
+
+		Intel::OpenCL::Utils::AtomicCounter		m_aRefCount; // Reference count is set to be 1
+	};
+
+	class ThreadIDAssigner : public tbb::task_scheduler_observer
+	{
+		bool m_bUseTaskalyzer;
+		static Intel::OpenCL::Utils::AtomicPointer<ThreadIDAllocator> m_spIdAllocator;
+		static ThreadIDAssigner* _this;
+
+	public:
+
+		ThreadIDAssigner();
+		~ThreadIDAssigner();
+
+		static unsigned int GetWorkerID();
+		static void SetWorkerID(unsigned int id);
+		static void ReleaseWorkerID();
+		static tbb::task_scheduler_init* GetScheduler();
+		static void SetScheduler(tbb::task_scheduler_init* init);
+		static bool IsWorkerScheduler();
+		static void StopObservation();
+		static void StartObservation();
+
+		virtual void on_scheduler_entry( bool is_worker );
+		virtual void on_scheduler_exit( bool is_worker );
+
+		static ThreadIDAllocator* SetThreadIdAllocator(ThreadIDAllocator* newIdAllocator);
+
+		struct thread_local_data_t
+		{
+			unsigned int				uiWorkerId;
+			tbb::task_scheduler_init*	pScheduler;
+			ThreadIDAllocator*			pIDAllocator;
+		};
+		static Intel::OpenCL::Utils::OclReaderWriterLock m_IDAllocatorLock;
+	};
 
 	class TBBTaskExecutor : public ITaskExecutor
 	{
 	public:
 		TBBTaskExecutor();
 		virtual ~TBBTaskExecutor();
-		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);        
+		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
 
 		bool Activate();
 		void Deactivate();
 
 		unsigned int GetNumWorkingThreads() const;
-		SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData);
-		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
-		te_wait_result	WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData = NULL);
+		ITaskList* CreateTaskList(CommandListCreationParam* param);
+		unsigned int	Execute(SmartPtr<ITaskBase> * pTask);
+		te_wait_result	WaitForCompletion(ITaskBase * pTask);
+
+		void Close(bool bCancel);
+
+		void ReleasePerThreadData();
 
 		bool AllocateResources();
 		void ReleaseResources();
 
 		ocl_gpa_data* GetGPAData() const;
 
-        virtual void* CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer);
-
-        virtual void  ReleaseSubdevice(void* pSubdevData);
-
-        virtual void  WaitUntilEmpty(void* pSubdevData);
-
-        void SetWGContextPool(IWGContextPool* pWgContextPool);
-
-        WGContextBase* GetWGContext(bool bBelongsToMasterThread);
-
-        void ReleaseWorkerWGContext(WGContextBase* wgContext);
+		tbb::task_group_context*	GetTBBGroupContext() {return m_pGrpContext;}
 
 	protected:
 		// Load TBB library explicitly
 		bool LoadTBBLibrary();
 
-		mutable OclMutex m_mutex;
+		Intel::OpenCL::Utils::OclMutex		m_muActivate;
+
+		tbb::task_group_context*			m_pGrpContext;
 
 		long								m_lActivateCount;
 
 
 		// Independent tasks will be executed by this task group
-        SharedPtr<ITaskList> m_pExecutorList;
-
+		ITaskList*							m_pExecutorList;
+#if defined(USE_ITT)
+		// When using GPA, keep an extra task_scheduler_init to keep the same worker pool even after CPU device shutdown
+		// This is a deliberate memory leak and is never freed
+		tbb::task_scheduler_init*			m_pGPAscheduler;
+#endif
+		ThreadIDAssigner*					m_threadPoolChangeObserver;
 		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
-
-        ArenaHandler*                       m_pGlobalArenaHandler;
-
-        /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
-           in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
-           They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
-        tbb::task_scheduler_init*           m_pScheduler;
-        IWGContextPool* m_pWgContextPool;
 
 	private:
 		TBBTaskExecutor(const TBBTaskExecutor&);
@@ -109,7 +156,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class TBBThreadPoolPartitioner : public IThreadPoolPartitioner
     {
     public:
-		TBBThreadPoolPartitioner(int numThreads, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData);
+		TBBThreadPoolPartitioner(int numThreads, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver);
         virtual ~TBBThreadPoolPartitioner();
         bool Activate();
         void Deactivate();
@@ -120,20 +167,5 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	private:
 		TBBThreadPoolPartitioner(const TBBThreadPoolPartitioner&);
 		TBBThreadPoolPartitioner& operator=(const TBBThreadPoolPartitioner&);
-    };    
-    
-    class in_order_executor_task
-    {
-    public:
-	    in_order_executor_task(command_list<in_order_executor_task>* list) : m_list(list){}
-	
-	    void operator()();
-
-    protected:
-	    command_list<in_order_executor_task>* m_list;
-
-	    void FreeCommandBatch(TaskVector* pCmdBatch);
-
     };
-
 }}}

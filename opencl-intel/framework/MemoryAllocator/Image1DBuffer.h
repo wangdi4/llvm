@@ -33,7 +33,7 @@ class Image1DBuffer : public GenericMemObject
 
 public:
 
-    PREPARE_SHARED_PTR(Image1DBuffer)
+    PREPARE_SHARED_PTR(Image1DBuffer);    
 
     static SharedPtr<Image1DBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {

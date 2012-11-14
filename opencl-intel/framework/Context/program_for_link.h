@@ -8,7 +8,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ProgramForLink : public Program
 	{
 
-        PREPARE_SHARED_PTR(ProgramForLink)
+        PREPARE_SHARED_PTR(ProgramForLink);
 
 	public:		
 

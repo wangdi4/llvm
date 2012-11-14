@@ -33,25 +33,24 @@ extern std::map<std::string, std::map<const void*, long> >* allocatedObjectsMap;
 #endif
 
 template<typename T>
-void SharedPtrBase<T>::IncRefCnt()
+void SharedPtr<T>::IncRefCnt()
 {
 #if _DEBUG
     const long lRefCnt = 
 #endif
         this->m_ptr->IncRefCnt();
 #if _DEBUG
-    // TODO: In some DLLs (like task_executor.dll) we always get NULL for the mutex and map - we need to fix this.
     if (lRefCnt >= 0 && NULL != allocatedObjectsMapMutex && NULL != allocatedObjectsMap)   // otherwise the object isn't reference counted
     {
         allocatedObjectsMapMutex->Lock();
-        (*allocatedObjectsMap)[this->m_ptr->GetTypeName()][this->m_ptr->GetThis()] = lRefCnt;
+        (*allocatedObjectsMap)[this->m_ptr->GetTypeName()][this->m_ptr] = lRefCnt;
         allocatedObjectsMapMutex->Unlock();        
     }
 #endif
 }
 
 template<typename T>
-void SharedPtrBase<T>::DecRefCntInt(T* ptr)
+void SharedPtr<T>::DecRefCntInt(T* ptr)
 {
     if (NULL != ptr)
     {
@@ -70,24 +69,25 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
         {
             if (lNewVal > 0)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()][ptr->GetThis()] = lNewVal;
+                (*allocatedObjectsMap)[ptr->GetTypeName()][ptr] = lNewVal;
             }
             else if (0 == lNewVal)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()].erase(ptr->GetThis());
+                (*allocatedObjectsMap)[ptr->GetTypeName()].erase(ptr);
             }
             allocatedObjectsMapMutex->Unlock();
         }
 #endif
         if (0 == lNewVal)
         {
-            HandleRefCnt0(ptr);
+            ptr->Cleanup();
+            delete ptr;
         }
     }
 }
 
 template<typename T>
-long SharedPtrBase<T>::GetRefCnt() const
+long SharedPtr<T>::GetRefCnt() const
 {
     if (this->m_ptr)
     {
@@ -103,12 +103,6 @@ template<typename T>
 SharedPtr<T>::operator ConstSharedPtr<T>() const
 {
     return ConstSharedPtr<T>(this->m_ptr);
-}
-
-template<typename T>
-void SharedPtr<T>::HandleRefCnt0(T* ptr)
-{
-    ptr->Cleanup();
 }
 
 }}}

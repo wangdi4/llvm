@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(GLMemoryObject)
+        PREPARE_SHARED_PTR(GLMemoryObject);
 
 		virtual cl_err_code AcquireGLObject() = 0;
 		virtual cl_err_code ReleaseGLObject() = 0;
@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-          PREPARE_SHARED_PTR(GLTexture)
+          PREPARE_SHARED_PTR(GLTexture);
 
           ~GLTexture();
 

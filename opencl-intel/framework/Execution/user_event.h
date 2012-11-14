@@ -35,7 +35,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class UserEvent : public OclEvent
 	{
 	public:
-        PREPARE_SHARED_PTR(UserEvent)
+        PREPARE_SHARED_PTR(UserEvent);		
 
         static SharedPtr<UserEvent> Allocate(_cl_context_int* context)
         {

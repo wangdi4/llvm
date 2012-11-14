@@ -48,7 +48,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(Sampler)
+        PREPARE_SHARED_PTR(Sampler);
 
         static SharedPtr<Sampler> Allocate(_cl_context_int* context) { return SharedPtr<Sampler>(new Sampler(context)); }
 

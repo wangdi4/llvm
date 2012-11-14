@@ -35,6 +35,7 @@
 #if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
 #include <basetsd.h>
+#include "ocl_object_base.h"
 #include "CL\cl_dx9_media_sharing.h"
 #if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
@@ -59,7 +60,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class ContextModule
+	class ContextModule : public OCLObjectBase
 	{
 	
 	public:
@@ -134,14 +135,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Return value:	Returns a pointer to the GPA data object.
 		******************************************************************************************/
 		ocl_gpa_data * GetGPAData() const { return m_pGPAData; }
-
-        /******************************************************************************************
-		* Function: 	IsTerminating    
-		* Description:	Returns whether this ContextModule is in the process of terminating
-		* Arguments:	None               	
-		* Return value:	Returns whether this ContextModule is in the process of terminating
-		******************************************************************************************/
-        bool IsTerminating() const { return m_bIsTerminating; }
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
@@ -278,7 +271,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_entry_points *						m_pOclEntryPoints;
 
 		ocl_gpa_data *							m_pGPAData;
-        bool                                    m_bIsTerminating;
 
 		DECLARE_LOGGER_CLIENT;
 	};

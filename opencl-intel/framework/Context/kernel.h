@@ -189,7 +189,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(Kernel)
+        PREPARE_SHARED_PTR(Kernel);
 
         /******************************************************************************************
 		* Function: 	Allocate

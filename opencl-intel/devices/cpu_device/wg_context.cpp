@@ -40,8 +40,9 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 using namespace Intel::OpenCL::CPUDevice;
 
-WGContext::WGContext() :
-    m_pContext(NULL), m_lNDRangeId(-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE), m_pLocalMem(NULL), m_pPrivateMem(NULL)
+WGContext::WGContext():
+	m_pContext(NULL), m_lNDRangeId(-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
+	m_pLocalMem(NULL), m_pPrivateMem(NULL)
 {
 }
 
@@ -66,10 +67,6 @@ WGContext::~WGContext()
 
 cl_dev_err_code	WGContext::Init()
 {
-    if (NULL != m_pLocalMem && NULL != m_pPrivateMem)
-    {
-        return CL_DEV_SUCCESS; // already initialized
-    }
 	// Create local memory
 	m_pLocalMem = (char*)ALIGNED_MALLOC(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN);
 	if ( NULL == m_pLocalMem )
@@ -84,8 +81,6 @@ cl_dev_err_code	WGContext::Init()
 	m_pPrivateMem = ALIGNED_MALLOC(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN);
 	if ( NULL == m_pPrivateMem )
 	{
-        ALIGNED_FREE(m_pLocalMem);
-        m_pLocalMem = NULL;
 		assert(0 && "Private memory allocation failed");
 		return CL_DEV_OUT_OF_MEMORY;
 	}

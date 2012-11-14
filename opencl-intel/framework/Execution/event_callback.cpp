@@ -11,12 +11,12 @@ EventCallback::EventCallback(eventCallbackFn callback, void* pUserData, const cl
 
 cl_err_code EventCallback::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode)
 {
-	assert (pEvent);
 	cl_int retCode = returnCode;
 	if (CL_COMPLETE != pEvent->GetEventExecState())
 	{
 		retCode = GetExpectedExecState();
 	}
 	m_callback(pEvent->GetHandle(), retCode, m_pUserData);
+	delete this;
 	return CL_SUCCESS;
 }

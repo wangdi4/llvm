@@ -688,9 +688,7 @@ int main(int argc, char* argv[])
 	int iThreads = GetTaskExecutor()->Init(0, false);
 	EXPECT_TRUE(iThreads>0);
 
-#if 0   // There are some non-deterministic failures in this test. I guess it's a bug in the test, which doesn't take into account all the new behavior of the new arenas. TODO: fix it
 	test_task_executor();
-#endif
 
 	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 

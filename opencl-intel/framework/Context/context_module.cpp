@@ -38,7 +38,7 @@ using namespace Intel::OpenCL::Framework;
 //////////////////////////////////////////////////////////////////////////
 // ContextModule C'tor
 //////////////////////////////////////////////////////////////////////////
-ContextModule::ContextModule(PlatformModule *pPlatformModule) : m_bIsTerminating(false)
+ContextModule::ContextModule(PlatformModule *pPlatformModule) : OCLObjectBase("ContextModule")
 {
 	INIT_LOGGER_CLIENT(TEXT("ContextModule"),LL_DEBUG);
 
@@ -73,7 +73,6 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, ocl_gp
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Release(  bool bTerminate )
 {
-    m_bIsTerminating = bTerminate;
 	LOG_INFO(TEXT("%s"), TEXT("ContextModule::Release enter"));
 
 	return CL_SUCCESS;
@@ -253,7 +252,7 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
 #if defined (_WIN32)  //TODO GL support for Linux
 	if (bGLSharingSupported)
 	{
-        pContext = 	GLContext::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData, *this);
+        pContext = 	GLContext::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, hGLCtx, hDC, m_pGPAData);
 	} else
 #endif
 #if defined (DX_MEDIA_SHARING)
@@ -264,18 +263,18 @@ cl_context	ContextModule::CreateContext(const cl_context_properties * clProperti
         if (pd3dDefinitions->GetVersion() == ID3DSharingDefinitions::D3D11)
         {
             pContext = D3D11Context::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, pD3DDevice,
-                iDevType, pd3dDefinitions, *this, bIsInteropUserSync);
+                iDevType, pd3dDefinitions, bIsInteropUserSync);
         }
         else
         {
             pContext = D3D9Context::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints,
-                m_pGPAData, pD3DDevice, iDevType, pd3dDefinitions, *this, bIsInteropUserSync);
+                m_pGPAData, pD3DDevice, iDevType, pd3dDefinitions, bIsInteropUserSync);
         }
     }
     else
 #endif
 	{
-        pContext = 	Context::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData, *this);
+        pContext = 	Context::Allocate(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, &clErrRet, m_pOclEntryPoints, m_pGPAData);
 	}
 	if (CL_FAILED(clErrRet))
 	{

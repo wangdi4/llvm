@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:		
 
-        PREPARE_SHARED_PTR(GLTexture1D)
+        PREPARE_SHARED_PTR(GLTexture1D);
 
         static SharedPtr<GLTexture1D> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
         {

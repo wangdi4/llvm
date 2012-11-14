@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
 
-        PREPARE_SHARED_PTR(FissionableDevice)      
+        PREPARE_SHARED_PTR(FissionableDevice);        
 
         // The API to split the device into sub-devices. Used to query for how many devices will be generated, as well as return the list of their subdevice-IDs
         virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
@@ -76,8 +76,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
         virtual const IOCLDeviceAgent* GetDeviceAgent() const = 0;
-		void AddedToContext();
-		void RemovedFromContext();
+		void AddedToContext()     { m_numContexts++; }
+		void RemovedFromContext() { m_numContexts--; }
 		bool IsInContext() const  { return m_numContexts > 0; }
 
 #if defined (DX_MEDIA_SHARING)
@@ -129,17 +129,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
          */
         bool IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const;
 
+        /**
+         * @return an OclMutex to synchronize calls to the BE
+         */
+        Intel::OpenCL::Utils::OclMutex& GetDeviceBeMutex() { return m_devBeMutex; }
+
     protected:
 
         FissionableDevice(_cl_platform_id_int* platform) :
 		  OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(NULL) {}
 
         ~FissionableDevice() {}
-
-        /**
-         * @return the cl_dev_subdevice_id associated with this device
-         */
-        virtual cl_dev_subdevice_id GetSubdeviceId() const { return NULL; }
 
 		Intel::OpenCL::Utils::AtomicCounter m_numContexts;
 
@@ -155,7 +155,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         IUnknown* m_pD3DDevice;
         cl_context_properties m_iD3DDevType;
 
-        Intel::OpenCL::Utils::OclMutex m_devMutex;
+        Intel::OpenCL::Utils::OclMutex m_devBeMutex;
 
     };
 
@@ -172,7 +172,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(Device)
+        PREPARE_SHARED_PTR(Device);		
 
         static SharedPtr<Device> Allocate(_cl_platform_id_int* platform) { return SharedPtr<Device>(new Device(platform)); }
 
@@ -267,7 +267,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         long Release() { return 1; }
         // Cannot retains root-level devices
         cl_err_code Retain() { return CL_SUCCESS; }
-		void Cleanup( bool bIsTerminate = false );
+		void Cleanup( bool bIsTerminate = false ) const;
 
 	protected:
 
@@ -341,7 +341,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
 
-        PREPARE_SHARED_PTR(SubDevice)     
+        PREPARE_SHARED_PTR(SubDevice);        
 
         static SharedPtr<SubDevice> Allocate(SharedPtr<FissionableDevice> pParent, size_t numComputeUnits, cl_dev_subdevice_id id,
             const cl_device_partition_property* props)
@@ -384,8 +384,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SubDevice(SharedPtr<FissionableDevice> pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props);
 
         void CacheFissionProperties(const cl_device_partition_property* props); 
-
-        virtual cl_dev_subdevice_id GetSubdeviceId() const { return m_deviceId; }
 
         SharedPtr<Device>             m_pRootDevice;
         SharedPtr<FissionableDevice>  m_pParentDevice;   // Can be a sub-device or a device 

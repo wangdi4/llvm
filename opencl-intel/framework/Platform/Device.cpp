@@ -60,10 +60,10 @@ Device::~Device()
 	LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter"));
 }
 
-void Device::Cleanup( bool bIsTerminate )
+void Device::Cleanup( bool bIsTerminate ) const
 {
 	// release logger clients
-	map<cl_int,LoggerClient*>::iterator it = m_mapDeviceLoggerClinets.begin();
+	map<cl_int,LoggerClient*>::iterator it = const_cast<Device*>(this)->m_mapDeviceLoggerClinets.begin();
 	while (it != m_mapDeviceLoggerClinets.end())
 	{
 		LoggerClient * pLoggerClient = it->second;
@@ -73,10 +73,9 @@ void Device::Cleanup( bool bIsTerminate )
 		}
 		it++;
 	}
-	m_mapDeviceLoggerClinets.clear();
+	const_cast<Device*>(this)->m_mapDeviceLoggerClinets.clear();
 
-	m_dlModule.Close();
-    delete this;
+	const_cast<Device*>(this)->m_dlModule.Close();
 }
 
 cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
@@ -502,22 +501,6 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     delete[] pFormats;
     return bSupported;
 }
-
-void FissionableDevice::AddedToContext()
-{ 
-    OclAutoMutex mu(&m_devMutex);
-    m_numContexts++;
-}
-
-void FissionableDevice::RemovedFromContext()
-{ 
-    OclAutoMutex mu(&m_devMutex);
-    if (0 == --m_numContexts)
-    {
-        GetDeviceAgent()->clDevWaitUntilEmpty(GetSubdeviceId());
-    }
-}
-
 SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :
 	FissionableDevice((_cl_platform_id_int *)pParent->GetHandle()), m_pParentDevice(pParent), m_deviceId(id),
 		m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
@@ -548,6 +531,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     size_t szParamValueSize = 0;
     cl_uint uValue = 0;
     cl_device_id clDevIdVal = 0;
+	cl_device_partition_property clDevPartitionPropVal = 0;
     const void * pValue = NULL;
 
     switch (param_name)
@@ -587,6 +571,15 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         szParamValueSize = m_cachedFissionLength * sizeof(cl_device_partition_property);
         pValue = m_cachedFissionMode;
         break;
+
+	case CL_DEVICE_PARTITION_PROPERTIES:
+		if (m_numComputeUnits <= 1)
+		{
+			szParamValueSize = sizeof(cl_device_partition_property);
+			clDevPartitionPropVal = 0;
+			pValue = &clDevPartitionPropVal;
+			break;
+		}
 
     default:
         return m_pRootDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);

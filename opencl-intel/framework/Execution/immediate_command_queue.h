@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(ImmediateCommandQueue)
+        PREPARE_SHARED_PTR(ImmediateCommandQueue);
 		
         static SharedPtr<ImmediateCommandQueue> Allocate(
             SharedPtr<Context>          pContext,

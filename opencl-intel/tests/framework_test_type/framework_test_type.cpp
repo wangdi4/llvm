@@ -108,7 +108,7 @@ TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
 	EXPECT_TRUE(fission_read_buffer_between_device_test());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clGetDeviceIDsTest)
+TEST(FrameworkTestType, Test_clGetDeviceIDsTest)
 {
     EXPECT_TRUE(clGetDeviceIDsTest());
 }

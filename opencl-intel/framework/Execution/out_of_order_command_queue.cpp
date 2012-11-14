@@ -150,21 +150,21 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 
 cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
 {
-    SharedPtr<OclEvent> cmdEvent = marker->GetEvent();
+    OclEvent& cmdEvent = *marker->GetEvent();
     if (!marker->IsDependentOnEvents())
     {
         // Prevent marker from firing until we're done enqueuing it to avoid races
-        cmdEvent->AddFloatingDependence();
-        cmdEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+        cmdEvent.AddFloatingDependence();
+        cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
         const cl_err_code ret = AddDependentOnAll(marker);
-        cmdEvent->RemoveFloatingDependence();
+        cmdEvent.RemoveFloatingDependence();
         return ret;
     }
 #if 0
     cmdEvent.AddFloatingDependence();
     cmdEvent.SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 #endif    
-    m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
+    m_depOnAll->GetEvent()->AddDependentOn(&cmdEvent);
 #if 0    
     cmdEvent.RemoveFloatingDependence();
 #endif    

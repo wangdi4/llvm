@@ -69,9 +69,9 @@ static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemF
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
-				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, const ContextModule& contextModule)
+				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
 	: OCLObject<_cl_context_int>(NULL, "Context"), // Context doesn't have conext to belong
-	m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL), m_contextModule(contextModule)
+	m_devTypeMask(0), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL)
 {
 
 	INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -225,9 +225,9 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void Context::Cleanup( bool bTerminate )
+void Context::Cleanup( bool bTerminate ) const
 {
-    if (bTerminate || m_contextModule.IsTerminating())
+    if (bTerminate)
     {
         // If terminate, do nothing since devices are off already
         return;
@@ -237,7 +237,7 @@ void Context::Cleanup( bool bTerminate )
     cl_uint uiNumDevices = m_mapDevices.Count();
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-        m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
+        const_cast<Context*>(this)->m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
 		m_ppAllDevices[ui]->RemovedFromContext();
 		// The pendency to the device implicitly removed by RemoveObject()
         if (m_ppAllDevices[ui]->IsRootLevelDevice())
@@ -252,9 +252,8 @@ void Context::Cleanup( bool bTerminate )
         {
 		    GetTaskExecutor()->Deactivate();
         }
-		m_bTEActivated = false;
+		const_cast<Context*>(this)->m_bTEActivated = false;
 	}
-    delete this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

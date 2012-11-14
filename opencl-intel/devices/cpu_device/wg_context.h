@@ -32,7 +32,7 @@
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-class WGContext : public WGContextBase
+class WGContext
 {
 public:
     WGContext();
@@ -45,14 +45,14 @@ public:
     cl_dev_err_code		Init();
     // This function is used by master threads when they're done executing, to prevent a race condition where the library is next shut down and reloaded
     // and invalid, seemingly-valid data is still present in the master thread's TLS
-    void                        InvalidateContext();    
+    void                        InvalidateContext();
 
 protected:
     Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* m_pContext;
     long		m_lNDRangeId;
     size_t		m_stPrivMemAllocSize;
     char*		m_pLocalMem;
-    void*		m_pPrivateMem;    
+    void*		m_pPrivateMem;
 };
 
 }}}
