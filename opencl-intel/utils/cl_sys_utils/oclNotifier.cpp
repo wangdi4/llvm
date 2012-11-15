@@ -318,8 +318,9 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
 	CHECK_FOR_NULL(event);
 	CHECK_FOR_NULL(commandData);
-	EventCreate(*event, commandData->ownEvent); //TODO: consider moving it...
-	if (commandData->ownEvent == false){
+	bool isOwnEvent = commandData->ownEvent;
+	EventCreate(*event, isOwnEvent); //TODO: consider moving it...
+	if (isOwnEvent == false){
 		clRetainEvent( *event); //we need to retain it so it won't be released before we have completed with it.
 	}
 	//take id
@@ -348,8 +349,9 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 		releaseCommandData(*event, commandData);
 		}
 	}
+	//from here commandData considered invalid because all the eventCallbacks might have happened
 
-	if ( commandData->ownEvent){
+	if ( isOwnEvent){
 		delete event; //only release the pointer to the event and not the actual object.
 	}
 }
