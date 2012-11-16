@@ -39,11 +39,7 @@ namespace Validation
     public:
         virtual ~AbstractGeneratorConfig(){}
         ///@brief read xml node into config
-        ///TODO: implement
-        virtual bool VisitEnter(TiXmlElement, TiXmlAttribute)
-        {
-            throw Exception::NotImplemented("[AbstractGeneratorConfig::VisitEnter] not implemented");
-        }
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*)=0;
         ///@brief function to determinate generator name
         /// in runtime
         ///@return string with generator name
@@ -66,7 +62,7 @@ namespace Validation
         ///@param [in] name is the name of Data Generator which
         ///config we want to create
         ///@return new instance of desired Config
-        static AbstractGeneratorConfig *create(std::string name);
+        static AbstractGeneratorConfig *create(const std::string &name);
     };
 
     ///describes config of the Generator and encapsulates
@@ -85,7 +81,9 @@ namespace Validation
             for(it=m_GeneratorConfigVector.begin(); it!=m_GeneratorConfigVector.end(); ++it)
                 delete *it; //delete each config
         }
-
+        ///@brief Read OCL Kernel Data Generator Config from file
+        ///@param [in] ConfigFile - specified file to read config from.
+        explicit OCLKernelDataGeneratorConfig(const TiXmlNode *ConfigNode);
         ///@brief allows to get access to sub configs vector
         ///that has been encapsulated in the class
         ///@return reference to the sub configs vector
@@ -122,12 +120,12 @@ namespace Validation
         ///list of configs. each kernel argument is assigned a configuration
         AbstractGeneratorConfigVector m_GeneratorConfigVector;
         ///@brief read xml node into config
-        ///TODO: implement
-        virtual bool VisitEnter(TiXmlElement, TiXmlAttribute){
-            throw Exception::NotImplemented("[OCLKernelDataGeneratorConfig::VisitEnternot implemented");
-        }
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*);
         OCLKernelDataGeneratorConfig(const OCLKernelDataGeneratorConfig&){}
         OCLKernelDataGeneratorConfig& operator=(const OCLKernelDataGeneratorConfig&);
+        typedef enum {SEED = 0, CONFIGS, OCLKERNELDGCONFIG, LASTFIELD} XMLField;
+        //number of Successfully Loaded Fileds from XML file
+        uint64_t m_SuccessfullyLoadedFileds[LASTFIELD];
     };
 
 
@@ -171,6 +169,8 @@ namespace Validation
                                                  config does not match type");
         }
     private:
+        ///@brief read xml node into config
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*);
         ///value that will fill data in the buffer
         T m_FillValue;
     };
@@ -202,6 +202,9 @@ namespace Validation
                 throw Exception::InvalidArgument("[BufferRandomGenerator::checkConfig]\
                                                  config does not match type");
         }
+    private:
+        ///@brief read xml node into config
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*){ return true;}
     };
 
     ///responsible for storing information about how to generate structure
@@ -258,6 +261,8 @@ namespace Validation
             }
         }
     private:
+        ///@brief read xml node into config
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*);
         AbstractGeneratorConfigVector m_subConfigs; // configs for sub types of structure
     };
 }

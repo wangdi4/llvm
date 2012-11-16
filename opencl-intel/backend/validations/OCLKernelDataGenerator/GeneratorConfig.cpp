@@ -21,14 +21,119 @@ File Name: GeneratorConfig.cpp
 #include"BufferDesc.h"
 #include"ImageDesc.h"
 #include<assert.h>
+#include<tinyxml.h>
 using namespace Validation;
+
+
+OCLKernelDataGeneratorConfig::OCLKernelDataGeneratorConfig(const TiXmlNode *ConfigNode):m_seed(0)
+{
+    for(uint64_t i=0;i<LASTFIELD;++i)
+    {
+        m_SuccessfullyLoadedFileds[i]=0;
+    }
+    ConfigNode->Accept(this);
+}
+
+bool OCLKernelDataGeneratorConfig::VisitEnter(const TiXmlElement& element, const TiXmlAttribute* firstAttribute)
+{
+    if(element.ValueStr() == "OCLKernelDataGeneratorConfig")
+    {
+        ++m_SuccessfullyLoadedFileds[OCLKERNELDGCONFIG];
+        if(m_SuccessfullyLoadedFileds[OCLKERNELDGCONFIG]>1)
+        {
+            throw Exception::IOError("[OCLKernelDataGeneratorConfig]OCLKernelDataGeneratorConfig couldn\'t be rewrited");
+        }
+        return true;
+    }
+    if(element.ValueStr() == "Seed")
+    {
+        ++m_SuccessfullyLoadedFileds[SEED];
+        if(m_SuccessfullyLoadedFileds[SEED]>1)
+        {
+            throw Exception::IOError("[OCLKernelDataGeneratorConfig]Seed is already set");
+        }
+        std::stringstream ss(element.GetText());
+        ss >> m_seed;
+        return true;
+    }
+    else if(element.ValueStr() == "GeneratorConfiguration")
+    {
+        std::string GeneratorName;
+        std::string GeneratorType;
+        uint32_t attributeState;
+
+        ++m_SuccessfullyLoadedFileds[CONFIGS];
+
+        attributeState = element.QueryStringAttribute("Name", &GeneratorName);
+        if(attributeState != TIXML_SUCCESS || GeneratorName=="")
+        {
+            throw Exception::IOError("[OCLKernelDataGeneratorConfig]Bad Name attribute");
+        }
+
+        //dont check type here becouse BufferStructureGenerator have no Type
+        //check it in factory
+        element.QueryStringAttribute("Type", &GeneratorType);
+
+        AbstractGeneratorConfig* cfg = GeneratorConfigFactory::create(GeneratorName+GeneratorType);
+        //manually iterate through node children.
+        for( const TiXmlNode* node = element.FirstChild(); node; node = node->NextSibling())
+        {
+            node->Accept(cfg);
+        }
+        m_GeneratorConfigVector.push_back(cfg);
+        return true;
+    }
+    //dont visit childs and siblings if function recieves non top-level attribute
+    //listed above
+    return false;
+}
+
+template < typename T>
+bool BufferConstGeneratorConfig<T>::VisitEnter(const TiXmlElement& element, const TiXmlAttribute* firstAttribute)
+{
+    if(element.ValueStr() == "Value")
+    {
+        std::stringstream ss(element.GetText());
+        ss >> m_FillValue;
+    }
+    return false;
+}
+
+bool BufferStructureGeneratorConfig::VisitEnter(const TiXmlElement& element, const TiXmlAttribute* firstAttribute)
+{
+    if(element.ValueStr() == "SubGeneratorConfiguration")
+    {
+        std::string GeneratorName;
+        std::string GeneratorType;
+        uint32_t attributeState;
+
+        attributeState = element.QueryStringAttribute("Name", &GeneratorName);
+        if(attributeState == TIXML_WRONG_TYPE || attributeState == TIXML_NO_ATTRIBUTE || GeneratorName=="")
+        {
+            throw Exception::IOError("[BufferStructureGeneratorConfig]Bad Name attribute");
+        }
+
+        element.QueryStringAttribute("Type", &GeneratorType);
+
+        AbstractGeneratorConfig* cfg = GeneratorConfigFactory::create(GeneratorName+GeneratorType);
+        //manually iterate through structure sub-elements. This implementation does not
+        //visit xml element related to StructureConfig, it iterates only sub-configs
+        //Also it doesn't stop iterating through sibling of child if one of the children return false
+        for( const TiXmlNode* node = element.FirstChild(); node; node = node->NextSibling())
+        {
+            node->Accept(cfg);
+        }
+        m_subConfigs.push_back(cfg);
+    }
+    return false;
+}
 
 #define BUFFERCONSTGENERATORCONFIG_FACTORY(Ty) else if(name == BufferConstGeneratorConfig<Ty>::getStaticName())\
     res = new BufferConstGeneratorConfig<Ty>;
 #define BUFFERRANDOMGENERATORCONFIG_FACTORY(Ty) else if(name == BufferRandomGeneratorConfig<Ty>::getStaticName())\
     res = new BufferRandomGeneratorConfig<Ty>;
 
-AbstractGeneratorConfig * GeneratorConfigFactory::create(std::string name)
+AbstractGeneratorConfig * GeneratorConfigFactory::create(const std::string &name)
 {
     AbstractGeneratorConfig *res = 0;
     if(name == BufferConstGeneratorConfig<float>::getStaticName())
@@ -61,7 +166,7 @@ AbstractGeneratorConfig * GeneratorConfigFactory::create(std::string name)
         res = new BufferStructureGeneratorConfig();
     }
     else{
-        throw Exception::GeneratorBadTypeException("[GeneratorConfigFactory::create] bad config name");
+        throw Exception::GeneratorBadTypeException("[GeneratorConfigFactory::create] bad config name - "+name);
     }
     return res;
 }

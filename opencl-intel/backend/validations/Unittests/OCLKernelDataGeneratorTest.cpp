@@ -22,6 +22,7 @@ File Name: OCLKernelDataGeneratorTest.cpp
 #include<vector>
 #include<algorithm>
 #include<iostream>
+#include<fstream>
 #include "FloatOperations.h"
 
 #include "llvm/LLVMContext.h"
@@ -33,6 +34,7 @@ File Name: OCLKernelDataGeneratorTest.cpp
 #include <string>
 #include "Buffer.h"
 #include "BufferContainerList.h"
+#include "tinyxml.h"
 
 //#include "crtdbg.h"
 //static long _crt_test_leaks =  _CrtSetBreakAlloc(15313);
@@ -807,6 +809,116 @@ namespace{
         delete p_dgConfig;
     }
 
+    TEST(OCLKernelDataGenerator, XMLParsingTest)
+    {
+        std::string ConfigFile =
+"<?xml version=\"1.0\" ?>\
+<OCLKernelDataGeneratorConfig>\
+    <Seed>10232</Seed>\
+    <GeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"f64\">\
+        <Value>111.232335</Value>\
+    </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+        </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferStructureGenerator\">\
+        <SubGeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+            </SubGeneratorConfiguration>\
+        <SubGeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"f32\">\
+            <Value>111.5</Value>\
+        </SubGeneratorConfiguration>\
+        <SubGeneratorConfiguration Name=\"BufferStructureGenerator\">\
+            <SubGeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"u64\">\
+                </SubGeneratorConfiguration>\
+            <SubGeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"u32\">\
+                <Value>43544</Value>\
+            </SubGeneratorConfiguration>\
+        </SubGeneratorConfiguration>\
+    </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+        </GeneratorConfiguration>\
+</OCLKernelDataGeneratorConfig>";
+        std::fstream io_file;
+        io_file.open("DataGeneratorConfig.cfg", std::fstream::out);
+        io_file << ConfigFile;
+        io_file.close();
+
+        TiXmlDocument config(std::string("DataGeneratorConfig.cfg"));
+        ASSERT_TRUE(config.LoadFile());
+        OCLKernelDataGeneratorConfig cfg(&config);
+
+        EXPECT_STREQ(cfg.getConfigVector()[0]->getName().c_str(),BufferConstGeneratorConfig<double>::getStaticName().c_str());
+        EXPECT_EQ(static_cast<BufferConstGeneratorConfig<double>*>(cfg.getConfigVector()[0])->GetFillValue(), 111.232335);
+
+        EXPECT_STREQ(cfg.getConfigVector()[1]->getName().c_str(),BufferRandomGeneratorConfig<int32_t>::getStaticName().c_str());
+        EXPECT_STREQ(cfg.getConfigVector()[2]->getName().c_str(),BufferStructureGeneratorConfig::getStaticName().c_str());
+
+        BufferStructureGeneratorConfig* bufferConfig = static_cast<BufferStructureGeneratorConfig*>(cfg.getConfigVector()[2]);
+        EXPECT_STREQ(bufferConfig->getConfigVector()[0]->getName().c_str(),BufferRandomGeneratorConfig<int32_t>::getStaticName().c_str());
+        EXPECT_STREQ(bufferConfig->getConfigVector()[1]->getName().c_str(),BufferConstGeneratorConfig<float>::getStaticName().c_str());
+        EXPECT_EQ(static_cast<BufferConstGeneratorConfig<float>*>(bufferConfig->getConfigVector()[1])->GetFillValue(), 111.5);
+
+        EXPECT_STREQ(bufferConfig->getConfigVector()[2]->getName().c_str(),BufferStructureGeneratorConfig::getStaticName().c_str());
+
+        bufferConfig = static_cast<BufferStructureGeneratorConfig*>(bufferConfig->getConfigVector()[2]);
+        EXPECT_STREQ(bufferConfig->getConfigVector()[0]->getName().c_str(),BufferRandomGeneratorConfig<uint64_t>::getStaticName().c_str());
+        EXPECT_STREQ(bufferConfig->getConfigVector()[1]->getName().c_str(),BufferConstGeneratorConfig<uint32_t>::getStaticName().c_str());
+        EXPECT_EQ(static_cast<BufferConstGeneratorConfig<uint32_t>*>(bufferConfig->getConfigVector()[1])->GetFillValue(), uint32_t(43544));
+
+    }
+    TEST(OCLKernelDataGenerator, XMLParsingTestMultiplySeed)
+    {
+        std::string ConfigFile =
+"<?xml version=\"1.0\" ?>\
+<OCLKernelDataGeneratorConfig>\
+    <Seed>10232</Seed>\
+    <Seed>10222</Seed>\
+    <GeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"f64\">\
+        <Value>111.232335</Value>\
+    </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+        </GeneratorConfiguration>\
+</OCLKernelDataGeneratorConfig>";
+        std::fstream io_file;
+        io_file.open("DataGeneratorConfig.cfg", std::fstream::out);
+        io_file << ConfigFile;
+        io_file.close();
+
+        TiXmlDocument config(std::string("DataGeneratorConfig.cfg"));
+        ASSERT_TRUE(config.LoadFile());
+        TiXmlNode* Node = &config;
+        EXPECT_THROW((OCLKernelDataGeneratorConfig(Node)), Exception::IOError);
+    }
+    TEST(OCLKernelDataGenerator, XMLParsingTestOCLKernelDataGeneratorConfig)
+    {
+        std::string ConfigFile =
+"<?xml version=\"1.0\" ?>\
+<OCLKernelDataGeneratorConfig>\
+    <Seed>10232</Seed>\
+    <GeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"f64\">\
+        <Value>111.232335</Value>\
+    </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+        </GeneratorConfiguration>\
+</OCLKernelDataGeneratorConfig>\
+<OCLKernelDataGeneratorConfig>\
+    <Seed>10232</Seed>\
+    <GeneratorConfiguration Name=\"BufferConstGenerator\" Type=\"f64\">\
+        <Value>111.232335</Value>\
+    </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
+        </GeneratorConfiguration>\
+</OCLKernelDataGeneratorConfig>\
+";
+        std::fstream io_file;
+        io_file.open("DataGeneratorConfig.cfg", std::fstream::out);
+        io_file << ConfigFile;
+        io_file.close();
+
+        TiXmlDocument config(std::string("DataGeneratorConfig.cfg"));
+        ASSERT_TRUE(config.LoadFile());
+        TiXmlNode* Node = &config;
+        EXPECT_THROW((OCLKernelDataGeneratorConfig(Node)), Exception::IOError);
+    }
 } // anonymouse namespace
 
 
