@@ -11,11 +11,9 @@ namespace intel{
 
 OCLBuiltinPreVectorizationPass::OCLBuiltinPreVectorizationPass():
 FunctionPass(ID) {
-  m_dce = createDeadCodeEliminationPass();
 }
 
 OCLBuiltinPreVectorizationPass::~OCLBuiltinPreVectorizationPass() {
-  delete m_dce;
 }
 
 bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
@@ -53,7 +51,6 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
       curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
       curInst->eraseFromParent();
     }
-    m_dce->runOnFunction(F);
   }
 
   V_PRINT(prevectorization, "\n\nafter pre vectorization\n----------------------------------------\n" << F);

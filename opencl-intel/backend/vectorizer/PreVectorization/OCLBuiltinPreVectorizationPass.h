@@ -78,9 +78,6 @@ private:
   ///@brief - appleOCLRuntime interface for getting builtins attributes.
   const OpenclRuntime *m_runtimeServices;
 
-  ///@brief dce to clean up after 
-  FunctionPass *m_dce;
-
   ///@brief  holds the module of the processed function
   Module *m_curModule;
 

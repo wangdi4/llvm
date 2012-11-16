@@ -29,7 +29,6 @@ define void @test__Z6selectiii_sext(i32 addrspace(1)* nocapture %src1, i32 addrs
 
 
 ; CHECK: @test__Z6selectiii_zext
-; CHECK-NOT: zext
 ; CHECK: sext
 ; CHECK: _Z6selectiii
 ; CHECK: ret void
