@@ -595,46 +595,50 @@ cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
 	cl_buffer_region region;
-	DynamicArray<cl_int> buffer1(2);
-	DynamicArray<cl_int> buffer2(2);
 	cl_mem sub_buffers[4];
-	buffer1.dynamic_array[0] = 1;
-	buffer1.dynamic_array[1] = 2;
-	memset(buffer2.dynamic_array,0,sizeof(cl_int));
-	
-	//initialize cl_buffer_region
-	region.origin=0;
-	region.size=sizeof(cl_int);
+	cl_uint device_align_size = 0,temp_size = 0;
+
 
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "buffer_sync_kernel.cl")); 
 
+	//get the aligned buffer sizes and craete arrays
+	for(int i = 0; i < 2; i++){
+		getDeviceInfo(ocl_descriptor.devices[0],CL_DEVICE_MEM_BASE_ADDR_ALIGN,sizeof(cl_uint),&temp_size);
+		if(temp_size > device_align_size) {device_align_size = temp_size;}
+	}
+	DynamicArray<cl_int> buffer1(device_align_size*2);
+	DynamicArray<cl_int> buffer2(device_align_size*2);
+	for(int i =0; i < device_align_size; i++){
+		buffer1.dynamic_array[i] = 1;
+		buffer1.dynamic_array[i+device_align_size] = 2;
+	}
+	memset(buffer2.dynamic_array,0,sizeof(cl_int)*device_align_size*2);
+	
+	//initialize cl_buffer_region
+	region.origin=0;
+	region.size=sizeof(cl_int)*device_align_size;
+
 	// create the buffer objects 
-	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, input_flags|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*2, buffer1.dynamic_array));
-	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,output_flags|CL_MEM_USE_HOST_PTR,sizeof(cl_int)*2,buffer2.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0], ocl_descriptor.context, input_flags|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*2*device_align_size, buffer1.dynamic_array));
+	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[1],ocl_descriptor.context,output_flags|CL_MEM_USE_HOST_PTR,sizeof(cl_int)*2*device_align_size,buffer2.dynamic_array));
 
 	//split buffer into 4 sub buffers.
 	//buffers in place 0 and 1 are input. 2 and 3 are output.
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[0],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[2],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
 	//change region
-	region.origin=sizeof(cl_int);
+	region.origin=sizeof(cl_int)*device_align_size;
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[1],ocl_descriptor.buffers[0],input_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
 	ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[3],ocl_descriptor.buffers[1],output_flags,CL_BUFFER_CREATE_TYPE_REGION,&region));
 	
 	//create user event
 	ASSERT_NO_FATAL_FAILURE(createUserEvent(&ocl_descriptor.events[0], ocl_descriptor.context));
-
 	//create kernel and set arguments.
-	/*
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "kernel_1"));
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&ocl_descriptor.buffers[0]));
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
-	*/
 	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels, ocl_descriptor.program, "copy_buffer"));
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), (void*)&sub_buffers[0]));
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[3]));
-	
+	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],2,sizeof(cl_uint),(void*)&device_align_size));
 	// enqueue kernel on first device
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,1,ocl_descriptor.events,NULL));
 
@@ -655,9 +659,11 @@ cl_uint work_dim = 1;
 	finish(ocl_descriptor.queues[0]);
 
 	//validate result
-	ASSERT_EQ(2,buffer2.dynamic_array[0]) << "result is not 2 as expected";
-	ASSERT_EQ(1,buffer2.dynamic_array[1]) << "result is not 1 as expected";	
-}
+	for(int i = 0; i < device_align_size; i++){
+		ASSERT_EQ(2,buffer2.dynamic_array[i]) << "result is not 2 as expected";
+		ASSERT_EQ(1,buffer2.dynamic_array[device_align_size+i]) << "result is not 1 as expected";	
+	}
+ }
 
 //like the preveuios methood but each device will run in his own time
 void validateSubBufferOneByOne(OpenCLDescriptor ocl_descriptor, cl_mem_flags input_flags, cl_mem_flags output_flags, cl_int first_device, cl_int second_device){

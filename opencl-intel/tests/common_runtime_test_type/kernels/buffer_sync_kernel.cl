@@ -19,7 +19,10 @@
 
 
 
-__kernel void copy_buffer(__global int* input, __global int* output)
+__kernel void copy_buffer(__global int* input, __global int* output, uint size)
 {
-	output[0]=input[0];
+	int i = 0;
+	for(i =0; i<size ; i++){
+		output[i]=input[i];
+	}
 }
