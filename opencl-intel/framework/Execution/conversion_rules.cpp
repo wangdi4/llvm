@@ -106,67 +106,55 @@ static __m128i convert_to_int(const __m128 &val)
  * @param val
  * @return the value in boundary of the relevant integer.
  */
-template <typename TargetIntVector>
-TargetIntVector NOOPTIMIZE sat(const __m128i &intVal)
+void NOOPTIMIZE sat(cl_int4 &trgt, const __m128i &intVal)
 {
-	TargetIntVector *t = (TargetIntVector*)&intVal;
-	return *t;
+	trgt = *(cl_int4*)&intVal;
+}
+
+void NOOPTIMIZE sat(cl_uint4 &trgt, const __m128i &intVal)
+{
+	trgt = *(cl_uint4*)&intVal;
 }
 
 // short/ushort 16 bits
-template<> cl_short4 NOOPTIMIZE sat<cl_short4>(const __m128i &intVal)
+void NOOPTIMIZE sat(cl_short4 &trgt, const __m128i &intVal)
 {
-    cl_short4 target;
-
 	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
-    _mm_storel_epi64((__m128i*)&target, shortVal);
-
-	return target;
+    _mm_storel_epi64((__m128i*)&trgt, shortVal);
 }
 
-template<> cl_ushort4 NOOPTIMIZE sat<cl_ushort4>(const __m128i &intVal)
+void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal)
 {
-    cl_ushort4 trgt;
     cl_int4 *cl_intVal = (cl_int4 *)&intVal;
 
-    /*
+    //
 	//if AVX: __m128i ushortVal = _mm_packus_epi32(intVal, (__m128i)allzero);
     // no single command to convert to unsigned, so value is signed.
-    */
+    //
     for (int i = 0 ; i < 4 ; ++i)
     {
         trgt.s[i] = CLAMP(cl_intVal->s[i], 0, USHRT_MAX);
     }
-	return trgt;
 }
 
-
 // char/uchar 8 bits
-template<> cl_char4 NOOPTIMIZE sat<cl_char4>(const __m128i &intVal)
+void NOOPTIMIZE sat(cl_char4 &trgt, const __m128i &intVal)
 {
 	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
 	__m128i charVal = _mm_packs_epi16(shortVal, (__m128i)allzero);
 
-	cl_char4 trgt;
 	cl_char16 *t = (cl_char16*)&charVal;
 	for (int i = 0 ; i < 4 ; ++i) trgt.s[i] = t->s[i];
-
-	return trgt;
 }
 
-template<> cl_uchar4 NOOPTIMIZE sat<cl_uchar4>(const __m128i &intVal)
+void NOOPTIMIZE sat(cl_uchar4 &trgt, const __m128i &intVal)
 {
 	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
 	__m128i ucharVal = _mm_packus_epi16(shortVal, (__m128i)allzero);
 
-	cl_uchar4 trgt;
 	cl_uchar16 *t = (cl_uchar16*)&ucharVal;
 	for (int i = 0 ; i < 4 ; ++i) trgt.s[i] = t->s[i];
-
-	return trgt;
-
 }
-
 
 /**
  * Convert float to int
@@ -180,7 +168,9 @@ TargetIntVect floatVec2IntVec(const cl_float4 val, const float multiplier)
 	__m128 orig = _mm_loadu_ps(val.s);
 	__m128 mul_by = {multiplier, multiplier, multiplier, multiplier};
 	__m128 mul = _mm_mul_ps(orig, mul_by);
-	TargetIntVect ret = sat<TargetIntVect>(convert_to_int(mul) );
+	__m128i asInt = convert_to_int(mul);
+	TargetIntVect ret;
+	sat(ret, asInt);
 	return ret;
 }
 
@@ -542,7 +532,8 @@ cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_chan
 {
     __m128i color128;
 	memcpy(&color128, color->s, sizeof(OrigVecType));
-    VecType tmpColor = sat<VecType>(color128);
+    VecType tmpColor;
+    sat(tmpColor, color128);
     
     VecType *trgt = (VecType *)trgtPtr;
     return __arrange_by_channel_order<VecType>(trgt, &tmpColor, order);
