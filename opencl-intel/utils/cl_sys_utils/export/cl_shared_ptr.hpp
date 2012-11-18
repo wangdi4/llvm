@@ -33,24 +33,25 @@ extern std::map<std::string, std::map<const void*, long> >* allocatedObjectsMap;
 #endif
 
 template<typename T>
-void SharedPtr<T>::IncRefCnt()
+void SharedPtrBase<T>::IncRefCnt()
 {
 #if _DEBUG
     const long lRefCnt = 
 #endif
         this->m_ptr->IncRefCnt();
 #if _DEBUG
+    // TODO: In some DLLs (like task_executor.dll) we always get NULL for the mutex and map - we need to fix this.
     if (lRefCnt >= 0 && NULL != allocatedObjectsMapMutex && NULL != allocatedObjectsMap)   // otherwise the object isn't reference counted
     {
         allocatedObjectsMapMutex->Lock();
-        (*allocatedObjectsMap)[this->m_ptr->GetTypeName()][this->m_ptr] = lRefCnt;
+        (*allocatedObjectsMap)[this->m_ptr->GetTypeName()][this->m_ptr->GetThis()] = lRefCnt;
         allocatedObjectsMapMutex->Unlock();        
     }
 #endif
 }
 
 template<typename T>
-void SharedPtr<T>::DecRefCntInt(T* ptr)
+void SharedPtrBase<T>::DecRefCntInt(T* ptr)
 {
     if (NULL != ptr)
     {
@@ -69,25 +70,24 @@ void SharedPtr<T>::DecRefCntInt(T* ptr)
         {
             if (lNewVal > 0)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()][ptr] = lNewVal;
+                (*allocatedObjectsMap)[ptr->GetTypeName()][ptr->GetThis()] = lNewVal;
             }
             else if (0 == lNewVal)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()].erase(ptr);
+                (*allocatedObjectsMap)[ptr->GetTypeName()].erase(ptr->GetThis());
             }
             allocatedObjectsMapMutex->Unlock();
         }
 #endif
         if (0 == lNewVal)
         {
-            ptr->Cleanup();
-            delete ptr;
+            HandleRefCnt0(ptr);
         }
     }
 }
 
 template<typename T>
-long SharedPtr<T>::GetRefCnt() const
+long SharedPtrBase<T>::GetRefCnt() const
 {
     if (this->m_ptr)
     {
@@ -103,6 +103,12 @@ template<typename T>
 SharedPtr<T>::operator ConstSharedPtr<T>() const
 {
     return ConstSharedPtr<T>(this->m_ptr);
+}
+
+template<typename T>
+void SharedPtr<T>::HandleRefCnt0(T* ptr)
+{
+    ptr->Cleanup();
 }
 
 }}}

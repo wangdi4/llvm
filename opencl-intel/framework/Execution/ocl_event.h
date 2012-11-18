@@ -116,13 +116,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		OclEvent(_cl_context_int* context);
 
-        PREPARE_SHARED_PTR(OclEvent);
+        PREPARE_SHARED_PTR(OclEvent)
 
 		/**
 		 * Add an event that will observe myself, depends on my state.
 		 * @param observer
 		 */
-        void                    AddObserver(SmartPtr<IEventObserver>* pObserver);
+        void                    AddObserver(const SharedPtr<IEventObserver>& pObserver);
 
 		/**
 		 * Add events to observe, to depend on their state.
@@ -167,6 +167,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const		{ return m_returnCode; }
 
+        virtual std::string GetTypeName() const { return "OclEvent"; }
+
+        virtual void Cleanup(bool bIsTerminate = false) { delete this; }
+
 	protected:
         OclEvent(const std::string& typeName);
 		virtual ~OclEvent();
@@ -193,7 +197,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OclEvent& operator=(const OclEvent&);// assignment operator
 
 		//typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventObserver*> ObserversQ_t;
-        typedef std::list<SmartPtr<IEventObserver>*>		ObserversList_t;
+        typedef std::list<SharedPtr<IEventObserver> >		ObserversList_t;
 		ObserversList_t							m_CompleteObserversList;
 		ObserversList_t							m_RunningObserversList;
 		ObserversList_t							m_SubmittedObserversList;
@@ -212,16 +216,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	private:        
 
-        class OclEventSharedPtr : public SmartPtr<IEventObserver>, public SharedPtr<OclEvent>
-        {
-        public:
-
-            OclEventSharedPtr(OclEvent* ptr) : SmartPtr<IEventObserver>(ptr), SharedPtr<OclEvent>(ptr) { }
-
-        };
-
 		volatile OclEventState  m_eventState;
-        SharedPtr<Context>		m_pContext;
+        SharedPtr<Context> m_pContext;
 
 		/**
 		 * Make sure the list is empty, and all related dependencies are released.

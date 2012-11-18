@@ -31,6 +31,7 @@ File Name:  cl_device_api.h
 extern "C" {
 #endif
 
+#include <cassert>
 #include "CL/cl.h"
 
 #define IN
@@ -966,7 +967,7 @@ public:
                                                cl_uint*              INOUT  num_subdevices,
                                                void*                 IN     param,
                                                cl_dev_subdevice_id*  OUT    subdevice_ids
-                                            ) = 0;
+                                            ) = 0;    
 
     /* clDevReleaseSubdevice
         Description
@@ -999,14 +1000,20 @@ public:
                                            cl_dev_cmd_list* OUT list
                                            ) = 0;
 
-    //!     This function flushes the content of a list, all waiting commands are sent to execution.
-    /*!
-        \param[in]  list        A valid (non zero) handle to device command list.
-        \retval     CL_DEV_SUCCESS                  If the function was successfully executed
-        \retval     CL_DEV_INVALID_COMMAND_LIST     If command list is not a valid command list
-    */
-    virtual cl_dev_err_code clDevFlushCommandList(  cl_dev_cmd_list IN list
-                                          ) = 0;
+    /**
+     * wait until all work in a sub-device to be completed
+     * @param subdevice_id sub-device ID of the sub-device
+     */
+    virtual void clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id) = 0;
+
+	//! 	This function flushes the content of a list, all waiting commands are sent to execution.
+	/*!
+		\param[in]	list		A valid (non zero) handle to device command list.
+		\retval		CL_DEV_SUCCESS					If the function was successfully executed
+		\retval		CL_DEV_INVALID_COMMAND_LIST		If command list is not a valid command list
+	*/
+	virtual cl_dev_err_code clDevFlushCommandList(	cl_dev_cmd_list IN list
+										  ) = 0;
 
     //! After the all commands of the command list have completed (eg. Kernel executions, memory object updates etc.),
     //! the command queue is deleted.
@@ -1063,6 +1070,12 @@ public:
     virtual cl_dev_err_code clDevCommandListWaitCompletion( cl_dev_cmd_list IN list,
                                                 cl_dev_cmd_desc* IN cmdToWait
                                                  ) = 0;
+
+    //! Release a command
+    /*!
+     * \param[in]   cmdToRelease the command to release
+     */
+    virtual void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) = 0;
 
     //!This function returns the list of image formats supported by an OCL implementation when the information about
     //! an image memory object is specified and device supports image objects.
@@ -1334,8 +1347,8 @@ public:
 
     virtual const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const = 0;
 
-    //! De-initialize internal state of the device agent and releases all allocated data.
-    virtual void clDevCloseDevice() = 0;
+	//!	De-initialize internal state of the device agent and releases all allocated data.
+	virtual void clDevCloseDevice() = 0;    
 
 };
 
@@ -1389,6 +1402,73 @@ public:
                                      const char* IN function_name,
                                      cl_int IN line_num,
                                      const char* IN message, ...) = 0;
+
+};
+
+/**
+ * This class represents a work group context in a device-independent manner
+ */
+class WGContextBase
+{
+
+public:    
+
+    /**
+     * Constructor
+     */
+    WGContextBase() : m_id(-1), m_bBelongsToMasterThread(false) { }
+
+    /**
+     * @return the ID of the thread that is currently using this work group context; -1 if no thread is using it
+     */
+    int GetThreadId() const { return m_id; }
+
+    /**
+     * Set the ID of the thread that is currently using this work group context
+     * @param the ID; -1 if no thread is using it
+     */
+    void SetThreadId(int id)
+    {
+        assert(id >= -1);
+        m_id = id;
+    }
+
+    /**
+     * @return whether this WGContextBase belongs to a master thread
+     */
+    bool DoesBelongToMasterThread() const { return m_bBelongsToMasterThread; }
+
+    /**
+     * Set whether this WGContextBase belongs to a master thread
+     * @param bBelongsToMasterThread whether this WGContextBase belongs to a master thread
+     */
+    void SetBelongsToMasterThread(bool bBelongsToMasterThread) { m_bBelongsToMasterThread = bBelongsToMasterThread; }
+
+private:
+
+    int m_id;
+    bool m_bBelongsToMasterThread;
+
+};
+
+/**
+ * This interface class represents a pool of device-specific work group contexts that can be allocated and freed
+ */
+class IWGContextPool
+{
+
+public:
+
+    /**
+     * @param bBelongsToMasterThread whether the WG context belong to a master thread
+     * @return a pointer to an allocated work group context for a worker thread
+     */
+    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) = 0;
+
+    /**
+     * @param pWgContext a pointer to a work group context for a worker thread to be freed
+     */
+    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) = 0;
 
 };
 

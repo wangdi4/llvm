@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	public:		
 
-        PREPARE_SHARED_PTR(GenericMemObject);
+        PREPARE_SHARED_PTR(GenericMemObject)
 
         static SharedPtr<GenericMemObject> Allocate(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType)
         {
@@ -256,7 +256,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
         public:
 
-            PREPARE_SHARED_PTR(DataCopyEvent);
+            PREPARE_SHARED_PTR(DataCopyEvent)
 
             static SharedPtr<DataCopyEvent> Allocate(_cl_context_int* context)
             {
@@ -296,7 +296,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		{
 		public:
 
-			PREPARE_SHARED_PTR(DataCopyJointEvent);
+			PREPARE_SHARED_PTR(DataCopyJointEvent)
 
 			static SharedPtr<DataCopyJointEvent> Allocate(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>* pOutEvent)
             {
@@ -661,7 +661,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 	public:
 
-		PREPARE_SHARED_PTR(GenericMemObjectSubBuffer);
+        PREPARE_SHARED_PTR(GenericMemObjectSubBuffer)
 
 		GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType, GenericMemObject& buffer);
 

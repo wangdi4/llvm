@@ -7,7 +7,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ProgramWithSource : public Program
 	{
 
-        PREPARE_SHARED_PTR(ProgramWithSource);
+        PREPARE_SHARED_PTR(ProgramWithSource)
 
 	public:		
 

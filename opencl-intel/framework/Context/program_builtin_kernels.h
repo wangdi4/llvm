@@ -9,7 +9,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 		
-        PREPARE_SHARED_PTR(ProgramWithBuiltInKernels);
+        PREPARE_SHARED_PTR(ProgramWithBuiltInKernels)
 
         static SharedPtr<ProgramWithBuiltInKernels> Allocate(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, const char* szKernelNames,
             cl_int *piRet)

@@ -49,8 +49,8 @@ using namespace Intel::OpenCL::Utils;
 
 GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData) :
-	Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData), m_hGLBackupCntx(NULL)
+					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData, const ContextModule& contextModule) :
+Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, contextModule), m_hGLBackupCntx(NULL)
 {
 	if (*pclErr != CL_SUCCESS)
 	{

@@ -164,11 +164,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #endif
 		 break;
 	case DLL_THREAD_ATTACH:
-		break;
 	case DLL_THREAD_DETACH:
-#ifdef __TBB_EXECUTOR__
-		g_pTaskExecutor->ReleasePerThreadData();		
-#endif
 		break;
 	case DLL_PROCESS_DETACH:		
 		if (g_pTaskExecutor) 
@@ -184,16 +180,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 TASK_EXECUTOR_API ITaskExecutor* Intel::OpenCL::TaskExecutor::GetTaskExecutor()
 {
 	return g_pTaskExecutor;
-}
-
-TASK_EXECUTOR_API IThreadPoolPartitioner* Intel::OpenCL::TaskExecutor::CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs)
-{
-    //Todo: implement for non-TBB
-#ifdef __TBB_EXECUTOR__
-  return new TBBThreadPoolPartitioner(numThreads, legalCoreIDs, pObserver);
-#else
-  return NULL;
-#endif
 }
 
 namespace Intel { namespace OpenCL{ namespace TaskExecutor {

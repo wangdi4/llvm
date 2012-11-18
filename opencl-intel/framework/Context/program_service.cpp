@@ -72,7 +72,7 @@ void BuildTask::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 
 unsigned int BuildTask::Launch()
 {
-    return TaskExecutor::GetTaskExecutor()->Execute(new BuildTaskSharedPtr(this));
+    return TaskExecutor::GetTaskExecutor()->Execute(SharedPtr<BuildTask>(this));
 }
 
 void BuildTask::SetComplete(cl_int returnCode)

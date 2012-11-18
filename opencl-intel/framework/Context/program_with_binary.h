@@ -8,7 +8,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:		
 
-        PREPARE_SHARED_PTR(ProgramWithBinary);
+        PREPARE_SHARED_PTR(ProgramWithBinary)
 
         static SharedPtr<ProgramWithBinary> Allocate(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, const size_t* pszLengths,
             const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet)

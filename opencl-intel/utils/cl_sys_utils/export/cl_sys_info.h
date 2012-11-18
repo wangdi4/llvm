@@ -42,5 +42,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern unsigned long        GetNumberOfProcessors();
     extern unsigned long        GetMaxNumaNode();
     extern bool                 GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask);
+    extern unsigned int         GetCpuId();
 
 }}}

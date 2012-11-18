@@ -58,7 +58,7 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     public:
 
-        PREPARE_SHARED_PTR(GraphicsApiMemoryObject);
+        PREPARE_SHARED_PTR(GraphicsApiMemoryObject)
 
         /**
          * @fn  virtual GraphicsApiMemoryObject::~GraphicsApiMemoryObject();

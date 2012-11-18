@@ -71,7 +71,7 @@ OclEvent::OclEvent(_cl_context_int* context)
 {
 	if (NULL != context)
 	{
-		m_pContext = (Context*)(context->object);
+		m_pContext = SharedPtr<Context>((Context*)(context->object));
 	}
 }
 
@@ -95,10 +95,6 @@ OclEvent::~OclEvent()
 void OclEvent::ExpungeObservers(ObserversList_t &list)
 {
     ObserversList_t::iterator it;
-    for (it = list.begin() ; it != list.end() ; ++it)
-    {
-        delete *it;
-    }
 	list.clear();
 }
 
@@ -153,7 +149,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count, SharedPtr<OclEvent>* pDep
 			//AddPendency(evt); //BugFix: When command waits for queue event and user event,
 			// and user event is set with failure, the second notification will fail
 			// do not: SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-            evt->AddObserver(new OclEventSharedPtr(this)); // might trigger this immediately, if evt already occurred.
+            evt->AddObserver(SharedPtr<OclEvent>(this)); // might trigger this immediately, if evt already occurred.
 			bLastWasNull = false;
 		} else {
 			cl_int depsLeft = --m_numOfDependencies;
@@ -174,10 +170,10 @@ void OclEvent::AddDependentOnMulti(unsigned int count, SharedPtr<OclEvent>* pDep
 }
 
 
-void OclEvent::AddObserver(SmartPtr<IEventObserver>* pObserver)
+void OclEvent::AddObserver(const SharedPtr<IEventObserver>& pObserver)
 {
 	m_ObserversListGuard.Lock();
-    IEventObserver* observer = pObserver->GetPtr();
+    IEventObserver* observer = pObserver.GetPtr();
     
     cl_int currExecState = GetEventExecState();
     cl_int expectedState = observer->GetExpectedExecState(); 
@@ -191,7 +187,6 @@ void OclEvent::AddObserver(SmartPtr<IEventObserver>* pObserver)
 		//			retcode has one notation
 		retcode = retcode < 0 ? retcode : expectedState;
 		observer->ObservedEventStateChanged(this, retcode);
-        delete pObserver;
 	}
 	else
 	{
@@ -358,9 +353,8 @@ void OclEvent::NotifyObserversOfSingleExecState(ObserversList_t &list, const cl_
 	ObserversList_t::iterator it;
 	for (it = list.begin() ; it != list.end() ; ++it)
 	{
-        IEventObserver *observer= (*it)->GetPtr();
+        IEventObserver *observer= it->GetPtr();
 		observer->ObservedEventStateChanged(this, retCode);
-        delete *it;
 	}
 	list.clear();
 }

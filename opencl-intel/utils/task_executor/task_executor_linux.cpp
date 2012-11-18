@@ -32,23 +32,24 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
+#include "cl_shared_ptr.hpp"
 #include <stdio.h>
 #include <pthread.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::SyncTask>;
+template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::ITaskBase>;
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
-
-extern void ReleaseSchedulerForMasterThread();
 
 ITaskExecutor* g_pTaskExecutor = NULL;
 pthread_key_t thkShedMaster;
 
 static void thread_cleanup_callback(void* _NULL)
 {
-	ReleaseSchedulerForMasterThread();
 }
 
 void dll_init(void)
@@ -80,16 +81,6 @@ void dll_fini(void)
 TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor()
 {
 	return g_pTaskExecutor;
-}
-
-TASK_EXECUTOR_API IThreadPoolPartitioner* CreateThreadPartitioner(IAffinityChangeObserver* pObserver, unsigned int numThreads, unsigned int* legalCoreIDs)
-{
-    //Todo: implement for non-TBB
-#ifdef __TBB_EXECUTOR__
-    return new TBBThreadPoolPartitioner(numThreads, legalCoreIDs, pObserver);
-#else
-    return NULL;
-#endif
 }
 
 void RegisterReleaseSchedulerForMasterThread()

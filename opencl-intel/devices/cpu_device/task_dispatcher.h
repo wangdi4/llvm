@@ -33,6 +33,7 @@
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
 #include "wg_context.h"
+#include "wg_context_pool.h"
 #include <cl_synch_objects.h>
 #include <cl_thread.h>
 
@@ -41,6 +42,7 @@
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
+using Intel::OpenCL::Utils::ObjectPool;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -57,8 +59,7 @@ public:
 
 	virtual cl_dev_err_code init();
 
-	virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void** OUT list);
-	virtual cl_dev_err_code retainCommandList( cl_dev_cmd_list IN list);
+	virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list);
 	virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
 	virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
 	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
@@ -72,6 +73,15 @@ public:
 	virtual void            setAffinityPermutation(size_t* pAffinityPermutation) { m_pAffinityPermutation = pAffinityPermutation; }
 	virtual size_t*         getAffinityPermutation() const                       { return m_pAffinityPermutation; }
 	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
+
+    void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer);
+    void                    releaseSubdevice(void* pSubdevData);
+
+    void                    waitUntilEmpty(void* pSubdevData);    
+
+    void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pTaskExecutor->SetWGContextPool(pWgContextPool); }
+
+    ITaskExecutor*          getTaskExecutor() { return m_pTaskExecutor; }
 
 protected:
 	cl_int						m_iDevId;
@@ -88,14 +98,14 @@ protected:
 
 	// Contexts required for execution of NDRange
 	WGContext*						m_pWGContexts;
-	WGContext*						GetWGContext(unsigned int id);
 
 	IAffinityChangeObserver*        m_pObserver;
-	size_t*                         m_pAffinityPermutation;
+	size_t*                         m_pAffinityPermutation;    
+
 	// Internal implementation of functions
 	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
-	cl_dev_err_code	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
+	cl_dev_err_code	SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
 	void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
 
@@ -103,8 +113,14 @@ protected:
 	class TaskFailureNotification : public ITask
 	{
 	public:
-		TaskFailureNotification(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode) :
-		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
+
+        PREPARE_SHARED_PTR(TaskFailureNotification)
+
+        static SharedPtr<TaskFailureNotification> Allocate(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode)
+        {
+            return SharedPtr<TaskFailureNotification>(new TaskFailureNotification(_this, pCmd, retCode));
+        }
+		
 		virtual ~TaskFailureNotification() {};
 
 		// ITask interface
@@ -112,32 +128,30 @@ protected:
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	Execute();
-		long	Release() {delete this; return 0;}
+		long	Release() { return 0; }
 	protected:
 		TaskDispatcher*			m_pTaskDispatcher;
 		const cl_dev_cmd_desc*	m_pCmd;
 		cl_int					m_retCode;
+
+        TaskFailureNotification(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode) :
+		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
 	};
-	cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+	cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
 
 private:
 	TaskDispatcher(const TaskDispatcher&);
 	TaskDispatcher& operator=(const TaskDispatcher&);
 };
 
-class SubdeviceTaskDispatcherThread;
-
 class SubdeviceTaskDispatcher : public TaskDispatcher
 {
-    friend class SubdeviceTaskDispatcherThread;
 public:
     SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
         ProgramService	*programService, MemoryAllocator *memAlloc,
-        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver);
+        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData);
     
-    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, cl_dev_cmd_list* OUT list);
-    virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, cl_dev_cmd_list* OUT list);
 
   	virtual cl_dev_err_code init();
 
@@ -147,44 +161,35 @@ public:
 	// Release SubDispatcher Instance
 	// We to handle reference counting in order to be able to release it from different code places
 	void Release();
+
+    void* getSubdevTaskData() { return m_pSubdevTaskExecData; }
 	
 protected:
 	// We don't need direct destroy
     virtual ~SubdeviceTaskDispatcher();
 
-	OclOsDependentEvent						m_evWaitForCompletion;
-    SubdeviceTaskDispatcherThread*          m_thread;
+	OclOsDependentEvent						m_evWaitForCompletion;    
 
-	OclBinarySemaphore      				m_threadInitComplete;
 	OclBinarySemaphore      				m_NonEmptyQueue;
-	volatile bool        					m_threadInitSuccessful;
-
 	OclSpinMutex							m_muDestructReady;
 	unsigned int							m_uiRefCount;
 	unsigned int*       					m_legalCoreIDs;
-
-	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<cl_dev_cmd_list> m_commandListsForFlushing;
+    void* const                             m_pSubdevTaskExecData;
 
     virtual cl_dev_err_code internalFlushCommandList( cl_dev_cmd_list IN list);
-};
-
-class SubdeviceTaskDispatcherThread : public OclThread
-{
-    friend class SubdeviceTaskDispatcher;
-public:
-    SubdeviceTaskDispatcherThread(SubdeviceTaskDispatcher* dispatcher); 
-    virtual ~SubdeviceTaskDispatcherThread(); 
-
-    virtual RETURN_TYPE_ENTRY_POINT Run();
-protected:
-    SubdeviceTaskDispatcher* m_dispatcher;
-    IThreadPoolPartitioner*  m_partitioner;
 };
 
 class AffinitizeThreads : public ITaskSet
 {
 public:
-	AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD);
+	
+    PREPARE_SHARED_PTR(AffinitizeThreads)
+
+    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD)
+    {
+        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, pObserver, pTD)); 
+    }
+
 	virtual ~AffinitizeThreads();
 
 	// ITaskSet interface
@@ -192,12 +197,12 @@ public:
 	bool CompleteAndCheckSyncPoint() { return true;}
 	bool IsCompleted() const { return true;}
 	int	Init(size_t region[], unsigned int &regCount);
-	int	AttachToThread(unsigned int uiWorkerId, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int	DetachFromThread(unsigned int uiWorkerId);
-	void	ExecuteIteration(size_t x, size_t y, size_t z, unsigned int uiWorkerId); 
-	void	ExecuteAllIterations(size_t* dims, unsigned int uiWorkerId) {}
+	int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	int	DetachFromThread(WGContextBase* pWgContext);
+	void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext); 
+	void	ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext) {}
 	bool	Finish(FINISH_REASON reason) {return false;}
-	long    Release() { delete this; return 0;}
+	long    Release() { return 0;}
 
 protected:
 	unsigned int						m_numThreads;
@@ -206,6 +211,8 @@ protected:
 	IAffinityChangeObserver* 			m_pObserver;
 	TaskDispatcher* 					m_pTD;
 	volatile bool 						m_failed;
+
+    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD);
 };
 
 }}}

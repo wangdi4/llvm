@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:		
 
-        PREPARE_SHARED_PTR(MemoryObjectEvent);
+        PREPARE_SHARED_PTR(MemoryObjectEvent)
 
         static SharedPtr<MemoryObjectEvent> Allocate(IOCLDevMemoryObject* *ppDevMemObj, SharedPtr<MemoryObject> pMemObject, SharedPtr<FissionableDevice> pDevice)
         {

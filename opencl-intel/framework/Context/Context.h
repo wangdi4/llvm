@@ -37,6 +37,7 @@
 #include <cl_synch_objects.h>
 #include <list>
 #include <map>
+#include <set>
 #include "ocl_itt.h"
 #include "cl_heap.h"
 #include "cl_shared_ptr.h"
@@ -50,6 +51,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class FissionableDevice;
 	class Program;
 	class MemoryObject;
+    class ContextModule;
 
     typedef std::set<SharedPtr<Device> > tSetOfDevices;
 
@@ -65,7 +67,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(Context);
+        PREPARE_SHARED_PTR(Context)
 
         /******************************************************************************************
 		* Function: 	Allocate
@@ -80,9 +82,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			March 2012
 		******************************************************************************************/		
         static SharedPtr<Context> Allocate(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
-            SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData)
+            SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
+            ocl_gpa_data * pGPAData, const ContextModule& contextModule)
         {
-            return SharedPtr<Context>(new Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevice, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData));
+            return SharedPtr<Context>(new Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevice, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, contextModule));
         }
 
 		/******************************************************************************************
@@ -97,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/		
 		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify,
-			void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
+            void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, const ContextModule& contextModule);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -106,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:		Arnon Peleg
         *
         ******************************************************************************************/
-        void Cleanup( bool bTerminate = false ) const;
+        void Cleanup( bool bTerminate = false );
 
 		/******************************************************************************************
 		* Function: 	GetInfo    
@@ -425,6 +428,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		tImageFormatMap							m_mapSupportedFormats;
 
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
+        const ContextModule&                    m_contextModule;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::OclOsDependentEvent*> t_OsEventPool;

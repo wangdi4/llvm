@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 
-        PREPARE_SHARED_PTR(GLRenderBuffer);
+        PREPARE_SHARED_PTR(GLRenderBuffer)
 
         static SharedPtr<GLRenderBuffer> Allocate(SharedPtr<Context> pContext, cl_gl_object_type clglObjType)
         {
