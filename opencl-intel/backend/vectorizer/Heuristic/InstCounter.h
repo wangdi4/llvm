@@ -74,6 +74,10 @@ namespace intel {
     // Get the weight of an instruction
     int getInstructionWeight(Instruction *I, DenseMap<Instruction*, int> &MemOpCostMap);
 
+    // Returns the preferred vectorization width for this kernel/architecture pair
+    int getPreferredVectorizationWidth(Function &F, DenseMap<Loop*, int> &IterMap,
+      DenseMap<BasicBlock*, float> &ProbMap);
+
     // Guess what the dominant type is.
     Type* estimateDominantType(Function &F, DenseMap<Loop*, int> &IterMap,
       DenseMap<BasicBlock*, float> &ProbMap) const;
@@ -105,14 +109,15 @@ namespace intel {
     void addUsersToWorklist(Instruction *I, DenseSet<Instruction*> &Visited,
                            std::vector<Instruction*> &WorkList) const;
 
+    // Return the cost of a function call
+    int getFuncCost(const std::string& name);
+
     // All multiplications need to be rounded up, and
     // for positive integers, ceil(x/y) = (x + y - 1) / y.
     static inline float ceil_div(int x, int y)
     {
       return (x + y - 1) / y;
     }
-
-    int getFuncCost(const std::string& name);
 
     // Used to identify MIC/AVS support
     Intel::CPUId m_cpuid;
@@ -151,6 +156,7 @@ namespace intel {
     // TODO: Calls have uniform (heavy) weight, which is nonsense. 
     // Replace with something that actually makes sense.
     static const int CALL_WEIGHT = 20;
+    static const int CALL_MASK_WEIGHT = 5;
     // Shuffles/Extracts/Inserts may be more expensive.
     static const int EXPENSIVE_SHUFFLE_WEIGHT = 5;
     static const int CHEAP_SHUFFLE_WEIGHT = 2;
@@ -172,6 +178,7 @@ namespace intel {
 
     // Special cases for cheap calls. This is clearly overfitting...
     static const int CALL_CLAMP_WEIGHT = 2;
+    static const int CALL_MINMAX_WEIGHT = 1;
     static const int CALL_FLOOR_WEIGHT = 2;
 public:
     // Ratio multiplier

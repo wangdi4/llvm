@@ -140,39 +140,68 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     }
   }
 
-  // Decide what the vectorization width should be.
-  // MIC was already decided earlier. The reason the code is split
+  // If we are pre-vectorization, decide what the vectorization width should be.
+  // Noe that MIC was already decided earlier. The reason the code is split
   // is that for the MIC we don't need to compute the various maps,
   // while in this part of the code we want to use them.
-  // SSE is always 4. For AVX, estimate the most used type in the kernel.
+  if (m_preVec)
+    m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
+
+  return false;
+}
+
+int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Loop*, int> &IterMap,
+      DenseMap<BasicBlock*, float> &ProbMap)
+{
+  assert(!isMic() && "Should not reach this for MIC");
+
+  // For SSE, this is always 4. 
+  if (!hasAVX())
+    return 4;
+
+  // For AVX, estimate the most used type in the kernel.
   // Integers have no 8-wide operations on AVX1, so vectorize to 4,
   // otherwise, 8.
   // This logic was inherited from the old heuristic, but the types 
   // are computed slightly more rationally now.
-
-  // Not that the below code is actually nonsense.
-  // By the above logic, we should be:
-  // a) always vectorizing doubles code to 4.
-  // b) vectorizing i32 code (and below) to 8.
-  // What's below works well in practice, but for bad reasons. 
-  // The right thing to do would be to change (a) and (b), and then
-  // take memory access patterns into account. (a lot of "cheap" loads
-  // means 4, "expensive" loads mean 8).
-  // However, in practice, this works better. It would be a good idea
-  // to understand why.
-
-  if (m_preVec) {
-    if (hasAVX()) {
-      Type* DominantType = estimateDominantType(F, IterMap, ProbMap);
-      if (DominantType->isIntegerTy())
-        m_desiredWidth = 4;
-      else
-        m_desiredWidth = 8;         
-    }
+  if (!hasAVX2()) {
+    Type* DominantType = estimateDominantType(F, IterMap, ProbMap);
+    if (DominantType->isIntegerTy())
+      return 4;
     else
-      m_desiredWidth = 4;
+      return 8;         
   }
-  return false;
+
+  // For AVX2, the logical choice would be always 8.
+  // Unfortunately, this fails for some corner cases, due to both
+  // inherent reasons and compiler deficiencies.
+  // The first corner case is <k x i16*> buffers. Since we don't have transpose
+  // operations for i16, reading and writing from these buffers becomes
+  // expensive.
+  
+  for (Function::ArgumentListType::iterator argIt = F.getArgumentList().begin(),
+       argEnd = F.getArgumentList().end(); argIt != argEnd; ++argIt) {
+    Type* argType = argIt->getType();
+    
+    // Is this a pointer type?
+    PointerType* PtrArgType = dyn_cast<PointerType>(argType);
+    if (!PtrArgType)
+      continue;
+
+    // Pointer to vector of i16?
+    Type* PointedType = PtrArgType->getElementType();
+    if (!PointedType->isVectorTy())
+      continue;
+
+    if (!PointedType->getScalarType()->isIntegerTy(16))
+      continue;
+
+    // Last thing to check - that this buffer is not trivially dead.
+    if (argIt->hasNUsesOrMore(1))
+      return 4;
+  }
+
+  return 8;
 }
 
 // This allows a consistent comparison between scalar and vector types.
@@ -290,14 +319,18 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
         Name.startswith("vstore") || Name.startswith("_Z7vstore")) {
       return MEM_OP_WEIGHT;
     }
-
-
+    
     // Ugly hacks start here.
     if (Name.startswith("_Z5clamp") || Name.startswith("clamp"))
       return CALL_CLAMP_WEIGHT;
 
     if (Name.startswith("_Z5floor") || Name.startswith("floor"))
       return CALL_FLOOR_WEIGHT;
+
+    if (Name.startswith("_Z3min") || Name.startswith("min") ||
+       Name.startswith("_Z3max") || Name.startswith("max"))
+      return CALL_MINMAX_WEIGHT;
+
 
     // allZero and allOne calls are cheap, it's basically a xor/ptest
     if ((Name.startswith(Mangler::name_allZero)) || 
@@ -313,7 +346,11 @@ int WeightedInstCounter::getFuncCost(const std::string& name)
   if (m_transCosts.find(name) != m_transCosts.end()) {
     return m_transCosts[name];
   } else {
-    // Function is not in the table, return default call weight.
+    // Function is not in the table, return default call weight,
+    // except that mangled (masked) calls are more expensive by default
+    if (Mangler::isMangledCall(name))
+      return CALL_WEIGHT + CALL_MASK_WEIGHT;
+
     return CALL_WEIGHT;
   }    
 }
@@ -560,14 +597,16 @@ void WeightedInstCounter::
   PostDominanceFrontier::DomSetMapType ControlDepMap;
 
   //Debug output
-  dbgPrint() << F.getName();
-  if (m_preVec)
-    dbgPrint() << " Before";
-  else
-    dbgPrint() << " After";
-  dbgPrint() << "\n";
   if (enableDebugPrints)
+  {
+    dbgPrint() << F.getName();
+    if (m_preVec)
+      dbgPrint() << " Before";
+    else
+      dbgPrint() << " After";
+    dbgPrint() << "\n";
     PDF->dump();
+  }
 
   // Check which instructions depend on "data" (results of loads and stores). 
   DenseSet<Instruction*> DepSet;
@@ -592,17 +631,10 @@ void WeightedInstCounter::
     // Before vectorization, the probability is simple 1/(2^k) where k 
     // is the number of branches the block is control-dependent on.
     int count = (int)Frontier.size();
-    
-    if (!m_preVec) {
-      // After vectorization, we consider dependence on an allZero/allOne
-      // condition to be a bad thing. The normal structure for an allZero branch
-      // is (A => B, A => C, B => C), where the A => B branch is taken only
-      // if all workitems satisfy a condition. Note that block C does not depend
-      // on the branch in A(since it's always executed), only B does. 
-      // Because of the "all workitems" conditions,  it is a good idea to assume 
-      // that block B is executed more often than a block that depends on a "normal"
-      // branch.
-      // For loops, the stucture is similar.   
+
+    if (!m_preVec)
+    {
+      // For each branch we depend on, check what the branch depends on
       for(PostDominanceFrontier::DomSetType::iterator Anc = Frontier.begin(),
           AE = Frontier.end(); Anc != AE; Anc++) {
         // find allZero/allOne conditions, and filter them out.
@@ -619,6 +651,14 @@ void WeightedInstCounter::
           continue;
         
         // Ok, so it's a call.
+        // After vectorization, we consider dependence on an allZero/allOne
+        // condition to be a bad thing. The normal structure for an allZero branch
+        // is (A => B, A => C, B => C), where the A => B branch is taken only
+        // if all workitems satisfy a condition. Note that block C does not depend
+        // on the branch in A(since it's always executed), only B does. 
+        // Because of the "all workitems" conditions,  it is a good idea to assume 
+        // that block B is executed more often than a block that depends on a "normal"
+        // branch. For loops, the stucture is similar.   
         // If it has no operands, it's definitely not allOne/allZero.
         // This is basically just a sanity check, there's no good reason for
         // anyone to branch on the result of a call with no arguments.
@@ -632,8 +672,9 @@ void WeightedInstCounter::
         StringRef Name = CondCall->getCalledFunction()->getName();
         Value* AllZOp = CondCall->getOperand(0);
         Type* AllZOpType = AllZOp->getType();
-        // Do not count the ancestor if it's all1/all0, has a vector type, and is data
-        // dependent! Not counting penalizes this block, because the less blocks you're 
+
+        // So, we do not count the ancestor if it's all1/all0, has a vector type, and is data
+        // dependent. Not counting penalizes this block, because the less blocks you're 
         // control-dependent on, the higher your probability of being executed is.
         // The reason data dependence is taken into account is that an allZero call
         // that does not depend on data is a pretty weird beast. There are two cases:
@@ -653,9 +694,8 @@ void WeightedInstCounter::
         if (Name.startswith(Mangler::name_allZero) &&
             ConstOp && ConstOp->isOne())
               count--;
-      }      
+      }
     }
-
     ProbMap[BB] = 1.0/(pow(2.0, count));
   }
 }
