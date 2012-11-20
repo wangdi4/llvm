@@ -72,9 +72,9 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,     cl_uint,                        16                              ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,    cl_uint,                        16                              ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,      cl_uint,                        16                              ),	// TODO Should take this value from device SKU
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,     cl_uint,                        16                              ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,     cl_uint,                        8                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,    cl_uint,                        16                              ),	// TODO Should take this value from device SKU
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,     cl_uint,                        16                              ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,     cl_uint,                        0                               ),	// TODO Should take this value from device SKU
     FUNC_VALUE( CL_DEVICE_MAX_CLOCK_FREQUENCY,                                          get_variable_info               ),
     SCAL_VALUE( CL_DEVICE_ADDRESS_BITS,                 cl_uint,                        sizeof(uint64_t)*8              ),
     SCAL_VALUE( CL_DEVICE_MAX_READ_IMAGE_ARGS,          cl_uint,                        MIC_MAX_READ_IMAGE_ARGS         ),
@@ -122,7 +122,7 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
 
 #ifdef __DOUBLE_ENABLED__
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF | CL_FP_FMA ), // new OpenCL 1.2
-    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        16                              ),	// TODO Should take this value from device SKU
+    SCAL_VALUE( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,   cl_uint,                        8                               ),	// TODO Should take this value from device SKU
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        1                               ),	// TODO Should take this value from BE
 #else
     SCAL_VALUE( CL_DEVICE_DOUBLE_FP_CONFIG,             cl_device_fp_config,            0                               ),
