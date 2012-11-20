@@ -37,10 +37,6 @@ DECLARE_ALIAS(clCreateCommandQueue);
 DECLARE_ALIAS(clRetainCommandQueue);
 DECLARE_ALIAS(clReleaseCommandQueue);
 DECLARE_ALIAS(clGetCommandQueueInfo);
-#ifdef CL_USE_DEPRECATED_OPENCL_1_0_APIS
-#warning CL_USE_DEPRECATED_OPENCL_1_0_APIS is defined. These APIs are unsupported and untested in OpenCL 1.1!
-	ECLARE_ALIAS(clSetCommandQueueProperty);
-#endif
 DECLARE_ALIAS(clCreateBuffer);
 DECLARE_ALIAS(clCreateImage);
 DECLARE_ALIAS(clCreateImage2D);

@@ -214,10 +214,6 @@ cl_int CL_API_CALL clSetCommandQueueProperty(cl_command_queue              comma
 {
 	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties));
 }
-#ifdef CL_USE_DEPRECATED_OPENCL_1_0_APIS
-#warning CL_USE_DEPRECATED_OPENCL_1_0_APIS is defined. These APIs are unsupported and untested in OpenCL 1.1!
-	SET_ALIAS(clSetCommandQueueProperty);
-#endif
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
