@@ -3565,18 +3565,19 @@ void NEATPlugIn::execute_rootn(Function *F,
 
 ///////////////// min and max built-in function ///////////////////////
 #define EXECUTE_MINMAX(fn)\
-    void execute_##fn(Function *F,                                          \
+    void NEATPlugIn::execute_##fn(Function *F,                                          \
                  const std::map<Value *, NEATGenericValue> &ArgVals,        \
                  NEATGenericValue& Result,                                   \
                  const OCLBuiltinParser::ArgVector& ArgList)                \
 {                                                                           \
     Function::arg_iterator Fit = F->arg_begin();                            \
     Value *arg0 = Fit++;                                                    \
-    const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                \
     Value *arg1 = Fit++;                                                    \
-    const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);                \
     const Type *Ty0 = arg0->getType();                                      \
     const Type *Ty1 = arg1->getType();                                      \
+    if(!(m_NTD.IsNEATSupported(Ty0) && m_NTD.IsNEATSupported(Ty1))) return; \
+    const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                \
+    const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);                \
     if (Ty0->isVectorTy() && Ty1->isFloatTy())                              \
     {                                                                       \
      Result.NEATVec = NEAT_WRAP::fn##_f(ValArg0.NEATVec, ValArg1.NEATVal);  \
