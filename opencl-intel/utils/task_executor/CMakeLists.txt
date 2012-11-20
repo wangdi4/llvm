@@ -78,13 +78,13 @@ if (WIN32)
         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
 else (WIN32)
-    if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_preview_debug${IMPLIB_SUFFIX}
                               ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
      else ()
         list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_preview${IMPLIB_SUFFIX}
                               ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
-     endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+     endif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif (WIN32)
 
 target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
