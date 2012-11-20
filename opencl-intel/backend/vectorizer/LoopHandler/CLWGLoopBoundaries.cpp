@@ -51,25 +51,6 @@ bool CLWGLoopBoundaries::isUniform(Value *v) {
   return m_Uni[I];
 }
 
-void CLWGLoopBoundaries::processTIDCall(CallInst *CI, StringRef &name) {
-  assert(CI->getType() == m_indTy && "mismatch get***id type");
-  ConstantInt *dimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-  if (!dimC) {
-    m_Uni[CI] = false;
-    return;
-  } 
-  unsigned dim = static_cast<unsigned>(dimC->getValue().getZExtValue());
-  assert (dim < 3 && "get***id with dim > 2");
-  if (dim < m_numDim) {
-    m_TIDs[CI] = std::pair<unsigned , bool>(dim, name == GET_GID_NAME);
-    m_Uni[CI] = false;
-  } else {
-    // For apple we do the loop only on 0-dimension so we consider.
-    // get***id(1,2) as uniform. 
-    m_Uni[CI] = true;
-  }
-}
-
 bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
    for (unsigned i=0; i<I->getNumOperands(); ++i) {
      if (!isUniform(I->getOperand(i))) return false;
@@ -82,16 +63,11 @@ void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
   for (BasicBlock::iterator I=BB->begin(), E= --(BB->end()); I!=E ; ++I) {
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
       Function *F = CI->getCalledFunction();
-      // If the function is defined in the module than it is not a
-      // TID and not unifrom.
-      if (!F->isDeclaration()) {
+      // If the function is defined in the module than it is not uniform.
+      // If the function is ID generator it is not uniform.
+      if (!F || !F->isDeclaration() || m_varibaleTIDCalls.count(CI) ||
+          m_TIDs.count(CI)) {
         m_Uni[I] = false;
-        continue;
-      }
-      // Check to see if this get***id call
-      StringRef name = F->getName();
-      if (name==GET_LID_NAME || name==GET_GID_NAME) {
-        processTIDCall(CI, name);
         continue;
       }
       // Getting this is a regular builtin uniform if all opernads are uniform
@@ -104,6 +80,44 @@ void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
   }
 }
 
+void CLWGLoopBoundaries::processTIDCall(CallInst *CI, bool isGID) {
+  assert(CI->getType() == m_indTy && "mismatch get***id type");
+  ConstantInt *dimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+  if (!dimC) {
+    m_hasVariableTid = true;
+    m_varibaleTIDCalls.insert(CI);
+    return;
+  }
+  unsigned dim = static_cast<unsigned>(dimC->getValue().getZExtValue());
+  assert (dim < 3 && "get***id with dim > 2");
+  // All dimension above m_numDim are uniform so we don't need to add them.
+  // In apple we currently create loop only over 0 dimension.
+  if (dim < m_numDim) {
+    m_TIDs[CI] = std::pair<unsigned , bool>(dim, isGID);
+    m_TIDByDim[dim].push_back(CI);
+  }
+}
+
+void CLWGLoopBoundaries::collectTIDData() {
+  // First clear the tids fata structures
+  m_TIDs.clear();
+  m_TIDByDim.clear();
+  m_TIDByDim.resize(m_numDim); // allocate vector for each dimension
+  // Go over all get_global_id
+  m_hasVariableTid = false;
+  SmallVector<CallInst *, 4> gidCalls;
+  LoopUtils::getAllCallInFunc(GET_GID_NAME, m_F, gidCalls);
+  for (unsigned i=0; i<gidCalls.size(); ++i) {
+    processTIDCall(gidCalls[i], true);
+  }
+  // Go over all get_local_id
+  SmallVector<CallInst *, 4> lidCalls;
+  LoopUtils::getAllCallInFunc(GET_LID_NAME, m_F, lidCalls);
+  for (unsigned i=0; i<lidCalls.size(); ++i) {
+    processTIDCall(lidCalls[i], false);
+  }
+}
+
 bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   m_F = &F;
   m_M = F.getParent();
@@ -113,25 +127,39 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   m_constOne = ConstantInt::get(m_indTy, 1);
   m_constZero = ConstantInt::get(m_indTy, 0);
   // clear used data structures
-  m_TIDs.clear();
   m_Uni.clear();
   m_TIDDesc.clear();
   m_UniDesc.clear();
-    
-  // Collects uniform data and get***id calls attributes from the 
-  // current basic block.
-  CollcectBlockData(&m_F->getEntryBlock());
+  m_toRemove.clear();
 
-  // Iteratively examines if the entry block branch is early exit branch.
-  // If so collect the early exit description and and try to collapse the 
+  // Collect information of get***id calls.
+  collectTIDData();
+  // Collects uniform data from the current basic block.
+  CollcectBlockData(&m_F->getEntryBlock());
+  // Check if the function calls an atomic builtin.
+  m_hasAtomicCalls = currentFunctionHasAtomicCalls();
+
+
+  // Iteratively examines if the entry block branch is early exit branch,
+  // min\max with uniform value.
+  // If so collect the early exit description and and try to collapse the
   // code successor into entry block.
   bool earlyExitCollapsed = false;
+  bool minMaxBoundaryRemoved = false;
   do {
+    minMaxBoundaryRemoved = findAndHandleTIDMinMaxBound();
     earlyExitCollapsed = findAndCollapseEarlyExit();
-  } while (earlyExitCollapsed);
+  } while (minMaxBoundaryRemoved || earlyExitCollapsed);
 
   // Create early exit functions for later use of Loop Generator.
   createWGLoopBoundariesFunction();
+
+  // Remove all instructions marked for removal.
+  for (SmallPtrSet<Instruction *, 8>::iterator it = m_toRemove.begin(),
+    e = m_toRemove.end(); it != e; ++it) {
+    assert((*it)->getNumUses() == 0 && "no users expected");
+    if ((*it)->getNumUses() == 0) (*it)->eraseFromParent();
+  }
   return true;
 }
 
@@ -205,12 +233,181 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
         if (VMSlot) *op = VMSlot;
       }
     }
-  }  
+  }
 }
 
+bool CLWGLoopBoundaries::handleBuiltinBoundMinMax(Instruction *tidInst) {
+  // The tid only user should be min\max builtin.
+  if (!tidInst->hasOneUse()) return false;
+  CallInst *CI = dyn_cast<CallInst>(*(tidInst->use_begin()));
+  if (!CI) return false;
+
+  // Currently uniformity information is available only for the first block.
+  // This can be relaxed when WIAnalysis supports control flow.
+  if (CI->getParent() != &(m_F->getEntryBlock())) return false;
+
+  // Check if this is a scalar min/max builtin.
+  Function *calledFunc = CI->getCalledFunction();
+  if (!calledFunc) return false;
+  StringRef fname = calledFunc->getName();
+  bool isMinBltn, isSigned;
+  if (!m_rtServices->isScalarMinMaxBuiltin(fname, isMinBltn, isSigned))
+    return false;
+  assert(CI->getNumArgOperands() == 2 && "bad min,max signature");
+
+  // Track the boundary and the tid call.
+  Value *bound, *tid;
+  if (!traceBackMinMaxCall(CI, bound, tid)) return false;
+
+  // Get the tid properties from the map.
+  assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
+  std::pair<unsigned, bool> tidProp = m_TIDs[tid];
+  unsigned dim = tidProp.first;
+  bool isGID = tidProp.second;
+
+  bool isUpperBound = isMinBltn; // Min creates upper bound, max lower bound.
+  bool containsVal = true; // All min \ max are inclusive.
+  m_TIDDesc.push_back(TIDDesc(bound, dim, isUpperBound, containsVal,
+                    isSigned, isGID));
+  CI->replaceAllUsesWith(tidInst);
+  m_toRemove.insert(CI);
+  return true;
+}
+
+bool CLWGLoopBoundaries::handleCmpSelectBoundary(Instruction *tidInst) {
+  // The tidInst users should be cmp, select with the same operands.
+  // First find the select user.
+  if (tidInst->getNumUses() != 2) return false;
+  Value *user1 = *(tidInst->use_begin());
+  Value *user2 = *(++(tidInst->use_begin()));
+  SelectInst *SI = dyn_cast<SelectInst>(user1);
+  if (!SI) {
+    SI = dyn_cast<SelectInst>(user2);
+  }
+  if (!SI) return false;
+
+  // Currently uniformity information is available only for the first block.
+  // This can be relaxed when WIAnalysis supports control flow.
+  if (SI->getParent() != &(m_F->getEntryBlock())) return false;
+
+  // The cmp should be the select mask operand.
+  // The select should be the only user of the copmare.
+  Value *mask = SI->getCondition();
+  ICmpInst *cmp = dyn_cast<ICmpInst>(mask);
+  if (!cmp || !cmp->hasOneUse()) return false;
+
+  // The compare and the select should have the same operands.
+  // This ensures that that cmp is user of the tidInst.
+  Value *trueOp = SI->getTrueValue();
+  Value *falseOp = SI->getFalseValue();
+  Value *cmpOp0 = cmp->getOperand(0);
+  Value *cmpOp1 = cmp->getOperand(1);
+  if (!(cmpOp0 == trueOp && cmpOp1 == falseOp) &&
+      !(cmpOp1 == trueOp && cmpOp0 == falseOp)) return false;
+
+  // Track the boundary and tid call.
+  Value *bound, *tid;
+  if (!traceBackCmp(cmp, bound, tid)) return false;
+  // Update the eeVec with the boundary descriptions.
+  if (!obtainBoundaryCmpSelect(cmp, bound, tid, cmpOp0 == trueOp)) return false;
+  // Replace the uses of the select with the original tid call, and mark
+  // redundant instructions for removal.
+  SI->replaceAllUsesWith(tidInst);
+  m_toRemove.insert(SI);
+  m_toRemove.insert(cmp);
+  return true;
+}
+
+bool CLWGLoopBoundaries::obtainBoundaryCmpSelect(ICmpInst *cmp, Value *bound,
+                                                 Value *tid, bool isSameOrder){
+  // Patterns like a==b ? a : b are handled trivially by instcombine.
+  if(!cmp->isRelational()) return false;
+
+  // Get the tid properties from the map
+  assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
+  std::pair<unsigned, bool> tidProp = m_TIDs[tid];
+  unsigned dim = tidProp.first;
+  bool isGID = tidProp.second;
+
+  CmpInst::Predicate pred = cmp->getPredicate();
+  bool containsVal = true; // all cmp-select are inclusive.
+  assert (isSupportedRelationalComparePredicate(pred) &&
+          "unexpected relational cmp predicate");
+  bool isPredLower = isComparePredicateLower(pred); // is pred <, <=
+
+  // Note that min\max are always inclusive:
+  // (tid> bound ? tid : bound) ~ (tid >= bound ? tid : bound) ~ [bound, ...]
+  // Also, if we switch opernads order in both cmp and select we get the
+  // same  bounds:
+  // (tid > bound ? tid : bound) ~ (bound > tid ? bound : tid) ~ [bound, ...]
+  // These notions reduce the patterns into:
+  // tid >,>= bound ? tid : bound ~ [bound, ...]
+  // tid >,>= bound ? bound : tid ~ [..., bound]
+  // tid <,<= bound ? tid : bound ~ [..., bound]
+  // tid <,<= bound ? bound : tid ~ [bound, ...]
+  bool isUpperBound = (!isPredLower ^ isSameOrder);
+
+  // Update the boundary descriptions vector with the current compare.
+  m_TIDDesc.push_back(TIDDesc(bound, dim, isUpperBound, containsVal,
+                              cmp->isSigned(), isGID));
+  return true;
+}
+
+bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
+  // Incase there are get***id with variable argument, we can not
+  // know who are the users of each dimension.
+  if (m_hasVariableTid) return false;
+
+  // Incase there is an atomic call we cannot avoid running two work items
+  // that use essentialy the same id (due to min(get***id(),uniform) as
+  // the atomic call may have different consequences for the same id.
+  if (m_hasAtomicCalls) return false;
+
+  bool removedMinMaxBound = false;
+  assert(m_TIDByDim.size() == m_numDim && "num dimension mismatch");
+  for (unsigned dim=0; dim<m_numDim; ++dim) {
+    // Should have exactly one tid generator for that dimension.
+    if (m_TIDByDim[dim].size() != 1) continue;
+    CallInst *CI = m_TIDByDim[dim][0];
+
+    // Allow truncation for 64 bit systems.
+    Instruction *tidInst = CI;
+    if (CI->hasOneUse()) {
+      if(TruncInst *TI = dyn_cast<TruncInst>(*(CI->use_begin()))) {
+        tidInst = TI;
+      }
+    }
+
+    // Check if it matches min\max patterns.
+    if (handleCmpSelectBoundary(tidInst) ||
+        handleBuiltinBoundMinMax(tidInst)) {
+      removedMinMaxBound = true;
+    }
+  }
+  return removedMinMaxBound;
+}
+
+bool CLWGLoopBoundaries::currentFunctionHasAtomicCalls() {
+  // First obtain all the atomic functions in the module.
+  std::set<Function *> atomicFuncs;
+  for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
+    std::string name = fit->getNameStr();
+    if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
+  }
+  // No atomic functions means there is no atomic call in the current function.
+  if (!atomicFuncs.size()) return false;
+
+  // Obtain all the recursive users of the atomic functions.
+  std::set<Function *> atomicUsers;
+  LoopUtils::fillFuncUsersSet(atomicFuncs, atomicUsers);
+  // return true iff the current function is a recursive user of atomic function.
+  return atomicUsers.count(m_F);
+}
+
+
 bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
-// Supported pattern is that entry block ends with conditional branch,
-// and has no side effect instructions.
+  // Supported pattern is that entry block ends with conditional branch,
+  // and has no side effect instructions.
   BasicBlock *entry = &m_F->getEntryBlock();
   BranchInst *Br = dyn_cast<BranchInst>(entry->getTerminator());
   if (!Br) return false;
@@ -241,7 +438,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // it with the non exit successor if possible.
   if (EEremove) {
     EEremove->removePredecessor(entry);
-    Br->eraseFromParent();
+    m_toRemove.insert(Br);
     BranchInst::Create(EEsucc, entry);
     // If the successor has the entry as unique predecessor than we might find 
     // the succsessor is not in a loop and it is safe to scan it for new early
@@ -289,26 +486,30 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
   return true;
 }
 
-bool CLWGLoopBoundaries::traceBackBound(ICmpInst *cmp, unsigned TIDInd,
-                                     Value *&bound, Value *&tid){
-  // The pattern of boundary condition is: icmp TID , Uniform.
-  // But more genral pattern is icmp f(TID), Uniform. 
+bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
+                                        Instruction *loc, Value *&bound, Value *&tid){
+  // The input values should be tid dependebt value compared with uniform one.
+  // First We find which is uniform and which is tid-dependent and abort otherwise.                                          
+  bool isV1Uniform = isUniform(v1);
+  bool isV2Uniform = isUniform(v2);
+  if (isV1Uniform == isV2Uniform) return false;
+  bound = isV1Uniform ? v1 : v2;
+  tid = isV1Uniform ? v2 : v1;
+
+  // The pattern of boundary condition is: comparison between TID , Uniform.
+  // But more genral pattern is comparison between f(TID), Uniform. 
   // In that case the bound will be f_inverse(Unifrom). currently we support
   // only truncation but this can be extended to more complex forms of f.
-  assert (TIDInd < 2 && "compare has 2 opernads");
-  bound = cmp->getOperand(1-TIDInd);
-  tid = cmp->getOperand(TIDInd);
-  assert(isUniform(bound) && "non uniform boundary");
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
     switch (tidInst->getOpcode()) {  
       case Instruction::Trunc: {
         // If candidate is trunc instruction than we can safely extend the 
         // bound to have equivalent condition according to sign of comaprison.
         tid = tidInst->getOperand(0);
-        if (cmp->isSigned()) {
-          bound = new SExtInst(bound, tid->getType(), "sext_cast", cmp);
+        if (isCmpSigned) {
+          bound = new SExtInst(bound, tid->getType(), "sext_cast", loc);
         } else {
-          bound = new ZExtInst(bound, tid->getType(), "zext_cast", cmp);
+          bound = new ZExtInst(bound, tid->getType(), "zext_cast", loc);
         }
         break;
       }
@@ -323,6 +524,20 @@ bool CLWGLoopBoundaries::traceBackBound(ICmpInst *cmp, unsigned TIDInd,
   return false;
 }
 
+bool CLWGLoopBoundaries::traceBackCmp(ICmpInst *cmp, Value *&bound,
+                                      Value *&tid) {
+  Value *op0 = cmp->getOperand(0);
+  Value *op1 = cmp->getOperand(1);
+  return traceBackBound(op0, op1, cmp->isSigned(), cmp, bound, tid);
+}
+
+bool CLWGLoopBoundaries::traceBackMinMaxCall(CallInst *CI, Value *&bound,
+                                             Value *&tid) {
+  Value *arg0 = CI->getArgOperand(0);
+  Value *arg1 = CI->getArgOperand(1);
+  return traceBackBound(arg0, arg1, false, CI, bound, tid);
+}
+
 void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
                                               Value *toRep) {
   assert(toRep->getType() == m_indTy && "bad type");
@@ -335,29 +550,37 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
     ConstantInt *dimConst = cast<ConstantInt>(tidCall->getArgOperand(0));
     unsigned dimArg = dimConst->getZExtValue();
     if (dim == dimArg) {
+      // We remove all calls at the end to avoid invalidating internal 
+      // data structures that keep information about tid calls.
       tidCall->replaceAllUsesWith(toRep);
-      tidCall->eraseFromParent();
+      m_toRemove.insert(tidCall);
     }
   }
 }
 
-bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
-                                           TIDDescVec& eeVec){
-  assert(!(isUniform(cmp->getOperand(0)) && isUniform(cmp->getOperand(1))) && 
-          "cmp should not be uniform");
-  // For boundary condition one of the ops must be uniform.
-  // We check which one the operands (if any) is the uniform operand, and save
-  // the index in UniInd 
-  // (TIDInd will be the index of the tid generating operand)
-  unsigned UniInd = 1;
-  if(isUniform(cmp->getOperand(0))) UniInd = 0;
-  else if (!isUniform(cmp->getOperand(1)))  return false;
-  unsigned TIDInd = 1 - UniInd;
+bool CLWGLoopBoundaries::isSupportedRelationalComparePredicate(CmpInst::Predicate p) {
+  return (p == CmpInst::ICMP_ULT || p == CmpInst::ICMP_ULE ||
+          p == CmpInst::ICMP_SLT || p == CmpInst::ICMP_SLE ||
+          p == CmpInst::ICMP_UGT || p == CmpInst::ICMP_UGE ||
+          p == CmpInst::ICMP_SGT || p == CmpInst::ICMP_SGE );
+}
 
-  // Traceback the boundary value.
-  Value *bound, *tid;
-  if (!traceBackBound(cmp, TIDInd, bound, tid)) return false;
+bool CLWGLoopBoundaries::isComparePredicateLower(CmpInst::Predicate p) {
+  return (p == CmpInst::ICMP_ULT || p == CmpInst::ICMP_ULE ||
+          p == CmpInst::ICMP_SLT || p == CmpInst::ICMP_SLE);
+}
 
+bool CLWGLoopBoundaries::isComparePredicateInclusive(CmpInst::Predicate p) {
+  return (p == CmpInst::ICMP_ULE || p == CmpInst::ICMP_UGE ||
+          p == CmpInst::ICMP_SLE || p == CmpInst::ICMP_SGE);
+}
+
+bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
+                               Value *tid, bool EETrueSide, TIDDescVec& eeVec){
+  unsigned TIDInd = isUniform(cmp->getOperand(0)) ? 1 : 0;
+  assert(isUniform(cmp->getOperand(1-TIDInd)) && // tid is compared to uniform
+         !isUniform(cmp->getOperand(TIDInd)) &&  // tid is not uniform
+          "exactly one of the operands must be uniform");
   // Get the tid properties from the map
   assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
   std::pair<unsigned, bool> tidProp = m_TIDs[tid];
@@ -413,16 +636,11 @@ bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
   }
 
   // Here is the support for relational compare {<, <= , >, >=}
-  assert ((pred == CmpInst::ICMP_ULT || pred == CmpInst::ICMP_ULE ||
-           pred == CmpInst::ICMP_SLT || pred == CmpInst::ICMP_SLE ||
-           pred == CmpInst::ICMP_UGT || pred == CmpInst::ICMP_UGE ||
-           pred == CmpInst::ICMP_SGT || pred == CmpInst::ICMP_SGE )
-           && "unexpected relational cmp predicate");
+  assert (isSupportedRelationalComparePredicate(pred) &&
+            "unexpected relational cmp predicate");
   //Collect attributes of the compare instruction. 
-  bool isPredUpper = (pred == CmpInst::ICMP_ULT || pred == CmpInst::ICMP_ULE ||
-                      pred == CmpInst::ICMP_SLT || pred == CmpInst::ICMP_SLE);
-  bool isInclusive = (pred == CmpInst::ICMP_ULE || pred == CmpInst::ICMP_UGE ||
-                      pred == CmpInst::ICMP_SLE || pred == CmpInst::ICMP_SGE);
+  bool isPredLower = isComparePredicateLower(pred); // is pred <, <=
+  bool isInclusive = isComparePredicateInclusive(pred); // is pred <=, >=`
   bool isSigned = cmp->isSigned();
 
   // When decidng whether the uniform value is an upper bound, and whether it 
@@ -433,7 +651,7 @@ bool CLWGLoopBoundaries::checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide,
   //    br %cond label %BB1, label %BB2
   // If BB2 is return uni is an upper bound, and exclusive 
   // if BB1 is return uni is lower bound and inclusive
-  bool isUpper = isPredUpper ^ (TIDInd == 1) ^ EETrueSide;
+  bool isUpper = isPredLower ^ (TIDInd == 1) ^ EETrueSide;
   bool containsVal = isInclusive ^ EETrueSide;
 
   // Update the boundary descriptions vector with the current compare.
@@ -473,7 +691,11 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   TIDDescVec eeVec;
   for(SmallVector<ICmpInst *, 4>::iterator cmpIt = compares.begin(), 
        cmpE = compares.end(); cmpIt != cmpE; ++cmpIt) {
-    if (!checkBoundaryCompare(*cmpIt, EETrueSide, eeVec)) return false;
+    // We need to be able to track the original tid call and the bound.
+    Value *bound, *tid;
+    if (!traceBackCmp(*cmpIt, bound, tid)) return false;
+    // Finally we need to obtain the early exit description(s) into eeVec.
+    if (!obtainBoundaryEE(*cmpIt, bound, tid, EETrueSide, eeVec)) return false;
   }
   // All compares are valid, so we can add them to the TIDDesc.
   m_TIDDesc.append(eeVec.begin(), eeVec.end());
@@ -655,7 +877,7 @@ Value *CLWGLoopBoundaries::obtainUniformCond(BasicBlock *BB, VMap &valueMap) {
   }
 
   // If the loop size is different from local_size (becasue of an early exit)
-  // than we add check that it is positive.
+  // then we add check that it is positive.
   for (unsigned dim=0; dim < m_numDim; ++dim) {
     if (m_loopSizes[dim] != m_localSizes[dim]) {
       Instruction *cmp = new ICmpInst(*BB, CmpInst::ICMP_SLT,

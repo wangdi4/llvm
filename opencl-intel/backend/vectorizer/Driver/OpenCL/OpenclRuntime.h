@@ -119,6 +119,14 @@ public:
   /// @brief returns true iff this name of atomic built-in.
   virtual bool isAtomicBuiltin(const std::string &func_name) const;
 
+  /// @brief checks if funcName is mangled scalar min\max name.
+  /// @param funcName input mangled name.
+  /// @param isMin will be true if it is min builtin.
+  /// @param isSigned will be true if it is signd min\max builtin.
+  /// @returns true iff funcName is scalar min or max builtin.
+  virtual bool isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
+                                     bool &isSigned) const;
+
   /// @brief returns true if func_name is safe to speculative execute, and hence 
   ///        can be hoisted even if it is under control flow
   /// @param func_name name of the function.

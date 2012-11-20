@@ -166,11 +166,40 @@ private:
   TIDDescVec m_TIDDesc;
   ///@brief vector of uniform early exit descriptions.
   SmallVector<UniDesc, 4> m_UniDesc;
+  ///@brief indicates wether there are calls to get***id with non-constant argument.
+  bool m_hasVariableTid;
+  ///@brief contains calls to get***id with varibale argument.
+  SmallPtrSet<CallInst *, 2> m_varibaleTIDCalls;
+  ///@brief the dim's entry holds the get***id of dimension dim.
+  SmallVector<SmallVector<CallInst *, 4>, 4> m_TIDByDim;
+  ///@brief holds instruction marked for removal.
+  SmallPtrSet<Instruction *, 8> m_toRemove;
+  ///@brief true iff the function call is an atomic builtin
+  bool m_hasAtomicCalls;
+
+  ///@brief checks if the current function has an atomic call.
+  ///@returns returns true iff the current function has an atomic call.
+  bool currentFunctionHasAtomicCalls();
 
   ///@brief in case entry block branch is an early exit branch, remove the
   ///       branch and create early exit description\s.
   ///@returns true iff the entry block branch is an early exit branch.
   bool findAndCollapseEarlyExit();
+
+  ///@brief handles the case where tidInst has cmp-select boundary.
+  ///@param tidInst - tid generator to check.
+  ///@returns true iff cmp-select boundary was found.
+  bool handleCmpSelectBoundary(Instruction *tidInst);
+
+  ///@brief handles the case where tidInst has min\max boundary.
+  ///@param tidInst - tid generator to check.
+  ///@returns true iff min\max boundary was found.
+  bool handleBuiltinBoundMinMax(Instruction *tidInst);
+
+  ///@brief check if there is cmp-select or min\max early exit pattern
+  ///       and handles it.
+  ///@returns true iff early exit pattern found.
+  bool findAndHandleTIDMinMaxBound();
 
   ///@brief returns true iff BB contains instruction with side effect.
   ///@param BB - basic block to check.
@@ -199,6 +228,14 @@ private:
   ///@retruns as above.
   bool isUniformByOps(Instruction *I);
 
+  ///@brief updates internal data structures with the get***id call.
+  ///@param CI get***id call to process.
+  ///@param isGID true iff call is get_global_id.
+  void processTIDCall(CallInst *CI, bool isGID);
+
+  ///brief updates data structures with get***id data.
+  void collectTIDData();
+
   ///@brief root is and\or instruction. if it is recursive and\or of icmp and
   ///  uniform conditions into compares, uniformConds and returns true.
   ///@param compares - vector of compares to fill
@@ -208,12 +245,6 @@ private:
   bool collectCond (SmallVector<ICmpInst *, 4>& compares,
                     IVec &uniformConds, Instruction *root);
   
-  ///@brief examine tid generator call, checks if it is uniform, and updates 
-  ///       the m_TID maps to it's dimension
-  ///@param CI - tid call to examine.
-  void processTIDCall(CallInst *CI, StringRef &name);
-
-  
   ///@brief Collect tid calls, and check uniformity of instructions in the
   ///       in the input block.
   ///@param BB - basic block to check.
@@ -222,10 +253,13 @@ private:
   ///@brief checks if the input cmp instruction is supported boundary compare
   ///       if so fills description of the boundary compare into eeVec.
   ///@param cmp - compare instruction to check.
+  ///@param bound - the early exit boundary.
+  ///@param tid - the get***id call.
   ///@param EETrueSide - inidicate whether early exit occurs if cmp is true.
   ///@param eeVec - vector of early exit description to fill.
   ///@returns true iff cmp is supported boundary compare.
-  bool checkBoundaryCompare(ICmpInst *cmp, bool EETrueSide, TIDDescVec& eeVec);
+  bool obtainBoundaryEE(ICmpInst *cmp, Value *bound, Value *tid,
+                            bool EETrueSide, TIDDescVec& eeVec);
 
   ///@brief returns loop boundaries function declaration with the original
   ///       function arguments.
@@ -241,15 +275,56 @@ private:
   void recoverInstructions (VMap &valueMap, VVec &roots, BasicBlock *BB,
                             Function *newF);
 
-  ///@brief traces back  the boundary value for cmp. currently this supports
-  ///       only cases of direct comparison and trucations.
-  ///@param cmp - compare to track bound for.
-  ///@param TIDInd - index of tid candiate among cmp operands
-  ///@param bound - will hold the boundary value in case of success
-  ///@params tid - will hold the get***id in case of success
+  ///@brief traces back the two input value if one is tid dependent and the 
+  ///       other is uniform, assuming the two are compared. currently only
+  ///       cases of direct comparison and truncations are supported.
+  ///@param v1 - first input value.
+  ///@param v2 - second input value.
+  ///@param isCmpSigned - is this is a signed comparison.
+  ///@param loc - place to put instructions to correct the bound.
+  ///@param bound - will hold the boundary value in case of success.
+  ///@params tid - will hold the get***id in case of success.
   ///@returns true iff succeeded to trace back bound.
-  bool traceBackBound(ICmpInst *cmp, unsigned TIDInd, Value *&bound, 
-                      Value *&tidCand);
+  bool traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
+                Instruction *loc, Value *&bound, Value *&tid);
+
+  ///@brief serves as easier interface for traceBackBound for tracking
+  ///       compare instruction operands.
+  ///@param cmp - compare instruction to inspect.
+  ///@param bound - will hold the boundary value in case of success.
+  ///@params tid - will hold the get***id in case of success.
+  bool traceBackCmp(ICmpInst *cmp, Value *&bound, Value *&tid);
+
+  ///@brief serves as easier interface for traceBackBound for tracking
+  ///       min\max builtins opernads.
+  ///@param - CI min\max builtin to inspect.
+  ///@param bound - will hold the boundary value in case of success.
+  ///@params tid - will hold the get***id in case of success.
+  bool traceBackMinMaxCall(CallInst *CI, Value *&bound, Value *&tid);
+
+  ///@brief updates the internal data members with cmp-select boundary.
+  ///@param cmp - compare for which cmp-select pattern was found.
+  ///@param bound - the early exit boundary.
+  ///@param tid - the get***id call.
+  ///@param isSameOrder - true iff the select and cmp agree on operands order.
+  ///@returns true if cmp-select boundary pattern was found.
+  bool obtainBoundaryCmpSelect(ICmpInst *cmp, Value *bound,
+                               Value *tid, bool isSameOrder);
+
+  ///@brief helper function checks that cmp predicate is supported.
+  ///@param p - predicate to inspect.
+  ///@returns true iff compare relational predicate is supported.
+  bool isSupportedRelationalComparePredicate(CmpInst::Predicate p);
+
+  ///@brief helper function checks that cmp predicate is <,<=.
+  ///@param p - predicate to inspect.
+  ///@returns true iff compare predicate is supported <,<=.
+  bool isComparePredicateLower(CmpInst::Predicate p);
+
+  ///@brief helper function checks that cmp predicate is <=,>=.
+  ///@param p - predicate to inspect.
+  ///@returns true iff compare predicate is supported <=,>=.
+  bool isComparePredicateInclusive(CmpInst::Predicate p);
 
   ///@brief fills m_loopSizes, m_lowerBounds, m_localSize, m_baseGIDs
   ///       with initial values in case no boundary early exit.

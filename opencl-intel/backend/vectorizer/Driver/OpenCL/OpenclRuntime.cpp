@@ -347,6 +347,27 @@ bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
   return (func_name.find("atom") != std::string::npos);
 }
 
+bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
+                                          bool &isSigned) const {
+  // funcName need to be mangled min or max.
+  if (!isMangledName(funcName.data())) return false;
+  std::string strippedName = stripName(funcName.data());
+  isMin = (strippedName == "min");
+  if (!isMin && strippedName != "max") return false;
+
+  // Now that we know that this is min or max demnagle the builtin.
+  FunctionDescriptor desc = demangle(funcName.data());
+  assert(desc.parameters.size() == 2 && "min, max should have two parameters");
+  // The argument type should be (u)int/(u)long
+  reflection::Type *argTy = desc.parameters[0];
+  if (!argTy->isPrimiteTy()) return false;
+  reflection::primitives::Primitive basicType = argTy->getPrimitive();
+  isSigned = (basicType == reflection::primitives::INT ||
+              basicType == reflection::primitives::LONG);
+  if (!isSigned && basicType != reflection::primitives::UINT &&
+      basicType != reflection::primitives::ULONG)  return false;
+  return true;
+}
 
 } // Namespace
 
