@@ -37,8 +37,6 @@ extern "C" {
 #define SHRT16_MIN    (-32768)
 #define SHRT16_MAX      32767
 
-#pragma OPENCL FP_CONTRACT OFF
-
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
 ALIGN16 const float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
 ALIGN16 const int4 BorderColorNoAlphaInt = {0, 0, 0, 0}; 
