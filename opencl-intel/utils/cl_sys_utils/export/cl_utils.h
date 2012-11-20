@@ -89,6 +89,11 @@ template<> inline std::string stringify(const signed char& c)
 	return stringify(static_cast<signed int>(c));
 }
 
+template<> inline std::string stringify(const char& c)
+{
+	return stringify(static_cast<signed int>(c));
+}
+
 /////////////////////////////////////////////////////////////////////////
 // ToNarrow
 //  Change any unicode (wchar) string to "regular" string
