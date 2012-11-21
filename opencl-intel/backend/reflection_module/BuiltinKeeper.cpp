@@ -258,7 +258,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //
   {
   llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*", "_Z4modf*",
-  "_Z6remquo*", "_Z6sincos*"};
+  "_Z6remquo*", "_Z6sincos*" , "_Z8isfinite*"};
   StringArray pointeredBuiltins(names);
   VWidthArray allWidths(vwidths);
   Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
@@ -271,10 +271,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-    llvm::StringRef names[] = {"_Z7signbit*", "_Z7isequal*", "_Z9isgreater*",
-    "_Z10isnotequal*", "_Z14isgreaterequal*", "_Z6isless*", "_Z11islessequal*",
-    "_Z13islessgreater*", "_Z8isfinite*", "_Z5isinf*", "_Z5isnan*",
-    "_Z8isnormal*", "_Z9isordered*", "_Z11isunordered*"};
+    llvm::StringRef names[] = {"_Z7signbit*",
+    "_Z8isfinite*","_Z5isinf*", "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,

@@ -48,11 +48,11 @@ TableRow mappings[] = {
   {{"_Z16get_image_height15image2d_array_t", INVALID_ENTRY, "_Z21soa4_get_image_height15image2d_array_t", "_Z21soa8_get_image_height15image2d_array_t", INVALID_ENTRY, INVALID_ENTRY}, false, true},
   {{"_Z23get_image_channel_order15image2d_array_t", INVALID_ENTRY, "_Z28soa4_get_image_channel_order15image2d_array_t", "_Z28soa8_get_image_channel_order15image2d_array_t", INVALID_ENTRY, INVALID_ENTRY}, false, true},
   {{"_Z27get_image_channel_data_type16image1d_buffer_t", INVALID_ENTRY, "_Z32soa4_get_image_channel_data_type16image1d_buffer_t", "_Z32soa8_get_image_channel_data_type16image1d_buffer_t", INVALID_ENTRY, INVALID_ENTRY}, false, true},
-
   //// Image reading builtins
   {{"_Z12read_imageui9image2d_tjDv2_i", INVALID_ENTRY, "_Z17soa4_read_imageui9image2d_tjDv4_iS_PDv4_jS1_S1_S1_", "_Z17soa8_read_imageui9image2d_tjDv8_iS_PDv8_jS1_S1_S1_", INVALID_ENTRY, INVALID_ENTRY}, false, true},
   //// Image writing builtins
-  {{"_Z13write_imageui9image2d_tDv2_iDv4_j", INVALID_ENTRY, "_Z18soa4_write_imageui9image2d_tDv4_iS_Dv4_jS0_S0_S0_", "_Z18soa8_write_imageui9image2d_tDv8_iS_Dv8_jS0_S0_S0_", INVALID_ENTRY, INVALID_ENTRY}, false, true}
-
+  {{"_Z13write_imageui9image2d_tDv2_iDv4_j", INVALID_ENTRY, "_Z18soa4_write_imageui9image2d_tDv4_iS_Dv4_jS0_S0_S0_", "_Z18soa8_write_imageui9image2d_tDv8_iS_Dv8_jS0_S0_S0_", INVALID_ENTRY, INVALID_ENTRY}, false, true},
+//this file is automatically gnerated by tblgen. It is strongly recmommended to use this mechanism, not to write string hardcoded
+#include "CustomMappings.gen"
 };
 #endif//__CUSTOM_VERSION_MAPPING_H__

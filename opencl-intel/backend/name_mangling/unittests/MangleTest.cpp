@@ -187,6 +187,32 @@ TEST(NameMangle, demangleTostrightAndBack){
   }
 }
 
+TEST(NameMangle, FailedOnce){
+  const char* s = "_Z5frexpDv2_fPU3AS1Dv2_i";
+  reflection::FunctionDescriptor fd = demangle(s);
+  std::string mangled = mangle(fd);
+  ASSERT_STREQ(mangled.c_str(), s);
+}
+TEST(NameMangle, Failed2){
+  const char* s = "_Z9mask_fmaxtDv16_fS_";
+  reflection::FunctionDescriptor fd = demangle(s);
+  std::string mangled = mangle(fd);
+  ASSERT_STREQ(mangled.c_str(), s);
+}
+
+TEST(NameMangle, SOAFunction){
+  reflection::FunctionDescriptor soaDescriptor;
+  soaDescriptor.name = "soa";
+  reflection::Type doubleTy(reflection::primitives::DOUBLE);
+  reflection::Type intTy(reflection::primitives::INT);
+  reflection::Pointer pintTy(&intTy);
+  soaDescriptor.parameters.push_back(&doubleTy);
+  soaDescriptor.parameters.push_back(&pintTy);
+  soaDescriptor.parameters.push_back(&pintTy);
+  std::cout << soaDescriptor.toString() << std::endl;
+  ASSERT_EQ(std::string("_Z3soadPiS_"), mangle(soaDescriptor));
+}
+
 static bool testDemangle(const char* mname){
   try{
     printf( "%s\n", demangle(mname).toString().c_str());
@@ -298,6 +324,50 @@ TEST(MangleBasic, scalardouble){
   fd.name = "foo";
   fd.parameters.push_back(&primitiveDouble);
   ASSERT_STREQ("_Z3food", mangle(fd).c_str());
+}
+
+TEST(MangleAPI, visitorExample){
+  const char* soaFunc = "_Z5dummyiDv4_fPS_" ;
+  reflection::FunctionDescriptor fd = demangle(soaFunc);
+  struct PrintTypeVisitor: reflection::TypeVisitor{
+    int ordinal;
+
+    std::string ordinalStr(){
+      std::stringstream ss;
+      ss << "parameter " << ++ordinal << ":\t";
+      return ss.str();
+    }
+
+    PrintTypeVisitor(): ordinal(0){}
+
+    void visit(const reflection::Type* p){
+      reflection::Type primitive(p->getPrimitive());
+      std::cout << "primitive " << primitive.toString() << std::endl;
+    }
+
+    void visit(const reflection::Vector* p){
+      std::cout << "vector with length " << p->getLen() << " with ";
+      visit((reflection::Type*)p);
+    }
+
+    void visit(const reflection::Pointer* p){
+      std::cout << "pointer to ";
+      p->getPointee()->accept(this);
+    }
+
+    void visit(const reflection::UserDefinedTy*){
+      std::cout << ordinalStr();
+      std::cout << "user defined type. in OCL, its images..." << std::endl;
+    }
+  };
+  std::vector<reflection::Type*>::iterator bi = fd.parameters.begin(),
+    e = fd.parameters.end();
+  PrintTypeVisitor printVisitor;
+  while (bi != e){
+    std::cout << printVisitor.ordinalStr();
+    (*bi)->accept(&printVisitor);
+    ++bi;
+  } 
 }
 
 TEST(Type, TypeCast){

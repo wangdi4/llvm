@@ -10,7 +10,6 @@
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 
-
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
 

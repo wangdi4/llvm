@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <string>
 #include <sstream>
+#include <list>
 #include <algorithm>
 
 //
@@ -63,8 +64,7 @@ static const char* primitiveToString(const reflection::Type* t){
 class MangleVisitor: public reflection::TypeVisitor{
 public:
 
-  MangleVisitor(std::stringstream& s): m_stream(s), m_previous(NULL),
-  m_recursiveCounter(0) , m_dupIndex(0){}
+  MangleVisitor(std::stringstream& s): m_stream(s){}
 
   void operator() (const reflection::Type* t){
     t->accept(this);
@@ -75,12 +75,12 @@ public:
     //NOTE! we don't use  DUPLICANT_STR here, since primitive strings are
     //shorter or less then the DUPLICANT_STR itself.
     m_stream << primitiveToString(t);
-    m_previous = t;
   }
 
   void visit(const reflection::Pointer* p){
-    if( isDuplicant(p) ) {
-      m_stream << getAndupdateDuplicant();
+    int typeIndex = getTypeIndex(p);
+    if( -1 != typeIndex ) {
+      m_stream << getDuplicateString(typeIndex);
       return;
     }
     m_stream << "P";
@@ -107,54 +107,70 @@ public:
       #endif
       ++it;
     }
-    ++m_recursiveCounter;
     p->getPointee()->accept(this);
-    m_previous = p;
+    addIfNotExist(p);
   }
 
   void visit(const reflection::Vector* v){
-    if( isDuplicant(v) ){
-      m_stream << getAndupdateDuplicant();
+    int typeIndex = getTypeIndex(v);
+    if( -1 != typeIndex ) {
+      m_stream << getDuplicateString(typeIndex);
       return;
     }
+    addIfNotExist(v);
     m_stream << "Dv" << v->getLen() << "_" << primitiveToString(v);
-    m_previous = v;
   }
 
   void visit(const reflection::UserDefinedTy* pTy){
-    if ( isDuplicant(pTy) ){
-      m_stream << getAndupdateDuplicant();
+    int typeIndex = getTypeIndex(pTy);
+    if( -1 != typeIndex ) {
+      m_stream << getDuplicateString(typeIndex);
       return;
     }
+    addIfNotExist(pTy);
     std::string name = pTy->toString();
     m_stream << name.size() << name;
-    m_previous = pTy;
   }
 
 private:
-  bool isDuplicant(const reflection::Type* t)const{
-    if (NULL == m_previous)
-      return false; //its the first one..
-    return m_previous->equals(t);
+
+  void addIfNotExist(const reflection::Type* t){
+    std::list<const reflection::Type*>::const_iterator it = m_listTys.begin(),
+      e = m_listTys.end();
+    while (it != e){
+      if ((*it)->equals(t))
+        return;
+      ++it;
+    }
+    m_listTys.push_back(t);
   }
 
-  const char* getAndupdateDuplicant(){
-    const char* ret = DUPLICANT_STR[m_dupIndex];
-    //if we have a match inside a nested visit, we are duplicating the next
-    //parameter (S0_...)
-    m_dupIndex = std::max(m_dupIndex, m_recursiveCounter);
-    assert(m_dupIndex < (sizeof(DUPLICANT_STR)/sizeof(const char*)) );
-    return ret;
+  int getTypeIndex(const reflection::Type* t)const{
+    int ret = 0;
+    std::list<const reflection::Type*>::const_iterator it = m_listTys.begin(),
+      e = m_listTys.end();
+    while (it != e){
+      if ((*it)->equals(t))
+        return ret;
+      ++ret;
+      ++it;
+    }
+    return -1;
   }
+
+  static std::string getDuplicateString(int index){
+    assert (index >= 0 && "illegal index");
+    if (0 == index)
+      return "S_";
+    std::stringstream ss;
+    ss << "S" << index-1 << "_";
+    return ss.str();
+  }
+
   //holds the mangled string representing the prototype of the function
   std::stringstream& m_stream;
-  const reflection::Type* m_previous;
-  //holds the 'recursion depth' of the visit call. (each time one visit call
-  //calls another, it is incremented by one).
-  unsigned m_recursiveCounter;
-  //the index for the 'duplicate parameter' array
-  //indicates whether this visit call in initiated by yet another visit call
-  unsigned m_dupIndex;
+  //list of types 'seen' so far
+  std::list<const reflection::Type*> m_listTys;
 };
 
 std::string mangle(const reflection::FunctionDescriptor& fd){

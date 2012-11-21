@@ -154,6 +154,7 @@ defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
 def image2d: OclType<"image2d_t", "image2d_t", 1, 0, 0>;
+def void: OclType<"void", "void", 1, 0, 0>;
 
 class TypeNameList<list<string> names> {
   list<string> Names = names;
@@ -532,6 +533,25 @@ def up2_gentype : OclGenType<"up2_gentype"> {
   list<string> T4 = !foreach(n,  T3, !subst( "u8", "u32", n));
   list<string> Tout = T4;
 }
+// converts 'wTl' to 'wil*' e.g., v4f32 -> v4i32*, v4f64 -> v4i64*
+def pigentype : OclGenType<"pigentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "u8",  "i8", n));
+  list<string> T1 = !foreach(n,  T0, !subst("u16", "i16", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f16", "i16", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u32", "i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("f32", "i32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u64", "i64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("f64", "i64", n));
+  list<string> T7 = !foreach(n, T6, !strconcat("p", n));
+  list<string> Tout = T7;
+}
+
+def downgentype : OclGenType<"downgentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("f64", "f32", n));
+  list<string> T1 = !foreach(n, T0, !subst("i16", "i8", n));
+  list<string> T2 = !foreach(n, T1, !subst("i32", "i16", n));
+  list<string> Tout = !foreach(n, T2, !subst("i64", "i32", n));
+}
 
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
@@ -601,6 +621,20 @@ class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, co
   list<OclType> Types = types;
   code Impl = impl;
   bit IsDeclOnly = isDeclOnly; // Just need declaration, for OCL builtin implementation defined somewhere else.
+}
+
+//Reflection module map cell
+class MapCell<OclBuiltin bi, OclType ty>{
+  OclBuiltin builtin = bi;
+  OclType type = ty;
+}
+
+def nullCell : MapCell<?, ?>;
+
+class MapRow< list<MapCell> cl, bit is, bit ip>{
+  list<MapCell> cellList = cl;
+  bit isScalarizable = is;
+  bit isPacketaizable= ip;
 }
 
 // TargetImpl

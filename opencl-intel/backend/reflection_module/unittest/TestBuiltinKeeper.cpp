@@ -351,4 +351,18 @@ TEST(DriverUse, normalize){
   delete pRuntime;
 }
 
+TEST(GenTest, soaGenTest){
+  std::string scalarVersion = "_Z7isequalff";
+  std::string strExpected   = "_Z7isequalDv4_fS_";
+  llvm::LLVMContext context;
+  llvm::SMDiagnostic errDiagnostic;
+  llvm::Module* pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
+  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  const std::auto_ptr<intel::VectorizerFunction> pFunc =
+    pRuntime->findBuiltinFunction(scalarVersion);
+  std::string strActual = pFunc->getVersion(2);
+  ASSERT_EQ(strActual, strExpected);
+  delete pRuntime;
+}
+
 }}

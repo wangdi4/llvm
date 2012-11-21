@@ -19,9 +19,11 @@ add_tablegen(
   cl_builtins
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
+  VectorizerTableGen.cpp
   TableGen.cpp
   CodeFormatter.cpp
   ConversionParser.cpp
+  ClangUtils.cpp
 )
 
 include_directories(

@@ -19,6 +19,7 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "OclBuiltinEmitter.h"
 #include "CodeFormatter.h"
 #include "ConversionParser.h"
+#include "ClangUtils.h"
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/Module.h"
@@ -35,52 +36,27 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include <cstdio>
 #include <cctype>
 
-#define XSTR(A) STR(A)
-#define STR(A) #A
-
 namespace llvm{
 
 OclBuiltinsHeaderGen::OclBuiltinsHeaderGen(RecordKeeper& rk)
 :m_recordKeeper(rk){
 }
 
-static std::string getZeroLiteral(const std::string& type){
-  if ("char" == type || "short" == type || "int" == type ||
-      "uchar" == type || "ushort" == type || "uint" == type)
-    return "0";
-  if ("long" == type || "ulong" == type)
-    return "0L";
-  if ("float" == type)
-    return "0.0f";
-  if ("double" == type)
-    return "0.0";
-  llvm::errs() << "unhandled type " << type << "\n";
-  assert (0 && "unrecognized type");
-  return "";
-}
-
-//builds the given code to a file with a given name
-static void build(const std::string& code, std::string fileName){
-  const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* options = "-cc1 -emit-llvm -include opencl_.h -opencl-builtins";
-  const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
-  const char* tmpfile = "tmp.cl";
-  assert(fileName != tmpfile && "tmp.cl is reserved!");
-  //writing the cl code to the input file
-  std::string errInfo;
-  llvm::raw_fd_ostream input(tmpfile, errInfo);
-  input << code;
-  input.close();
-  //building the command line
-  std::stringstream cmdline;
-  cmdline << clangpath << " " << options << " -o " << fileName << " -I " << include_dir << " " << tmpfile;
-  int res = system(cmdline.str().c_str());
-  if( res ){
-    llvm::errs() << "bi compilation failed!\n";
-    exit(1);
+//generates the prototype of a fucntion as string
+static std::string getPrototype(const llvm::OclBuiltin* bi, const std::string& type){
+  std::string ret;
+  ret.append(bi->getCFunc(type));
+  ret.append("(");
+  size_t argumentNum = bi->getNumArguments();
+  if (argumentNum >0){
+    for(unsigned i=0 ; i < argumentNum-1 ; i++){
+      ret.append(bi->getArgumentCType(i, type));
+      ret.append(", ");
+    }
+    ret.append(bi->getArgumentCType(argumentNum-1, type));
   }
-  //deleting the temporary file
-  remove(tmpfile);
+  ret.append(")");
+  return ret;
 }
 
 //
@@ -180,42 +156,6 @@ protected:
       return ldesc.compare(rdesc) < 0;
     }
     return lname.compare(rname) < 0;
-  }
-
-  //generates the prototype of a fucntion as string
-  static std::string getPrototype(const llvm::OclBuiltin* bi, const std::string& type){
-    std::string ret;
-    ret.append(bi->getCFunc(type));
-    ret.append("(");
-    size_t argumentNum = bi->getNumArguments();
-    if (argumentNum >0){
-      for(unsigned i=0 ; i < argumentNum-1 ; i++){
-        ret.append(bi->getArgumentCType(i, type));
-        ret.append(", ");
-      }
-      ret.append(bi->getArgumentCType(argumentNum-1, type));
-    }
-    ret.append(")");
-    return ret;
-  }
-
-  //generates 'dummy code' (which does nothing but lets the module compile)
-  std::string generateDummyBody(const std::string& type, size_t veclen)const{
-    std::stringstream sstream;
-    sstream << "{return ";
-    if ("void" == type){
-      sstream << ";}";
-      return sstream.str();
-    }
-    std::string zeroLiteral = getZeroLiteral(type);
-    sstream << "(" << type;
-    if (veclen > 1)
-      sstream << veclen;
-     sstream << ")" << " (" << zeroLiteral;
-    for (size_t i = 1 ; i<veclen ; i++)
-      sstream << "," << zeroLiteral;
-    sstream << ");}";
-    return sstream.str();
   }
 
   std::string generateBuiltinOverload(const OclBuiltin* pBuiltin,

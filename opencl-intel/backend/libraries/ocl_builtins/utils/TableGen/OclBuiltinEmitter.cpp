@@ -267,7 +267,7 @@ OclBuiltinAttr::OclBuiltinAttr(const Record* R)
 OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 : m_DB(DB)
 , m_Record(R)
-, m_Name(R->getName())
+, m_Name(R->getNameInitAsString())
 , m_CFunc(R->getValueAsString("Name"))
 , m_IsDeclOnly(R->getValueAsBit("IsDeclOnly"))
 , m_NeedForwardDecl(R->getValueAsBit("NeedForwardDecl"))
@@ -755,6 +755,13 @@ RemoveCommonLeadingSpaces(const std::string& t)
   return ret;
 }
 
+static std::string removePrefix(const std::string f){
+  size_t findex = f.find('_');
+  if ( std::string::npos != findex )
+    return f.substr( findex+1, f.size()-(1+findex) );
+  return f;
+}
+
 std::string
 OclBuiltinImpl::getCImpl(const std::string& in) const
 {
@@ -829,10 +836,10 @@ OclBuiltinImpl::appendImpl(const Record* R)
     const RecordVal* RV = R->getValue("Impl");
     if (VarInit* FI = dynamic_cast<VarInit*>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dynamic_cast<CodeInit*>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      impl->m_Code = dynamic_cast<CodeInit*>(IV->getValue())->getValue();
+      assert(dynamic_cast<StringInit*>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
+      impl->m_Code = dynamic_cast<StringInit*>(IV->getValue())->getValue();
     } else
-      impl->m_Code = R->getValueAsCode("Impl");
+      impl->m_Code = R->getValueAsString("Impl");
   }
   m_Impls.push_back(impl);
 }
@@ -881,8 +888,8 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
 
     // Prolog & Epilog
     {
-      m_Prolog = Rec->getValueAsCode("Prolog");
-      m_Epilog = Rec->getValueAsCode("Epilog");
+      m_Prolog = Rec->getValueAsString("Prolog");
+      m_Epilog = Rec->getValueAsString("Epilog");
     }
 
     // NativeTypes
@@ -1018,6 +1025,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       val = OT->getCBitWidth();
     } else if ("$Func" == pat) {
       val = OB->getCFunc(OT->getName());
+    } else if ("$RemovePrefixFunc" == pat) {
+      val = removePrefix(OB->getCFunc(OT->getName()));
     } else if ("$ReturnSym" == pat.substr(0, 10) && pat.find("gentype") != std::string::npos) {
       val = OB->getReturnSym(pat.substr(10), OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) && pat.find("Sym") != std::string::npos && pat.find("gentype") != std::string::npos) {

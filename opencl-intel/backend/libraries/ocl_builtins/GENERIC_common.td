@@ -119,7 +119,6 @@
     $Arg2VarName$ExpandHiPatternPtr = nhi$Arg2VarName;
     return $ReturnVarName;
   }];
-
   // The following code implements the builtin variants with scalar parameters.
   // The implementation will prompt these scalar parameters into vector ones
   // and call the corresponding builtins with all vector parameters.
@@ -194,3 +193,4 @@
 
 include "GENERIC/math.td"
 include "GENERIC/common.td"
+include "GENERIC/soa_relational.td"

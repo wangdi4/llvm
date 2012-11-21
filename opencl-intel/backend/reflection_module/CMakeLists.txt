@@ -9,12 +9,36 @@ remove_definitions("-pedantic")
 
 add_subdirectory(unittest)
 
+if(WIN32)
+set (OCL_TBLGEN_EXE
+  "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe"
+)
+else(WIN32)
+set (OCL_TBLGEN_EXE
+  "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen"
+)
+endif(WIN32)
+
 add_custom_command(
   OUTPUT BuiltinList.h
   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
   BuiltinList.h
   DEPENDS NameManglingTests
   COMMENT "copying MangledNames.h ..."
+  VERBATIM
+)
+
+add_custom_command(
+  OUTPUT CustomMappings.gen
+  COMMAND ${OCL_TBLGEN_EXE} -gen-vectorizer-map
+  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
+  DEPENDS
+  ocl-tblgen
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/opencl-v1.2.td
+  COMMENT "generating custom mapping ..."
   VERBATIM
 )
 
@@ -27,13 +51,14 @@ add_library(
   VersionStrategy.cpp
   BuiltinList.h
   BuiltinMap.cpp
-  CustomVersionMaping.h
+  CustomMappings.gen
 )
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/llvm/include
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
+  ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 target_link_libraries(

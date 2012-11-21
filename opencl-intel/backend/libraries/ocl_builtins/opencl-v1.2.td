@@ -798,6 +798,96 @@ def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//Soa versions for relationals
+///////////////////////////////////////////////////////////////////////////////
+
+def downConvert : OclBuiltin<"downConvert", (outs downgentype:$ret), (ins gentype:$p),
+  [v4i64, v8i64, v16i64], [OVERLOADABLE]>;
+
+//
+//vectorized versions declaraions for ralational functions
+//
+foreach relationf = ["isless", "isgreater", "isequal", "isnotequal", "isgreaterequal", "islessequal",
+  "islessgreater"/*, "isfinite"*/] in {
+  //scalar
+  def scalar_#relationf : OclBuiltin<"scalar_"#relationf, (outs igentype:$res),
+    (ins gentype:$l, gentype:$r), [v1f32, v1f64], [OVERLOADABLE]>;
+  //
+  //generating an vecroization map entries, for the auto-code gen for the reflection module
+  //
+  //
+  //entries for scalarizing packed versions
+  //
+  //floats:
+  def map_cell_scalar_#relationf#1 : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f32>;
+  def map_cell#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f32>;
+  def map_cell#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f32>;
+  def map_cell#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f32>;
+  def map_cell#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f32>;
+  def map_cell#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f32>;
+  def relationf#"_scalar": MapRow<[
+    !cast<MapCell>("map_cell_scalar_"#relationf#1), //scalar version
+    !cast<MapCell>("map_cell"#relationf#2), //v2
+    !cast<MapCell>("map_cell"#relationf#4), //v4
+    !cast<MapCell>("map_cell"#relationf#8), //v8
+    !cast<MapCell>("map_cell"#relationf#16),//v16
+    !cast<MapCell>("map_cell"#relationf#3)],//v3
+    1, 1>; //scalarizable, packetizable
+  //
+  //doubles:
+  //
+  def map_cell64_scalar_#relationf : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f64>;
+  def map_cell64#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f64>;
+  def map_cell64#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f64>;
+  def map_cell64#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f64>;
+  def map_cell64#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f64>;
+  def map_cell64#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f64>;
+  def relationf#"64_scalar": MapRow<[
+    !cast<MapCell>("map_cell64_scalar_"#relationf), //scalar version
+    !cast<MapCell>("map_cell64"#relationf#2), //v2
+    !cast<MapCell>("map_cell64"#relationf#4), //v4
+    !cast<MapCell>("map_cell64"#relationf#8), //v8
+    !cast<MapCell>("map_cell64"#relationf#16),//v16
+    !cast<MapCell>("map_cell64"#relationf#3)],//v3
+    1, 1>; //scalarizable, packetizable
+  //
+  //entries for packetizing scalar versions
+  //
+  def map_cell_#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f32>;
+  def v_#relationf : OclBuiltin<"v_"#relationf, (outs i32gentype:$res),
+    (ins gentype:$l, gentype:$r), [v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], [OVERLOADABLE]>;
+  //
+  //floats
+  //
+  def map_cell_v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f32>;
+  def map_cell_v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f32>;
+  def map_cell_v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f32>;
+  def relationf#_nullentry: MapRow<[
+    !cast<MapCell>("map_cell_"#relationf#1),
+    nullCell, //v2
+    !cast<MapCell>("map_cell_v"#relationf#4), //v4
+    !cast<MapCell>("map_cell_v"#relationf#8), //v8
+    !cast<MapCell>("map_cell_v"#relationf#16),//v16
+    nullCell],//v3
+    0,1>; //not scalarizable, packetizable
+  //
+  //doubles
+  //
+  def map_cell_64#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f64>;
+  def map_cell_64v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f64>;
+  def map_cell_64v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f64>;
+  def map_cell_64v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f64>;
+  def relationf#64_nullentry: MapRow<[
+    !cast<MapCell>("map_cell_64"#relationf#1),
+    nullCell, //v2
+    !cast<MapCell>("map_cell_64v"#relationf#4), //v4
+    !cast<MapCell>("map_cell_64v"#relationf#8), //v8
+    !cast<MapCell>("map_cell_64v"#relationf#16),//v16
+    nullCell],//v3
+    0,1>; //not scalarizable, packetizable
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Helper built-ins
 // intel_movemask
 // custom BI used in GENERIC and CPU for fast detecting analyzing mask in if()
