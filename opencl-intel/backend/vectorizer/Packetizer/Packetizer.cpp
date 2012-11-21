@@ -710,6 +710,10 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(false && "Invalid memory operation tiple");
   }
 
+  if (isa<VectorType>(ElemTy) && MO.type == PREFETCH) {
+    ElemTy = (cast<VectorType>(ElemTy))->getElementType();
+  }
+
   VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
 
   // Check if this type is supported and if we have a name for it
@@ -772,6 +776,24 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.type == STORE)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
 
+  // The following code treats prefetch of vector types
+  Type * eType = cast<PointerType>(MO.Base->getType())->getElementType();
+  int vectorWidth = 0;
+  if (VectorType *vType = dyn_cast<VectorType>(eType)) {
+    V_ASSERT(MO.type == PREFETCH && "vector type is valid only for prefetch");
+    vectorWidth = vType->getNumElements();
+    vectorWidth = (vectorWidth == 3) ? 4 : vectorWidth; //vector3 is treated as vector4
+
+    V_ASSERT(MO.Index->getType()->isVectorTy() && "index of scatter/gather is not a vector!");
+    Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
+    Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
+    vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+    MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
+    
+    PointerType *elemType = PointerType::get(ElemTy, 0);
+    MO.Base = BitCastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
+  }
+
   // Remove address space from pointer type
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
@@ -780,6 +802,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   SmallVector<Value*, 8> args;
   // Fill the arguments of the internal gather/scatter, these are the variants:
   // internal.gather.*[].m*(Mask, BasePtr, Index, IndexValidBits, IndexIsSigned)
+  // internal.prefetch.gather.*[].m*(Mask, BasePtr, Index, IndexValidBits, IndexIsSigned)
   // internal.scatter.*[].m*(Mask, BasePtr, Index, Data, IndexValidBits, IndexIsSigned)
   args.push_back(MO.Mask);
   args.push_back(MO.Base);
@@ -814,8 +837,19 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   }
 
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
-  // Create new gather/scatter caller instruction
+  // Create new gather/scatter/prefetch caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
+
+  // In case the vector size cross cache line we need to also prefetch the next cachelines.
+  // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
+  // Cache line size is 64 bytes, therefore, only long16 and double16 cross cacheline.
+  if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
+    Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
+    Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
+    vecVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecVal));
+    args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
+    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
+  }
 
   return newCaller;
 }
@@ -1094,12 +1128,25 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   }
 
   // Not much we can do for load of non-scalars
-  if (!(DT->isFloatingPointTy() || DT->isIntegerTy())) {
+  // For prefetches we can actually do
+  if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !(DT->isVectorTy() &&  MO.type == PREFETCH)) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
     V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
     if (MO.Index)
       V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
     return duplicateNonPacketizableInst(MO.Orig);
+  }
+
+  // Support for a prefetch with a pointer to a buffer of vector types
+  if (DT->isVectorTy() &&  MO.type == PREFETCH && UseScatterGather && MO.Index) {
+    V_ASSERT(MO.Base && "Index w/o base");
+    // If we were able to generate scatter\gather update VCM and return.
+    if (Instruction *Scat =  widenScatterGatherOp(MO)) {
+      createVCMEntryWithVectorValue(MO.Orig, Scat);
+      m_removedInsts.insert(MO.Orig);
+      V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
+      return;
+    }
   }
 
   // Check if we were able tp obtain a vector wide memory operand, for consecutive access.
