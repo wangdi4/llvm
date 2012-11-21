@@ -486,7 +486,6 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   atomic_functions.cpp
   conversion_functions.cpp
-  geometry_functions.cpp
   image_functions.cpp
   integer_functions.cpp
   masked_load_store_functions.cpp
@@ -517,7 +516,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 
 # project header files
 list (APPEND HEADER_FILES
-  cl_geom_declaration.h
   cl_image_declaration.h
   cl_integer_declaration.h
   cl_relational_declaration.h

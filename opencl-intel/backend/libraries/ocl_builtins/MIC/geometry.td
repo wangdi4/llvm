@@ -281,27 +281,6 @@ OclBuiltinImpl cross_f64_v4 = OclBuiltinImpl<cross, [v4f64], 0, [{
     return result;
   }]>;
 
-// distance
-OclBuiltinImpl distance_scalar = OclBuiltinImpl<distance, [v1f32, v1f64], 0, [{
-    return fabs($Arg0VarName - $Arg1VarName);
-  }]>;
-OclBuiltinImpl distance_vector = OclBuiltinImpl<distance, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
-    return length($Arg0VarName - $Arg1VarName);
-  }]>;
-
-// fast_length
-OclBuiltinImpl fast_length_scalar = OclBuiltinImpl<fast_length, [v1f32], 0, [{
-    return fabs($Arg0VarName);
-  }]>;
-OclBuiltinImpl fast_length_vector = OclBuiltinImpl<fast_length, [v2f32, v3f32, v4f32], 0, [{
-    return half_sqrt(dot($Arg0VarName,$Arg0VarName));
-  }]>;
-
-// fast_distance
-OclBuiltinImpl fast_distance_all = OclBuiltinImpl<fast_distance, [v1f32, v2f32, v3f32, v4f32], 0, [{
-    return fast_length($Arg0VarName - $Arg1VarName);
-  }]>;
-
 // fast_normalize
 OclBuiltinImpl fast_normalize_scalar = OclBuiltinImpl<fast_normalize, [v1f32], 0, [{
     return (fabs($Arg0VarName) < sqrt(FLT_MIN))?$Arg0VarName:($Arg0VarName/fabs($Arg0VarName));
@@ -651,34 +630,6 @@ OclBuiltinImpl sp_soa_fast_length4_native = OclBuiltinImpl<soa_fast_length4, sp_
     return half_sqrt(sum);
   }]>;
 OclBuiltinImpl soa_fast_length4_promote = OclBuiltinImpl<soa_fast_length4, sp_promote_types, 0, NonMaskPromote4>;
-
-// soa_distance
-OclBuiltinImpl fp_soa_distance1 = OclBuiltinImpl<soa_distance1, fp_soa_types, 0, [{
-    return soa_length1( $Arg0VarName - $Arg1VarName);
-  }]>;
-OclBuiltinImpl fp_soa_distance2 = OclBuiltinImpl<soa_distance2, fp_soa_types, 0, [{
-    return soa_length2( $Arg0VarName - $Arg2VarName, $Arg1VarName - $Arg3VarName);
-  }]>;
-OclBuiltinImpl fp_soa_distance3 = OclBuiltinImpl<soa_distance3, fp_soa_types, 0, [{
-    return soa_length3( $Arg0VarName - $Arg3VarName, $Arg1VarName - $Arg4VarName, $Arg2VarName - $Arg5VarName);
-  }]>;
-OclBuiltinImpl fp_soa_distance4 = OclBuiltinImpl<soa_distance4, fp_soa_types, 0, [{
-    return soa_length4( $Arg0VarName - $Arg4VarName, $Arg1VarName - $Arg5VarName, $Arg2VarName - $Arg6VarName, $Arg3VarName - $Arg7VarName);
-  }]>;
-  
-// soa_fast_distance
-OclBuiltinImpl sp_soa_fast_distance1 = OclBuiltinImpl<soa_fast_distance1, sp_soa_types, 0, [{
-    return soa_fast_length1( $Arg0VarName - $Arg1VarName);
-  }]>;
-OclBuiltinImpl sp_soa_fast_distance2 = OclBuiltinImpl<soa_fast_distance2, sp_soa_types, 0, [{
-    return soa_fast_length2( $Arg0VarName - $Arg2VarName, $Arg1VarName - $Arg3VarName);
-  }]>;
-OclBuiltinImpl sp_soa_fast_distance3 = OclBuiltinImpl<soa_fast_distance3, sp_soa_types, 0, [{
-    return soa_fast_length3( $Arg0VarName - $Arg3VarName, $Arg1VarName - $Arg4VarName, $Arg2VarName - $Arg5VarName);
-  }]>;
-OclBuiltinImpl sp_soa_fast_distance4 = OclBuiltinImpl<soa_fast_distance4, sp_soa_types, 0, [{
-    return soa_fast_length4( $Arg0VarName - $Arg4VarName, $Arg1VarName - $Arg5VarName, $Arg2VarName - $Arg6VarName, $Arg3VarName - $Arg7VarName);
-  }]>;
 
 // soa_normalize
 // soa_normalize1

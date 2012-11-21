@@ -17,4 +17,5 @@ include "GENERIC/conversion.td"
 include "GENERIC/conversion_sat.td"
 include "GENERIC/atomic.td"
 include "GENERIC/relational.td"
+include "GENERIC/geometric.td"
 }

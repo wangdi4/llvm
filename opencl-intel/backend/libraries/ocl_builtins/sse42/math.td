@@ -153,9 +153,15 @@ OclBuiltinImpl nan_f32_promote = OclBuiltinImpl<nan, [v1f32, v2f32, v3f32], 0, P
 // intel_maskmove() 
 // non OpenCL builtin. Specialization for SSE42
 // this builtin
+code Expand_movemask = [{
+    return intel_movemask($Arg0VarName$ExpandLoPattern) | intel_movemask($Arg0VarName$ExpandHiPattern);
+    }];
+
 OclBuiltinImpl intel_movemask_v4i32 = OclBuiltinImpl<intel_movemask, [v4i32], 0, [{
     return as_int(_mm_movemask_ps((__m128)$Arg0VarName));
     }]>;
+
+OclBuiltinImpl intel_movemask_i32_expand = OclBuiltinImpl<intel_movemask, [v8i32, v16i32], 0, Expand_movemask>;
 
 //fract
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
@@ -276,6 +282,15 @@ OclBuiltinImpl nan_f64_promote = OclBuiltinImpl<nan, [v1f64], 0, Promote1>;
 
 // native_rsqrt 
 // _mm_rsqrt_pd does not exist. Use SVML
+
+// intel_maskmove() 
+// non OpenCL builtin. Specialization for SSE42
+// this builtin
+OclBuiltinImpl intel_movemask_v2i64 = OclBuiltinImpl<intel_movemask, [v2i64], 0, [{
+    return as_int(_mm_movemask_pd((__m128d)$Arg0VarName));
+    }]>;
+
+OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64, v8i64, v16i64], 0, Expand_movemask>;
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 //                SVML ABI hacks for SSE42

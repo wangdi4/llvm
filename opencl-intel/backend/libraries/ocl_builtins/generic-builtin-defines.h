@@ -18,22 +18,30 @@ const float generic_inv_pi_180f = 57.295779513082320876798154814105f;
 const double generic_inv_pi_180 = 57.295779513082320876798154814105;
 
 // common - math
-const int float_const_signMask = 0x7FFFFFFF;
-const long double_const_signMask = 0x7FFFFFFFFFFFFFFFL;
-const int float_const_nanStorage = 0x7FFFFFFF;
-const long double_const_nanStorage = 0x7FFFFFFFFFFFFFFFL;
-const int float_const_expMask = 0x7f800000;
-const long double_const_expMask = 0x7FF0000000000000L;
-const float float_const_fractLimit = 0x1.fffffep-1f;
-const double double_const_fractLimit = 0x1.fffffffffffffp-1f;
-const int float_const_mantissaBits = 23;
-const int double_const_mantissaBits = 52;
-const int float_const_expOffset = 127;
-const int double_const_expOffset = 1023;
-const float float_const_tooSmall = 0x1.0p-63f;
-const double double_const_tooSmall = 0x1.0p-511;
-const float float_const_tooBig = 0x1.0p+63f;
-const double double_const_tooBig = 0x1.0p+511;
+const int    float_const_signMask      = 0x7FFFFFFF;
+const long   double_const_signMask     = 0x7FFFFFFFFFFFFFFFL;
+const int    float_const_nanStorage    = 0x7FFFFFFF;
+const long   double_const_nanStorage   = 0x7FFFFFFFFFFFFFFFL;
+const int    float_const_expMask       = 0x7f800000;
+const long   double_const_expMask      = 0x7FF0000000000000L;
+const float  float_const_fractLimit    = 0x1.fffffep-1f;
+const double double_const_fractLimit   = 0x1.fffffffffffffp-1f;
+const int    float_const_mantissaBits  = 23;
+const int    double_const_mantissaBits = 52;
+const int    float_const_expOffset     = 127;
+const int    double_const_expOffset    = 1023;
+const float  float_const_tooSmall      = 0x1.0p-63f;
+const double double_const_tooSmall     = 0x1.0p-511;
+const float  float_const_tooBig        = 0x1.0p+63f;
+const double double_const_tooBig       = 0x1.0p+511;
+
+// Geometric
+const double exp600        =  0x1.0p600;
+const double expMinus600   = 0x1.0p-600;
+const double exp700        =  0x1.0p700;
+const double expMinus700   = 0x1.0p-700;
+const double expMinus512   = 0x1.0p-512;
+const double expMinus512_2 = 0x1.0p-512 / 2;
 
 // constants defined to simplify naming them from type name
 const char    generic_min_char    =  CHAR_MIN;
