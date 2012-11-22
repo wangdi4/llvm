@@ -2354,8 +2354,44 @@ we need to report this to Nikita and get a fix for this.
 	return res;\
 	}\
 
-#define DEF_INT_PROTOD_F(RMODE)\
-	double __attribute__((overloadable)) convert_double##RMODE(float x)\
+
+#define DEF_INT_PROTOD_F_AVX(RMODE)\
+	double3 __attribute__((overloadable)) convert_double3##RMODE(float3 x)\
+	{\
+	double4 res;\
+	float4 y = as_float4(x);\
+	res = _mm256_cvtps_pd(y);\
+	return as_double3(res);\
+	}\
+	double4 __attribute__((overloadable)) convert_double4##RMODE(float4 x)\
+	{\
+  double4 res;\
+	res = _mm256_cvtps_pd(x);\
+	return res;\
+	}
+
+#define DEF_INT_PROTOD_F_SSE4(RMODE)\
+	double3 __attribute__((overloadable)) convert_double3##RMODE(float3 x)\
+	{\
+	double4 res;\
+	float4 y = as_float4(x);\
+	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
+	y = as_float4(_mm_srli_si128(__builtin_astype(y,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
+	return as_double3(res);\
+	}\
+	double4 __attribute__((overloadable)) convert_double4##RMODE(float4 x)\
+	{\
+  double4 res;\
+	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
+	x = as_float4(_mm_srli_si128(__builtin_astype(x,__m128i), 8));\
+	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
+	return res;\
+	}
+
+
+#define DEF_INT_PROTOD_F_COMMON(RMODE)\
+double __attribute__((overloadable)) convert_double##RMODE(float x)\
 	{\
 	float4 param;\
 	double2 res;\
@@ -2369,23 +2405,6 @@ we need to report this to Nikita and get a fix for this.
 	double2 res;\
 	param.lo = x;\
 	res = _mm_cvtps_pd(param);\
-	return res;\
-	}\
-	double3 __attribute__((overloadable)) convert_double3##RMODE(float3 x)\
-	{\
-	double4 res;\
-	float4 y = as_float4(x);\
-	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
-	y = as_float4(_mm_srli_si128(__builtin_astype(y,__m128i), 8));\
-	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(y,__m128)));\
-	return as_double3(res);\
-	}\
-	double4 __attribute__((overloadable)) convert_double4##RMODE(float4 x)\
-	{\
-	double4 res;\
-	res.lo = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
-	x = as_float4(_mm_srli_si128(__builtin_astype(x,__m128i), 8));\
-	res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(x,__m128)));\
 	return res;\
 	}\
 	double8 __attribute__((overloadable)) convert_double8##RMODE(float8 x)\
@@ -2402,6 +2421,18 @@ we need to report this to Nikita and get a fix for this.
 	res.hi = convert_double8##RMODE(x.hi);\
 	return res;\
 	}\
+
+#if defined(__AVX__)
+#define DEF_INT_PROTOD_F(RMODE)\
+    DEF_INT_PROTOD_F_COMMON(RMODE)\
+    DEF_INT_PROTOD_F_AVX(RMODE)
+#else // defined(__AVX__)
+#define DEF_INT_PROTOD_F(RMODE)\
+    DEF_INT_PROTOD_F_COMMON(RMODE)\
+    DEF_INT_PROTOD_F_SSE4(RMODE)
+#endif // defined(__AVX__)
+
+
 
 #define DEF_INT_PROTOD_D(RMODE)\
 	DEF_INT_PROTO1_X_Y(double, double, double, double, RMODE)\
