@@ -335,7 +335,7 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
 
   // promote f(v3, pv3) to v4. common code for float3 and double3
   code Promote_2Ptr_v3_to_v4 = [{
-    $Arg0BaseType#4 n$Arg0VarName;
+    $Arg0BaseType#4 n$Arg0VarName = ($Arg0BaseType#4)0;
     $Arg1BaseType#4 p$Arg1VarName;
 	n$Arg0VarName.s012 = $Arg0VarName;
     $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, &p$Arg1VarName);
@@ -356,9 +356,10 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
   }];
 
 // vXfX = f(vXfX)
-list<OclType> math_svml_vF_expand = [v16f64];
+list<OclType> math_svml_vF_expand = [v16f64, v8f64, v16f32];
+list<OclType> math_svml_vF64_expand = [v16f64, v8f64];
 list<OclType> math_svml_vF_promote = [v3f32, v3f64];
-list<OclType> math_svml_vF32_expand = [v3f32];
+list<OclType> math_svml_vF32_expand = [v3f32, v16f32];
 
 // vXfX = f(vXfX, vXfX)
 list<OclType> math_svml_vFvF_expand = [v16f32, v8f64, v16f64];
@@ -371,12 +372,11 @@ list<OclType> math_svml_vFvFvF_expand = [v8f32, v16f32, v4f64, v8f64, v16f64];
 list<OclType> math_svml_vFvFvF_promote = [v3f32, v3f64];
 
 // vXfX = f(vXfX, pvXfX)
-list<OclType> math_svml_vFpvF_expand = [v8f64, v16f64];
+list<OclType> math_svml_vFpvF_expand = [v8f64, v16f64, v16f32];
 list<OclType> math_svml_vFpvF_promote = [v3f32, v3f64];
 
 // vXfX = f(vXfX, pvXi32)
-list<OclType> math_svml_vFpvI32_expand = [v16f64];
-list<OclType> math_svml_vFpvI32_promote = [v3f32, v3f64];
+list<OclType> math_svml_vFpvI32_expand = [v16f64, v8f64, v16f32];
 // vXfX = f(vXfX, vXi32) 
 list<OclType> math_svml_vFvI32_expand = [v2f32, v16f32, v2f64, v8f64, v16f64];
 list<OclType> math_svml_vFvI32_promote = [v3f32, v3f64];
@@ -488,13 +488,13 @@ OclBuiltinImpl fract_gas_f64_promote = OclBuiltinImpl<fract_gas, math_svml_vFpvF
 
 // frexp f(vXfX, pvXI32)
 OclBuiltinImpl frexp_pas_expand = OclBuiltinImpl<frexp_pas, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl frexp_pas_promote = OclBuiltinImpl<frexp_pas, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl frexp_pas_promote = OclBuiltinImpl<frexp_pas, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 OclBuiltinImpl frexp_gas_expand = OclBuiltinImpl<frexp_gas, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl frexp_gas_promote = OclBuiltinImpl<frexp_gas, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl frexp_gas_promote = OclBuiltinImpl<frexp_gas, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 OclBuiltinImpl frexp_las_expand = OclBuiltinImpl<frexp_las, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl frexp_las_promote = OclBuiltinImpl<frexp_las, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl frexp_las_promote = OclBuiltinImpl<frexp_las, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 // hypot f(vXfX, vXfX)
 // we have inlined version of hypot float. hypot double calls SVML
@@ -504,7 +504,7 @@ OclBuiltinImpl hypot_f64_svml_hack_promote = OclBuiltinImpl<hypot, math_svml_vFv
 // ilogb vXI32 = f(vXfX)
 // ilogb float is implemented natively. 
 // ilogb(v2f64) is not efficient. calls v1f64. this is hack
-OclBuiltinImpl ilogb_svml_expand = OclBuiltinImpl<ilogb, [v2f64, v16f64], 0, Expand1>;
+OclBuiltinImpl ilogb_svml_expand = OclBuiltinImpl<ilogb, [v2f64, v16f64, v8f64], 0, Expand1>;
 OclBuiltinImpl ilogb_svml_promote = OclBuiltinImpl<ilogb, [v3f64], 0, Promote1_v3_to_v4>;
 
 // ldexp f(vXfX, vXI32)
@@ -517,13 +517,13 @@ OclBuiltinImpl lgamma_svml_promote = OclBuiltinImpl<lgamma, math_svml_vF_promote
 
 // lgamma f(vXfX, pvXI32)
 OclBuiltinImpl lgamma_r_pas_expand = OclBuiltinImpl<lgamma_r_pas, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl lgamma_r_pas_promote = OclBuiltinImpl<lgamma_r_pas, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl lgamma_r_pas_promote = OclBuiltinImpl<lgamma_r_pas, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 OclBuiltinImpl lgamma_r_gas_expand = OclBuiltinImpl<lgamma_r_gas, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl lgamma_r_gas_promote = OclBuiltinImpl<lgamma_r_gas, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl lgamma_r_gas_promote = OclBuiltinImpl<lgamma_r_gas, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 OclBuiltinImpl lgamma_r_las_expand = OclBuiltinImpl<lgamma_r_las, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
-OclBuiltinImpl lgamma_r_las_promote = OclBuiltinImpl<lgamma_r_las, math_svml_vFpvI32_promote, 0, Promote_2Ptr_v3_to_v4 >;
+OclBuiltinImpl lgamma_r_las_promote = OclBuiltinImpl<lgamma_r_las, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 // log f(vXfX)
 OclBuiltinImpl log_svml_expand = OclBuiltinImpl<log, math_svml_vF_expand, 0, Expand1>;
@@ -592,7 +592,7 @@ OclBuiltinImpl rootn_svml_promote = OclBuiltinImpl<rootn, math_svml_vFvI32_promo
 // rsqrt f(vXfX)
 // only doubles. floats are implemented natively
 // reason SVML's rsqrt for doubles works better than sequence 1.0/_mm_256_sqrt(double)
-OclBuiltinImpl rsqrt_svml_v64_expand = OclBuiltinImpl<rsqrt, [v16f64], 0, Expand1>;
+OclBuiltinImpl rsqrt_svml_v64_expand = OclBuiltinImpl<rsqrt, math_svml_vF64_expand, 0, Expand1>;
 OclBuiltinImpl rsqrt_svml_v64_promote = OclBuiltinImpl<rsqrt, [v3f64], 0, Promote1_v3_to_v4>;
 
 // sin f(vXfX)
@@ -802,15 +802,55 @@ OclBuiltinImpl native_log1p_svml_promote = OclBuiltinImpl<native_log1p, math_svm
 
 // native_log1p f(vXfX, vXfX)
 // only doubles. floats are implemented in code
-OclBuiltinImpl native_divide_svml_hack_expand = OclBuiltinImpl<native_divide, [v8f64, v16f64], 0, Expand2>;
+OclBuiltinImpl native_divide_svml_hack_expand = OclBuiltinImpl<native_divide, math_svml_vF64_expand, 0, Expand2>;
 OclBuiltinImpl native_divide_svml_hack_promote = OclBuiltinImpl<native_divide, [v3f64], 0, Promote2_v3_to_v4>;
 
 // native_recip f(vXfX, vXfX)
 // only doubles. floats are implemented natively
-OclBuiltinImpl native_recip_svml_expand = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
+OclBuiltinImpl native_recip_svml_expand = OclBuiltinImpl<native_recip, math_svml_vF64_expand, 0, Expand1>;
 OclBuiltinImpl native_recip_svml_promote = OclBuiltinImpl<native_recip, [v3f64], 0, Promote1_v3_to_v4>;
 
 // native_rsqrt f(vXfX)
 // only doubles. floats are implemented natively
-OclBuiltinImpl native_rsqrt_svml_expand = OclBuiltinImpl<native_rsqrt, [v16f64], 0, Expand1>;
+OclBuiltinImpl native_rsqrt_svml_expand = OclBuiltinImpl<native_rsqrt, math_svml_vF64_expand, 0, Expand1>;
 OclBuiltinImpl native_rsqrt_svml_promote = OclBuiltinImpl<native_rsqrt, [v3f64], 0, Promote1_v3_to_v4>;
+
+// native_rcbrt f(vXfX)
+OclBuiltinImpl native_rcbrt_svml_expand = OclBuiltinImpl<native_rcbrt, math_svml_vF_expand, 0, Expand1>;
+OclBuiltinImpl native_rcbrt_svml_promote = OclBuiltinImpl<native_rcbrt, [v3f64], 0, Promote1_v3_to_v4>;
+
+// native_rootn f(vXfX)
+OclBuiltinImpl native_rootn_svml_expand = OclBuiltinImpl<native_rootn, math_svml_vF_expand, 0, Expand2>;
+OclBuiltinImpl native_rootn_svml_promote = OclBuiltinImpl<native_rootn, [v3f64], 0, Promote2_v3_to_v4>;
+
+// native_sincos_pas f(vXfX)
+OclBuiltinImpl native_sincos_pas_svml_expand = OclBuiltinImpl<native_sincos_pas, math_svml_vF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl native_sincos_pas_svml_promote = OclBuiltinImpl<native_sincos_pas, [v3f64], 0, Promote_2Ptr_v3_to_v4>;
+
+// native_sincos_las f(vXfX)
+OclBuiltinImpl native_sincos_las_svml_expand = OclBuiltinImpl<native_sincos_las, math_svml_vF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl native_sincos_las_svml_promote = OclBuiltinImpl<native_sincos_las, [v3f64], 0, Promote_2Ptr_v3_to_v4>;
+
+// native_sincos_gas f(vXfX)
+OclBuiltinImpl native_sincos_gas_svml_expand = OclBuiltinImpl<native_sincos_gas, math_svml_vF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl native_sincos_gas_svml_promote = OclBuiltinImpl<native_sincos_gas, [v3f64], 0, Promote_2Ptr_v3_to_v4>;
+
+// native_sinh f(vXfX)
+OclBuiltinImpl native_sinh_svml_expand = OclBuiltinImpl<native_sinh, math_svml_vF_expand, 0, Expand1>;
+OclBuiltinImpl native_sinh_svml_promote = OclBuiltinImpl<native_sinh, [v3f64], 0, Promote1_v3_to_v4>;
+
+// native_cosh f(vXfX)
+OclBuiltinImpl native_cosh_svml_expand = OclBuiltinImpl<native_cosh, math_svml_vF_expand, 0, Expand1>;
+OclBuiltinImpl native_cosh_svml_promote = OclBuiltinImpl<native_cosh, [v3f64], 0, Promote1_v3_to_v4>;
+
+// native_pown f(vXfX)
+OclBuiltinImpl native_pown_svml_expand = OclBuiltinImpl<native_pown, math_svml_vF_expand, 0, Expand2>;
+OclBuiltinImpl native_pown_svml_promote = OclBuiltinImpl<native_pown, [v3f64], 0, Promote2_v3_to_v4>;
+
+// native_powr f(vXfX)
+OclBuiltinImpl native_powr_svml_expand = OclBuiltinImpl<native_powr, math_svml_vF_expand, 0, Expand2>;
+OclBuiltinImpl native_powr_svml_promote = OclBuiltinImpl<native_powr, [v3f64], 0, Promote2_v3_to_v4>;
+
+// native_tanh f(vXfX)
+OclBuiltinImpl native_tanh_svml_expand = OclBuiltinImpl<native_tanh, math_svml_vF_expand, 0, Expand1>;
+OclBuiltinImpl native_tanh_svml_promote = OclBuiltinImpl<native_tanh, [v3f64], 0, Promote1_v3_to_v4>;

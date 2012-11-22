@@ -61,9 +61,6 @@ extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
 extern "C" llvm::Pass *createShuffleCallToInstPass();
 extern "C" llvm::Pass *createRelaxedPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
-#ifdef _M_X64
-extern "C" llvm::ModulePass *createSvmlWrapperPass( llvm::LLVMContext *context);
-#endif
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
 extern "C" llvm::FunctionPass *createPrefetchPass();
@@ -382,11 +379,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if ( debugType == None ) {
     m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
   }
-
-#ifdef _M_X64
-  // TODO: remove the pass below once SVML will be aligned with Win64 ABI
-  m_modulePasses.add(createSvmlWrapperPass( &m_pModule->getContext()));
-#endif
 
   if ( debugType == None ) {
     m_modulePasses.add(llvm::createArgumentPromotionPass());        // Scalarize uninlined fn args

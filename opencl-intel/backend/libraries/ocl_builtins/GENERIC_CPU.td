@@ -10,7 +10,6 @@ include "opencl-builtin.td"
 include "opencl-v1.2.td"
 
 include "ll_intrinsics.td"
-include "SVML.td"
 
 class Generic : TargetImpl {
 

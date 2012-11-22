@@ -10,6 +10,11 @@
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
     #include <intrin.h>
     #include "generic-builtin-defines.h"
+	#ifdef __x86_64__
+	  #include "svml_ia32e.h"
+	#else
+	  #include "svml_ia32.h"
+	#endif
   }];
   code Epilog = [{}];
 

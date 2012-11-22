@@ -326,11 +326,6 @@ if ((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
     set_target_properties(${TARGET_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${RT_OUTPUT_DIRECTORY})
 endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 
-if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    #SVML call wrapper is specific for Win64 calling conventions
-    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "/EXPORT:SvmlThunk")
-endif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-
 set (LLVM_LIBS
     # LLVM libs
     LLVMVectorizer
@@ -422,13 +417,6 @@ set( BACKEND_PASSES
     KernelInfo
     Prefetch
 )
-
-if (WIN32)
-    #SVML call wrapper is specific for Win64 calling conventions
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        list (APPEND BACKEND_PASSES WrapSvmlPass)
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-endif (WIN32)
 
 target_link_libraries (${TARGET_NAME}
     # Utils lib
