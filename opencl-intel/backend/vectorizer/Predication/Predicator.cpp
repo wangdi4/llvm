@@ -634,7 +634,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         m_toPredicate.push_back(it);
       }
       else if (CallInst *CI = dyn_cast<CallInst>(it)) {
-        std::string funcname = CI->getCalledFunction()->getNameStr();
+        std::string funcname = CI->getCalledFunction()->getName();
         if (!m_rtServices->hasNoSideEffect(funcname) ||
             m_rtServices->isExpensiveCall(funcname))  {
           m_toPredicate.push_back(it);

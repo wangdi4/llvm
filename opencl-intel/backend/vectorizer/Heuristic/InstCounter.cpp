@@ -453,7 +453,8 @@ void WeightedInstCounter::estimateIterations(Function &F,
   
   std::vector<Loop*> WorkList;
   LoopInfo *LI = &getAnalysis<LoopInfo>();
-
+  ScalarEvolution *SI = &getAnalysis<ScalarEvolution>();
+  
   // Add all the top-level loops to the worklist
   for (LoopInfo::iterator L = LI->begin(), LE = LI->end(); L != LE; ++L)
     WorkList.push_back(*L);
@@ -476,51 +477,18 @@ void WeightedInstCounter::estimateIterations(Function &F,
       Multiplier = IterMap.lookup(Parent);
     }
 
-    int Count = L->getSmallConstantTripCount();   
-    // getSmallConstantTripCount() returns 0 for non-constant trip counts
-    // and on error conditions. In this case guess and hope for the best.
-    if (!Count) {
-      Count = LOOP_ITER_GUESS;
+    int Count = LOOP_ITER_GUESS;
+    BasicBlock* Latch = L->getLoopLatch();
+    if (Latch)
+      Count = SI->getSmallConstantTripCount(L, Latch);
       
-      // If we're pre-vec, we're done. However, if we're post-vec, then
-      // for loops that depend on allOnes/allZero, we may want to increase 
-      // the multiplier. 
-      // Right now, ALL_ZERO_LOOP_PENALTY is constant zero, so the below
-      // code is a NOP. Left in for completeleness.
-      if (!m_preVec && (ALL_ZERO_LOOP_PENALTY != 0)) {
-        BasicBlock* ExitBlock = L->getExitingBlock();
-        // Only look at simple loops - those with one exit block.
-        if (ExitBlock) {
-          Instruction *I = &ExitBlock->back();
-          // Ignore the case we don't exit with a branch.
-          if (BranchInst* Branch = dyn_cast<BranchInst>(I)) {
-            // We only care about conditional branches
-            if (Branch->isConditional()) {
-              Value* Cond = Branch->getCondition();
-              // Which directly depened on a call
-              if (CallInst *Call = dyn_cast<CallInst>(Cond)) {
-                StringRef Name = Call->getCalledFunction()->getName();
-                // Which is allZero/allOne
-                if ((Name.startswith(Mangler::name_allZero)) || 
-                    (Name.startswith(Mangler::name_allOne))) {
-                  // With a vector type!
-                  Type* CondType = Call->getOperand(0)->getType();
-                  if (VectorType* VecCondType = dyn_cast<VectorType>(CondType)) {
-                    // Punish.
-                    int Width = VecCondType->getNumElements();
-                    Count *= (1 + (Width * ALL_ZERO_LOOP_PENALTY));
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      // End of NOP code
-    }
+    // getSmallConstantTripCount() returns 1 for non-constant trip counts
+    // and on error conditions. In this case guess and hope for the best.
+    if (Count == 1)
+      Count = LOOP_ITER_GUESS;
 
     Count *= Multiplier;
-
+    
     IterMap[L] = Count;
 
     // Add all subloops

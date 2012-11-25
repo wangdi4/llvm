@@ -5,7 +5,7 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Intrinsics.h"
 
 #include "Packetizer.h"
@@ -511,7 +511,7 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
   }
   else if (CallInst *inst = dyn_cast<CallInst>(I)) {
     // It can be a masked load/store instruction!
-    std::string origFuncName = inst->getCalledFunction()->getNameStr();
+    std::string origFuncName = inst->getCalledFunction()->getName();
     if (Mangler::isMangledLoad(origFuncName)) {
       ptrOpIndex = 1;
     }
@@ -1108,7 +1108,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // TODO:: is it the way we want to support masked calls ?
   // currently we have only the DX calls and this works for them.
   bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
-  std::string vectorFuncNameStr = LibFunc->getNameStr();
+  std::string vectorFuncNameStr = LibFunc->getName();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
@@ -1125,7 +1125,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
 
   // Find (or create) declaration for newly called function
   Constant * vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
-      LibFunc->getNameStr(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+      LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
   V_ASSERT(vectFunctionConst && "failed generating function in current module");
   Function *vectorFunction = dyn_cast<Function>(vectFunctionConst);
   V_ASSERT(vectorFunction && "Function type mismatch, caused a constant expression cast!");
@@ -1301,7 +1301,7 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
     // Make sure our chain is made of fake insert elements.
     CallInst* fakeIEI = dyn_cast<CallInst>(val);
     if (!fakeIEI) return false;
-    std::string insertName = fakeIEI->getCalledFunction()->getNameStr();
+    std::string insertName = fakeIEI->getCalledFunction()->getName();
     V_ASSERT(Mangler::isFakeInsert(insertName) && "expected fake.insert");
     if (!Mangler::isFakeInsert(insertName)) return false;
     unsigned start = Mangler::isMangledCall(insertName) ? 1 : 0;
@@ -1352,7 +1352,7 @@ void PacketizeFunction::MapVectorMultiReturn (CallInst* CI,
   for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
     CallInst* fakeEI = dyn_cast<CallInst>(*ui);
     V_ASSERT(fakeEI && "user must be an fake ExtractElement (scalarizer should take care of it");
-    std::string extractName = fakeEI->getCalledFunction()->getNameStr();
+    std::string extractName = fakeEI->getCalledFunction()->getName();
     V_ASSERT(Mangler::isFakeExtract(extractName) &&
         "user must be an fake ExtractElement (scalarizer should take care of it");
 
@@ -1960,7 +1960,7 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecT
 
   // Find (or create) declaration for newly called function
   Constant* loadTransposeFunc = m_currFunc->getParent()->getOrInsertFunction(
-    loadTransposeFuncRT->getNameStr(), loadTransposeFuncRT->getFunctionType(), loadTransposeFuncRT->getAttributes());
+    loadTransposeFuncRT->getName(), loadTransposeFuncRT->getFunctionType(), loadTransposeFuncRT->getAttributes());
   V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
   Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc);
   V_ASSERT(transposeFunc && "Function type mismatch, caused a constant expression cast!");

@@ -428,7 +428,7 @@ bool Optimizer::hasBarriers(llvm::Module *pModule)
         llvm::Function* f = it;
         // If name of function contain the word 'barrier', assume that
         // the module calls a 'barrier' function.
-        if (f->getNameStr().find("barrier") != std::string::npos) {
+        if (f->getName().find("barrier") != std::string::npos) {
             return true;
         }
     }

@@ -96,7 +96,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   updateDeps();
 
   if(PrintWiaCheck) {
-    outs() << F.getNameStr() << "\n";
+    outs() << F.getName() << "\n";
     for (it = inst_begin(F); it != e; ++it) {
       Instruction *I = &*it;
       outs()<<"WI-RunOnFunction " <<m_deps[I] <<" "<<*I <<" " << "\n";

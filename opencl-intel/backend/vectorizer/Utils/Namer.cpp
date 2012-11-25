@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -112,7 +112,7 @@ void nameByInstType::RenameValues(Function &F) {
     if(bbit->getName() == "") bbit->setName(toString("BB",bbInd++));
     for (BasicBlock::iterator I = bbit->begin(), E = bbit->end(); I!=E; ++I){
       if (I->getType()->isVoidTy()) continue;
-      if (I->getNameStr() != "") continue;
+      if (I->getName() != "") continue;
     
       std::string str = getInstructionName(I);
       unsigned index = 0;

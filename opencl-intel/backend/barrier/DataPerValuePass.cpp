@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 
 #include "DataPerValuePass.h"
@@ -384,11 +384,11 @@ namespace intel {
         continue;
       }
       //Print function name
-      OS << "+" << pFunc->getNameStr() << "\n";
+      OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print alloca value name
-        OS << "\t-" << pValue->getNameStr() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
+        OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
     }
@@ -405,11 +405,11 @@ namespace intel {
         continue;
       }
       //Print function name
-      OS << "+" << pFunc->getNameStr() << "\n";
+      OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print special value name
-        OS << "\t-" << pValue->getNameStr() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
+        OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
     }
@@ -426,11 +426,11 @@ namespace intel {
         continue;
       }
       //Print function name
-      OS << "+" << pFunc->getNameStr() << "\n";
+      OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = dyn_cast<Value>(*vi);
         //Print cross barrier uniform value name
-        OS << "\t-" << pValue->getNameStr() << "\n";
+        OS << "\t-" << pValue->getName() << "\n";
       }
       OS << "*" << "\n";
     }
@@ -439,7 +439,7 @@ namespace intel {
     for ( TFunctionToEntryMap::const_iterator ei = m_functionToEntryMap.begin(),
       ee = m_functionToEntryMap.end(); ei != ee; ++ei ) {
         //Print function name & its entry
-        OS << "+" << ei->first->getNameStr() << " : [" << ei->second << "]\n";
+        OS << "+" << ei->first->getName() << " : [" << ei->second << "]\n";
     }
     for ( TEntryToBufferDataMap::const_iterator di = m_entryToBufferDataMap.begin(),
       de = m_entryToBufferDataMap.end(); di != de; ++di ) {

@@ -16,7 +16,8 @@
 // allocateCVMSReturnData().
 //
 //===----------------------------------------------------------------------===//
-
+#define GL_TARGET_GL
+#include <OpenGL/gl.h>
 #include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>
@@ -41,7 +42,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
@@ -303,7 +304,7 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   CFRelease(kf_argtypequals);
   
   // Create a CFString from the function name to use as the key.
-  CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getNameStr().c_str(),
+  CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getName().str().c_str(),
                                                 kCFStringEncodingUTF8);
   
   // Insert the info array into the dictionary.
@@ -672,7 +673,7 @@ static int compileProgram(
     (void) new GlobalVariable(*SM, IntTy, true,                                                                     
            GlobalValue::InternalLinkage,
            ConstantInt::get(IntTy, opt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),                                                      
-           "opencl.compiler.option", NULL, false, 0);
+                              "opencl.compiler.option", NULL, GlobalVariable::NotThreadLocal, 0);
     WriteBitcodeToFile(SM, os);
     os.flush();
     return 0;
@@ -754,8 +755,9 @@ static int compileProgram(
     return -7;
   }
 
-
-  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","",
+  TargetOptions toptions;
+  
+  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","", toptions,
                                                          Reloc::PIC_,
                                                          CodeModel::Default));
 
@@ -1184,7 +1186,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   
   cvmsStrings *strings = (cvmsStrings *) llvm_func->source_addrs[cvmsSrcIdxData];
   options = &strings->data[strings->offsets[cvmsStringOffsetOptions]];
-
+/*
   llvm::NoFramePointerElim = true;
 
   // Set llvm options for our optimization phases and also set them in
@@ -1199,7 +1201,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
    (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
      (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);  
   llvm::LessPreciseFPMADOption = keys->opt & CLD_COMP_OPT_FLAGS_MAD_ENABLE;
-
+*/
   // Turn the source passed to us by cvms into IR.  Collect the list of called
   // functions that survive inlining in spec_funcs, so we can be sure to remove
   // the code that gets generated for them in the JIT.
@@ -1324,11 +1326,12 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   allocateCVMSReturnData(llvm_func, log, err, dylib, *object_file);
 
   // Reset llvm options back as CVMS clients are not aware of certain options.
+  /*
   llvm::UnsafeFPMath = false;
   llvm::NoInfsFPMath = false;
   llvm::NoNaNsFPMath = false;
   llvm::LessPreciseFPMADOption = false;
-
+  */
   std::vector<std::string*>::iterator bciter = ObjFileVec.begin(); 
   std::vector<std::string*>::iterator bcend = ObjFileVec.end();
   for (; bciter != bcend; ++bciter)

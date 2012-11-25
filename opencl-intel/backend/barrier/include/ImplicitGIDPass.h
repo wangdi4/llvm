@@ -24,8 +24,8 @@ File Name:  ImplicitGIDPass.h
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
-#include <llvm/Analysis/DebugInfo.h>
-#include <llvm/Analysis/DIBuilder.h>
+#include <llvm/DebugInfo.h>
+#include <llvm/DIBuilder.h>
 
 #include <vector>
 

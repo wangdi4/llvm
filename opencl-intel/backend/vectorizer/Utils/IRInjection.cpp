@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -176,7 +176,7 @@ private:
                                 (Constant*) 0,
                                 I->getName(),
                                 (GlobalVariable*) 0,
-                                I->isThreadLocal(),
+                                I->isThreadLocal() ? GlobalVariable::GeneralDynamicTLSModel :GlobalVariable::NotThreadLocal,
                                 I->getType()->getAddressSpace());
       }
       GV->copyAttributesFrom(I);
@@ -188,7 +188,7 @@ private:
     // Loop over the functions in the module, making external functions as before
     for (Module::const_iterator I = newM->begin(), E = newM->end();
          I != E; ++I) {
-      errs() << "  will map decl for: " << I->getNameStr() << "\n";
+      errs() << "  will map decl for: " << I->getName() << "\n";
       Function *curF = m_M->getFunction(I->getName());
       if (!curF) {
         errs() << "    funtion is not in module - will create new one\n";
@@ -215,7 +215,7 @@ private:
       Function *newF = getNewFunc(newM, F);
       if (!newF || newF->isDeclaration()) continue;
       
-      errs() << "  will replace implemntation for " << F->getNameStr() << "\n";
+      errs() << "  will replace implemntation for " << F->getName() << "\n";
 
       F->deleteBody();
       for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();

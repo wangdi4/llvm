@@ -19,7 +19,7 @@ File Name:  LocalBuffers.cpp
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
 
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Target/TargetData.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -356,7 +356,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       for (BasicBlock::iterator vii = pBB->begin(), vee = pBB->end(); vii != vee; ++vii) {
         if (CallInst* call_instr = dyn_cast<CallInst>(vii)) {
           Function* called_func = call_instr->getCalledFunction();
-          if (called_func->getNameStr() == "DebugCopy.") {
+          if (called_func->getName() == "DebugCopy.") {
             // These are dummy calls so we know which blocks need special handling
             // for __locals. These calls are saved to a vector to be deleted later on.
             m_basicBlockSet.insert(pBB);

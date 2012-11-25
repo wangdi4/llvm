@@ -153,12 +153,12 @@ namespace intel {
       }
       else {
         if (const CallInst *pCall = dyn_cast<CallInst>(usage)) {
-          if (Mangler::isMangledLoad(pCall->getCalledFunction()->getNameStr())) {
+          if (Mangler::isMangledLoad(pCall->getCalledFunction()->getName())) {
             // Load is allowed instructions that does not result in a pointer,
             // so only need to continue checking other usages.
             continue;
           }
-          else if (Mangler::isMangledStore(pCall->getCalledFunction()->getNameStr())) {
+          else if (Mangler::isMangledStore(pCall->getCalledFunction()->getName())) {
             if (pCall->getArgOperand(2) == usage) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as store value (" << *usage << ")\n");
               return false;

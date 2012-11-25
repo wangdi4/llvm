@@ -25,7 +25,7 @@ File Name:  PrepareKernelArgs.h
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 
 #include <map>
 

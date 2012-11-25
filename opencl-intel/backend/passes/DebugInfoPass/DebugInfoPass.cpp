@@ -21,7 +21,7 @@ File Name:  DebugInfoPass.cpp
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
-#include <llvm/Analysis/DebugInfo.h>
+#include <llvm/DebugInfo.h>
 
 #include <list>
 #include <vector>
@@ -372,7 +372,7 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
             //
             if (CallInst* call_instr = dyn_cast<CallInst>(instr_iter)) {
                 Function* called_func = call_instr->getCalledFunction();
-                if (called_func->getNameStr() == "llvm.dbg.declare") {
+                if (called_func->getName() == "llvm.dbg.declare") {
                     // The new call is inserted before the existing call, and 
                     // the existing call is scheduled for removal.
                     //

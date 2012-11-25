@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -37,7 +37,7 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   fillNoBarrierPathSet(&M, NoBarrier);
   for (unsigned i = 0, e = kernels.size(); i < e; ++i) {
     Function *F = kernels[i];
-    std::string funcName = F->getNameStr();
+    std::string funcName = F->getName();
     if (!F || !NoBarrier.count(funcName)) continue;
     changed |= runOnFunction(*F);
   }
@@ -137,7 +137,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
 
 Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   unsigned numEntries = CLWGBoundDecoder::getNumWGBoundArrayEntries(m_numDim);
-  std::string funcName = m_F->getNameStr();
+  std::string funcName = m_F->getName();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
   
@@ -514,7 +514,7 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
       // For calls ask the runtime object.
       case Instruction::Call :
       {    
-        std::string name = (cast<CallInst>(it))->getCalledFunction()->getNameStr();
+        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName();
         if (!m_rtServices->hasNoSideEffect(name)) return true;
         break;
       }

@@ -165,8 +165,15 @@ message("Build OpenCL CPU Apple backend plugin: ${LLVM_BUILD_APPLE_BACKEND}")
 
 if (LLVM_BUILD_APPLE_BACKEND)
     project(Backend)
+    
+	find_package(LLVM REQUIRED)
+    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
+    
     set(ADD_CXX_FLAGS   "-D  __STDC_LIMIT_MACROS  -D __STDC_CONSTANT_MACROS -fno-rtti")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  ${ADD_CXX_FLAGS}")
+    
+    message ("LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
+    
     add_subdirectory(utils)
     add_subdirectory(passes)
     add_subdirectory(name_mangling)

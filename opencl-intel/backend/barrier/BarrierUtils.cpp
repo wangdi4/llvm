@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierUtils.h"
 
@@ -192,7 +192,7 @@ namespace intel {
       MDNode *elt = pOpenCLMetadata->getOperand(i);
       Value *field0 = elt->getOperand(0)->stripPointerCasts();
       if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
-        std::string kernelName = pKernelFunc->getNameStr();
+        std::string kernelName = pKernelFunc->getName();
         if (NoBarrier.count(kernelName)) continue;
          
         //Add kernel to the list
@@ -498,9 +498,9 @@ namespace intel {
     AttrListPtr func_factorial_PAL;
     SmallVector<AttributeWithIndex, 4> Attrs;
     AttributeWithIndex PAWI;
-    PAWI.Index = 4294967295U; PAWI.Attrs = 0  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
+    PAWI.Index = 4294967295U; PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
     Attrs.push_back(PAWI);
-    func_factorial_PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
+    func_factorial_PAL = AttrListPtr::get(Attrs);
     pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel

@@ -9,6 +9,20 @@ set(TARGET_INCLUDE_FILES
     x86_cvms.h
 )
 
+find_package(OpenGL REQUIRED)
+find_package(OpenCL REQUIRED)
+find_library(CL2MODULE_LIBRARY libcl2module.dylib PATHS ${OPENCL_LIBRARIES})
+
+if( CL2MODULE_LIBRARY STREQUAL CL2MODULE_LIBRARY-NOTFOUND )
+  message(FATAL_ERROR ":cl2module library not found" )
+else()
+  message(STATUS "cl2module library found at: " ${CL2MODULE_LIBRARY})
+endif()
+
+include_directories( SYSTEM
+     ${OPENGL_INCLUDE_DIR}
+)
+
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/utils
@@ -16,17 +30,22 @@ include_directories(
     ${BACKEND_ROOT_DIR}/vectorizer
 )
 
-link_directories( "/Users/opencl/Documents/work/llvm/lib")
-link_directories( "/System/Library/Frameworks/OpenCL.framework/Libraries")
+# link_directories should be before add_library
+link_directories(
+	${OPENCL_LIBRARIES} 
+	${LLVM_LIBRARY_DIR}
+)
 
-add_library(${TARGET_NAME} SHARED 
+message( "OPENCL_LIBRARIES:" ${OPENCL_LIBRARIES} )
+
+add_library( ${TARGET_NAME} SHARED
     ${TARGET_SOURCE_FILES} 
     ${TARGET_INCLUDE_FILES}
 )
 
-set_target_properties(${TARGET_NAME} PROPERTIES
-    LINK_FLAGS "-framework Foundation -framework CoreFoundation"
-)
+#set_target_properties(${TARGET_NAME} PROPERTIES
+#    LINK_FLAGS "-framework Foundation -framework CoreFoundation"
+#)
 
 set (PASSES_LIBS
     # Backend passes
@@ -46,6 +65,8 @@ set (PASSES_LIBS
     ShiftZeroUpperBits
     ShuffleCallToInst
     UndefExternalFuncs
+    LLVMVectorizer
+    LLVMBarrier
     )
 
 set (LLVM_LIBS
@@ -86,13 +107,16 @@ target_link_libraries(${TARGET_NAME}
     OclOptimizer
     name_mangle
     OclUtils
-    cl2module
+    ${CL2MODULE_LIBRARY}
+    Foundation
+    CoreFoundation
   
     # Backend passes
     ${PASSES_LIBS}
     
     # LLVM libs
-    ${LLVM_LIBS}
+    #${LLVM_LIBS}
+    ${LLVM_MODULE_LIBS}
     )
 
 install( TARGETS ${TARGET_NAME}

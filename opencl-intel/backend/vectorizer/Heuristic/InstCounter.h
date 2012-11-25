@@ -6,6 +6,7 @@
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/ADT/SmallSet.h"
@@ -31,6 +32,7 @@ namespace intel {
     bool runOnFunction(Function &F);
     
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<ScalarEvolution>();
       AU.addRequired<LoopInfo>();
       AU.addRequired<DominatorTree>();
       AU.addRequired<PostDominatorTree>();

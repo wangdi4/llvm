@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 
 #include "DataPerBarrierPass.h"
@@ -176,13 +176,13 @@ namespace intel {
     for ( ; fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(fi->first);
       //Print function name
-      OS << "+" <<pFunc->getNameStr() << "\n";
+      OS << "+" <<pFunc->getName() << "\n";
       const TInstructionSet &iiSet = fi->second;
       for ( TInstructionSet::const_iterator ii = iiSet.begin(), ie = iiSet.end();  ii != ie; ++ii ) {
         Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
         BasicBlock *pBB = pSyncInst->getParent();
         //Print basic block name
-        OS << "\t-" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getName() << "\n";
       }
       OS << "*" << "\n";
     }
@@ -194,12 +194,12 @@ namespace intel {
     for ( ; bbi != bbe; ++bbi ) {
       BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
       //Print barrier basic block name
-      OS << "+" << pBBB->getNameStr() << "\n";
+      OS << "+" << pBBB->getName() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
         //Print predecessor basic block name
-        OS << "\t-" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getName() << "\n";
       }
       OS << "*" << "\n";
     }
@@ -211,12 +211,12 @@ namespace intel {
     for ( ; bbi != bbe; ++bbi ) {
       BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
       //Print barrier basic block name
-      OS<< "+" << pBBB->getNameStr() << "\n";
+      OS<< "+" << pBBB->getName() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
         //Print successor basic block name
-        OS << "\t-" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getName() << "\n";
       }
       OS << "*" << "\n";
     }
@@ -229,14 +229,14 @@ namespace intel {
       Instruction *pInst = dyn_cast<Instruction>(iii->first);
       BasicBlock *pBBB = pInst->getParent();
       //Print barrier basic block name
-      OS << "+" << pBBB->getNameStr() << "\n";
+      OS << "+" << pBBB->getName() << "\n";
       OS << "has fiber instruction as predecessors: " << iii->second.m_hasFiberRelated << "\n";
       const TInstructionVector &iiVec = iii->second.m_relatedBarriers;
       for ( TInstructionVector::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
         Instruction *pInstPred = dyn_cast<Instruction>(*ii);
         BasicBlock *pBB = pInstPred->getParent();
         //Print barrier predecessor basic block name
-        OS << "\t-" << pBB->getNameStr() << "\n";
+        OS << "\t-" << pBB->getName() << "\n";
       }
       OS << "*" << "\n";
     }

@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierPass.h"
 
@@ -7,7 +7,7 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include <set>
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
@@ -1004,7 +1004,7 @@ namespace intel {
       assert( pFunc && "MetaData first operand is not of type Function!" );
       unsigned int strideScalar = 1; // default value can not be 0
       unsigned int strideVectorized = 0;
-      std::string funcName = pFunc->getNameStr();
+      std::string funcName = pFunc->getName();
       // Need to get the stride size only for kernel using the barrier for work
       // group loops
       if (!NoBarrier.count(funcName)) {
@@ -1019,7 +1019,7 @@ namespace intel {
       }
       //For each kernel save the max stride between scalar and vectorized version
       unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);
-      m_bufferStrideMap[pFunc->getNameStr()] = strideSize;
+      m_bufferStrideMap[pFunc->getName()] = strideSize;
     }
   }
 
