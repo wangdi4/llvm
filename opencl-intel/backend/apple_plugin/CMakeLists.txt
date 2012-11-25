@@ -11,13 +11,6 @@ set(TARGET_INCLUDE_FILES
 
 find_package(OpenGL REQUIRED)
 find_package(OpenCL REQUIRED)
-find_library(CL2MODULE_LIBRARY libcl2module.dylib PATHS ${OPENCL_LIBRARIES})
-
-if( CL2MODULE_LIBRARY STREQUAL CL2MODULE_LIBRARY-NOTFOUND )
-  message(FATAL_ERROR ":cl2module library not found" )
-else()
-  message(STATUS "cl2module library found at: " ${CL2MODULE_LIBRARY})
-endif()
 
 include_directories( SYSTEM
      ${OPENGL_INCLUDE_DIR}
@@ -36,16 +29,10 @@ link_directories(
 	${LLVM_LIBRARY_DIR}
 )
 
-message( "OPENCL_LIBRARIES:" ${OPENCL_LIBRARIES} )
-
 add_library( ${TARGET_NAME} SHARED
     ${TARGET_SOURCE_FILES} 
     ${TARGET_INCLUDE_FILES}
 )
-
-#set_target_properties(${TARGET_NAME} PROPERTIES
-#    LINK_FLAGS "-framework Foundation -framework CoreFoundation"
-#)
 
 set (PASSES_LIBS
     # Backend passes
@@ -69,53 +56,18 @@ set (PASSES_LIBS
     LLVMBarrier
     )
 
-set (LLVM_LIBS
-    # LLVM libs
-    LLVMAnalysis
-    LLVMVectorizer
-    LLVMBarrier
-    LLVMLinker
-    LLVMX86AsmParser
-    LLVMX86AsmPrinter
-    LLVMX86CodeGen
-    LLVMX86Disassembler
-    LLVMX86Info
-    LLVMTransformUtils
-    LLVMCore
-    LLVMTarget
-    LLVMExecutionEngine
-    LLVMJIT
-    #LLVMMCJIT
-    LLVMCodeGen
-    LLVMBitReader
-    LLVMBitWriter
-    LLVMSupport
-    LLVMAnalysis
-    LLVMAsmPrinter
-    LLVMInstCombine
-    LLVMipo
-    LLVMMC
-    LLVMScalarOpts
-    LLVMSelectionDAG
-    LLVMipa
-    LLVMX86AsmPrinter
-    LLVMMC
-    LLVMAsmParser
-    )
-
 target_link_libraries(${TARGET_NAME}
     OclOptimizer
     name_mangle
     OclUtils
-    ${CL2MODULE_LIBRARY}
-    Foundation
-    CoreFoundation
-  
+    "-framework Foundation"
+    "-framework CoreFoundation"
+    cl2module
+    
     # Backend passes
     ${PASSES_LIBS}
     
     # LLVM libs
-    #${LLVM_LIBS}
     ${LLVM_MODULE_LIBS}
     )
 
