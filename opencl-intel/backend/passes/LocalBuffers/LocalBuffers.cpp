@@ -18,8 +18,13 @@ File Name:  LocalBuffers.cpp
 
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
+#include "llvm/Version.h"
 
+#if LLVM_VERSION >= 3425
 #include "llvm/IRBuilder.h"
+#else
+#include "llvm/Support/IRBuilder.h"
+#endif
 #include "llvm/Target/TargetData.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -46,7 +51,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
     m_mapKernelInfo.clear();
-   
+
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -61,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   Instruction* LocalBuffers::CreateInstrFromConstant(Constant *pCE, Value *From, Value *To,
-    std::vector<Instruction*> *InstInsert) {  
+    std::vector<Instruction*> *InstInsert) {
 
     Instruction *Replacement = 0;
 
@@ -152,13 +157,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       VectorType *VT = CV->getType();
       unsigned numElem = VT->getNumElements();
 
-      Value *UpdatedVec = UndefValue::get(CV->getType()); 
+      Value *UpdatedVec = UndefValue::get(CV->getType());
       ConstantInt *Idx = NULL;
       Instruction *IE = NULL;
       for (unsigned i = 0; i< numElem; i++) {
         Value *toInsert = NULL;
         if (CV->getOperand(i) == From) {
-          toInsert = To;  
+          toInsert = To;
         } else {
           toInsert = CV->getOperand(i);
         }
@@ -191,7 +196,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     //Klocwork add assert to prevent warnings
     assert(pInst && InstInsert.size());
-        
+
     // Change all non-constant references recursively
     std::vector<User*> users(pCE->use_begin(), pCE->use_end());
     for ( std::vector<User*>::iterator it = users.begin(); it != users.end(); ++it ) {
@@ -218,7 +223,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         delete *it;
       }
     }
-    // Add instruction to the block, only the first time and only if it has uses  
+    // Add instruction to the block, only the first time and only if it has uses
     else if ( !pInst->getParent() ) {
       for (std::vector<Instruction*>::iterator it = InstInsert.begin(), e = InstInsert.end(); it != e; ++it) {
         (*it)->insertAfter(Where);
@@ -276,10 +281,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             if ( Inst->getParent()->getParent() == pFunc ) {
               // pBitCast was already added to a basic block during it's creation
               Inst->replaceUsesOfWith(pLclBuff, pBitCast);
-              // Only if debugging, copy from local memory buffer to thread 
+              // Only if debugging, copy from local memory buffer to thread
               // specific global buffer.
               if (m_isNativeDBG) {
-                // Get the next instruction so we can insert the copy to global 
+                // Get the next instruction so we can insert the copy to global
                 // after the Inst instruction.
                 Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(Inst)));
                 builder.SetInsertPoint(pNextInst);
@@ -295,7 +300,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         }
         // Special debugging handling for native (gdb) debugging
         if (m_isNativeDBG) {
-          // Add copying from local memory buffer to thread global buffer so that the 
+          // Add copying from local memory buffer to thread global buffer so that the
           // thread global (__local) has valid data at the start of the basic block.
           if (!m_basicBlockSet.empty()) {
             for (std::set<llvm::BasicBlock*>::iterator vi = m_basicBlockSet.begin(),
@@ -316,14 +321,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "CurrLocalOffset is not equal to local buffer size!" );
   }
 
-  
+
   void LocalBuffers::runOnFunction(Function *pFunc) {
     // Getting the implicit arguments
     Argument *pLocalMem = 0;
-    
+
     CompilationUtils::getImplicitArgs(pFunc, &pLocalMem, NULL, NULL,
       NULL, NULL, NULL, NULL, NULL, NULL);
-    
+
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters
     // 2.  We don't want to use TLS for local memory.
@@ -337,7 +342,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       updateUsageBlocks(pFunc);
 
     parseLocalBuffers(pFunc, pLocalMem);
-    
+
     m_mapKernelInfo[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
   }
 
@@ -371,5 +376,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       pInst->eraseFromParent();
     }
   }
-  
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

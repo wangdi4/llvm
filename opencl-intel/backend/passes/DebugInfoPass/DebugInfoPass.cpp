@@ -21,7 +21,12 @@ File Name:  DebugInfoPass.cpp
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
+#include <llvm/Version.h>
+#if LLVM_VERSION >= 3425
 #include <llvm/DebugInfo.h>
+#else
+#include <llvm/Analysis/DebugInfo.h>
+#endif
 
 #include <list>
 #include <vector>
@@ -34,10 +39,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
 
 // Inserts debugging information for OpenCL debugging.
 //
-class DebugInfoPass : public ModulePass 
+class DebugInfoPass : public ModulePass
 {
 public:
-    DebugInfoPass(LLVMContext* llvm_context, const Module* pRTModule) 
+    DebugInfoPass(LLVMContext* llvm_context, const Module* pRTModule)
         : ModulePass(ID), m_llvm_context(llvm_context), m_pRTModule(pRTModule)
     {
     }
@@ -60,8 +65,8 @@ private:
     void addDebugBuiltinDeclarations();
 
     // Adds instructions to the beginning of the given function to compute the
-    // global IDs for 3 dimensions. 
-    // Fills in the FunctionContext. 
+    // global IDs for 3 dimensions.
+    // Fills in the FunctionContext.
     //
     void insertComputeGlobalIds(Function* pFunc, FunctionContext& fContext);
 
@@ -79,17 +84,17 @@ private:
     //
     void insertDbgEnterFunctionCall(Function* pFunc, const FunctionContext& fContext);
 
-    // Insert a call to the "exit function" builtin before the given 
+    // Insert a call to the "exit function" builtin before the given
     // instruction.
     //
     void insertDbgExitFunctionCall(Instruction* instr, Function* pFunc, const FunctionContext& fContext);
 
-    // Insert calls to the "declare global" builtin into the beginning of the 
+    // Insert calls to the "declare global" builtin into the beginning of the
     // function.
     //
     void insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionContext& fContext);
 
-    // Insert a call to the "declara local" builtin before the given call, 
+    // Insert a call to the "declara local" builtin before the given call,
     // using that call's arguments (assuming it's a llvm.dbg.declare)
     //
     void insertDbgDeclaraLocalCall(CallInst* call_instr, const FunctionContext& fContext);
@@ -99,8 +104,8 @@ private:
     //
     Value* extractSubprogramDescriptorMetadata(Function* pFunc);
 
-    // Create a constant integer Value from the pointer. The Value encodes the 
-    // address the pointer points to. This is used to pass the address of 
+    // Create a constant integer Value from the pointer. The Value encodes the
+    // address the pointer points to. This is used to pass the address of
     // metadata nodes to native builtins.
     //
     Value* makeAddressValueFromPointer(void* ptr);
@@ -114,8 +119,8 @@ private:
     static char ID; // LLVM pass ID
 
     // Convenience object passed around between methods of this pass.
-    // gids: 
-    //      The values for computation of get_global_id[n] for n in 0..2, 
+    // gids:
+    //      The values for computation of get_global_id[n] for n in 0..2,
     //      that were placed in the beginning of the function.
     // original_first_instr:
     //      The original first instruction of the function (before the gid
@@ -133,7 +138,7 @@ private:
 
     DebugInfoFinder m_DbgInfoFinder;
 
-    // Names of the debugging info builtins 
+    // Names of the debugging info builtins
     //
     static const char* BUILTIN_DBG_DECLARE_LOCAL_NAME;
     static const char* BUILTIN_DBG_DECLARE_GLOBAL_NAME;
@@ -178,7 +183,7 @@ bool DebugInfoPass::runOnModule(Module& M)
         //
         if (func_iter->isDeclaration() || m_pRTModule->getFunction(func_iter->getName()))
             continue;
-        
+
         runOnUserFunction(&(*func_iter));
     }
 
@@ -199,7 +204,7 @@ void DebugInfoPass::addGlobalIdDeclaration()
     params.push_back(uint_type);
 
     FunctionType* gid_type = FunctionType::get(i_size_t, params, false);
-    Function::Create(gid_type, Function::ExternalLinkage, 
+    Function::Create(gid_type, Function::ExternalLinkage,
         "get_global_id", m_pModule);
 }
 
@@ -209,7 +214,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
     Type* i64 = IntegerType::getInt64Ty(*m_llvm_context);
     Type* void_type = Type::getVoidTy(*m_llvm_context);
-    
+
     // BUILTIN_DBG_DECLARE_LOCAL_NAME
     // Arguments of this builtin:
     // 1. Pointer to the variable alloca
@@ -219,10 +224,10 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     vector<Type*> local_params;
     local_params.push_back(pointer_i8);
     local_params.push_back(i64);
-    for (int i = 0; i < 3; ++i) 
+    for (int i = 0; i < 3; ++i)
         local_params.push_back(i64);
     FunctionType* local_functype = FunctionType::get(void_type, local_params, false);
-    Function::Create(local_functype, Function::ExternalLinkage, 
+    Function::Create(local_functype, Function::ExternalLinkage,
         BUILTIN_DBG_DECLARE_LOCAL_NAME, m_pModule);
 
     // BUILTIN_DBG_DECLARE_GLOBAL_NAME
@@ -235,13 +240,13 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // Arguments of this builtin:
     // 1. Address of the metadata for the subprogram entry
     // 2-4. global IDs for dimensions 0-2
-    //    
+    //
     vector<Type*> enter_params;
     enter_params.push_back(i64);
-    for (int i = 0; i < 3; ++i) 
+    for (int i = 0; i < 3; ++i)
         enter_params.push_back(i64);
     FunctionType* enter_functype = FunctionType::get(void_type, enter_params, false);
-    Function::Create(enter_functype, Function::ExternalLinkage, 
+    Function::Create(enter_functype, Function::ExternalLinkage,
         BUILTIN_DBG_ENTER_FUNCTION_NAME, m_pModule);
 
     // BUILTIN_DBG_EXIT_FUNCTION_NAME
@@ -282,9 +287,9 @@ void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fCo
     for (unsigned i = 0; i <= 2; ++i) {
         Value* const_dim = ConstantInt::get(uint_type, i, false);
         Value* gid_at_dim = CallInst::Create(
-            get_global_id_func, const_dim, 
+            get_global_id_func, const_dim,
             Twine("gid") + Twine(i), &first_instr);
-        
+
         // get_global_id returns size_t, but we want to always pass a 64-bit
         // number. So we may need to extend the result to 64 bits.
         //
@@ -317,7 +322,7 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
     if (!func_metadata) {
         return;
     }
-    
+
     // A note on the order of instructions inserted into the function:
     // fContext.original_first_instr contains the original first instruction
     // of the function, before the GID computations have been added (they are
@@ -348,14 +353,14 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
          block_iter != pFunc->end(); ++block_iter) {
         for (BasicBlock::iterator instr_iter = block_iter->begin();
              instr_iter != block_iter->end(); ++instr_iter) {
-            // To insert stoppoints: 
+            // To insert stoppoints:
             // - Find the current C line for this instruction
             // - If the line was found and it's different from the previous
             //   saved C line, insert a stoppoint.
             //
             unsigned cur_c_lineno = getCLinenoFromDbgMetadata(instr_iter);
             if (cur_c_lineno != 0) {
-                // Currently this will insert a stoppoint also for 
+                // Currently this will insert a stoppoint also for
                 // declarations in the beginning of a function, including
                 // declarations of function arguments.
                 //
@@ -367,13 +372,13 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
             // Now handle specific instructions. We're interested in:
             // 1. Call instructions to llvm.dbg.declare, which will be replaced
             //    by a debug builtin call.
-            // 2. Return instruction, before which a builtin call will be 
+            // 2. Return instruction, before which a builtin call will be
             //    inserted.
             //
             if (CallInst* call_instr = dyn_cast<CallInst>(instr_iter)) {
                 Function* called_func = call_instr->getCalledFunction();
                 if (called_func->getName() == "llvm.dbg.declare") {
-                    // The new call is inserted before the existing call, and 
+                    // The new call is inserted before the existing call, and
                     // the existing call is scheduled for removal.
                     //
                     insertDbgDeclaraLocalCall(call_instr, fContext);
@@ -398,7 +403,7 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
 Value* DebugInfoPass::extractSubprogramDescriptorMetadata(Function* pFunc)
 {
     for (DebugInfoFinder::iterator sp_i = m_DbgInfoFinder.subprogram_begin(),
-         sp_end = m_DbgInfoFinder.subprogram_end(); 
+         sp_end = m_DbgInfoFinder.subprogram_end();
          sp_i != sp_end; ++sp_i) {
         MDNode* sp_mdn = *sp_i;
         DISubprogram subprogram_descriptor(sp_mdn);
@@ -427,7 +432,7 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
 
     Value* subprogram_md_addr = extractSubprogramDescriptorMetadata(pFunc);
     assert(subprogram_md_addr && "Did not find subprogram descriptor");
-    
+
     vector<Value*> params;
     params.push_back(subprogram_md_addr);
     for (int i = 0; i <= 2; ++i)
@@ -450,7 +455,7 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
          gv_i != gv_end; ++gv_i) {
         MDNode* gv_metadata = *gv_i;
 
-        // Take the var address from the metadata as a Value, and bitcast it 
+        // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
         //
         assert(gv_metadata->getNumOperands() == 12);
@@ -462,14 +467,14 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         if (!var_ref->getType()->isPointerTy())
             continue;
 
-        BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr", 
+        BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr",
             fContext.original_first_instr);
 
         // The metadata itself is passed as an address
         //
         Value* metadata_addr = makeAddressValueFromPointer(
             static_cast<void*>(gv_metadata));
-        
+
         vector<Value*> params;
         params.push_back(var_addr);
         params.push_back(metadata_addr);

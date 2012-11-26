@@ -27,6 +27,7 @@ File Name:  BuiltInFuncImport.cpp
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Instruction.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/Version.h>
 
 #include <list>
 #include <map>
@@ -212,8 +213,8 @@ void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, Va
        unsigned AddressSpace = 0);
 
        */
-        
-        
+
+
       GlobalVariable *usedGlobalDest =
                      new GlobalVariable(*pModule,
                                         usedGlobal->getType()->getElementType(),
@@ -222,7 +223,11 @@ void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, Va
                                         usedGlobal->getInitializer(),
                                         usedGlobal->getName(),
                                         0,
+#if LLVM_VERSION >= 3425
                                         GlobalVariable::NotThreadLocal,
+#else
+                                        false,
+#endif
                                         usedGlobal->getType()->getAddressSpace());
 
       // Propagate alignment, visibility and section info.

@@ -10,10 +10,10 @@
 // of some transformation on specific benchmark before actually implementing it.
 
 // This Pass is heavily based on CloneModule utility, however it modifies the cloning
-// implementation, to do the cloning from a module written in some file into an 
+// implementation, to do the cloning from a module written in some file into an
 // exiting module (and not a new one).
 // In the way the pass keeps all pointers to function \ global variable that existed in
-// module prior to the injection. This means that if a function exits in the moudle 
+// module prior to the injection. This means that if a function exits in the moudle
 // before the pass, and exits also in the new module, then the contents of the new
 // function is copied into the pre-exitising function, and any reference to the old
 // function is still valid. This also implies that if both the old and the new module
@@ -33,6 +33,7 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Version.h"
 #include "VectorizerUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include <iostream>
@@ -56,7 +57,7 @@ public:
 
   ///@brief holds mapping of values in the new module to inject values.
   ValueToValueMapTy m_VMap;
-  
+
   ///@brief current module
   Module *m_M;
 
@@ -77,10 +78,10 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
   }
 
-  
+
   virtual bool runOnModule(Module &M) {
     errs() << "\n init val:@" << newModPath << "@\n";
-    
+
 
     // Obtain the path for the file with the new module.
     obtainNewModulePath();
@@ -90,10 +91,10 @@ public:
     } else {
       errs() << "module path is:  " << m_newModulePath <<"\n";
     }
-    
+
     m_M = &M;
     // Initialize the value map.
-    m_VMap.clear(); 
+    m_VMap.clear();
 
     // Obtain the module from file.
     SMDiagnostic Err;
@@ -117,14 +118,14 @@ public:
     errs() << "will replace function implementations\n";
     replaceFuncImpl(newM);
 
-    // This problematic - it is the duplicating the kernels metadata - avoid doing it 
+    // This problematic - it is the duplicating the kernels metadata - avoid doing it
     // for the time being.
     //errs() << "will map metadata\n";
     //MapMetaData(newM);
     return true;
   }
 
-  
+
 private:
 
   void obtainNewModulePath() {
@@ -140,7 +141,7 @@ private:
       m_newModulePath = newModPath;
       return;
     }
-    
+
     // See if the path is with environment variable
     char *envVar;
     envVar = getenv("VECT_ModulePathFileName");
@@ -163,20 +164,24 @@ private:
       }
     }
   }
-  
+
   void MapGlobalVars(Module *newM) {
     for (Module::const_global_iterator I = newM->global_begin(),
          E = newM->global_end(); I != E; ++I) {
       GlobalVariable *GV = m_M->getGlobalVariable(I->getName(), true);
       if (!GV) {
         GV = new GlobalVariable(*m_M,
-                                I->getType()->getElementType(), 
+                                I->getType()->getElementType(),
                                 I->isConstant(),
                                 I->getLinkage(),
                                 (Constant*) 0,
                                 I->getName(),
                                 (GlobalVariable*) 0,
+#if LLVM_VERSION >= 3425
                                 I->isThreadLocal() ? GlobalVariable::GeneralDynamicTLSModel :GlobalVariable::NotThreadLocal,
+#else
+                                I->isThreadLocal(),
+#endif
                                 I->getType()->getAddressSpace());
       }
       GV->copyAttributesFrom(I);
@@ -214,7 +219,7 @@ private:
     for (Module::iterator F = m_M->begin(), E = m_M->end(); F != E; ++F) {
       Function *newF = getNewFunc(newM, F);
       if (!newF || newF->isDeclaration()) continue;
-      
+
       errs() << "  will replace implemntation for " << F->getName() << "\n";
 
       F->deleteBody();
@@ -224,7 +229,7 @@ private:
         m_VMap[I++] = J++;
       }
       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
-      
+
       CloneFunctionInto(F, newF, m_VMap, /*ModuleLevelChanges=*/true, Returns);
     }
 
@@ -232,8 +237,8 @@ private:
     // add bitcasts before calling functions and in functions start as neccessary.
     fixOpaquePtrs(newM);
   }
-  
- 
+
+
   void MapMetaData(Module *newM) {
   // And named metadata....
     for (Module::const_named_metadata_iterator I = newM->named_metadata_begin(),
@@ -248,12 +253,12 @@ private:
   void fixOpaquePtrs(Module *newM) {
     for (Module::iterator newF = newM->begin(), E = newM->end(); newF != E; ++newF) {
       Function *F = cast<Function>(m_VMap[newF]);
-      
+
       unsigned argInd = 0;
       for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();
           J != F->arg_end(); ++I, ++J, ++argInd){
         if (I->getType() != J->getType()) {
-          std::vector<User *> argUsers (J->use_begin(), J->use_end()); 
+          std::vector<User *> argUsers (J->use_begin(), J->use_end());
           if (argUsers.size()) {
             Value *cast = new BitCastInst(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
             for (unsigned i=0; i<argUsers.size(); ++i) {
@@ -261,7 +266,7 @@ private:
             }
           }
 
-          std::vector<User *> funcUsers (F->use_begin(), F->use_end()); 
+          std::vector<User *> funcUsers (F->use_begin(), F->use_end());
           for (unsigned i=0; i<funcUsers.size(); ++i) {
             if (CallInst *CI = dyn_cast<CallInst>(funcUsers[i])) {
               if (CI->getCalledFunction() == F) {
@@ -274,7 +279,7 @@ private:
       }
     }
   }
-  
+
   Function *getNewFunc(Module *newM, Function *F) {
     FunctionType *FTy = F->getFunctionType();
     Function *newF = newM->getFunction(F->getName());
@@ -296,7 +301,7 @@ private:
 
 char intel::IRInjectModule::ID = 0;
 extern "C" {
-  
+
   ModulePass* createIRInjectModulePass() {
     return new intel::IRInjectModule();
   }
