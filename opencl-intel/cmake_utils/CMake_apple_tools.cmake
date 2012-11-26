@@ -178,6 +178,8 @@ message("CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
 message("")
 message("CMAKE_BUILD_TOOL = ${CMAKE_BUILD_TOOL}")
 
+
+
 add_custom_target(strip 
                     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh 
                     WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin 

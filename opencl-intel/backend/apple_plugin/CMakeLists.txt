@@ -9,22 +9,31 @@ set(TARGET_INCLUDE_FILES
     x86_cvms.h
 )
 
+find_package(OpenGL REQUIRED)
+find_package(OpenCL REQUIRED)
+
+include_directories( SYSTEM
+     ${OPENGL_INCLUDE_DIR}
+)
+
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}/vectorizer
 )
 
-link_directories( "/Users/opencl/Documents/work/llvm/lib")
+# link_directories should be before add_library
+link_directories(
+	${OPENCL_LIBRARIES} 
+	${LLVM_LIBRARY_DIR}
+)
 
 add_library(${TARGET_NAME} SHARED 
     ${TARGET_SOURCE_FILES} 
     ${TARGET_INCLUDE_FILES}
-)
-
-set_target_properties(${TARGET_NAME} PROPERTIES
-    LINK_FLAGS "-framework Foundation -framework CoreFoundation"
 )
 
 set (PASSES_LIBS
@@ -45,40 +54,8 @@ set (PASSES_LIBS
     ShiftZeroUpperBits
     ShuffleCallToInst
     UndefExternalFuncs
-    )
-
-set (LLVM_LIBS
-    # LLVM libs
-    LLVMAnalysis
     LLVMVectorizer
     LLVMBarrier
-    LLVMLinker
-    LLVMX86AsmParser
-    LLVMX86AsmPrinter
-    LLVMX86CodeGen
-    LLVMX86Disassembler
-    LLVMX86Info
-    LLVMTransformUtils
-    LLVMCore
-    LLVMTarget
-    LLVMExecutionEngine
-    LLVMJIT
-    #LLVMMCJIT
-    LLVMCodeGen
-    LLVMBitReader
-    LLVMBitWriter
-    LLVMSupport
-    LLVMAnalysis
-    LLVMAsmPrinter
-    LLVMInstCombine
-    LLVMipo
-    LLVMMC
-    LLVMScalarOpts
-    LLVMSelectionDAG
-    LLVMipa
-    LLVMX86AsmPrinter
-    LLVMMC
-    LLVMAsmParser
     )
 
 target_link_libraries(${TARGET_NAME}
@@ -86,12 +63,15 @@ target_link_libraries(${TARGET_NAME}
     name_mangle
     metadataapi
     OclUtils
+    "-framework Foundation"
+    "-framework CoreFoundation"
+    cl2module
   
     # Backend passes
     ${PASSES_LIBS}
     
     # LLVM libs
-    ${LLVM_LIBS}
+    ${LLVM_MODULE_LIBS}
     )
 
 install( TARGETS ${TARGET_NAME}

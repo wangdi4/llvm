@@ -112,7 +112,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
             // Convert mask type to vector of i32, shuffflevector mask scalar size is always 32
             Constant* newMask = NULL;
-            unsigned int maskVecSize = mask->getType()->getNumElements();
+            unsigned int maskVecSize = cast<VectorType>(mask->getType())->getNumElements();
             Type *maskType = VectorType::get(Type::getInt32Ty(shuffleCall->getContext()), maskVecSize);
 
             // We previously searched for shuffle calls with constant mask only
@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///         else NOT_SHUFFLE
     ShuffleCallToInst::ShuffleType ShuffleCallToInst::isConstShuffle(CallInst* pCall) {
         // Get function name
-        std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
+        std::string calledFuncName = pCall->getCalledFunction()->getName();
         std::string strippedName;
         if (!isMangledName(calledFuncName.c_str()))
           return NOT_SHUFFLE;

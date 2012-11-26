@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 
 #include "DataPerInternalFunctionPass.h"
@@ -146,7 +146,7 @@ namespace intel {
     for ( TDataPerFunctionMap::const_iterator fi = m_dataPerFuncMap.begin(),
       fe = m_dataPerFuncMap.end(); fi != fe; ++fi ) {
         //Print function name
-        OS << fi->first->getNameStr() << "\n";
+        OS << fi->first->getName() << "\n";
         OS << "\tneed to be fixed: " << fi->second.m_needToBeFixed;
         OS << "\tnumber of usages: " << fi->second.m_numberOfUses;
         OS << "\tIn special buffer counters: (";
@@ -178,7 +178,7 @@ namespace intel {
       fe = m_orderedFunctionsToFix.end(); fi != fe; ++fi ) {
         //Print call instruction
         Function *pFunc = dyn_cast<Function>(*fi);
-        OS << "\t" << pFunc->getNameStr() << "\n";
+        OS << "\t" << pFunc->getName() << "\n";
     }
 
     OS << "DONE\n";

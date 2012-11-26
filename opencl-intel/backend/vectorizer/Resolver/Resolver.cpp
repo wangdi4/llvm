@@ -256,7 +256,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
 void FuncResolver::resolveLoad(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getNameStr();
+  std::string calledName = called->getName();
   unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
   if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
@@ -337,7 +337,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
 
 void FuncResolver::resolveStore(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getNameStr();
+  std::string calledName = called->getName();
   unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
 

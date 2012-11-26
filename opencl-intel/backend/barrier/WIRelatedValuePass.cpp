@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 
 #include "WIRelatedValuePass.h"
@@ -334,7 +334,7 @@ namespace intel {
         Value* pVal = (Value*)pInst;
         bool isWIRelated = m_specialValues.find(pVal)->second;
         //Print vale name is (not) WI related!
-        OS << pVal->getNameStr();
+        OS << pVal->getName();
         OS << ( (isWIRelated) ? " is WI related" : " is not WI related" );
         OS << "\n";
       }

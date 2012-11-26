@@ -27,6 +27,7 @@ File Name:  BuiltInFuncImport.cpp
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Instruction.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/Version.h>
 
 #include <list>
 #include <map>
@@ -116,7 +117,7 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
   // Find all "root" functions.
   for (Module::iterator it = pModule->begin(), e = pModule->end(); it != e; ++it)
   {
-    std::string pFuncName = it->getNameStr();
+    std::string pFuncName = it->getName();
     if (it->isDeclaration() && (pFuncName.substr(0,4) != "get_"))
     {
       Function* pImpFunc = m_pRTModule->getFunction(pFuncName);
@@ -203,11 +204,31 @@ void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, Va
 
       if (valueMap.count(usedGlobal)) continue; // We already mapped this global.
 
+      /*
+       GlobalVariable(Module &M, Type *Ty, bool isConstant,
+       LinkageTypes Linkage, Constant *Initializer,
+       const Twine &Name = "",
+       GlobalVariable *InsertBefore = 0,
+       ThreadLocalMode = NotThreadLocal,
+       unsigned AddressSpace = 0);
+
+       */
+
+
       GlobalVariable *usedGlobalDest =
-                     new GlobalVariable(*pModule, usedGlobal->getType()->getElementType(),
-                     usedGlobal->isConstant(), GlobalValue::PrivateLinkage, usedGlobal->getInitializer(),
-                     usedGlobal->getName(), 0, false,
-                     usedGlobal->getType()->getAddressSpace());
+                     new GlobalVariable(*pModule,
+                                        usedGlobal->getType()->getElementType(),
+                                        usedGlobal->isConstant(),
+                                        GlobalValue::PrivateLinkage,
+                                        usedGlobal->getInitializer(),
+                                        usedGlobal->getName(),
+                                        0,
+#if LLVM_VERSION >= 3425
+                                        GlobalVariable::NotThreadLocal,
+#else
+                                        false,
+#endif
+                                        usedGlobal->getType()->getAddressSpace());
 
       // Propagate alignment, visibility and section info.
       usedGlobalDest->copyAttributesFrom(usedGlobal);
@@ -239,7 +260,8 @@ void BIImport::ImportFunctions(Module* pModule, TFunctionsVec& allFuncs2Import, 
     Function* Dst = cast<Function>(newFs->second);
 
     // Clone the original function.
-    Function* Src = CloneFunction(origF, NULL);
+    ValueToValueMapTy vmap;
+    Function* Src = CloneFunction(origF, vmap, false, NULL);
     Dst->setAttributes(origF->getAttributes());
 
     // Following is taken from ModuleLinker::linkFunctionBody(Function *Dst, Function *Src)

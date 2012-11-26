@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -73,7 +73,7 @@ DXWrapperParamsCheck::DXWrapperRetType DXWrapperParamsCheck::checkRet
 }
 
 bool DXWrapperParamsCheck::isDXScalarWrapperMasked (CallInst* CI, const RuntimeServices* rtServices){
-  std::string name = CI->getCalledFunction()->getNameStr();
+  std::string name = CI->getCalledFunction()->getName();
   bool isMangled = Mangler::isMangledCall(name);
   if (!isMangled){
     return false;

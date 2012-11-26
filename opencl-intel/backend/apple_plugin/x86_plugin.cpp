@@ -16,7 +16,8 @@
 // allocateCVMSReturnData().
 //
 //===----------------------------------------------------------------------===//
-
+#define GL_TARGET_GL
+#include <OpenGL/gl.h>
 #include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>
@@ -41,7 +42,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
@@ -62,8 +63,12 @@
 #include "x86_cvms.h"
 #include <cvms/plugin.h>
 
+#include "TargetArch.h"
+#include "CPUDetect.h"
 #include "Optimizer.h"
 #include "MetaDataApi.h"
+#include "VolcanoWrapper/VecConfig.h"
+
 #ifdef CLD_ASSERT
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -76,11 +81,26 @@ using namespace llvm;
 __BEGIN_DECLS
 
 int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
-         std::vector<unsigned char> &dylib, std::string &log);
+         std::vector<unsigned char> &dylib, std::string &log)
+{
+  return 1;
+}
 
-int cld_link(Module *M, Module *Runtime);
+int cld_link(Module *M, Module *Runtime)
+{
+  return 1;
+}
 
 __END_DECLS
+
+Intel::CPUId selectCPU();
+
+/// Used to keep the plugin instance specific data
+/// allocated by cvmsPluginServiceInitialize
+struct CPUPluginPrivateData
+{
+  Intel::CPUId cpuId;
+};
 
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
@@ -285,7 +305,7 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   CFRelease(kf_argtypequals);
 
   // Create a CFString from the function name to use as the key.
-  CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getNameStr().c_str(),
+  CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getName().str().c_str(),
                                                 kCFStringEncodingUTF8);
 
   // Insert the info array into the dictionary.
@@ -293,66 +313,6 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   CFRelease(kfstr);
   CFRelease(arrayref);
   return 0;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Intel AutoVectorizer Interface
-////////////////////////////////////////////////////////////////////////////////
-static void *intel_dylib;
-
-static Pass *cld_autovec_create(const Module *CLM, unsigned vw) {
-  if (!intel_dylib)
-    intel_dylib = dlopen("/System/Library/Frameworks/OpenCL.framework"
-                         "/Versions/A/Libraries/Vectorizer.dylib", RTLD_LAZY);
-
-  if (!intel_dylib)
-    return 0;
-
-  Pass *(*createPass)(const Module *CLM, unsigned vectorWidth);
-  createPass = (typeof(createPass))dlsym(intel_dylib, "createVectorizerPass");
-  if (!createPass)
-    return 0;
-
-  return createPass(CLM, vw);
-}
-
-static void cld_autovec_getinfo(Pass *P, SmallVectorImpl<std::string> &VFuncs,
-                                SmallVectorImpl<int> &MaxWidths, unsigned n) {
-  if (!intel_dylib)
-    return;
-
-  int (*getVecFns)(Pass *P, SmallVectorImpl<Function*>&);
-  int (*getVecSzs)(Pass *P, SmallVectorImpl<int>&);
-
-  getVecFns = (typeof(getVecFns))dlsym(intel_dylib, "getVectorizerFunctions");
-  getVecSzs = (typeof(getVecSzs))dlsym(intel_dylib, "getVectorizerWidths");
-
-  if (!getVecFns || !getVecSzs)
-    return;
-
-  // Ask for the vector of Function*'s that correspond to the vectorized version
-  // of each kernel in the global annotation structure.  Will be nonzero if
-  // a vectorized variant exists.
-  SmallVector<Function *, 8> Fns;
-  getVecFns(P, Fns);
-
-  // Ask for the vector width the vectorized version of each kernel in the
-  // global annotation structure.  Will be nonzero if a vectorized variant
-  // exists.
-  getVecSzs(P, MaxWidths);
-
-  // For now, map the Function * to std::string names, so that we can extract
-  // them after linking, since the vectorizer is run pre-link.
-  assert(Fns.size() == n &&
-         "getVectorizerFunctions returned wrong number of Functions!");
-  assert(MaxWidths.size() == n &&
-         "getVectorizerWidths returned wrong number of integers!");
-  for (unsigned i = 0; i != n; ++i) {
-    if (Fns[i])
-      VFuncs.push_back(Fns[i]->getNameStr());
-    else
-      VFuncs.push_back("");
-  }
 }
 
 static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
@@ -615,95 +575,6 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
 }
 
 
-/// cld_plugin_createwrappers - For each kernel and vectorized kernel:
-/// 1. create a wrapper with external linkage.
-/// 2. fix up any __local arguments to the kernel.
-/// 3. add the wrapper to the export list for the module.
-static
-int cld_plugin_createwrappers(Module *M, ConstantArray *init,
-                              SmallVectorImpl<std::string> &WrapperNames,
-                              SmallVectorImpl<std::string> &AVNames,
-                              SmallVectorImpl<int> &AVWidthsMax,
-                              CFDictionaryRef *info, bool debug) {
-  // Create the info dictionary which will store CFString program names as
-  // the keys, and CFArrays of CFNumbers for the size|flags fields.
-  CFMutableDictionaryRef d;
-  d = CFDictionaryCreateMutable(NULL, init->getType()->getNumElements(),
-                                &kCFTypeDictionaryKeyCallBacks,
-                                &kCFTypeDictionaryValueCallBacks);
-  if (!d)
-    return -1;
-
-  // Create the TargetData structure from the Module's arch info.
-  TargetData TD(M);
-
-  // LLVM uses i8 * rather than void *.
-  LLVMContext &CTX = M->getContext();
-  Type *VoidTy = Type::getVoidTy(CTX);
-  Type *SBPTy = PointerType::getUnqual(Type::getInt8Ty(CTX));
-  Type *SBPPTy = PointerType::getUnqual(SBPTy);
-  Type *SizeTy = IntegerType::get(CTX, TD.getPointerSizeInBits());
-  Type *SizePTy = PointerType::getUnqual(SizeTy);
-
-  std::vector<Type *> Tys;
-
-  Tys.push_back(SBPPTy);  // args_list
-  Tys.push_back(SizePTy); // gtid
-  Tys.push_back(SizeTy);  // xend
-  Tys.push_back(SizeTy);  // stride
-  FunctionType *wTy = FunctionType::get(VoidTy, Tys, false);
-
-
-  // Iterate the constant array which tracks the kernel functions in a module
-  // and generate a wrapper for each.
-  for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
-    ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-
-    Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
-
-    Value *field3 = elt->getOperand(3)->stripPointerCasts();
-    GlobalVariable *lgv = dyn_cast<GlobalVariable>(field3);
-    ConstantArray *lgva = NULL;
-    if (lgv)
-      lgva = dyn_cast<ConstantArray>(lgv->getInitializer());
-
-    Function *wf = NULL;
-    unsigned vmax = 1;
-    if (!AVWidthsMax.empty() && AVWidthsMax[i] > 0) {
-      // Use vectorized version
-      Function *vf = M->getFunction(AVNames[i]);
-      wf = cld_genwrapper(M, TD, vf, wTy, lgva, debug, true);
-      vmax = AVWidthsMax[i];
-    } else {
-      // Only scalar version exists.
-      wf = cld_genwrapper(M, TD, kf, wTy, lgva, debug, false);
-    }
-    WrapperNames.push_back(wf->getNameStr());
-
-    // This is a function, pull out the arg info string.
-    Value *field1 = elt->getOperand(1)->stripPointerCasts();
-    GlobalVariable *sgv = cast<GlobalVariable>(field1);
-
-    // Get the description of the arguments that the front end generated, so
-    // that we can put the read and write information for images in the arg
-    // description structure.
-    std::string args_desc;
-    if (ConstantArray *f1arr = dyn_cast<ConstantArray>(sgv->getInitializer()))
-      if (f1arr->isString())
-        args_desc = f1arr->getAsString();
-
-    // Nuke LGV, which has uses of the kernel functions,  so it doesn't
-    // interfere with removing them later.
-    if (lgv)
-      lgv->replaceAllUsesWith(UndefValue::get(lgv->getType()));
-
-    alloc_kernel_info(d, TD, kf, args_desc, wf->getName(), vmax);
-  }
-
-  // Return the info dictionary.
-  *info = d;
-  return 0;
-}
 
 
 // HeaderStruct used internally to pass header information.
@@ -803,7 +674,7 @@ static int compileProgram(
     (void) new GlobalVariable(*SM, IntTy, true,
            GlobalValue::InternalLinkage,
            ConstantInt::get(IntTy, opt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),
-           "opencl.compiler.option", NULL, false, 0);
+                              "opencl.compiler.option", NULL, GlobalVariable::NotThreadLocal, 0);
     WriteBitcodeToFile(SM, os);
     os.flush();
     return 0;
@@ -818,20 +689,6 @@ static int compileProgram(
     return -3;
   }
 
-  // Create list of functions we want to export and compile for, the name of
-  // wrappers, the set of functions in the kernel, and the list of function
-  // names.
-  // name of wrappers and recr
-  std::vector<const char *> exportList;
-  SmallVector<std::string, 8> wrapperNames;
-  SmallVector<std::string, 8> funcNames;
-  SmallVector<Function*, 8> kernelSet;
-
-  // If vectorization was requested and an Intel autovectorizer exists, create
-  // an instance of it, and add it to the pass manager.
-  SmallVector<std::string, 8> AVNames;
-  SmallVector<int, 8> AVWidthMax;
-
   if (has_kernel_annotation) {
     // Make sure that llvm.global.annotations has a constant initializer.
     ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
@@ -841,56 +698,7 @@ static int compileProgram(
     // We have at least one kernel.
 
     has_kernel = true;
-
-      Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM,SM,NULL);
-      optimizer.Optimize();
-
-
-    if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) &&
-        !debug && !disable_opt) {
-      // FIXME: replace with sysctl check for avx when available.
-      unsigned vectorWidth = 4;
-      if (getenv("CL_VWIDTH_8"))
-        vectorWidth = 8;
-
-      if (Pass *CLAVPass = cld_autovec_create(Runtime, vectorWidth)) {
-        // For the vectorizer, mark all kernels as always_inline in case one
-        // kernel calls another.
-        for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
-          ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-          Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
-          kernelSet.push_back(kf);
-          kf->addFnAttr(Attribute::AlwaysInline);
-        }
-
-        PassManager VectorizerPM;
-        TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(SM->getTargetTriple()));
-        VectorizerPM.add(TLI);
-        VectorizerPM.add(new TargetData(SM));
-        VectorizerPM.add(createFunctionInliningPass());
-        VectorizerPM.add(createScalarReplAggregatesPass());
-        VectorizerPM.add(createInstructionCombiningPass());
-        VectorizerPM.add(createUnifyFunctionExitNodesPass());
-        VectorizerPM.add(CLAVPass);
-        VectorizerPM.run(*SM);
-
-        cld_autovec_getinfo(CLAVPass, AVNames, AVWidthMax,
-                            init->getType()->getNumElements());
-      }
-    }
-
-    // Generate the wrapper for each kernel function and vectorized kernel
-    // function.  The wrapper is glue code between the runtime and the actual
-    // kernel function which hides things like ABI differences.
-    if (cld_plugin_createwrappers(SM, init, wrapperNames, AVNames,
-                                  AVWidthMax, info, debug))
-      return -5;
-
-    // Remove the annotation from the module now that we're done with it. Delete
-    // any altered kernels that had globals holding __local as they no longer
-    // have sane IR.
     annotation->eraseFromParent();
-
   } else {
     // We have no kernels so we must be linking multiple files.  Create an
     // empty kernel data dictionary.
@@ -903,60 +711,40 @@ static int compileProgram(
     *info = d;
   }
 
-  if (link_multiple) {
-    // Now that we are done with the vectorizer, undo forcing inline since
-    // another compilation unit may link with the kernels in this module.
-    for (unsigned i = 0, e = kernelSet.size(); i != e; ++i)
-      kernelSet[i]->removeFnAttr(Attribute::AlwaysInline);
+  // Optimize the whole module
+  int vectorWidth = 1;
 
-    // If we are linking multiple files, all non static functions in the file
-    // should be exported since they may be used by another compilation unit.
-    // Any constant address space globals may need to be exported since they
-    //  can also be used by another module.
-    for (Module::const_iterator F = SM->begin(), E = SM->end(); F != E; ++F) {
-      if (!F->hasLocalLinkage() && !F->empty() &&
-          !F->hasFnAttr(Attribute::AlwaysInline))
-        funcNames.push_back(F->getNameStr().c_str());
+  if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) && !debug && !disable_opt) {
+    // FIXME: replace with sysctl check for avx when available.
+    vectorWidth = 4;
+    if (getenv("CL_VWIDTH_8"))
+      vectorWidth = 8;
     }
-    const int ConstAddrSpace = 2;
-    for (Module::const_global_iterator GI = SM->global_begin(),
-         GE = SM->global_end(); GI != GE; ++GI) {
-      if (!GI->hasLocalLinkage()) {
-        if (const PointerType *PTy = dyn_cast<const PointerType>(GI->getType()))
-          if (PTy->getAddressSpace() == ConstAddrSpace)
-            funcNames.push_back(GI->getNameStr().c_str());
-      }
-    }
-  }
 
-  // Set up the export list.
-  for (unsigned i = 0, e = wrapperNames.size(); i != e; ++i)
-    exportList.push_back(wrapperNames[i].c_str());
-  for (unsigned i = 0, e = funcNames.size(); i != e; ++i)
-    exportList.push_back(funcNames[i].c_str());
+  CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
+  Intel::CPUId cpuId;
 
-  // Iteratively link from Runtime into SM
-  if (cld_link(SM, Runtime))
-    return -6;
+  if( pluginData != NULL)
+    cpuId = pluginData->cpuId;
+  else
+    cpuId = selectCPU();
 
-  // Optimize the code that was generated for the program, before linking it
-  // into the runtime code.
-  PassManager KernelPasses;
-  TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(SM->getTargetTriple()));
-  KernelPasses.add(TLI);
-  KernelPasses.add(new TargetData(SM));
-  KernelPasses.add(createVerifierPass());
-  KernelPasses.add(createInternalizePass(exportList));
-  if (!debug && !disable_opt) {
-    KernelPasses.add(createGlobalOptimizerPass());
-    KernelPasses.add(createFunctionInliningPass());
-    KernelPasses.add(createGlobalDCEPass());
-    KernelPasses.add(createScalarReplAggregatesPass());
-    KernelPasses.add(createInstructionCombiningPass());
-    KernelPasses.add(createCFGSimplificationPass());
-    KernelPasses.add(createGVNPass());
-  }
+  intel::OptimizerConfig optimizerConfig(cpuId,
+                                         vectorWidth,
+                                         std::vector<int>(),
+                                         std::vector<int>(),
+                                         "",    // dump IR - disabled
+                                         debug, // debug mode
+                                         false, // profiling - disabled
+                                         disable_opt, // optimizations on/off
+                                         false, // relaxed_math
+                                         false, // create library only
+                                         false  // produce heuristics IR
+                                         );
 
+  Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);
+  optimizer.Optimize();
+  
   // Create the target machine for this module, and add passes to emit an object
   // file of this module's architecture. We can't get it from SM since we
   // may be loading a portable binary.
@@ -968,9 +756,13 @@ static int compileProgram(
     return -7;
   }
 
-  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","",
+  TargetOptions toptions;
+  
+  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","", toptions,
                                                          Reloc::PIC_,
                                                          CodeModel::Default));
+
+  PassManager KernelPasses;
 
   if (Target->addPassesToEmitFile(KernelPasses, os,
                                   TargetMachine::CGFT_ObjectFile,
@@ -1260,6 +1052,96 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 }
 
 
+
+
+unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
+{
+  unsigned int  cpuFeatures = Intel::CFS_SSE2;
+
+  // Add standard features
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
+  {
+    cpuFeatures |= Intel::CFS_SSE41 | Intel::CFS_SSE42;
+  }
+
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
+  {
+    cpuFeatures |= Intel::CFS_AVX1;
+  }
+
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core-avx2"))
+  {
+    cpuFeatures |= Intel::CFS_AVX1;
+    cpuFeatures |= Intel::CFS_AVX2;
+    //cpuFeatures |= CFS_FMA;
+  }
+
+  // Add forced features
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+sse41" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= Intel::CFS_SSE41;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx2" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= Intel::CFS_AVX2;
+    cpuFeatures |= Intel::CFS_AVX1;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+fma3" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= Intel::CFS_FMA;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx" ) != forcedFeatures.end())
+  {
+    cpuFeatures |= Intel::CFS_AVX1;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~(Intel::CFS_SSE41 | Intel::CFS_SSE42);
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx2" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~Intel::CFS_AVX2;
+    cpuFeatures &= ~Intel::CFS_FMA;
+  }
+
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-avx" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~Intel::CFS_AVX1;
+    cpuFeatures &= ~Intel::CFS_AVX2;
+    cpuFeatures &= ~Intel::CFS_FMA;
+  }
+  if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma3" ) != forcedFeatures.end())
+  {
+    cpuFeatures &= ~Intel::CFS_FMA;
+  }
+
+  return cpuFeatures;
+
+}
+
+Intel::CPUId selectCPU()
+{
+  Intel::ECPU selectedCpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUId().GetCPU();
+  std::vector< std::string > forcedCpuFeatures;
+
+  if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
+    forcedCpuFeatures.push_back("+avx");
+
+  if (selectedCpuId == Intel::CPU_HASWELL) {
+    forcedCpuFeatures.push_back("+avx2");
+    forcedCpuFeatures.push_back("+f16c");
+    forcedCpuFeatures.push_back("+fma3");
+  }
+
+  unsigned int selectedCpuFeatures = SelectCpuFeatures( selectedCpuId, forcedCpuFeatures );
+  return Intel::CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
+}
+
 /// cvmsPluginElementBuild - Plugin interface to CVMS invoked when CVMS has been
 /// asked to compile program source.
 ///
@@ -1278,11 +1160,15 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 ///      This occurs when none of the above conditions are met.
 cvms_private_service_t *cvmsPluginServiceInitialize(cvms_plugin_service_t service)
 {
-    return NULL;
+  CPUPluginPrivateData* privateData = new CPUPluginPrivateData();
+  privateData->cpuId = selectCPU();
+  return (cvms_private_service_t *)privateData;
 }
 
 void cvmsPluginServiceTerminate(cvms_plugin_service_t service)
 {
+  if( service->private_service )
+    delete (CPUPluginPrivateData*)service->private_service;
 }
 
 cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
@@ -1301,7 +1187,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
   cvmsStrings *strings = (cvmsStrings *) llvm_func->source_addrs[cvmsSrcIdxData];
   options = &strings->data[strings->offsets[cvmsStringOffsetOptions]];
-
+/*
   llvm::NoFramePointerElim = true;
 
   // Set llvm options for our optimization phases and also set them in
@@ -1316,7 +1202,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
    (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
      (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
   llvm::LessPreciseFPMADOption = keys->opt & CLD_COMP_OPT_FLAGS_MAD_ENABLE;
-
+*/
   // Turn the source passed to us by cvms into IR.  Collect the list of called
   // functions that survive inlining in spec_funcs, so we can be sure to remove
   // the code that gets generated for them in the JIT.
@@ -1441,11 +1327,12 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   allocateCVMSReturnData(llvm_func, log, err, dylib, *object_file);
 
   // Reset llvm options back as CVMS clients are not aware of certain options.
+  /*
   llvm::UnsafeFPMath = false;
   llvm::NoInfsFPMath = false;
   llvm::NoNaNsFPMath = false;
   llvm::LessPreciseFPMADOption = false;
-
+  */
   std::vector<std::string*>::iterator bciter = ObjFileVec.begin();
   std::vector<std::string*>::iterator bcend = ObjFileVec.end();
   for (; bciter != bcend; ++bciter)

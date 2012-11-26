@@ -24,8 +24,17 @@ File Name:  ImplicitGIDPass.h
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
-#include <llvm/Analysis/DebugInfo.h>
-#include <llvm/Analysis/DIBuilder.h>
+
+#include "llvm/Version.h"
+
+#if LLVM_VERSION >= 3425
+#include <llvm/DebugInfo.h>
+#include <llvm/DIBuilder.h>
+#else
+#include "llvm/Analysis/DebugInfo.h"
+#include "llvm/Analysis/DIBuilder.h"
+#endif
+
 
 #include <vector>
 
@@ -81,7 +90,7 @@ namespace intel {
     /// returns DIType unsigned long DIType
     DIType getOrCreateUlongDIType();
 
-    /// @brief Iterates instructions in a basic block and tries to find the first 
+    /// @brief Iterates instructions in a basic block and tries to find the first
     ///  instruction with scope and loc information and return these.
     /// @param BB Basic block to get the scope and loc from
     /// @param scope scope information

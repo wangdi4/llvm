@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -61,12 +61,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(val)) {
     if (isBroadcast(SVI)) res = LoopWIAnalysis::UNIFORM;
   } else if (ConstantVector *CV = dyn_cast<ConstantVector>(val)) {
-    SmallVector<Constant *, 8> Elts;
-    CV->getVectorElements(Elts);
-    bool allTheSame = true;
-    for(unsigned i=1; i<Elts.size() && allTheSame; ++i) {
-      allTheSame &=  (Elts[i] == Elts[0]) ;
-    }
+    bool allTheSame = CV->getSplatValue() != NULL;
     if (allTheSame) res = LoopWIAnalysis::UNIFORM;
   } else if (isa<ConstantAggregateZero>(val)) {
     // all the elements of zeroinitializer are the same.

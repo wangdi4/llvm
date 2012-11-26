@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierUtils.h"
 
@@ -8,6 +8,7 @@
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
+#include "llvm/Version.h"
 
 #include <set>
 
@@ -184,7 +185,7 @@ namespace intel {
       //Module contains no kernels
       return m_kernelFunctions;
     }
-    
+
     //list all kernel not marked as no-barrier.
     std::set<std::string> NoBarrier;
     fillNoBarrierPathSet(m_pModule, NoBarrier);
@@ -192,15 +193,15 @@ namespace intel {
       MDNode *elt = pOpenCLMetadata->getOperand(i);
       Value *field0 = elt->getOperand(0)->stripPointerCasts();
       if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
-        std::string kernelName = pKernelFunc->getNameStr();
+        std::string kernelName = pKernelFunc->getName();
         if (NoBarrier.count(kernelName)) continue;
-         
+
         //Add kernel to the list
         //Currently no check if kernel already added to the list!
         m_kernelFunctions.push_back(pKernelFunc);
 
         //Check if there is a vectorized version of this kernel
-        std::string vectorizedKernelName = 
+        std::string vectorizedKernelName =
           std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().data();
         Function *pVectorizedKernelFunc = m_pModule->getFunction(vectorizedKernelName);
         if ( pVectorizedKernelFunc ) {
@@ -224,7 +225,7 @@ namespace intel {
       Type *pResult = Type::getVoidTy(m_pModule->getContext());
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), m_uiSizeT));
-      m_barrierFunc = 
+      m_barrierFunc =
         createFunctionDeclaration(BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
     if ( !m_localMemFenceValue ) {
@@ -240,7 +241,7 @@ namespace intel {
     if ( !m_dummyBarrierFunc ) {
       //Dummy Barrier function is not initialized yet
       //There should not be dummyBarrier function declaration in the module
-      assert( !m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME) && 
+      assert( !m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME) &&
         "dummyBarrier() instruction is origanlity declared by the module!!!" );
 
       //Create one
@@ -267,7 +268,7 @@ namespace intel {
     if ( !m_getCurrWIFunc ) {
       //get_curr_WI() function is not initialized yet
       //There should not be get_curr_WI function declaration in the module
-      assert( !m_pModule->getFunction(GET_CURR_WI) && 
+      assert( !m_pModule->getFunction(GET_CURR_WI) &&
         "get_curr_WI() instruction is origanlity declared by the module!!!" );
 
       //Create one
@@ -285,7 +286,7 @@ namespace intel {
     if ( !m_getSpecialBufferFunc ) {
       //get_special_buffer() function is not initialized yet
       //There should not be get_special_buffer function declaration in the module
-      assert( !m_pModule->getFunction(GET_SPECIAL_BUFFER) && 
+      assert( !m_pModule->getFunction(GET_SPECIAL_BUFFER) &&
         "get_special_buffer() instruction is origanlity declared by the module!!!" );
 
       //Create one
@@ -303,7 +304,7 @@ namespace intel {
     if ( !m_getIterationCountFunc ) {
       //get_iter_count() function is not initialized yet
       //There should not be get_iter_count function declaration in the module
-      assert( !m_pModule->getFunction(GET_ITERATION_COUNT) && 
+      assert( !m_pModule->getFunction(GET_ITERATION_COUNT) &&
         "get_iter_count() instruction is origanlity declared by the module!!!" );
 
       //Create one
@@ -356,7 +357,7 @@ namespace intel {
     if ( !m_getNewLIDFunc ) {
       //get_new_local_id() function is not initialized yet
       //There should not be get_new_local_id function declaration in the module
-      assert( !m_pModule->getFunction(GET_NEW_LID_NAME) && 
+      assert( !m_pModule->getFunction(GET_NEW_LID_NAME) &&
         "get_new_local_id() instruction is origanlity declared by the module!!!" );
 
       //Create one
@@ -364,7 +365,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
-      m_getNewLIDFunc = 
+      m_getNewLIDFunc =
         createFunctionDeclaration(GET_NEW_LID_NAME, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getNewLIDFunc);
     }
@@ -376,7 +377,7 @@ namespace intel {
     if ( !m_getNewGIDFunc ) {
       //get_new_global_id() function is not initialized yet
       //There should not be get_new_global_id function declaration in the module
-      assert( !m_pModule->getFunction(GET_NEW_GID_NAME) && 
+      assert( !m_pModule->getFunction(GET_NEW_GID_NAME) &&
         "get_new_local_id() instruction is originally declared by the module!!!" );
 
       //Create one
@@ -384,7 +385,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
-      m_getNewGIDFunc = 
+      m_getNewGIDFunc =
         createFunctionDeclaration(GET_NEW_GID_NAME, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getNewGIDFunc);
     }
@@ -498,9 +499,13 @@ namespace intel {
     AttrListPtr func_factorial_PAL;
     SmallVector<AttributeWithIndex, 4> Attrs;
     AttributeWithIndex PAWI;
-    PAWI.Index = 4294967295U; PAWI.Attrs = 0  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
+    PAWI.Index = 4294967295U; PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
     Attrs.push_back(PAWI);
+#if LLVM_VERSION >= 3425
+    func_factorial_PAL = AttrListPtr::get(Attrs);
+#else
     func_factorial_PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
+#endif
     pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel

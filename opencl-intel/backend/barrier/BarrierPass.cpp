@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * TODO: add Copyright © 2011, Intel Corporation
+ * TODO: add Copyright ï¿½ 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierPass.h"
 
@@ -7,7 +7,14 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Version.h"
+
+#if LLVM_VERSION >= 3425
+#include "llvm/IRBuilder.h"
+#else
 #include "llvm/Support/IRBuilder.h"
+#endif
+
 #include <set>
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
@@ -341,7 +348,7 @@ namespace intel {
         Instruction *pInst = dyn_cast<Instruction>(*ii);
         assert( pInst && "sync instruction container contains non instruction!" );
         BasicBlock* pLoopHeaderBB = pInst->getParent();
-        BasicBlock* pLoopEntryBB = 
+        BasicBlock* pLoopEntryBB =
           pInst->getParent()->splitBasicBlock(BasicBlock::iterator(pInst), "SyncBB");
         m_preSyncLoopHeader[pLoopEntryBB] = pLoopHeaderBB;
         m_toRemoveInstructions.push_back(pInst);
@@ -483,7 +490,7 @@ namespace intel {
           // Maybe there is a better way, I'm not sure. The problem I found is LocalBuffers finds all
           // uses of a __local variable and updates the references to a local buffer memory location
           // rather then the thread specific global for which the __local variable symbol is defined.
-          // So any changes to __local variables would have to be delayed until this pass or LocalBuffers 
+          // So any changes to __local variables would have to be delayed until this pass or LocalBuffers
           // would have to behave very differently.
 
           // There is also a copy that occurs from the local buffer into the global variable after each
@@ -754,29 +761,29 @@ namespace intel {
       if ( m_pDataPerInternalFunction->isInSpecialBuffer(pFuncToFix, i) ) {
         Value *pOriginalArg = newFuncArgs[i];
         Value *pOffsetArg = newFuncArgs[currNewIndex];
-        bool alwaysInSB = 
+        bool alwaysInSB =
           m_pDataPerInternalFunction->alwaysInSpecialBuffer(pFuncToFix, i);
         fixArgumentUsage(pOriginalArg, pOffsetArg, alwaysInSB);
         currNewIndex++;
       }
     }
-    if ( hasReturnValue && 
+    if ( hasReturnValue &&
       //The last argument for return value
       m_pDataPerInternalFunction->isInSpecialBuffer(pFuncToFix, numOfArgs) ) {
       Value *pOffsetArg = newFuncArgs[currNewIndex];
-      
-      bool alwaysInSB = 
+
+      bool alwaysInSB =
         m_pDataPerInternalFunction->alwaysInSpecialBuffer(pFuncToFix, numOfArgs);
       //Shut the warning up
       (void)alwaysInSB;
-      
+
       std::vector<BasicBlock*> pVecBB;
       for ( Function::iterator bi = pNewFunc->begin(), be = pNewFunc->end(); bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(&*bi);
         pVecBB.push_back(pBB);
       }
       //Run over all basic blocks of the new function and handle return terminators
-      for ( std::vector<BasicBlock*>::iterator bi = pVecBB.begin(), be = pVecBB.end(); bi != be; ++bi ) {  
+      for ( std::vector<BasicBlock*>::iterator bi = pVecBB.begin(), be = pVecBB.end(); bi != be; ++bi ) {
         BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
         ReturnInst *pRetInst = dyn_cast<ReturnInst>(pBB->getTerminator());
         if ( !pRetInst ) {
@@ -813,7 +820,7 @@ namespace intel {
           //      br cond, loopBB, RetBB
           //  RetBB:
           //      ret pRetVal
-          BasicBlock *pNewRetBB = 
+          BasicBlock *pNewRetBB =
             pBB->splitBasicBlock(BasicBlock::iterator(pRetInst), "RetBB");
           BasicBlock *pLoopBB = BasicBlock::Create(
             *m_pContext, "loopBB", pBB->getParent(), pNewRetBB);
@@ -849,7 +856,7 @@ namespace intel {
   void Barrier::fixArgumentUsage(Value *pOriginalArg, Value *pOffsetArg, bool alwaysInSB) {
     assert( (!m_pDataPerValue->isOneBitElementType(pOriginalArg) ||
       !isa<VectorType>(pOriginalArg->getType())) && "pOriginalArg with base type i1!");
-    for ( Value::use_iterator ui = pOriginalArg->use_begin(), 
+    for ( Value::use_iterator ui = pOriginalArg->use_begin(),
       ue = pOriginalArg->use_end(); ui != ue; ) {
         Instruction *pUserInst = dyn_cast<Instruction>(*ui);
         assert( pUserInst && "Something other than Instruction is using function argument!" );
@@ -878,7 +885,7 @@ namespace intel {
         }
         //Need to check when offset is bad Offset in order to use right parameter!
         BasicBlock *pConditionBB = pInsertBefore->getParent();
-        BasicBlock *pPHINodeBB = 
+        BasicBlock *pPHINodeBB =
           pConditionBB->splitBasicBlock(BasicBlock::iterator(pInsertBefore), "");
         //Create then and else basic-blocks
         BasicBlock *pThenBB = BasicBlock::Create(
@@ -962,7 +969,7 @@ namespace intel {
     }
     for ( unsigned int i = 0; i < numOfArgsWithReturnValue; ++i ) {
       if ( m_pDataPerInternalFunction->isInSpecialBuffer(pOriginalFunc, i) ) {
-        unsigned int offset = 
+        unsigned int offset =
           m_pDataPerInternalFunction->getOffset(pOriginalCall, i);
         Value *pOffsetVal = ConstantInt::get(m_sizeTType, offset);
         params.push_back(pOffsetVal);
@@ -1004,13 +1011,13 @@ namespace intel {
       assert( pFunc && "MetaData first operand is not of type Function!" );
       unsigned int strideScalar = 1; // default value can not be 0
       unsigned int strideVectorized = 0;
-      std::string funcName = pFunc->getNameStr();
+      std::string funcName = pFunc->getName();
       // Need to get the stride size only for kernel using the barrier for work
       // group loops
       if (!NoBarrier.count(funcName)) {
         strideScalar = m_pDataPerValue->getStrideSize(pFunc);
         //Check if there is a vectorized version of this kernel
-        std::string vectorizedKernelName = 
+        std::string vectorizedKernelName =
           std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().data();
         Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
         if ( pVectorizedKernelFunc ) {
@@ -1019,7 +1026,7 @@ namespace intel {
       }
       //For each kernel save the max stride between scalar and vectorized version
       unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);
-      m_bufferStrideMap[pFunc->getNameStr()] = strideSize;
+      m_bufferStrideMap[pFunc->getName()] = strideSize;
     }
   }
 

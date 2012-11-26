@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -12,6 +12,11 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Version.h"
+
+#if LLVM_VERSION >= 3425
+#include "llvm/Analysis/ScalarEvolution.h"
+#endif
 
 // On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
 #if VOLCANO_ENV
@@ -61,7 +66,19 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Work group loops are generated in a way that these should be obtained by
   // standard LLVM api.
   m_indVar = L->getCanonicalInductionVariable();
+#if LLVM_VERSION >= 3425
+  BasicBlock *LatchBlock = L->getLoopLatch();
+  if (LatchBlock) {
+    ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+    unsigned tripCount = SE->getSmallConstantTripCount(L, LatchBlock);
+  	// FIXME: We create the constant to minimize the amount of changes we need
+    // to do but we should use m_tripCountUpperBound instead.
+    m_tripCount = tripCount == 0 ? NULL
+                  :ConstantInt::get(Type::getInt32Ty(*m_context), tripCount);
+  }
+#else
   m_tripCount = L->getTripCount();
+#endif
   if (!m_indVar || !m_tripCount) return false;
 
   // Obtain upper bound on the trip count of the loop.
@@ -110,7 +127,7 @@ unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
     if (EVI->getNumIndices() == 1 &&
         *(EVI->idx_begin()) == CLWGBoundDecoder::getIndexOfSizeAtDim(0)) {
       if (CallInst *eeCall = dyn_cast<CallInst>(EVI->getAggregateOperand())) {
-        std::string funcName = eeCall->getCalledFunction()->getNameStr();
+        std::string funcName = eeCall->getCalledFunction()->getName();
         if (CLWGBoundDecoder::isWGBoundFunction(funcName)) {
           // Trip is get_local_size(0) return known bound.
           return MAX_LOOP_SIZE / divideBy;
@@ -150,7 +167,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (!readImgCall) return;
   Function *calledFunc = readImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getNameStr();
+  std::string funcName = calledFunc->getName();
   if (!m_rtServices->isTransposedReadImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
@@ -399,7 +416,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   if (!writeImgCall) return;
   Function *calledFunc = writeImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getNameStr();
+  std::string funcName = calledFunc->getName();
   if (!m_rtServices->isTransposedWriteImg(funcName)) return;
 
   // Obtain entry in the builtin hash.

@@ -2,6 +2,8 @@
 #define POST_DOMINANANCE_FRONTIER_H
 
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Analysis/DominanceFrontier.h"
 
 namespace llvm  {
     void initializePostDominanceFrontierPass(PassRegistry&);

@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -8,6 +8,7 @@
 #include "llvm/Constants.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Version.h"
 
 namespace intel {
 
@@ -23,7 +24,7 @@ void PrintfAdder::getConditionalGIDs(Function *F) {
   for (inst_iterator sI = inst_begin(F); sI != inst_end(F); ++sI) {
     if (CallInst *CI = dyn_cast<CallInst>(&*sI)) {
       if (Function *func = CI->getCalledFunction()) {
-        if (func->getNameStr().find(GET_GID_NAME) != std::string::npos) {
+        if (func->getName().find(GET_GID_NAME) != std::string::npos) {
           if (ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(CI->getNumArgOperands()-1))) {
             unsigned dim = C->getZExtValue();
             numDim = numDim > dim ? numDim : dim +1; 
@@ -60,7 +61,7 @@ void PrintfAdder::setUninitializedNames(debug_print_args& print_args) {
   for (std::list<Value *>::iterator it = toPrint.begin(), e = toPrint.end();
        it != e; ++it){
     Value *val = *it;
-    if (val->getNameStr() == "") {
+    if (val->getName() == "") {
       std::stringstream newName;
       newName << "serial_print_name_" << emptyNameIndex << "_";
       emptyNameIndex++;
@@ -82,7 +83,7 @@ void PrintfAdder::addDebugPrintGID(Function *F) {
 
 void PrintfAdder::addDebugPrintFuncArgs(Function *F) {
   debug_print_args print_args;  
-  print_args.prefix = F->getNameStr() + " " ;  
+  print_args.prefix = (std::string)F->getName() + " " ;
   print_args.suffix = "\n";
   Function::arg_iterator args_it = F->arg_begin();
   Function::arg_iterator args_e = F->arg_end();
@@ -292,7 +293,7 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
        it != e; ++it) {
     Value *cur = *it;
     printf_str = printf_str + gap;
-    if (m_printNames) printf_str = printf_str + cur->getNameStr() + " ";
+    if (m_printNames) printf_str = printf_str + (std::string)cur->getName() + " ";
     
     if (cur->getType()->isVectorTy()) {
       addPrintVector(cur, printf_inputs, printf_str, loc);
@@ -303,10 +304,26 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
   printf_str = printf_str + suffix;  
   
   // Create global
+#if LLVM_VERSION >= 3425
+  Constant * strVal = ConstantDataArray::getString(F->getContext(), printf_str.c_str(), true);
+#else
   Constant * strVal = ConstantArray::get(F->getContext(), printf_str.c_str(), true);
+#endif
   Type * arrayType = strVal->getType();
   unsigned strAddrSpace = 2;
-  GlobalVariable * newGV = new GlobalVariable(*currentModule, arrayType, true, GlobalValue::InternalLinkage, strVal, "ptrstr", 0, false, strAddrSpace);
+  GlobalVariable * newGV = new GlobalVariable(*currentModule,
+                                              arrayType,
+                                              true,
+                                              GlobalValue::InternalLinkage,
+                                              strVal,
+                                              "ptrstr",
+                                              0,
+#if LLVM_VERSION >= 3425
+                                              GlobalVariable::NotThreadLocal,
+#else
+                                              false,
+#endif
+                                              strAddrSpace);
 
   // Declare printf function
   Type *strType = PointerType::get(Type::getInt8Ty(F->getContext()), strAddrSpace);

@@ -75,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ie = toHandleCalls.end(); ii != ie; ++ii ) {
     
       CallInst *pCall = dyn_cast<CallInst>(*ii);
-      std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
+      std::string calledFuncName = pCall->getCalledFunction()->getName();
       TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 
       Value *pNewRes = NULL;

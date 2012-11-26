@@ -1036,7 +1036,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 
 void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
-  std::string name = CI->getCalledFunction()->getNameStr();
+  std::string name = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");

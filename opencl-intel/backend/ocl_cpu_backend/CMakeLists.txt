@@ -43,7 +43,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link pat
 set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
 
 # Assembler setup - use private rules
-set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
+# set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
 set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
 if (CVCC_ASM_PATH)

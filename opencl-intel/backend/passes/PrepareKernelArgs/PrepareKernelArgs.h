@@ -25,7 +25,13 @@ File Name:  PrepareKernelArgs.h
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
+#include "llvm/Version.h"
+
+#if LLVM_VERSION >= 3425
+#include "llvm/IRBuilder.h"
+#else
 #include "llvm/Support/IRBuilder.h"
+#endif
 
 #include <map>
 
@@ -62,28 +68,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   protected:
     /// @brief  Creates a wrapper function for the given function that receives
     ///         one buffer as argument, creates load instructions that load the
-    ///         function arguments from the buffer, creates a call to the given 
+    ///         function arguments from the buffer, creates a call to the given
     ///         funciton with the loaded arguments.
     /// @param  pFunc The kernel for which to create a wrapper
     /// @param  isVectorized True if this is a vectorized kernel, false otherwise
     /// @returns The new function wrapper function that calls the given function
     Function* runOnFunction(Function *pFunc, bool isVectorized);
-    
+
     /// @brief  Creates a new function that receives as argument a single buffer
     ///         based on the given function's name, return type and calling convention.
     /// @param  pFunc The kernel for which to create a wrapper function
     /// @returns A new function
     Function* createWrapper(Function* pFunc);
-    
-    /// @brief  Creates the body of the wrapper function: 
-    ///         creates load instructions that load the function arguments from the buffer, 
+
+    /// @brief  Creates the body of the wrapper function:
+    ///         creates load instructions that load the function arguments from the buffer,
     ///         creates a call to the given pFunc with the loaded arguments.
     /// @param  pWrapper The kernel for which to create a wrapper function
     /// @param  pFunc The kernel which is wrapped by the wrapper
     void createWrapperBody(Function* pWrapper, Function* pFunc);
-    
-    /// @brief  Creates the body of the wrapper function: 
-    ///         creates load instructions that load the function arguments from the buffer, 
+
+    /// @brief  Creates the body of the wrapper function:
+    ///         creates load instructions that load the function arguments from the buffer,
     ///         creates a call to the given pFunc with the loaded arguments.
     /// @param  builder An IR builder that allows to add instructions to the wrapper.
     /// @param  pFunc The kernel which is wrapped by the wrapper
@@ -91,7 +97,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///         the pFunc arguments neew to be loaded from this buffer
     /// @returns A parameters vector - the loaded values that need to be used when calling pFunc
     std::vector<Value*> createArgumentLoads(IRBuilder<>& builder, Function* pFunc, Argument *pArgsBuffer);
-    
+
 
   private:
     /// @brief The llvm module this pass needs to update
@@ -99,7 +105,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief The llvm context
     LLVMContext                *m_pLLVMContext;
-    
+
     /// @brief Maps each function and its metadata
     std::map<Function*, MDNode*> m_kernelsMetadata;
 
