@@ -12,6 +12,8 @@ set(TARGET_INCLUDE_FILES
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/utils
+    ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/metadata_api/gen
 )
 
 link_directories( "/Users/opencl/Documents/work/llvm/lib")
@@ -82,6 +84,7 @@ set (LLVM_LIBS
 target_link_libraries(${TARGET_NAME}
     OclOptimizer
     name_mangle
+    metadataapi
     OclUtils
   
     # Backend passes

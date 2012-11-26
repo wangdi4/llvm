@@ -17,13 +17,13 @@
 #ifndef METADATAAPI_UTILS_H
 #define METADATAAPI_UTILS_H
 
-#include "llvm/Value.h"
-#include "llvm/Metadata.h"
-#include <list>
 #include "MetaDataTraits.h"
 #include "MetaDataValue.h"
 #include "MetaDataObject.h"
 #include "MetaDataIterator.h"
+#include "llvm/Value.h"
+#include "llvm/Metadata.h"
+#include <vector>
 
 namespace Intel
 {
@@ -33,20 +33,29 @@ namespace Intel
 // all the nodes are of the same type ( as specified by the T template parameter)
 // Template parameters:
 // T - type of the entry node
-// C - convertor type (see the MDValueTraits )
+// Traits - convertor type (see the MDValueTraits )
 //
-template<class T, class C = MDValueTraits<T> >
-class MetaDataList
+template<class T, class Traits = MDValueTraits<T> >
+class MetaDataList: public IMetaDataObject
 {
 public:
-    typedef MetaDataList<T,C> _Myt;
-    typedef MetaDataIterator<T, llvm::MDNode, C> meta_iterator;
-    typedef typename C::value_type item_type;
-    typedef typename std::list<item_type>::iterator iterator;
-    typedef typename std::list<item_type>::const_iterator const_iterator;
+    typedef IMetaDataObject _Mybase;
+    typedef MetaDataList<T,Traits> _Myt;
+    typedef MetaDataIterator<T, llvm::MDNode, Traits> meta_iterator;
+    typedef typename Traits::value_type item_type;
+    typedef typename std::vector<item_type>::iterator iterator;
+    typedef typename std::vector<item_type>::const_iterator const_iterator;
 
-    MetaDataList(const llvm::MDNode* pNode):
+    MetaDataList(const llvm::MDNode* pNode, bool hasId = false):
+        _Mybase(pNode, hasId),
         m_pNode(pNode),
+        m_isDirty(false),
+        m_isLoaded(false)
+    {}
+
+    MetaDataList(const char* name):
+        _Mybase(name),
+        m_pNode(NULL),
         m_isDirty(false),
         m_isLoaded(false)
     {}
@@ -107,6 +116,19 @@ public:
         return i;
     }
 
+    item_type getItem( size_t index)
+    {
+        lazyLoad();
+        return m_data[index];
+    }
+
+    void setItem( size_t index, const item_type& item)
+    {
+        lazyLoad();
+        m_data[index] = item;
+        m_isDirty = true;
+    }
+
     bool dirty() const
     {
         if( m_isDirty )
@@ -121,7 +143,7 @@ public:
 
         for( const_iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
         {
-            if( C::dirty(*i) )
+            if( Traits::dirty(*i) )
             {
                 return true;
             }
@@ -143,7 +165,7 @@ public:
 
         for( iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
         {
-            C::discardChanges(*i);
+            Traits::discardChanges(*i);
         }
 
         m_isDirty = false;
@@ -156,43 +178,46 @@ public:
             return;
         }
 
-        if(pNode->getNumOperands() != size() )
+        if(pNode->getNumOperands() != size() + _Mybase::getStartIndex() )
         {
             pNode->replaceAllUsesWith(generateNode(context));
             llvm::MDNode::deleteTemporary(pNode);
             return;
         }
 
-        meta_iterator mi(pNode,0);
+        _Mybase::save(context, pNode);
+
+        meta_iterator mi(pNode, _Mybase::getStartIndex());
         meta_iterator me(pNode);
         const_iterator i = begin();
         const_iterator e = end();
 
         for(; i != e; ++i, ++mi )
         {
-            C::save(context, *mi, *i);
+            Traits::save(context, *mi, *i);
         }
-
     }
 
     virtual llvm::Value* generateNode(llvm::LLVMContext &context) const
     {
         llvm::SmallVector< llvm::Value*, 5> args;
 
+        llvm::Value* pIDNode = _Mybase::generateNode(context);
+
+        if( NULL != pIDNode )
+        {
+            args.push_back( pIDNode );
+        }
+
         for( const_iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
         {
-            args.push_back( C::generateValue(context, *i));
+            args.push_back( Traits::generateValue(context, *i));
         }
 
         return llvm::MDNode::get(context,args);
     }
 
 protected:
-
-    virtual unsigned int getStartIndex() const
-    {
-        return 0;
-    }
 
     virtual void lazyLoad() const
     {
@@ -201,7 +226,7 @@ protected:
             return;
         }
 
-        for(meta_iterator i(m_pNode, getStartIndex()), e(m_pNode); i != e; ++i )
+        for(meta_iterator i(m_pNode, _Mybase::getStartIndex()), e(m_pNode); i != e; ++i )
         {
             m_data.push_back(i.get());
         }
@@ -214,119 +239,19 @@ protected:
     const llvm::MDNode* m_pNode;
     bool m_isDirty;
     mutable bool m_isLoaded;
-    mutable std::list<item_type> m_data;
-};
-
-template<class T, class C = MDValueTraits<T> >
-class MetaDataNamedList: public MetaDataList<T,C>
-{
-public:
-    typedef MetaDataList<T,C> Super;
-    typedef MetaDataIterator<T, llvm::MDNode, C> meta_iterator;
-    typedef typename C::value_type item_type;
-    typedef typename std::list<item_type>::iterator iterator;
-    typedef typename std::list<item_type>::const_iterator const_iterator;
-
-    MetaDataNamedList(const llvm::MDNode* pNode):
-        Super(pNode),
-        m_id(getIdNode(pNode))
-    {}
-
-    MetaDataNamedList(const char* name):
-        Super(),
-        m_id(name)
-    {}
-
-    llvm::StringRef getId()
-    {
-        return m_id.get();
-    }
-
-    void save(llvm::LLVMContext &context, llvm::MDNode* pNode) const
-    {
-        if( Super::m_pNode == pNode && !Super::dirty() )
-        {
-            return;
-        }
-
-        if(pNode->getNumOperands() != Super::size() + 1) // +1 for the name node
-        {
-            pNode->replaceAllUsesWith(generateNode(context));
-            llvm::MDNode::deleteTemporary(pNode);
-            return;
-        }
-
-        m_id.save(context, pNode->getOperand(0));
-
-        meta_iterator mi(pNode,1);
-        meta_iterator me(pNode);
-        const_iterator i = Super::begin();
-        const_iterator e = Super::end();
-
-        for(; i != e; ++i, ++mi )
-        {
-            C::save(context, *mi, *i);
-        }
-    }
-
-    llvm::Value* generateNode(llvm::LLVMContext &context) const
-    {
-        llvm::SmallVector< llvm::Value*, 5> args;
-
-        args.push_back( m_id.generateNode(context));
-
-        for( const_iterator i = Super::m_data.begin(), e = Super::m_data.end(); i != e; ++i )
-        {
-            args.push_back( C::generateValue(context, *i));
-        }
-
-        return llvm::MDNode::get(context,args);
-    }
-
-protected:
-
-    llvm::Value* getIdNode(const llvm::MDNode* pNode)
-    {
-        if( NULL == pNode)
-        {
-            return NULL; //this is allowed for optional nodes
-        }
-
-        if( !pNode->getNumOperands() )
-        {
-            throw "Named list doesn't have a name node";
-        }
-
-        llvm::MDString* pIdNode = llvm::dyn_cast<llvm::MDString>(pNode->getOperand(0));
-
-        if( NULL == pIdNode )
-        {
-            throw "Named list id node is not a string";
-        }
-
-        return pIdNode;
-    }
-
-    unsigned int getStartIndex() const
-    {
-        return 1;
-    }
-
-
-private:
-    MetaDataValue<std::string>  m_id;
+    mutable std::vector<item_type> m_data;
 };
 
 
-template<class T, class C = MDValueTraits<T> >
+template<class T, class Traits = MDValueTraits<T> >
 class NamedMDNodeList
 {
 public:
-    typedef NamedMDNodeList<T,C> _Myt;
-    typedef MetaDataIterator<T,llvm::NamedMDNode,C> meta_iterator;
-    typedef typename C::value_type item_type;
-    typedef typename std::list<item_type>::iterator iterator;
-    typedef typename std::list<item_type>::const_iterator const_iterator;
+    typedef NamedMDNodeList<T,Traits> _Myt;
+    typedef MetaDataIterator<T,llvm::NamedMDNode,Traits> meta_iterator;
+    typedef typename Traits::value_type item_type;
+    typedef typename std::vector<item_type>::iterator iterator;
+    typedef typename std::vector<item_type>::const_iterator const_iterator;
 
     NamedMDNodeList(const llvm::NamedMDNode* pNode):
         m_pNode(pNode),
@@ -381,6 +306,19 @@ public:
         m_isDirty = true;
     }
 
+    item_type getItem( size_t index)
+    {
+        lazyLoad();
+        return m_data[index];
+    }
+
+    void setItem( size_t index, const item_type& item)
+    {
+        lazyLoad();
+        m_data[index] = item;
+        m_isDirty = true;
+    }
+
     iterator erase(iterator where)
     {
         lazyLoad();
@@ -408,14 +346,14 @@ public:
         {
             if( i != e && mi != me )
             {
-                C::save(context, *mi, *i);
+                Traits::save(context, *mi, *i);
                 ++i;
                 ++mi;
             }
             else
             {
                 assert( i != e && mi == me );
-                pNode->addOperand(llvm::cast<llvm::MDNode>(C::generateValue(context, *i)));
+                pNode->addOperand(llvm::cast<llvm::MDNode>(Traits::generateValue(context, *i)));
                 ++i;
             }
         }
@@ -435,7 +373,7 @@ public:
 
         for( const_iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
         {
-            if( C::dirty(*i) )
+            if( Traits::dirty(*i) )
                 return true;
         }
         return false;
@@ -455,7 +393,7 @@ public:
 
         for( iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
         {
-            C::discardChanges(*i);
+            Traits::discardChanges(*i);
         }
 
         m_isDirty = false;
@@ -479,7 +417,7 @@ private:
 
 private:
     const llvm::NamedMDNode* m_pNode;
-    mutable std::list<item_type> m_data;
+    mutable std::vector<item_type> m_data;
     bool m_isDirty;
     mutable bool m_isLoaded;
 };

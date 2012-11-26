@@ -54,30 +54,32 @@ File Name:  CPUProgramBuilder.cpp
 #include "CPUProgramBuilder.h"
 #include "CPUJITContainer.h"
 #include "CompilationUtils.h"
+#include "MetaDataApi.h"
 
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 
-namespace Utils 
+namespace Utils
 {
 /**
  * Returns the true if the given function name is a kernel function in the given module
  */
 bool IsKernel(llvm::Module* pModule, const char* szFuncName)
 {
-    llvm::NamedMDNode *pOpenCLMetadata = pModule->getNamedMetadata("opencl.kernels");
-    if ( !pOpenCLMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
-      return false;
-    }
+    MetaDataUtils mdUtils(pModule);
 
-    for (unsigned i = 0, e = pOpenCLMetadata->getNumOperands(); i != e; ++i) 
+    for( MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i )
     {
+        llvm::Function *pFuncVal = NULL;
         // Obtain kernel function from annotation
-        llvm::MDNode *elt = pOpenCLMetadata->getOperand(i);
-        llvm::Function *pFuncVal = llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
+        if( (*i)->isFunctionHasValue() )
+        {
+            pFuncVal = (*i)->getFunction();
+        }
+
+        //TODO: check stripPointerCasts()
         if ( NULL == pFuncVal )
         {
             continue;   // Not a function pointer
@@ -115,39 +117,34 @@ Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string
 }
 
 KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
-                                    llvm::Module* pModule, 
+                                    llvm::Module* pModule,
                                     ProgramBuildResult& buildResult) const
 {
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
+    MetaDataUtils mdUtils(pModule);
 
-    llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
-    llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
-    if ( !pModuleMetadata ) 
-    {
-      //Module contains no MetaData, thus it contains no kernels
-      return spKernels.release();
-    }
+    MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels();
+    MetaDataUtils::KernelsList::const_iterator e = mdUtils.end_Kernels();
+    MetaDataUtils::KernelWrappersList::const_iterator iw = mdUtils.begin_KernelWrappers();
+    MetaDataUtils::KernelWrappersList::const_iterator ew = mdUtils.end_KernelWrappers();
 
     std::vector<FunctionWidthPair>::const_iterator vecIter = buildResult.GetFunctionsWidths().begin();
 
-    for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) 
+    for ( ; i != e; ++i, ++iw)
     {
+        assert( iw != ew);
         // Obtain kernel function from annotation
-        llvm::MDNode *elt = pModuleMetadata->getOperand(i);
-        llvm::MDNode *welt = WrapperMD->getOperand(i);
-        // We expect the metadata nodes to be llvm::Function
-        // In case the cast is wrong an assertion failure will be thrown
-        llvm::Function *pFunc = llvm::cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());        
+        llvm::Function *pFunc = (*i)->getFunction(); // TODO: stripPointerCasts());
         // The wrapper function that receives a single buffer as argument is the last node in the metadata
-        llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(welt->getOperand(0)->stripPointerCasts());
+        llvm::Function *pWrapperFunc = (*iw)->getFunction(); //TODO: stripPointerCasts());
 
-        // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram, 
-                                                                               pFunc, 
-                                                                                        pWrapperFunc,
+        // Create a kernel and kernel JIT properties
+        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
+                                                                               pFunc,
+                                                                               pWrapperFunc,
                                                                                buildResult));
         unsigned int vecSize = 1;
-        
+
         if( spKernelProps->GetJitCreateWIids() && vecIter != buildResult.GetFunctionsWidths().end())
         {
             vecSize = vecIter->second;
@@ -156,15 +153,15 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        std::auto_ptr<Kernel>           spKernel( CreateKernel( pFunc, 
-                                                                pWrapperFunc->getName().str(), 
-                                                                spKernelProps.get()));
+        std::auto_ptr<Kernel> spKernel( CreateKernel( pFunc,
+                                                      pWrapperFunc->getName().str(),
+                                                      spKernelProps.get()));
 
         // We want the JIT of the wrapper function to be called
-        AddKernelJIT(static_cast<CPUProgram*>(pProgram), 
-                     spKernel.get(), 
-                     pModule, 
-                     pWrapperFunc, 
+        AddKernelJIT(static_cast<CPUProgram*>(pProgram),
+                     spKernel.get(),
+                     pModule,
+                     pWrapperFunc,
                      spKernelJITProps.release());
 
 
@@ -174,29 +171,32 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             assert(vecIter != buildResult.GetFunctionsWidths().end());
             assert( !(spKernelProps->GetJitCreateWIids() && vecIter->first) &&
                 "if the vector kernel is inlined the entry of the vector kernel should be NULL");
-            
-        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
-        bool dontVectorize = false;
 
-        if( NULL != vTypeHint)
-        {
-            //currently if the vector_type_hint attribute is set
-            //we types that vector length is below 4, vectorizer restriction
-            const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+            const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
+            bool dontVectorize = false;
+
+            if( NULL != vTypeHint)
             {
-                dontVectorize = true;
+                //currently if the vector_type_hint attribute is set
+                //we types that vector length is below 4, vectorizer restriction
+                const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
+                if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+                {
+                    dontVectorize = true;
+                }
             }
-        }
-            
+
             if(NULL != vecIter->first && !dontVectorize)
             {
                 // Create the vectorized kernel - no need to pass argument list here
                 std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecIter->second));
                 spKernelProps->SetMinGroupSizeFactorial(vecIter->second);
-                AddKernelJIT(static_cast<CPUProgram*>(pProgram), spKernel.get(), pModule, 
-                             vecIter->first, spVKernelJITProps.release());
-                
+                AddKernelJIT(static_cast<CPUProgram*>(pProgram),
+                             spKernel.get(),
+                             pModule,
+                             vecIter->first,
+                             spVKernelJITProps.release());
+
             }
             if ( dontVectorize )
             {
@@ -206,13 +206,13 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             {
                 buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
             }
-            else 
+            else
             {
                 buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
             }
             vecIter++;
         }
-#ifdef OCL_DEV_BACKEND_PLUGINS  
+#ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
         m_pluginManger.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
@@ -220,20 +220,20 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         spKernelProps.release();
     }
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating completed");
-    
+
     buildResult.LogS() << "Done.";
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::INFO_LEVEL, L"Exit");
     return spKernels.release();
 }
 
 
-void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, 
+void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
                                      llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
     IKernelJITContainer* pJIT = new CPUJITContainer( pProgram->GetPointerToFunction(pFunc),
-                                           pFunc,
-                                           pModule,
-                                           pProps);
+                                                     pFunc,
+                                                     pModule,
+                                                     pProps);
     pKernel->AddKernelJIT( pJIT );
 }
 

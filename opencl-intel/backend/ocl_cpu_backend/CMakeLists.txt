@@ -297,6 +297,8 @@ include_directories(
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/utils
+    ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/metadata_api/gen
 )
 
 # Add additional lib directories
@@ -430,6 +432,7 @@ target_link_libraries (${TARGET_NAME}
     name_mangle    
     dynamic_load
     cl_sys_utils
+    metadataapi
     
     # Internal libs
     ${JITPROFLIB}

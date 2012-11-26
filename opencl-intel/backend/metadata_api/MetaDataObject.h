@@ -17,6 +17,8 @@
 #ifndef METADATAOBJECT_H
 #define METADATAOBJECT_H
 
+#include "MetaDataTraits.h"
+#include "MetaDataValue.h"
 #include "llvm/Value.h"
 #include "llvm/Constants.h"
 #include "llvm/Module.h"
@@ -30,11 +32,28 @@ namespace Intel
 
 ///
 // Base interface for the metadata struct object
-// Implements the reference counting behavior and support for dirty flag
+// Meta data object support the following behavious:
+//  * Ref counting
+//  * Dirty bit
+//  * Optional support for 'named object'
+// 'named object' is a metadata object with the first operand containing the 'id' string
 struct IMetaDataObject
 {
+    IMetaDataObject(const llvm::MDNode* pNode, bool hasId):
+        m_refCount(0),
+        m_id(hasId ? getIdNode(pNode) : NULL)
+    {
+    }
+
+    IMetaDataObject(const char* name):
+        m_refCount(0),
+        m_id(name)
+    {
+    }
+
     IMetaDataObject():
-        m_refCount(0)
+        m_refCount(0),
+        m_id(NULL)
     {}
 
     virtual ~IMetaDataObject()
@@ -51,12 +70,70 @@ struct IMetaDataObject
             delete this;
     }
 
+    llvm::StringRef getId()
+    {
+        return m_id.get();
+    }
+
+    void setId( const std::string& id )
+    {
+        m_id.set(id);
+    }
+    
     virtual bool dirty() const = 0;
 
     virtual void discardChanges() = 0;
 
+protected:
+
+    ///
+    // Returns the Id node given the parent MDNode
+    // Id node is always a first operand of the parent node and
+    // should be stored as MDString
+    llvm::Value* getIdNode(const llvm::MDNode* pNode) const
+    {
+        if( NULL == pNode)
+        {
+            // optional node 
+            return NULL; 
+        }
+
+        if( !pNode->getNumOperands() )
+        {
+            throw "Named list doesn't have a name node";
+        }
+
+        llvm::MDString* pIdNode = llvm::dyn_cast<llvm::MDString>(pNode->getOperand(0));
+
+        if( NULL == pIdNode )
+        {
+            throw "Named object id node is not a string";
+        }
+
+        return pIdNode;
+    }
+
+    ///
+    // Returns the start index
+    unsigned int getStartIndex() const
+    {
+        return  m_id.hasValue() ? 1 : 0;
+    }
+
+    void save(llvm::LLVMContext &context, llvm::MDNode* pNode) const
+    {
+        if( m_id.hasValue() )
+            m_id.save(context, getIdNode(pNode));
+    }
+
+    llvm::Value* generateNode(llvm::LLVMContext &context) const
+    {
+        return m_id.generateNode(context);
+    }
+
 private:
     llvm::sys::cas_flag m_refCount;
+    MetaDataValue<std::string>  m_id;
 };
 
 ///
@@ -65,6 +142,7 @@ template<class T>
 class MetaObjectHandle
 {
 public:
+    typedef T ObjectType;
 
     explicit MetaObjectHandle(T *rhs = 0) throw ()
         : m_ptr(rhs)
@@ -151,7 +229,7 @@ public:
         return (_Tmp);
     }
 
-    void reset(const T* rhs = 0)
+    void reset( T* rhs = 0)
     {
         releaseRef();
         m_ptr = rhs;
@@ -187,6 +265,40 @@ public:
 private:
     T *m_ptr;    // the wrapped object pointer
 };
+
+template< class T>
+struct MDValueTraits<MetaObjectHandle<T>, void>
+{
+    typedef MetaObjectHandle<T> value_type;
+
+    static value_type load( llvm::Value* pNode)
+    {
+        llvm::MDNode* pMDNode = NULL == pNode ? NULL : llvm::dyn_cast<llvm::MDNode>(pNode);
+        return MetaObjectHandle<T>(new T(pMDNode, false));
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    {
+        return val->generateNode(context);
+    }
+
+    static bool dirty(const value_type& val)
+    {
+        return val->dirty();
+    }
+
+    static void discardChanges(value_type& val)
+    {
+        val->discardChanges();
+    }
+
+    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    {
+        val->save(context, llvm::cast<llvm::MDNode>(trgt));
+    }
+};
+
+
 
 } //namespace
 #endif

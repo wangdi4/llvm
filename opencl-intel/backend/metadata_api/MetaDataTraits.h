@@ -20,7 +20,6 @@
 #ifndef METADATATRAITS_H
 #define METADATATRAITS_H
 
-#include "MetaDataObject.h"
 #include "llvm/Value.h"
 #include "llvm/Constants.h"
 #include "llvm/Module.h"
@@ -86,7 +85,7 @@ struct MDValueTraits
     // Save the given value to the target node
     static void save(llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
     {
-        if( load() != val )
+        if( load(trgt) != val )
         {
             trgt->replaceAllUsesWith( generateValue(context, val) );
         }
@@ -318,37 +317,57 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Value, T
 };
 #endif
 
-template< class T>
-struct MDValueTraits<MetaObjectHandle<T>, void>
+template<>
+struct MDValueTraits<llvm::Function, void>
 {
-    typedef MetaObjectHandle<T> value_type;
+    typedef llvm::Function* value_type;
 
     static value_type load( llvm::Value* pNode)
     {
-        llvm::MDNode* pMDNode = NULL == pNode ? NULL : llvm::dyn_cast<llvm::MDNode>(pNode);
-        return MetaObjectHandle<T>(new T(pMDNode));
+        if( NULL == pNode )
+        {
+            // it is ok to pass NULL nodes - part of support for optional values
+            return NULL;
+        }
+
+        value_type pT = llvm::dyn_cast<llvm::Function>(pNode->stripPointerCasts());
+        if( NULL == pT )
+        {
+            throw "can't load value, wrong node type";
+        }
+
+        return pT;
     }
 
     static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return val->generateNode(context);
+        return static_cast<llvm::Value*>(const_cast<value_type>(val));
+    }
+
+    static llvm::Value* generateValue(llvm::LLVMContext& context, const llvm::Value*& val)
+    {
+        return const_cast<llvm::Value*>(val);
     }
 
     static bool dirty(const value_type& val)
     {
-        return val->dirty();
+        return false;
     }
 
     static void discardChanges(value_type& val)
     {
-        val->discardChanges();
     }
 
     static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
     {
-        val->save(context, llvm::cast<llvm::MDNode>(trgt));
+        if( load(trgt) != val )
+        {
+            trgt->replaceAllUsesWith( generateValue(context, val) );
+        }
     }
 };
+
+
 
 } //namespace
 #endif

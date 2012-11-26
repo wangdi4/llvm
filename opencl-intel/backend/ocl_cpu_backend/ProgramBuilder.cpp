@@ -33,6 +33,7 @@ File Name:  ProgramBuilder.cpp
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "plugin_manager.h"
+#include "MetaDataApi.h"
 #include "BitCodeContainer.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -55,6 +56,7 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/LLVMContext.h"
 #include <algorithm>
 
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -62,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /*
  * Utility methods
  */
-namespace Utils 
+namespace Utils
 {
 
 /**
@@ -74,7 +76,7 @@ llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
     return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
 }
 
-} //namespace Utils 
+} //namespace Utils
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
@@ -112,11 +114,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
         //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
         KernelSet* pKernels = CreateKernels( pProgram,
-                                             spModule.get(), 
+                                             spModule.get(),
                                              buildResult);
 
         pProgram->SetKernelSet( pKernels);
-        pProgram->SetModule( spModule.release()); 
+        pProgram->SetModule( spModule.release());
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -139,106 +141,73 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
-                                                   Function *func, 
+                                                         Function *func,
                                                          Function *pWrapperFunc,
                                                          const ProgramBuildResult& buildResult) const
 {
     // Set optimal WG size
-    unsigned int optWGSize = 0;
-
-    optWGSize = 128; // TODO: to be checked
+    unsigned int optWGSize = 128; // TODO: to be checked
 
     size_t hintWGSize[MAX_WORK_DIM] = {0,0,0};
     size_t reqdWGSize[MAX_WORK_DIM] = {0,0,0};
 
     Module *pModule = func->getParent();
+    MetaDataUtils mdUtils(pModule);
 
-    NamedMDNode *KernelsMD = pModule->getNamedMetadata("opencl.kernels");
-
-    if( NULL == KernelsMD )
+    if( !mdUtils.isKernelsHasValue())
         throw  Exceptions::CompilerException("Internal error", CL_DEV_BUILD_ERROR);
 
-    MDNode *FuncInfo = NULL; 
-    for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) 
+    KernelMetaDataHandle kmd;
+    for (MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i)
     {
-      FuncInfo = KernelsMD->getOperand(i);
-      Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
-
-      if(func == dyn_cast<Function>(field0))
-        break;
+        if( func == (*i)->getFunction() ) //TODO stripPointerCasts()
+        {
+            kmd = *i;
+            break;
+        }
     }
 
-    if( NULL == FuncInfo )
+    if( NULL == kmd.get())
     {
         throw Exceptions::CompilerException("Internal Error");
     }
 
-    MDNode *MDWGSH = NULL;
-    //look for work group size hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) 
+    if( kmd->getWorkGroupSizeHint()->hasValue() )
     {
-      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-      
-        if (tag->getString() == "work_group_size_hint") 
-        {
-        MDWGSH = tmpMD;
-        break;
-      }
-    }
-        
-    if(MDWGSH) 
-    {
-      hintWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(1))->getValue().getZExtValue();
-      hintWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(2))->getValue().getZExtValue();
-      hintWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDWGSH->getOperand(3))->getValue().getZExtValue();
+        hintWGSize[0] = kmd->getWorkGroupSizeHint()->getXDim(); // TODO: SExt <=> ZExt
+        hintWGSize[1] = kmd->getWorkGroupSizeHint()->getYDim(); // TODO: SExt <=> ZExt
+        hintWGSize[2] = kmd->getWorkGroupSizeHint()->getZDim(); // TODO: SExt <=> ZExt
 
-      if(hintWGSize[0])
-      {
-        optWGSize = 1;
-        for(int i=0; i<MAX_WORK_DIM; ++i)
+        if(hintWGSize[0])
         {
+            optWGSize = 1;
+            for(int i=0; i<MAX_WORK_DIM; ++i)
+            {
                 if(hintWGSize[i])
                 {
                     optWGSize*=hintWGSize[i];
+                }
+            }
         }
-      }
-    }
     }
 
-
-    // Set required WG size
-    MDNode *MDRWGS = NULL;
-    //look for work group size hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) 
+    if( kmd->getReqdWorkGroupSize()->hasValue() )
     {
-      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-      
-        if (tag->getString() == "reqd_work_group_size") 
-        {
-        MDRWGS = tmpMD;
-        break;
-      }
-    }
-        
-    if(MDRWGS) 
-    {
-      reqdWGSize[0] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(1))->getValue().getZExtValue();
-      reqdWGSize[1] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(2))->getValue().getZExtValue();
-      reqdWGSize[2] = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(3))->getValue().getZExtValue();
+        reqdWGSize[0] = kmd->getReqdWorkGroupSize()->getXDim(); // TODO: SExt <=> ZExt
+        reqdWGSize[1] = kmd->getReqdWorkGroupSize()->getYDim(); // TODO: SExt <=> ZExt
+        reqdWGSize[2] = kmd->getReqdWorkGroupSize()->getZDim(); // TODO: SExt <=> ZExt
 
-      if(reqdWGSize[0])
-      {
-        optWGSize = 1;
-        for(int i=0; i<MAX_WORK_DIM; ++i)
+        if(reqdWGSize[0])
         {
+            optWGSize = 1;
+            for(int i=0; i<MAX_WORK_DIM; ++i)
+            {
                 if(reqdWGSize[i])
                 {
                     optWGSize*=reqdWGSize[i];
+                }
+            }
         }
-      }
-    }
     }
 
     // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
@@ -276,6 +245,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     return pProps;
 }
 
- 
+
 
 }}}

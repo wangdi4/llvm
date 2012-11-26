@@ -17,24 +17,24 @@
 #ifndef METADATAVALUE_H
 #define METADATAVALUE_H
 
+#include "MetaDataTraits.h"
 #include "llvm/Value.h"
 #include "llvm/Metadata.h"
-#include "MetaDataTraits.h"
 
 namespace Intel
 {
 ///
 // Represents the meta data value stored using the positional schema
 // The root node is actuall storing the value
-template<class T, class C = MDValueTraits<T> >
+template<class T, class Traits = MDValueTraits<T> >
 class MetaDataValue
 {
 public:
-    typedef typename C::value_type value_type;
+    typedef typename Traits::value_type value_type;
 
     MetaDataValue( llvm::Value* pNode):
         m_pNode(pNode),
-        m_value(C::load(pNode)),
+        m_value(Traits::load(pNode)),
         m_isDirty(false)
     {
     }
@@ -88,6 +88,7 @@ public:
     {
         if( m_pNode == pNode && !dirty() )
         {
+            // we are saving to our own node but nothing was changed
             return;
         }
 
@@ -101,7 +102,12 @@ public:
 
     llvm::Value* generateNode(llvm::LLVMContext &context) const
     {
-        return C::generateValue(context, m_value);
+        if( !hasValue() )
+        {
+            return NULL;
+        }
+        
+        return Traits::generateValue(context, m_value);
     }
 
 private:
@@ -116,11 +122,11 @@ private:
 // The root node should have two operands nodes:
 //  - the first one is MDString storing the name
 //  - the second one is actual value
-template<class T, class C = MDValueTraits<T> >
+template<class T, class Traits = MDValueTraits<T> >
 class NamedMetaDataValue
 {
 public:
-    typedef typename C::value_type value_type;
+    typedef typename Traits::value_type value_type;
 
     NamedMetaDataValue( llvm::Value* pNode):
         m_pNode(pNode),
@@ -262,7 +268,7 @@ private:
 private:
     llvm::Value* m_pNode; // root node initialized during the load
     MetaDataValue<std::string>  m_id;
-    MetaDataValue<T,C> m_value;
+    MetaDataValue<T,Traits> m_value;
 };
 
 

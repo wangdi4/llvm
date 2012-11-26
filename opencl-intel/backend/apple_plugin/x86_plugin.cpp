@@ -4,9 +4,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the plugin interface to CVMS for the OpenCL CPU device 
-// driver.  
-// 
+// This file implements the plugin interface to CVMS for the OpenCL CPU device
+// driver.
+//
 // Source code is compiled with clang into an LLVM module, which is then linked
 // with a bitcode runtime library to produce a final linked module.  This module
 // is emitted to a mach-o object file in memory, and then linked into a mach-o
@@ -63,6 +63,7 @@
 #include <cvms/plugin.h>
 
 #include "Optimizer.h"
+#include "MetaDataApi.h"
 #ifdef CLD_ASSERT
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -74,7 +75,7 @@ using namespace llvm;
 
 __BEGIN_DECLS
 
-int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict, 
+int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
          std::vector<unsigned char> &dylib, std::string &log);
 
 int cld_link(Module *M, Module *Runtime);
@@ -83,8 +84,8 @@ __END_DECLS
 
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
-static 
-int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD, 
+static
+int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
                       Function *kf, std::string &args_desc,
                       StringRef wf, int VWidthMax) {
   // Create and fill in the kernel args description structure.
@@ -92,19 +93,31 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
                                                   &kCFTypeArrayCallBacks);
   CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL, kf->arg_size(),
                                                        &kCFTypeArrayCallBacks);
-  
-  CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL, 
-                                                       kf->arg_size(), 
+
+  CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL,
+                                                       kf->arg_size(),
                                                        &kCFTypeArrayCallBacks);
-  
-  CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL, 
-                                                        kf->arg_size(), 
+
+  CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL,
+                                                        kf->arg_size(),
                                                         &kCFTypeArrayCallBacks);
-  
+
   // Aquire named metadata node for kernel arg info. Right now only type info
   // is recorded.
   Module *M = kf->getParent();
-  NamedMDNode *OpenCLKernelMD = 
+  Intel::MetaDataUtils mdUtils(M);
+  Intel::KernelMetaDataHandle kmd;
+
+  for(Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i)
+  {
+    if( kf == (*i)->getFunction() ) //TODO stripPointerCasts()
+    {
+        kmd = *i;
+        break;
+    }
+  }
+
+/*  NamedMDNode *OpenCLKernelMD =
   M->getNamedMetadata("opencl.kernels");
   MDNode *KernelArgTy = 0; // MDNode with kernel arg type information.
   MDNode *KernelArgTyQual = 0; // MDNode with kernel arg type qual info.
@@ -130,22 +143,22 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
       }
     }
   }
-  
+*/
   unsigned j = 0;
   for (Function::arg_iterator ai = kf->arg_begin(), ae = kf->arg_end();
        ai != ae; ++ai, ++j) {
     Type *Ty = ai->getType();
-    
+
     // If this is a byval argument, it is always a pointer type.  We actually
     // care about the type of the argument being pointed to by the byval arg.
     if (ai->hasByValAttr())
       Ty = cast<PointerType>(Ty)->getElementType();
-    
+
     unsigned desc = args_desc.empty() ? 0 : args_desc[j];
-    
+
     // The size of the argument in bytes, if requested.
     uint32_t size = TD.getTypeAllocSize(Ty);
-    
+
     // If the argument is a pointer, it is a stream. If the pointer type has
     // an address space qualifier of 3 (local), then set the local flag on the
     // stream as well.
@@ -161,53 +174,41 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
       case 'a': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_RD | CLD_ARGS_FLAGS_WR; break;
       default: break;
     }
-    
+
     assert(sizeof(uint64_t) == 2 * sizeof(size));
     assert(sizeof(uint64_t) == 2 * sizeof(flags));
-    
+
     // Create a CFNumber to hold the values we calculated.
     uint64_t val = ((uint64_t)size) << 32 | (uint64_t)flags;
     const void *vptr = (const void *)&val;
     CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-    
+
     // Append to info value to the function arg info array.
     CFArrayAppendValue(kfinfo, valref);
     CFRelease(valref);
-    
+
     // Append the argument name to kf_argnames
-    if (KernelArgName) {
-      // With this MDNode, there is a key followed by N number of types that
-      // correspond to the arg names. The first element is the key, so offset
-      // arg index by one.
-      MDString *argName = cast<MDString>(KernelArgName->getOperand(j+1));
-      std::string argname = argName->getString();
+    if (kmd->isArgNamesHasValue()) {
+      std::string argname = kmd->getArgNamesItem(j);
       CFStringRef cfargname = CFStringCreateWithCString(NULL, argname.c_str(),
                                                         kCFStringEncodingUTF8);
       CFArrayAppendValue(kf_argnames, cfargname);
       CFRelease(cfargname);
     }
-    
+
     // Remember the type of the argument.
-    if (KernelArgTy) {
-      // With this MDNode, there is a key followed by N number of types that
-      // correspond to the arg types. The first element is the key, so offset
-      // arg index by one.
-      MDString *argTy = cast<MDString>(KernelArgTy->getOperand(j+1));
-      std::string tyname = argTy->getString();
+    if (kmd->isArgTypesHasValue()) {
+      std::string tyname = kmd->getArgTypesItem(j);
       CFStringRef cfargtype = CFStringCreateWithCString(NULL, tyname.c_str(),
                                                           kCFStringEncodingUTF8);
       CFArrayAppendValue(kf_argtypes, cfargtype);
       CFRelease(cfargtype);
     }
-    
+
     // Remember the type qual of the arg.
-    if (KernelArgTyQual) {
-      // With this MDNode, there is a key followed by N number of type quals 
-      // that correspond to the arg qualifiers. 
-      // The first element is the key, so offset arg index by one.
-      MDString *argTyQual = cast<MDString>(KernelArgTyQual->getOperand(j+1));
-      std::string quals = argTyQual->getString();
-      
+    if (kmd->isArgTypeQualsHasValue()) {
+      std::string quals = kmd->getArgTypeQualsItem(j);
+
       // Given the string, convert to numerical representation.
       unsigned qualflags = 0;
       if (quals.find("const") != std::string::npos)
@@ -216,18 +217,18 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
         qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_VOLATILE;
       if (quals.find("restrict") != std::string::npos)
         qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_RESTRICT;
-  
+
       // Create a CFNumber to hold the values we calculated.
       uint64_t val = (uint64_t)qualflags;
       const void *vptr = (const void *)&val;
       valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-      
+
       // Append to info value to the function arg info array.
       CFArrayAppendValue(kf_argtypequals, valref);
       CFRelease(valref);
     }
   }
-  
+
   // Insert work group dimensions.
   const unsigned max_wg_dim = 3;
   CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(NULL, max_wg_dim,
@@ -236,7 +237,7 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
     // Get Required work group size.
     assert(args_desc[j+1] == 'W' && args_desc[j+2] == 'G' &&
            "Expected required work group size");
-    
+
     char* ValStart = &args_desc[j+3];
     char* ValEnd;
     for (unsigned k = 0; k < max_wg_dim; ++k) {
@@ -244,11 +245,11 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
       uint64_t val = strtol(ValStart, &ValEnd, 10);
       const void *vptr = (const void *)&val;
       CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-      
+
       // Append to info value to the function arg info array.
       CFArrayAppendValue(kf_wg_dims, valref);
       CFRelease(valref);
-      
+
       ValStart = *ValEnd == '\0' ? ValEnd : ValEnd+1;
     }
   } else {
@@ -261,20 +262,20 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
       CFRelease(valref);
     }
   }
-  
+
   // Scalar name, which we will use to dlsym the wrapper out of the object.
   CFStringRef sname = CFStringCreateWithCString(NULL, wf.str().c_str(),
                                                 kCFStringEncodingUTF8);
-  
+
   // Vector name, which we will use to dlsym the vector wrapper out of the
   // object.
   const void *vwmaxptr = (const void *)&VWidthMax;
   CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
-  
-  const void *entry[] = { kfinfo, sname, vwmax, kf_wg_dims, 
+
+  const void *entry[] = { kfinfo, sname, vwmax, kf_wg_dims,
     kf_argnames, kf_argtypes, kf_argtypequals };
   CFArrayRef arrayref = CFArrayCreate(NULL, entry, 7, &kCFTypeArrayCallBacks);
-  
+
   CFRelease(kfinfo);
   CFRelease(sname);
   CFRelease(vwmax);
@@ -282,11 +283,11 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   CFRelease(kf_argnames);
   CFRelease(kf_argtypes);
   CFRelease(kf_argtypequals);
-  
+
   // Create a CFString from the function name to use as the key.
   CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getNameStr().c_str(),
                                                 kCFStringEncodingUTF8);
-  
+
   // Insert the info array into the dictionary.
   CFDictionaryAddValue(info, kfstr, arrayref);
   CFRelease(kfstr);
@@ -306,7 +307,7 @@ static Pass *cld_autovec_create(const Module *CLM, unsigned vw) {
 
   if (!intel_dylib)
     return 0;
-  
+
   Pass *(*createPass)(const Module *CLM, unsigned vectorWidth);
   createPass = (typeof(createPass))dlsym(intel_dylib, "createVectorizerPass");
   if (!createPass)
@@ -319,32 +320,32 @@ static void cld_autovec_getinfo(Pass *P, SmallVectorImpl<std::string> &VFuncs,
                                 SmallVectorImpl<int> &MaxWidths, unsigned n) {
   if (!intel_dylib)
     return;
-  
+
   int (*getVecFns)(Pass *P, SmallVectorImpl<Function*>&);
   int (*getVecSzs)(Pass *P, SmallVectorImpl<int>&);
-  
+
   getVecFns = (typeof(getVecFns))dlsym(intel_dylib, "getVectorizerFunctions");
   getVecSzs = (typeof(getVecSzs))dlsym(intel_dylib, "getVectorizerWidths");
-  
+
   if (!getVecFns || !getVecSzs)
     return;
 
   // Ask for the vector of Function*'s that correspond to the vectorized version
-  // of each kernel in the global annotation structure.  Will be nonzero if 
+  // of each kernel in the global annotation structure.  Will be nonzero if
   // a vectorized variant exists.
   SmallVector<Function *, 8> Fns;
   getVecFns(P, Fns);
-  
+
   // Ask for the vector width the vectorized version of each kernel in the
   // global annotation structure.  Will be nonzero if a vectorized variant
   // exists.
   getVecSzs(P, MaxWidths);
-  
+
   // For now, map the Function * to std::string names, so that we can extract
   // them after linking, since the vectorizer is run pre-link.
-  assert(Fns.size() == n && 
+  assert(Fns.size() == n &&
          "getVectorizerFunctions returned wrong number of Functions!");
-  assert(MaxWidths.size() == n && 
+  assert(MaxWidths.size() == n &&
          "getVectorizerWidths returned wrong number of integers!");
   for (unsigned i = 0; i != n; ++i) {
     if (Fns[i])
@@ -364,11 +365,11 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
   // equivalent non constant expression in the instruction used to access
   // the __local storage.
   // ConstantExpr *CE = dyn_cast<ConstantExpr>(From);
-  
-  for (Value::use_iterator ui = From->use_begin(), ue = From->use_end(); 
+
+  for (Value::use_iterator ui = From->use_begin(), ue = From->use_end();
        ui != ue; ) {
     User* UserOp = *ui++;
-    
+
     if (ConstantExpr* ExprVal = dyn_cast<ConstantExpr>(UserOp)) {
       if (ExprVal->getOpcode() == Instruction::GetElementPtr) {
         SmallVector<Value*, 8> Idxs(ExprVal->getNumOperands() - 1);
@@ -411,10 +412,10 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
                isa<ConstantStruct>(UserOp)) {
       // ignore
     } else if (Instruction *UseI = dyn_cast<Instruction>(UserOp)) {
-      if (UseI->getParent()->getParent() != 
+      if (UseI->getParent()->getParent() !=
           cast<Instruction>(To)->getParent()->getParent())
         continue;
-      
+
       // Non constant expression; just replace.
       UserOp->replaceUsesOfWith(From, To);
     } else {
@@ -424,17 +425,17 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
   }
 }
 
-static 
+static
 Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
                          FunctionType *WTy, ConstantArray *LGVs,
                          bool debug, bool vector) {
   LLVMContext &CTX = M->getContext();
   Type *I32Ty = Type::getInt32Ty(CTX);
   Type *SizeTy = IntegerType::get(CTX, TD.getPointerSizeInBits());
-  
-  // Create a wrapper function which will loop over the kernel in the 
+
+  // Create a wrapper function which will loop over the kernel in the
   // x-dimension, with the following prototype:
-  // 
+  //
   // @wrapper ( i8 **args, i32/64 *gtid, i32/64 x, size_t stride )
   SmallString<64> wname;
   wname += kf->getName();
@@ -442,11 +443,11 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   Constant *wc = M->getOrInsertFunction(wname, WTy);
 
   Function *wf = cast<Function>(wc);
-  
+
   // Set the calling convention and say that we don't throw.
   wf->setCallingConv(CallingConv::C);
   wf->addFnAttr(Attribute::NoUnwind);
-  
+
   // set the argument names. This is not strictly necessary, but makes looking
   // at the generated IR more pleasant.
   Function::arg_iterator wai = wf->arg_begin();
@@ -467,7 +468,7 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   else {
     stride = ConstantInt::get(SizeTy, 1);
   }
-  
+
   // In the entry block, we will unpack all the arguments, and then test our
   // loop against early termination.  The pseudo-IR is:
   //
@@ -481,10 +482,10 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   BasicBlock *loopbb = BasicBlock::Create(CTX, "loop", wf);
   BasicBlock *returnbb = BasicBlock::Create(CTX, "return", wf);
   IRBuilder<> builder(entrybb);
-  
+
   // Vector to collect the args to the actual function in
   SmallVector<Value*, 16> argvector;
-  
+
   // Now that we have created an empty function, we need to load the
   // arguments, which are of type void *, out of the kernel's argument array,
   // of type void **. The process for loading these arguments is:
@@ -493,22 +494,22 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   //    argument to the wrapper function we're creating.
   // 2. cast the result to a pointer of the pointer type to the corresponding
   //    argument of the kernel function we're calling.
-  // 3. load from the resulting pointer, and push the Value onto the args 
+  // 3. load from the resulting pointer, and push the Value onto the args
   //    vector we will use to call the kernel function with.
   unsigned i = 0;
   for (Function::arg_iterator ai = kf->arg_begin(), ae = kf->arg_end();
        ai != ae; ++i, ++ai) {
     Type *Ty = ai->getType();
-    
+
     // gep args list, i32 n
     Value *GEP = builder.CreateGEP(al, ConstantInt::get(I32Ty, i), "arglist");
     // If this is a by val argument, it is always a pointer type.  We actually
     // care about the type of the argument being pointed to by the byval arg.
     if (ai->hasByValAttr())
       Ty = cast<PointerType>(Ty)->getElementType();
-    
+
     // load the pointer at that slot in the args list.  If this is a stream,
-    // it is a pointer to the stream data, and can be passed as is.  If this 
+    // it is a pointer to the stream data, and can be passed as is.  If this
     // is a scalar, we must create a bit cast to pointer of the scalar type,
     // and load the scalar as an argument.
     Value *VP = isa<PointerType>(Ty) ? GEP : builder.CreateLoad(GEP,"argptr");
@@ -517,11 +518,11 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
       VP = builder.CreateLoad(VP, "arg");
     argvector.push_back(VP);
   }
-  
+
   LoadInst *V0 = builder.CreateLoad(gtid);
   LoadInst *V1 = builder.CreateLoad(builder.CreateGEP(gtid, ConstantInt::get(I32Ty, 1), "gtid_1"));
   builder.CreateBr(loopcd);
-  
+
   // Loop.cond:
   //  iv = phi [ x, entry ], [ xinc, loop ]
   //  cmp = icmp eq iv, xend
@@ -531,7 +532,7 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   Phi->addIncoming(V0, entrybb);
   Value *Cmp = builder.CreateICmpEQ(Phi, xend);
   builder.CreateCondBr(Cmp, returnbb, loopbb);
-  
+
   // In the loop block, we will call our kernel function, update the global id
   // for the x-dimension, and then loop if not done.   The pseudo-IR is:
   //
@@ -546,7 +547,7 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   Phi->addIncoming(Inc, loopbb);
   builder.CreateStore(Inc, gtid);
   builder.CreateBr(loopcd);
-  
+
   // In the return block, store the original starting gtid in the x-dimension
   // so that we can restart iteration at that point for the next y, and then
   // return from the wrapper.  The pseudo-IR is:
@@ -558,7 +559,7 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
   builder.SetInsertPoint(returnbb);
   builder.CreateStore(V0, gtid);
   builder.CreateRetVoid();
-  
+
   // Inline the callee into the wrapper
   if (!debug) {
     InlineFunctionInfo IFI;
@@ -574,11 +575,11 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
       User* UserOp = *ui++;
       if (!isa<CallInst>(UserOp))
         continue;
-      
+
       CallInst *call = cast<CallInst>(UserOp);
       if (call->getParent()->getParent() != wf)
         continue;
-      
+
       if (ConstantInt *argCI = dyn_cast<ConstantInt>(call->getArgOperand(0)))
       {
         if (argCI->getZExtValue() == 0)
@@ -588,14 +589,14 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
       }
     }
   }
-  
+
   // If the function defines any variables in the kernel that uses the
   // __local address space, add it to the list of parameters because we will
   // pass a pointer for the __local address.
   if (LGVs) {
     builder.SetInsertPoint(entrybb, V0);
-    
-    for (unsigned gi = 0, ge = LGVs->getType()->getNumElements(); gi != ge; 
+
+    for (unsigned gi = 0, ge = LGVs->getType()->getNumElements(); gi != ge;
          ++gi) {
       Value *LGVI = LGVs->getOperand(gi)->stripPointerCasts();
       GlobalVariable *G = cast<GlobalVariable>(LGVI);
@@ -606,19 +607,19 @@ Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
                                          ConstantInt::get(I32Ty, 1), "localgv");
       // bitcast to appropriate address space.
       LGVL = builder.CreateBitCast(LGVL, Ty);
-      
+
       cld_replace_uses(G, LGVL, V0);
     }
   }
   return wf;
 }
-                          
+
 
 /// cld_plugin_createwrappers - For each kernel and vectorized kernel:
 /// 1. create a wrapper with external linkage.
 /// 2. fix up any __local arguments to the kernel.
 /// 3. add the wrapper to the export list for the module.
-static 
+static
 int cld_plugin_createwrappers(Module *M, ConstantArray *init,
                               SmallVectorImpl<std::string> &WrapperNames,
                               SmallVectorImpl<std::string> &AVNames,
@@ -632,10 +633,10 @@ int cld_plugin_createwrappers(Module *M, ConstantArray *init,
                                 &kCFTypeDictionaryValueCallBacks);
   if (!d)
     return -1;
-  
+
   // Create the TargetData structure from the Module's arch info.
   TargetData TD(M);
-  
+
   // LLVM uses i8 * rather than void *.
   LLVMContext &CTX = M->getContext();
   Type *VoidTy = Type::getVoidTy(CTX);
@@ -643,7 +644,7 @@ int cld_plugin_createwrappers(Module *M, ConstantArray *init,
   Type *SBPPTy = PointerType::getUnqual(SBPTy);
   Type *SizeTy = IntegerType::get(CTX, TD.getPointerSizeInBits());
   Type *SizePTy = PointerType::getUnqual(SizeTy);
-  
+
   std::vector<Type *> Tys;
 
   Tys.push_back(SBPPTy);  // args_list
@@ -652,7 +653,7 @@ int cld_plugin_createwrappers(Module *M, ConstantArray *init,
   Tys.push_back(SizeTy);  // stride
   FunctionType *wTy = FunctionType::get(VoidTy, Tys, false);
 
-  
+
   // Iterate the constant array which tracks the kernel functions in a module
   // and generate a wrapper for each.
   for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
@@ -682,7 +683,7 @@ int cld_plugin_createwrappers(Module *M, ConstantArray *init,
     // This is a function, pull out the arg info string.
     Value *field1 = elt->getOperand(1)->stripPointerCasts();
     GlobalVariable *sgv = cast<GlobalVariable>(field1);
-    
+
     // Get the description of the arguments that the front end generated, so
     // that we can put the read and write information for images in the arg
     // description structure.
@@ -691,7 +692,7 @@ int cld_plugin_createwrappers(Module *M, ConstantArray *init,
       if (f1arr->isString())
         args_desc = f1arr->getAsString();
 
-    // Nuke LGV, which has uses of the kernel functions,  so it doesn't 
+    // Nuke LGV, which has uses of the kernel functions,  so it doesn't
     // interfere with removing them later.
     if (lgv)
       lgv->replaceAllUsesWith(UndefValue::get(lgv->getType()));
@@ -711,7 +712,7 @@ __BEGIN_DECLS
 
 /// cl2module - The compiler's entry point.
 extern "C" {
-  struct HeaderStruct { 
+  struct HeaderStruct {
     const char*  hdr;
     unsigned     hdr_size;
     const char*  hdr_name;
@@ -743,15 +744,15 @@ static int compileProgram(
   std::string triple = Runtime->getTargetTriple();
 
   // Prepend "-triple {$TRIPLE} " onto the options string.
-  std::string options_str; 
+  std::string options_str;
   options_str = std::string("-triple ") + triple + " " + options;
 
   // Determine if optimizations are disabled, in which case we should also turn
-  // on debug info.  
+  // on debug info.
   bool disable_opt = (opt & CLD_COMP_OPT_FLAGS_DISABLE) != 0;
   bool debug = (opt & CLD_COMP_OPT_FLAGS_DEBUG) != 0;
   Module *SM = NULL;
-  
+
   if (opt & CLD_COMP_OPT_FLAGS_PORT_BINARY) {
     // Load LLVM IR; don't include the null byte in size.
     StringRef ref((const char*)source, source_size-1);
@@ -783,7 +784,7 @@ static int compileProgram(
   else {
     // Add global variable with local linkage.
     SM = (Module *)cl2module(
-                     objects->llvm_module->getContext(), opt, 
+                     objects->llvm_module->getContext(), opt,
                      options_str.c_str(), (const char*)source,
                      debug, log, &hdrs);
   }
@@ -791,7 +792,7 @@ static int compileProgram(
     return -2;
 
   OwningPtr<Module> OM(SM);
-  
+
   if (getenv("CL_DUMP_IR"))
     errs() << *SM << '\n';
 
@@ -799,9 +800,9 @@ static int compileProgram(
   // adding a variable to hold the compiler options for this compile.
   if (opt & CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY) {
     Type* IntTy = Type::getIntNTy(SM->getContext(), sizeof(opt)*8);
-    (void) new GlobalVariable(*SM, IntTy, true,                                                                     
+    (void) new GlobalVariable(*SM, IntTy, true,
            GlobalValue::InternalLinkage,
-           ConstantInt::get(IntTy, opt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),                                                      
+           ConstantInt::get(IntTy, opt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),
            "opencl.compiler.option", NULL, false, 0);
     WriteBitcodeToFile(SM, os);
     os.flush();
@@ -812,7 +813,7 @@ static int compileProgram(
   GlobalVariable *annotation = SM->getGlobalVariable("llvm.global.annotations");
   bool has_kernel_annotation = annotation && annotation->hasInitializer();
   if (!has_kernel_annotation && !link_multiple) {
-    if (log) 
+    if (log)
       *log = strdup("No kernels or only kernel prototypes found when build executable.");
     return -3;
   }
@@ -826,7 +827,7 @@ static int compileProgram(
   SmallVector<std::string, 8> funcNames;
   SmallVector<Function*, 8> kernelSet;
 
-  // If vectorization was requested and an Intel autovectorizer exists, create 
+  // If vectorization was requested and an Intel autovectorizer exists, create
   // an instance of it, and add it to the pass manager.
   SmallVector<std::string, 8> AVNames;
   SmallVector<int, 8> AVWidthMax;
@@ -844,7 +845,7 @@ static int compileProgram(
       Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM,SM,NULL);
       optimizer.Optimize();
 
-      
+
     if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) &&
         !debug && !disable_opt) {
       // FIXME: replace with sysctl check for avx when available.
@@ -853,7 +854,7 @@ static int compileProgram(
         vectorWidth = 8;
 
       if (Pass *CLAVPass = cld_autovec_create(Runtime, vectorWidth)) {
-        // For the vectorizer, mark all kernels as always_inline in case one 
+        // For the vectorizer, mark all kernels as always_inline in case one
         // kernel calls another.
         for (unsigned i = 0, e = init->getType()->getNumElements(); i != e; ++i) {
           ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
@@ -878,13 +879,13 @@ static int compileProgram(
       }
     }
 
-    // Generate the wrapper for each kernel function and vectorized kernel 
+    // Generate the wrapper for each kernel function and vectorized kernel
     // function.  The wrapper is glue code between the runtime and the actual
     // kernel function which hides things like ABI differences.
     if (cld_plugin_createwrappers(SM, init, wrapperNames, AVNames,
                                   AVWidthMax, info, debug))
       return -5;
-  
+
     // Remove the annotation from the module now that we're done with it. Delete
     // any altered kernels that had globals holding __local as they no longer
     // have sane IR.
@@ -901,7 +902,7 @@ static int compileProgram(
       return -15;
     *info = d;
   }
-  
+
   if (link_multiple) {
     // Now that we are done with the vectorizer, undo forcing inline since
     // another compilation unit may link with the kernels in this module.
@@ -955,14 +956,14 @@ static int compileProgram(
     KernelPasses.add(createCFGSimplificationPass());
     KernelPasses.add(createGVNPass());
   }
-  
+
   // Create the target machine for this module, and add passes to emit an object
   // file of this module's architecture. We can't get it from SM since we
   // may be loading a portable binary.
   std::string target_err;
   const Target *T = TargetRegistry::lookupTarget(triple, target_err);
   if (!T) {
-    if (log) 
+    if (log)
       *log = strdup("x86 llvm target machine not found!");
     return -7;
   }
@@ -972,21 +973,21 @@ static int compileProgram(
                                                          CodeModel::Default));
 
   if (Target->addPassesToEmitFile(KernelPasses, os,
-                                  TargetMachine::CGFT_ObjectFile, 
+                                  TargetMachine::CGFT_ObjectFile,
                                   CodeGenOpt::Default))
     return -8;
-  
+
   if (getenv("CL_DUMP_IR"))
     errs() << *SM << '\n';
-  
+
   // Run the pass manager, emitting an object file to 'os'
   KernelPasses.run(*SM);
 
   if (getenv("CL_DUMP_IR"))
     errs() << *SM << '\n';
-  
+
   os.flush();
-  
+
   return 0;
 }
 
@@ -1045,7 +1046,7 @@ static void allocateCVMSReturnData(
   cvmsCPUReturnData *rd;
   size_t log_len = strlen(log) + 1;
   size_t rdlen = sizeof *rd + log_len + ofile.size() + dylib.size();
-  
+
   // offset[0]: char *log
   // offset[1]: char *object_file
   rd = (cvmsCPUReturnData *) (*llvm_func->service->content_allocate)(llvm_func, rdlen);
@@ -1106,7 +1107,7 @@ static int buildSrcFiles(
         *log = strdup("Cannot load source file");
       return -1;
     }
-    
+
     unsigned char *BufPtr = (unsigned char *)memory_buffer->getBufferStart();
     unsigned char *BufEnd = BufPtr + memory_buffer->getBufferSize();
     if (llvm::isRawBitcode(BufPtr, BufEnd) ||
@@ -1128,7 +1129,7 @@ static int buildSrcFiles(
       }
     }
     delete memory_buffer;
-    
+
     // Advance to the next source.
     if (idx < numSrcs) {
       size_t offset = strings->offsets[cvmsStringOffsetOptions+idx];
@@ -1147,7 +1148,7 @@ static int buildSrcHeaderFiles(
              std::vector<HeaderStruct>& HdrPtrs,
              char **log)
 {
-  // In the case of loading a source file with headers, the CVMS string 
+  // In the case of loading a source file with headers, the CVMS string
   // has the following structure
   //    num_header +1 for the source
   //    1st cvmsStringOffsetSource
@@ -1156,7 +1157,7 @@ static int buildSrcHeaderFiles(
   //      2 * num_headers cvmsStringOffsetSources if num_sources > 1
   //      num_header header files
   //      num_header header names
-  
+
   // First, process the source.
   cvmsStrings *strings = (cvmsStrings *) llvm_func->source_addrs[cvmsSrcIdxData];
   int numSrcs = strings->offsets[cvmsStringNumSource];
@@ -1183,7 +1184,7 @@ static int buildSrcHeaderFiles(
     Source.src_size = source_size;
     delete memory_buffer;
   }
-  
+
   // Process each header
   int numHdrs = numSrcs-1;
   for (int i = 0; i < numHdrs; ++i) {
@@ -1192,12 +1193,12 @@ static int buildSrcHeaderFiles(
     size_t next_offset = strings->offsets[cvmsStringOffsetOptions + i + 2];
     source = &strings->data[offset];
     source_size = next_offset - offset;
-    
+
     StringRef ref((const char*)source, source_size-1);
     MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref);
     unsigned char *BufPtr = (unsigned char *)memory_buffer->getBufferStart();
     unsigned char *BufEnd = BufPtr + memory_buffer->getBufferSize();
-    
+
     if (llvm::isRawBitcode(BufPtr, BufEnd) ||
         llvm::isBitcodeWrapper(BufPtr, BufEnd) ||
         CLArchive::isArchive(BufPtr, BufEnd)) {
@@ -1210,7 +1211,7 @@ static int buildSrcHeaderFiles(
     HdrPtrs.push_back(HStruct);
     delete memory_buffer;
   }
-  
+
   for (int i = 0; i < numHdrs; ++i) {
     size_t offset = strings->offsets[cvmsStringOffsetOptions + numHdrs+i+1];
     source = &strings->data[offset];
@@ -1246,7 +1247,7 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
     free(log);
     return CVMS_ERROR_NONE;
   }
-   
+
   // Create the archive
   std::string library_file;
   raw_string_ostream ofile_stream(library_file);
@@ -1274,7 +1275,7 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 ///      executable. (clBuildProgram).  This is the case when the above two
 ///      conditions are not met and we have a single source being passed.
 ///    - Multiple portable binaries used to build an executable. (clLinkProgram)
-///      This occurs when none of the above conditions are met. 
+///      This occurs when none of the above conditions are met.
 cvms_private_service_t *cvmsPluginServiceInitialize(cvms_plugin_service_t service)
 {
     return NULL;
@@ -1297,7 +1298,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   if (keys->opt & CLD_COMP_LINK_CREATE_LIBRARY) {
     return buildArchive(llvm_func);
   }
-  
+
   cvmsStrings *strings = (cvmsStrings *) llvm_func->source_addrs[cvmsSrcIdxData];
   options = &strings->data[strings->offsets[cvmsStringOffsetOptions]];
 
@@ -1305,15 +1306,15 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
   // Set llvm options for our optimization phases and also set them in
   // llvm_func so CVMS will set them properly when jitting.
-  llvm::UnsafeFPMath = 
+  llvm::UnsafeFPMath =
     (keys->opt & CLD_COMP_OPT_FLAGS_UNSAFE_MATH_OPTIMIZATIONS) ||
     (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
   llvm::NoInfsFPMath =
      (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
-    (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH); 
+    (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
   llvm::NoNaNsFPMath =
    (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
-     (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);  
+     (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
   llvm::LessPreciseFPMADOption = keys->opt & CLD_COMP_OPT_FLAGS_MAD_ENABLE;
 
   // Turn the source passed to us by cvms into IR.  Collect the list of called
@@ -1348,7 +1349,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
       }
     }
   } else {
-    // Building an executable so first get the list of sources 
+    // Building an executable so first get the list of sources
     std::vector<SrcLenStruct> SrcPtrs;
     std::vector<const char*> HdrNames;
     err = buildSrcFiles(llvm_func, SrcPtrs, &log);
@@ -1429,7 +1430,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
     // If debugging is disabled, do not return the original object file.
     if ((keys->opt & CLD_COMP_OPT_FLAGS_DEBUG) == 0) {
-      std::vector<std::string*>::iterator bciter = ObjFileVec.begin(); 
+      std::vector<std::string*>::iterator bciter = ObjFileVec.begin();
       std::vector<std::string*>::iterator bcend = ObjFileVec.end();
       for (; bciter != bcend; ++bciter)
         (*bciter)->clear();
@@ -1445,10 +1446,10 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   llvm::NoNaNsFPMath = false;
   llvm::LessPreciseFPMADOption = false;
 
-  std::vector<std::string*>::iterator bciter = ObjFileVec.begin(); 
+  std::vector<std::string*>::iterator bciter = ObjFileVec.begin();
   std::vector<std::string*>::iterator bcend = ObjFileVec.end();
   for (; bciter != bcend; ++bciter)
-    free(*bciter);  
+    free(*bciter);
 
   return CVMS_ERROR_NONE;
 }

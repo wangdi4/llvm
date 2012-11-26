@@ -33,13 +33,9 @@
         %endif
     %elif meta_type['container_type'] == 'list':
         <% item_meta_typename = meta_type['item_type'] %>
-        %if element['location'] == 'named':
-            MetaDataNamedList<${list_item_type(item_meta_typename)} >
-        %else:
-            MetaDataList<${list_item_type(item_meta_typename)} >
-        %endif
+            MetaDataList<${list_item_type(item_meta_typename)}>
     %elif meta_type['container_type'] == 'struct':
-        ${class_name(element['metatype'])}Handle
+            ${class_name(element['metatype'])}Handle
     %endif
 </%def>
 ## generate the typedef name for the element type in the struct

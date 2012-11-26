@@ -31,7 +31,7 @@ namespace Intel
 //typedefs and forward declarations
 <%utils:iterate_structs args="typename">
 class ${class_name(typename)};
-typedef MetaObjectHandle<${class_name(typename)}> ${class_name(typename)}Handle;\
+typedef MetaObjectHandle<${class_name(typename)}> ${class_name(typename)}Handle; \
 </%utils:iterate_structs>
 
 <%utils:iterate_structs args="typename">
@@ -42,6 +42,8 @@ typedef MetaObjectHandle<${class_name(typename)}> ${class_name(typename)}Handle;
 class ${class_name(typename)}:public IMetaDataObject
 {
 public:
+    typedef ${class_name(typename)} _Myt;
+    typedef IMetaDataObject _Mybase;
     // typedefs for data member types
     <%utils:iterate_struct_elements parent="${type}" args="element">
     %if schema[element['metatype']]['is_container'] == False:
@@ -55,30 +57,30 @@ public:
     ///
     // Factory method - creates the ${class_name(typename)} from the given metadata node
     //
-    static ${class_name(typename)}* get(const llvm::MDNode* pNode)
+    static _Myt* get(const llvm::MDNode* pNode, bool hasId = false)
     {
-        return new ${class_name(typename)}(pNode);
+        return new _Myt(pNode, hasId);
     }
 
     ///
     // Factory method - create the default empty ${class_name(typename)} object
-    static ${class_name(typename)}* get()
+    static _Myt* get()
     {
-        return new ${class_name(typename)}();
+        return new _Myt();
     }
 
     ///
     // Factory method - create the default empty named ${class_name(typename)} object
-    static ${class_name(typename)}* get(const char* name)
+    static _Myt* get(const char* name)
     {
-        return new ${class_name(typename)}(name);
+        return new _Myt(name);
     }
 
 
     ///
     // Ctor - loads the ${class_name(typename)} from the given metadata node
     //
-    ${class_name(typename)}(const llvm::MDNode* pNode, bool isNamed = false);
+    ${class_name(typename)}(const llvm::MDNode* pNode, bool hasId);
 
     ///
     // Default Ctor - creates the empty, not named ${class_name(typename)} object
@@ -151,6 +153,16 @@ public:
         return ${member_name(element)}.hasValue();
     }
 
+    ${member_typedef(element)}::item_type get${element['name']}Item( size_t index )
+    {
+        return ${member_name(element)}.getItem(index);
+    }
+
+    void set${element['name']}Item( size_t index, const ${member_typedef(element)}::item_type& item  )
+    {
+        return ${member_name(element)}.setItem(index, item);
+    }
+
     void add${element['name']}Item(const ${member_typedef(element)}::item_type& val)
     {
         ${member_name(element)}.push_back(val);
@@ -162,13 +174,6 @@ public:
     }
     %endif
     </%utils:iterate_struct_elements>
-
-    ///
-    // Returns the named id for this ${class_name(typename)}
-    llvm::StringRef getId()
-    {
-        return m_id.get();
-    }
 
     ///
     // Returns true if any of the ${class_name(typename)}`s members has changed
@@ -206,22 +211,17 @@ private:
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
     %if schema[element['metatype']]['is_container'] == False:
-    llvm::Value* get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const;
+    llvm::Value* get${element['name']}Node( const llvm::MDNode* pParentNode) const;
     %else:
-    llvm::MDNode* get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const;
+    llvm::MDNode* get${element['name']}Node( const llvm::MDNode* pParentNode) const;
     %endif
     </%utils:iterate_struct_elements>
-
-    ///
-    // Returns the meta data node for the id name
-    llvm::Value* getIdNode(const llvm::MDNode* pNode, bool isNamed);
 
 private:
     // data members
     <%utils:iterate_struct_elements parent="${type}" args="element">
     ${member_type(element)} ${member_name(element)};\
     </%utils:iterate_struct_elements>
-    MetaDataValue<std::string>  m_id;
     // parent node
     const llvm::MDNode* m_pNode;
 };\
@@ -283,6 +283,21 @@ public:
     bool empty_${element['name']}()  const
     {
         return ${member_name(element)}.empty();
+    }
+
+    bool is${element['name']}HasValue() const
+    {
+        return ${member_name(element)}.hasValue();
+    }
+
+    ${member_typedef(element)}::item_type get${element['name']}Item( size_t index )
+    {
+        return ${member_name(element)}.getItem(index);
+    }
+
+    void set${element['name']}Item( size_t index, const ${member_typedef(element)}::item_type& item  )
+    {
+        return ${member_name(element)}.setItem(index, item);
     }
 
     void add${element['name']}Item(const ${member_typedef(element)}::item_type& val)

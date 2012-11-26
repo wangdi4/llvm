@@ -23,24 +23,30 @@
 
 namespace Intel
 {
-
 <%utils:iterate_structs args="typename">
 <%type=schema[typename]%>
-
 ///
 // Ctor - loads the ${class_name(typename)} from the given metadata node
 //
-${class_name(typename)}::${class_name(typename)}(const llvm::MDNode* pNode, bool isNamed):
+${class_name(typename)}::${class_name(typename)}(const llvm::MDNode* pNode, bool hasId):
+    _Mybase(pNode, hasId),
     <%utils:iterate_struct_elements parent="${type}" args="element">
     %if schema[element['metatype']]['is_container'] == False:
-    ${member_name(element)}(get${element['name']}Node(pNode, isNamed)),\
+    ${member_name(element)}(get${element['name']}Node(pNode)),
     %elif schema[element['metatype']]['container_type'] == 'struct':
-    ${member_name(element)}(${class_name(element['metatype'])}::get(get${element['name']}Node(pNode, isNamed))),\
+        %if element['location'] == 'named':
+    ${member_name(element)}(${class_name(element['metatype'])}::get(get${element['name']}Node(pNode), true)),\
+        %else:
+    ${member_name(element)}(${class_name(element['metatype'])}::get(get${element['name']}Node(pNode), false)),\
+        %endif
     %else:
-    ${member_name(element)}(get${element['name']}Node(pNode, isNamed)),\
+        %if element['location'] == 'named':
+    ${member_name(element)}(get${element['name']}Node(pNode), true),\
+        %else:
+    ${member_name(element)}(get${element['name']}Node(pNode), false),\
+        %endif
     %endif
     </%utils:iterate_struct_elements>
-    m_id( getIdNode(pNode, isNamed)),
     m_pNode(pNode)
 {}
 
@@ -53,7 +59,7 @@ ${class_name(typename)}::${class_name(typename)}():
         %if schema[element['metatype']]['is_container'] == False:
     ${member_name(element)}("${element['key']}"),\
         %elif schema[element['metatype']]['container_type'] == 'struct':
-    ${member_name(element)}(${class_name(element['metatype'])}::get("${element['key']}")),\
+    ${member_name(element)}(${member_type(element)}::ObjectType::get("${element['key']}")),\
         %else:
     ${member_name(element)}("${element['key']}"),\
         %endif
@@ -70,12 +76,13 @@ ${class_name(typename)}::${class_name(typename)}():
 // Ctor - creates the empty, named ${class_name(typename)} object
 //
 ${class_name(typename)}::${class_name(typename)}(const char* name):
+    _Mybase(name),
     <%utils:iterate_struct_elements parent="${type}" args="element">
     %if element['location'] == 'named':
         %if schema[element['metatype']]['is_container'] == False:
     ${member_name(element)}("${element['key']}"),\
         %elif schema[element['metatype']]['container_type'] == 'struct':
-    ${member_name(element)}(${class_name(element['metatype'])}::get("${element['key']}")),\
+    ${member_name(element)}(${member_type(element)}::ObjectType::get("${element['key']}")),\
         %else:
     ${member_name(element)}("${element['key']}"),\
         %endif
@@ -85,7 +92,6 @@ ${class_name(typename)}::${class_name(typename)}(const char* name):
         %endif
     %endif
     </%utils:iterate_struct_elements>
-    m_id(name),
     m_pNode(NULL)
 {}
 
@@ -118,9 +124,10 @@ llvm::Value* ${class_name(typename)}::generateNode(llvm::LLVMContext& context) c
 {
     llvm::SmallVector< llvm::Value*, 5> args;
 
-    if( m_id.hasValue() )
+    llvm::Value* pIDNode = _Mybase::generateNode(context);
+    if( NULL != pIDNode )
     {
-        args.push_back(m_id.generateNode(context));
+        args.push_back(pIDNode);
     }
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
@@ -150,15 +157,15 @@ void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNo
     }
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
-    ${member_name(element)}.save(context, llvm::cast<llvm::MDNode>(get${element['name']}Node(pNode, m_id.hasValue())));\
+    ${member_name(element)}.save(context, llvm::cast<llvm::MDNode>(get${element['name']}Node(pNode)));\
     </%utils:iterate_struct_elements>
 }
 
 <%utils:iterate_struct_elements parent="${type}" args="element">
 %if schema[element['metatype']]['is_container'] == False:
-llvm::Value* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const
+llvm::Value* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode) const
 %else:
-llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode, bool isNamed) const
+llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode) const
 %endif
 {
     if( !pParentNode )
@@ -166,7 +173,7 @@ llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MD
         return NULL;
     }
 
-    int offset = isNamed ? 1 :0;
+    unsigned int offset = _Mybase::getStartIndex();
 %if element['location'] == 'positional':
     %if schema[element['metatype']]['is_container'] == False:
     return pParentNode->getOperand(${element['index']} + offset);
@@ -189,39 +196,7 @@ llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MD
 %endif
 }
 </%utils:iterate_struct_elements>
-
-///
-// Returns the meta data node for the id name
-llvm::Value* ${class_name(typename)}::getIdNode(const llvm::MDNode* pNode, bool isNamed)
-{
-    if( !isNamed )
-    {
-        return NULL; //the structure is not named
-    }
-
-    if( NULL == pNode)
-    {
-        return NULL; //this is allowed for optional nodes
-    }
-
-    if( pNode->getNumOperands() < 1)
-    {
-        throw "Named value doesn't have a name node";
-    }
-
-    llvm::MDString* pIdNode = llvm::dyn_cast<llvm::MDString>(pNode->getOperand(0));
-
-    if( NULL == pIdNode )
-    {
-        throw "Named list id node is not a string";
-    }
-
-    return pIdNode;
-}
-
 </%utils:iterate_structs>
-
-
 
 
 ///
