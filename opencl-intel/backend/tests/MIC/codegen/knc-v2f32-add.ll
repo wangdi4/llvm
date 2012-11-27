@@ -1,13 +1,9 @@
 ; XFAIL: win32
 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
-; RUN:        -march=y86-64 -mcpu=knc 
-
+; RUN:        -march=y86-64 -mcpu=knc \
+; RUN:     | FileCheck %s -check-prefix=KNC
 ; 
-; REVIEW: Once this compiles, we need to add KNF: lines with the
-;         expected output.
-;
-;
 
 target datalayout = "e-p:64:64"
 
@@ -16,6 +12,7 @@ target datalayout = "e-p:64:64"
 
 define double @add1(double %a.coerce, double %b.coerce) nounwind readnone ssp {
 entry:
+; KNC: vaddps %zmm1, %zmm0, %zmm0
   %tmp7 = bitcast double %a.coerce to i64
   %tmp6 = bitcast i64 %tmp7 to <2 x float>
   %tmp4 = bitcast double %b.coerce to i64
@@ -28,6 +25,8 @@ entry:
 
 define double @add2(<2 x float>* nocapture %a, double %b.coerce) nounwind readonly ssp {
 entry:
+; KNC: vbroadcastsd (%rdi), %zmm1
+; KNC: vaddps    %zmm0, %zmm1, %zmm0
   %tmp4 = bitcast double %b.coerce to i64
   %tmp3 = bitcast i64 %tmp4 to <2 x float>
   %tmp1 = load <2 x float>* %a, align 8
@@ -39,6 +38,8 @@ entry:
 
 define double @add3(double %a.coerce, <2 x float>* nocapture %b) nounwind readonly ssp {
 entry:
+; KNC: vbroadcastsd (%rdi), %zmm1
+; KNC: vaddps    %zmm1, %zmm0, %zmm0
   %tmp4 = bitcast double %a.coerce to i64
   %tmp3 = bitcast i64 %tmp4 to <2 x float>
   %tmp2 = load <2 x float>* %b, align 8
@@ -50,6 +51,8 @@ entry:
 
 define double @add4(double %a.coerce) nounwind readonly ssp {
 entry:
+; KNC: vbroadcastsd gb(%rip), %zmm1
+; KNC: vaddps    %zmm1, %zmm0, %zmm0
   %tmp3 = bitcast double %a.coerce to i64
   %tmp2 = bitcast i64 %tmp3 to <2 x float>
   %tmp1 = load <2 x float>* @gb, align 8
@@ -61,6 +64,9 @@ entry:
 
 define double @add5(double %a.coerce) nounwind readonly ssp {
 entry:
+; KNC: movq      pgb(%rip), %rax
+; KNC: vbroadcastsd (%rax), %zmm1
+; KNC: vaddps    %zmm1, %zmm0, %zmm0
   %tmp4 = bitcast double %a.coerce to i64
   %tmp3 = bitcast i64 %tmp4 to <2 x float>
   %tmp1 = load <2 x float>** @pgb, align 8
