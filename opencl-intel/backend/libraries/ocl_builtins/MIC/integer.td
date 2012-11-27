@@ -32,10 +32,17 @@ OclBuiltinImpl add_sat_v16_u32 = OclBuiltinImpl<add_sat, [v16u32], 0, [{
     return as_$ReturnType(r);
   }]>;
 OclBuiltinImpl add_sat_v8_u64 = OclBuiltinImpl<add_sat, [v8u64], 0, [{
-    uchar c8;
-    ulong8 t = _addsetc($Arg0VarName, $Arg1VarName, &c8);
-    __m512i r = _mm512_mask_mov_epi64((__m512i)t, c8, (__m512i)(ulong8)ULONG_MAX);
-    return as_$ReturnType(r);
+    __m512i x_lo = (__m512i)_mm512_shuffle((__m512)$Arg0VarName, _MM_PERM_CCAA);
+    __m512i y_lo = (__m512i)_mm512_shuffle((__m512)$Arg1VarName, _MM_PERM_CCAA);
+    __m512i x_hi = (__m512i)_mm512_shuffle((__m512)$Arg0VarName, _MM_PERM_DDBB);
+    __m512i y_hi = (__m512i)_mm512_shuffle((__m512)$Arg1VarName, _MM_PERM_DDBB);
+
+    ushort c_lo = 0, c_hi = 0;
+    __m512i sum_lo = _mm512_addsetc_epi32(x_lo, y_lo, &c_lo);
+    __m512i sum_hi = _mm512_adc_epi32(x_hi, c_lo, y_hi, &c_hi); 
+    __m512i sum    = _mm512_mask_mov_epi32(sum_lo, 0xAAAA, sum_hi);
+    sum = _mm512_mask_mov_epi32(sum, c_hi, (__m512i)(uint16)UINT_MAX);
+    return as_$ReturnType(sum);
   }]>;
 
 // clz
@@ -124,13 +131,34 @@ OclBuiltinImpl mad_sat_v8_i64 = OclBuiltinImpl<mad_sat, [v8i64], 0, [{
     return _mm512_mask_mov_epi64(_mm512_mask_mov_epi64((__m512i)s, p8, (__m512i)(long8)LONG_MAX), n8, (__m512i)(long8)LONG_MIN);
   }]>;
 OclBuiltinImpl mad_sat_v8_u64 = OclBuiltinImpl<mad_sat, [v8u64], 0, [{
-    ulong8 pl = as_ulong8(_mm512_mullo_epi64((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-    ulong8 ph = mul_hi($Arg0VarName, $Arg1VarName);
-    uchar c8;
-    ulong8 s = _addsetc($Arg2VarName, pl, &c8);
-    ph = _adc(ph, c8, (ulong8)0, &c8);
-    c8 = _mm512_cmplt_epu64((__m512i)(ulong8)0, (__m512i)ph);
-    return as_$ReturnType(_mm512_mask_mov_epi64((__m512i)s, c8, (__m512i)(ulong8)ULONG_MAX));
+    __m512i zero_v = (__m512i)(uint16)0;
+
+    // X*Y = (Xh+Xl)*(Yh+Yl) = Xh*Yh + Xl*Yl + Xh*Yl + Xl*Yh 
+
+    // fill the saturation mask
+    // if the both hi dwords are not equal to zero simulatneously
+    __m512i Xh = (__m512i)_mm512_shuffle((__m512)$Arg0VarName, _MM_PERM_DDBB);
+    __m512i Yh = (__m512i)_mm512_shuffle((__m512)$Arg1VarName, _MM_PERM_DDBB);
+    ushort sat_mask = _mm512_cmpneq_epi32(zero_v, Xh);
+    sat_mask = _mm512_mask_cmpneq_epi32(sat_mask, zero_v, Yh);
+    // if mulhi of Xh*Yl or Xl*Yh is not equal to zero
+    __m512 mulhi_XhYl_XlYh = (__m512)_mm512_mulhi_epu32((__m512i)$Arg0VarName, _mm512_swizzle_epi32((__m512i)$Arg1VarName, _MM_SWIZ_REG_CDAB));
+    sat_mask |= _mm512_cmpneq_epi32(zero_v, (__m512i)_mm512_shuffle(mulhi_XhYl_XlYh, _MM_PERM_CCAA));
+    sat_mask |= _mm512_cmpneq_epi32(zero_v, (__m512i)_mm512_shuffle(mulhi_XhYl_XlYh, _MM_PERM_DDBB));
+
+    // calculate the result
+    __m512 mullo_XhYl_XlYh = (__m512)_mm512_mullo_epi32((__m512i)$Arg0VarName, _mm512_swizzle_epi32((__m512i)$Arg1VarName, _MM_SWIZ_REG_CDAB));
+    // mullo_XhYl_XlYh = (Xh*Yl, Xl*Yh, ...)
+    __m512i mul = _mm512_mask_addsetc_epi32((__m512i)_mm512_shuffle(mullo_XhYl_XlYh, _MM_PERM_CCAA), ~sat_mask, sat_mask, (__m512i)_mm512_shuffle(mullo_XhYl_XlYh, _MM_PERM_DDBB), &sat_mask); 
+    __m512i Xl = (__m512i)_mm512_shuffle((__m512)$Arg0VarName, _MM_PERM_CCAA);
+    __m512i Yl = (__m512i)_mm512_shuffle((__m512)$Arg1VarName, _MM_PERM_CCAA);
+    __m512i mullo_XlYl = _mm512_mullo_epi32(Xl, Yl);
+    __m512i mulhi_XlYl = _mm512_mulhi_epu32(Xl, Yl);
+    mul = _mm512_mask_addsetc_epi32(mul, ~sat_mask, sat_mask, mulhi_XlYl, &sat_mask); 
+    mul = _mm512_mask_mov_epi32(mul, 0x5555, mullo_XlYl); 
+    mul = _mm512_mask_mov_epi32(mul, sat_mask, (__m512i)(uint16)UINT_MAX); 
+    
+    return add_sat(as_ulong8(mul), $Arg2VarName);
   }]>;
 OclBuiltinImpl mad_sat_promote = OclBuiltinImpl<mad_sat, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8/*,  v16i8*/,
                                                                v1u8,  v2u8,  v3u8,  v4u8,  v8u8/*,  v16u8*/,
