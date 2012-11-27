@@ -543,7 +543,7 @@ public:
         } 
         else {
             char *newString = new char[n + 1];
-            int copySize = n;
+            ::size_t copySize = n;
             if( size_ < n ) {
                 copySize = size_;
             }
