@@ -246,6 +246,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().IsMIC()) {
     allowAllocaModificationOpt = false;
   }
+  const bool unrollLoops = true;
   // When running the standard optimization passes, do not change the loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for barriers.
   createStandardVolcanoModulePasses(
@@ -253,7 +254,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       uiOptLevel,
       has_bar, // This parameter controls the unswitch pass
       true,
-      true,
+      unrollLoops,
       false,
       allowAllocaModificationOpt,
       debugType != None);
@@ -413,24 +414,27 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
   }
 
-    // Remove unneeded functions from the module.
-    // *** keep this optimization last, or at least after function inlining! ***
-    if (!pConfig->GetLibraryModule())
-      m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
+  // Remove unneeded functions from the module.
+  // *** keep this optimization last, or at least after function inlining! ***
+  if (!pConfig->GetLibraryModule())
+    m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 
-    // Add prefetches only for MIC, if not in debug mode, and don't change the
-    // library
-    if (debugType == None && !pConfig->GetLibraryModule() &&
-        pConfig->GetCpuId().GetCPU() == Intel::MIC_KNC) {
-      m_modulePasses.add(createPrefetchPass());
+  // Add prefetches only for MIC, if not in debug mode, and don't change the
+  // library
+  if (debugType == None && !pConfig->GetLibraryModule() &&
+      pConfig->GetCpuId().GetCPU() == Intel::MIC_KNC) {
+    m_modulePasses.add(createPrefetchPass());
 
-      m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
-      m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
-      m_modulePasses.add(llvm::createGVNPass());
+    m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
+    m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
+    m_modulePasses.add(llvm::createGVNPass());
 #ifdef _DEBUG
-      m_modulePasses.add(llvm::createVerifierPass());
+    m_modulePasses.add(llvm::createVerifierPass());
 #endif
-    }
+  }
+  if (unrollLoops && debugType == None) {
+    m_modulePasses.add(llvm::createLoopUnrollPass(512, 0, 0));          // Unroll small loops
+  }
 }
 
 void Optimizer::Optimize()
