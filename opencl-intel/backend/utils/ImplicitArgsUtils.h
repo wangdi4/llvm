@@ -67,13 +67,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per executable
-    /// @param implicitArgument     The implicit arguments arguments
-    /// @param pExecutable          The executable
-    /// @param pLocalMemoryBuffers  The local memory buffers, will be used to set the pLocalMem arg
-    /// @param pWGStackFrame        The work group stack frame, used to set the local IDs and the special buffer
-    /// @param uiWICount            The work item count, uset to set the number of iterations
+    /// @param pWorkInfo        The work group information parameter
+    /// @param pGlobalBaseId    The global base id parameter
+    /// @param pCallBackContext The callback context parameter
+    /// @param bJitCreateWIids  The indiectaor for JIT creating WI ids parameter
+    /// @param packetWidth      The packet width for vectorized JIT parameter
+    /// @param pWIids           The work item ids buffer parameter
+    /// @param iterCounter      The number of iterations parameter
+    /// @param pBarrierBuffer   The barrier buffer parameter
     void setImplicitArgsPerExecutable(
-                         void* pLocalMemoryBuffer,
                          const sWorkInfo* pWorkInfo,
                          const size_t* pGlobalBaseId,
                          const CallbackContext* pCallBackContext, 
@@ -81,8 +83,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer,
-                         size_t* pCurrWI);
+                         char* pBarrierBuffer);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per work group

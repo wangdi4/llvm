@@ -20,6 +20,7 @@ File Name:  PrepareKernelArgs.h
 #define __PREPARE_KERNEL_ARGS_H__
 
 #include "LocalBuffAnalysis.h"
+#include "TLLVMKernelInfo.h"
 #include "cl_device_api.h"
 
 #include "llvm/Pass.h"
@@ -53,7 +54,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static char ID;
 
     /// @brief Constructor
-    PrepareKernelArgs(SmallVectorImpl<Function*> &vectFunctions);
+    PrepareKernelArgs(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
+                      SmallVectorImpl<Function*> &vectFunctions);
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -108,6 +110,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Maps each function and its metadata
     std::map<Function*, MDNode*> m_kernelsMetadata;
+
+    /// @brief A pointer to the map from functions to its kernel info (local buffer size)
+    std::map<const llvm::Function*, TLLVMKernelInfo> *m_pkernelsLocalBufferMap;
 
     /// @brief A pointer to the vectorized functions set gotten from the vectorizer pass
     SmallVectorImpl<Function*> *m_pVectFunctions;
