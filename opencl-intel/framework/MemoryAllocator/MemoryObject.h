@@ -147,7 +147,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL id data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent ) = 0;
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>& pOutEvent ) = 0;
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice

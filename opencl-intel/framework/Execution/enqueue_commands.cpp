@@ -284,7 +284,7 @@ cl_err_code Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, cons
 {
     assert( NULL != arg.pMemObj );
     SharedPtr<OclEvent> mem_event = NULL;
-	cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, &mem_event );
+	cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, mem_event );
 
 	if (CL_SUCCESS != errCode)
 	{

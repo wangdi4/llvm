@@ -122,6 +122,8 @@ bool cl_CPU_MIC_IntegerExecuteTest();
 bool cl_CPU_MIC_MigrateTest();
 bool cl_CPU_MIC_MapUnmapTest_InOrder();
 bool cl_CPU_MIC_MapUnmapTest_OutOfOrder();
+bool cl_CPU_MIC_Common_RT_SubBuffers_Async();
+bool cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release();
 //#define CUDA_DEVICE
 
 
