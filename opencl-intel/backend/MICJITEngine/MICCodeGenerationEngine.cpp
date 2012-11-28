@@ -225,7 +225,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   {
     // Open the file.
     FILE* OutF = 0;
-    std::string PrintFilename("outf.s");
+    std::string PrintFilename("/tmp/outf.s");
     std::string error;
     OwningPtr<tool_output_file> Out(new tool_output_file(PrintFilename.data(),
                                     error, 0));
