@@ -148,10 +148,10 @@ public:
     bool IsFeatureOn(unsigned int Feature) const {
         return (m_CPUFeatures & Feature) != 0;
     }
-    bool IsMIC() const {
-        return IsMIC(m_CPU);
+    bool HasGatherScatter() const {
+        return HasGatherScatter(m_CPU);
     };
-    static bool IsMIC(ECPU CPU) {
+    static bool HasGatherScatter(ECPU CPU) {
         return CPU >= MIC_FIRST && CPU < DEVICE_INVALID;
     };
     static bool IsValidCPUName(const char* pCPUName) {

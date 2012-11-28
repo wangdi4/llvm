@@ -38,6 +38,8 @@ endif ()
 
 if (WIN32)
   set (PLATFORM Win${PLATFORM})
+elseif (APPLE)
+  set (PLATFORM Mac${PLATFORM})
 else ()
   set (PLATFORM Linux${PLATFORM})
 endif ()
@@ -116,11 +118,15 @@ set (SDE_NAME_PREFIX __sde_svml_)
 message ("SVML lib dir: ${SVML_LIB_DIR}")
 message ("SVML binary dir: ${SVML_DLL_DIR}")
 
+if(APPLE)
+	set(OCL_HOST_CLANG /System/Library/Frameworks/OpenCL.framework/Libraries/openclc)
+endif()
+
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG) 
   set (CLANG clang)
 else()
-  set (CLANG OCL_HOST_CLANG)
+  set (CLANG ${OCL_HOST_CLANG})
 endif()
 if (NOT DEFINED OCL_HOST_OPT) 
   set (LLVM_OPT opt)
@@ -172,6 +178,15 @@ message ("TRIPLE:    ${TRIPLE}")
 set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 
+if(APPLE)
+set (CLANG_COMPILER_PARAMS 
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim
+  -mconstructor-aliases	-fcolor-diagnostics -O3 
+  -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
+  -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} 
+  )
+else()
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim
   -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins
@@ -179,6 +194,7 @@ set (CLANG_COMPILER_PARAMS
   -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -include opencl_.h
   )
+endif()
 
 # llvm-opt
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
@@ -543,7 +559,9 @@ endforeach (FILE)
 # running build for all supported SIMD architectures 
 add_subdirectory (corei7)
 add_subdirectory (sandybridge)
-add_subdirectory (haswell)
+if( NOT APPLE )
+	add_subdirectory (haswell)
+endif()
 if (INCLUDE_ATOM)
 	add_subdirectory (core2)
 endif()

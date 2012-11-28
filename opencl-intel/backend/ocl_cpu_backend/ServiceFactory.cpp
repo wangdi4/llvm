@@ -30,18 +30,18 @@ File Name:  ServiceFactory.cpp
 
 /**
  * Description of ENABLE_SDE mode for MIC:
- * In general we have dynamic library which compiles and execute the code for 
- * the CPU, but in MIC we have the compilation functionality done in this 
+ * In general we have dynamic library which compiles and execute the code for
+ * the CPU, but in MIC we have the compilation functionality done in this
  * dynamic lib and the execution functionality in another static lib (executor)
  * which will be loaded in the device.
  *
  * The main reason for this seperation is because of that Compilation done in
- * the HOST (CPU regular x86 arch), and the execution will be done in the 
+ * the HOST (CPU regular x86 arch), and the execution will be done in the
  * device (MIC native).
  *
- * In SDE we don't have the device but we still need to simulate the real flow. 
- * The solution is to enable "execution" for MIC JIT also in the dynamic 
- * library without need to simulate the executor (we will simulate the JIT 
+ * In SDE we don't have the device but we still need to simulate the real flow.
+ * The solution is to enable "execution" for MIC JIT also in the dynamic
+ * library without need to simulate the executor (we will simulate the JIT
  * execution only), this will work since SDE work as follows:
  *
  *   - if you see an instruction that the CPU can execute it:
@@ -49,7 +49,7 @@ File Name:  ServiceFactory.cpp
  *   - if you see an instruction can't be executed (aka MIC instruction):
  *       simulate it
  *
- * so for SDE our execution driver (executor) will be compiled for the CPU (x86) 
+ * so for SDE our execution driver (executor) will be compiled for the CPU (x86)
  * and we assume that we will use this path only under SDE so it's okay.
  */
 #ifdef ENABLE_SDE
@@ -99,7 +99,7 @@ ICLDevBackendServiceFactoryInternal* ServiceFactory::GetInstanceInternal()
     return s_pInstance;
 }
 
-cl_dev_err_code ServiceFactory::GetCompilationService( 
+cl_dev_err_code ServiceFactory::GetCompilationService(
     const ICLDevBackendOptions* pBackendOptions,
     ICLDevBackendCompilationService** ppBackendCompilationService)
 {
@@ -109,7 +109,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
         {
             return CL_DEV_INVALID_VALUE;
         }
-        
+
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
         DEVICE_TYPE mode = CPU_MODE;
         if(NULL != pBackendOptions)
@@ -134,7 +134,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
     catch( std::runtime_error& )
     {
@@ -143,7 +143,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
 }
 
 cl_dev_err_code ServiceFactory::GetExecutionService(
-    const ICLDevBackendOptions* pBackendOptions, 
+    const ICLDevBackendOptions* pBackendOptions,
     ICLDevBackendExecutionService** ppBackendExecutionService)
 {
     try
@@ -167,10 +167,10 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
             std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto");
             Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
             Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
-            assert(cpuId.IsMIC() && "MIC mode chosen but CPU ID is not right");
+            assert(cpuId.HasGatherScatter() && "MIC mode chosen but CPU ID is not right");
             *ppBackendExecutionService = new MICExecutionService(pBackendOptions, cpuId);
             return CL_DEV_SUCCESS;
-        #else 
+        #else
             *ppBackendExecutionService = NULL;
             //assert(false && "Execution Service Not Implemented for MIC Device on Host Lib");
             return CL_DEV_NOT_SUPPORTED;
@@ -186,12 +186,12 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 
 cl_dev_err_code ServiceFactory::GetSerializationService(
-    const ICLDevBackendOptions* pBackendOptions, 
+    const ICLDevBackendOptions* pBackendOptions,
     ICLDevBackendSerializationService** pBackendSerializationService)
 {
     try
@@ -223,20 +223,20 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 
 cl_dev_err_code ServiceFactory::GetDebuggingService(
     ICLDebuggingService** pDebuggingService)
 {
-    ICLDebuggingService* instance = 
+    ICLDebuggingService* instance =
         DebuggingServiceWrapper::GetInstance().GetDebuggingService();
     *pDebuggingService = instance;
     return instance == NULL ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
 }
 cl_dev_err_code ServiceFactory::GetImageService(
-    const ICLDevBackendOptions* pBackendOptions, 
+    const ICLDevBackendOptions* pBackendOptions,
     ICLDevBackendImageService** ppBackendImageService)
 {
     try
@@ -254,7 +254,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
         /// Image compiler instance
         CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         config.SkipBuiltins();
-       
+
         *ppBackendImageService = new ImageCallbackService(config, mode == CPU_MODE);
         return CL_DEV_SUCCESS;
     }
@@ -264,7 +264,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 

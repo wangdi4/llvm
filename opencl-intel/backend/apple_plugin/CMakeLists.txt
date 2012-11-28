@@ -40,7 +40,7 @@ set (PASSES_LIBS
     # Backend passes
     AddImplicitArgs
     BuiltInFuncImport
-    DebugInfoPass
+    # DebugInfoPass
     InstToFuncCall
     LocalBuffers
     LocalBuffAnalysis

@@ -1,5 +1,5 @@
 // this file includes naming convenetions and constant shared by the vectorizer passes
-// this file should NOT include any enviroment (VOLCANO, MIC, APPLE, DX, etc...) specific data 
+// this file should NOT include any enviroment (APPLE, DX, etc...) specific data
 
 
 // Maximum width supported as input

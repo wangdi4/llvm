@@ -23,7 +23,6 @@ u*******************************************************************************
 #include "X86Lower.h"
 #include "Packetizer.h"
 #include "Resolver.h"
-#include "MICResolver.h"
 #include "WIAnalysis.h"
 #include "llvm/Constants.h"
 #include "llvm/Analysis/Passes.h"
@@ -52,16 +51,16 @@ extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
 
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
-  if (CpuId.IsMIC()) return createMICResolverPass();
+  if (CpuId.HasGatherScatter()) return createMICResolverPass();
   return createX86ResolverPass();
 }
 
 static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
-  return createScalarizerPass(CpuId.IsMIC());
+  return createScalarizerPass(CpuId.HasGatherScatter());
 }
 
 static FunctionPass* createPacketizer(const Intel::CPUId& CpuId) {
-  return createPacketizerPass(CpuId.IsMIC());
+  return createPacketizerPass(CpuId.HasGatherScatter());
 }
 
 namespace intel {
@@ -219,8 +218,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(widDepPass);
     }
 
-    if (m_pConfig->GetCpuId().IsMIC()) {
-      // Register simplifyGEP only for MIC
+    if (m_pConfig->GetCpuId().HasGatherScatter()) {
+      // Register simplifyGEP only is GatherScatter is supported
       FunctionPass *simplifyGEP = createSimplifyGEPPass();
       fpm2.add(simplifyGEP);
     }

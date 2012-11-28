@@ -14,6 +14,8 @@ set(IMPLIB_SUFFIX .so )
 # defined by toolchain
 # Linux-Intel.cmake and Linux-GNU.cmake
 include("${OCL_TOOLCHAIN_FILE}")
+set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION com.apple.compilers.llvmgcc42 CACHE STRING "" FORCE )
+
 
 if (TARGET_CPU STREQUAL "Atom")
     set(CMAKE_EXE_LINKER_FLAGS        "${CMAKE_EXE_LINKER_FLAGS}    ${ATOM_SPECIFIC_FLAGS}")
@@ -27,7 +29,7 @@ message("** ** ** Enable Languages ** ** **")
 
 enable_language( C )
 enable_language( CXX )
-enable_language( ASM )
+#enable_language( ASM )
 
 
 set(BIN_OUTPUT_DIR_SUFFIX "mac")

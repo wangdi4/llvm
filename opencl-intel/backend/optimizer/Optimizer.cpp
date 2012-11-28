@@ -63,7 +63,7 @@ extern "C" llvm::ModulePass *createKernelAnalysisPass();
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
 extern "C" llvm::FunctionPass *createPrefetchPass();
- 
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
@@ -96,22 +96,22 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
     if (OptimizationLevel == 0) {
       return;
     }
-    
+
     if (UnitAtATime) {
       PM->add(llvm::createGlobalOptimizerPass());     // Optimize out global vars
-      
+
       PM->add(llvm::createIPSCCPPass());              // IP SCCP
       PM->add(llvm::createDeadArgEliminationPass());  // Dead argument elimination
     }
     PM->add(llvm::createInstructionSimplifierPass());
     PM->add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
     PM->add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
-    
+
     if (UnitAtATime)
       PM->add(llvm::createFunctionAttrsPass());       // Set readonly/readnone attrs
     if (OptimizationLevel > 2)
       PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
-    
+
     // Start of function pass.
     PM->add(llvm::createScalarReplAggregatesPass(256));  // Break up aggregate allocas
     if (SimplifyLibCalls)
@@ -123,14 +123,14 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
     PM->add(llvm::createCorrelatedValuePropagationPass()); // Propagate conditionals
     PM->add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
     PM->add(llvm::createInstructionCombiningPass());  // Combine silly seq's
-    
+
     PM->add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
     PM->add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
     PM->add(llvm::createReassociatePass());           // Reassociate expressions
     PM->add(llvm::createLoopRotatePass());            // Rotate Loop
     PM->add(llvm::createLICMPass());                  // Hoist loop invariants
     PM->add(llvm::createLoopUnswitchPass(OptimizeSize || OptimizationLevel < 3));
-    PM->add(llvm::createInstructionCombiningPass());  
+    PM->add(llvm::createInstructionCombiningPass());
     PM->add(llvm::createInstructionSimplifierPass());
     PM->add(llvm::createIndVarSimplifyPass());        // Canonicalize indvars
     PM->add(llvm::createLoopDeletionPass());          // Delete dead loops
@@ -166,7 +166,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
       // late pass of GlobalDCE.  It is capable of deleting dead cycles.
       if (OptimizationLevel > 2)
         PM->add(llvm::createGlobalDCEPass());         // Remove dead fns and globals.
-    
+
       if (OptimizationLevel > 1)
         PM->add(llvm::createConstantMergePass());       // Merge dup global constants
     }
@@ -185,11 +185,11 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
     }
   }
 
-Optimizer::~Optimizer() 
+Optimizer::~Optimizer()
 {
   destroyOpenclRuntimeSupport();
-}  
-  
+}
+
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
@@ -213,7 +213,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
-  
+
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
@@ -240,7 +240,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     has_bar = hasBarriers(pModule);
 
   bool allowAllocaModificationOpt = true;
-  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().IsMIC()) {
+  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
     allowAllocaModificationOpt = false;
   }
   // When running the standard optimization passes, do not change the loop-unswitch
@@ -256,9 +256,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
       debugType != None);
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
-  
+
   // Should be called before vectorizer!
-  m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().IsMIC()));
+  m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
   if ( debugType == None && !pConfig->GetLibraryModule()) {
     m_modulePasses.add(createKernelAnalysisPass());
@@ -272,7 +272,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     && debugType == None
     && uiOptLevel != 0)
   {
-    // In profiling mode remove llvm.dbg.value calls 
+    // In profiling mode remove llvm.dbg.value calls
     // before vectorizer.
     if (isProfiling) {
       m_modulePasses.add(createProfilingInfoPass());
@@ -283,7 +283,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
     if(pRtlModule != NULL) {
-        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig, 
+        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig,
                                                 m_vectFunctions, m_vectWidths);
         m_modulePasses.add(m_vectorizerPass);
     }
@@ -296,7 +296,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(llvm::createVerifierPass());
 #endif
 
-  // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer 
+  // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer
   // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
   // shift in this module.
   m_modulePasses.add(createShiftZeroUpperBitsPass());
@@ -307,7 +307,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
- 
+
   // The debugType enum and isProfiling flag are mutually exclusive, with precedence
   // given to debugType.
   //
@@ -317,7 +317,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
-   
+
    // Get Some info about the kernel
    // should be called before BarrierPass and createPrepareKernelArgsPass
    if(pRtlModule != NULL) {
@@ -330,7 +330,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createCLWGLoopCreatorPass(&m_vectFunctions, &m_vectWidths));
     m_barrierPass = createBarrierMainPass(debugType);
     m_modulePasses.add(m_barrierPass);
-    
+
     // After adding loops run loop optimizations.
     if( debugType == None ) {
       m_modulePasses.add(createCLBuiltinLICMPass());
@@ -359,7 +359,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // This pass checks if the module uses an undefined function or not
   // TODO : need to add the image library also
-  // assumption: should run after WI function inlining 
+  // assumption: should run after WI function inlining
   std::vector<llvm::Module*> runtimeModules;
   if(pRtlModule != NULL) runtimeModules.push_back(pRtlModule);
   m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions, runtimeModules));
@@ -379,7 +379,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   if ( debugType == None ) {
     m_modulePasses.add(llvm::createArgumentPromotionPass());        // Scalarize uninlined fn args
-  
+
     if ( !DisableSimplifyLibCalls ) {
       m_modulePasses.add(llvm::createSimplifyLibCallsPass());   // Library Call Optimizations
     }
@@ -404,7 +404,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
     m_modulePasses.add(llvm::createEarlyCSEPass());
     m_modulePasses.add(llvm::createGVNPass());
-    
+
 #ifdef _DEBUG
     m_modulePasses.add(llvm::createVerifierPass());
 #endif
@@ -440,7 +440,7 @@ void Optimizer::Optimize()
     m_modulePasses.run(*m_pModule);
 }
 
-bool Optimizer::hasBarriers(llvm::Module *pModule) 
+bool Optimizer::hasBarriers(llvm::Module *pModule)
 {
     for (llvm::Module::iterator it = pModule->begin(),e=pModule->end();it!=e;++it) {
         llvm::Function* f = it;
@@ -458,14 +458,14 @@ void Optimizer::getPrivateMemorySize(std::map<std::string, unsigned int>& buffer
     getBarrierStrideSize(m_barrierPass, bufferStrideMap);
 }
 
-bool Optimizer::hasUndefinedExternals() const 
-{ 
-    return !m_undefinedExternalFunctions.empty(); 
+bool Optimizer::hasUndefinedExternals() const
+{
+    return !m_undefinedExternalFunctions.empty();
 }
 
-const std::vector<std::string>& Optimizer::GetUndefinedExternals() const 
-{ 
-    return m_undefinedExternalFunctions; 
+const std::vector<std::string>& Optimizer::GetUndefinedExternals() const
+{
+    return m_undefinedExternalFunctions;
 }
 
 void Optimizer::GetVectorizedFunctions(FunctionWidthVector& vector)

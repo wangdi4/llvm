@@ -23,7 +23,6 @@
 #include "X86Lower.h"
 #include "Packetizer.h"
 #include "Resolver.h"
-#include "MICResolver.h"
 #include "WIAnalysis.h"
 #include "VecConfig.h"
 #include "IRPrinter.h"
@@ -45,7 +44,7 @@ namespace intel {
 
 Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig,
   SmallVectorImpl<Function*> &optimizerFunctions,
-  SmallVectorImpl<int> &optimizerWidths) : 
+  SmallVectorImpl<int> &optimizerWidths) :
   ModulePass(ID),
   m_runtimeModule(rt),
   m_numOfKernels(0),
@@ -136,7 +135,7 @@ bool Vectorizer::runOnModule(Module &M)
   FunctionPassManager vectPM(&M);
   vectPM.add(vectCore);
 
-  
+
   funcsVector::iterator fi = m_scalarFuncsList.begin();
   funcsVector::iterator fe = m_scalarFuncsList.end();
   for (; fi != fe; ++fi)
@@ -164,10 +163,10 @@ bool Vectorizer::runOnModule(Module &M)
     V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
     m_optimizerFunctions->push_back(vectFunc);
     m_optimizerWidths->push_back(vectFuncWidth);
-    
+
   }
 
-  
+
   {
     PassManager mpm;
     mpm.add(createSpecialCaseBuiltinResolverPass());
@@ -189,10 +188,10 @@ bool Vectorizer::runOnModule(Module &M)
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 extern "C"
-  Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig, 
+  Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig,
   SmallVectorImpl<Function*> &optimizerFunctions,
   SmallVectorImpl<int> &optimizerWidths)
-{    
+{
   return new intel::Vectorizer(runtimeModule, pConfig,
     optimizerFunctions, optimizerWidths);
 }

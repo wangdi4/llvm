@@ -49,4 +49,6 @@ include_directories(
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 
-add_subdirectory(tests)
+if(NOT APPLE)
+  add_subdirectory(tests)
+endif(NOT APPLE)

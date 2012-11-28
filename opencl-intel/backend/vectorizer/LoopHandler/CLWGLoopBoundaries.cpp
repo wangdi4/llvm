@@ -391,7 +391,7 @@ bool CLWGLoopBoundaries::currentFunctionHasAtomicCalls() {
   // First obtain all the atomic functions in the module.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getNameStr();
+    std::string name = fit->getName();
     if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
   }
   // No atomic functions means there is no atomic call in the current function.

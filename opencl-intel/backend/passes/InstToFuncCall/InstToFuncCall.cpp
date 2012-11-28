@@ -25,8 +25,8 @@ using namespace llvm;
 extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
-    void* createInstToFuncCallPass(bool isMic) {
-        return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isMic);
+    void* createInstToFuncCallPass(bool isV16Supported) {
+        return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isV16Supported);
     }
 }
 
@@ -38,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     char InstToFuncCall::ID = 0;
 
-    InstToFuncCall::InstToFuncCall(bool isMic) : ModulePass(ID), m_I2F(isMic) {}
+    InstToFuncCall::InstToFuncCall(bool isV16Supported) : ModulePass(ID), m_I2F(isV16Supported) {}
 
     /// Replaces instruction 'inst' with call to function 'funcName' which has a
     /// calling convention 'CC'.
@@ -93,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         return changed;
     }
 
-    ModulePass *createInstToFuncCallPass(bool isMic) { return new InstToFuncCall(isMic); }
+    ModulePass *createInstToFuncCallPass(bool isV16Supported) { return new InstToFuncCall(isV16Supported); }
 
     }}} // namespace
 

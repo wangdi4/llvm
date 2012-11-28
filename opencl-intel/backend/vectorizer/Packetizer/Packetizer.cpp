@@ -794,7 +794,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
-    
+
     PointerType *elemType = PointerType::get(ElemTy, 0);
     MO.Base = BitCastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
   }
@@ -1744,8 +1744,8 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
       // b) Are uniform values.
       // This is because we expect the vectorizer to turn most things that
       // are not uniform or gathers into SoA.
-      // Note that this is probably not a good idea for MIC, since it has
-      // real gathers. However MIC does not use transpose builtins yet,
+      // Note that this is probably not a good idea if real gather supported.
+      // However in that case we do not use transpose builtins yet,
       // so that is irrelevant.
       bool badForTranspose = false;
 

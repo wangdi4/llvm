@@ -7,30 +7,40 @@ project (${TARGET_NAME})
 #enables compound initialization literals
 remove_definitions("-pedantic")
 
-add_subdirectory(unittest)
+if(NOT APPLE)
+	add_subdirectory(unittest)
+endif(NOT APPLE)
 
-if(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe"
+
+set(GenCommand ocl-tblgen -gen-ocl-biheader 
+  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+  COMMAND ocl-tblgen -gen-ocl-biheader 
+  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+  DEPENDS ocl-tblgen
+  COMMENT "genereating demangled headers... ${GenCommand}"
+  VERBATIM
 )
-else(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen"
-)
-endif(WIN32)
+
 
 add_custom_command(
   OUTPUT BuiltinList.h
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   BuiltinList.h
-  DEPENDS NameManglingTests
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   COMMENT "copying MangledNames.h ..."
   VERBATIM
 )
 
 add_custom_command(
   OUTPUT CustomMappings.gen
-  COMMAND ${OCL_TBLGEN_EXE} -gen-vectorizer-map
+  COMMAND ocl-tblgen -gen-vectorizer-map
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
@@ -56,7 +66,6 @@ add_library(
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/llvm/include
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
   ${CMAKE_CURRENT_BINARY_DIR}
 )

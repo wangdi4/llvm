@@ -38,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     public:
         typedef std::pair<const char*, CallingConv::ID> LookupValue;
 
-        Inst2FunctionLookup(bool isMic) {
+        Inst2FunctionLookup(bool isV16Supported) {
             //TODO: move this away from here
             Type2ValueLookup FPToUI_Lookup;
             Type2ValueLookup FPToSI_Lookup;
@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             /// %call_conv = call double @_Z14convert_doublel(i64 %tmp2) nounwind
             SIToFP_Lookup[std::make_pair(Double,Integer64)] = std::make_pair("_Z14convert_doublel", CallingConv::C);
 
-            if (isMic)
+            if (isV16Supported)
             {
                 /// Replaces:
                 /// %conv = fptoui <16 x float> %tmp2 to <16 x i64>
@@ -234,7 +234,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     public:
         static char ID; // Pass identification, replacement for typeid
 
-        InstToFuncCall(bool isMic = true);
+        InstToFuncCall(bool isV16Supported = true);
 
         bool runOnModule(Module &M);
 
@@ -247,7 +247,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 /// Returns an instance of the Inst2Func pass,
 /// which will be added to a PassManager and run on a Module.
-    llvm::ModulePass *createInstToFuncCallPass(bool isMic);
+    llvm::ModulePass *createInstToFuncCallPass(bool isV16Supported);
 
 }}}
 

@@ -45,8 +45,8 @@ static raw_ostream &dbgPrint() {
     return enableDebugPrints ? errs() : devNull;
 }
 
-bool WeightedInstCounter::isMic() const {
-  return m_cpuid.IsMIC();
+bool WeightedInstCounter::hasV16Support() const {
+  return m_cpuid.HasGatherScatter();
 }
 
 bool WeightedInstCounter::hasAVX() const {
@@ -57,11 +57,11 @@ bool WeightedInstCounter::hasAVX2() const {
   return m_cpuid.HasAVX2();
 }
 
-     
-WeightedInstCounter::WeightedInstCounter(bool preVec = true, 
-                              Intel::CPUId cpuId = Intel::CPUId()): 
-                              FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),  
-                              m_desiredWidth(1), m_totalWeight(0) {        
+
+WeightedInstCounter::WeightedInstCounter(bool preVec = true,
+                              Intel::CPUId cpuId = Intel::CPUId()):
+                              FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),
+                              m_desiredWidth(1), m_totalWeight(0) {
   initializeLoopInfoPass(*PassRegistry::getPassRegistry());
   initializeDominatorTreePass(*PassRegistry::getPassRegistry());
   initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
@@ -69,51 +69,51 @@ WeightedInstCounter::WeightedInstCounter(bool preVec = true,
 
   int i = 0;
   while (CostDB[i].name) {
-    const FuncCostEntry* e = &CostDB[i];       
+    const FuncCostEntry* e = &CostDB[i];
     m_transCosts[e->name] = e->cost;
     i++;
   }
 }
 
-bool WeightedInstCounter::runOnFunction(Function &F) {  
+bool WeightedInstCounter::runOnFunction(Function &F) {
 
   //This is for safety - don't return 0.
   m_totalWeight = 1;
 
   // If the request was only to check sanity, only set the desired
-  // with for MIC to 16, and finish.
+  // with for 16 if supported, and finish.
   // This used to also contain a "are we allowed to vectorize" check
   // but that was moved elsewhere.
-  if (isMic()) {
+  if (hasV16Support()) {
     m_desiredWidth = 16;
     return false;
   }
 
-  // Check if this is the "pre" stage. 
+  // Check if this is the "pre" stage.
   // If it is, compute things that are relevant only here.
   DenseMap<Instruction*, int> MemOpCostMap;
   if (m_preVec) {
-    // MIC always has vectorization width 16.
-    if (isMic()) {
+    // if v16 is supported always has vectorization width 16.
+    if (hasV16Support()) {
       m_desiredWidth = 16;
       return false;
     }
 
     // Compute the "cost map" for stores and loads. This is only
     // done pre-vectorization. See function for extended explanation.
-    estimateMemOpCosts(F, MemOpCostMap); 
+    estimateMemOpCosts(F, MemOpCostMap);
   }
-  else if (isMic()) {
-    //Do nothing for MIC in the post stage.
+  else if (hasV16Support()) {
+    //Do nothing for v16 in the post stage.
     return false;
-  } 
+  }
 
   // First, estimate the total number of iterations each loop in the
   // functions runs. Once we have this, we can multiply the count
   // by each instruction's weight.
   DenseMap<Loop*, int> IterMap;
   estimateIterations(F, IterMap);
-  
+
   // Now compute some estimation of the probability of each basic block
   // being executed in a run.
   DenseMap<BasicBlock*, float> ProbMap;
@@ -124,9 +124,9 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   // For each basic block, add up its weight
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {    
+  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
     // Check if the basic block in a loop. If it is, we want to multiply
-    // all of its instruction's weights by its tripcount. 
+    // all of its instruction's weights by its tripcount.
     int TripCount = 1;
     if (Loop* ContainingLoop = LI->getLoopFor(BB))
       TripCount = IterMap.lookup(ContainingLoop);
@@ -135,14 +135,14 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     // And now, sum up all the instructions
     for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
-      m_totalWeight += Probability * TripCount * 
+      m_totalWeight += Probability * TripCount *
                        getInstructionWeight(I, MemOpCostMap);
     }
   }
 
   // If we are pre-vectorization, decide what the vectorization width should be.
-  // Noe that MIC was already decided earlier. The reason the code is split
-  // is that for the MIC we don't need to compute the various maps,
+  // Note that v16 support was already decided earlier. The reason the code is split
+  // is that for the v16 we don't need to compute the various maps,
   // while in this part of the code we want to use them.
   if (m_preVec)
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
@@ -153,23 +153,23 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Loop*, int> &IterMap,
       DenseMap<BasicBlock*, float> &ProbMap)
 {
-  assert(!isMic() && "Should not reach this for MIC");
+  assert(!hasV16Support() && "Should not reach this for v16");
 
-  // For SSE, this is always 4. 
+  // For SSE, this is always 4.
   if (!hasAVX())
     return 4;
 
   // For AVX, estimate the most used type in the kernel.
   // Integers have no 8-wide operations on AVX1, so vectorize to 4,
   // otherwise, 8.
-  // This logic was inherited from the old heuristic, but the types 
+  // This logic was inherited from the old heuristic, but the types
   // are computed slightly more rationally now.
   if (!hasAVX2()) {
     Type* DominantType = estimateDominantType(F, IterMap, ProbMap);
     if (DominantType->isIntegerTy())
       return 4;
     else
-      return 8;         
+      return 8;
   }
 
   // For AVX2, the logical choice would be always 8.
@@ -178,11 +178,11 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
   // The first corner case is <k x i16*> buffers. Since we don't have transpose
   // operations for i16, reading and writing from these buffers becomes
   // expensive.
-  
+
   for (Function::ArgumentListType::iterator argIt = F.getArgumentList().begin(),
        argEnd = F.getArgumentList().end(); argIt != argEnd; ++argIt) {
     Type* argType = argIt->getType();
-    
+
     // Is this a pointer type?
     PointerType* PtrArgType = dyn_cast<PointerType>(argType);
     if (!PtrArgType)
@@ -208,7 +208,7 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
 // Under normal conditions, a pointer comparison always occures, which
 // is consistent for a single run, but not between runs.
 struct TypeComp {
-  bool operator() (Type* Left, Type* Right) const {    
+  bool operator() (Type* Left, Type* Right) const {
     VectorType *VTypeLeft = dyn_cast<VectorType>(Left);
     VectorType *VTypeRight= dyn_cast<VectorType>(Right);
 
@@ -224,13 +224,13 @@ struct TypeComp {
 
     if (Left->getScalarSizeInBits() != Right->getScalarSizeInBits())
       return (Left->getScalarSizeInBits() < Right->getScalarSizeInBits());
-  
+
     Type* ScalarLeft = Left->getScalarType();
     Type* ScalarRight = Right->getScalarType();
 
     if (ScalarLeft->isIntegerTy() && !ScalarRight->isIntegerTy())
       return true;
-    
+
     if (!ScalarLeft->isIntegerTy() && ScalarRight->isIntegerTy())
       return false;
 
@@ -246,14 +246,14 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
 
   // For each type, count how many times it is the first operand of a binop.
   LoopInfo *LI = &getAnalysis<LoopInfo>();
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {    
+  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
     int TripCount = 1;
     if (Loop* ContainingLoop = LI->getLoopFor(BB))
       TripCount = IterMap.lookup(ContainingLoop);
 
     float Probability = ProbMap.lookup(BB);
     for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I) {
-      // We only care about BinOps 
+      // We only care about BinOps
       if (BinaryOperator* BinOp = dyn_cast<BinaryOperator>(I)) {
         Type* OpType = BinOp->getOperand(0)->getType();
         // Get the base type for vectors
@@ -272,9 +272,9 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
   // from run to run. This makes the choice inconsistent between runs.
   Type* DominantType = Type::getInt32Ty(F.getContext());
   float MaxCount = 0;
-  for (DenseMap<Type*, float>::iterator I = countMap.begin(), 
+  for (DenseMap<Type*, float>::iterator I = countMap.begin(),
        E = countMap.end(); I != E; ++I) {
-    if ((I->second > MaxCount) || 
+    if ((I->second > MaxCount) ||
         (I->second == MaxCount && TypeComp()(I->first, DominantType))) {
       MaxCount = I->second;
       DominantType = I->first;
@@ -284,7 +284,7 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
 }
 
 int WeightedInstCounter::estimateCall(CallInst *Call)
-{  
+{
     // TID generators are extremely common and very cheap.
     RuntimeServices* services = RuntimeServices::get();
     bool err = false;
@@ -296,7 +296,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     if (!Call->getCalledFunction())
       return CALL_WEIGHT;
 
-    StringRef Name = Call->getCalledFunction()->getName();    
+    StringRef Name = Call->getCalledFunction()->getName();
     // Since we run before the resolver, masked load/stores should count
     // as load/stores, not calls. Maybe slightly better or worse.
     if (Mangler::isMangledLoad(Name) || Mangler::isMangledStore(Name)) {
@@ -319,7 +319,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
         Name.startswith("vstore") || Name.startswith("_Z7vstore")) {
       return MEM_OP_WEIGHT;
     }
-    
+
     // Ugly hacks start here.
     if (Name.startswith("_Z5clamp") || Name.startswith("clamp"))
       return CALL_CLAMP_WEIGHT;
@@ -333,7 +333,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
 
 
     // allZero and allOne calls are cheap, it's basically a xor/ptest
-    if ((Name.startswith(Mangler::name_allZero)) || 
+    if ((Name.startswith(Mangler::name_allZero)) ||
         (Name.startswith(Mangler::name_allOne)))
       return DEFAULT_WEIGHT;
 
@@ -341,7 +341,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     return getFuncCost(Name);
 }
 
-int WeightedInstCounter::getFuncCost(const std::string& name) 
+int WeightedInstCounter::getFuncCost(const std::string& name)
 {
   if (m_transCosts.find(name) != m_transCosts.end()) {
     return m_transCosts[name];
@@ -352,7 +352,7 @@ int WeightedInstCounter::getFuncCost(const std::string& name)
       return CALL_WEIGHT + CALL_MASK_WEIGHT;
 
     return CALL_WEIGHT;
-  }    
+  }
 }
 
 int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
@@ -363,8 +363,8 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
   // If it's a scalar op, return the base weight.
   if (!OpType->isVectorTy())
     return Weight;
-  
-  VectorType* VecType = cast<VectorType>(OpType); 
+
+  VectorType* VecType = cast<VectorType>(OpType);
   int OpWidth = 0;
   //SSE
   if (!hasAVX())
@@ -380,7 +380,7 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
   return Weight * OpWidth;
 }
 
-int WeightedInstCounter::getOpWidth(VectorType* VecType, int Float, 
+int WeightedInstCounter::getOpWidth(VectorType* VecType, int Float,
                                      int Double, int LongInt, int ShortInt)
 {
   Type* BaseType = VecType->getScalarType();
@@ -406,12 +406,12 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   // We could replace this by a switch on the opcode, but that introduces
   // a bit too many cases. So using this method (also used in WIAnalysis).
   // TODO: A lot of cases have been introduced as is, so, perhaps replace.
-  if (BinaryOperator* BinOp = dyn_cast<BinaryOperator>(I)) 
+  if (BinaryOperator* BinOp = dyn_cast<BinaryOperator>(I))
     return estimateBinOp(BinOp);
-  
+
   if (CallInst* called = dyn_cast<CallInst>(I))
     return estimateCall(called);
-    
+
   // GEP and PHI nodes are free
   if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I))
     return 0;
@@ -439,10 +439,10 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     if (ResType != OpType)
       return EXPENSIVE_SHUFFLE_WEIGHT;
 
-    if (((OpType->getNumElements() == 4) || 
-         (OpType->getNumElements() == 8)) 
+    if (((OpType->getNumElements() == 4) ||
+         (OpType->getNumElements() == 8))
        &&
-        ((OpType->getElementType()->isFloatTy()) || 
+        ((OpType->getElementType()->isFloatTy()) ||
           OpType->getElementType()->isIntegerTy(32)))
       return CHEAP_SHUFFLE_WEIGHT;
 
@@ -455,10 +455,10 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     VectorType* OpType = dyn_cast<VectorType>(Vec->getType());
     assert(OpType && "Extract from a non-vector type!");
 
-    if (((OpType->getNumElements() == 4) || 
-         (OpType->getNumElements() == 8)) 
+    if (((OpType->getNumElements() == 4) ||
+         (OpType->getNumElements() == 8))
        &&
-        ((OpType->getElementType()->isFloatTy()) || 
+        ((OpType->getElementType()->isFloatTy()) ||
           OpType->getElementType()->isIntegerTy(32)))
       return CHEAP_EXTRACT_WEIGHT;
 
@@ -469,7 +469,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return INSERT_WEIGHT;
 
 
-  // We can't take spilling into account at this point, so counting loads 
+  // We can't take spilling into account at this point, so counting loads
   // and stores may be voodoo magic.
   // Still, it works.
   if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
@@ -493,11 +493,11 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   return DEFAULT_WEIGHT;
 }
 
-void WeightedInstCounter::estimateIterations(Function &F, 
-                                              DenseMap<Loop*, int> &IterMap) 
+void WeightedInstCounter::estimateIterations(Function &F,
+                                              DenseMap<Loop*, int> &IterMap)
                                               const
 {
-  // Walk the loop tree, "estimating" the total number of loop 
+  // Walk the loop tree, "estimating" the total number of loop
   // iterations for each loop. Since we assume control flow is sane
   // the number of iterations is simply the number of iterations of
   // the current loop multiplied by the computed total number for its
@@ -506,7 +506,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
   // constant, or LoopInfo could not figure it out), we guess it to be
   // LOOP_ITER_GUESS. It may be possible to refine this, but I don't see
   // a good way right now.
-  
+
   std::vector<Loop*> WorkList;
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   ScalarEvolution *SI = &getAnalysis<ScalarEvolution>();
@@ -517,19 +517,19 @@ void WeightedInstCounter::estimateIterations(Function &F,
 
   // Now, walk the loop tree.
   while(!WorkList.empty()) {
-    Loop* L = WorkList.back();    
+    Loop* L = WorkList.back();
     WorkList.pop_back();
 
-    assert(IterMap.find(L) == IterMap.end() && 
+    assert(IterMap.find(L) == IterMap.end() &&
       "Looking at same loop twice, loop tree is not a tree!");
 
     int Multiplier = 1;
     // Is this a top-level loop?
     if (Loop* Parent = L->getParentLoop()) {
       // No, it has a parent, so we want to mulitply by the parents' count
-      assert(IterMap.find(Parent) != IterMap.end() && 
+      assert(IterMap.find(Parent) != IterMap.end() &&
         "Parent of loop is not in iteration map!");
-      
+
       Multiplier = IterMap.lookup(Parent);
     }
 
@@ -537,12 +537,12 @@ void WeightedInstCounter::estimateIterations(Function &F,
     BasicBlock* Latch = L->getLoopLatch();
     if (Latch)
       Count = SI->getSmallConstantTripCount(L, Latch);
-      
-    // getSmallConstantTripCount() returns 1 for non-constant trip counts
+
+    // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.
-    if (Count == 1)
+    if (Count == 0)
       Count = LOOP_ITER_GUESS;
-      
+
     Count *= Multiplier;
 
     IterMap[L] = Count;
@@ -554,13 +554,13 @@ void WeightedInstCounter::estimateIterations(Function &F,
 }
 
 void WeightedInstCounter::
-     estimateProbability(Function &F, DenseMap<BasicBlock*, float> 
+     estimateProbability(Function &F, DenseMap<BasicBlock*, float>
                          &ProbMap) const {
-  
+
   // What we really ant is a control-dependance graph.
   // Luckily, a node is control-dependent exactly on its postdom
   // frontier.
-  
+
   PostDominanceFrontier* PDF = &getAnalysis<PostDominanceFrontier>();
   PostDominanceFrontier::DomSetMapType ControlDepMap;
 
@@ -576,19 +576,19 @@ void WeightedInstCounter::
     PDF->dump();
   }
 
-  // Check which instructions depend on "data" (results of loads and stores). 
+  // Check which instructions depend on "data" (results of loads and stores).
   DenseSet<Instruction*> DepSet;
   estimateDataDependence(F, DepSet);
 
-  // Now do a VERY coarse measurement. The number of nodes on which a block 
+  // Now do a VERY coarse measurement. The number of nodes on which a block
   // is control-dependent is the number of decision points. For a block to be
-  // reached, all decisions need to go "its way". 
+  // reached, all decisions need to go "its way".
   // This code makes all sorts of silly assumptions.
 
-  for (Function::iterator BB = F.begin(), BE = F.end(); BB != BE; BB++) { 
+  for (Function::iterator BB = F.begin(), BE = F.end(); BB != BE; BB++) {
     PostDominanceFrontier::iterator iter = PDF->find(BB);
     // It's actually possible that a BB has no PDF (as opposed to an empty one)
-    // This happens for infinite loops. If this is the case, 
+    // This happens for infinite loops. If this is the case,
     // we don't really care to evaluate this block.
     if (iter == PDF->end()) {
       ProbMap[BB] = 0;
@@ -596,7 +596,7 @@ void WeightedInstCounter::
     }
 
     PostDominanceFrontier::DomSetType &Frontier = iter->second;
-    // Before vectorization, the probability is simple 1/(2^k) where k 
+    // Before vectorization, the probability is simple 1/(2^k) where k
     // is the number of branches the block is control-dependent on.
     int count = (int)Frontier.size();
 
@@ -608,29 +608,29 @@ void WeightedInstCounter::
         // find allZero/allOne conditions, and filter them out.
         BasicBlock *Ancestor = *Anc;
         BranchInst* BR = dyn_cast<BranchInst>(Ancestor->getTerminator());
-        if (!BR) 
+        if (!BR)
           // The ancestor's terminator isn't a branch, definitely not an allZero one
           continue;
 
         Value* Cond = BR->getCondition();
         CallInst* CondCall = dyn_cast<CallInst>(Cond);
-        if (!CondCall) 
+        if (!CondCall)
           // A branch, but not directly based on a call.
           continue;
-        
+
         // Ok, so it's a call.
         // After vectorization, we consider dependence on an allZero/allOne
         // condition to be a bad thing. The normal structure for an allZero branch
         // is (A => B, A => C, B => C), where the A => B branch is taken only
         // if all workitems satisfy a condition. Note that block C does not depend
-        // on the branch in A(since it's always executed), only B does. 
-        // Because of the "all workitems" conditions,  it is a good idea to assume 
+        // on the branch in A(since it's always executed), only B does.
+        // Because of the "all workitems" conditions,  it is a good idea to assume
         // that block B is executed more often than a block that depends on a "normal"
-        // branch. For loops, the stucture is similar.   
+        // branch. For loops, the stucture is similar.
         // If it has no operands, it's definitely not allOne/allZero.
         // This is basically just a sanity check, there's no good reason for
         // anyone to branch on the result of a call with no arguments.
-        if (CondCall->getNumOperands() < 1) 
+        if (CondCall->getNumOperands() < 1)
           continue;
 
         // Handled unnamed functions (bitcasts)
@@ -642,7 +642,7 @@ void WeightedInstCounter::
         Type* AllZOpType = AllZOp->getType();
 
         // So, we do not count the ancestor if it's all1/all0, has a vector type, and is data
-        // dependent. Not counting penalizes this block, because the less blocks you're 
+        // dependent. Not counting penalizes this block, because the less blocks you're
         // control-dependent on, the higher your probability of being executed is.
         // The reason data dependence is taken into account is that an allZero call
         // that does not depend on data is a pretty weird beast. There are two cases:
@@ -652,11 +652,11 @@ void WeightedInstCounter::
         // the logic of "all workitems must agree for the block to be skipped, which is rarer
         // then a single workitem satisfying the condition" no longer applies.
         if ((Name.startswith(Mangler::name_allZero) || Name.startswith(Mangler::name_allOne))
-          && AllZOpType->isVectorTy() 
-          && (DepSet.find(CondCall) != DepSet.end())) 
+          && AllZOpType->isVectorTy()
+          && (DepSet.find(CondCall) != DepSet.end()))
             count--;
 
-        // A degenerate case - an allZero(true) branch is never taken. 
+        // A degenerate case - an allZero(true) branch is never taken.
         // If you depend on one of those, ignore this dependency.
         ConstantInt* ConstOp = dyn_cast<ConstantInt>(AllZOp);
         if (Name.startswith(Mangler::name_allZero) &&
@@ -684,11 +684,11 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   RuntimeServices* services = RuntimeServices::get();
   assert(services && "Unable to get runtime services");
 
-  // The idea is that some access patterns are good for vectorization and some are bad. 
-  // What we try to do here is look at each memory access, and decide 
+  // The idea is that some access patterns are good for vectorization and some are bad.
+  // What we try to do here is look at each memory access, and decide
   // if vectorization will help or hurt it. However, looking at the actual pattern is hard
   // so each operation is looked at in isolation, and some very ugly heuristics is used.
-  // We classify each access as "cheap" or "expensive". 
+  // We classify each access as "cheap" or "expensive".
   // An access is "cheap" if we expect the same workitem to access several adjacent locations.
   // It's "expensive" if we expect the pointers to be consecutive in the workitem dimension.
   // The basic heuristic is that if the access is ptr[j] where j depends on the TID, then:
@@ -700,12 +700,12 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // (Using WIAnalisys would be better, but we can't use it here, since this is pre-scalarization)
   // The above is only true for GEPs where the TID is the last index.
   // However, if the ID is not the last index, then your accesses are in fact of the form (K+id*L)+M
-  // so after vectorization they are strided (not good), but before vectorization, if you're accessing 
+  // so after vectorization they are strided (not good), but before vectorization, if you're accessing
   // several fields of a struct (with different M) this is in fact "cheap", even when not in a loop.
 
   LoopInfo *LI = &getAnalysis<LoopInfo>();
 
-  // First, find all the TID generators. 
+  // First, find all the TID generators.
   for (Function::iterator bbit = F.begin(), bbe=F.end(); bbit != bbe; ++bbit) {
     for (BasicBlock::iterator it = bbit->begin(), e=bbit->end(); it!=e;++it) {
       if (CallInst* Call = dyn_cast<CallInst>(it)) {
@@ -721,7 +721,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
       }
     }
   }
-  
+
   // Now run a DFS from each TID generator. We want to find two kinds of thing:
   // a) GEP instructions that use the generator.
   // b) MUL/SHL instructions that use it.
@@ -730,13 +730,13 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
     Instruction* I = TIDUsers.back();
     TIDUsers.pop_back();
     Visited.insert(I);
-    if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I)) { 
+    if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I)) {
       // Check which index is TID-dependent. If it's the last one this is expensive,
-      // otherwise, it's cheap. However, accesses to the local (addrspace 3) addresses 
+      // otherwise, it's cheap. However, accesses to the local (addrspace 3) addresses
       // are never expensive.
       // Another possible exception is that wide accesses are never expensive.
       // e.g. use something like:
-      // int RetSize = GEP->getType()->getElementType()->getPrimitiveSizeInBits();      
+      // int RetSize = GEP->getType()->getElementType()->getPrimitiveSizeInBits();
       // and then check whether (RetSize < 128).
       // Not in right now since it doesn't appear to be helpful.
 
@@ -746,14 +746,14 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
       if (!(LI->getLoopFor(GEP->getParent())))
         continue;
 
-      if (LastOpInst && (Visited.find(LastOpInst) != Visited.end()) && 
+      if (LastOpInst && (Visited.find(LastOpInst) != Visited.end()) &&
            (GEP->getPointerAddressSpace() != 3))
         ExpensiveGEP.push_back(GEP);
       else
         CheapGEP.push_back(GEP);
     }
     else if (BinaryOperator* BinOp = dyn_cast<BinaryOperator>(I)) {
-      if ((BinOp->getOpcode() == Instruction::Mul) || 
+      if ((BinOp->getOpcode() == Instruction::Mul) ||
           (BinOp->getOpcode() == Instruction::FMul) ||
           (BinOp->getOpcode() == Instruction::Shl)) {
         Muls.push_back(BinOp);
@@ -801,7 +801,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
         U->dump();
     }
   }
-  
+
   for (std::vector<Instruction*>::iterator I = CheapGEP.begin(), E = CheapGEP.end();
     I != E; I++) {
     for (Instruction::use_iterator U = (*I)->use_begin(), UE = (*I)->use_end();
@@ -816,7 +816,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   }
 }
 
-void WeightedInstCounter::addUsersToWorklist(Instruction *I, 
+void WeightedInstCounter::addUsersToWorklist(Instruction *I,
                                 DenseSet<Instruction*> &Visited,
                                 std::vector<Instruction*> &WorkList) const
 {
@@ -829,27 +829,27 @@ void WeightedInstCounter::addUsersToWorklist(Instruction *I,
 }
 
 
-void WeightedInstCounter::estimateDataDependence(Function &F, 
+void WeightedInstCounter::estimateDataDependence(Function &F,
                      DenseSet<Instruction*> &DepSet) const
 {
   // Finds every instruction that depends on loaded data.
 
-  // TODO: Add image reads?  
+  // TODO: Add image reads?
   std::vector<Instruction*> DataUsers;
 
-  // First, find all GEP instructions. 
+  // First, find all GEP instructions.
   // This used to be LoadInst but was changed to GEP.
   // LoadInst seems to make intuitive sense, but in fact also counts loads from allocas.
   // Why would there even be allocas at this stage? Because of soa builtins that return
   // results through local pointers. Oops.
   for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
     for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE; ++I) {
-      if (dyn_cast<GetElementPtrInst>(I)) 
+      if (dyn_cast<GetElementPtrInst>(I))
         DataUsers.push_back(I);
     }
   }
-  
-  // Now run a DFS from each GEP, and mark all its (indirect) users.  
+
+  // Now run a DFS from each GEP, and mark all its (indirect) users.
   while (!DataUsers.empty()) {
     Instruction* I = DataUsers.back();
     DataUsers.pop_back();
@@ -873,17 +873,17 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
     return false;
   }
 
-  if (!isReducibleControlFlow(F, DT)) { 
+  if (!isReducibleControlFlow(F, DT)) {
     dbgPrint()<< "Irreducible control flow, can not vectorize\n";
     return false;
   }
-  
-  if (hasIllegalTypes(F)) { 
+
+  if (hasIllegalTypes(F)) {
     dbgPrint() << "Types unsupported by codegen, can not vectorize\n";
     return false;
   }
 
-  if (hasNonInlineUnsupportedFunctions(F)) { 
+  if (hasNonInlineUnsupportedFunctions(F)) {
     dbgPrint() << "Call to unsupported functions, can not vectorize\n";
     return false;
   }
@@ -916,7 +916,7 @@ bool CanVectorizeImpl::hasVariableGetTIDAccess(Function &F) {
 // Check if the graph is irreducible using the standard algorithm:
 // 1. If you ignore backedges, graph is acyclic.
 // 2. backedges are edges where the target dominates the src.
-bool CanVectorizeImpl::isReducibleControlFlow(Function& F, DominatorTree& DT) {  
+bool CanVectorizeImpl::isReducibleControlFlow(Function& F, DominatorTree& DT) {
   llvm::SmallSet<BasicBlock*, 16> removed;
   llvm::SmallSet<BasicBlock*, 16> toProcess;
   toProcess.insert(&F.getEntryBlock());
@@ -984,7 +984,7 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
       // check that integer types are legal
       if (IntegerType* IT = dyn_cast<IntegerType>(tp)) {
         unsigned BW = IT->getBitWidth();
-        if (BW > 64) 
+        if (BW > 64)
           return true;
       }
     }
@@ -1024,7 +1024,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 }
 
 extern "C" {
-  FunctionPass* createWeightedInstCounter(bool preVec = true, 
+  FunctionPass* createWeightedInstCounter(bool preVec = true,
                                           Intel::CPUId cpuId = Intel::CPUId()) {
     return new intel::WeightedInstCounter(preVec, cpuId);
   }

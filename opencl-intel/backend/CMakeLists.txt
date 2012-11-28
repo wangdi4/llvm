@@ -167,17 +167,20 @@ if (LLVM_BUILD_APPLE_BACKEND)
     project(Backend)
     
 	find_package(LLVM REQUIRED)
+	find_package(OpenCL REQUIRED)
+
     set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
     
     set(ADD_CXX_FLAGS   "-D  __STDC_LIMIT_MACROS  -D __STDC_CONSTANT_MACROS -fno-rtti")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  ${ADD_CXX_FLAGS}")
     
-    message ("LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
-    
     add_subdirectory(utils)
+    add_subdirectory(libraries/ocl_builtins/utils/TableGen)
+    #add_subdirectory(libraries/ocl_builtins)
     add_subdirectory(metadata_api)
     add_subdirectory(passes)
     add_subdirectory(name_mangling)
+    add_subdirectory(reflection_module)
     add_subdirectory(optimizer)
     add_subdirectory(barrier)
     add_subdirectory(vectorizer)

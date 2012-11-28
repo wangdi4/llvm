@@ -30,7 +30,7 @@ namespace intel {
     }
 
     bool runOnFunction(Function &F);
-    
+
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<ScalarEvolution>();
       AU.addRequired<LoopInfo>();
@@ -46,7 +46,7 @@ namespace intel {
       return m_desiredWidth;
     }
 
-    // Returns the computed total weight. 
+    // Returns the computed total weight.
     // This is calculated by both the before and after passes.
     // Internally it's computed as a floating-point weight, but we
     // truncate it to int here.
@@ -56,13 +56,13 @@ namespace intel {
 
   private:
     // Indicates whether the architecture is MIC
-    bool isMic()const;
+    bool hasV16Support()const;
     // Indicates whether the architecture supports AVX 256
     bool hasAVX()const;
     // Indicates whether the architecture supports AVX 2 (Haswell)
     bool hasAVX2()const;
-    
-    // Estimate the number of iterations each loop runs. 
+
+    // Estimate the number of iterations each loop runs.
     void estimateIterations(Function &F, DenseMap<Loop*, int> &IterMap) const;
 
     // Estimate the "straight-line" probability of each block being executed.
@@ -89,7 +89,7 @@ namespace intel {
     // supported natively. So, take that into account by estimating how many native
     // operations are required.
     int estimateBinOp(BinaryOperator *I);
-    
+
     // Helper for estimateBinOp
     int getOpWidth(VectorType* VecType, int Float, int Double, int LongInt, int ShortInt);
 
@@ -106,7 +106,7 @@ namespace intel {
     // b) A kernel that iterates over a column will probably gain from vectorization
     // because that will put work on consecutive loads together.
     void estimateMemOpCosts(Function &F, DenseMap<Instruction*, int> &CostMap) const;
-    
+
     // Helper function for DFS
     void addUsersToWorklist(Instruction *I, DenseSet<Instruction*> &Visited,
                            std::vector<Instruction*> &WorkList) const;
@@ -128,14 +128,14 @@ namespace intel {
     // Affects debug printing right now, but may count some
     // things differently
     bool m_preVec;
-    
+
     // Outputs:
     // Desired vectorization width
     int m_desiredWidth;
 
     // Total weight of all instructions
     float m_totalWeight;
-    
+
     typedef struct FuncCostEntry {
       const char *name;
       int cost;
@@ -147,7 +147,7 @@ namespace intel {
     StringMap<int> m_transCosts;
 
     // MAGIC NUMBERS
-    // Guess for the number of iterations for loops for which 
+    // Guess for the number of iterations for loops for which
     // the actual number is unknown.
     static const int LOOP_ITER_GUESS = 32;
     // Weights for different types of instructions
@@ -155,7 +155,7 @@ namespace intel {
     static const int DEFAULT_WEIGHT = 1;
     // Binary operations weigh the same
     static const int BINARY_OP_WEIGHT = DEFAULT_WEIGHT;
-    // TODO: Calls have uniform (heavy) weight, which is nonsense. 
+    // TODO: Calls have uniform (heavy) weight, which is nonsense.
     // Replace with something that actually makes sense.
     static const int CALL_WEIGHT = 20;
     static const int CALL_MASK_WEIGHT = 5;
@@ -170,7 +170,7 @@ namespace intel {
     static const int MEM_OP_WEIGHT = 4;
     static const int CHEAP_MEMOP_WEIGHT = DEFAULT_WEIGHT;
     static const int EXPENSIVE_MEMOP_WEIGHT = 16;
-    // Conditional branches are potentially expensive... 
+    // Conditional branches are potentially expensive...
     // misprediction penalty.
     static const int COND_BRANCH_WEIGHT = 4;
     // Penalty for allZero/allOne loops
@@ -193,7 +193,7 @@ public:
     VectorizationPossibilityPass(): FunctionPass(ID), m_canVectorize(false) {}
 
     bool runOnFunction(Function &F);
-     
+
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DominatorTree>();
     }
@@ -211,7 +211,7 @@ public:
   class CanVectorizeImpl
   {
   public:
-    // Checks whether we can (as opposed to should) vectorize 
+    // Checks whether we can (as opposed to should) vectorize
     // this function.
     static bool canVectorize(Function &F, DominatorTree &DT);
 
@@ -220,17 +220,17 @@ public:
 
     // Checks if the program has reducible control flow
     static bool isReducibleControlFlow(Function &F, DominatorTree &DT);
-    
+
     // Check if the function has variable access to get_global/loval_id(X)
     static bool hasVariableGetTIDAccess(Function &F);
-    
+
     // Checks if the incoming program has illegal types
     // An illegal type in this context is iX, where X > 64.
     // TODO: Check if this is still relevant to the current codegen.
     static bool hasIllegalTypes(Function &F);
 
     // Checks if the incoming program has unsupported function calls
-    // An unsupported function call is function that contains 
+    // An unsupported function call is function that contains
     // barrier/get_local_id/get_global_id or a call to unsupported function.
     // Vectorize of kernel that calls non-inline function is done today by
     // calling the scalar version of called function VecWidth times.

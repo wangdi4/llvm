@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 2.8.4)
 
-set(LLVM_REQUIRES_EH 1)
 
 set(TARGET_NAME NameManglingTests)
 
@@ -36,7 +35,7 @@ else(WIN32)
   add_definitions(-fexceptions)
 endif(WIN32)
 
-add_llvm_executable(
+add_executable(
   ${TARGET_NAME}
   MangledNames.h
   MangleTest.cpp

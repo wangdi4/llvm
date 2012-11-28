@@ -259,8 +259,6 @@ namespace intel {
     FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
     Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
     return CallInst::Create(pNewFunc, "", pAtEnd);*/
-
-    // CPU and MIC don't need memfence.
     return NULL;
   }
 
