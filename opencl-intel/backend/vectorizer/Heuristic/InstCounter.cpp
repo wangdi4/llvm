@@ -538,9 +538,9 @@ void WeightedInstCounter::estimateIterations(Function &F,
     if (Latch)
       Count = SI->getSmallConstantTripCount(L, Latch);
       
-    // getSmallConstantTripCount() returns 1 for non-constant trip counts
+    // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.
-    if (Count == 1)
+    if (Count == 0)
       Count = LOOP_ITER_GUESS;
       
     Count *= Multiplier;
