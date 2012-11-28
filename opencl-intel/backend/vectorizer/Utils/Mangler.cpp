@@ -9,6 +9,7 @@
 #include "NameMangleAPI.h"
 #include "FunctionDescriptor.h"
 #include "Type.h"
+#include "TypeCast.h"
 
 const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
@@ -176,9 +177,10 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
     mangledName = demangle(mangledName);
 
   reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
-  //Currently, we only support two dimension images to be masked.
-  // original (scalar) data type
+  // First argument of prefetch built-in must be pointer.
+  V_ASSERT(reflection::cast<reflection::Pointer>(prefetchDesc.parameters[0]) && "First argument of prefetch built-in is expected to a pointer.");
   const reflection::Type* scalarType = static_cast<reflection::Pointer*>(prefetchDesc.parameters[0])->getPointee();
+  V_ASSERT(scalarType->isPrimiteTy() && "Primitive type is expected.");
   // create vectorized data type for packed prefetch
   reflection::Vector vectorizedType(scalarType, packetWidth);
   reflection::Pointer vectorizedPrt(&vectorizedType);
