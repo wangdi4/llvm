@@ -432,25 +432,10 @@ void __inline__ __attribute__((always_inline)) load_transpose_char4x8_common_AVX
   char32 xz = (char32) _mm256_unpacklo_epi8((__m256i)xyzw, (__m256i)dummy); // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
   char32 yw = (char32) _mm256_unpackhi_epi8((__m256i)xyzw, (__m256i)dummy); // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
   
-  // TODO : Replace these extracts with shuffle instead of extract intrinsics
-  // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  /*
-  char16 x = shuffle (xz, dummy,                                            // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
-          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11, 12, 13, 14, 15});
-  char16 y = shuffle (yw, dummy,                                            // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
-          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11, 12, 13, 14, 15});
-  char16 z = shuffle (xz, dummy,                                            // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
-          {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,  31});
-  char16 w = shuffle (yw, dummy,                                            // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
-          {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,  31});
-  */
-  // TODO : using builtin shuffles does not create optimal code
-  
-  char16 x = (char16) _mm256_extracti128_si256((__m256i)xz, 0);             // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
-  char16 y = (char16) _mm256_extracti128_si256((__m256i)yw, 0);             // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
-  char16 z = (char16) _mm256_extracti128_si256((__m256i)xz, 1);             // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
-  char16 w = (char16) _mm256_extracti128_si256((__m256i)yw, 1);             // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
-
+  char16 x = (char16)(((int8)(xz)).lo);                                     // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
+  char16 y = (char16)(((int8)(yw)).lo);                                     // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
+  char16 z = (char16)(((int8)(xz)).hi);                                     // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
+  char16 w = (char16)(((int8)(yw)).hi);                                     // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
 
   *xOut = x.s02468ACE;
   *yOut = y.s02468ACE;
@@ -491,20 +476,10 @@ void __inline__ __attribute__((always_inline)) transpose_store_char4x8_common_AV
   char32 xz;
   char32 yw;
 
-  // TODO : Replace these inserts with shuffle2 instead of insert intrinsics
-  // when shuffle, shuffle2 with const mask passes will be supported in the BE
-  /*
-  xz = shuffle2 (x, z, 
-          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11, 12, 13, 14, 15,
-          16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31});
-  yw = shuffle2 (y, w, 
-          {0, 1, 2, 3, 4, 5, 6, 7, 8, 9 , 10, 11, 12, 13, 14, 15
-          16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31});
-  */  
-  xz = (char32) _mm256_inserti128_si256((__m256i)xz, (__m128i)x, 0);        // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  yw = (char32) _mm256_inserti128_si256((__m256i)yw, (__m128i)y, 0);        // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  xz = (char32) _mm256_inserti128_si256((__m256i)xz, (__m128i)z, 1);        // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
-  yw = (char32) _mm256_inserti128_si256((__m256i)yw, (__m128i)w, 1);        // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
+  (*(int8*)&xz).lo = (int4)x;                                               // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  (*(int8*)&yw).lo = (int4)y;                                               // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  (*(int8*)&xz).hi = (int4)z;                                               // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
+  (*(int8*)&yw).hi = (int4)w;                                               // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
 
   char32 dummy;
   // TODO : Replace these shuffles with shuffle instead of shuffle builtin
@@ -1309,6 +1284,8 @@ void __inline__ __attribute__((always_inline)) transpose_scatter_int4x8(int4* pS
 
 void __inline__ __attribute__((always_inline)) transpose_float4x4_AVX(float4 xyzw0, float4 xyzw1, float4 xyzw2, float4 xyzw3,
   float4* xOut, float4* yOut, float4* zOut, float4* wOut) {
+    //transpose_int4x4_AVX((int4)xyzw0, (int4)xyzw1, (int4)xyzw2, (int4)xyzw3,
+  //(int4*)xOut, (int4*)yOut, (int4*)zOut, (int4*)wOut);
 
                                                                             // xyzw0 = x0 y0 z0 w0 
                                                                             // xyzw1 = x1 y1 z1 w1
