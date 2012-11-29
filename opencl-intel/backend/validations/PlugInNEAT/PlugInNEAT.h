@@ -141,9 +141,14 @@ namespace llvm {
     class NEATPlugIn : public InstVisitor<NEATPlugIn>, public InterpreterPlugIn
     {
     public:
+        
+        // map for mapping global variables to NEAT variables
+        typedef std::map<const GlobalValue *, void * const>
+            GlobalAddressMapTy;
+
         /// ctor
-        NEATPlugIn (bool bUseFmaNEAT) :
-            m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT)
+        NEATPlugIn (bool bUseFmaNEAT, NEATPlugIn::GlobalAddressMapTy &GlobalMap) :
+            m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT), m_GlobalAddressMap(GlobalMap)
         {
             m_CurEvent = BAD_EVENT;
             m_NECStack.clear();
@@ -153,10 +158,6 @@ namespace llvm {
 
         /// virtual dtor
         virtual ~NEATPlugIn();
-
-        // map for mapping global variables to NEAT variables
-        typedef std::map<const GlobalValue *, void *>
-            GlobalAddressMapTy;
 
         /// set NEAT arguments of runFunction(). in runFunction() execution starts
         void SetArgValues(std::map<Value *, NEATGenericValue> &val)
@@ -202,10 +203,6 @@ namespace llvm {
         /// getOrEmitGlobalVariable - Return the address of the specified global
         /// variable, possibly emitting it to memory if needed.
         void *getOrEmitGlobalVariable(const GlobalVariable *GV);
-
-        /// updateGlobalMapping - Replace an existing mapping for GV with a new
-        /// address.  This updates map as required.
-        void *updateGlobalMapping(const GlobalValue *GV, void *Addr);
 
         /// getPointerToGlobal - This returns the address of the specified global
         /// value.  This may involve code generation if it's a function.
@@ -368,7 +365,7 @@ namespace llvm {
             NEATGenericValue& Result );
 
         // Global address map
-        GlobalAddressMapTy m_GlobalAddressMap;
+        GlobalAddressMapTy &m_GlobalAddressMap;
         /// getPointerToGlobalIfAvailable - This returns the address of the specified
         /// global value if it is has already been codegen'd, otherwise it returns null.
         void *getPointerToGlobalIfAvailable(const GlobalValue *GV);

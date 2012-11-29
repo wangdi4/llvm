@@ -4136,9 +4136,8 @@ void * NEATPlugIn::getOrEmitGlobalVariable( const GlobalVariable *GV )
             << *GlobalType << " (" << TypeSize << " bytes) x \n");
 
         // copy pointer to map
-        void *&CurVal = m_GlobalAddressMap[GV];
-        assert((CurVal == 0 || Memory == 0) && "GlobalMapping already established!");
-        CurVal = Memory;
+        assert((Memory != 0) && "GlobalMapping already established!");
+        m_GlobalAddressMap.insert(std::pair<const GlobalValue*, void * const>(GV, Memory));
     }
 
     return m_GlobalAddressMap[GV];
@@ -4146,13 +4145,6 @@ void * NEATPlugIn::getOrEmitGlobalVariable( const GlobalVariable *GV )
 
 NEATPlugIn::~NEATPlugIn()
 {
-}
-
-void * NEATPlugIn::updateGlobalMapping( const GlobalValue *GV, void *Addr )
-{
-    void *&CurVal = m_GlobalAddressMap[GV];
-    CurVal = Addr;
-    return Addr;
 }
 
 void * NEATPlugIn::getPointerToGlobal( const GlobalValue *GV )
