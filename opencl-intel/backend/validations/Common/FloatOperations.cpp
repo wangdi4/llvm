@@ -434,8 +434,9 @@ namespace Validation
         float ulpsDiffDenormal(double ref, float test)
         {
             union {uint32_t u; float f;} convert;
-
             convert.f = float(ref);
+            float round_error = ulpsDiffSamePrecision( ref, (double)convert.f);
+
             int32_t aInt = (int32_t)convert.u;
             if (aInt < 0)
                 aInt = 0x80000000 - aInt;
@@ -444,14 +445,15 @@ namespace Validation
             int32_t bInt = (int32_t)convert.u;
             if (bInt < 0)
                 bInt = 0x80000000 - bInt;
-            return float(abs(aInt - bInt));
+            return (float(aInt - bInt) - round_error);
         }
 
         float ulpsDiffDenormal(long double ref, double test)
         {
             union {uint64_t u; double f;} convert;
-
             convert.f = double(ref);
+            float round_error = ulpsDiffSamePrecision( ref, (long double)convert.f);
+
             int64_t aInt = (int64_t)convert.u;
             if (aInt < 0)
                 aInt = 0x8000000000000000 - aInt;
@@ -460,7 +462,7 @@ namespace Validation
             int64_t bInt = (int64_t)convert.u;
             if (bInt < 0)
                 bInt = 0x8000000000000000 - bInt;
-            return float(abs(int(aInt - bInt)));
+            return (float(aInt - bInt) - round_error);
         }
 
     }
