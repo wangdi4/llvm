@@ -37,5 +37,5 @@ endif(INCLUDE_CMRT)
 #Samples
 option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
 if (INCLUDE_SMPLS)
-    add_subdirectory( samples_tests )
+    add_subdirectory( samples )
 endif(INCLUDE_SMPLS)
