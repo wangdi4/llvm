@@ -43,6 +43,11 @@ using Intel::OpenCL::Utils::OclMutex;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
+    /**
+     * a global flag indicating whether the program has called function exit
+     */
+    extern volatile bool gIsExiting;
+
 	#define MAX_BATCH_SIZE			128 
 
 	class TBBTaskExecutor : public ITaskExecutor

@@ -33,6 +33,13 @@ using namespace Intel::OpenCL::Utils;
 
 void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
 {
+    /* If the user enqueues a command and then exits the program without having waited for the command to finish, we might get here while things are being folded beneath our feet. We have no way to
+       protect ourselves, except by raising a flag in a function registered by atexit. This isn't a perfect protection, since exit can be called while the worker thread is in this method after having
+       already checked the flag, but it significantly reduces the probability for it. This also applies to the same flag checking in other methods. */
+    if (gIsExiting)
+    {
+        return;
+    }
     const int iCurSlot = tbb::task_arena::current_slot();
     assert(iCurSlot >= 0);    
     WGContextBase* const pOldWgContext = m_pArenaHandler->GetWGContext(iCurSlot);
@@ -60,6 +67,10 @@ void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
 
 void DevArenaObserver::on_scheduler_exit(bool bIsWorker)
 {
+    if (gIsExiting)
+    {
+        return;
+    }
     const int iCurSlot = tbb::task_arena::current_slot();
     assert(iCurSlot >= 0);
     WGContextBase* const pWgContext = m_pArenaHandler->GetWGContext(iCurSlot);
@@ -88,6 +99,10 @@ SubdevArenaObserver::SubdevArenaObserver(tbb::task_arena& arena, TBBTaskExecutor
 
 void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
 {
+    if (gIsExiting)
+    {
+        return;
+    }
     DevArenaObserver::on_scheduler_entry(bIsWorker);
     if (bIsWorker)
     {
@@ -104,6 +119,10 @@ void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
 
 void SubdevArenaObserver::on_scheduler_exit(bool bIsWorker)
 {
+    if (gIsExiting)
+    {
+        return;
+    }
     DevArenaObserver::on_scheduler_exit(bIsWorker);
     if (bIsWorker)
     {
@@ -187,6 +206,10 @@ void ArenaHandler::RemoveCommandList(const base_command_list* pCmdList)
 
 WGContextBase* ArenaHandler::GetWGContext()
 {
+    if (gIsExiting)
+    {
+        return NULL;
+    }
     const int iCurSlot = tbb::task_arena::current_slot();
     assert(iCurSlot >= 0 && iCurSlot < (int)m_wgContexts.size());
     if (NULL == m_wgContexts[iCurSlot])

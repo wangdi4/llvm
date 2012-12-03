@@ -120,7 +120,7 @@ public:
     /**
      * Destructor
      */
-    ~ArenaHandler();
+    virtual ~ArenaHandler();
 
     /**
      * @return a pointer to the work group context for the current worker thread
@@ -292,6 +292,15 @@ public:
      */
     SubdevArenaHandler(unsigned int uiNumSubdevComputeUnits, unsigned int uiNumTotalComputeUnits, TBBTaskExecutor& taskExecutor, const unsigned int* pLegalCores, 
         IAffinityChangeObserver& observer);
+
+    /**
+     * Destructor
+     */
+    ~SubdevArenaHandler()
+    {
+        // stop observing before the observer is destroyed
+        m_subdevArenaObserver.observe(false);
+    }
 
     /**
      * @return the internal command list of this ArenaHandler

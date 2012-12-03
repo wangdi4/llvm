@@ -57,6 +57,8 @@ DECLARE_LOGGER_CLIENT;
 unsigned int gWorker_threads = 0;
 AtomicCounter	glTaskSchedCounter;
 
+volatile bool gIsExiting = false;
+
 #ifdef __LOCAL_RANGES__
 	class Range1D {
 	public:
@@ -524,11 +526,23 @@ SharedPtr<ITaskBase> out_of_order_executor_task::GetTask()
     }        
 }
 
+static void Terminate()
+{
+    gIsExiting = true;
+}
+
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor() :
     m_lActivateCount(0), m_pExecutorList(NULL), m_pGlobalArenaHandler(NULL), m_pWgContextPool(NULL)
 {
 	INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_DEBUG);
+#if _DEBUG
+    const int ret =
+#endif
+        atexit(Terminate);
+#if _DEBUG
+    assert(0 == ret);
+#endif
     // we delibrately don't delete m_pScheduler (see comment above its definition)
 }
 
@@ -642,7 +656,7 @@ void TBBTaskExecutor::Deactivate()
 		LOG_INFO(TEXT("Leave count = %ld, ShedCounter=%ld"), count, sched_count);
 		return;
 	}
-    ReleaseResources();
+    ReleaseResources();    
 	LOG_INFO(TEXT("%s"),"Shutting down...");
 	LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 }

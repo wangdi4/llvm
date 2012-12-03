@@ -47,18 +47,7 @@ void InitSharedPtrs()
 
 void FiniSharedPts()
 {
-#if _DEBUG
-    if (NULL != allocatedObjectsMapMutex)
-    {
-        delete allocatedObjectsMapMutex;
-        allocatedObjectsMapMutex = NULL;
-    }
-    if (NULL != allocatedObjectsMap)
-    {
-        delete allocatedObjectsMap;
-        allocatedObjectsMap = NULL;
-    }
-#endif
+    // we don't delete the objects, because this method maybe be called during an non-clean shutdown, when some threads are still using them.
 }
 
 }}}
