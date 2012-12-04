@@ -46,6 +46,14 @@ static bool isGatherScatterType(VectorType *VecTy) {
            ElemTy->isIntegerTy(64)));
 }
 
+// Before packetizing memory operations, replace aligment of zero with an
+// explicit value, otherwise we will be erroneously increasing the alignment while packetizing
+static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType* PT) {
+  if (!Alignment)
+    Alignment = std::max(1U, PT->getElementType()->getPrimitiveSizeInBits() / 8);
+  return Alignment;
+}
+
 namespace intel {
 
 const unsigned int PacketizeFunction::MaxLogBufferSize = 31;
@@ -1114,6 +1122,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   V_ASSERT(MO.Ptr && MO.Ptr->getType()->isPointerTy() && "Pointer operand is not a pointer");
   V_ASSERT((!MO.Mask || MO.Mask->getType()->getScalarType()->isIntegerTy()) &&
     "mask must be an integer");
+
+  // Before packetizing make sure we are using an explicit alignment( non-zero ), otherwise we end up with increasing the alignment.
+  MO.Alignment = generateExplicitAlignment(MO.Alignment, cast<PointerType>(MO.Ptr->getType()));
 
   // Attempt to find if the pointer can be expressed as base + index.
   obtainBaseIndex(MO);
