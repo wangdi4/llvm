@@ -30,6 +30,8 @@ OclBuiltinImpl cross_v4f32 = OclBuiltinImpl<cross, [v4f32], 0, [{
 
     t0 = _mm256_permute4x64_pd(t0, 0xc9);
     res = convert_float4(t0);
+    res.s3 = 0;
+
     return res;
   }]>;
 
@@ -37,7 +39,7 @@ OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
     double4 res;
     double4 temp_p0, temp_p1;
 
-    temp_p0 = _mm256_permute4x64_pd($Arg0VarName,0xc9);
+    temp_p0 = _mm256_permute4x64_pd($Arg0VarName, 0xc9);
     temp_p1 = _mm256_permute4x64_pd($Arg1VarName, 0xc9);
 
     $Arg0VarName = $Arg0VarName * temp_p1;
@@ -46,5 +48,7 @@ OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
     $Arg0VarName = $Arg0VarName - $Arg1VarName;
 
     res = _mm256_permute4x64_pd($Arg0VarName, 0xc9);
+    res.s3 = 0;
+
     return res;
 }]>;

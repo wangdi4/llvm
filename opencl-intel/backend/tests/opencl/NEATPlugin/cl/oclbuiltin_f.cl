@@ -386,8 +386,6 @@ __kernel void mix_s_f(__global float * input,  __global int * input_int,
     KERNEL_BI_NORMALIZE(normalize)
     KERNEL_BI_NORMALIZE(fast_normalize)
 
-// disabled until CSSD100015126 will be fixed	
-/*
 __kernel void cross_f(__global float * input,  __global int * input_int, 
                       __global float * output, __global float * output2) // gentypef step (float edge, gentypef x)
 {
@@ -400,7 +398,6 @@ __kernel void cross_f(__global float * input,  __global int * input_int,
     output[tid] = a3_out.s0; output[tid+1] = a3_out.s1; output[tid+2] = a3_out.s2;
     output[tid+3] = a4_out.s0; output[tid+4] = a4_out.s1; output[tid+5] = a4_out.s2; output[tid+6] = a4_out.s3;
 }
-*/
     KERNEL_BI_GEOM_ONEARG(length)
     KERNEL_BI_GEOM_ONEARG(fast_length)
     KERNEL_BI_GEOM_TWOARGS(distance)

@@ -354,8 +354,6 @@ __kernel void mix_s_d(__global double * input,  __global int * input_int,
 
     KERNEL_BI_NORMALIZE(normalize)
 
-    // disabled until CSSD100014854 will be fixed
-/*
 __kernel void cross_d(__global double * input,  __global int * input_int, 
                       __global double * output, __global double * output2) // gentypef step (double edge, gentypef x)
 {
@@ -370,7 +368,7 @@ __kernel void cross_d(__global double * input,  __global int * input_int,
     output[tid] = a3_out.s0; output[tid+1] = a3_out.s1; output[tid+2] = a3_out.s2;
     output[tid+3] = a4_out.s0; output[tid+4] = a4_out.s1; output[tid+5] = a4_out.s2; output[tid+6] = a4_out.s3;
 }
-*/
+
     KERNEL_BI_GEOM_ONEARG(length)
     KERNEL_BI_GEOM_TWOARGS(distance)
 /*
