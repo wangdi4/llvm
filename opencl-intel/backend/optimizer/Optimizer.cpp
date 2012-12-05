@@ -62,13 +62,16 @@ extern "C" llvm::Pass *createRelaxedPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
+#ifndef __APPLE__
 extern "C" llvm::FunctionPass *createPrefetchPass();
+#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
+#ifndef __APPLE__
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
-llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
+#endif
+llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
@@ -205,7 +208,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   bool isProfiling = pConfig->GetProfilingFlag();
+#endif
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
@@ -272,11 +277,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
     && debugType == None
     && uiOptLevel != 0)
   {
+#ifndef __APPLE__
     // In profiling mode remove llvm.dbg.value calls
     // before vectorizer.
     if (isProfiling) {
       m_modulePasses.add(createProfilingInfoPass());
     }
+ #endif
 
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
@@ -307,7 +314,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
-
+#ifndef __APPLE__
   // The debugType enum and isProfiling flag are mutually exclusive, with precedence
   // given to debugType.
   //
@@ -317,7 +324,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
-
+#endif
    // Get Some info about the kernel
    // should be called before BarrierPass and createPrepareKernelArgsPass
    if(pRtlModule != NULL) {
@@ -415,6 +422,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     if (!pConfig->GetLibraryModule())
       m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 
+#ifndef __APPLE__
     // Add prefetches only for MIC, if not in debug mode, and don't change the
     // library
     if (debugType == None && !pConfig->GetLibraryModule() &&
@@ -428,6 +436,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(llvm::createVerifierPass());
 #endif
     }
+#endif
 }
 
 void Optimizer::Optimize()
