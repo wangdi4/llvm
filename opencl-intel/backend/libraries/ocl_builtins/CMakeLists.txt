@@ -487,7 +487,6 @@ list (APPEND OCL_SOURCE_FILES
   atomic_functions.cpp
   conversion_functions.cpp
   image_functions.cpp
-  integer_functions.cpp
   masked_load_store_functions.cpp
   misc_functions.cpp
   relational_functions.cpp
@@ -503,7 +502,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
-  cl_integer_declaration.h
   cl_relational_declaration.h
   masked_load_store_functions.h
   transpose_functions.h

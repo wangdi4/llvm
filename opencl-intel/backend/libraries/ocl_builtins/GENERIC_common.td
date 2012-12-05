@@ -149,33 +149,21 @@
   }]>;
 
   // clamp_s. for float and double
-  // NOTE: integer and common BIs has clamp, min, max BIs. 
-  // TODO: when integer ops are implemented in tblgen then add type clamp_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                            v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, 
-                                                            [{
+  // NOTE: integer and common BIs has clamp, min, max BIs.
+  OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, clamp_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     $Arg2VecType vec$Arg2VarName = ($Arg2VecType)$Arg2VarName;
     return $Func($Arg0VarName, vec$Arg1VarName, vec$Arg2VarName);
   }]>;
 
   // max_s
-  // TODO: when integer ops are implemented in tblgen then add type max_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl max_s_generic = OclBuiltinImpl<max_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                        v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, 
-                                                        [{
+  OclBuiltinImpl max_s_generic = OclBuiltinImpl<max_s, max_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }]>;
 
   // min_s
-  // TODO: when integer ops are implemented in tblgen then add type min_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl min_s_generic = OclBuiltinImpl<min_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                        v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0,
-                                                        [{
+  OclBuiltinImpl min_s_generic = OclBuiltinImpl<min_s, min_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }]>;

@@ -5,5 +5,6 @@ include "AVX.td"
 class AVX2 : AVX {
   include "avx2/math.td"
   include "avx2/geometric.td"
+  include "avx2/integers.td"
 }
 
