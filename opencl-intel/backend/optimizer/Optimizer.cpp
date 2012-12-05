@@ -354,6 +354,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createResolveWICallPass());
     m_localBuffersPass = createLocalBuffersPass(debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
+    m_modulePasses.add(llvm::createGlobalOptimizerPass());  
   }
 
 #ifdef _DEBUG
