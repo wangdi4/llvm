@@ -20,7 +20,6 @@
 #include "Main.h"
 #include "InstCounter.h"
 #include "RuntimeServices.h"
-#include "X86Lower.h"
 #include "Packetizer.h"
 #include "Resolver.h"
 #include "WIAnalysis.h"

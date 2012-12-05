@@ -19,6 +19,15 @@ include_directories(../arch_headers)
 include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
 
+if(NOT APPLE)
+set(TARGET_MIC_SOURCE_FILES 
+  Resolver/MICResolver.cpp
+)
+else(NOT APPLE)
+set(TARGET_MIC_SOURCE_FILES 
+)
+endif(NOT APPLE)
+
 add_library( LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
@@ -41,8 +50,7 @@ add_library( LLVMVectorizer
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   Resolver/Resolver.cpp
-  Resolver/MICResolver.cpp
-  Resolver/X86Lower.cpp
+  ${TARGET_MIC_SOURCE_FILES}
   Resolver/SelectLower.cpp
   Resolver/SpecialCaseBuiltinResolver.cpp
   VolcanoWrapper/Main.cpp

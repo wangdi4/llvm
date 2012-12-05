@@ -20,7 +20,6 @@ u*******************************************************************************
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Verifier.h"
 #include "VectorizerCore.h"
-#include "X86Lower.h"
 #include "Packetizer.h"
 #include "Resolver.h"
 #include "WIAnalysis.h"
@@ -43,7 +42,9 @@ extern "C" FunctionPass* createPacketizerPass(bool);
 
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
-extern "C" FunctionPass* createMICResolverPass();
+#ifndef __APPLE__
+extern "C" FunctionPass* createGatherScatterResolverPass();
+#endif
 extern "C" FunctionPass* createX86ResolverPass();
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
 extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
@@ -51,7 +52,9 @@ extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
 
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
-  if (CpuId.HasGatherScatter()) return createMICResolverPass();
+#ifndef __APPLE__
+  if (CpuId.HasGatherScatter()) return createGatherScatterResolverPass();
+#endif
   return createX86ResolverPass();
 }
 

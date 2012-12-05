@@ -332,7 +332,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createMICResolverPass() {
+  FunctionPass* createGatherScatterResolverPass() {
     return new intel::MICResolver();
   }
 }
