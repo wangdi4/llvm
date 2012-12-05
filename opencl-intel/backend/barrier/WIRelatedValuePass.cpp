@@ -130,7 +130,7 @@ namespace intel {
 
     //Check if the function is in the table of functions
     Function *origFunc = pInst->getCalledFunction();
-    std::string origFuncName = origFunc->getName();
+    std::string origFuncName = origFunc->getName().str();
 
     if( origFuncName == GET_GID_NAME ||
       origFuncName == GET_LID_NAME ) {
@@ -334,7 +334,7 @@ namespace intel {
         Value* pVal = (Value*)pInst;
         bool isWIRelated = m_specialValues.find(pVal)->second;
         //Print vale name is (not) WI related!
-        OS << pVal->getName();
+        OS << pVal->getName().str();
         OS << ( (isWIRelated) ? " is WI related" : " is not WI related" );
         OS << "\n";
       }

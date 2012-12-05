@@ -501,7 +501,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
   // Replace function call with masked function call
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
-    std::string desc = call->getCalledFunction()->getName();
+    std::string desc = call->getCalledFunction()->getName().str();
     std::string maskedName = Mangler::mangle(desc);
     //if the predicated is a faked one, we need to create it artificially.
     //Otherwise, we simply import it from the builtin module.
@@ -664,7 +664,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         m_toPredicate.push_back(it);
       }
       else if (CallInst *CI = dyn_cast<CallInst>(it)) {
-        std::string funcname = CI->getCalledFunction()->getName();
+        std::string funcname = CI->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(funcname))  {
           m_toPredicate.push_back(it);
         }

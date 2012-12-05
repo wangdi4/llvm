@@ -67,7 +67,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   for (unsigned i=0, e=kernels.size(); i<e; ++i) {
     Function *F = kernels[i];
     if (!F) continue;
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     if (!NoBarrier.count(funcName)) continue;
     
     // We can create loops for this kernel - runOnFunction on it!!
@@ -86,7 +86,7 @@ unsigned CLWGLoopCreator::computeNumDim() {
   // used by the kernel, it is legal to loop only over the used ones.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getName();
+    std::string name = fit->getName().str();
     if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
   }
   if (atomicFuncs.size()) {
@@ -235,7 +235,7 @@ void CLWGLoopCreator::moveAllocaToEntry(BasicBlock *BB) {
 CallInst *CLWGLoopCreator::createEECall() {
   // Obtain early exit function. Function should have the same arguments
   // as the kernel.
-  std::string funcName = m_F->getName();
+  std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Function *EEFunc = m_M->getFunction(EEFuncName);
   assert("early exit function must exist!!!");

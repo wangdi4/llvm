@@ -37,7 +37,7 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   fillNoBarrierPathSet(&M, NoBarrier);
   for (unsigned i = 0, e = kernels.size(); i < e; ++i) {
     Function *F = kernels[i];
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     if (!F || !NoBarrier.count(funcName)) continue;
     changed |= runOnFunction(*F);
   }
@@ -165,7 +165,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
 
 Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   unsigned numEntries = CLWGBoundDecoder::getNumWGBoundArrayEntries(m_numDim);
-  std::string funcName = m_F->getName();
+  std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
   
@@ -391,7 +391,7 @@ bool CLWGLoopBoundaries::currentFunctionHasAtomicCalls() {
   // First obtain all the atomic functions in the module.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getName();
+    std::string name = fit->getName().str();
     if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
   }
   // No atomic functions means there is no atomic call in the current function.
@@ -736,7 +736,7 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
       // For calls ask the runtime object.
       case Instruction::Call :
       {    
-        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName();
+        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(name)) return true;
         break;
       }

@@ -73,7 +73,7 @@ DXWrapperParamsCheck::DXWrapperRetType DXWrapperParamsCheck::checkRet
 }
 
 bool DXWrapperParamsCheck::isDXScalarWrapperMasked (CallInst* CI, const RuntimeServices* rtServices){
-  std::string name = CI->getCalledFunction()->getName();
+  std::string name = CI->getCalledFunction()->getName().str();
   bool isMangled = Mangler::isMangledCall(name);
   if (!isMangled){
     return false;

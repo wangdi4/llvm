@@ -24,7 +24,7 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
   m_runtimeServices = (OpenclRuntime *)RuntimeServices::get();
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii)) {
-      std::string funcName = CI->getCalledFunction()->getName();
+      std::string funcName = CI->getCalledFunction()->getName().str();
       if (unsigned opWidth = m_runtimeServices->isInlineDot(funcName)) {
         handleInlineDot(CI, opWidth);
         changed = true;

@@ -668,7 +668,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_ASSERT(CI && "instruction type dynamic cast failed");
 
   // Find corresponding entry in functions hash (in runtimeServices) 
-  std::string funcName = CI->getCalledFunction()->getName();
+  std::string funcName = CI->getCalledFunction()->getName().str();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
@@ -1036,7 +1036,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 
 void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
-  std::string name = CI->getCalledFunction()->getName();
+  std::string name = CI->getCalledFunction()->getName().str();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");

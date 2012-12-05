@@ -141,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///         else NOT_SHUFFLE
     ShuffleCallToInst::ShuffleType ShuffleCallToInst::isConstShuffle(CallInst* pCall) {
         // Get function name
-        std::string calledFuncName = pCall->getCalledFunction()->getName();
+        std::string calledFuncName = pCall->getCalledFunction()->getName().str();
         std::string strippedName;
         if (!isMangledName(calledFuncName.c_str()))
           return NOT_SHUFFLE;

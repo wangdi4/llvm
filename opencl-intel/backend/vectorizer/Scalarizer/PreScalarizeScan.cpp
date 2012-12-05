@@ -40,7 +40,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 {
   // Look for the called function in the built-in functions hash 
   Function *vectorFunc = CI->getCalledFunction();
-  std::string vectorFuncName = vectorFunc->getName();
+  std::string vectorFuncName = vectorFunc->getName().str();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(vectorFuncName);

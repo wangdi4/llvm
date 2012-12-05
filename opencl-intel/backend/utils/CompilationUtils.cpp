@@ -262,7 +262,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
         StructType *ST = dyn_cast<StructType>(PTy->getElementType());
         if(ST) {
-          const std::string &imgArg = ST->getName();
+          const std::string &imgArg = ST->getName().str();
           if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
           {
             curArg.type = CL_KRNL_ARG_INT;

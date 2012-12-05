@@ -29,7 +29,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
   SmallVector<Function *, 8> fakeFunctions;
   
   for (Module::iterator it = M.begin(), e = M.end(); it!=e; ++it) {
-    std::string curFuncName = it->getName();
+    std::string curFuncName = it->getName().str();
     if (m_runtimeServices->needSpecialCaseResolving(curFuncName)) {
       fakeFunctions.push_back(it);
       fillWrapper(it , curFuncName);

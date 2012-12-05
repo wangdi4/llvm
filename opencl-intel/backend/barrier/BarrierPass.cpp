@@ -1011,14 +1011,14 @@ namespace intel {
       assert( pFunc && "MetaData first operand is not of type Function!" );
       unsigned int strideScalar = 1; // default value can not be 0
       unsigned int strideVectorized = 0;
-      std::string funcName = pFunc->getName();
+      std::string funcName = pFunc->getName().str();
       // Need to get the stride size only for kernel using the barrier for work
       // group loops
       if (!NoBarrier.count(funcName)) {
         strideScalar = m_pDataPerValue->getStrideSize(pFunc);
         //Check if there is a vectorized version of this kernel
         std::string vectorizedKernelName =
-          std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().data();
+          std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().str();
         Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
         if ( pVectorizedKernelFunc ) {
           strideVectorized = m_pDataPerValue->getStrideSize(pVectorizedKernelFunc);
@@ -1026,7 +1026,7 @@ namespace intel {
       }
       //For each kernel save the max stride between scalar and vectorized version
       unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);
-      m_bufferStrideMap[pFunc->getName()] = strideSize;
+      m_bufferStrideMap[pFunc->getName().str()] = strideSize;
     }
   }
 

@@ -96,7 +96,7 @@ void FuncResolver::packPredicatedLoads(BasicBlock* BB) {
     bool load = false;
     if (CallInst* caller = dyn_cast<CallInst>(it)) {
       Function* called = caller->getCalledFunction();
-      std::string calledName = called->getName();
+      std::string calledName = called->getName().str();
       V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
       if (Mangler::isMangledLoad(calledName)) {
         curr_bin.push_back(caller);
@@ -179,7 +179,7 @@ void FuncResolver::toPredicate(Instruction* inst, Value* pred) {
 
 void FuncResolver::resolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
 
   if (TargetSpecificResolve(caller)) return;
@@ -256,7 +256,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
 void FuncResolver::resolveLoad(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
   if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
@@ -337,7 +337,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
 
 void FuncResolver::resolveStore(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
 
@@ -428,7 +428,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   FunctionType* funcType = FunctionType::get(caller->getType(), args, false);
 
   Function* called = caller->getCalledFunction();
-  std::string name = called->getName();
+  std::string name = called->getName().str();
 
   // Obtain function
   Module * currModule = caller->getParent()->getParent()->getParent();

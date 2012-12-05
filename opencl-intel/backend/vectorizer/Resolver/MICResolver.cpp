@@ -36,7 +36,7 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 
 bool MICResolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "MICSpecificResolve Inspecting "<<calledName<<"\n");
 
   // Use name to decide what to do

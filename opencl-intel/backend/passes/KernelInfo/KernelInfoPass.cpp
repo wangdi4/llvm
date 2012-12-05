@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( !pCall ) {
         continue;
       }
-      std::string calledFuncName = pCall->getCalledFunction()->getName();
+      std::string calledFuncName = pCall->getCalledFunction()->getName().str();
       if (calledFuncName.find("barrier") != std::string::npos) {
         return true;
       }

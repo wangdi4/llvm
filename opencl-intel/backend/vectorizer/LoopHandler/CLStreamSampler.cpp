@@ -73,8 +73,8 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
     unsigned tripCount = SE->getSmallConstantTripCount(L, LatchBlock);
   	// FIXME: We create the constant to minimize the amount of changes we need
     // to do but we should use m_tripCountUpperBound instead.
-    m_tripCount = tripCount == 0 ? NULL
-                  :ConstantInt::get(Type::getInt32Ty(*m_context), tripCount);
+    m_tripCount = tripCount == 0 ? NULL :
+                  ConstantInt::get(Type::getInt32Ty(*m_context), tripCount);
   }
 #else
   m_tripCount = L->getTripCount();
@@ -127,7 +127,7 @@ unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
     if (EVI->getNumIndices() == 1 &&
         *(EVI->idx_begin()) == CLWGBoundDecoder::getIndexOfSizeAtDim(0)) {
       if (CallInst *eeCall = dyn_cast<CallInst>(EVI->getAggregateOperand())) {
-        std::string funcName = eeCall->getCalledFunction()->getName();
+        std::string funcName = eeCall->getCalledFunction()->getName().str();
         if (CLWGBoundDecoder::isWGBoundFunction(funcName)) {
           // Trip is get_local_size(0) return known bound.
           return MAX_LOOP_SIZE / divideBy;
@@ -167,7 +167,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (!readImgCall) return;
   Function *calledFunc = readImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getName();
+  std::string funcName = calledFunc->getName().str();
   if (!m_rtServices->isTransposedReadImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
@@ -416,7 +416,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   if (!writeImgCall) return;
   Function *calledFunc = writeImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getName();
+  std::string funcName = calledFunc->getName().str();
   if (!m_rtServices->isTransposedWriteImg(funcName)) return;
 
   // Obtain entry in the builtin hash.

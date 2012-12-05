@@ -106,7 +106,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   updateDeps();
 
   if(PrintWiaCheck) {
-    outs() << F.getName() << "\n";
+    outs() << F.getName().str() << "\n";
     for (it = inst_begin(F); it != e; ++it) {
       Instruction *I = &*it;
       outs()<<"WI-RunOnFunction " <<m_deps[I] <<" "<<*I <<" " << "\n";
@@ -403,7 +403,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Check if the function is in the table of functions
   Function *origFunc = inst->getCalledFunction();
-  std::string origFuncName = origFunc->getName();
+  std::string origFuncName = origFunc->getName().str();
   
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);

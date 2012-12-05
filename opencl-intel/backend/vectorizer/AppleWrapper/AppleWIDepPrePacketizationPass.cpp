@@ -21,7 +21,7 @@ bool AppleWIDepPrePacketizationPass::runOnFunction(Function& F) {
   m_appleRuntimeServices = (AppleOpenclRuntime *)RuntimeServices::get();
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii))  {
-      std::string funcName = CI->getCalledFunction()->getName();
+      std::string funcName = CI->getCalledFunction()->getName().str();
       if (m_appleRuntimeServices->isFakeWriteImage(funcName)) {
         handleWriteImage(CI, funcName);
         changed = true;

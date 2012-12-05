@@ -83,7 +83,7 @@ void ProfilingInfoPass::runOnUserFunction(Function* pFunc)
              instr_iter != block_iter->end(); ++instr_iter) {
             if (CallInst* call_instr = dyn_cast<CallInst>(instr_iter)) {
                 Function* called_func = call_instr->getCalledFunction();
-                string funcname = called_func->getName();
+                string funcname = called_func->getName().str();
                 if (funcname == "llvm.dbg.declare" ||
                     funcname == "llvm.dbg.value") {
                     instrs_to_remove.push_back(call_instr);

@@ -48,6 +48,9 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopWIAnalysis>();
       AU.addRequired<DominatorTree>();
+#if LLVM_VERSION >= 3425
+      AU.addRequired<ScalarEvolution>();
+#endif
       AU.setPreservesCFG();
   };
 

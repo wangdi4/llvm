@@ -561,7 +561,7 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
   }
   else if (CallInst *inst = dyn_cast<CallInst>(I)) {
     // It can be a masked load/store instruction!
-    std::string origFuncName = inst->getCalledFunction()->getName();
+    std::string origFuncName = inst->getCalledFunction()->getName().str();
     if (Mangler::isMangledLoad(origFuncName)) {
       ptrOpIndex = 1;
     }
@@ -1187,7 +1187,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   V_PRINT(packetizer, "\t\tCall Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
   Function *origFunc = CI->getCalledFunction();
-  std::string origFuncName = origFunc->getName();
+  std::string origFuncName = origFunc->getName().str();
 
   // Avoid packetizing fake insert\extract that are used to
   // obtain the scalar elements of vector arguments\return of scalar built-ins.
@@ -1338,7 +1338,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // TODO:: is it the way we want to support masked calls ?
   // currently we have only the DX calls and this works for them.
   bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
-  std::string vectorFuncNameStr = LibFunc->getName();
+  std::string vectorFuncNameStr = LibFunc->getName().str();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
@@ -1534,7 +1534,7 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
     // Make sure our chain is made of fake insert elements.
     CallInst* fakeIEI = dyn_cast<CallInst>(val);
     if (!fakeIEI) return false;
-    std::string insertName = fakeIEI->getCalledFunction()->getName();
+    std::string insertName = fakeIEI->getCalledFunction()->getName().str();
     V_ASSERT(Mangler::isFakeInsert(insertName) && "expected fake.insert");
     if (!Mangler::isFakeInsert(insertName)) return false;
     unsigned start = Mangler::isMangledCall(insertName) ? 1 : 0;
@@ -1585,7 +1585,7 @@ void PacketizeFunction::mapVectorMultiReturn (CallInst* CI,
   for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
     CallInst* fakeEI = dyn_cast<CallInst>(*ui);
     V_ASSERT(fakeEI && "user must be an fake ExtractElement (scalarizer should take care of it");
-    std::string extractName = fakeEI->getCalledFunction()->getName();
+    std::string extractName = fakeEI->getCalledFunction()->getName().str();
     V_ASSERT(Mangler::isFakeExtract(extractName) &&
         "user must be an fake ExtractElement (scalarizer should take care of it");
 

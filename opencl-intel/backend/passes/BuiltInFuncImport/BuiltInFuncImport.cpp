@@ -117,7 +117,7 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
   // Find all "root" functions.
   for (Module::iterator it = pModule->begin(), e = pModule->end(); it != e; ++it)
   {
-    std::string pFuncName = it->getName();
+    std::string pFuncName = it->getName().str();
     if (it->isDeclaration() && (pFuncName.substr(0,4) != "get_"))
     {
       Function* pImpFunc = m_pRTModule->getFunction(pFuncName);

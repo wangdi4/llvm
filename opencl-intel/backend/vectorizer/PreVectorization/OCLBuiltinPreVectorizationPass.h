@@ -41,6 +41,13 @@ public:
   
   virtual bool runOnFunction(Function &M);
 
+#if LLVM_VERSION >= 3425
+  /// @brief LLVM interface.
+  /// @param AU - usage of analysis.
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<TargetLibraryInfo>();
+  };
+#endif
 
 private:
 

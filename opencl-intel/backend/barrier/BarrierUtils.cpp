@@ -193,7 +193,7 @@ namespace intel {
       MDNode *elt = pOpenCLMetadata->getOperand(i);
       Value *field0 = elt->getOperand(0)->stripPointerCasts();
       if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
-        std::string kernelName = pKernelFunc->getName();
+        std::string kernelName = pKernelFunc->getName().str();
         if (NoBarrier.count(kernelName)) continue;
 
         //Add kernel to the list
@@ -202,7 +202,7 @@ namespace intel {
 
         //Check if there is a vectorized version of this kernel
         std::string vectorizedKernelName =
-          std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().data();
+          std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().str();
         Function *pVectorizedKernelFunc = m_pModule->getFunction(vectorizedKernelName);
         if ( pVectorizedKernelFunc ) {
           //Add vectorized kernel function to list

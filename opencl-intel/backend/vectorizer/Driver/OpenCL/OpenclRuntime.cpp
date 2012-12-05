@@ -169,7 +169,7 @@ bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigne
   *err = false; // By default, no error expected..
   const CallInst * CI = dyn_cast<CallInst>(inst);
   if (!CI) return false; // ID generator is a function call.
-  std::string funcName = CI->getCalledFunction()->getName();
+  std::string funcName = CI->getCalledFunction()->getName().str();
   unsigned dimensionIndex = 0; // Index of argument to CALL instruction, which is the dimension
   if (Mangler::isMangledCall(funcName)) {
     funcName = Mangler::demangle(funcName); // Remove mangling (masking) prefix
