@@ -2,6 +2,7 @@ set(TARGET_NAME x86_plugin)
 
 set(TARGET_SOURCE_FILES  
     x86_plugin.cpp
+    x86_archive.cpp
 )
 
 set(TARGET_INCLUDE_FILES
