@@ -12,45 +12,42 @@ if(NOT APPLE)
 endif(NOT APPLE)
 
 
-set(GenCommand ocl-tblgen -gen-ocl-biheader 
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
-  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h)
-
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  COMMAND ocl-tblgen -gen-ocl-biheader 
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
-  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  DEPENDS ocl-tblgen
-  COMMENT "genereating demangled headers... ${GenCommand}"
-  VERBATIM
-)
-
-
-add_custom_command(
-  OUTPUT BuiltinList.h
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  BuiltinList.h
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  COMMENT "copying MangledNames.h ..."
-  VERBATIM
-)
-
-add_custom_command(
-  OUTPUT CustomMappings.gen
-  COMMAND ocl-tblgen -gen-vectorizer-map
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
-  -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
-  DEPENDS
-  ocl-tblgen
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/opencl-v1.2.td
-  COMMENT "generating custom mapping ..."
-  VERBATIM
-)
+#set(GenCommand ~/usr/local/bin/ocl-tblgen -gen-ocl-biheader 
+#  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
+#  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+#  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h)
+#
+#add_custom_command(
+#  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+#  COMMAND ${GenCommand}
+#  DEPENDS ocl-tblgen
+#  COMMENT "genereating demangled headers... ${GenCommand}"
+#  VERBATIM
+#)
+#
+#
+#add_custom_command(
+#  OUTPUT BuiltinList.h
+#  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+#  BuiltinList.h
+#  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+#  COMMENT "copying MangledNames.h ..."
+#  VERBATIM
+#)
+#
+#add_custom_command(
+#  OUTPUT CustomMappings.gen
+#  COMMAND ~/usr/local/bin/ocl-tblgen -gen-vectorizer-map
+#  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
+#  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+#  -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
+#  DEPENDS
+#  ocl-tblgen
+#  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
+#  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/opencl-v1.2.td
+#  COMMENT "generating custom mapping ..."
+#  VERBATIM
+#)
 
 add_library(
   ${TARGET_NAME}

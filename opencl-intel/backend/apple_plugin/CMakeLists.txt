@@ -28,6 +28,7 @@ include_directories(
 # link_directories should be before add_library
 link_directories(
 	${OPENCL_LIBRARIES} 
+	${OPENGL_LIBRARIES}/Libraries
 	${LLVM_LIBRARY_DIR}
 )
 
@@ -48,12 +49,13 @@ set (PASSES_LIBS
     PrepareKernelArgs
     PreventDivCrashes
     PrintIRPass
-    ProfilingInfoPass
+    #ProfilingInfoPass
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
     ShuffleCallToInst
     UndefExternalFuncs
+    KernelInfo
     LLVMVectorizer
     LLVMBarrier
     )
@@ -71,7 +73,8 @@ target_link_libraries(${TARGET_NAME}
     ${PASSES_LIBS}
     
     # LLVM libs
-    ${LLVM_MODULE_LIBS}
+    #${LLVM_MODULE_LIBS}
+    libLLVMContainer.dylib
     )
 
 install( TARGETS ${TARGET_NAME}

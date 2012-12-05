@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 2.8)
-use_rtti(TRUE)
 
 set(TARGET_NAME name_mangle)
 
@@ -11,9 +10,9 @@ project (${TARGET_NAME})
 
 set(NAME_MANGLE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-#if (NOT APPLE)
+if (NOT APPLE)
     add_subdirectory(unittests)
-#endif(NOT APPLE)
+endif(NOT APPLE)
 add_subdirectory(antlruntime)
 
 add_custom_command(
