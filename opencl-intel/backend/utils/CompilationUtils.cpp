@@ -199,8 +199,11 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
     MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
     MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-
+#ifdef __APPLE__
+    if (tag->getString() == "apple.cl.arg_metadata") {
+#else
     if (tag->getString() == "image_access_qualifier") {
+#endif
       MDImgAccess = tmpMD;
       break;
     }
@@ -280,9 +283,18 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
             // Setup image pointer
             if(curArg.type != CL_KRNL_ARG_INT) {
+#ifdef __APPLE__
+              MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+              assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
+              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+              assert(tag->getString() == "image" && "image MD arg type is not 'image'");
+              tag = dyn_cast<MDString>(tmpMD->getOperand(1));
+              curArg.size_in_bytes = (tag->getString() == "read") ? 0 : 1;    // Set RW/WR flag
+#else
               ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
 
               curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
+#endif
               break;
             }
           }
@@ -322,8 +334,19 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
     case llvm::Type::IntegerTyID:
         {
+#ifdef __APPLE__
+          MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+          bool isSampler = false;
+          if(tmpMD->getNumOperands() > 0) {
+            MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+            if(tag->getString() == "sampler") //sampler_t
+                isSampler = true;
+          }
+          if(isSampler)
+#else
           ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
           if (access->getValue().getSExtValue() == -1) //sampler_t
+#endif
           {
             curArg.type = CL_KRNL_ARG_SAMPLER;
             curArg.size_in_bytes = 0;

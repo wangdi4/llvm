@@ -331,7 +331,7 @@ namespace intel {
       for ( Value::use_iterator ui = pFunc->use_begin(),
         ue = pFunc->use_end(); ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-          assert( pCallInst && "usage of pFunc is not a CallInst!" );
+          // usage of pFunc can be a global variable!
           if( !pCallInst ) {
             // usage of pFunc is not a CallInst
             continue;

@@ -425,7 +425,11 @@ namespace intel {
           for ( Value::use_iterator ui = pCalledFunc->use_begin(),
             ue = pCalledFunc->use_end(); ui != ue; ++ui ) {
               CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-              assert( pCallInst && "Something other than CallInst is using a function!" );
+              // usage of pFunc can be a global variable!
+              if( !pCallInst ) {
+                // usage of pFunc is not a CallInst
+                continue;
+              }
               Function *pCallingFunc = pCallInst->getParent()->getParent();
               if ( !m_functionsWithNonInlinedCalls.count(pCallingFunc) ) {
                 m_functionsWithNonInlinedCalls.insert(pCallingFunc);

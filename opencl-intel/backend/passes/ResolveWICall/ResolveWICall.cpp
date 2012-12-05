@@ -106,7 +106,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         pNewRes = updateGetFunction(pCall, calledFuncType);
         assert(pNewRes && "Expected updateGetFunction to succeed");
         break;
-
+#ifndef __APPLE__
       case ICT_PRINTF:
         addPrintfDeclaration();
         pNewRes = updatePrintf(pCall);
@@ -140,7 +140,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         updatePrefetch(pCall);
         // prefetch* function returns void, no need to replace its usages!
         break;
-
+#endif // __APPLE__
       default:
         continue;
       }

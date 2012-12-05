@@ -48,7 +48,11 @@ namespace intel {
       Function::use_iterator ue = pFuncToHandle->use_end();
       for ( ; ui != ue; ui++ ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-        assert( pCallInst && "function use is not a call instruction!" );
+        // usage of pFunc can be a global variable!
+        if( !pCallInst ) {
+          // usage of pFunc is not a CallInst
+          continue;
+        }
 
         // Add Barrier before function call instruction
         m_util.createBarrier(pCallInst);
