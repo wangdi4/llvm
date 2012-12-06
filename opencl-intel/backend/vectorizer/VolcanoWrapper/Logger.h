@@ -64,7 +64,11 @@ extern FILE * moduleDmp;
 #include "llvm/Support/Debug.h"
 #define V_INIT_PRINT
 #define V_DESTROY_PRINT
-#define V_PRINT(type, x)    DEBUG_WITH_TYPE( #type , errs() << x )
+#ifndef NDEBUG
+    #define V_PRINT(type, x)    DEBUG_WITH_TYPE( #type , errs() << x )
+#else
+    #define V_PRINT(type, x)
+#endif
 #define V_DUMP(ptr)
 #define V_DUMP_MODULE(ptr)
 #define V_ASSERT(x)         assert( x )
