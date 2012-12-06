@@ -33,8 +33,6 @@ File Name:  CompilationUtils.h
 
 using namespace llvm;
 
-const unsigned int BYTE_SIZE = 8;
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   DEFINE_EXCEPTION(CompilerException)

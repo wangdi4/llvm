@@ -26,6 +26,7 @@ File Name:  ResolveWICall.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+  const unsigned int BYTE_SIZE = 8;
   char ResolveWICall::ID = 0;
 
   ModulePass* createResolveWICallPass() {

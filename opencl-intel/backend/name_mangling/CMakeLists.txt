@@ -39,8 +39,12 @@ add_library(
   gen/DemangleParser.cpp
 )
 
+if (NOT APPLE)
 include_directories(
   ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
+)
+endif (NOT APPLE)
+include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/include
   ${CMAKE_CURRENT_SOURCE_DIR}/gen
   ${CMAKE_CURRENT_SOURCE_DIR}

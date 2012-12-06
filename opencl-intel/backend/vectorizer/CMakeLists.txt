@@ -2,7 +2,9 @@ file(GLOB_RECURSE headers *.h)
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "Driver")
-include_directories(BEFORE "Driver/DX")
+if(NOT APPLE)
+    include_directories(BEFORE "Driver/DX")
+endif(NOT APPLE)
 include_directories(BEFORE "Driver/Apple")
 include_directories(BEFORE "Driver/OpenCL")
 include_directories(BEFORE "Resolver")
@@ -22,6 +24,9 @@ include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
 if(NOT APPLE)
 set(TARGET_MIC_SOURCE_FILES 
   Resolver/MICResolver.cpp
+  Driver/DX/DXRuntime.cpp
+  Driver/DX/DXData.cpp
+  Driver/DX/DXWrapperParamsCheck.cpp
 )
 else(NOT APPLE)
 set(TARGET_MIC_SOURCE_FILES 
@@ -34,9 +39,6 @@ add_library( LLVMVectorizer
   Utils/RuntimeServices.cpp
   Utils/SimplifyGEP.cpp
   Driver/OpenCL/OpenclRuntime.cpp
-  Driver/DX/DXRuntime.cpp
-  Driver/DX/DXData.cpp
-  Driver/DX/DXWrapperParamsCheck.cpp
   Driver/Functions.cpp
   Driver/Apple/AppleOCLData.cpp
   Driver/Apple/AppleOCLRuntime.cpp
