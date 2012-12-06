@@ -109,10 +109,6 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
       // A built-in data type that is not a power of two bytes in size must be
       // aligned to the next larger power of two
       assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
-      // Adding assert to check we are following the OpenCL spec:
-      // A built-in data type that is not a power of two bytes in size must be
-      // aligned to the next larger power of two
-      assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
     }
     break;
   case CL_KRNL_ARG_COMPOSITE:
