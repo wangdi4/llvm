@@ -37,7 +37,7 @@ include_directories(
 )
 
 # Include the ASM sources
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+if (BUILD_X64)
     if (WIN32)
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/kernel_execute_64.asm)
     elseif (APPLE)
@@ -46,7 +46,12 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/linux64_utils.s)
     endif ()
     CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
-endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+else  (BUILD_X64)
+    if (APPLE)
+        set (UTILS_ASM_SOURCES mac_utils_32.s)
+    endif (APPLE)
+    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
+endif (BUILD_X64)
 
 add_library(${TARGET_NAME}
     ${OCL_UTILS_INCLUDE_FILES}

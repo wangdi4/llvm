@@ -147,19 +147,23 @@ CPUDetect::CPUDetect(void)
         if (viCPUInfo[2] & 0x08000000)
         {
 
-#if defined(_WIN32) && !defined(_M_X64)
-            // Use this inline asm in Win32 only
-            __asm
-            {
-                // specify 0 for XFEATURE_ENABLED_MASK register
-                mov ecx, 0
-                    // XGETBV result in EDX:EAX
-                    xgetbv
-                    mov XCRInfo[0], eax
-                    mov XCRInfo[1], edx
-            }
+#if defined(_WIN32)
+#if defined(_M_X64)
+          xgetbv( XCRInfo )
 #else
-            xgetbv( XCRInfo )
+          // Use this inline asm in Win32 only
+          __asm
+          {
+            // specify 0 for XFEATURE_ENABLED_MASK register
+            mov ecx, 0
+            // XGETBV result in EDX:EAX
+            xgetbv
+            mov XCRInfo[0], eax
+            mov XCRInfo[1], edx
+          }
+#endif
+#elif defined(__APPLE__)
+          XCRInfo[0] = 0x00000006;
 #endif
                 if ((XCRInfo[0] & 0x00000006) == 0x00000006)
                 {

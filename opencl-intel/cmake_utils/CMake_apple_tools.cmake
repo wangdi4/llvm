@@ -8,83 +8,34 @@ option(OCL_BUILD32 "Are we building for 32bit? Default is no, i.e. 64 bit (or na
 set(OS Mac )
 set(IMPLIB_SUBDIR bin )
 set(IMPLIB_PREFIX lib )
-set(IMPLIB_SUFFIX .so )
+set(IMPLIB_SUFFIX .dylib )
 
 # C/CXX Compiler and cross-compilation flags
 # defined by toolchain
 # Linux-Intel.cmake and Linux-GNU.cmake
-include("${OCL_TOOLCHAIN_FILE}")
-set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION com.apple.compilers.llvmgcc42 CACHE STRING "" FORCE )
-
-
-if (TARGET_CPU STREQUAL "Atom")
-    set(CMAKE_EXE_LINKER_FLAGS        "${CMAKE_EXE_LINKER_FLAGS}    ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_SHARED_LINKER_FLAGS     "${CMAKE_SHARED_LINKER_FLAGS} ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_CXX_FLAGS               "${CMAKE_CXX_FLAGS} ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_C_FLAGS                 "${CMAKE_C_FLAGS}   ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_ASM_FLAGS               ${CMAKE_ASM_FLAGS} ${ATOM_SPECIFIC_FLAGS_ASM}) # Do not quote (CREATE_ASM_RULES)!
-endif (TARGET_CPU STREQUAL "Atom")
+# include("${OCL_TOOLCHAIN_FILE}")
+# set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION com.apple.compilers.llvmgcc42 CACHE STRING "" FORCE )
 
 message("** ** ** Enable Languages ** ** **")
-
 enable_language( C )
 enable_language( CXX )
-#enable_language( ASM )
-
+enable_language( ASM )
 
 set(BIN_OUTPUT_DIR_SUFFIX "mac")
 
-
-if (OCL_BUILD32)
-    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}32" )
-    add_definitions(-D OCL_BUILD32)
-    if (TARGET_CPU STREQUAL "Atom")
-        # architecture will be according to ATOM
-        set(ARCH_BIT -m32 )
-        set(ASM_BIT  --32 )
-    else ()
-        # need to force a more modern architecture than the degault m32 (i386).
-        set(ARCH_BIT "-m32 -march=core2" )
-        set(ASM_BIT  --32 -march=core2 )
-    endif (TARGET_CPU STREQUAL "Atom")
-else()
+if (BUILD_X64)
     set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}64" )
     set(ARCH_BIT -m64 )
-    set(ASM_BIT  --64 )
-endif (OCL_BUILD32)
-
-# set CMAKE SVN client to be first SVN client in the PATH
-execute_process(COMMAND which svn OUTPUT_VARIABLE Subversion_SVN_EXECUTABLE OUTPUT_STRIP_TRAILING_WHITESPACE )
-
-if (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
-	execute_process(COMMAND ${IWHICH_FOUND}  ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_FOUND OUTPUT_STRIP_TRAILING_WHITESPACE )
-	if (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
-		set( INTEL_IT_BUILD_ENV_FOUND ON )
-	endif (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
-endif (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
-
-if (DEFINED INTEL_IT_BUILD_ENV_FOUND)
-    # setup Intel IT tools versions database
-    set( ENV{USER_ITOOLS} ${CMAKE_SOURCE_DIR}/cmake_utils/intel_it_linux_tool_versions.txt )
-
-    # find required compiler setup
-    execute_process(COMMAND ${IWHICH_FOUND} ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_PATH OUTPUT_STRIP_TRAILING_WHITESPACE )
-    string( REPLACE /bin/${CMAKE_C_COMPILER} "" INTEL_IT_COMPILER_PATH  ${INTEL_IT_COMPILER_PATH} )
-
-    # prepend all cmake paths intel IT path
-    set( CMAKE_PREFIX_PATH  /usr/intel ${INTEL_IT_COMPILER_PATH})
-endif (DEFINED INTEL_IT_BUILD_ENV_FOUND)
-
-execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-# Warning level
-if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
-  set ( WARNING_LEVEL  "-Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-int-to-pointer-cast -Wno-unused-but-set-variable" )
-else ()
-  set ( WARNING_LEVEL  "-Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
-endif ()
+    set(ASM_BIT  -arch x86_64 )
+else()
+    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}32" )
+    add_definitions(-D OCL_BUILD32)
+	# need to force a more modern architecture than the degault m32 (i386).
+	set(ARCH_BIT "-m32 -march=core2" )
+	set(ASM_BIT  -arch i386 )
+endif (BUILD_X64)
 
 # Compiler switches that CANNOT be modified during makefile generation
-
 set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -fstack-protector")
 #  -funsigned-bitfields" )
 
@@ -164,6 +115,13 @@ set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${A
 set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 
 set( CMAKE_BUILD_TOOL "$(MAKE)")
+
+if (CVCC_ASM_PATH)
+    set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
+else(CVCC_ASM_PATH)
+    message(STATUS "Using system assembler, check that its version is 4.3.x")
+    set( CMAKE_ASM_COMPILER        as )
+endif(CVCC_ASM_PATH)    
 
 message("\n\n** ** ** COMPILER Definitions ** ** **")
 message("CMAKE_C_COMPILER = ${CMAKE_C_COMPILER}")

@@ -49,15 +49,15 @@ if (NOT WIN32)
     endif (APPLE)
     
     # Assembler setup - use private rules
-    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if (CVCC_ASM_PATH)
-        set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-    else(CVCC_ASM_PATH)
-        message(STATUS "Using system assembler, check that its version is 4.3.x")
-        set( CMAKE_ASM_COMPILER        as )
-    endif(CVCC_ASM_PATH)    
+    #set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
+    #set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
+    #set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
+    #if (CVCC_ASM_PATH)
+    #    set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
+    #else(CVCC_ASM_PATH)
+    #    message(STATUS "Using system assembler, check that its version is 4.3.x")
+    #    set( CMAKE_ASM_COMPILER        as )
+    #endif(CVCC_ASM_PATH)    
     
 endif (NOT WIN32)
 
