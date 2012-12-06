@@ -16,6 +16,8 @@ File Name: Type.cpp
 \****************************************************************************/
 
 #include "Type.h"
+#include "TypeCast.h"
+#include "Utils.h"
 #include <assert.h>
 #include <cctype>
 #include <sstream>
@@ -40,37 +42,6 @@ bool compare(const std::vector<std::string>& left,
   return true;
 }
 
-static std::string toLower(const char* s){
-  std::string ret(s);
-  std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
-  return ret;
-}
-
-//string represenration for the primitive types
-static const char* PrimitiveNames[NUM_TYPES] ={
-  "bool",
-  "uchar",
-  "char",
-  "ushort",
-  "short",
-  "uint",
-  "int",
-  "ulong",
-  "long",
-  "half",
-  "float",
-  "double"
-};
-
-primitives::Primitive primitives::parseType(const std::string& s){
-  for (int i=0 ; i<NUM_TYPES ; ++i)
-    if (0==s.compare(PrimitiveNames[i]))
-      return static_cast<primitives::Primitive>(primitives::BOOL+i);
-  assert(false && "unreachable code: not a valid type");
-  return static_cast<primitives::Primitive>(0);
-}
-#define PrimitiveToString(p) toLower(PrimitiveNames[p-primitives::BOOL])
-
 //
 //Type
 //
@@ -81,7 +52,12 @@ Type::Type(primitives::Primitive p): m_primitive(p){
 Type::~Type(){}
 
 std::string Type::toString()const{
-  return PrimitiveToString(m_primitive);
+  assert
+  (
+    (m_primitive>primitives::FIRST && m_primitive<=primitives::NONE) &&
+    "illegal primitive"
+  );
+  return readableString(this);
 }
 
 Type* Type::clone()const{
@@ -168,7 +144,7 @@ void Pointer::accept(TypeVisitor* v)const{
 }
 
 bool Pointer::eq(const Type* t)const{
-  const Pointer* p = dynamic_cast<const Pointer*>(t);
+  const Pointer* p = cast<Pointer>((Type*)t);
   return p && (m_primitive == p->m_primitive);
 }
 
@@ -197,7 +173,12 @@ int Vector::getLen()const{
 
 std::string Vector::toString()const{
   std::stringstream myName;
-  myName << PrimitiveToString(m_primitive);
+  assert
+  (
+    (m_primitive>primitives::FIRST && m_primitive<=primitives::NONE) &&
+    "illegal primitive"
+  );
+  myName << readableString(this);
   myName << m_len;
   return myName.str();
 }
@@ -212,7 +193,7 @@ void Vector::accept(TypeVisitor* v)const{
 }
 
 bool Vector::eq(const Type* t)const{
-  const Vector* pVec = dynamic_cast<const Vector*>(t);
+  const Vector* pVec = cast<Vector>((Type*)t);
   return pVec && (m_len == pVec->m_len) && (m_primitive == pVec->m_primitive);
 }
 
@@ -244,7 +225,7 @@ primitives::Primitive UserDefinedTy::getPrimitive()const{
 }
 
 bool UserDefinedTy::eq(const Type* t)const{
-  const UserDefinedTy* pTy = dynamic_cast<const UserDefinedTy*>(t);
+  const UserDefinedTy* pTy = cast<UserDefinedTy>((Type*)t);
   return pTy && (m_name == pTy->m_name);
 }
 

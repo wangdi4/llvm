@@ -80,6 +80,7 @@ primitive returns [reflection::Type* pType = NULL;]
   | h:HALF    {pType = createType(h); }
   | f:FLOAT   {pType = createType(f); }
   | d:DOUBLE  {pType = createType(d); }
+  | v:VOID    {pType = createType(v); }
 ;
 
 vector_type returns [reflection::Vector* pVector = NULL;]
@@ -140,14 +141,19 @@ address_space returns [std::string attribute]
     std::string strAddressSpace = n2->getText();
     unsigned suffixLen = atoi(strSuffixLen.c_str());
     unsigned addressSpace = atoi(strAddressSpace.c_str());
-    if (suffixLen -2 != strAddressSpace.length())
+    if (suffixLen -2 != strAddressSpace.length()){
+      printf ("suffixLen=%d while address space=%s\n", suffixLen,
+        strAddressSpace.c_str());
       throw ("internal bug! we need a custom lexer..");
+    }
     switch (addressSpace){
       case 0: attribute = "__private";  break;
       case 1: attribute = "__global"; break;
       case 2: attribute = "__constant";  break;
       case 3: attribute = "__local";  break;
-      default: assert (false && "unreachable code");
+      default:
+      printf ("unrecodnized address space %d\n", addressSpace);
+      assert (false && "unreachable code");
     }
   }
 ;
@@ -202,6 +208,7 @@ LONG:    "l";
 HALF:    "Dh";
 FLOAT:   "f";
 DOUBLE:  "d";
+VOID:    "v";
 POINTER_PREFIX: "P";
 VECTOR_PREFIX:  "Dv";
 UNDERSCORE:     "_";

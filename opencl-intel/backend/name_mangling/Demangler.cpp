@@ -23,6 +23,7 @@
 #include "DemangleParser.hpp"
 #include "FunctionDescriptor.h"
 
+extern bool isApplePrefixFree(const std::string& s);
 //
 //A callback delegate (aka functor), to handle the discovery of parameters by
 //the parser (accumulator)
@@ -45,6 +46,10 @@ std::vector<reflection::Type*> m_parameters;
 const char* PREFIX = "_Z";
 
 size_t PREFIX_LEN = 2;
+
+//static const char* APPLE_PREFIX = "__cl_";
+
+size_t APPLE_PREFIX_LEN = 5;
 //parsing methods for the raw mangled name
 //
 static bool peelPrefix(llvm::StringRef& s){
@@ -79,7 +84,7 @@ bool isMangledName(const char* rawString){
 //Implementation of an API function.
 //converts the given mangled name string to a FunctionDescriptor object.
 //
-reflection::FunctionDescriptor demangle(const char* rawstring){
+static reflection::FunctionDescriptor demangleImpl(const char* rawstring){
   ANTLR_USING_NAMESPACE(antlr)
   ANTLR_USING_NAMESPACE(namemangling)
   if (!rawstring || reflection::FunctionDescriptor::nullString() == rawstring)
@@ -108,7 +113,6 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   try {
     parser.demangle();
   }catch(ANTLRException ex){
-//    assert(false && "antlr exception was caught");
     return reflection::FunctionDescriptor::null();
   }
   reflection::FunctionDescriptor ret;
@@ -116,6 +120,17 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   ret.parameters.insert ( ret.parameters.begin(),
     parameterAccumulator.m_parameters.rbegin(),
     parameterAccumulator.m_parameters.rend() );
+  return ret;
+}
+
+reflection::FunctionDescriptor demangle(const char* rawstring){
+  reflection::FunctionDescriptor ret = demangleImpl(rawstring);
+  if (ret.isNull())
+    return ret;
+  if (isApplePrefixFree(ret.name))
+    return ret;
+  assert ((ret.name.substr(0, APPLE_PREFIX_LEN) == APPLE_PREFIX) && "not an apple prefix!");
+  ret.name = ret.name.substr(APPLE_PREFIX_LEN, ret.name.length() - APPLE_PREFIX_LEN);
   return ret;
 }
 

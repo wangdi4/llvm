@@ -35,9 +35,13 @@ add_library(
   Mangler.cpp
   FunctionDescriptor.cpp
   TypeCast.cpp
+  Utils.cpp
   gen/DemangleLexer.cpp
   gen/DemangleParser.cpp
 )
+
+remove_definitions(-fno-exceptions)
+add_definitions(-fexceptions)
 
 if (NOT APPLE)
 include_directories(

@@ -30,6 +30,7 @@ namespace primitives{
 // vocabulary exported by ANTLR. (see the vocabulary in the generted directory,
 // with .txt ending.
 enum Primitive{
+  FIRST=3,
   BOOL=4,
   UCHAR,
   CHAR,
@@ -42,11 +43,10 @@ enum Primitive{
   HALF,
   FLOAT,
   DOUBLE,
-  NONE
+  VOID,
+  NONE //keep this at the end
 };
 
-//parses the given string into its corresponding nominal value
-Primitive parseType(const std::string&);
 }//end namespace primitives
 
 enum TypeEnum{
@@ -57,7 +57,7 @@ enum TypeEnum{
 };
 
 //total number of primitive types
-const int NUM_TYPES = 13;
+const int NUM_TYPES = primitives::NONE-primitives::FIRST;
 
 struct TypeVisitor;
 
