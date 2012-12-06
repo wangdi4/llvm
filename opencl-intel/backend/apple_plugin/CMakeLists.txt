@@ -2,20 +2,22 @@ set(TARGET_NAME x86_plugin)
 
 set(TARGET_SOURCE_FILES  
     x86_plugin.cpp
+    x86_macho_link.cpp
     x86_archive.cpp
 )
 
 set(TARGET_INCLUDE_FILES
     x86_archive.h
     x86_cvms.h
+    Trie.h
 )
 
 find_package(OpenGL REQUIRED)
 find_package(OpenCL REQUIRED)
 
-include_directories( SYSTEM
-     ${OPENGL_INCLUDE_DIR}
-)
+#include_directories( SYSTEM
+#     ${OPENGL_INCLUDE_DIR}
+#)
 
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
@@ -24,13 +26,14 @@ include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api/gen
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/vectorizer
+    ${BACKEND_ROOT_DIR}/../cl_api
+    ${CVMS_INCLUDE_DIR}
 )
 
 # link_directories should be before add_library
 link_directories(
-	${OPENCL_LIBRARIES} 
+	${OPENCL_LIBRARIES}/Libraries 
 	${OPENGL_LIBRARIES}/Libraries
-	${LLVM_LIBRARY_DIR}
 )
 
 add_library(${TARGET_NAME} SHARED 
@@ -42,7 +45,6 @@ set (PASSES_LIBS
     # Backend passes
     AddImplicitArgs
     BuiltInFuncImport
-    # DebugInfoPass
     InstToFuncCall
     LocalBuffers
     LocalBuffAnalysis
@@ -50,7 +52,6 @@ set (PASSES_LIBS
     PrepareKernelArgs
     PreventDivCrashes
     PrintIRPass
-    #ProfilingInfoPass
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
@@ -74,8 +75,7 @@ target_link_libraries(${TARGET_NAME}
     ${PASSES_LIBS}
     
     # LLVM libs
-    #${LLVM_MODULE_LIBS}
-    libLLVMContainer.dylib
+    LLVMContainer
     )
 
 install( TARGETS ${TARGET_NAME}

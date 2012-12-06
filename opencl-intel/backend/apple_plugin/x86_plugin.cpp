@@ -68,6 +68,9 @@
 #include "Optimizer.h"
 #include "MetaDataApi.h"
 #include "VolcanoWrapper/VecConfig.h"
+#include "cl_device_api.h"
+#include "CompilationUtils.h"
+#include "TypeAlignment.h"
 
 #ifdef CLD_ASSERT
 #include <sys/types.h>
@@ -89,15 +92,9 @@ namespace Intel {
 }
 
 int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
-         std::vector<unsigned char> &dylib, std::string &log)
-{
-  return 1;
-}
+         std::vector<unsigned char> &dylib, std::string &log);
 
-int cld_link(Module *M, Module *Runtime)
-{
-  return 1;
-}
+int cld_link(Module *M, Module *Runtime);
 
 __END_DECLS
 
@@ -154,7 +151,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   for(unsigned int i=0; iter != end; ++iter, ++i) {
     Intel::KernelMetaDataHandle kmd = (*iter);
     // In case the cast is wrong an assertion failure will be thrown
-    //llvm::Function *pFunc = (*iter)->getFunction();
+    llvm::Function *pFunc = (*iter)->getFunction();
     // The wrapper function that receives a single buffer as argument is the last node in the metadata
     MDNode *wrapperN = OpenCLKernelWrapperMD->getOperand(i);
     llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(wrapperN->getOperand(0)->stripPointerCasts());
@@ -170,6 +167,39 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       }
     }
 #endif
+
+    // Get the kernel arguments info
+    std::vector<cl_kernel_argument> arguments;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments);
+
+    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
+        arguments.size(), &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(NULL,
+        arguments.size(), &kCFTypeArrayCallBacks);
+
+    //Calculate the size and alignment of each argument from the arguments info
+    for(unsigned int j=0; j<arguments.size(); ++j) {
+        cl_kernel_argument arg = arguments[j];
+    
+        // Create a CFNumber to hold the size value.
+        int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
+        const void *vptrsize = (const void *)&size;
+        CFNumberRef valsizeref = CFNumberCreate(NULL, kCFNumberIntType, vptrsize);
+
+        // Append size value to the function arg sizes array.
+        CFArrayAppendValue(kf_argsizes, valsizeref);
+        CFRelease(valsizeref);
+
+        // Create a CFNumber to hold the alignment value.
+        int alignment = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getAlignment(arg));
+        const void *vptralignment = (const void *)&alignment;
+        CFNumberRef valalignmentref = CFNumberCreate(NULL, kCFNumberIntType, vptralignment);
+
+        // Append size value to the function arg sizes array.
+        CFArrayAppendValue(kf_argalignments, valalignmentref);
+        CFRelease(valalignmentref);
+    }
 
     ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
     Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
@@ -373,9 +403,9 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     const void *bbsptr = (const void *)&barrierBufferSTride;
     CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
 
-    const void *entry[] = { kfinfo, sname, vname, vwmax, hbarrier, bbs,
+    const void *entry[] = { kfinfo, kf_argsizes, kf_argalignments, sname, vname, vwmax, hbarrier, bbs,
       kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals };
-    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 10, &kCFTypeArrayCallBacks);
+    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 12, &kCFTypeArrayCallBacks);
   
     CFRelease(kfinfo);
     CFRelease(sname);
