@@ -95,10 +95,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>& pOutEvent );
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
         // release data locking on device. 
-        // MUST pass the same usage value as LockOnDevice
+        // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
 		virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
 		cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
@@ -698,7 +698,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list by the caller
 		// Overwrite parent implementation.
-		virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>& pOutEvent );
+		virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
 		// release data locking on device. 
         // MUST pass the same usage value as LockOnDevice

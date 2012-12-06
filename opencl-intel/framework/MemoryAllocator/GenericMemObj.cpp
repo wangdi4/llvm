@@ -1002,6 +1002,14 @@ void GenericMemObject::addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer)
 			}
 		}
 	}
+	if (MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode())
+	{
+		// Push the new sub-buffer to updateParentList (The other sub-buffers already close to the parent)
+		TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
+		// push the new sub-buffer to updateParentList in order to move the new sub-buffer and the parent buffer to single device at the next memory request.
+		pUpdateParentList->push_back(pSubBuffer);
+		setUpdateParentFlag(true);
+	}
 	// Add pSubBuffer to m_subBuffersList
 	pSubBuffersList->push_back(pSubBuffer);
 	releaseBufferSyncLock();

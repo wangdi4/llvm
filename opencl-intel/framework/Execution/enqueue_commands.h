@@ -173,45 +173,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
             SharedPtr<MemoryObject> pMemObj;
             MemoryObject::MemObjUsage access_rights;
+			MemoryObject::MemObjUsage access_rights_realy_used;
 
-            MemoryObjectArg( const SharedPtr<MemoryObject>& a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b) {};
-            MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT) {};
-            MemoryObjectArg(const MemoryObjectArg& other) : pMemObj(other.pMemObj), access_rights(other.access_rights) { }
-        };
-
-        typedef list<MemoryObjectArg>   MemoryObjectArgList;
-
-        cl_err_code AcquireMemoryObjects( const MemoryObjectArgList& mem_objs, const SharedPtr<FissionableDevice> pDev = NULL ) 
-        { 
-            return AcquireMemoryObjectsInt( &mem_objs, NULL, pDev ); 
-        };
-        
-        cl_err_code AcquireMemoryObjects( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev = NULL  )
-        { 
-            return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
+            MemoryObjectArg( const SharedPtr<MemoryObject>& a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b), access_rights_realy_used(b) {};
+            MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT), access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT) {};
+            MemoryObjectArg(const MemoryObjectArg& other) : pMemObj(other.pMemObj), access_rights(other.access_rights), access_rights_realy_used(other.access_rights_realy_used) { }
         };
 
-        cl_err_code AcquireMemoryObjects( const SharedPtr<MemoryObject>& pMemObj, MemoryObject::MemObjUsage access_rights, const SharedPtr<FissionableDevice>& pDev = NULL  )
-        { 
-            MemoryObjectArg arg( pMemObj, access_rights ); 
-            return AcquireMemoryObjectsInt( NULL, &arg, pDev ); 
-        };
-        
-        void        RelinquishMemoryObjects( const MemoryObjectArgList& mem_objs, const SharedPtr<FissionableDevice>& pDev = NULL ) 
-        { 
-            RelinquishMemoryObjectsInt( &mem_objs, NULL, pDev ); 
-        };
-        
-        void        RelinquishMemoryObjects( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev = NULL ) 
-        { 
-            RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
-        };
+        typedef vector<MemoryObjectArg>   MemoryObjectArgList;
 
-        void        RelinquishMemoryObjects( const SharedPtr<MemoryObject>& pMemObj, MemoryObject::MemObjUsage access_rights, const SharedPtr<FissionableDevice>& pDev = NULL ) 
-        { 
-            MemoryObjectArg arg( pMemObj, access_rights ); 
-            RelinquishMemoryObjectsInt( NULL, &arg, pDev );  
-        };
+        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );
+ 
+        void        RelinquishMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );
 
         void prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size );
         
@@ -226,15 +199,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         ocl_gpa_command*            m_pGpaCommand;
         bool                        m_bIsBeingDeleted;
+
+		// Intermediate data
+        MemoryObjectArgList                 m_MemOclObjects;
         
         DECLARE_LOGGER_CLIENT;
     private:
 
 		Command& operator=(const Command&);
         // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
-        cl_err_code AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
-        cl_err_code AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
-        void RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev );
+        cl_err_code AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
                 
         bool                        m_memory_objects_acquired;
        
@@ -333,7 +307,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code             CommandDone();
         
     protected:
-        SharedPtr<MemoryObject>   m_pMemObj;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szMemObjRowPitch;
@@ -453,7 +426,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code   CommandDone();
         
     private:
-        MemoryObjectArg m_pMemObj;
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_bool         m_bBlocking;
@@ -530,7 +502,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code   CommandDone();
         
     protected:
-        MemoryObjectArg m_pMemObj;
         size_t          m_szOffset[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_uint         m_numOfDimms;
@@ -726,8 +697,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t  m_szSrcSlicePitch;
         size_t  m_szDstRowPitch;
         size_t  m_szDstSlicePitch;
-
-        MemoryObjectArgList m_objs;
         
         // Private functions
         cl_err_code CopyOnDevice    (SharedPtr<FissionableDevice> pDevice);
@@ -898,7 +867,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void*           GetMappedPtr() const { return m_pHostDataPtr; }
         
     protected:
-        MemoryObjectArg         m_pMemObj;
         cl_map_flags            m_clMapFlags;
         size_t                  m_szOrigin[MAX_WORK_DIM];
         size_t                  m_szRegion[MAX_WORK_DIM];
@@ -997,7 +965,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "Unmap"; }
         
 	private:
-        MemoryObjectArg         m_pMemObject;
         void*                   m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;       
         SharedPtr<FissionableDevice>      m_pActualMappingDevice;
@@ -1040,8 +1007,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*   m_cpszGlobalWorkSize;
         const size_t*   m_cpszLocalWorkSize;
         
-        // Intermediate data
-        MemoryObjectArgList                 m_MemOclObjects;
         std::list<OCLObject<_cl_mem_int>*>  m_NonMemOclObjects;
         #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
@@ -1106,7 +1071,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint              m_uNumMemObjects;
         SharedPtr<MemoryObject>*       m_ppMemObjList;
         const void**         m_ppArgsMemLoc;
-        MemoryObjectArgList  m_MemOclObjects;
     };
 
     
@@ -1144,7 +1108,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const cl_mem*               m_pMemObjects;      // used temporary to pass info from contructor to init()
         ContextModule*              m_pContextModule;
 
-        MemoryObjectArgList         m_MemObjects;
         cl_dev_cmd_param_migrate    m_migrateCmdParams;
     };
 

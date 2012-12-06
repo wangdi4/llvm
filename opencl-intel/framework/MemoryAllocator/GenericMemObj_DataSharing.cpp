@@ -549,9 +549,11 @@ bool GenericMemObject::getDeviceSharingGroupId(const ConstSharedPtr<FissionableD
 // Interface implementation
 //
 
-cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
 	pOutEvent = NULL;
+	// The default value of *pOutActuallyUsage is usage.
+	*pOutActuallyUsage = usage;
 	if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
@@ -565,7 +567,11 @@ cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableD
 		return CL_INVALID_VALUE;
 	}
 	acquireBufferSyncLock();
-	cl_err_code retCode = updateParent(devSharingGroupId, READ_WRITE, true, pOutEvent);
+	if (MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode())
+	{
+		*pOutActuallyUsage = READ_WRITE;
+	}
+	cl_err_code retCode = updateParent(devSharingGroupId, *pOutActuallyUsage, true, pOutEvent);
 	if (NULL == pOutEvent)
 	{
 		releaseBufferSyncLock();
@@ -587,7 +593,7 @@ cl_err_code GenericMemObject::UnLockOnDevice( IN const ConstSharedPtr<Fissionabl
 	{
 		return CL_INVALID_VALUE;
 	}
-	unLockOnDeviceInt(devSharingGroupId, READ_WRITE);
+	unLockOnDeviceInt(devSharingGroupId, usage);
 	return CL_SUCCESS;
 }
 
@@ -837,7 +843,7 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
 		for (unsigned int i = 0; i < pSubBuffersList->size(); i++)
 		{
 			subBuffersListSnapshot.push_back(pSubBuffersList->at(i));
-			SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+			SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, usage);
 			if (NULL != tEvent)
 			{
 				eventsList.push_back(tEvent);
@@ -911,8 +917,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
 			// for each sub-buffer Unlock from parentValidSharingGroupId and Lock on parent destination sharing group id
 			for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
 			{
-				subBuffersListSnapshot[i]->unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-				SharedPtr<OclEvent> tEvent = subBuffersListSnapshot[i]->lockOnDeviceInt(destDevSharingGroupId, READ_WRITE);
+				subBuffersListSnapshot[i]->unLockOnDeviceInt(parentValidSharingGroupId, usage);
+				SharedPtr<OclEvent> tEvent = subBuffersListSnapshot[i]->lockOnDeviceInt(destDevSharingGroupId, usage);
 				if (NULL != tEvent)
 				{
 					eventsList.push_back(tEvent);
@@ -951,7 +957,7 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
 		}
 		for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
 		{
-			subBuffersListSnapshot[i]->unLockOnDeviceInt(destDevSharingGroupId, READ_WRITE);
+			subBuffersListSnapshot[i]->unLockOnDeviceInt(destDevSharingGroupId, usage);
 		}
 		// fall through
 	}
@@ -1021,9 +1027,11 @@ void GenericMemObject::unlockOnDeviceAndRemoveFromListInt(TSubBufferList* parent
 
 ////////////////////////////////////////// GenericMemObjectSubBuffer ///////////////////////////////////////////
 
-cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
 	pOutEvent = NULL;
+	// SubBuffers always lock with MemObjUsage = usage
+	*pOutActuallyUsage = usage;
 	if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
