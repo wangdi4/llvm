@@ -185,8 +185,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
 			return get_mic_cpu_arch();
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
-            return "/tmp/mic";
-        //    return m_dump_file_name.c_str();
+            return m_dump_file_name.c_str();
 
         default:
             return defaultValue;
