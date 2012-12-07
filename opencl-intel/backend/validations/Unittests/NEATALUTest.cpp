@@ -8832,8 +8832,7 @@ public:
 
             for(uint32_t i = 0; i<numMin; i++) 
             {
-                EXPECT_TRUE( RefALU::fabs<sT>(sT(*tst[i].GetMin<T>()) - refVec[i]) <= refForUlps[i]);
-                EXPECT_TRUE( RefALU::fabs<sT>(sT(*tst[i].GetMax<T>()) - refVec[i]) <= refForUlps[i]);
+                EXPECT_TRUE(TestAccExpanded<sT>(refVec[i], tst[i], float(NEATALU::CROSS_ERROR)));
             }
 
             // test for interval vectors
@@ -8871,8 +8870,7 @@ public:
 
             for(uint32_t i = 0; i<numMin; i++) 
             {
-                EXPECT_TRUE( RefALU::fabs<sT>(sT(*tst[i].GetMin<T>()) - refMin[i]) <= refForUlps[i]);
-                EXPECT_TRUE( RefALU::fabs<sT>(sT(*tst[i].GetMax<T>()) - refMax[i]) <= refForUlps[i]);
+                EXPECT_TRUE(TestIntExpanded<sT>(refMin[i], refMax[i], tst[i], float(NEATALU::CROSS_ERROR)));
             }
 
         }
@@ -8883,8 +8881,7 @@ template <typename T>
 class NEATCrossRun : public ALUTest {
 };
 
-//TODO: add doubles here when intel compiler version 12 will be used. See CSSD100013301
-typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > FloatTypesMathCross;
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>, ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesMathCross;
 TYPED_TEST_CASE(NEATCrossRun, FloatTypesMathCross);
 TYPED_TEST(NEATCrossRun, cross)
 {

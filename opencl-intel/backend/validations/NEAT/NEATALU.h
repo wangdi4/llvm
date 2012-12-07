@@ -4691,18 +4691,7 @@ public:
         typedef typename superT<T>::type sT;
         NEATValue res;
 
-        // calculating ulps for each item of resulting vector as like as conformance test does
-        sT vS0 = RefALU::fmax( RefALU::fabs(sT(*in0.GetMax<T>())), RefALU::fabs(sT(*in0.GetMin<T>())));
-        sT vS1 = RefALU::fmax( RefALU::fabs(sT(*in1.GetMax<T>())), RefALU::fabs(sT(*in1.GetMin<T>())));
-        sT vS2 = RefALU::fmax( RefALU::fabs(sT(*in2.GetMax<T>())), RefALU::fabs(sT(*in2.GetMin<T>())));
-        sT vS3 = RefALU::fmax( RefALU::fabs(sT(*in3.GetMax<T>())), RefALU::fabs(sT(*in3.GetMin<T>())));
-
-        sT item4ulp = RefALU::fmax(vS0, RefALU::fmax(vS1, RefALU::fmax(vS2, vS3)));
-        // TODO: sT(ComputeUlp(1.0)) should be replaced by ComputeUlp(sT(1.0))
-        // but intel complier 11.1.65 fails on this code. To be resolved with 12 version of compiler
-        // CSSD100013301
-        sT ulpsCross = sT(NEATALU::CROSS_ERROR) * sT(ComputeUlp(1.0));
-        sT delta = item4ulp * item4ulp * ulpsCross;
+        double ulps = double(NEATALU::CROSS_ERROR);
 
         sT vals[4];
         sT min0=sT(0), max0=sT(0);
@@ -4762,16 +4751,15 @@ public:
         return res;
 
         // expand interval
-        min0 -= delta;
-        max0 += delta;
+        ExpandFloatInterval<sT>(&min0, &max0, ulps);
 
         T minD = castDown(min0);
         if (min0 > sT(minD)) {
-            minD += ComputeUlp(minD);
+            minD += ComputeUlp(sT(minD));
         }
         T maxD = castDown(max0);
         if (max0 < sT(maxD)) {
-            maxD -= ComputeUlp(maxD);
+            maxD -= ComputeUlp(sT(maxD));
         }
 
         minD = RefALU::flush<T>(minD);
