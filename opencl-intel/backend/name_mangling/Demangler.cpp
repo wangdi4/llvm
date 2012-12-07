@@ -47,7 +47,9 @@ const char* PREFIX = "_Z";
 
 size_t PREFIX_LEN = 2;
 
-//static const char* APPLE_PREFIX = "__cl_";
+#ifndef NDEBUG
+static const char* APPLE_PREFIX = "__cl_";
+#endif
 
 size_t APPLE_PREFIX_LEN = 5;
 //parsing methods for the raw mangled name
