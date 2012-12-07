@@ -1757,7 +1757,7 @@ TYPED_TEST(NEATMathTestOneArg, logb)
     }
 }
 
-TYPED_TEST(NEATMathTestOneArg, cbrt)
+TYPED_TEST(NEATMathTestOneArg, DISABLED_cbrt)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;
