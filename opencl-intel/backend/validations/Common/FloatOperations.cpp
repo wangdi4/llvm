@@ -293,7 +293,16 @@ namespace Validation
         {
             return a.IsDenorm();
         }
-
+        template<>
+        bool eq_tol<double>(const double& a, const double& b, const double& tol)
+        {
+            assert(tol >= 0.0);
+            assert(sizeof(long double) > sizeof(double));
+            FloatParts<double> aParts(a), bParts(b);
+            if( a==double(0.0)&&b==double(0.0f)&&( aParts.sign != bParts.sign ))
+                return false;
+            return (::fabs(Utils::ulpsDiffSamePrecision((long double) a, (long double)b)) <= tol);
+        }
         double ulpsDiffSamePrecision(double reference, double testVal)
         {
             union{ double d; uint64_t u; }u;     

@@ -501,6 +501,12 @@ void TestFloatBoundsReference(DataTypeVal valType)
     EXPECT_EQ(PASSED, CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(), numeric_limits<T>::quiet_NaN(), valType));
     EXPECT_EQ(PASSED, CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(), numeric_limits<T>::signaling_NaN(), valType));
     EXPECT_EQ(PASSED, CompareSingleValueRef<T>(numeric_limits<T>::signaling_NaN(), numeric_limits<T>::signaling_NaN(), valType));
+
+    ///Check zeros
+    EXPECT_EQ(PASSED, CompareSingleValueRef<T>(T(+0.0), T(+0.0), valType));
+    EXPECT_EQ(PASSED, CompareSingleValueRef<T>(T(-0.0), T(-0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(-0.0), T(+0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(+0.0), T(-0.0), valType));
 }
 
 void TestCFloat16BoundsReference()
@@ -540,6 +546,12 @@ void TestFloatBoundsNeatAccurate(DataTypeVal valType)
     EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(numeric_limits<T>::quiet_NaN(), numeric_limits<T>::quiet_NaN(), valType));
     EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(numeric_limits<T>::quiet_NaN(), numeric_limits<T>::signaling_NaN(), valType));
     EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(numeric_limits<T>::signaling_NaN(), numeric_limits<T>::signaling_NaN(), valType));
+
+    ///Check zeros
+    EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(T(+0.0), T(+0.0), valType));
+    EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(T(-0.0), T(-0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(T(-0.0), T(+0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(T(+0.0), T(-0.0), valType));
 }
 
 void TestCFloat16BoundsNeatAccurate()
