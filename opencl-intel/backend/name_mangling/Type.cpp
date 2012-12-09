@@ -16,6 +16,7 @@ File Name: Type.cpp
 \****************************************************************************/
 
 #include "Type.h"
+#include "Utils.h"
 #include <assert.h>
 #include <cctype>
 #include <sstream>
@@ -40,37 +41,6 @@ bool compare(const std::vector<std::string>& left,
   return true;
 }
 
-static std::string toLower(const char* s){
-  std::string ret(s);
-  std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
-  return ret;
-}
-
-//string represenration for the primitive types
-static const char* PrimitiveNames[NUM_TYPES] ={
-  "bool",
-  "uchar",
-  "char",
-  "ushort",
-  "short",
-  "uint",
-  "int",
-  "ulong",
-  "long",
-  "half",
-  "float",
-  "double"
-};
-
-primitives::Primitive primitives::parseType(const std::string& s){
-  for (int i=0 ; i<NUM_TYPES ; ++i)
-    if (0==s.compare(PrimitiveNames[i]))
-      return static_cast<primitives::Primitive>(primitives::BOOL+i);
-  assert(false && "unreachable code: not a valid type");
-  return static_cast<primitives::Primitive>(0);
-}
-#define PrimitiveToString(p) toLower(PrimitiveNames[p-primitives::BOOL])
-
 //
 //Type
 //
@@ -81,7 +51,12 @@ Type::Type(primitives::Primitive p): m_primitive(p){
 Type::~Type(){}
 
 std::string Type::toString()const{
-  return PrimitiveToString(m_primitive);
+  assert
+  (
+    (m_primitive>primitives::FIRST && m_primitive<=primitives::NONE) &&
+    "illegal primitive"
+  );
+  return readableString(this);
 }
 
 Type* Type::clone()const{
@@ -197,7 +172,12 @@ int Vector::getLen()const{
 
 std::string Vector::toString()const{
   std::stringstream myName;
-  myName << PrimitiveToString(m_primitive);
+  assert
+  (
+    (m_primitive>primitives::FIRST && m_primitive<=primitives::NONE) &&
+    "illegal primitive"
+  );
+  myName << readableString(this);
   myName << m_len;
   return myName.str();
 }

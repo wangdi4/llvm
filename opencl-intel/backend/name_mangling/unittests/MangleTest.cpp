@@ -326,6 +326,12 @@ TEST(MangleBasic, scalardouble){
   ASSERT_STREQ("_Z3food", mangle(fd).c_str());
 }
 
+TEST(MangleBasic, voidptr){
+  reflection::FunctionDescriptor fd = demangle("_Z34trans_coord_int_NONE_FALSE_NEARESTPvDv4_i");
+  ASSERT_STREQ("trans_coord_int_NONE_FALSE_NEAREST", fd.name.c_str());
+  ASSERT_EQ(fd.parameters.size(), 2U);
+}
+
 TEST(MangleAPI, visitorExample){
   const char* soaFunc = "_Z5dummyiDv4_fPS_" ;
   reflection::FunctionDescriptor fd = demangle(soaFunc);

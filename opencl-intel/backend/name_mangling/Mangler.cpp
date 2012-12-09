@@ -16,6 +16,7 @@
   \****************************************************************************/
 
 #include "FunctionDescriptor.h"
+#include "Utils.h"
 #include "Type.h"
 #include <assert.h>
 #include <string>
@@ -29,20 +30,6 @@
 //The mangling algorithm is intendent to match the Itanium mangling altorithm.
 //More concretly, it is designed to match clang 3.0 itanium mangling.
 //
-const char* mangledTypes[reflection::NUM_TYPES] = {
-  "b", //BOOL
-  "h", //UCHAR
-  "c", //CHAR
-  "t", //USHORT
-  "s", //SHORT
-  "j", //UINT
-  "i", //INT
-  "m", //ULONG
-  "l", //LONG
-  "Dh", //HALF
-  "f", //FLOAT
-  "d" //DOUBLE
-};
 
 //Array of constants used by clang to duplicate parameters
 //S_  is used to duplicate the 1st parameter
@@ -50,16 +37,6 @@ const char* mangledTypes[reflection::NUM_TYPES] = {
 //Note!: theoretically, we need "S1_, S2_,....), but those two are enough for
 //all the builtin functions in openCL, so that will do until proven otherwise.
 const char* DUPLICANT_STR[2] = {"S_", "S0_"};
-
-//BOOL is the first type enum, and its not neccesrily valed zero.
-static const char* primitiveToString(const reflection::Type* t){
-  assert(t && "null pointer");
-  assert( (t->getPrimitive() >= reflection::primitives::BOOL) &&
-  (t->getPrimitive() <= reflection::primitives::DOUBLE) && "invalid primitive type");
-  if (reflection::primitives::NONE == t->getPrimitive())
-    return t->toString().c_str();
-  return mangledTypes[t->getPrimitive()-reflection::primitives::BOOL];
-}
 
 class MangleVisitor: public reflection::TypeVisitor{
 public:
@@ -74,7 +51,7 @@ public:
   void visit(const reflection::Type* t){
     //NOTE! we don't use  DUPLICANT_STR here, since primitive strings are
     //shorter or less then the DUPLICANT_STR itself.
-    m_stream << primitiveToString(t);
+    m_stream << mangledString(t);
   }
 
   void visit(const reflection::Pointer* p){
@@ -118,7 +95,7 @@ public:
       return;
     }
     addIfNotExist(v);
-    m_stream << "Dv" << v->getLen() << "_" << primitiveToString(v);
+    m_stream << "Dv" << v->getLen() << "_" << mangledString(v);
   }
 
   void visit(const reflection::UserDefinedTy* pTy){

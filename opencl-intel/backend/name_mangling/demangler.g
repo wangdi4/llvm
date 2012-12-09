@@ -80,6 +80,7 @@ primitive returns [reflection::Type* pType = NULL;]
   | h:HALF    {pType = createType(h); }
   | f:FLOAT   {pType = createType(f); }
   | d:DOUBLE  {pType = createType(d); }
+  | v:VOID    {pType = createType(v); }
 ;
 
 vector_type returns [reflection::Vector* pVector = NULL;]
@@ -202,6 +203,7 @@ LONG:    "l";
 HALF:    "Dh";
 FLOAT:   "f";
 DOUBLE:  "d";
+VOID:    "v";
 POINTER_PREFIX: "P";
 VECTOR_PREFIX:  "Dv";
 UNDERSCORE:     "_";

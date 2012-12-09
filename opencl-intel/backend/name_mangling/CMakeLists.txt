@@ -35,6 +35,7 @@ add_library(
   Mangler.cpp
   FunctionDescriptor.cpp
   TypeCast.cpp
+  Utils.cpp
   gen/DemangleLexer.cpp
   gen/DemangleParser.cpp
 )
