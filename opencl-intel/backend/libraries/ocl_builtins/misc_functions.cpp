@@ -39,50 +39,50 @@ extern "C" {
 void* memcpy(void*, const void*, size_t);
 
 //shuffle masks
-ALIGN16 const _1i8 shuffle_char2_mask[] =	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-ALIGN16 const _1i8 shuffle_char4_mask[] =	{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
-ALIGN16 const _1i8 shuffle_char8_mask[] =	{7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7};
-ALIGN16 const _1i8 shuffle_char16_mask[] =	{15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15};
+constant char16 shuffle_char2_mask =	(char16)(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+constant char16 shuffle_char4_mask =	(char16)(3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3);
+constant char16 shuffle_char8_mask =	(char16)(7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
+constant char16 shuffle_char16_mask =	(char16)(15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15);
 
-ALIGN16 const _1i16 shuffle_short2_mask[] =	{1, 1, 1, 1, 1, 1, 1, 1};
-ALIGN16 const _1i16 shuffle_short4_mask[] =	{3, 3, 3, 3, 3, 3, 3, 3};
-ALIGN16 const _1i16 shuffle_short8_mask[] =	{7, 7, 7, 7, 7, 7, 7, 7};
-ALIGN16 const _1i16 shuffle_short16_mask[] =	{15, 15, 15, 15, 15, 15, 15, 15};
-ALIGN16 const _1i16 shuffle_short32_mask[] =	{31, 31, 31, 31, 31, 31, 31, 31};
+constant short8 shuffle_short2_mask =	(short8)(1, 1, 1, 1, 1, 1, 1, 1);
+constant short8 shuffle_short4_mask =	(short8)(3, 3, 3, 3, 3, 3, 3, 3);
+constant short8 shuffle_short8_mask =	(short8)(7, 7, 7, 7, 7, 7, 7, 7);
+constant short8 shuffle_short16_mask =	(short8)(15, 15, 15, 15, 15, 15, 15, 15);
+constant short8 shuffle_short32_mask =	(short8)(31, 31, 31, 31, 31, 31, 31, 31);
 
-ALIGN16 const _1i32 shuffle_int2_mask[] =	{1, 1, 1, 1};
-ALIGN16 const _1i32 shuffle_int4_mask[] =	{3, 3, 3, 3};
-ALIGN16 const _1i32 shuffle_int8_mask[] =	{7, 7, 7, 7};
-ALIGN16 const _1i32 shuffle_int16_mask[] =	{15, 15, 15, 15};
-ALIGN16 const _1i32 shuffle_int32_mask[] =	{31, 31, 31, 31};
+constant int4 shuffle_int2_mask =	(int4)(1, 1, 1, 1);
+constant int4 shuffle_int4_mask =	(int4)(3, 3, 3, 3);
+constant int4 shuffle_int8_mask =	(int4)(7, 7, 7, 7);
+constant int4 shuffle_int16_mask =	(int4)(15, 15, 15, 15);
+constant int4 shuffle_int32_mask =	(int4)(31, 31, 31, 31);
 
-ALIGN16 const _1i64 shuffle_long2_mask[] =	{1, 1};
-ALIGN16 const _1i64 shuffle_long4_mask[] =	{3, 3};
-ALIGN16 const _1i64 shuffle_long8_mask[] =	{7, 7};
-ALIGN16 const _1i64 shuffle_long16_mask[] =	{15, 15};
-
+constant long2 shuffle_long2_mask =	(long2)(1, 1);
+constant long2 shuffle_long4_mask =	(long2)(3, 3);
+constant long2 shuffle_long8_mask =	(long2)(7, 7);
+constant long2 shuffle_long16_mask =	(long2)(15, 15);
 
 //shuffle2 masks
-ALIGN16 const _1i8 shuffle2_char2_mask[] =	{0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81};
-ALIGN16 const _1i8 shuffle2_char4_mask[] =	{0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83};
-ALIGN16 const _1i8 shuffle2_char8_mask[] =	{0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87};
-ALIGN16 const _1i8 shuffle2_char16_mask[] =	{0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F};
+constant char16 shuffle2_char2_mask =	(char16)(0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81);
+constant char16 shuffle2_char4_mask =	(char16)(0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83, 0x83);
+constant char16 shuffle2_char8_mask =	(char16)(0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87, 0x87);
+constant char16 shuffle2_char16_mask =	(char16)(0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F);
 
-ALIGN16 const _1i16 shuffle2_short2_mask[] =	{0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41};
-ALIGN16 const _1i16 shuffle2_short4_mask[] =	{0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43};
-ALIGN16 const _1i16 shuffle2_short8_mask[] =	{0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47};
-ALIGN16 const _1i16 shuffle2_short16_mask[] ={0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F};
-ALIGN16 const _1i16 shuffle2_short32_mask[] ={0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F};
+constant short16 shuffle2_short2_mask =	(short16)(0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41);
+constant short16 shuffle2_short4_mask =	(short16)(0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43);
+constant short16 shuffle2_short8_mask =	(short16)(0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47);
+constant short16 shuffle2_short16_mask =(short16)(0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F);
+constant short16 shuffle2_short32_mask =(short16)(0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F, 0x4F);
 
 
-ALIGN16 const _1i8 shuffle_epi16_smask[] = {0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14};
-ALIGN16 const _1i8 shuffle_epi16_amask[] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+constant char16 shuffle_epi16_smask = (char16)(0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14);
+constant char16 shuffle_epi16_amask = (char16)(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1);
 
-ALIGN16 const _1i8 shuffle_epi32_smask[] = {0, 0, 0, 0, 4, 4, 4, 4, 8, 8, 8, 8, 12, 12, 12, 12};
-ALIGN16 const _1i8 shuffle_epi32_amask[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+constant char16 shuffle_epi32_smask = (char16)(0, 0, 0, 0, 4, 4, 4, 4, 8, 8, 8, 8, 12, 12, 12, 12);
+constant char16 shuffle_epi32_amask = (char16)(0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3);
 
-ALIGN16 const _1i8 shuffle_epi64_smask[] = {0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8};
-ALIGN16 const _1i8 shuffle_epi64_amask[] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7};
+constant char16 shuffle_epi64_smask = (char16)(0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8);
+constant char16 shuffle_epi64_amask = (char16)(0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7);
+
 
 
 #ifdef __SSSE3__
@@ -111,24 +111,24 @@ ALIGN16 const _1i8 shuffle_epi64_amask[] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 
 
 __m128i SHUFFLE_EPI16(__m128i x, __m128i mask)
 {
-	mask = SHUFFLE_EPI8(mask, *((__m128i *)shuffle_epi16_smask));
+	mask = SHUFFLE_EPI8(mask, __builtin_astype(shuffle_epi16_smask, __m128i));
 	mask = _mm_slli_epi16(mask, 1);
-	mask = _mm_adds_epu8(mask, *((__m128i *)shuffle_epi16_amask));
+	mask = _mm_adds_epu8(mask, __builtin_astype(shuffle_epi16_amask, __m128i));
 	return SHUFFLE_EPI8(x, mask);		
 }
 
 __m128i SHUFFLE_EPI32(__m128i x, __m128i mask)
 {
-	mask = SHUFFLE_EPI8(mask, *((__m128i *)shuffle_epi32_smask));
+	mask = SHUFFLE_EPI8(mask, __builtin_astype(shuffle_epi32_smask, __m128i));
 	mask = _mm_slli_epi16(mask, 2);
-	mask = _mm_adds_epu8(mask, *((__m128i *)shuffle_epi32_amask));
+	mask = _mm_adds_epu8(mask, __builtin_astype(shuffle_epi32_amask, __m128i));
 	return SHUFFLE_EPI8(x, mask);		
 }
 __m128i SHUFFLE_EPI64(__m128i x, __m128i mask)
 {
-	mask = SHUFFLE_EPI8(mask, *((__m128i *)shuffle_epi64_smask));
+	mask = SHUFFLE_EPI8(mask, __builtin_astype(shuffle_epi64_smask, __m128i));
 	mask = _mm_slli_epi16(mask, 3);
-	mask = _mm_adds_epu8(mask, *((__m128i *)shuffle_epi64_amask));
+	mask = _mm_adds_epu8(mask, __builtin_astype(shuffle_epi64_amask, __m128i));
 	return SHUFFLE_EPI8(x, mask);		
 }
 
@@ -160,7 +160,7 @@ _16i8 __attribute__((overloadable)) shuffle(_2i8 x, _16u8 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i), 
-             *((__m128i*)shuffle_char2_mask)),
+             __builtin_astype(shuffle_char2_mask, __m128i)),
            _16u8);
 	tX = __builtin_astype(
          SHUFFLE_EPI8(
@@ -198,7 +198,7 @@ _16i8 __attribute__((overloadable)) shuffle(_4i8 x, _16u8 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_char4_mask)),
+             __builtin_astype(shuffle_char4_mask, __m128i)),
            _16u8);
 	tX = __builtin_astype(
          SHUFFLE_EPI8(
@@ -236,7 +236,7 @@ _16i8 __attribute__((overloadable)) shuffle(_8i8 x, _16u8 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_char8_mask)),
+             __builtin_astype(shuffle_char8_mask, __m128i)),
            _16u8);
 	tX = __builtin_astype(
          SHUFFLE_EPI8(__builtin_astype(tX, __m128i),
@@ -271,7 +271,7 @@ _16i8 __attribute__((overloadable)) shuffle(_16i8 x, _16u8 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_char16_mask)),
+             __builtin_astype(shuffle_char16_mask, __m128i)),
            _16u8);
 	x = __builtin_astype(
         SHUFFLE_EPI8(
@@ -283,82 +283,82 @@ _16i8 __attribute__((overloadable)) shuffle(_16i8 x, _16u8 mask)
 
 _2u8 __attribute__((overloadable)) shuffle(_2u8 x, _2u8 mask)
 {
-	return (_2u8)shuffle((_2i8)x, mask);
+	return as_uchar2(shuffle(as_char2(x), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle(_2u8 x, _4u8 mask)
 {
-	return (_4u8)shuffle((_2i8)x, mask);
+	return as_uchar4(shuffle(as_char2(x), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle(_2u8 x, _8u8 mask)
 {
-	return (_8u8)shuffle((_2i8)x, mask);
+	return as_uchar8(shuffle(as_char2(x), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle(_2u8 x, _16u8 mask)
 {
-	return (_16u8)shuffle((_2i8)x, mask);
+	return as_uchar16(shuffle(as_char2(x), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle(_4u8 x, _2u8 mask)
 {
-	return (_2u8)shuffle((_4i8)x, mask);
+	return as_uchar2(shuffle(as_char4(x), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle(_4u8 x, _4u8 mask)
 {
-	return (_4u8)shuffle((_4i8)x, mask);
+	return as_uchar4(shuffle(as_char4(x), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle(_4u8 x, _8u8 mask)
 {
-	return (_8u8)shuffle((_4i8)x, mask);
+	return as_uchar8(shuffle(as_char4(x), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle(_4u8 x, _16u8 mask)
 {
-	return (_16u8)shuffle((_4i8)x, mask);
+	return as_uchar16(shuffle(as_char4(x), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle(_8u8 x, _2u8 mask)
 {
-	return (_2u8)shuffle((_8i8)x, mask);
+	return as_uchar2(shuffle(as_char8(x), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle(_8u8 x, _4u8 mask)
 {
-	return (_4u8)shuffle((_8i8)x, mask);
+	return as_uchar4(shuffle(as_char8(x), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle(_8u8 x, _8u8 mask)
 {
-	return (_8u8)shuffle((_8i8)x, mask);
+	return as_uchar8(shuffle(as_char8(x), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle(_8u8 x, _16u8 mask)
 {
-	return (_16u8)shuffle((_8i8)x, mask);
+	return as_uchar16(shuffle(as_char8(x), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle(_16u8 x, _2u8 mask)
 {
-	return (_2u8)shuffle((_16i8)x, mask);
+	return as_uchar2(shuffle(as_char16(x), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle(_16u8 x, _4u8 mask)
 {
-	return (_4u8)shuffle((_16i8)x, mask);
+	return as_uchar4(shuffle(as_char16(x), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle(_16u8 x, _8u8 mask)
 {
-	return (_8u8)shuffle((_16i8)x, mask);
+	return as_uchar8(shuffle(as_char16(x), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle(_16u8 x, _16u8 mask)
 {
-	return (_16u8)shuffle((_16i8)x, mask);
+	return as_uchar16(shuffle(as_char16(x), mask));
 }
 
 _2i16 __attribute__((overloadable)) shuffle(_2i16 x, _2u16 mask)
@@ -382,7 +382,7 @@ _8i16 __attribute__((overloadable)) shuffle(_2i16 x, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_short2_mask)),
+             __builtin_astype(shuffle_short2_mask, __m128i)),
            _8u16);
 	tX = __builtin_astype(
          SHUFFLE_EPI16(
@@ -423,7 +423,7 @@ _8i16 __attribute__((overloadable)) shuffle(_4i16 x, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_short4_mask)),
+             __builtin_astype(shuffle_short4_mask, __m128i)),
            _8u16);
 	tX = __builtin_astype(
          SHUFFLE_EPI16(
@@ -462,7 +462,7 @@ _8i16 __attribute__((overloadable)) shuffle(_8i16 x, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_short8_mask)),
+             __builtin_astype(shuffle_short8_mask, __m128i)),
            _8u16);
 	x = __builtin_astype(
         SHUFFLE_EPI16(
@@ -504,7 +504,7 @@ _8i16 __attribute__((overloadable)) shuffle(_16i16 x, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_short16_mask)),
+             __builtin_astype(shuffle_short16_mask, __m128i)),
            _8u16);
 
     res1 = __builtin_astype(
@@ -536,82 +536,82 @@ _16i16 __attribute__((overloadable)) shuffle(_16i16 x, _16u16 mask)
 
 _2u16 __attribute__((overloadable)) shuffle(_2u16 x, _2u16 mask)
 {
-	return (_2u16)shuffle((_2i16)x, mask);
+	return as_ushort2(shuffle(as_short2(x), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle(_2u16 x, _4u16 mask)
 {
-	return (_4u16)shuffle((_2i16)x, mask);
+	return as_ushort4(shuffle(as_short2(x), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle(_2u16 x, _8u16 mask)
 {
-	return (_8u16)shuffle((_2i16)x, mask);
+	return as_ushort8(shuffle(as_short2(x), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle(_2u16 x, _16u16 mask)
 {
-	return (_16u16)shuffle((_2i16)x, mask);
+	return as_ushort16(shuffle(as_short2(x), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle(_4u16 x, _2u16 mask)
 {
-	return (_2u16)shuffle((_4i16)x, mask);
+	return as_ushort2(shuffle(as_short4(x), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle(_4u16 x, _4u16 mask)
 {
-	return (_4u16)shuffle((_4i16)x, mask);
+	return as_ushort4(shuffle(as_short4(x), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle(_4u16 x, _8u16 mask)
 {
-	return (_8u16)shuffle((_4i16)x, mask);
+	return as_ushort8(shuffle(as_short4(x), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle(_4u16 x, _16u16 mask)
 {
-	return (_16u16)shuffle((_4i16)x, mask);
+	return as_ushort16(shuffle(as_short4(x), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle(_8u16 x, _2u16 mask)
 {
-	return (_2u16)shuffle((_8i16)x, mask);
+	return as_ushort2(shuffle(as_short8(x), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle(_8u16 x, _4u16 mask)
 {
-	return (_4u16)shuffle((_8i16)x, mask);
+	return as_ushort4(shuffle(as_short8(x), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle(_8u16 x, _8u16 mask)
 {
-	return (_8u16)shuffle((_8i16)x, mask);
+	return as_ushort8(shuffle(as_short8(x), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle(_8u16 x, _16u16 mask)
 {
-	return (_16u16)shuffle((_8i16)x, mask);
+	return as_ushort16(shuffle(as_short8(x), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle(_16u16 x, _2u16 mask)
 {
-	return (_2u16)shuffle((_16i16)x, mask);
+	return as_ushort2(shuffle(as_short16(x), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle(_16u16 x, _4u16 mask)
 {
-	return (_4u16)shuffle((_16i16)x, mask);
+	return as_ushort4(shuffle(as_short16(x), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle(_16u16 x, _8u16 mask)
 {
-	return (_8u16)shuffle((_16i16)x, mask);
+	return as_ushort8(shuffle(as_short16(x), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle(_16u16 x, _16u16 mask)
 {
-	return (_16u16)shuffle((_16i16)x, mask);
+	return as_ushort16(shuffle(as_short16(x), mask));
 }
 
 #if defined (__AVX2__)
@@ -728,7 +728,7 @@ _4i32 __attribute__((overloadable)) shuffle(_8i32 x, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_int8_mask)),
+             __builtin_astype(shuffle_int8_mask, __m128i)),
            _4u32);
     res1 = __builtin_astype(
              SHUFFLE_EPI32(
@@ -769,7 +769,7 @@ _4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
 
 _4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
 {
-	return (_4i32)_mm_permutevar_ps((__m128)x,(__m128i)mask);
+	return as_int4(_mm_permutevar_ps((__m128)x,(__m128i)mask));
 }
 
 _16i32 __attribute__((overloadable)) shuffle(_2i32 x, _16u32 mask)
@@ -797,7 +797,7 @@ _4i32 __attribute__((overloadable)) shuffle(_2i32 x, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_int2_mask)),
+             __builtin_astype(shuffle_int2_mask, __m128i)),
            _4u32);
 	tX = __builtin_astype(
          SHUFFLE_EPI32(
@@ -812,7 +812,7 @@ _4i32 __attribute__((overloadable)) shuffle(_4i32 x, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_int4_mask)),
+             __builtin_astype(shuffle_int4_mask, __m128i)),
            _4u32);
 	x = __builtin_astype(
         SHUFFLE_EPI32(
@@ -864,7 +864,7 @@ _4i32 __attribute__((overloadable)) shuffle(_16i32 x, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_int16_mask)),
+             __builtin_astype(shuffle_int16_mask, __m128i)),
            _4u32);
 
     t1 = __builtin_astype(
@@ -950,89 +950,89 @@ _16i32 __attribute__((overloadable)) shuffle(_16i32 x, _16u32 mask)
 
 _2u32 __attribute__((overloadable)) shuffle(_2u32 x, _2u32 mask)
 {
-	return (_2u32)shuffle((_2i32)x, mask);
+	return as_uint2(shuffle(as_int2(x), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle(_2u32 x, _4u32 mask)
 {
-	return (_4u32)shuffle((_2i32)x, mask);
+	return as_uint4(shuffle(as_int2(x), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle(_2u32 x, _8u32 mask)
 {
-	return (_8u32)shuffle((_2i32)x, mask);
+	return as_uint8(shuffle(as_int2(x), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle(_2u32 x, _16u32 mask)
 {
-	return (_16u32)shuffle((_2i32)x, mask);
+	return as_uint16(shuffle(as_int2(x), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle(_4u32 x, _2u32 mask)
 {
-	return (_2u32)shuffle((_4i32)x, mask);
+	return as_uint2(shuffle(as_int4(x), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle(_4u32 x, _4u32 mask)
 {
-	return (_4u32)shuffle((_4i32)x, mask);
+	return as_uint4(shuffle(as_int4(x), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle(_4u32 x, _8u32 mask)
 {
-	return (_8u32)shuffle((_4i32)x, mask);
+	return as_uint8(shuffle(as_int4(x), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle(_4u32 x, _16u32 mask)
 {
-	return (_16u32)shuffle((_4i32)x, mask);
+	return as_uint16(shuffle(as_int4(x), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle(_8u32 x, _2u32 mask)
 {
-	return (_2u32)shuffle((_8i32)x, mask);
+	return as_uint2(shuffle(as_int8(x), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle(_8u32 x, _4u32 mask)
 {
-	return (_4u32)shuffle((_8i32)x, mask);
+	return as_uint4(shuffle(as_int8(x), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle(_8u32 x, _8u32 mask)
 {
-	return (_8u32)shuffle((_8i32)x, mask);
+	return as_uint8(shuffle(as_int8(x), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle(_8u32 x, _16u32 mask)
 {
-	return (_16u32)shuffle((_8i32)x, mask);
+	return as_uint16(shuffle(as_int8(x), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle(_16u32 x, _2u32 mask)
 {
-	return (_2u32)shuffle((_16i32)x, mask);
+	return as_uint2(shuffle(as_int16(x), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle(_16u32 x, _4u32 mask)
 {
-	return (_4u32)shuffle((_16i32)x, mask);
+	return as_uint4(shuffle(as_int16(x), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle(_16u32 x, _8u32 mask)
 {
-	return (_8u32)shuffle((_16i32)x, mask);
+	return as_uint8(shuffle(as_int16(x), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle(_16u32 x, _16u32 mask)
 {
-	return (_16u32)shuffle((_16i32)x, mask);
+	return as_uint16(shuffle(as_int16(x), mask));
 }
 _2i64 __attribute__((overloadable)) shuffle(_2i64 x, _2u64 mask)
 {
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask, __m128i),
-             *((__m128i*)shuffle_long2_mask)),
+            __builtin_astype(shuffle_long2_mask, __m128i)),
            _2u64);
 	x = __builtin_astype(
         SHUFFLE_EPI64(
@@ -1086,12 +1086,12 @@ _4i64 __attribute__((overloadable)) shuffle(_4i64 x, _4u64 mask)
 	_4i64 res;
 	_8u32 tmaskhi;
 	_8u32 tmask;
-	_8u32 tmasklo = (_8u32) mask;
+	_8u32 tmasklo = as_uint8(mask);
 	tmasklo = tmasklo+tmasklo;
 	tmaskhi = tmasklo+1;
-	tmaskhi = (_8u32) _mm256_slli_epi64( (__m256i) tmaskhi, 32);
-	tmask = (_8u32)_mm256_or_si256( (__m256i) tmasklo, (__m256i) tmaskhi);
-	res = (_4i64) _mm256_permutevar8x32_epi32( (__m256i) x, (__m256i) tmask);
+	tmaskhi = as_uint8(_mm256_slli_epi64( (__m256i) tmaskhi, 32));
+	tmask = as_uint8(_mm256_or_si256( (__m256i) tmasklo, (__m256i) tmaskhi));
+	res = as_long4(_mm256_permutevar8x32_epi32( (__m256i) x, (__m256i) tmask));
 	return res;
 }
 
@@ -1326,165 +1326,165 @@ _16i64 __attribute__((overloadable)) shuffle(_16i64 x, _16u64 mask)
 
 _2u64 __attribute__((overloadable)) shuffle(_2u64 x, _2u64 mask)
 {
-	return (_2u64)shuffle((_2i64)x, mask);
+	return as_ulong2(shuffle(as_long2(x), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle(_2u64 x, _4u64 mask)
 {
-	return (_4u64)shuffle((_2i64)x, mask);
+	return as_ulong4(shuffle(as_long2(x), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle(_2u64 x, _8u64 mask)
 {
-	return (_8u64)shuffle((_2i64)x, mask);
+	return as_ulong8(shuffle(as_long2(x), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle(_2u64 x, _16u64 mask)
 {
-	return (_16u64)shuffle((_2i64)x, mask);
+	return as_ulong16(shuffle(as_long2(x), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle(_4u64 x, _2u64 mask)
 {
-	return (_2u64)shuffle((_4i64)x, mask);
+	return as_ulong2(shuffle(as_long4(x), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle(_4u64 x, _4u64 mask)
 {
-	return (_4u64)shuffle((_4i64)x, mask);
+	return as_ulong4(shuffle(as_long4(x), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle(_4u64 x, _8u64 mask)
 {
-	return (_8u64)shuffle((_4i64)x, mask);
+	return as_ulong8(shuffle(as_long4(x), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle(_4u64 x, _16u64 mask)
 {
-	return (_16u64)shuffle((_4i64)x, mask);
+	return as_ulong16(shuffle(as_long4(x), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle(_8u64 x, _2u64 mask)
 {
-	return (_2u64)shuffle((_8i64)x, mask);
+	return as_ulong2(shuffle(as_long8(x), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle(_8u64 x, _4u64 mask)
 {
-	return (_4u64)shuffle((_8i64)x, mask);
+	return as_ulong4(shuffle(as_long8(x), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle(_8u64 x, _8u64 mask)
 {
-	return (_8u64)shuffle((_8i64)x, mask);
+	return as_ulong8(shuffle(as_long8(x), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle(_8u64 x, _16u64 mask)
 {
-	return (_16u64)shuffle((_8i64)x, mask);
+	return as_ulong16(shuffle(as_long8(x), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle(_16u64 x, _2u64 mask)
 {
-	return (_2u64)shuffle((_16i64)x, mask);
+	return as_ulong2(shuffle(as_long16(x), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle(_16u64 x, _4u64 mask)
 {
-	return (_4u64)shuffle((_16i64)x, mask);
+	return as_ulong4(shuffle(as_long16(x), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle(_16u64 x, _8u64 mask)
 {
-	return (_8u64)shuffle((_16i64)x, mask);
+	return as_ulong8(shuffle(as_long16(x), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle(_16u64 x, _16u64 mask)
 {
-	return (_16u64)shuffle((_16i64)x, mask);
+	return as_ulong16(shuffle(as_long16(x), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle(float2 x, _2u32 mask)
 {
-	return (float2)shuffle((_2i32)x, mask);
+	return as_float2(shuffle(as_int2(x), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle(float2 x, _4u32 mask)
 {
-	return (float4)shuffle((_2i32)x, mask);
+	return as_float4(shuffle(as_int2(x), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle(float2 x, _8u32 mask)
 {
-	return (float8)shuffle((_2i32)x, mask);
+	return as_float8(shuffle(as_int2(x), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle(float2 x, _16u32 mask)
 {
-	return (float16)shuffle((_2i32)x, mask);
+	return as_float16(shuffle(as_int2(x), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle(float4 x, _2u32 mask)
 {
-	return (float2)shuffle((_4i32)x, mask);
+	return as_float2(shuffle(as_int4(x), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle(float4 x, _4u32 mask)
 {
-	return (float4)shuffle((_4i32)x, mask);
+	return as_float4(shuffle(as_int4(x), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle(float4 x, _8u32 mask)
 {
-	return (float8)shuffle((_4i32)x, mask);
+	return as_float8(shuffle(as_int4(x), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle(float4 x, _16u32 mask)
 {
-	return (float16)shuffle((_4i32)x, mask);
+	return as_float16(shuffle(as_int4(x), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle(float8 x, _2u32 mask)
 {
-	return (float2)shuffle((_8i32)x, mask);
+	return as_float2(shuffle(as_int8(x), mask));
 }
 #if defined (__AVX2__)
 
 float4 __attribute__((overloadable)) shuffle(float8 x, _4u32 mask)
 {
-	_8u32 tmask = (_8u32) _mm256_setzero_si256();
+	_8u32 tmask = as_uint8( _mm256_setzero_si256());
 	float8 res;
 	tmask.lo = mask;
-	res = (float8)_mm256_permutevar8x32_ps ((__m256) x, (__m256)tmask);
+	res = as_float8(_mm256_permutevar8x32_ps ((__m256) x, (__m256)tmask));
 	return res.lo;
 }
 float8 __attribute__((overloadable)) shuffle(float8 x, _8u32 mask)
 {
-	return (float8)_mm256_permutevar8x32_ps ((__m256) x, (__m256)mask);
+	return as_float8(_mm256_permutevar8x32_ps ((__m256) x, (__m256)mask));
 }
 
 float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
 {
 	float16 res;
-	res.lo = (float8)shuffle(x, mask.lo);
-	res.hi = (float8)shuffle(x, mask.hi);
+	res.lo = as_float8(shuffle(x, mask.lo));
+	res.hi = as_float8(shuffle(x, mask.hi));
 	return res; 
 }
 
 #else
 float4 __attribute__((overloadable)) shuffle(float8 x, _4u32 mask)
 {
-	return (float4)shuffle((_8i32)x, mask);
+	return as_float4(shuffle(as_int8(x), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle(float8 x, _8u32 mask)
 {
-	return (float8)shuffle((_8i32)x, mask);
+	return as_float8(shuffle(as_int8(x), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
 {
-	return (float16)shuffle((_8i32)x, mask);
+	return as_float16(shuffle(as_int8(x), mask));
 }
 
 #endif
@@ -1492,102 +1492,102 @@ float16 __attribute__((overloadable)) shuffle(float8 x, _16u32 mask)
 
 float2 __attribute__((overloadable)) shuffle(float16 x, _2u32 mask)
 {
-	return (float2)shuffle((_16i32)x, mask);
+	return as_float2(shuffle(as_int16(x), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle(float16 x, _4u32 mask)
 {
-	return (float4)shuffle((_16i32)x, mask);
+	return as_float4(shuffle(as_int16(x), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle(float16 x, _8u32 mask)
 {
-	return (float8)shuffle((_16i32)x, mask);
+	return as_float8(shuffle(as_int16(x), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle(float16 x, _16u32 mask)
 {
-	return (float16)shuffle((_16i32)x, mask);
+	return as_float16(shuffle(as_int16(x), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle(double2 x, _2u64 mask)
 {
-	return (double2)shuffle((_2i64)x, mask);
+	return as_double2(shuffle(as_long2(x), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle(double2 x, _4u64 mask)
 {
-	return (double4)shuffle((_2i64)x, mask);
+	return as_double4(shuffle(as_long2(x), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle(double2 x, _8u64 mask)
 {
-	return (double8)shuffle((_2i64)x, mask);
+	return as_double8(shuffle(as_long2(x), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle(double2 x, _16u64 mask)
 {
-	return (double16)shuffle((_2i64)x, mask);
+	return as_double16(shuffle(as_long2(x), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle(double4 x, _2u64 mask)
 {
-	return (double2)shuffle((_4i64)x, mask);
+	return as_double2(shuffle(as_long4(x), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle(double4 x, _4u64 mask)
 {
-	return (double4)shuffle((_4i64)x, mask);
+	return as_double4(shuffle(as_long4(x), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle(double4 x, _8u64 mask)
 {
-	return (double8)shuffle((_4i64)x, mask);
+	return as_double8(shuffle(as_long4(x), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle(double4 x, _16u64 mask)
 {
-	return (double16)shuffle((_4i64)x, mask);
+	return as_double16(shuffle(as_long4(x), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle(double8 x, _2u64 mask)
 {
-	return (double2)shuffle((_8i64)x, mask);
+	return as_double2(shuffle(as_long8(x), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle(double8 x, _4u64 mask)
 {
-	return (double4)shuffle((_8i64)x, mask);
+	return as_double4(shuffle(as_long8(x), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle(double8 x, _8u64 mask)
 {
-	return (double8)shuffle((_8i64)x, mask);
+	return as_double8(shuffle(as_long8(x), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle(double8 x, _16u64 mask)
 {
-	return (double16)shuffle((_8i64)x, mask);
+	return as_double16(shuffle(as_long8(x), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle(double16 x, _2u64 mask)
 {
-	return (double2)shuffle((_16i64)x, mask);
+	return as_double2(shuffle(as_long16(x), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle(double16 x, _4u64 mask)
 {
-	return (double4)shuffle((_16i64)x, mask);
+	return as_double4(shuffle(as_long16(x), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle(double16 x, _8u64 mask)
 {
-	return (double8)shuffle((_16i64)x, mask);
+	return as_double8(shuffle(as_long16(x), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle(double16 x, _16u64 mask)
 {
-	return (double16)shuffle((_16i64)x, mask);
+	return as_double16(shuffle(as_long16(x), mask));
 }
 
 
@@ -1688,7 +1688,7 @@ _16i8 __attribute__((overloadable)) shuffle2(_16i8 x, _16i8 y, _16u8 mask)
   mask1 = __builtin_astype(
             _mm_and_si128(
               __builtin_astype(mask + (uchar16)(112),__m128i),
-              *((__m128i*)shuffle2_char16_mask)),
+              __builtin_astype(shuffle2_char16_mask, __m128i)),
             _16u8);
 	x = __builtin_astype(
         SHUFFLE_EPI8(
@@ -1699,7 +1699,7 @@ _16i8 __attribute__((overloadable)) shuffle2(_16i8 x, _16i8 y, _16u8 mask)
   mask2 = __builtin_astype(
             _mm_and_si128(
               __builtin_astype(mask - (uchar16)(16),__m128i),
-              *((__m128i*)shuffle2_char16_mask)),
+              __builtin_astype(shuffle2_char16_mask, __m128i)),
             _16u8);
 	y = __builtin_astype(
         SHUFFLE_EPI8(
@@ -1737,82 +1737,82 @@ _8i8 __attribute__((overloadable)) shuffle2(_16i8 x, _16i8 y, _8u8 mask)
 
 _2u8 __attribute__((overloadable)) shuffle2(_2u8 x, _2u8 y, _2u8 mask)
 {
-	return (_2u8)shuffle2((_2i8)x, (_2i8)y, mask);
+	return as_uchar2(shuffle2(as_char2(x), as_char2(y), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle2(_2u8 x, _2u8 y, _4u8 mask)
 {
-	return (_4u8)shuffle2((_2i8)x, (_2i8)y, mask);
+	return as_uchar4(shuffle2(as_char2(x), as_char2(y), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle2(_2u8 x, _2u8 y, _8u8 mask)
 {
-	return (_8u8)shuffle2((_2i8)x, (_2i8)y, mask);
+	return as_uchar8(shuffle2(as_char2(x), as_char2(y), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle2(_2u8 x, _2u8 y, _16u8 mask)
 {
-	return (_16u8)shuffle2((_2i8)x, (_2i8)y, mask);
+	return as_uchar16(shuffle2(as_char2(x), as_char2(y), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle2(_4u8 x, _4u8 y, _2u8 mask)
 {
-	return (_2u8)shuffle2((_4i8)x, (_4i8)y, mask);
+	return as_uchar2(shuffle2(as_char4(x), as_char4(y), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle2(_4u8 x, _4u8 y, _4u8 mask)
 {
-	return (_4u8)shuffle2((_4i8)x, (_4i8)y, mask);
+	return as_uchar4(shuffle2(as_char4(x), as_char4(y), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle2(_4u8 x, _4u8 y, _8u8 mask)
 {
-	return (_8u8)shuffle2((_4i8)x, (_4i8)y, mask);
+	return as_uchar8(shuffle2(as_char4(x), as_char4(y), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle2(_4u8 x, _4u8 y, _16u8 mask)
 {
-	return (_16u8)shuffle2((_4i8)x, (_4i8)y, mask);
+	return as_uchar16(shuffle2(as_char4(x), as_char4(y), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle2(_8u8 x, _8u8 y, _2u8 mask)
 {
-	return (_2u8)shuffle2((_8i8)x, (_8i8)y, mask);
+	return as_uchar2(shuffle2(as_char8(x), as_char8(y), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle2(_8u8 x, _8u8 y, _4u8 mask)
 {
-	return (_4u8)shuffle2((_8i8)x, (_8i8)y, mask);
+	return as_uchar4(shuffle2(as_char8(x), as_char8(y), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle2(_8u8 x, _8u8 y, _8u8 mask)
 {
-	return (_8u8)shuffle2((_8i8)x, (_8i8)y, mask);
+	return as_uchar8(shuffle2(as_char8(x), as_char8(y), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle2(_8u8 x, _8u8 y, _16u8 mask)
 {
-	return (_16u8)shuffle2((_8i8)x, (_8i8)y, mask);
+	return as_uchar16(shuffle2(as_char8(x), as_char8(y), mask));
 }
 
 _2u8 __attribute__((overloadable)) shuffle2(_16u8 x, _16u8 y, _2u8 mask)
 {
-	return (_2u8)shuffle2((_16i8)x, (_16i8)y, mask);
+	return as_uchar2(shuffle2(as_char16(x), as_char16(y), mask));
 }
 
 _4u8 __attribute__((overloadable)) shuffle2(_16u8 x, _16u8 y, _4u8 mask)
 {
-	return (_4u8)shuffle2((_16i8)x, (_16i8)y, mask);
+	return as_uchar4(shuffle2(as_char16(x), as_char16(y), mask));
 }
 
 _8u8 __attribute__((overloadable)) shuffle2(_16u8 x, _16u8 y, _8u8 mask)
 {
-	return (_8u8)shuffle2((_16i8)x, (_16i8)y, mask);
+	return as_uchar8(shuffle2(as_char16(x), as_char16(y), mask));
 }
 
 _16u8 __attribute__((overloadable)) shuffle2(_16u8 x, _16u8 y, _16u8 mask)
 {
-	return (_16u8)shuffle2((_16i8)x, (_16i8)y, mask);
+	return as_uchar16(shuffle2(as_char16(x), as_char16(y), mask));
 }
 
 
@@ -1893,7 +1893,7 @@ _8i16 __attribute__((overloadable)) shuffle2(_8i16 x, _8i16 y, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_short16_mask)),
+             __builtin_astype(shuffle_short16_mask, __m128i)),
            _8u16);
 
   t1 = __builtin_astype(
@@ -1963,7 +1963,7 @@ _8i16 __attribute__((overloadable)) shuffle2(_16i16 x, _16i16 y, _8u16 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_short32_mask)),
+             __builtin_astype(shuffle_short32_mask, __m128i)),
            _8u16);
 
     t1 = __builtin_astype(
@@ -2051,82 +2051,82 @@ _16i16 __attribute__((overloadable)) shuffle2(_16i16 x, _16i16 y, _16u16 mask)
 
 _2u16 __attribute__((overloadable)) shuffle2(_2u16 x, _2u16 y, _2u16 mask)
 {
-	return (_2u16)shuffle2((_2i16)x, (_2i16)y, mask);
+	return as_ushort2(shuffle2(as_short2(x), as_short2(y), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle2(_2u16 x, _2u16 y, _4u16 mask)
 {
-	return (_4u16)shuffle2((_2i16)x, (_2i16)y, mask);
+	return as_ushort4(shuffle2(as_short2(x), as_short2(y), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle2(_2u16 x, _2u16 y, _8u16 mask)
 {
-	return (_8u16)shuffle2((_2i16)x, (_2i16)y, mask);
+	return as_ushort8(shuffle2(as_short2(x), as_short2(y), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle2(_2u16 x, _2u16 y, _16u16 mask)
 {
-	return (_16u16)shuffle2((_2i16)x, (_2i16)y, mask);
+	return as_ushort16(shuffle2(as_short2(x), as_short2(y), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle2(_4u16 x, _4u16 y, _2u16 mask)
 {
-	return (_2u16)shuffle2((_4i16)x, (_4i16)y, mask);
+	return as_ushort2(shuffle2(as_short4(x), as_short4(y), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle2(_4u16 x, _4u16 y, _4u16 mask)
 {
-	return (_4u16)shuffle2((_4i16)x, (_4i16)y, mask);
+	return as_ushort4(shuffle2(as_short4(x), as_short4(y), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle2(_4u16 x, _4u16 y, _8u16 mask)
 {
-	return (_8u16)shuffle2((_4i16)x, (_4i16)y, mask);
+	return as_ushort8(shuffle2(as_short4(x), as_short4(y), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle2(_4u16 x, _4u16 y, _16u16 mask)
 {
-	return (_16u16)shuffle2((_4i16)x, (_4i16)y, mask);
+	return as_ushort16(shuffle2(as_short4(x), as_short4(y), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle2(_8u16 x, _8u16 y, _2u16 mask)
 {
-	return (_2u16)shuffle2((_8i16)x, (_8i16)y, mask);
+	return as_ushort2(shuffle2(as_short8(x), as_short8(y), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle2(_8u16 x, _8u16 y, _4u16 mask)
 {
-	return (_4u16)shuffle2((_8i16)x, (_8i16)y, mask);
+	return as_ushort4(shuffle2(as_short8(x), as_short8(y), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle2(_8u16 x, _8u16 y, _8u16 mask)
 {
-	return (_8u16)shuffle2((_8i16)x, (_8i16)y, mask);
+	return as_ushort8(shuffle2(as_short8(x), as_short8(y), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle2(_8u16 x, _8u16 y, _16u16 mask)
 {
-	return (_16u16)shuffle2((_8i16)x, (_8i16)y, mask);
+	return as_ushort16(shuffle2(as_short8(x), as_short8(y), mask));
 }
 
 _2u16 __attribute__((overloadable)) shuffle2(_16u16 x, _16u16 y, _2u16 mask)
 {
-	return (_2u16)shuffle2((_16i16)x, (_16i16)y, mask);
+	return as_ushort2(shuffle2(as_short16(x), as_short16(y), mask));
 }
 
 _4u16 __attribute__((overloadable)) shuffle2(_16u16 x, _16u16 y, _4u16 mask)
 {
-	return (_4u16)shuffle2((_16i16)x, (_16i16)y, mask);
+	return as_ushort4(shuffle2(as_short16(x), as_short16(y), mask));
 }
 
 _8u16 __attribute__((overloadable)) shuffle2(_16u16 x, _16u16 y, _8u16 mask)
 {
-	return (_8u16)shuffle2((_16i16)x, (_16i16)y, mask);
+	return as_ushort8(shuffle2(as_short16(x), as_short16(y), mask));
 }
 
 _16u16 __attribute__((overloadable)) shuffle2(_16u16 x, _16u16 y, _16u16 mask)
 {
-	return (_16u16)shuffle2((_16i16)x, (_16i16)y, mask);
+	return as_ushort16(shuffle2(as_short16(x), as_short16(y), mask));
 }
 
 
@@ -2320,7 +2320,7 @@ _4i32 __attribute__((overloadable)) shuffle2(_4i32 x, _4i32 y, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_int8_mask)),
+             __builtin_astype(shuffle_int8_mask, __m128i)),
            _4u32);
   res1 = __builtin_astype(
            SHUFFLE_EPI32(
@@ -2361,7 +2361,7 @@ _4i32 __attribute__((overloadable)) shuffle2(_8i32 x, _8i32 y, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_int16_mask)),
+             __builtin_astype(shuffle_int16_mask, __m128i)),
            _4u32);
 
   t1 = __builtin_astype(
@@ -2475,7 +2475,7 @@ _4i32 __attribute__((overloadable)) shuffle2(_16i32 x, _16i32 y, _4u32 mask)
 	mask = __builtin_astype(
            _mm_and_si128(
              __builtin_astype(mask,__m128i),
-             *((__m128i*)shuffle_int32_mask)),
+             __builtin_astype(shuffle_int32_mask, __m128i)),
            _4u32);
 
     t1 = __builtin_astype(
@@ -2631,82 +2631,82 @@ _16i32 __attribute__((overloadable)) shuffle2(_16i32 x, _16i32 y, _16u32 mask)
 
 _2u32 __attribute__((overloadable)) shuffle2(_2u32 x, _2u32 y, _2u32 mask)
 {
-	return (_2u32)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_uint2(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle2(_2u32 x, _2u32 y, _4u32 mask)
 {
-	return (_4u32)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_uint4(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle2(_2u32 x, _2u32 y, _8u32 mask)
 {
-	return (_8u32)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_uint8(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle2(_2u32 x, _2u32 y, _16u32 mask)
 {
-	return (_16u32)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_uint16(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle2(_4u32 x, _4u32 y, _2u32 mask)
 {
-	return (_2u32)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_uint2(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle2(_4u32 x, _4u32 y, _4u32 mask)
 {
-	return (_4u32)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_uint4(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle2(_4u32 x, _4u32 y, _8u32 mask)
 {
-	return (_8u32)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_uint8(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle2(_4u32 x, _4u32 y, _16u32 mask)
 {
-	return (_16u32)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_uint16(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle2(_8u32 x, _8u32 y, _2u32 mask)
 {
-	return (_2u32)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_uint2(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle2(_8u32 x, _8u32 y, _4u32 mask)
 {
-	return (_4u32)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_uint4(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle2(_8u32 x, _8u32 y, _8u32 mask)
 {
-	return (_8u32)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_uint8(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle2(_8u32 x, _8u32 y, _16u32 mask)
 {
-	return (_16u32)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_uint16(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 _2u32 __attribute__((overloadable)) shuffle2(_16u32 x, _16u32 y, _2u32 mask)
 {
-	return (_2u32)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_uint2(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 _4u32 __attribute__((overloadable)) shuffle2(_16u32 x, _16u32 y, _4u32 mask)
 {
-	return (_4u32)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_uint4(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 _8u32 __attribute__((overloadable)) shuffle2(_16u32 x, _16u32 y, _8u32 mask)
 {
-	return (_8u32)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_uint8(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 _16u32 __attribute__((overloadable)) shuffle2(_16u32 x, _16u32 y, _16u32 mask)
 {
-	return (_16u32)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_uint16(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 
@@ -2953,245 +2953,245 @@ _16i64 __attribute__((overloadable)) shuffle2(_16i64 x, _16i64 y, _16u64 mask)
 
 _2u64 __attribute__((overloadable)) shuffle2(_2u64 x, _2u64 y, _2u64 mask)
 {
-	return (_2u64)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_ulong2(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle2(_2u64 x, _2u64 y, _4u64 mask)
 {
-	return (_4u64)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_ulong4(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle2(_2u64 x, _2u64 y, _8u64 mask)
 {
-	return (_8u64)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_ulong8(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle2(_2u64 x, _2u64 y, _16u64 mask)
 {
-	return (_16u64)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_ulong16(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle2(_4u64 x, _4u64 y, _2u64 mask)
 {
-	return (_2u64)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_ulong2(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle2(_4u64 x, _4u64 y, _4u64 mask)
 {
-	return (_4u64)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_ulong4(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle2(_4u64 x, _4u64 y, _8u64 mask)
 {
-	return (_8u64)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_ulong8(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle2(_4u64 x, _4u64 y, _16u64 mask)
 {
-	return (_16u64)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_ulong16(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle2(_8u64 x, _8u64 y, _2u64 mask)
 {
-	return (_2u64)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_ulong2(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle2(_8u64 x, _8u64 y, _4u64 mask)
 {
-	return (_4u64)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_ulong4(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle2(_8u64 x, _8u64 y, _8u64 mask)
 {
-	return (_8u64)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_ulong8(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle2(_8u64 x, _8u64 y, _16u64 mask)
 {
-	return (_16u64)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_ulong16(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 _2u64 __attribute__((overloadable)) shuffle2(_16u64 x, _16u64 y, _2u64 mask)
 {
-	return (_2u64)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_ulong2(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 _4u64 __attribute__((overloadable)) shuffle2(_16u64 x, _16u64 y, _4u64 mask)
 {
-	return (_4u64)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_ulong4(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 _8u64 __attribute__((overloadable)) shuffle2(_16u64 x, _16u64 y, _8u64 mask)
 {
-	return (_8u64)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_ulong8(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 _16u64 __attribute__((overloadable)) shuffle2(_16u64 x, _16u64 y, _16u64 mask)
 {
-	return (_16u64)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_ulong16(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 
 
 float2 __attribute__((overloadable)) shuffle2(float2 x, float2 y, _2u32 mask)
 {
-	return (float2)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_float2(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle2(float2 x, float2 y, _4u32 mask)
 {
-	return (float4)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_float4(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle2(float2 x, float2 y, _8u32 mask)
 {
-	return (float8)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_float8(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle2(float2 x, float2 y, _16u32 mask)
 {
-	return (float16)shuffle2((_2i32)x, (_2i32)y, mask);
+	return as_float16(shuffle2(as_int2(x), as_int2(y), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle2(float4 x, float4 y, _2u32 mask)
 {
-	return (float2)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_float2(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle2(float4 x, float4 y, _4u32 mask)
 {
-	return (float4)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_float4(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle2(float4 x, float4 y, _8u32 mask)
 {
-	return (float8)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_float8(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle2(float4 x, float4 y, _16u32 mask)
 {
-	return (float16)shuffle2((_4i32)x, (_4i32)y, mask);
+	return as_float16(shuffle2(as_int4(x), as_int4(y), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle2(float8 x, float8 y, _2u32 mask)
 {
-	return (float2)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_float2(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle2(float8 x, float8 y, _4u32 mask)
 {
-	return (float4)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_float4(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle2(float8 x, float8 y, _8u32 mask)
 {
-	return (float8)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_float8(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle2(float8 x, float8 y, _16u32 mask)
 {
-	return (float16)shuffle2((_8i32)x, (_8i32)y, mask);
+	return as_float16(shuffle2(as_int8(x), as_int8(y), mask));
 }
 
 float2 __attribute__((overloadable)) shuffle2(float16 x, float16 y, _2u32 mask)
 {
-	return (float2)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_float2(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 float4 __attribute__((overloadable)) shuffle2(float16 x, float16 y, _4u32 mask)
 {
-	return (float4)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_float4(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 float8 __attribute__((overloadable)) shuffle2(float16 x, float16 y, _8u32 mask)
 {
-	return (float8)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_float8(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 float16 __attribute__((overloadable)) shuffle2(float16 x, float16 y, _16u32 mask)
 {
-	return (float16)shuffle2((_16i32)x, (_16i32)y, mask);
+	return as_float16(shuffle2(as_int16(x), as_int16(y), mask));
 }
 
 
 double2 __attribute__((overloadable)) shuffle2(double2 x, double2 y, _2u64 mask)
 {
-	return (double2)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_double2(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle2(double2 x, double2 y, _4u64 mask)
 {
-	return (double4)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_double4(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle2(double2 x, double2 y, _8u64 mask)
 {
-	return (double8)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_double8(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle2(double2 x, double2 y, _16u64 mask)
 {
-	return (double16)shuffle2((_2i64)x, (_2i64)y, mask);
+	return as_double16(shuffle2(as_long2(x), as_long2(y), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle2(double4 x, double4 y, _2u64 mask)
 {
-	return (double2)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_double2(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle2(double4 x, double4 y, _4u64 mask)
 {
-	return (double4)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_double4(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle2(double4 x, double4 y, _8u64 mask)
 {
-	return (double8)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_double8(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle2(double4 x, double4 y, _16u64 mask)
 {
-	return (double16)shuffle2((_4i64)x, (_4i64)y, mask);
+	return as_double16(shuffle2(as_long4(x), as_long4(y), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle2(double8 x, double8 y, _2u64 mask)
 {
-	return (double2)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_double2(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle2(double8 x, double8 y, _4u64 mask)
 {
-	return (double4)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_double4(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle2(double8 x, double8 y, _8u64 mask)
 {
-	return (double8)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_double8(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle2(double8 x, double8 y, _16u64 mask)
 {
-	return (double16)shuffle2((_8i64)x, (_8i64)y, mask);
+	return as_double16(shuffle2(as_long8(x), as_long8(y), mask));
 }
 
 double2 __attribute__((overloadable)) shuffle2(double16 x, double16 y, _2u64 mask)
 {
-	return (double2)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_double2(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 double4 __attribute__((overloadable)) shuffle2(double16 x, double16 y, _4u64 mask)
 {
-	return (double4)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_double4(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 double8 __attribute__((overloadable)) shuffle2(double16 x, double16 y, _8u64 mask)
 {
-	return (double8)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_double8(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 double16 __attribute__((overloadable)) shuffle2(double16 x, double16 y, _16u64 mask)
 {
-	return (double16)shuffle2((_16i64)x, (_16i64)y, mask);
+	return as_double16(shuffle2(as_long16(x), as_long16(y), mask));
 }
 
 
