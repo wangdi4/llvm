@@ -3683,7 +3683,7 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
     }
     CrtContext* ctx = pgm->m_contextCRT;
 
-    cl_uint num_kernel_args = 0;
+    cl_uint refNumKernelArgs = 0;
 
     for( cl_uint i=0; i < pgm->m_buildContexts.size(); i++)
     {
@@ -3699,13 +3699,13 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
             // supporting CL_INVALID_KERNEL_DEFINITION
             if( i == 0 )
             {
-                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &num_kernel_args, NULL );
+                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &refNumKernelArgs, NULL );
             }
             else
             {
-                cl_uint o_num_kernel_args = 0;
-                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &o_num_kernel_args, NULL );
-                if( num_kernel_args != o_num_kernel_args )
+                cl_uint numKernelArgs = 0;
+                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &numKernelArgs, NULL );
+                if( refNumKernelArgs != numKernelArgs )
                 {
                     errCode = CL_INVALID_KERNEL_DEFINITION;
                     goto FINISH;
