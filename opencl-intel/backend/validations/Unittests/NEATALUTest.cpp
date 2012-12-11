@@ -744,8 +744,7 @@ TYPED_TEST(NEATAluTyped, atomic_xchg)
 }
 
 /* test for shufflevector instruction */
-// disabled until CSSD100014660 will be fixed
-TYPED_TEST(NEATAluTyped, DISABLED_shufflevector)
+TYPED_TEST(NEATAluTyped, shufflevector)
 {
     const int NUM_TESTS = 4;
 

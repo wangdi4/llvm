@@ -214,8 +214,8 @@ static NEATValue min_ref(const NEATValue& xVal, const NEATValue& yVal)
         throw Exception::IllegalFunctionCall("min_ref is called with wrong arguments");
     return NEATValue(refOut);
 }
-// disabled until bug CSSD100013867 will be fixed
-TYPED_TEST(NEATAluTypedCommon, DISABLED_min)
+
+TYPED_TEST(NEATAluTypedCommon, min)
 {
     // Check if we are able to test double built-in function.
     if (SkipDoubleTest<TypeParam>()){
