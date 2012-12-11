@@ -1,8 +1,8 @@
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
-if(NOT ${CMAKE_SYSTEM} STREQUAL "Windows-6.2" ) #QT is not working with win8
+if(BUILD_QTGUI AND (NOT ${CMAKE_SYSTEM} STREQUAL "Windows-6.2") ) #QT is not working with win8
 	add_subdirectory( kernel_builder_module)
-endif(NOT ${CMAKE_SYSTEM} STREQUAL "Windows-6.2")
+endif(BUILD_QTGUI AND (NOT ${CMAKE_SYSTEM} STREQUAL "Windows-6.2") )
 add_subdirectory( debugger_test_type )
 add_subdirectory( tools_test_type)
 add_subdirectory( task_executor_test_type )
