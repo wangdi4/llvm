@@ -41,7 +41,7 @@ const char* mangledTypes[NUM_TYPES] = {
 const char* mangledString(const reflection::Type* t){
   assert(t && "null pointer");
   assert(
-    (t->getPrimitive() >= reflection::primitives::BOOL) &&
+    (t->getPrimitive() > reflection::primitives::FIRST) &&
     (t->getPrimitive() <= reflection::primitives::NONE) &&
     "invalid primitive type"
   );
@@ -51,7 +51,7 @@ const char* mangledString(const reflection::Type* t){
 const char* readableString(const reflection::Type* t){
   assert(t && "null pointer");
   assert(
-    (t->getPrimitive() >= reflection::primitives::BOOL) &&
+    (t->getPrimitive() > reflection::primitives::FIRST) &&
     (t->getPrimitive() <= reflection::primitives::NONE) &&
     "invalid primitive type"
   );
