@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -19,10 +19,13 @@
 #define __CL_STREAM_SAMPLER_H_
 
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/DenseMap.h"
 #include "AppleOCLRuntime.h"
 #include "LoopWIAnalysis.h"
 #include "llvm/Instructions.h"
+#include "llvm/Version.h"
+
 using namespace llvm;
 namespace intel {
 
