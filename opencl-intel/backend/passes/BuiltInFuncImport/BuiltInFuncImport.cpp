@@ -28,6 +28,8 @@ File Name:  BuiltInFuncImport.cpp
 #include <llvm/Instruction.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/Version.h>
+#include <llvm/Support/InstIterator.h>
+#include <llvm/Instructions.h>
 
 #include <list>
 #include <map>
@@ -45,11 +47,10 @@ class BIImport : public ModulePass
 protected:
 
   // Type used to hold a set of Functions and augment it during traversal.
-  typedef std::vector<const llvm::Function*>             TFunctionsVec;
+  typedef std::vector<llvm::Function*>             TFunctionsVec;
 
-  // Types used to map all callee Functions to a caller Function.
-  typedef std::list<const llvm::Function*>               TFunctionsLst;
-  typedef std::map<const llvm::Function*, TFunctionsLst> TFunctionUsageMap;
+  // Type used to hold a set of Functions and augment it during traversal.
+  typedef std::set<llvm::Function*>                TFunctionsSet;
 
   // Types used to map all Globals used by a Function.
   typedef std::list<const llvm::GlobalVariable*>         TGlobalsLst;
@@ -57,8 +58,6 @@ protected:
 
 public:
   BIImport(Module* pRTModule) : ModulePass(ID), m_pRTModule(pRTModule) {
-    BuildRTModuleFunc2Funcs();
-    BuildRTModuleFunc2Globals();
   }
 
   /// @brief Provides name of pass
@@ -82,13 +81,12 @@ protected:
 
   void ImportFunctionArrays(Module*, TFunctionsVec&, ValueToValueMapTy&);
 
+  void GetCalledFunctions(const Function*, TFunctionsVec&);
 protected:
 
   static char ID; // Pass identification, replacement for typeid.
 
   Module* m_pRTModule;
-
-  TFunctionUsageMap  m_mapFunc2Fnc;
 
   TGlobalUsageMap    m_mapFunc2Glb;
 };
@@ -121,11 +119,15 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
     if (it->isDeclaration() && (pFuncName.substr(0,4) != "get_"))
     {
       Function* pImpFunc = m_pRTModule->getFunction(pFuncName);
-      if (pImpFunc && !pImpFunc->isDeclaration())
-      {
-        // Map built-in function to its declaration in destination module.
-        valueMap[pImpFunc] = it;
-        tmpFuncs2Import.push_back(pImpFunc);
+      if (pImpFunc) {
+          if(pImpFunc->isDeclaration() && pImpFunc->isMaterializable()) {
+              m_pRTModule->Materialize(pImpFunc);
+          }
+          if(!pImpFunc->isDeclaration()) {
+            // Map built-in function to its declaration in destination module.
+            valueMap[pImpFunc] = it;
+            tmpFuncs2Import.push_back(pImpFunc);
+          }
       }
     }
   }
@@ -134,21 +136,20 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
   while (!tmpFuncs2Import.empty())
   {
     // Move first function from tmp to all functions lists.
-    const Function* impF = tmpFuncs2Import.back();
+    Function* impF = tmpFuncs2Import.back();
     tmpFuncs2Import.pop_back();
     allFuncs2Import.push_back(impF);
 
     // Check all functions called by this first function.
-    TFunctionUsageMap::iterator calledFunc2FncIt = m_mapFunc2Fnc.find(impF);
-    if (calledFunc2FncIt == m_mapFunc2Fnc.end()) continue;
 
-    TFunctionsLst& calledFuncs = calledFunc2FncIt->second;
+    TFunctionsVec calledFuncs;
+    GetCalledFunctions(impF, calledFuncs);
 
-    TFunctionsLst::iterator calledFuncIt, calledFuncE;
+    TFunctionsVec::iterator calledFuncIt, calledFuncE;
     for (calledFuncIt = calledFuncs.begin(), calledFuncE = calledFuncs.end();
          calledFuncIt != calledFuncE; ++calledFuncIt)
     {
-      const Function* calledFunc = *calledFuncIt;
+      Function* calledFunc = *calledFuncIt;
 
       if (valueMap.count(calledFunc)) continue;  // We already mapped this function.
 
@@ -173,6 +174,29 @@ void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap,
   }
 }
 
+/// \brief Get all the functions called by given function.
+/// \param [IN] pFunc The given function.
+/// \param [OUT] calledFuncs The list of all functions called by pFunc.
+void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) {
+  TFunctionsSet visitedSet;
+  for ( const_inst_iterator ii = inst_begin(pFunc), ie = inst_end(pFunc); ii != ie; ++ii ) {
+    const CallInst *pInstCall = dyn_cast<CallInst>(&*ii);
+    if(!pInstCall) continue;
+    Function* pCalledFunc = pInstCall->getCalledFunction();
+    if(!pCalledFunc){
+      // This case can occur only if CallInst is calling something other than LLVM function.
+      // Thus, no need to handle this case.
+      continue;
+    }
+    if(visitedSet.count(pCalledFunc)) continue;
+
+    if(pCalledFunc->isDeclaration() && pCalledFunc->isMaterializable()) {
+      m_pRTModule->Materialize(const_cast<Function*>(pCalledFunc));
+    }
+    visitedSet.insert(pCalledFunc);
+    calledFuncs.push_back(pCalledFunc);
+  }
+}
 
 /// \brief Scan all global variables used by functions to be imported.
 ///        Import them into the destination module.
@@ -214,13 +238,13 @@ void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, Va
 
        */
 
-
       GlobalVariable *usedGlobalDest =
                      new GlobalVariable(*pModule,
                                         usedGlobal->getType()->getElementType(),
                                         usedGlobal->isConstant(),
-                                        GlobalValue::PrivateLinkage,
-                                        usedGlobal->getInitializer(),
+                                        usedGlobal->getLinkage(),
+                                        usedGlobal->hasInitializer()?
+                                        usedGlobal->getInitializer() : 0,
                                         usedGlobal->getName(),
                                         0,
 #if LLVM_VERSION >= 3425
@@ -318,7 +342,7 @@ void BIImport::ImportFunctionArrays(Module* pModule, TFunctionsVec& allFuncs2Imp
   // and collect all such arrays.
   for (TFunctionsVec::iterator impIt =  allFuncs2Import.begin(), impE =  allFuncs2Import.end(); impIt != impE; ++impIt)
   {
-    for (Value::const_use_iterator I = (*impIt)->use_begin(), E = (*impIt)->use_end(); I != E; ++I)
+    for (Value::use_iterator I = (*impIt)->use_begin(), E = (*impIt)->use_end(); I != E; ++I)
     {
       if (isa<ConstantArray>(*I)) origArrays.insert(cast<ConstantArray>(*I));
       else assert ((isa<Instruction>(*I) || isa<ConstantExpr>(*I)) &&
@@ -367,6 +391,10 @@ bool BIImport::runOnModule(Module &M)
 
   if (funcs2Import.empty()) return false;  // Nothing to import.
 
+  // It is safe now to calculate the Function2Global map
+  // as all needed functions are already materialized.
+  BuildRTModuleFunc2Globals();
+
   // Import global variables required by all functions to be imported.
   ImportGlobals(&M, funcs2Import, valueMap);
 
@@ -409,52 +437,7 @@ void BIImport::BuildRTModuleFunc2Globals()
   }
 }
 
-/// \brief Enumerate functions and the functions that call them, building the function-to-functions map.
-///        Later we will export the called functions along with their callers to a destination module.
-void BIImport::BuildRTModuleFunc2Funcs()
-{
-  for (Module::iterator extIt = m_pRTModule->begin(), extE = m_pRTModule->end(); extIt != extE; ++extIt)
-  {
-    Function* pVal = extIt;
-    Function::use_iterator use_it, use_e;
-    for (use_it = pVal->use_begin(), use_e = pVal->use_end(); use_it != use_e; ++use_it)
-    {
-      if (isa<Instruction>(*use_it))        // Direct call
-      {
-        Function* pFunc = cast<Instruction>(*use_it)->getParent()->getParent();
-        m_mapFunc2Fnc[pFunc].push_back(pVal);
-      }
-      else       // Indirect call; check and allow only a specific pattern:
-      {
-        if (isa<ConstantExpr>(*use_it))
-        {
-          // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
-          for (Value::use_iterator I = use_it->use_begin(), E1 = use_it->use_end(); I != E1; ++I)
-          {
-            assert (isa<Instruction>(*I) && "Only Instruction can use a GlobalVariable using a function array.");
-            Function* pFunc = cast<Instruction>(*I)->getParent()->getParent();
-            m_mapFunc2Fnc[pFunc].push_back(pVal);
-          }
-        }
-        else
-        {
-          assert (isa<ConstantArray>(*use_it) && "Pointers to functions allowed only in ConstantArrays or ConstantExpressions.");
-          for (Value::use_iterator I = use_it->use_begin(), E = use_it->use_end(); I != E; ++I)
-          {
-            assert (isa<GlobalVariable>(*I) && "Only GlobalVariables can use ConstantArray of functions.");
-            // Global is added to m_mapFunc2Glb by BuildRTModuleFunc2Globals.
-            for (Value::use_iterator I1 = I->use_begin(), E1 = I->use_end(); I1 != E1; ++I1)
-            {
-              assert (isa<Instruction>(*I1) && "Only Instruction can use a GlobalVariable using a function array.");
-              Function* pFunc = cast<Instruction>(*I1)->getParent()->getParent();
-              m_mapFunc2Fnc[pFunc].push_back(pVal);
-            }
-          }
-        }
-      }
-    }
-  }
-}
+
 }}}
 
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule) {
