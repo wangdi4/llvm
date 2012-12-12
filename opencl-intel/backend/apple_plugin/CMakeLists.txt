@@ -45,6 +45,7 @@ set (PASSES_LIBS
     # Backend passes
     AddImplicitArgs
     BuiltInFuncImport
+    ClangCompatFixer
     InstToFuncCall
     LocalBuffers
     LocalBuffAnalysis

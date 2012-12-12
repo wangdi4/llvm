@@ -61,6 +61,7 @@ extern "C" llvm::Pass *createShuffleCallToInstPass();
 extern "C" llvm::Pass *createRelaxedPass();
 extern "C" llvm::ModulePass *createKernelAnalysisPass();
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
+extern "C" llvm::Pass *createClangCompatFixerPass();
 
 #ifndef __APPLE__
 extern "C" llvm::FunctionPass *createPrefetchPass();
@@ -221,6 +222,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
+#ifdef __APPLE__
+  m_modulePasses.add(createClangCompatFixerPass());
+#endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
   m_funcPasses.add(new llvm::TargetData(pModule));
 
