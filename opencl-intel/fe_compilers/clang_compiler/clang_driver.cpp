@@ -1249,6 +1249,10 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }
+        else if (opt_i->find("-dump-opt-asm=") == 0)
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
         else if (*opt_i == "-s") {
             // Expect the file name as the next token
             //

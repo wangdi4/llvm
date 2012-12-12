@@ -34,14 +34,7 @@ public:
                               Reloc::Model RM,
                               CodeModel::Model CM,
                               std::string *ErrorStr);
-#if 0
- static TargetMachine *selectTarget(Module *mod,
-                                      StringRef triple,
-                                      StringRef arch,
-                                      StringRef cpu,
-                                      const SmallVectorImpl<std::string>& attrs,
-                                      std::string *err);
-#endif
+
 
   MICCodeGenerationEngine(TargetMachine &tm, CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver);
 
@@ -58,7 +51,7 @@ public:
   //Note: the returned value is a heap-allocated object.
   //The ownership on this object is transfered to the caller of that method.
   /////////////////////////////////////////////////////////////////////
-  const ModuleJITHolder* getModuleHolder(llvm::Module& m) const;
+  const ModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
 
 private:
   TargetMachine &TM;

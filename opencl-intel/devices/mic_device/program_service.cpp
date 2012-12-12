@@ -671,6 +671,9 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
+
+    const char *p = NULL;
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
     TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
@@ -718,7 +721,12 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     
     if (NULL != compiler)
     {
-        ret = compiler->BuildProgram(pEntry->pProgram, NULL);
+        MICBackendOptions dumpOptions( m_DevService );
+        if( (NULL != options) && ('\0' != *options) &&
+            (NULL != (p = strstr(options, "-dump-opt-asm="))) )
+            dumpOptions.init_for_dump(p);
+
+        ret = compiler->BuildProgram(pEntry->pProgram, &dumpOptions);
         MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
     }
     
@@ -737,12 +745,13 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cmdTracer.set_current_time_command_host_time_end();
 
     // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && !strncmp(options, "-dump-opt-llvm=", 15))
+    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
+        (NULL != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         
         MICBackendOptions dumpOptions( m_DevService );
-        dumpOptions.init_for_dump(options);
+        dumpOptions.init_for_dump(p);
         
         compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }

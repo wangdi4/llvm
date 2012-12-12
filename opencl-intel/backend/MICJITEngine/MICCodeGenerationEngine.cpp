@@ -31,6 +31,8 @@
 #include <cassert>
 #include <cstdio>
 #include <memory>
+#include <iostream>
+#include <sstream>
 
 using namespace llvm;
 
@@ -43,138 +45,9 @@ TargetMachine *MICCodeGenerationEngine::selectTarget(Module *Mod,
                               Reloc::Model RM,
                               CodeModel::Model CM,
                               std::string *ErrorStr) {
-#if 1
 
-return llvm::EngineBuilder::selectTarget(Mod, MArch, MCPU, MAttrs, RM, CM, ErrorStr);    
-#else
-    Triple TheTriple(Mod->getTargetTriple());
-  if (TheTriple.getTriple().empty())
-    TheTriple.setTriple(sys::getHostTriple());
-
-  // Adjust the triple to match what the user requested.
-  const Target *TheTarget = 0;
-  if (!MArch.empty()) {
-    for (TargetRegistry::iterator it = TargetRegistry::begin(),
-           ie = TargetRegistry::end(); it != ie; ++it) {
-      if (MArch == it->getName()) {
-        TheTarget = &*it;
-        break;
-      }
-    }
-
-    if (!TheTarget) {
-      *ErrorStr = "No available targets are compatible with this -march, "
-        "see -version for the available targets.\n";
-      return 0;
-    }
-
-    // Adjust the triple to match (if known), otherwise stick with the
-    // module/host triple.
-    Triple::ArchType Type = Triple::getArchTypeForLLVMName(MArch);
-    if (Type != Triple::UnknownArch)
-      TheTriple.setArch(Type);
-  } else {
-    std::string Error;
-    TheTarget = TargetRegistry::lookupTarget(TheTriple.getTriple(), Error);
-    if (TheTarget == 0) {
-      if (ErrorStr)
-        *ErrorStr = Error;
-      return 0;
-    }
-  }
-
-  if (!TheTarget->hasJIT()) {
-    errs() << "WARNING: This target JIT is not designed for the host you are"
-           << " running.  If bad things happen, please choose a different "
-           << "-march switch.\n";
-  }
-
-  // Package up features to be passed to target/subtarget
-  std::string FeaturesStr;
-  if (!MAttrs.empty()) {
-    SubtargetFeatures Features;
-    for (unsigned i = 0; i != MAttrs.size(); ++i)
-      Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
-  }
-
-  // Allocate a target...
-  TargetMachine *Target = TheTarget->createTargetMachine(TheTriple.getTriple(),
-                                                         MCPU, FeaturesStr,
-                                                         RM, CM);
-  assert(Target && "Could not allocate target machine!");
-  return Target;
-#endif
+  return llvm::EngineBuilder::selectTarget(Mod, MArch, MCPU, MAttrs, RM, CM, ErrorStr);
 }
-#if 0
-TargetMachine *
-MICCodeGenerationEngine::selectTarget(Module *Mod,
-                               StringRef MTriple,
-                               StringRef MArch,
-                               StringRef MCPU,
-                               const SmallVectorImpl<std::string>& MAttrs,
-                               std::string *ErrorStr) {
-//  InitializeAllTargets();
-//  InitializeAllAsmPrinters();
-  InitializeAllAsmParsers();
-
-  // If we are supposed to override the target triple, do so now.
-  if (!MTriple.empty())
-    Mod->setTargetTriple(Triple::normalize(MTriple));
-  Triple TheTriple(Mod->getTargetTriple());
-  if (TheTriple.getTriple().empty())
-    TheTriple.setTriple(MTriple);
-
-  // Adjust the triple to match what the user requested.
-  const Target *TheTarget = 0;
-  if (!MArch.empty()) {
-    for (TargetRegistry::iterator it = TargetRegistry::begin(),
-           ie = TargetRegistry::end(); it != ie; ++it) {
-      if (MArch == it->getName()) {
-        TheTarget = &*it;
-        break;
-      }
-    }
-
-    if (!TheTarget) {
-      *ErrorStr = "No available targets are compatible with this -march, "
-        "see -version for the available targets.\n";
-      return 0;
-    }
-
-    // Adjust the triple to match (if known), otherwise stick with the
-    // module/host triple.
-    Triple::ArchType Type = Triple::getArchTypeForLLVMName(MArch);
-    if (Type != Triple::UnknownArch)
-      TheTriple.setArch(Type);
-  } else {
-    std::string Error;
-    TheTarget = TargetRegistry::lookupTarget(TheTriple.getTriple(), Error);
-    if (TheTarget == 0) {
-      if (ErrorStr)
-        *ErrorStr = Error;
-      return 0;
-    }
-  }
-
-  // Package up features to be passed to target/subtarget
-  std::string FeaturesStr;
-  if (!MCPU.empty() || !MAttrs.empty()) {
-    SubtargetFeatures Features;
-    Features.setCPU(MCPU);
-    for (unsigned i = 0; i != MAttrs.size(); ++i)
-      Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
-  }
-
-  // Allocate a target...
-  TargetMachine *Target = 
-    TheTarget->createTargetMachine(TheTriple.getTriple(), FeaturesStr);
-  assert(Target && "Could not allocate target machine!");
-  Target->setCodeModel(CodeModel::Small);
-  return Target;
-}
-#endif
 
 MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm, 
     CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver) :
@@ -188,12 +61,53 @@ size_t MICCodeGenerationEngine::sizeOf(Type* t) const{
 }
 
 const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
-  llvm::Module& mod) const {
+  llvm::Module& mod, const std::string& outAsmFileName) const {
 
   PassManager PM;
+  std::string PrintFilename(outAsmFileName);
 
-  if (getenv("DUMPIR"))
-    mod.dump();
+  // if module has a neuter name, change it to a meaningful one
+  // Modules that come from full blown opencl programs are usually
+  // named "Program"
+  if ((getenv("DUMPIR") || getenv("DUMPASM")) && PrintFilename.empty()) {
+    if (0 == mod.getModuleIdentifier().compare("Program")) {
+      static int moduleNameCount = 0;
+      // get process name
+      const char *name = getenv("_");
+      // find the base name by searching for the last '/' in the name
+      if (name != NULL) {
+        const char *p = name;
+        while (*p) {
+          if (*p == '/')
+            name = p+1;
+          p++;
+        }
+      }
+      // if still no meaningful name just use "Program" as module name
+      if (name == NULL || *name == 0)
+        name = "Program";
+
+      // if a process generates more than one module use sequential number to
+      // distinguish them.
+      std::string moduleName(name);
+      if (moduleNameCount == 0)
+        moduleNameCount = 1;
+      else {
+        std::stringstream moduleNameBuilder;
+        moduleNameBuilder << name << (moduleNameCount++);
+        moduleName = moduleNameBuilder.str();
+      }
+      mod.setModuleIdentifier(moduleName);
+    }
+
+    if (getenv("DUMPASM")) {
+      PrintFilename = mod.getModuleIdentifier();
+      PrintFilename += ".s";
+    }
+
+    if (getenv("DUMPIR"))
+      mod.dump();
+  }
 
   // if the user asked to inject an IR file parse it and pass the new
   // module to code generation
@@ -225,11 +139,11 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   {
     // Open the file.
     FILE* OutF = 0;
-    std::string PrintFilename("/tmp/outf.s");
+    bool genAsm = !PrintFilename.empty();
     std::string error;
-    OwningPtr<tool_output_file> Out(new tool_output_file(PrintFilename.data(),
-                                    error, 0));
-    if (error.empty())
+    OwningPtr<tool_output_file> Out(genAsm ?
+        new tool_output_file(PrintFilename.data(),error, 0) : 0);
+    if (genAsm && error.empty())
       OutF = fopen(PrintFilename.data(), "w");
 
     // Override default to generate verbose assembly.

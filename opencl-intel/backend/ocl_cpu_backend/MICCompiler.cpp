@@ -130,10 +130,10 @@ unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
     return m_pCGEngine->sizeOf(pType);
 }
 
-const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module) const
+const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
 {
     assert(m_pCGEngine);
-    return m_pCGEngine->getModuleHolder(module);
+    return m_pCGEngine->getModuleHolder(module, dumpAsm);
 }
 
 llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const
