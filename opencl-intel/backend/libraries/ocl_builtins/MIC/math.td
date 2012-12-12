@@ -1,24 +1,5 @@
 // vim:ts=2:sw=2:et:
 
-
-// mad
-OclBuiltinImpl mad_f32_v16 = OclBuiltinImpl<mad, [v16f32], 0, [{
-    return _mm512_madd231_ps($Arg2VarName, $Arg0VarName, $Arg1VarName);
-  }]>;
-OclBuiltinImpl mask_mad_f32_v16 = OclBuiltinImpl<mask_mad, [v16f32], 0, [{
-    return _mm512_mask_madd231_ps($Arg3VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
-  }]>;
-OclBuiltinImpl mad_f32_promote = OclBuiltinImpl<mad, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, MaskPromote3>;
-
-OclBuiltinImpl mad_f64_v8 = OclBuiltinImpl<mad, [v8f64], 0, [{
-    return _mm512_madd231_pd($Arg2VarName, $Arg0VarName, $Arg1VarName);
-  }]>;
-OclBuiltinImpl mask_mad_f64_v8 = OclBuiltinImpl<mask_mad, [v8f64], 0, [{
-    return _mm512_mask_madd231_pd($Arg3VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
-  }]>;
-OclBuiltinImpl mad_f64_promote = OclBuiltinImpl<mad, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote3>;
-OclBuiltinImpl mad_f64_expand = OclBuiltinImpl<mad, [v16f64], 0, Expand3>;
-
 // fmax
 OclBuiltinImpl fmax_f32_v16 = OclBuiltinImpl<fmax, [v16f32], 0, [{
     return _mm512_max_ps($Arg0VarName, $Arg1VarName);
