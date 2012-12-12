@@ -136,19 +136,27 @@ cv_qualifier returns [std::string s]
 ;
 
 address_space returns [std::string attribute]
-  : ADDRESS_SPACE_PREFIX n1:NUMBER ADDRESS_SPACE_SUFFIX n2:NUMBER{
+  : ADDRESS_SPACE_PREFIX n1:NUMBER{
     std::string strSuffixLen = n1->getText();
-    std::string strAddressSpace = n2->getText();
-    unsigned suffixLen = atoi(strSuffixLen.c_str());
-    unsigned addressSpace = atoi(strAddressSpace.c_str());
-    if (suffixLen -2 != strAddressSpace.length())
-      throw ("internal bug! we need a custom lexer..");
+    char* endString;
+    const char* beginString = strSuffixLen.c_str();
+    long suffixLen = strtol(beginString, &endString, 10);
+    assert (endString != beginString && "address space is not a valid suffix");
+    assert(suffixLen>0 && "invalid suffix len");
+    std::string strAddressSpace = m_pLexer->readN(suffixLen);
+    //Every address space starts with "AS"
+    const std::string AS("AS");
+    assert(strAddressSpace.size() > AS.size() && "invalid address space");
+    assert(strAddressSpace.substr(0, AS.size()) == AS && "invalid address space");
+    beginString = strAddressSpace.c_str() + AS.size();
+    long addressSpace = strtol(beginString, &endString, 10);
+    assert (endString != beginString &&"address space is not a valid suffix");
     switch (addressSpace){
-      case 0: attribute = "__private";  break;
-      case 1: attribute = "__global"; break;
-      case 2: attribute = "__constant";  break;
-      case 3: attribute = "__local";  break;
-      default: assert (false && "unreachable code");
+      case 0L: attribute = "__private";  break;
+      case 1L: attribute = "__global"; break;
+      case 2L: attribute = "__constant";  break;
+      case 3L: attribute = "__local";  break;
+      default: assert (false && "invalid address space");
     }
   }
 ;
