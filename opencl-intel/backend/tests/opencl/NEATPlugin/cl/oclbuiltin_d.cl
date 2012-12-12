@@ -153,6 +153,24 @@ File Name:  oclbuiltin_d.cl
 {\
     IN_VARS_A\
     int i_in = 3;\
+    int2 i2_in = 3;\
+    int3 i3_in = 3;\
+    int4 i4_in = 3;\
+    int8 i8_in = 3;\
+    int16 i16_in = 3;\
+    OUT_VARS\
+    uint tid = 0;\
+    SET_IN_ONEARG(tid)\
+    a_out = _func(a_in, i_in); a2_out = _func(a2_in, i2_in); a3_out = _func(a3_in, i3_in);\
+    a4_out = _func(a4_in, i4_in); a8_out = _func(a8_in, i8_in); a16_out = _func(a16_in, i16_in);\
+    OUTPUT_ONE_VEC_FLOAT(tid)\
+}
+
+#define KERNEL_BI_SINGLE_LDEXP(_func) __kernel void _func##_s_d(__global double * input, __global int * input_int,\
+                                                            __global double * output, __global double * output2)\
+{\
+    IN_VARS_A\
+    int i_in = 3;\
     OUT_VARS\
     uint tid = 0;\
     SET_IN_ONEARG(tid)\
@@ -402,7 +420,7 @@ __kernel void convert_double_long_d(__global double * input, __global int * inpu
  
     KERNEL_BI_FOUT_FIN_IIN(rootn)
     KERNEL_BI_FOUT_FIN_IIN(ldexp) // doublen ldexp (doublen x, intn k)
-    KERNEL_BI_SINGLE_POW(ldexp)  // doublen ldexp (doublen x, int k)
+    KERNEL_BI_SINGLE_LDEXP(ldexp)  // doublen ldexp (doublen x, int k)
 
     KERNEL_BI_TWOOUTARGS(modf)
     KERNEL_BI_FREXP(frexp)
