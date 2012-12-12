@@ -193,6 +193,8 @@ FORCEINLINE void multiply_signed_64_by_64( long sourceA, long sourceB, ulong * d
 
 
 
+//atomic
+typedef int intrin_type;
 #ifdef cplusplus
 }
 #endif

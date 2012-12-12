@@ -26,6 +26,7 @@ code Prolog = [{
 
 include "sse42/math.td"
 include "sse42/common.td"
+include "sse42/atomic.td"
 include "sse42/geometric.td"
 include "sse42/integers.td"
 }
