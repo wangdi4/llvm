@@ -67,10 +67,19 @@ include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+if(NOT APPLE)
+set(TARGET_LINK_LLVM_LIBRARIES 
+  LLVMSupport
+)
+else(NOT APPLE)
+set(TARGET_LINK_LLVM_LIBRARIES 
+)
+endif(NOT APPLE)
+
 target_link_libraries(
   ${TARGET_NAME}
   name_mangle
-  LLVMSupport
+  ${TARGET_LINK_LLVM_LIBRARIES}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

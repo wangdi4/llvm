@@ -22,14 +22,14 @@ include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
 
 if(NOT APPLE)
-set(TARGET_MIC_SOURCE_FILES 
+set(TARGET_EXTRA_SOURCE_FILES 
   Resolver/MICResolver.cpp
   Driver/DX/DXRuntime.cpp
   Driver/DX/DXData.cpp
   Driver/DX/DXWrapperParamsCheck.cpp
 )
 else(NOT APPLE)
-set(TARGET_MIC_SOURCE_FILES 
+set(TARGET_EXTRA_SOURCE_FILES 
 )
 endif(NOT APPLE)
 
@@ -52,7 +52,7 @@ add_library( LLVMVectorizer
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   Resolver/Resolver.cpp
-  ${TARGET_MIC_SOURCE_FILES}
+  ${TARGET_EXTRA_SOURCE_FILES}
   Resolver/SelectLower.cpp
   Resolver/SpecialCaseBuiltinResolver.cpp
   VolcanoWrapper/Main.cpp
