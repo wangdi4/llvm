@@ -20,7 +20,7 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "CodeFormatter.h"
 #include "ConversionParser.h"
 #include "ClangUtils.h"
-//#include "cl_device_api.h"
+#include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -180,7 +180,7 @@ const char* DESC=
 
 void OclBuiltinsHeaderGen::run(raw_ostream& stream){
   OclBuiltinDB bidb(m_recordKeeper);
-//  EmitSourceFileHeader(DESC, stream);
+  EmitSourceFileHeader(DESC, stream);
   CodeFormatter formatter(stream);
   formatter << "#ifndef __MANGLED_BI_NAMES_H__";
   formatter.endl();

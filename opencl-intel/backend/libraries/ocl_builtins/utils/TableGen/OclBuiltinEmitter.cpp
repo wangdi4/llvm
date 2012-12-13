@@ -1256,7 +1256,7 @@ OclBuiltinEmitter::OclBuiltinEmitter(RecordKeeper& R)
 void
 OclBuiltinEmitter::run(raw_ostream& OS)
 {
-  //EmitSourceFileHeader("OpenCL Builtins", OS);
+  EmitSourceFileHeader("OpenCL Builtins", OS);
 
   if (!GenOCLBuiltinPrototype)
     OS << RemoveCommonLeadingSpaces(m_DB.getProlog()) << "\n";

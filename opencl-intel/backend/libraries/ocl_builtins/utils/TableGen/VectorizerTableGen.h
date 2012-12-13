@@ -17,7 +17,7 @@ File Name: VectorizerTableGen.h
 #ifndef __VECTORIZER_TABLEGEN_H__
 #define __VECTORIZER_TABLEGEN_H__
 
-//#include "llvm/TableGen/TableGenBackend.h"
+#include "llvm/TableGen/TableGenBackend.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "OclBuiltinEmitter.h"
 #include <queue>
@@ -25,7 +25,7 @@ File Name: VectorizerTableGen.h
 
 namespace llvm{
 
-class VectorizerTableGen {
+class VectorizerTableGen: public TableGenBackend {
 public:
   explicit VectorizerTableGen(RecordKeeper&);
   void run(raw_ostream&);

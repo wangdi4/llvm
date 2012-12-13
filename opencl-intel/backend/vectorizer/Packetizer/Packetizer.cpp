@@ -1137,8 +1137,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !(DT->isVectorTy() &&  MO.type == PREFETCH)) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
     V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
-    if (MO.Index)
+    if (MO.Index) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
+    }
     return duplicateNonPacketizableInst(MO.Orig);
   }
 

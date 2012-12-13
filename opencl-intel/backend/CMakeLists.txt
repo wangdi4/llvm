@@ -46,19 +46,19 @@ if (NOT WIN32)
         # Warning level
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
         add_definitions( ${WARNING_LEVEL} )
-    endif (APPLE)
     
     # Assembler setup - use private rules
-    #set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
-    #set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    #set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    #if (CVCC_ASM_PATH)
-    #    set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-    #else(CVCC_ASM_PATH)
-    #    message(STATUS "Using system assembler, check that its version is 4.3.x")
-    #    set( CMAKE_ASM_COMPILER        as )
-    #endif(CVCC_ASM_PATH)    
-    
+    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
+    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
+    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
+    if (CVCC_ASM_PATH)
+        set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
+    else(CVCC_ASM_PATH)
+        message(STATUS "Using system assembler, check that its version is 4.3.x")
+        set( CMAKE_ASM_COMPILER        as )
+    endif(CVCC_ASM_PATH)    
+    endif (APPLE)
+
 endif (NOT WIN32)
 
 
@@ -179,10 +179,8 @@ if (LLVM_BUILD_APPLE_BACKEND)
     #add_subdirectory(libraries/ocl_builtins)
     add_subdirectory(metadata_api)
     add_subdirectory(passes)
-use_rtti(TRUE)
     add_subdirectory(name_mangling)
     add_subdirectory(reflection_module)
-use_rtti(FALSE)
     add_subdirectory(optimizer)
     add_subdirectory(barrier)
     add_subdirectory(vectorizer)
