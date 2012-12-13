@@ -224,15 +224,15 @@ namespace intel {
       //Create one
       Type *pResult = Type::getVoidTy(m_pModule->getContext());
       std::vector<Type*> funcTyArgs;
-      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), m_uiSizeT));
+      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
         createFunctionDeclaration(BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
       //Create one
-      m_localMemFenceValue = ConstantInt::get(
-        m_pModule->getContext(), APInt(m_uiSizeT, CLK_LOCAL_MEM_FENCE));
+      Type *memFenceType = m_barrierFunc->getFunctionType()->getParamType(0);
+      m_localMemFenceValue = ConstantInt::get(memFenceType, CLK_LOCAL_MEM_FENCE);
     }
     return CallInst::Create(m_barrierFunc, m_localMemFenceValue, "", pInsertBefore);
   }
