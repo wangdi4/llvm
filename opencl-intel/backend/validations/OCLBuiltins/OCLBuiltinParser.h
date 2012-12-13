@@ -43,10 +43,11 @@ namespace llvm {
         /// general type of argument 
         enum GenArgType
         {
-            BASIC = 0, 
+            BASIC = 0,
             VECTOR,
             ARRAY,
             POINTER,
+            IMAGE, // images in OpenCL1.2 should have this type
             NA = 255
         };
 
@@ -118,9 +119,15 @@ namespace llvm {
             AddressSpace AddrSpace;
             /// string with pointer type
             std::string ptrToStr;
-            /// type of ptr 
+            /// type of ptr
             /// vector should have size()== 1
             std::vector<ARG> ptrType;
+        };
+
+        /// image type
+        struct ImageType
+        {
+            std::string imgStr;
         };
 
         /// argument of function
@@ -135,10 +142,13 @@ namespace llvm {
                 /// vector 
                 VecType vecType;
             };
-            /// array 
+            /// array
             ArrType arrType;
             /// pointer
             PointerType ptrType;
+            /// image
+            ImageType imgType;
+
         };
 
         /// vector of arguments
@@ -157,23 +167,7 @@ namespace llvm {
 
         static bool GetOCLMangledName(const std::string& in_funcName,
             const ArgVector& in_args, std::string& out_str);
-    protected:
-        /// function parsing arguments of ocl buitlin call 
-        /// function can call itself recursivly 
-        /// @param [in] ArgumentsStr - string containing function arguments
-        /// @param [inout] ArgumentsStrOffs - starting symbol index in string 
-        /// to start parsing with. 
-        /// @param [out] al - resulting vector with detected arguments
-        /// @param [in] glArg - global vector of already detected arguments 
-        //  Parameter is passed through recursion stack to implement 
-        /// substitution S_ argument to be able to capture previous argument
-        /// on the highest level of arguments w/o recursion
-        /// When calling ParseArg this parameter should be set equal to al 
-        static void ParseArg(const std::string& ArgumentsStr, 
-            uint32_t& ArgumentsStrOffs, ArgVector& al, const ArgVector & glArg);
 
-        static bool getOCLMangledTypeName(std::ostringstream& typeStream,
-            const OCLBuiltinParser::ARG& arg);
     };
 
 } // llvm

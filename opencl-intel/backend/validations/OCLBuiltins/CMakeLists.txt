@@ -48,6 +48,7 @@ add_llvm_library(OCLBuiltins
 
 include_directories (
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${BACKEND_ROOT_DIR}/name_mangling
   ${VALIDATIONS_ROOT}/Common
   ${VALIDATIONS_ROOT}/REFALU
   )
@@ -60,16 +61,19 @@ endif (WIN32)
 target_link_libraries(OCLBuiltins
   LLVMSupport
   REFALU
+  name_mangle
   )
 
 if (WIN32) 
 add_dependencies(OCLBuiltins
   LLVMSupport
   REFALU_wrapper
+  name_mangle
   )
 else (WIN32)
 add_dependencies(OCLBuiltins
   LLVMSupport
   REFALU
+  name_mangle
   )
 endif (WIN32)
