@@ -45,6 +45,16 @@ add_custom_command(
 
 endif(NOT APPLE)
 
+if(NOT APPLE)
+set(BUILT_IN_LIST_H
+  BuiltinList.h
+)
+else(NOT APPLE)
+set(BUILT_IN_LIST_H
+  apple_include/BuiltinList.h
+)
+endif(NOT APPLE)
+
 add_library(
   ${TARGET_NAME}
   STATIC
@@ -52,7 +62,7 @@ add_library(
   BuiltinKeeper.cpp
   VersionStrategy.h
   VersionStrategy.cpp
-  BuiltinList.h
+  ${BUILT_IN_LIST_H}
   BuiltinMap.cpp
   CustomMappings.gen
 )
@@ -61,7 +71,6 @@ add_library(
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
-  
 )
 
 if(NOT APPLE)
