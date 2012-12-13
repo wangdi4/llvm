@@ -5,7 +5,7 @@ Base {
                   GetDeviceBackendFactory*;
                   TerminateDeviceBackend*;
              };
-
+             __jit_debug_register_code;
     local:
         *; 
 };
