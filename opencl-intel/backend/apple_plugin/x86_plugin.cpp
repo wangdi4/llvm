@@ -408,6 +408,8 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFArrayRef arrayref = CFArrayCreate(NULL, entry, 12, &kCFTypeArrayCallBacks);
   
     CFRelease(kfinfo);
+    CFRelease(kf_argsizes);
+    CFRelease(kf_argalignments);
     CFRelease(sname);
     CFRelease(vname);
     CFRelease(vwmax);

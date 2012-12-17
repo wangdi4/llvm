@@ -59,6 +59,7 @@ std::string Mangler::mangle(const std::string& name) {
     for (unsigned i=0 ; i<IMG_SIZE ; ++i){
       if (imageFunctions[i] == stripped){
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
+        V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         //Currently, we only support two dimension images to be masked.
         if ( fdesc.parameters[0]->toString() != "image2d_t" )
           return name;
