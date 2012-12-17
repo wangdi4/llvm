@@ -761,7 +761,13 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(indexType->isVectorTy() && "index of scatter/gather is not a vector!");
     indexType = cast<VectorType>(indexType)->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
+#if LLVM_VERSION >= 3425
+    // Not replacing with ConstantDataVector here because the type isn't known to be
+    // compatible.
+    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+#else
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+#endif
     std::vector<Constant *> laneVec;
     for (unsigned int i=0; i < m_packetWidth; ++i) {
       laneVec.push_back(ConstantInt::get(indexType, i));
@@ -792,7 +798,14 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(MO.Index->getType()->isVectorTy() && "index of scatter/gather is not a vector!");
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
+    
+#if LLVM_VERSION >= 3425
+    // Not replacing with ConstantDataVector here because the type isn't known to be
+    // compatible.
+    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+#else
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+#endif
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
@@ -851,7 +864,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
+#if LLVM_VERSION >= 3425
+    vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
+#else
     vecVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecVal));
+#endif
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
   }
@@ -1416,7 +1433,11 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       obtainVectorizedValue(&maskV, mask, CI);
     } else {
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(1,1));
+#if LLVM_VERSION >= 3425
+      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+#else
       maskV = ConstantVector::get(std::vector<Constant *>(m_packetWidth, mask));
+#endif
     }
     newArgs.push_back(maskV);
   }
@@ -2546,7 +2567,6 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
 
 
 
-
 Constant *PacketizeFunction::createIndicesForShuffles(unsigned width, int *values)
 {
   // Generate a vector and fill with given values (as constant integers)
@@ -2565,7 +2585,6 @@ Constant *PacketizeFunction::createIndicesForShuffles(unsigned width, int *value
   }
   return ConstantVector::get(pre_vect);
 }
-
 
 void PacketizeFunction::generateSequentialIndices(Instruction *I)
 {

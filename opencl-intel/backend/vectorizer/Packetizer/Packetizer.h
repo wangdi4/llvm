@@ -274,7 +274,7 @@ private:
   /// @brief Generate a constant vector of values, to be used as ShuffleVector inputs
   /// @param width size of vector
   /// @param values values for the vector
-  /// @return ConstantVector with the provided indices
+  /// @return ConstantVector/ConstantDataVector with the provided indices
   Constant * createIndicesForShuffles(unsigned width, int * values);
 
   /// @brief generate instructions for creating vectored indices (x, x+1, x+2, x+3)

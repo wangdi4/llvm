@@ -122,7 +122,7 @@ private:
   Constant *m_zero;
 
   /// @brief induction variable.
-  Value *m_indVar;
+  PHINode *m_indVar;
 
   /// @brief upper bound on loop trip count.
   unsigned m_tripCountUpperBound;
@@ -146,6 +146,12 @@ private:
   /// @brief collect attributes from read image call in the current loop.
   void getReadImgAttributes();
 
+  /// @brief Return a Value* that represents the trip count.
+  ///        Imported from LLVM 3.0 LoopInfo
+  /// @param L - Loop to return the count for
+  /// @return The Value representing the trip count (compared to the induction var)
+  Value* getTripCountValue(Loop* L, PHINode* IV) const;
+  
   /// @brief returns constant upper bound for the loop.
   /// @param tripCount - trip count of the loop.
   /// @retruns upper bound if poosible, 0 otherwise.

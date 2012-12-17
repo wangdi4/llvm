@@ -23,6 +23,7 @@
   #define MAX_LOOP_SIZE 128
 #endif
 
+
 #define FLOAT_X_WIDTH__ALIGNMENT 16
 char intel::CLStreamSampler::ID = 0;
 
@@ -66,16 +67,10 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Work group loops are generated in a way that these should be obtained by
   // standard LLVM api.
   m_indVar = L->getCanonicalInductionVariable();
+  if (!m_indVar)
+    return false;
 #if LLVM_VERSION >= 3425
-  BasicBlock *LatchBlock = L->getLoopLatch();
-  if (LatchBlock) {
-    ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
-    unsigned tripCount = SE->getSmallConstantTripCount(L, LatchBlock);
-  	// FIXME: We create the constant to minimize the amount of changes we need
-    // to do but we should use m_tripCountUpperBound instead.
-    m_tripCount = tripCount == 0 ? NULL :
-                  ConstantInt::get(Type::getInt32Ty(*m_context), tripCount);
-  }
+  m_tripCount = getTripCountValue(L, m_indVar);
 #else
   m_tripCount = L->getTripCount();
 #endif
@@ -99,6 +94,36 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Currently We do not keep the data whether anything changed so for safety
   // return always true.
   return true;
+}
+  
+/// Ripped out of 3.0 LLVM LoopInfo, as a workaround for it not being available in 3.2
+/// getTripCount - Return a loop-invariant LLVM value indicating the number of
+/// times the loop will be executed.
+Value *CLStreamSampler::getTripCountValue(Loop* L, PHINode *IV) const {
+  assert(L && IV && "Must pass initialized loop and induction variable");
+  // Canonical loops will end with a 'cmp ne I, V', where I is the incremented
+  // canonical induction variable and V is the trip count of the loop.
+  if (IV->getNumIncomingValues() != 2) return 0;
+  
+  bool P0InLoop = L->contains(IV->getIncomingBlock(0));
+  Value *Inc = IV->getIncomingValue(!P0InLoop);
+  BasicBlock *BackedgeBlock = IV->getIncomingBlock(!P0InLoop);
+  
+  if (BranchInst *BI = dyn_cast<BranchInst>(BackedgeBlock->getTerminator()))
+    if (BI->isConditional()) {
+      if (ICmpInst *ICI = dyn_cast<ICmpInst>(BI->getCondition())) {
+        if (ICI->getOperand(0) == Inc) {
+          if (BI->getSuccessor(0) == L->getHeader()) {
+            if (ICI->getPredicate() == ICmpInst::ICMP_NE)
+              return ICI->getOperand(1);
+          } else if (ICI->getPredicate() == ICmpInst::ICMP_EQ) {
+            return ICI->getOperand(1);
+          }
+        }
+      }
+    }
+  
+  return 0;
 }
 
 unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {

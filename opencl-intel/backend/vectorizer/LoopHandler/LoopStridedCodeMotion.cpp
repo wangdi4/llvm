@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -8,6 +8,7 @@
 #include "LoopUtils.h"
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
+#include "llvm/Version.h"
 
 char intel::LoopStridedCodeMotion::ID = 0;
 
@@ -254,8 +255,12 @@ Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
   unsigned nElts = vTy->getNumElements();
   // For constant stride just generate constant vector.
   if (Constant *C = dyn_cast<Constant>(stride)) {
+#if LLVM_VERSION >= 3425
+    return ConstantDataVector::getSplat(nElts, C);
+#else
     std::vector<Constant*> vecConst(nElts, C);
-    return  ConstantVector::get(vecConst);
+    return ConstantVector::get(vecConst);
+#endif
   }
 
   // For non constant broadcast the stride.

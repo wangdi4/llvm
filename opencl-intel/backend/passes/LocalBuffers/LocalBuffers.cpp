@@ -165,6 +165,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       assert(IE  && "Unable to find source constant");
       return IE;
     }
+    
+    // No need to check for ConstantDataVector here - it is composed of data,
+    // so none of the elements can ever be the replaced val.
 
     assert(0  && "Unknown constant type");
     return 0;
