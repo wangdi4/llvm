@@ -22,7 +22,11 @@ File Name:  OpenCLBackendWrapper.cpp
 #include "DynamicLib.h"
 
 #if defined(_WIN32)
-const char* szOclCpuBackendDllName = "OclCpuBackEnd.dll";
+#if defined(_M_X64)
+const char* szOclCpuBackendDllName = "OclCpuBackEnd64.dll";
+#else
+const char* szOclCpuBackendDllName = "OclCpuBackEnd32.dll";
+#endif
 #else
 const char* szOclCpuBackendDllName = "libOclCpuBackEnd.so";
 #endif

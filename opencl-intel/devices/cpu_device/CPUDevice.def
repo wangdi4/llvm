@@ -1,4 +1,3 @@
-LIBRARY	"cpu_device"
 
 EXPORTS
 	clDevCreateDeviceInstance

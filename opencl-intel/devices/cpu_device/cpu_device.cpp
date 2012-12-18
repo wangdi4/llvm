@@ -2106,7 +2106,15 @@ void CPUDevice::clDevCloseDevice(void)
 
 const char* CPUDevice::clDevFEModuleName() const
 {
+#if defined (_WIN32)
+#if defined (_M_X64)
+	static const char* sFEModuleName = "clang_compiler64";
+#else
+	static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
 	static const char* sFEModuleName = "clang_compiler";
+#endif
 	return sFEModuleName;
 }
 

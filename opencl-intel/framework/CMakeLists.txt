@@ -45,7 +45,7 @@ else()
 endif(WIN32)
 
 # set that name of the main output file as a target name
-set( TARGET_NAME intelocl )
+set( TARGET_NAME intelocl${BUILD_PLATFORM} )
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
@@ -60,6 +60,10 @@ if (WIN32)
     list( APPEND CONFIG_FILES register_vendor.reg unregister_vendor.reg)
 
     source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h)
+    
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_definitions( -DRESOURCE_X64 )
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
     source_group( "Resource Files" FILES ${CONFIG_FILES} )
     list( APPEND TARGET_SOURCES ${CONFIG_FILES} )
@@ -102,8 +106,8 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008	
 	    set_target_properties(${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
 		    LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}"
             )
     else(${MSVC_VERSION} EQUAL 1500)
@@ -111,8 +115,8 @@ if (WIN32)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.
         set_target_properties(${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll /PDBSTRIPPED:${PDB_NAME}"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}"
             )
     endif(${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
@@ -129,7 +133,7 @@ target_link_libraries( ${TARGET_NAME} Context
 									  MemoryAllocator
                                       cl_logger
                                       cl_sys_utils
-                                      task_executor
+                                      task_executor${BUILD_PLATFORM}
                                       ${LINK_LIBS} )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

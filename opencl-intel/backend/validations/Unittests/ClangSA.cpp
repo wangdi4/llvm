@@ -37,7 +37,15 @@ static std::string buildLibName (const char* s){
 
 TEST(ClangStadalone, DISABLED_instance_creation){
 // this test crashes, so it is disabled until CSSD100013412 will be fixed
+#if defined (_WIN32)
+#if defined (_M_X64)
+  std::string clangLib = buildLibName("clang_compiler64");
+#else
+  std::string clangLib = buildLibName("clang_compiler32");
+#endif
+#else
   std::string clangLib = buildLibName("clang_compiler");
+#endif
   const char* source =   "__kernel void add (__global const int *a, __global const int *b, __global int *c){"
   "int tid = get_global_id(0);"
   "c[tid] = b[tid] + a[tid];"

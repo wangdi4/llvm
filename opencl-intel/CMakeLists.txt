@@ -110,6 +110,13 @@ else ()
     set(ADDR 64)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 
+# set windows binary suffix 
+if (WIN32)
+    set (BUILD_PLATFORM ${ADDR})
+else (WIN32)
+    set (BUILD_PLATFORM "")
+endif (WIN32)
+
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})
 

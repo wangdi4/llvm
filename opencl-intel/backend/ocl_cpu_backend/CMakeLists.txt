@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.4)
 
-set(TARGET_NAME OclCpuBackEnd)
+set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -265,6 +265,9 @@ if (ENABLE_SDE)
 endif()
 
 if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_definitions( -DRESOURCE_X64 )
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Resources
     set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
 else (WIN32)
@@ -462,6 +465,7 @@ add_dependencies(${TARGET_NAME}
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
+add_definitions( -DOclCpuBackEnd_EXPORTS )
 if (KNC_CARD) 
   add_definitions( -DKNC_CARD )
 endif (KNC_CARD)

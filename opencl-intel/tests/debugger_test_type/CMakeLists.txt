@@ -31,9 +31,9 @@ link_directories( ${TBB_LIB_DIR} )
 add_executable(${TARGET} ${TARGET_SOURCES})
 
 if (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl googletest pthread)
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} googletest pthread)
 else (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl googletest)
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} googletest)
 endif (NOT WIN32)
 
 #

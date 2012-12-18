@@ -240,7 +240,7 @@ target_link_libraries(SATest
 
 add_dependencies(SATest
     ${SATest_DEPS}
-    OclCpuBackEnd
+    OclCpuBackEnd${BUILD_PLATFORM}
     NEAT_wrapper
     PlugInNEAT
     ImathLibd_wrapper
@@ -256,7 +256,7 @@ target_link_libraries(SATest
 
 add_dependencies(SATest
     ${SATest_DEPS}
-    OclCpuBackEnd
+    OclCpuBackEnd${BUILD_PLATFORM}
     NEAT
     PlugInNEAT
     ImathLibd_wrapper

@@ -450,10 +450,20 @@ int ClangFECompilerCompileTask::Compile()
 	size_t dResSize = NULL;
 	llvm::MemoryBuffer *pchBuff = NULL;
 
+#if defined (_WIN32)
+#if defined (_M_X64)
+	static const char* sFEModuleName = "clang_compiler64";
+#else
+	static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
+	static const char* sFEModuleName = "clang_compiler";
+#endif
+
 	// Get the handle to the current module
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
 					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-					  "clang_compiler",
+					  sFEModuleName,
 					  &hMod);
 
 	// Locate the resource

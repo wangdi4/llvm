@@ -26,7 +26,11 @@
 
 #pragma comment(lib, "cl_sys_utils.lib")
 #pragma comment(lib, "cl_logger.lib")
-#pragma comment(lib, "task_executor.lib")
+#if defined(_M_X64)
+    #pragma comment(lib, "task_executor64.lib")
+#else
+    #pragma comment(lib, "task_executor32.lib")
+#endif
 
 #include "cpu_device.h"
 #include "backend_wrapper.h"
