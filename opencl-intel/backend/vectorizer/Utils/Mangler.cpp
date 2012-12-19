@@ -9,6 +9,7 @@
 #include "NameMangleAPI.h"
 #include "FunctionDescriptor.h"
 #include "Type.h"
+#include "TypeCast.h"
 
 const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
@@ -64,9 +65,9 @@ std::string Mangler::mangle(const std::string& name) {
         if ( fdesc.parameters[0]->toString() != "image2d_t" )
           return name;
         fdesc.name = IMG_MASK_PREFIX + fdesc.name;
-        std::vector<reflection::Type*>& params = fdesc.parameters;
-        reflection::Type intType(reflection::primitives::INT);
-        params.insert(params.begin(), &intType);
+        reflection::TypeVector& params = fdesc.parameters;
+        reflection::Type* intType = new reflection::Type(reflection::primitives::INT);
+        params.insert(params.begin(), intType);
         return ::mangle(fdesc);
       }
     }
@@ -177,13 +178,19 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
     mangledName = demangle(mangledName);
 
   reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
-  //Currently, we only support two dimension images to be masked.
-  // original (scalar) data type
-  const reflection::Type* scalarType = static_cast<reflection::Pointer*>(prefetchDesc.parameters[0])->getPointee();
+  // First argument of prefetch built-in must be pointer.
+  V_ASSERT(reflection::cast<reflection::Pointer>(prefetchDesc.parameters[0]) && "First argument of prefetch built-in is expected to a pointer.");
+  reflection::Pointer* pPtrTy = reflection::cast<reflection::Pointer>(prefetchDesc.parameters[0]);
+  assert (pPtrTy && "not a pointer");
+  const reflection::Type* scalarType = pPtrTy->getPointee();
+  V_ASSERT(scalarType->isPrimiteTy() && "Primitive type is expected.");
   // create vectorized data type for packed prefetch
-  reflection::Vector vectorizedType(scalarType, packetWidth);
-  reflection::Pointer vectorizedPrt(&vectorizedType);
-  prefetchDesc.parameters[0] = &vectorizedPrt;
+  reflection::Vector *vectorizedType = new reflection::Vector(scalarType, packetWidth);
+  reflection::Pointer* vectorizedPtr = new reflection::Pointer(vectorizedType);
+  prefetchDesc.parameters[0] = vectorizedPtr;
+  //we need to delete this, since the Pointer constructor is defensive, by
+  //cloning the given pointer
+  delete vectorizedType;
   return ::mangle(prefetchDesc);
 }
 

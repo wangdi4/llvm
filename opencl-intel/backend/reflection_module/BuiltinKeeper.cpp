@@ -36,7 +36,7 @@ namespace reflection{
 //fd1 has the same primitive type as the i'th parameter of fd2.
 static bool
 compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
-  typedef std::vector<Type*>::const_iterator TypeIter;
+  typedef TypeVector::const_iterator TypeIter;
   if (l.parameters.size() != r.parameters.size())
     return false;
   TypeIter lit = l.parameters.begin(), lend = l.parameters.end(),
@@ -96,7 +96,7 @@ const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
 primitives::Primitive PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
-  fd.parameters.push_back(fd.parameters[1]);
+  fd.parameters.push_back(fd.parameters[1]->clone());
   return fd;
 }
 
@@ -108,7 +108,7 @@ primitives::Primitive PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
   //duplicating the first (vector) parameter
-  Type* pVector = *(fd.parameters.begin());
+  Type* pVector = (*fd.parameters.begin())->clone();
   fd.parameters.insert(fd.parameters.begin(), pVector);
   return fd;
 }

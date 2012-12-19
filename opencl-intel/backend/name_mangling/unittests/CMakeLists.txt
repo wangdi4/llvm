@@ -39,6 +39,7 @@ add_executable(
   ${TARGET_NAME}
   MangledNames.h
   MangleTest.cpp
+  TestRefCount.cpp
 )
 
 include_directories(
@@ -53,7 +54,6 @@ target_link_libraries(
   name_mangle
   gtest
   gtest_main
-  LLVMSupport
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )

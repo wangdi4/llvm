@@ -70,12 +70,12 @@ std::string FunctionDescriptor::toString()const{
   return stream.str();
 }
 
-static bool equal(const std::vector<Type*>& l, const std::vector<Type*>& r){
+static bool equal(const TypeVector& l, const TypeVector& r){
   if (&l == &r)
     return true;
   if (l.size() != r.size())
     return false;
-  std::vector<Type*>::const_iterator itl = l.begin(), itr = r.begin(),
+  TypeVector::const_iterator itl = l.begin(), itr = r.begin(),
   endl = l.end();
   while(itl != endl){
     if (!(*itl)->equals(*itr))
@@ -105,7 +105,7 @@ bool FunctionDescriptor::operator < (const FunctionDescriptor& that)const{
   size_t len = parameters.size(), thatLen = that.parameters.size();
   if (len != thatLen)
     return len < thatLen;
-  std::vector<Type*>::const_iterator it = parameters.begin(),
+  TypeVector::const_iterator it = parameters.begin(),
   e = parameters.end(), thatit = that.parameters.begin();
   while (it != e){
     int cmp = (*it)->toString().compare((*thatit)->toString());

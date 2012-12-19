@@ -1300,7 +1300,6 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
   // setup the fake device/program for the call to cld_createkernels
   cvmsKeys *keys = (cvmsKeys *) llvm_func->source_addrs[cvmsSrcIdxKeys];
-
   // If we are building a library, build it and return.
   if (keys->opt & CLD_COMP_LINK_CREATE_LIBRARY) {
     return buildArchive(llvm_func);

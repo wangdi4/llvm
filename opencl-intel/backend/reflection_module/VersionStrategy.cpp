@@ -16,6 +16,7 @@
 
 #include "VersionStrategy.h"
 #include "NameMangleAPI.h"
+#include "TypeCast.h"
 #include <sstream>
 
 namespace reflection{
@@ -140,7 +141,7 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
   width::V transposeWidth = sw.second;
   FunctionDescriptor fd;
   for(size_t i=0 ; i<orig.parameters.size() ; ++i){
-    const Vector* pVector = dynamic_cast<const Vector*>(orig.parameters[i]);
+    const Vector* pVector = reflection::cast<Vector>(orig.parameters[i]);
     width::V paramWidth = (pVector) ?
       static_cast<width::V>(pVector->getLen()):
       width::SCALAR;
@@ -151,7 +152,7 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
         new Vector(&scalar, static_cast<int>(transposeWidth));
       fd.parameters.push_back(transposedParam);
       std::stringstream nameBuilder;
-      const Vector* pVec = dynamic_cast<const Vector*>(orig.parameters[0]);
+      const Vector* pVec = reflection::cast<Vector>(orig.parameters[0]);
       int nameWidth = pVec ? pVec->getLen() : 1;
       nameBuilder << "soa_" << orig.name << nameWidth;
       fd.name = nameBuilder.str();

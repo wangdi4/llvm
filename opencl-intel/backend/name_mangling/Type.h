@@ -44,6 +44,7 @@ enum Primitive{
   FLOAT,
   DOUBLE,
   VOID,
+  SAMPLER_T,
   NONE //keep this at the end
 };
 

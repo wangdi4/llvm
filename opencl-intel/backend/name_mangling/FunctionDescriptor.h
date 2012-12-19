@@ -17,6 +17,7 @@
 
 #include <string>
 #include <vector>
+#include "Refcount.h"
 #include "llvm/ADT/StringRef.h"
 
 #ifndef __FDESCRIPTOR_H__
@@ -40,6 +41,10 @@ const size_t OCL_VERSIONS = 6;
 
 struct Type;
 
+#define INVALID_ENTRY "<invalid>"
+
+typedef std::vector<intel::RefCount<Type> > TypeVector;
+
 struct FunctionDescriptor{
   //
   //returns: a human readable string representation of the function's
@@ -48,7 +53,7 @@ struct FunctionDescriptor{
   //The name of the function (stripped).
   std::string name;
   //Parameter list of the function
-  std::vector<Type*> parameters;
+  TypeVector parameters;
   //'version width'; the width to which this function is suitable for
   width::V width;
 

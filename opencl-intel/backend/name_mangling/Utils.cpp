@@ -18,6 +18,7 @@ static const char* PrimitiveNames[NUM_TYPES] ={
   "float",
   "double",
   "void",
+  "sampler_t",
   "NONE",
 };
 
@@ -34,7 +35,8 @@ const char* mangledTypes[NUM_TYPES] = {
   "Dh", //HALF
   "f", //FLOAT
   "d", //DOUBLE
-  "v"  //VOID
+  "v",  //VOID
+  "uSampler" //SAMPLER_T
 };
 
 //BOOL is the first type enum, and its not neccesrily valed zero.
