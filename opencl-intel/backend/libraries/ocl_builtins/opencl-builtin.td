@@ -553,6 +553,15 @@ def downgentype : OclGenType<"downgentype"> {
   list<string> Tout = !foreach(n, T2, !subst("i64", "i32", n));
 }
 
+//converts the given typed to v2 vNxT -> v2XT e.g. v1f32 -> v2f32
+def v2gentype : OclGenType<"v2gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v2", n));
+  list<string> T1 = !foreach(n, T0, !subst("v3", "v2", n));
+  list<string> T2 = !foreach(n, T1, !subst("v4", "v2", n));
+  list<string> T3 = !foreach(n, T2, !subst("v8", "v2", n));
+  list<string> Tout = !foreach(n, T3, !subst("v16", "v2", n));
+}
+
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
   string Attr = attr;

@@ -40,6 +40,7 @@ const size_t OCL_VERSIONS = 6;
 
 struct Type;
 
+#define INVALID_ENTRY "<invalid>"
 struct FunctionDescriptor{
   //
   //returns: a human readable string representation of the function's

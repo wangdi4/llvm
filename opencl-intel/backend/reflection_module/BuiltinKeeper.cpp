@@ -298,7 +298,7 @@ void BuiltinKeeper::initHardCodeStrategy(){
   llvm::ArrayRef<width::V> arrSizes(sizes);
   size_t SIZE = sizeof(mappings)/(sizeof(mappings[0]));
   for(size_t i=0 ; i<SIZE ; ++i){
-    m_hardCodedStrategy.assumeResponsability(mappings[i]);
+    m_hardCodedStrategy.assumeResponsability(mappings+i);
     llvm::StringRef strraw[width::OCL_VERSIONS];
     convertToRef(mappings[i].names, strraw);
     llvm::ArrayRef<llvm::StringRef> arr(strraw);

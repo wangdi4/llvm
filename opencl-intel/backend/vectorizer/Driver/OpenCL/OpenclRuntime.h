@@ -26,6 +26,17 @@ extern const char *volacanoScalarSelect[];
 ///  functions.
 /// @Author Sion Berkowits
 
+/// @brief list of built-ins which return a second value by pointer
+static const char* BuiltinReturnByPtr[] = {
+  "fract",
+  "modf",
+  "native_fract",
+  "native_modf",
+  "native_sincos",
+  "sincos",
+};
+static const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
+
 class OpenclRuntime : public RuntimeServices {
 public:
 
@@ -110,6 +121,8 @@ public:
   /// @param func_name Function name to check
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(const std::string &func_name) const;
+
+  virtual bool isReturnByPtrBuiltin(const std::string &func_name) const;
 
   virtual unsigned getNumJitDimensions() const;
 

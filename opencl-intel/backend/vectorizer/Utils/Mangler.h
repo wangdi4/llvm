@@ -102,6 +102,7 @@ public:
   /// @return the builtin name with a fake builtin name
   static std::string getFakeBuiltinName(const std::string& name);
 
+  static std::string getRetByArrayBuiltinName(const std::string& name);
   /// @brief returns the alignment of mangled store function by it's name
   /// @param name Name of function
   /// @return the alignment of the store
@@ -158,6 +159,7 @@ private:
   static const std::string prefetch;
   /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
+  static const std::string retbyarray_builtin_prefix;
   /// @brief mangling fake extract calls used for vectorization of
   ///        scalar built-ins that return a vector
   static const std::string fake_prefix_extract;

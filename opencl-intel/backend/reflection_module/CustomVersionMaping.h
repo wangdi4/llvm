@@ -4,7 +4,6 @@
 #include "FunctionDescriptor.h"
 #include "utils.h"
 
-#define INVALID_ENTRY "<invalid>"
 
 TableRow mappings[] = {
   // {{scalar_version, width2_version, ..., width16_version, width3_version}, isScalarizable, isPacketizable}
@@ -24,7 +23,6 @@ TableRow mappings[] = {
   { {"_Z16mask_read_imagefi9image2d_tDv2_i", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
   { {"_Z16mask_read_imageii9image2d_tDv2_i", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
   { {"_Z17mask_read_imageuii9image2d_tDv2_i", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
-  { {"get_global_size", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
   // Image properties functions
   {{"_Z16get_image_height9image2d_t", INVALID_ENTRY, "_Z21soa4_get_image_height9image2d_t", "_Z21soa8_get_image_height9image2d_t", INVALID_ENTRY, INVALID_ENTRY}, false, true},
   {{"_Z15get_image_width9image3d_t", INVALID_ENTRY, "_Z20soa4_get_image_width9image3d_t", "_Z20soa8_get_image_width9image3d_t", INVALID_ENTRY, INVALID_ENTRY}, false, true},

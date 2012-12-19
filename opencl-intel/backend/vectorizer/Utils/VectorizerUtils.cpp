@@ -8,7 +8,7 @@
 
 namespace intel{
 
-void VectorizerUtils::SetDebugLocBy(Instruction *I, Instruction *setBy) {
+void VectorizerUtils::SetDebugLocBy(Instruction *I, const Instruction *setBy) {
   if (!setBy->getDebugLoc().isUnknown()) {
     I->setDebugLoc(setBy->getDebugLoc());
   }
@@ -487,8 +487,8 @@ Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetTyp
   return castedInst;
 }
 
-Instruction *VectorizerUtils::createFunctionCall(Module *pModule, std::string name,
-  Type *retType, SmallVectorImpl<Value *> &args, Instruction* insertBefore) {
+CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string &name,
+  Type *retType, const SmallVectorImpl<Value *> &args, Instruction* insertBefore) {
   SmallVector<Type *, 8> types;
   
   for(unsigned int i=0; i<args.size(); ++i) {
@@ -498,7 +498,7 @@ Instruction *VectorizerUtils::createFunctionCall(Module *pModule, std::string na
   FunctionType *intr = FunctionType::get(retType, types, false);
   Constant* new_f = pModule->getOrInsertFunction(name.c_str(), intr);
   V_ASSERT(isa<Function>(new_f) && "mismatch function type");
-  Instruction *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
+  CallInst *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
 
   // Set debug location
   SetDebugLocBy(newCall, insertBefore);

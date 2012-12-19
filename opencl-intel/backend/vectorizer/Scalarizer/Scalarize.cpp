@@ -674,7 +674,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
     foundFunction->isPacketizable())
   {
-    scalarizeInputReturnOfScalarCall(CI);
+    scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CI);
     return;
   }
 
@@ -716,11 +716,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::vector<Value*> newArgs[MAX_INPUT_VECTOR_WIDTH];
 
   // Iterate over all function arguments, and grab their scalarized counterparts.
-  // When grabbing the arguments from the actual CALL operands, the first argument is 
-  // either the first operand, or the return value (passed
-  // by reference, if the CALL inst returns a VOID).
-  unsigned argStart = 0;
-  if (CI->getType()->isVoidTy()) ++argStart;
+  // When grabbing the arguments from the actual CALL operands.
 
   // Collect all the arguments that are NOT scalarized (meaning kept the same for vector
   // and scalar function call). After the scalarization of the CALL, make sure they
@@ -729,21 +725,26 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   SmallPtrSet<Value*, 2> nonScalarizedVectors;
 
   unsigned numArguments = scalarFunction->getFunctionType()->getNumParams();
-  V_ASSERT (CI->getNumArgOperands() == numArguments + argStart && "CALL arguments number error");
+  V_ASSERT (CI->getNumArgOperands() == numArguments && "CALL arguments number error");
+  // The assertion below was added after removing code which handles the following case:
+  // In older version of Clang, it would emit a function which returns large types, such as double16,
+  // as a function which returns void and takes an extra argument which is a pointer to store the return
+  // value to. This is no longer the case, and we might remove this assert eventually.
+  V_ASSERT (!CI->getType()->isVoidTy() && "Unexpectedly encounterd function which returns void");
   // Iterate over function operands (using the operand index of the CALL instruction)
-  for (unsigned argIndex = argStart; argIndex < numArguments + argStart; ++argIndex)
+  for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex)
   {
     // Placeholder for scalarized argument
     Value *operand[MAX_INPUT_VECTOR_WIDTH];
 
     // Check if arg has same type for scalar & vector functions (means it shouldn't be scalarized)
     bool isScalarized = (CI->getArgOperand(argIndex)->getType() != 
-      scalarFunction->getFunctionType()->getParamType(argIndex - argStart));
+      scalarFunction->getFunctionType()->getParamType(argIndex));
 
     if (isScalarized)
     {
       // Get scalarized values from SCM
-      obtainScalarizedValues(operand, NULL, m_scalarizableRootsMap[CI][argIndex+1-argStart], CI);
+      obtainScalarizedValues(operand, NULL, getArgs(m_scalarizableRootsMap[CI])[argIndex], CI);
       // Scatter the scalar values, to argument vectors of scalar function calls
       for (unsigned dup = 0; dup < vectorWidth; ++dup) {
         newArgs[dup].push_back(operand[dup]);
@@ -768,7 +769,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     newFuncCalls[dup] = CallInst::Create(scalarFunction,
       ArrayRef<Value*>(newArgs[dup]), CI->getName(), CI);
   }
-
+  
   // Make sure all vector arguments which weren't used as scalarized, still have their
   // original (vector) value intact - or regenerate it if needed
   for (SmallPtrSet<Value*, 2>::iterator iter = nonScalarizedVectors.begin();
@@ -777,45 +778,55 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     obtainVectorValueWhichMightBeScalarized(*iter);
   }
 
+  SmallVectorImpl<Value*> &rets = getReturns(m_scalarizableRootsMap[CI]);
   // If the function's return value was casted to a different type, we trace all the instructions
   // down to the value with the "proper type", and remove all the cast instructions on the way.
-  if (m_scalarizableRootsMap[CI][0] != CI)
-  {
-    if (CI->getType() == Type::getVoidTy(context()))
+  if (rets[0]) {
+    if (rets[0] != CI)
     {
-      // return value is passed thru a pointer (first argument).
-      // No need to do anything here. Just make sure the "cast" is a load inst.
-      V_ASSERT(isa<PointerType>(CI->getArgOperand(0)->getType()) && "retval-by-ref is not a pointer");
-      V_ASSERT(isa<LoadInst>(m_scalarizableRootsMap[CI][0]) && "unsupported cast of pointer");
-      V_ASSERT(cast<LoadInst>(m_scalarizableRootsMap[CI][0])->getPointerOperand() ==
-        CI->getArgOperand(0) && "Loaded address doesnt match retval pointer!");
+      if (CI->getType() == Type::getVoidTy(context()))
+      {
+        // return value is passed thru a pointer (first argument).
+        // No need to do anything here. Just make sure the "cast" is a load inst.
+        V_ASSERT(isa<PointerType>(CI->getArgOperand(0)->getType()) && "retval-by-ref is not a pointer");
+        V_ASSERT(isa<LoadInst>(rets[0]) && "unsupported cast of pointer");
+        V_ASSERT(cast<LoadInst>(rets[0])->getPointerOperand() ==
+            CI->getArgOperand(0) && "Loaded address doesnt match retval pointer!");
+      }
+      // Remove the actual "proper" return value (last Cast or Load inst)
+      m_removedInsts.insert(dyn_cast<Instruction>(rets[0]));
     }
-    else 
-    {
-      // The CALL function has consumers, which are converters from the "Actual" return
-      // value, to the "proper" one. These instructions are going to be scalarized, but
-      // will eventually be removed thru DCE. For now, their input is replaced from the
-      // return value to a dummy constant (as the CALL is going to be removed, so it
-      // must have no users). This seems simpler than crawling down the def-use chain
-      // and marking all the users for removal...
-      Constant *dummyVal = Constant::getNullValue(CI->getType());
-      CI->replaceAllUsesWith(dummyVal);
-      getSCMEntry(dummyVal);
+
+    if ( !rets[0]->getType()->isVectorTy()) {
+      // This is a workaround for CSSD100006905
+      return recoverNonScalarizableInst(CI);
     }
-    // Remove the actual "proper" return value (last Cast or Load inst)
-    m_removedInsts.insert(dyn_cast<Instruction>(m_scalarizableRootsMap[CI][0]));
   }
 
   // Add new value/s to SCM. Convert from "proper" retVal to the new scalar values
-  SCMEntry *newEntry = getSCMEntry(m_scalarizableRootsMap[CI][0]);
+  SmallVector<SCMEntry*, 16> newEntries;
+  for (unsigned i=0, e=rets.size(); i<e; ++i)
+    newEntries.push_back(rets[i] ? getSCMEntry(rets[i]) : 0);
 
-  // See CSSD100006905
-  if (!m_scalarizableRootsMap[CI][0]->getType()->isVectorTy()) {
-      return recoverNonScalarizableInst(CI);
+  if (scalarFunction->getReturnType()->isVectorTy()) {
+    V_ASSERT(rets.size() == 2 && "Assume exactly two values returned by built-in");
+    SmallVector<Value*, MAX_INPUT_VECTOR_WIDTH> oddElems, evenElems;
+    for (unsigned dup = 0; dup < vectorWidth; ++dup) {
+      SmallVector<Value*, MAX_INPUT_VECTOR_WIDTH> extractElems;
+      handleScalarRetVector(cast<CallInst>(newFuncCalls[dup]), extractElems);
+      V_ASSERT(extractElems.size() == 2 && "");
+      evenElems.push_back(extractElems[0]);
+      oddElems.push_back(extractElems[1]);
+    }
+    // Need to ensure these are not NULL, because one of the returned values may
+    // not have a user, and DCE will remove it
+    if (rets[0])
+      updateSCMEntryWithValues(newEntries[0], &evenElems[0], rets[0], true);
+    if (rets[1])
+      updateSCMEntryWithValues(newEntries[1], &oddElems[0], rets[1], true);
   }
-
-  updateSCMEntryWithValues(newEntry, newFuncCalls, m_scalarizableRootsMap[CI][0], true);
-
+  else
+    updateSCMEntryWithValues(newEntries[0], newFuncCalls, rets[0], true);
   // Remove original instruction
   m_removedInsts.insert(CI);
 }
@@ -1034,7 +1045,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   return recoverNonScalarizableInst(SI);
 }
 
-void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
+void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
   std::string name = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
@@ -1062,6 +1073,14 @@ void ScalarizeFunction::scalarizeInputReturnOfScalarCall(CallInst* CI) {
 }
 
 void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst) {
+  SmallVector<Value*, 16> newExtractInsts;
+  handleScalarRetVector(callerInst, newExtractInsts);
+  // Update scalar elements in SCM
+  SCMEntry* newSCMEntry = getSCMEntry(callerInst);
+  updateSCMEntryWithValues(newSCMEntry, &newExtractInsts[0], callerInst, true);
+}
+
+void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorImpl<Value*>& ResultingInsts) {
   V_ASSERT(isa<VectorType>(callerInst->getType()) && "unexpected prototype");
 
   // Clone original inst
@@ -1069,21 +1088,17 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst) {
   clone->insertBefore(callerInst);
   clone->setName(callerInst->getName() + "_clone");
 
-  // Break result vector into scalars. 
   unsigned numElements = cast<VectorType>(callerInst->getType())->getNumElements();
-  std::vector<Value*> newExtractInsts(numElements);
+  SmallVector<Value*, 16> newExtractInsts;
+  // Break result vector into scalars. 
   Instruction* nextInst = ++BasicBlock::iterator(clone);
   for (unsigned i = 0; i < numElements; i++)
   {
     // Creating fake extract call that mimics extract element instruction.
     // The packetizrt will match each of these to the appropriate vector returns.
     Constant* constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-    newExtractInsts[i] = createFakeExtractElt(clone, constIndex, nextInst);
+    ResultingInsts.push_back(createFakeExtractElt(clone, constIndex, nextInst));
   }
-
-  // Update scalar elements in SCM
-  SCMEntry* newSCMEntry = getSCMEntry(callerInst);
-  updateSCMEntryWithValues(newSCMEntry, &(newExtractInsts[0]), callerInst, true);
 
   // Erase "original" instruction
   m_removedInsts.insert(callerInst);
@@ -1103,7 +1118,7 @@ Value *ScalarizeFunction::createFakeExtractElt(Value *vec, Constant *indConst, I
   Constant *funcConst = m_currFunc->getParent()->getOrInsertFunction(Mangler::getFakeExtractName(), fTy);
   Function *F = dyn_cast<Function>(funcConst);
   V_ASSERT(funcConst && "adding function failed");
-  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "", loc);
+  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "fake_extract", loc);
   return CI;
 }
 
@@ -1271,10 +1286,10 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
 
   V_PRINT(scalarizer, "\t\t\tTrying to use a removed value. Reassembling it...\n");
   // The vector value was removed. Need to reassemble it...
-  //   %temp.vect.0 = insertelement <4 x type> undef       , type %scalar.0, i32 0
-  //   %temp.vect.1 = insertelement <4 x type> %indx.vect.0, type %scalar.1, i32 1
-  //   %temp.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
-  //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
+  //   %assembled.vect.0 = insertelement <4 x type> undef       , type %scalar.0, i32 0
+  //   %assembled.vect.1 = insertelement <4 x type> %indx.vect.0, type %scalar.1, i32 1
+  //   %assembled.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
+  //   %assembled.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
   // Place the re-assembly in the location where the original instruction was
   Instruction *vectorInst = dyn_cast<Instruction>(vectorVal);
   V_ASSERT(vectorInst && "SCM reports a non-instruction was removed. Should not happen");
@@ -1291,7 +1306,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
     V_ASSERT(NULL != valueEntry->scalarValues[i] && "SCM entry has NULL value");
     Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
     Instruction *insert = InsertElementInst::Create(assembledVector,
-      valueEntry->scalarValues[i], constIndex, "temp.vect", insertLocation);
+      valueEntry->scalarValues[i], constIndex, "assembled.vect", insertLocation);
     VectorizerUtils::SetDebugLocBy(insert, vectorInst);
     assembledVector = insert;
     V_STAT(m_transposeCtr[((InsertElementInst*)assembledVector)->getOpcode()]++;)
@@ -1361,12 +1376,12 @@ ScalarizeFunction::SCMEntry *ScalarizeFunction::getSCMEntry(Value *origValue)
 
 void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *entry,
                                                  Value *scalarValues[],
-                                                 Value *origValue,
+                                                 const Value *origValue,
                                                  bool isOrigValueRemoved,
                                                  bool matchDbgLoc)
 {  
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
-  V_ASSERT((origValue->getType()->isVectorTy() || isSoaAlloca) &&
+  V_ASSERT((origValue->getType()->isArrayTy() ||  origValue->getType()->isVectorTy() || isSoaAlloca) &&
     "only SoaAlloca derived or Vector values are supported");
   unsigned width = isSoaAlloca ? 
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
@@ -1382,7 +1397,7 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
   
   if (matchDbgLoc) 
   {
-    if (Instruction *origInst = dyn_cast<Instruction>(origValue)) 
+    if (const Instruction *origInst = dyn_cast<Instruction>(origValue)) 
     {
       for (unsigned i = 0; i < width; ++i)
       {

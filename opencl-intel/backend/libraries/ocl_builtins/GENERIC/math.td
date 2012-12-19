@@ -823,3 +823,77 @@ OclBuiltinImpl native_tanh_svml = OclBuiltinImpl<native_tanh, native_tanh.Types,
 OclBuiltinImpl native_tanpi_svml = OclBuiltinImpl<native_tanpi, native_tanpi.Types, 0, [{
     return __ocl_svml_$Target_tanpi$SVMLSuffix_native($Arg0VarName);
   }]>;
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl native_sincos_fake_scalarized = OclBuiltinImpl<native_sincos_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code native_sincos_ret2ptr = [{
+    $Arg0Type res = native_sincos($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl native_sincos_ret2ptr_pas = OclBuiltinImpl<native_sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_sincos_ret2ptr>;
+
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl sincos_fake_scalarized = OclBuiltinImpl<sincos_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code sincos_ret2ptr = [{
+    $Arg0Type res = sincos($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, sincos_ret2ptr>;
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl native_modf_fake_scalarized = OclBuiltinImpl<native_modf_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code native_modf_ret2ptr = [{
+    $Arg0Type res = native_modf($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl native_modf_ret2ptr_pas = OclBuiltinImpl<native_modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_modf_ret2ptr>;
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl modf_fake_scalarized = OclBuiltinImpl<modf_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code modf_ret2ptr = [{
+    $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl modf_ret2ptr_pas = OclBuiltinImpl<modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, modf_ret2ptr>;
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl native_fract_fake_scalarized = OclBuiltinImpl<native_fract_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code native_fract_ret2ptr = [{
+    $Arg0Type res = native_fract($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl native_fract_ret2ptr_pas = OclBuiltinImpl<native_fract_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_fract_ret2ptr>;
+
+// This fake built-in is inserted by the Scalarizer and replaced by the
+// Packetizer
+OclBuiltinImpl fract_fake_scalarized = OclBuiltinImpl<fract_scalarized, [v1f32, v1f64], 0, [{
+return 0;
+}]>;
+// This built-in is the one which the Packetizer replaces with the above
+code fract_ret2ptr = [{
+    $Arg0Type res = fract($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+}];
+OclBuiltinImpl fract_ret2ptr_pas = OclBuiltinImpl<fract_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, fract_ret2ptr>;
+

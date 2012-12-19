@@ -380,7 +380,10 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     // since we are never getting uniform values from other dependencies
     // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
-    return useOriginalConstantInstruction(I);
+    if (!(isa<CallInst>(I) && I->getType()->isVectorTy()))
+      //CSSD100015262: Uniform scalar calls which return vector types not
+      //             handled correctly by Packetizer
+      return useOriginalConstantInstruction(I);
   }
 
   switch (I->getOpcode())

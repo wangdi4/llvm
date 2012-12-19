@@ -212,5 +212,5 @@ struct TypeVisitor{
   virtual void visit(const UserDefinedTy*) = 0;
 };
 
-}//namespace mangle
+}//namespace reflection
 #endif

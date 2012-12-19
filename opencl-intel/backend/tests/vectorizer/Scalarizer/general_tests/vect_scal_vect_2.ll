@@ -62,8 +62,8 @@ declare i32 @get_global_id(i32)
 ;CHECK: [[NAME7:%[1-9]+[1-9]+]] = fadd double [[NAME3]]
 ;CHECK: [[NAME8:%[1-9]+]] = fadd double [[NAME4]]
 ;CHECK:  {{.*}}insertelement <4 x double> undef, double [[NAME5]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x double> %temp.vect, double [[NAME6]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x double> %temp.vect{{[1-9]+}}, double [[NAME7]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x double> %temp.vect{{[1-9]+}}, double [[NAME8]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x double> %assembled.vect, double [[NAME6]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x double> %assembled.vect{{[1-9]+}}, double [[NAME7]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x double> %assembled.vect{{[1-9]+}}, double [[NAME8]]{{.*}}
 
 ;CHECK: ret

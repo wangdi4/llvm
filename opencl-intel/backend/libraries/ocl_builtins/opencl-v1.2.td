@@ -39,6 +39,7 @@ def fmod          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x
 def fract_pas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def fract_las     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def fract_gas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def fract_pas2    : OclBuiltin<"fract_ret2ptr",    (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def frexp_pas     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def frexp_las     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def frexp_gas     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
@@ -61,6 +62,7 @@ def minmag        : OclBuiltin<"minmag",    (outs gentype:$ret), (ins gentype:$x
 def modf_pas      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def modf_las      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def modf_gas      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def modf_pas2    : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def nan           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x), [], []>;
 def nextafter     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def pow           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
@@ -78,6 +80,7 @@ def sin           : OclBuiltin<"sin",       (outs gentype:$ret), (ins gentype:$x
 def sincos_pas    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def sincos_las    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def sincos_gas    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def sincos_pas2    : OclBuiltin<"sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def sinh          : OclBuiltin<"sinh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def sinpi         : OclBuiltin<"sinpi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 def sqrt          : OclBuiltin<"sqrt",      (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -153,9 +156,12 @@ def native_fdim          : OclBuiltin<"native_fdim",      (outs gentype:$ret), (
 def native_fmax          : OclBuiltin<"native_fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def native_fmin          : OclBuiltin<"native_fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def native_fmod          : OclBuiltin<"native_fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+def native_modf_pas    : OclBuiltin<"native_modf",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_modf_pas2    : OclBuiltin<"native_modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_fract_pas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE; // MIC
 def native_fract_las     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL; // MIC
 def native_fract_gas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL; // MIC
+def native_fract_pas2    : OclBuiltin<"native_fract_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_hypot         : OclBuiltin<"native_hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def native_ilogb         : OclBuiltin<"native_ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], []>;
 def native_log1p         : OclBuiltin<"native_log1p",     (outs gentype:$ret), (ins gentype:$x), [], []>;
@@ -167,11 +173,82 @@ def native_rootn         : OclBuiltin<"native_rootn",     (outs gentype:$ret), (
 def native_sincos_pas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_sincos_las    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def native_sincos_gas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def native_sincos_pas2    : OclBuiltin<"native_sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_sinh          : OclBuiltin<"native_sinh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_sinpi         : OclBuiltin<"native_sinpi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_tanh          : OclBuiltin<"native_tanh",      (outs gentype:$ret), (ins gentype:$x), [], []>;
 def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (ins gentype:$x), [], []>;
 }
+}
+//Vectorizer generated table
+//{{"_Z17sincos_scalarizedd" , "_Z18_retbyarray_sincosDv2_d" , "_Z18_retbyarray_sincosDv4_d" , "_Z18_retbyarray_sincosDv8_d" , "_Z18_retbyarray_sincosDv16_d" , "_Z18_retbyarray_sincosDv3_d" },1, 0}
+foreach bi = ["sincos", "native_sincos", "modf", "native_modf", "fract", "native_fract"] in {
+  let Types = [v1f32, v1f64], Attrs = [CONSTFUNC, OVERLOADABLE] in {
+        def bi#_scalarized :  OclBuiltin<bi#"_scalarized", (outs v2gentype:$ret), (ins gentype:$x), [], []>;
+  }
+  let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
+      v2f64, v3f64, v4f64, v8f64, v16f64],
+      Attrs = [CONSTFUNC, OVERLOADABLE] in {
+        def retbyarray_#bi : OclBuiltin<"_retbyarray_"#bi, (outs), (ins gentype:$x), [], []>;
+  }
+ //float:
+  //Cells
+  def bi#cellf            : MapCell<!cast<OclBuiltin>(bi#"_scalarized"), v1f32>;
+  def retbyarray_#bi#cellv2f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v2f32>;
+  def retbyarray_#bi#cellv4f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v4f32>;
+  def retbyarray_#bi#cellv8f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v8f32>;
+  def retbyarray_#bi#cellv16f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v16f32>;
+  def retbyarray_#bi#cellv3f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v3f32>;
+  //Rows
+  def bi#row_scalarizef            : MapRow<[
+    !cast<MapCell>(bi#"cellf"), //scalar
+    !cast<MapCell>("retbyarray_"#bi#"cellv2f32"), //v2
+    !cast<MapCell>("retbyarray_"#bi#"cellv4f32"), //v4
+    !cast<MapCell>("retbyarray_"#bi#"cellv8f32"), //v8
+    !cast<MapCell>("retbyarray_"#bi#"cellv16f32"), //16
+    !cast<MapCell>("retbyarray_"#bi#"cellv3f32")], //3, 
+    1,0>;
+//double:
+  //Cells
+  def bi#celld            : MapCell<!cast<OclBuiltin>(bi#"_scalarized"), v1f64>;
+  def retbyarray_#bi#cellv2f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v2f64>;
+  def retbyarray_#bi#cellv4f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v4f64>;
+  def retbyarray_#bi#cellv8f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v8f64>;
+  def retbyarray_#bi#cellv16f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v16f64>;
+  def retbyarray_#bi#cellv3f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v3f64>;
+  //Rows
+  def bi#row_scalarized            : MapRow<[
+    !cast<MapCell>(bi#"celld"), //scalar
+    !cast<MapCell>("retbyarray_"#bi#"cellv2f64"), //v2
+    !cast<MapCell>("retbyarray_"#bi#"cellv4f64"), //v4
+    !cast<MapCell>("retbyarray_"#bi#"cellv8f64"), //v8
+    !cast<MapCell>("retbyarray_"#bi#"cellv16f64"), //16
+    !cast<MapCell>("retbyarray_"#bi#"cellv3f64")], //3, 
+    1,0>;
+//float:
+  def bi#_ret2ptrv4f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v4f32>;
+  def bi#_ret2ptrv8f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v8f32>;
+  def bi#_ret2ptrv16f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v16f32>;
+  def bi#row_packetizef : MapRow<[
+    !cast<MapCell>(bi#"cellf"), //scalar
+    nullCell,
+    !cast<MapCell>(bi#"_ret2ptrv4f32"),
+    !cast<MapCell>(bi#"_ret2ptrv8f32"),
+    !cast<MapCell>(bi#"_ret2ptrv16f32"),
+    nullCell],
+    0,1>;
+//double:
+  def bi#_ret2ptrv4f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v4f64>;
+  def bi#_ret2ptrv8f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v8f64>;
+  def bi#_ret2ptrv16f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v16f64>;
+  def bi#row_packetized : MapRow<[
+    !cast<MapCell>(bi#"celld"), //scalar
+    nullCell,
+    !cast<MapCell>(bi#"_ret2ptrv4f64"),
+    !cast<MapCell>(bi#"_ret2ptrv8f64"),
+    !cast<MapCell>(bi#"_ret2ptrv16f64"),
+    nullCell],
+    0,1>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.10

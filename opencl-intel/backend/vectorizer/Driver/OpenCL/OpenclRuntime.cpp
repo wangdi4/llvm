@@ -300,6 +300,17 @@ bool OpenclRuntime::isSafeLLVMIntrinsic(const std::string &func_name) const {
   return false;
 }
 
+bool OpenclRuntime::isReturnByPtrBuiltin(const std::string &func_name) const {
+  if (!findInRuntimeModule(func_name)) return false;
+  FunctionDescriptor ret = demangle(func_name.c_str());
+  if (ret == FunctionDescriptor::null()) return false;
+  llvm::ArrayRef<const char*> A(BuiltinReturnByPtr);
+  for (size_t i=0; i < A.size(); ++i)
+    if (llvm::StringRef(A[i]) == ret.name)
+      return true;
+  return false;
+}
+
 
 bool OpenclRuntime::needSpecialCaseResolving(const std::string &funcName) const{
   return Mangler::isFakeBuiltin(funcName);
