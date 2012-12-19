@@ -7,6 +7,10 @@ Type* cast(Type* pType){
   return pType;
 }
 
+template <>
+const Type* cast(const Type* pType){
+  return pType;
+}
 
 void TypeCastVisitor::visit(const Type*){
   m_enumTy = Type::enumTy;

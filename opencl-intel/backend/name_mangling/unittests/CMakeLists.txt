@@ -40,6 +40,7 @@ add_llvm_executable(
   ${TARGET_NAME}
   MangledNames.h
   MangleTest.cpp
+  TestRefCount.cpp
 )
 
 include_directories(

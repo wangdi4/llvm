@@ -12,6 +12,9 @@ struct TypeCastVisitor : TypeVisitor{
   void visit(const UserDefinedTy*);
   
   template <typename T>
+  const T* nullOrCast(const Type*)const;
+
+  template <typename T>
   T* nullOrCast(Type*)const;
 private:
   TypeEnum m_enumTy;
@@ -25,7 +28,19 @@ T* cast(Type* pType){
 }
 
 template <typename T>
+const T* cast(const Type* pType){
+  TypeCastVisitor typeCast;
+  pType->accept(&typeCast);
+  return typeCast.nullOrCast<T>(pType);
+}
+
+template <typename T>
 T* TypeCastVisitor::nullOrCast(Type* pType)const{
+  return (T::enumTy == m_enumTy) ?(T*)pType : NULL;
+}
+
+template <typename T>
+const T* TypeCastVisitor::nullOrCast(const Type* pType)const{
   return (T::enumTy == m_enumTy) ?(T*)pType : NULL;
 }
 

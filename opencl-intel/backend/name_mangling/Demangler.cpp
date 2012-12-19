@@ -108,7 +108,6 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   try {
     parser.demangle();
   }catch(ANTLRException ex){
-//    assert(false && "antlr exception was caught");
     return reflection::FunctionDescriptor::null();
   }
   reflection::FunctionDescriptor ret;

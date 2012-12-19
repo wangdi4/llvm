@@ -210,14 +210,17 @@ TEST(NameMangle, Failed2){
 TEST(NameMangle, SOAFunction){
   FunctionDescriptor soaDescriptor;
   soaDescriptor.name = "soa";
-  Type doubleTy(primitives::DOUBLE);
-  Type intTy(primitives::INT);
-  Pointer pintTy(&intTy);
-  soaDescriptor.parameters.push_back(&doubleTy);
-  soaDescriptor.parameters.push_back(&pintTy);
-  soaDescriptor.parameters.push_back(&pintTy);
+  Type* doubleTy = new Type(primitives::DOUBLE);
+  Type* intTy = new Type(primitives::INT);
+  Pointer* pintTy = new Pointer(intTy);
+  soaDescriptor.parameters.push_back(doubleTy->clone());
+  soaDescriptor.parameters.push_back(pintTy->clone());
+  soaDescriptor.parameters.push_back(pintTy->clone());
   std::cout << soaDescriptor.toString() << std::endl;
   ASSERT_EQ(std::string("_Z3soadPiS_"), mangle(soaDescriptor));
+  delete doubleTy;
+  delete intTy;
+  delete pintTy;
 }
 
 static bool testDemangle(const char* mname){
@@ -340,37 +343,40 @@ TEST(MangleTest, semidup){
 
 TEST(MangleTest, doubleDup){
   FunctionDescriptor fd;
-  Type primitiveFloat(primitives::FLOAT);
-  Vector vectorFloat(&primitiveFloat, 4);
-  Pointer ptrFloat(&vectorFloat);
+  Type* primitiveFloat = new Type(primitives::FLOAT);
+  Vector* vectorFloat = new Vector(primitiveFloat, 4);
+  Pointer*  ptrFloat = new Pointer(vectorFloat);
 
   fd.name = "stam";
-  fd.parameters.push_back(&vectorFloat);
-  fd.parameters.push_back(&vectorFloat);
-  fd.parameters.push_back(&ptrFloat);
-  fd.parameters.push_back(&ptrFloat);
+  fd.parameters.push_back(vectorFloat);
+  fd.parameters.push_back(vectorFloat->clone());
+  fd.parameters.push_back(ptrFloat);
+  fd.parameters.push_back(ptrFloat->clone());
 
   std::string mangled = mangle(fd);
   ASSERT_STREQ("_Z4stamDv4_fS_PS_S0_", mangled.c_str());
   const char* soaFunc = "_Z10soa_cross3Dv4_fS_S_S_S_S_PS_S0_S0_" ;
   fd = demangle(soaFunc);
   ASSERT_STREQ(soaFunc, mangle(fd).c_str());
+  delete primitiveFloat;
 }
 
 TEST(MangleBasic, scalarfloat){
-  Type primitiveFloat(primitives::FLOAT);
+  Type* primitiveFloat = new Type(primitives::FLOAT);
   FunctionDescriptor fd;
   fd.name = "foo";
-  fd.parameters.push_back(&primitiveFloat);
+  fd.parameters.push_back(primitiveFloat->clone());
   ASSERT_STREQ("_Z3foof", mangle(fd).c_str());
+  delete primitiveFloat;
 }
 
 TEST(MangleBasic, scalardouble){
-  Type primitiveDouble(primitives::DOUBLE);
+  Type* primitiveDouble = new Type(primitives::DOUBLE);
   FunctionDescriptor fd;
   fd.name = "foo";
-  fd.parameters.push_back(&primitiveDouble);
+  fd.parameters.push_back(primitiveDouble->clone());
   ASSERT_STREQ("_Z3food", mangle(fd).c_str());
+  delete primitiveDouble;
 }
 
 //
@@ -411,7 +417,7 @@ TEST(MangleAPI, visitorExample){
       std::cout << "user defined type. in OCL, its images..." << std::endl;
     }
   };
-  std::vector<Type*>::iterator bi = fd.parameters.begin(),
+  TypeVector::iterator bi = fd.parameters.begin(),
     e = fd.parameters.end();
   PrintTypeVisitor printVisitor;
   while (bi != e){
@@ -428,5 +434,31 @@ TEST(Type, TypeCast){
   ASSERT_EQ( &vectorInt, cast<Vector>(&vectorInt));
 }
 
+TEST(MemoryLeaks, Vector){
+  const char* s = "_Z5frexpDv2_i";
+  demangle(s);
 }
-}//end namespace
+
+TEST(MemoryLeaks, PointerToPrimitive){
+  const char* s = "_Z5frexpPi";
+  demangle(s);
+}
+
+TEST(MemoryLeaks, PointerToVector){
+  const char* s = "_Z5frexpPDv2_i";
+  demangle(s);
+}
+
+TEST(MemoryLeaks, PointerAttribToVector){
+  const char* s = "_Z5frexpPU3AS1Dv2_i";
+  demangle(s);
+}
+
+TEST(MemoryLeaks, StructTy){
+  FunctionDescriptor fd = demangle("_Z1f2xx");
+  EXPECT_TRUE(reflection::cast<UserDefinedTy>(fd.parameters[0]));
+  std::cout << fd.parameters[0]->toString() << std::endl;
+}
+
+}//end namespace test
+}//end namespace namemangling

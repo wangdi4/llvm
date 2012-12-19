@@ -319,7 +319,6 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
     // because reflection::FunctionDescriptor::parameters 
     // so we create parameters and put pointers on them to the vector in order to delete them later,
     // after the mangle operation will be completed
-    std::vector<reflection::Type *> types;
     
     for (std::size_t i = 0; i < in_args.size(); ++i)
     {
@@ -331,16 +330,13 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                 // create parameter
                 reflection::Type *primitiveType = new reflection::Type(typeConvertor[arg.basicType]);
                 // 
-                types.push_back((primitiveType));
                 fd.parameters.push_back(primitiveType);
                 break;
             }
             case OCLBuiltinParser::VECTOR:
             {
                 reflection::Type *primitiveType = new reflection::Type(typeConvertor[arg.vecType.elType]);
-                types.push_back((primitiveType));
                 reflection::Vector *vectorType = new reflection::Vector(primitiveType,(int)arg.vecType.elNum);
-                types.push_back(reinterpret_cast<reflection::Type*>(vectorType));
                 fd.parameters.push_back(vectorType);
                 break;
             }
@@ -351,9 +347,7 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                     {
                         reflection::Type *primitiveType = 
                             new reflection::Type(typeConvertor[arg.ptrType.ptrType[0].basicType]);
-                        types.push_back((primitiveType));
                         reflection::Pointer *ptrPrimitive = new reflection::Pointer(primitiveType);
-                        types.push_back(reinterpret_cast<reflection::Type*>(ptrPrimitive));
                         fd.parameters.push_back(ptrPrimitive);
                         break;
                     }
@@ -361,13 +355,10 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                     {
                         reflection::Type *primitiveType = 
                             new reflection::Type(typeConvertor[arg.ptrType.ptrType[0].vecType.elType]);
-                        types.push_back((primitiveType));
                         reflection::Vector *vectorType = 
                             new reflection::Vector(primitiveType,(int)arg.ptrType.ptrType[0].vecType.elNum);
-                        types.push_back(reinterpret_cast<reflection::Type*>(vectorType));
                         reflection::Pointer *ptrVector = 
                             new reflection::Pointer(vectorType);
-                        types.push_back(reinterpret_cast<reflection::Type*>(vectorType));
                         fd.parameters.push_back(ptrVector);
                         break;
                     }
@@ -410,12 +401,6 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
     }
 
     out_str = mangle(fd);
-
-    std::vector<reflection::Type*>::iterator it = types.begin();
-    while(it != types.end()) {
-        delete *it;
-        ++it;
-    }
     return true;
 }
 

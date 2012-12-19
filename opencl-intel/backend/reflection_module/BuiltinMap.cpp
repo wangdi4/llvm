@@ -18,6 +18,7 @@
 #include <utility>
 #include <assert.h>
 #include <cctype>
+#include "Type.h"
 
 namespace reflection{
 
