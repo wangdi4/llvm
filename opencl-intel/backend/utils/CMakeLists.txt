@@ -1,6 +1,6 @@
 set(TARGET_NAME OclUtils)
 
-set (OCL_UTILS_INCLUDE_FILES
+set (TARGET_INCLUDE_FILES
     CompilationUtils.h
     CPUDetect.h
     debuggingservicetype.h
@@ -21,7 +21,7 @@ set (OCL_UTILS_INCLUDE_FILES
     ProcessorDetect.h
 )
 
-set (OCL_UTILS_SOURCE_FILES
+set (TARGET_SOURCE_FILES
     CompilationUtils.cpp
     CPUDetect.cpp
     debuggingservicetype.cpp
@@ -37,7 +37,7 @@ include_directories(
 )
 
 # Include the ASM sources
-if (BUILD_X64)
+if(BUILD_X64)
     if (WIN32)
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/kernel_execute_64.asm)
     elseif (APPLE)
@@ -45,18 +45,30 @@ if (BUILD_X64)
     else ()
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/linux64_utils.s)
     endif ()
-    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
-else  (BUILD_X64)
+else(BUILD_X64)
     if (APPLE)
-        set (UTILS_ASM_SOURCES mac_utils_32.s)
+        set (UTILS_ASM_SOURCES mac_utils.s)
     endif (APPLE)
+endif(BUILD_X64)
+
+if(APPLE)
+    set( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
+else(APPLE)
     CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
-endif (BUILD_X64)
+endif(APPLE)
 
 add_library(${TARGET_NAME}
-    ${OCL_UTILS_INCLUDE_FILES}
-    ${OCL_UTILS_SOURCE_FILES}
+    ${TARGET_INCLUDE_FILES}
+    ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  message("Utils relative dir:" ${SOURCE_RELATIVE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

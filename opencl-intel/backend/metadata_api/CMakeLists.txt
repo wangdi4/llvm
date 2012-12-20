@@ -30,16 +30,24 @@ add_custom_command(
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROPERTIES GENERATED 1)
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
 
-add_library(
-  ${TARGET_NAME}
-  STATIC
+set(TARGET_INCLUDE_FILES
   MetaDataTraits.h
   MetaDataValue.h
   MetaDataObject.h
   MetaDataIterator.h
   MetaDataApiUtils.h
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
+)
+
+set(TARGET_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
+)
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_INCLUDE_FILES}
+  ${TARGET_SOURCE_FILES}
 )
 
 include_directories(
@@ -48,6 +56,14 @@ include_directories(
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)
+
 
 if(NOT APPLE)
   add_subdirectory(tests)

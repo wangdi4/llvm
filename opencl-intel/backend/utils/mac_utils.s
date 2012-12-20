@@ -22,6 +22,7 @@
 
 #================= CallKernel implementation (with and without barriers) ===================
 .text
+#ifdef __LP64__
 #-------------------------------------------------------------------------------
 # Calling convention for X86-64 Linux cdecl:
 # RDI := params_size (param#1)
@@ -109,4 +110,69 @@ _hw_xgetbv:
         mov     %rdx, MEM_RDX (%rdi)
         ret
 	
+#else
 
+## structure definition for hw_cpuid()
+.set M_EAX, 0
+.set M_EBX, M_EAX + 8
+.set M_ECX, M_EBX + 8
+.set M_EDX, M_ECX + 8
+
+.text
+#------------------------------------------------------------------------------
+#  void cdecl
+#  hw_cpuid (
+#       CPUID_PARAMS * %edi
+#  )
+#
+#  Execute cpuid instruction
+#
+#------------------------------------------------------------------------------
+.globl _hw_cpuid
+_hw_cpuid:
+        # store regs b, c, d
+        push   %ebx
+        push   %ecx
+        push   %edx
+        # fill regs for cpuid
+        mov     M_EAX(%edi), %eax
+        mov     M_EBX(%edi), %ebx
+        mov     M_ECX(%edi), %ecx
+        mov     M_EDX(%edi), %edx
+        cpuid
+        mov     %eax, M_EAX (%edi)
+        mov     %ebx, M_EBX (%edi)
+        mov     %ecx, M_ECX (%edi)
+        mov     %edx, M_EDX (%edi)
+        # restore regs b, c, d
+        pop    %edx
+        pop    %ecx
+        pop    %ebx
+        ret
+# end of hw_cpuid()
+   
+
+## structure definition for hw_xgetbv()
+.set MEM_EAX, 0
+.set MEM_EDX, MEM_EAX + 8
+
+.text
+#------------------------------------------------------------------------------
+#  hw_xgetbv (
+#       XGETBV_PARAMS * %edi
+#  )
+#
+#  Execute xgetbv instruction
+#
+#------------------------------------------------------------------------------
+.globl _hw_xgetbv
+_hw_xgetbv:
+        mov		$0, %ecx
+        # XGETBV return result in EDX:EAX
+        .byte 15
+        .byte 1
+        .byte 208
+        mov     %eax, MEM_EAX (%edi)
+        mov     %edx, MEM_EDX (%edi)
+        ret
+#endif

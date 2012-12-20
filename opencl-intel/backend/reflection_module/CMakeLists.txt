@@ -55,18 +55,28 @@ set(BUILT_IN_LIST_H
 )
 endif(NOT APPLE)
 
-add_library(
-  ${TARGET_NAME}
-  STATIC
-  BuiltinKeeper.h
+set(TARGET_SOURCE_FILES
   BuiltinKeeper.cpp
-  VersionStrategy.h
   VersionStrategy.cpp
-  ${BUILT_IN_LIST_H}
   BuiltinMap.cpp
   CustomMappings.gen
 )
 
+set(TARGET_INCLUDE_FILES
+  BuiltinKeeper.h
+  CustomVersionMaping.h
+  VersionStrategy.h
+  ${BUILT_IN_LIST_H}
+  BuiltinMap.h
+  utils.h
+)
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
+)
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
@@ -90,3 +100,10 @@ target_link_libraries(
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

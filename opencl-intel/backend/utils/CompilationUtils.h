@@ -20,7 +20,6 @@ File Name:  CompilationUtils.h
 #define __COMPILATION_UTILS_H__
 
 #include "cpu_dev_limits.h"
-#include "cl_device_api.h"
 #include "exceptions.h"
 
 #include "llvm/Module.h"

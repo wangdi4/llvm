@@ -1,4 +1,5 @@
-file(GLOB_RECURSE headers *.h)
+set( TARGET_NAME LLVMVectorizer)
+
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "Driver")
@@ -21,6 +22,9 @@ include_directories(../arch_headers)
 include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
 
+file(GLOB_RECURSE TARGET_VOLCANO_WRAPPER_INCLUDE_FILES VolcanoWrapper/*.h)
+file(GLOB_RECURSE TARGET_INCLUDE_FILES *.h )
+
 if(NOT APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
   Resolver/MICResolver.cpp
@@ -33,7 +37,7 @@ set(TARGET_EXTRA_SOURCE_FILES
 )
 endif(NOT APPLE)
 
-add_library( LLVMVectorizer
+set(TARGET_SOURCE_FILES
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
@@ -52,7 +56,6 @@ add_library( LLVMVectorizer
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   Resolver/Resolver.cpp
-  ${TARGET_EXTRA_SOURCE_FILES}
   Resolver/SelectLower.cpp
   Resolver/SpecialCaseBuiltinResolver.cpp
   VolcanoWrapper/Main.cpp
@@ -76,7 +79,14 @@ add_library( LLVMVectorizer
   IRPrinter/IRPrinter.cpp
   Heuristic/InstCounter.cpp
   PostDominanceFrontier/PostDominanceFrontier.cpp
-  ${headers}
+  ${TARGET_EXTRA_SOURCE_FILES}
+)
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
 )
 
 target_link_libraries(
@@ -86,3 +96,13 @@ target_link_libraries(
 )
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_SOURCE_FILES} ${TARGET_INCLUDE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+  install( FILES ${TARGET_VOLCANO_WRAPPER_INCLUDE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}/VolcanoWrapper
+         )
+endif(APPLE)

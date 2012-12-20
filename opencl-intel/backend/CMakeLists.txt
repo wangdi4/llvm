@@ -186,6 +186,24 @@ if (LLVM_BUILD_APPLE_BACKEND)
     add_subdirectory(vectorizer)
     add_subdirectory(apple_plugin)
     
+    file(GLOB BACKEND_INCLUDE_FILES arch_headers/*.h)
+    file(GLOB CL_API_INCLUDE_FILES ../cl_api/*.h)
+  
+    
+    file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+
+    install( FILES ${BACKEND_INCLUDE_FILES} 
+             DESTINATION src/${SOURCE_RELATIVE_DIR}/arch_headers
+           )
+    install( DIRECTORY ../cl_api
+             DESTINATION src/${SOURCE_RELATIVE_DIR}
+           )
+
+    install( DIRECTORY ../CLVMCPUPlugin.xcodeproj
+             DESTINATION src
+           )
+
+    
 else(LLVM_BUILD_APPLE_BACKEND)
     project(Backend)
     add_subdirectory(llvm )
