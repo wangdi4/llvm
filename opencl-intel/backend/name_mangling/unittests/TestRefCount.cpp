@@ -88,3 +88,10 @@ TEST(ReferenceCounter, pointer){
   RefCount<A> refa(new A(0));
   ASSERT_EQ(0, refa->getNum());
 }
+
+TEST(ReferenceCounter, vectorChanges){
+  std::vector<RefCount<A> > vec;
+  vec.push_back(new A(0));
+  vec.push_back(new A(1));
+  vec.resize(1);
+}

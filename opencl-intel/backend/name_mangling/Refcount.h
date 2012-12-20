@@ -37,11 +37,12 @@ public:
   }
 
   ~RefCount(){
-    dispose();
+    if (m_refCount)
+      dispose();
   }
 
   RefCount& operator=(const RefCount<T>& other){
-    if( this == &other)
+    if(this == &other)
       return *this;
     if (m_refCount)
       dispose();
