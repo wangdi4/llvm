@@ -12,8 +12,6 @@
 
 namespace intel {
 
-extern hashEntry AppleOCLEntryDB[];
-
 /// @brief
 ///  Runtime services for Apple Opencl SDK
 ///  These are services for runtime-specific information. Such services include
@@ -28,10 +26,11 @@ public:
   AppleOpenclRuntime(const Module *runtimeModule);
   
   /// @brief Destructor
-  ~AppleOpenclRuntime() {}
+  virtual ~AppleOpenclRuntime();
 
-  virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
+  /// @brief Find a function in the runtime's built-in functions
+  /// @param Name Function name to look for
+  virtual Function *findInRuntimeModule(StringRef Name) const;
 
   /// @brief returns true the function needs to be replaced with fake function
   ///   used by OCLBuiltinPreVectorizationPass
@@ -49,45 +48,35 @@ public:
   /// @param funcName Function name to check
   virtual bool isFakeWriteImage(const std::string &funcName) const;
 
-  /// @brief returns true the function is dot product that should be inlined
-  ///  used OCLBuiltinPreVectorizationPass - disabled for Apple
-  /// @param funcName Function name to check
-  /// @return the width of the input parameters incase of dot, 0 otherwise
-  virtual unsigned isInlineDot(const std::string &funcName) const;
-
-  /// @brief retruns number of Jit dimensions.
-  virtual unsigned getNumJitDimensions() const;
-
-  // @brief retrun name of builtin to retrieve base global id for this work group.
-  virtual const char *getBaseGIDName() const;
-
   /// @brief returns true iff this is name of transposed_read_image.
-  bool isTransposedReadImg(const std::string &func_name) const;
+  virtual bool isTransposedReadImg(const std::string &func_name) const;
 
   /// @brief returns true iff this is name of transposed_write_image.
-  bool isTransposedWriteImg(const std::string &func_name) const;
+  virtual bool isTransposedWriteImg(const std::string &func_name) const;
 
   /// @brief returns the read stream function from the runtime module.
-  Function *getReadStream() const;
+  virtual Function *getReadStream() const;
 
   /// @brief returns the write stream function from the runtime module.
-  Function *getWriteStream() const;
+  virtual Function *getWriteStream() const;
+
+  // @brief return true if this name of stream built-in.
+  virtual bool isStreamFunc(const std::string &funcName) const;
 
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 
   ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
-  virtual bool alwaysSpreadVectorParams() const {return false;};
+  virtual bool alwaysSpreadVectorParams() const {return true;};
 
 private:
 
   /// @breif hold names of builtins that require replacement with fake function
   std::set<std::string> m_needPreVectorizationSet;
-
-  /// @brief Pointer to OpenCL wrappers hash object
-  VFH m_vfh;
   
   AppleOpenclRuntime(); // Do not implement
+
+  Module *m_innerRTModule;
 
   std::auto_ptr<VectorizerFunction> m_readImageEntry;
 

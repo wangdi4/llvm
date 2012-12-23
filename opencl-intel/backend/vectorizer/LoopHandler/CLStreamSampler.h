@@ -134,7 +134,7 @@ private:
   SmallVector<TranspWriteImgAttr, 2> m_writeImageAttributes;
 
   /// @brief apple runtime services object.
-  const AppleOpenclRuntime *m_rtServices;
+  const OpenclRuntime *m_rtServices;
 
   DenseMap<Value *, Value *> m_firstIterVal;
 

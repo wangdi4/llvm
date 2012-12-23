@@ -6,6 +6,59 @@
 
 #define INVALID_ENTRY "<invalid>"
 
+
+#ifdef __APPLE__
+TableRow mappings[] = {
+  //TODO: geometrics, handle separately
+  /*
+  {{"_f_v._Z5crossDv3_fS_","_f_v.__vertical_cross3f2","_f_v.__vertical_cross3f4","_f_v.__vertical_cross3f8","_f_v.__vertical_cross3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z5crossDv4_fS_","_f_v.__vertical_cross4f2","_f_v.__vertical_cross4f4","_f_v.__vertical_cross4f8","_f_v.__vertical_cross4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z13fast_distanceff","_f_v.__vertical_fast_distance1f2","_f_v.__vertical_fast_distance1f4","_f_v.__vertical_fast_distance1f8","_f_v.__vertical_fast_distance1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z13fast_distanceDv2_fS_","_f_v.__vertical_fast_distance2f2","_f_v.__vertical_fast_distance2f4","_f_v.__vertical_fast_distance2f8","_f_v.__vertical_fast_distance2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z13fast_distanceDv3_fS_","_f_v.__vertical_fast_distance3f2","_f_v.__vertical_fast_distance3f4","_f_v.__vertical_fast_distance3f8","_f_v.__vertical_fast_distance3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z13fast_distanceDv4_fS_","_f_v.__vertical_fast_distance4f2","_f_v.__vertical_fast_distance4f4","_f_v.__vertical_fast_distance4f8","_f_v.__vertical_fast_distance4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z8distanceff","_f_v.__vertical_distance1f2","_f_v.__vertical_distance1f4","_f_v.__vertical_distance1f8","_f_v.__vertical_distance1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z6lengthf","_f_v.__vertical_length1f2","_f_v.__vertical_length1f4","_f_v.__vertical_length1f8","_f_v.__vertical_length1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z8distanceDv2_fS_","_f_v.__vertical_distance2f2","_f_v.__vertical_distance2f4","_f_v.__vertical_distance2f8","_f_v.__vertical_distance2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z6lengthDv2_f","_f_v.__vertical_length2f2","_f_v.__vertical_length2f4","_f_v.__vertical_length2f8","_f_v.__vertical_length2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z8distanceDv3_fS_","_f_v.__vertical_distance3f2","_f_v.__vertical_distance3f4","_f_v.__vertical_distance3f8","_f_v.__vertical_distance3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z6lengthDv3_f","_f_v.__vertical_length3f2","_f_v.__vertical_length3f4","_f_v.__vertical_length3f8","_f_v.__vertical_length3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z8distanceDv4_fS_","_f_v.__vertical_distance4f2","_f_v.__vertical_distance4f4","_f_v.__vertical_distance4f8","_f_v.__vertical_distance4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z6lengthDv4_f","_f_v.__vertical_length4f2","_f_v.__vertical_length4f4","_f_v.__vertical_length4f8","_f_v.__vertical_length4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z3dotff","_f_v.__vertical_dot1f2","_f_v.__vertical_dot1f4","_f_v.__vertical_dot1f8","_f_v.__vertical_dot1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z3dotDv2_fS_","_f_v.__vertical_dot2f2","_f_v.__vertical_dot2f4","_f_v.__vertical_dot2f8","_f_v.__vertical_dot2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z3dotDv3_fS_","_f_v.__vertical_dot3f2","_f_v.__vertical_dot3f4","_f_v.__vertical_dot3f8","_f_v.__vertical_dot3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z3dotff4","_f_v.__vertical_dot4f2","_f_v.__vertical_dot4f4","_f_v.__vertical_dot4f8","_f_v.__vertical_dot4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z11fast_lengthf","_f_v.__vertical_fast_length1f2","_f_v.__vertical_fast_length1f4","_f_v.__vertical_fast_length1f8","_f_v.__vertical_fast_length1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z11fast_lengthDv2_f","_f_v.__vertical_fast_length2f2","_f_v.__vertical_fast_length2f4","_f_v.__vertical_fast_length2f8","_f_v.__vertical_fast_length2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z11fast_lengthDv3_f","_f_v.__vertical_fast_length3f2","_f_v.__vertical_fast_length3f4","_f_v.__vertical_fast_length3f8","_f_v.__vertical_fast_length3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z11fast_lengthDv4_f","_f_v.__vertical_fast_length4f2","_f_v.__vertical_fast_length4f4","_f_v.__vertical_fast_length4f8","_f_v.__vertical_fast_length4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z14fast_normalizef","_f_v.__vertical_fast_normalize1f2","_f_v.__vertical_fast_normalize1f4","_f_v.__vertical_fast_normalize1f8","_f_v.__vertical_fast_normalize1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z14fast_normalizeDv2_f","_f_v.__vertical_fast_normalize2f2","_f_v.__vertical_fast_normalize2f4","_f_v.__vertical_fast_normalize2f8","_f_v.__vertical_fast_normalize2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z14fast_normalizeDv3_f","_f_v.__vertical_fast_normalize3f2","_f_v.__vertical_fast_normalize3f4","_f_v.__vertical_fast_normalize3f8","_f_v.__vertical_fast_normalize3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z14fast_normalizef4","_f_v.__vertical_fast_normalize4f2","_f_v.__vertical_fast_normalize4f4","_f_v.__vertical_fast_normalize4f8","_f_v.__vertical_fast_normalize4f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z9normalizef","_f_v.__vertical_normalize1f2","_f_v.__vertical_normalize1f4","_f_v.__vertical_normalize1f8","_f_v.__vertical_normalize1f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z9normalizeDv2_f","_f_v.__vertical_normalize2f2","_f_v.__vertical_normalize2f4","_f_v.__vertical_normalize2f8","_f_v.__vertical_normalize2f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z9normalizeDv3_f","_f_v.__vertical_normalize3f2","_f_v.__vertical_normalize3f4","_f_v.__vertical_normalize3f8","_f_v.__vertical_normalize3f16",INVALID_ENTRY},0,1},
+  {{"_f_v._Z9normalizeDv4_f","_f_v.__vertical_normalize4f2","_f_v.__vertical_normalize4f4","_f_v.__vertical_normalize4f8","_f_v.__vertical_normalize4f16",INVALID_ENTRY},0,1},
+   */
+  // read / write image
+
+  {{"_f_v._Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv4_fS1_PS1_S2_S2_S2_",
+    "_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv8_fS1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY},0,1},
+  {{"_f_v._Z11read_imagefPU3AS110_image3d_tuSamplerDv4_f",INVALID_ENTRY,"_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_tuSamplerDv4_fS1_S1_PS1_S2_S2_S2_",
+    "_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_tuSamplerDv8_fS1_S1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY},0,1},
+  {{"_f_v._Z12write_imagefPU3AS110_image2d_tDv2_iDv4_f",INVALID_ENTRY,"_Z23write_transposed_imagefPU3AS110_image2d_tiiDv4_fS1_S1_S1_",
+    "_Z23write_transposed_imagefPU3AS110_image2d_tiiDv8_fS1_S1_S1_",INVALID_ENTRY,INVALID_ENTRY},0,1},
+  
+  //ci_gamma
+  {{"_f_v.__ci_gamma_scalar_SPI",INVALID_ENTRY,"_f_v.__ci_gamma_SPI","_f_v.__ci_gamma_SPI_8",INVALID_ENTRY,INVALID_ENTRY},0,1},
+
+  // wrappers
+  {{"allOne","allOne_v2","allOne_v4","allOne_v8","allOne_v16",INVALID_ENTRY},0,1},
+  {{"allZero","allZero_v2","allZero_v4","allZero_v8","allZero_v16",INVALID_ENTRY},0,1}, 
+};
+#else
 TableRow mappings[] = {
   // {{scalar_version, width2_version, ..., width16_version, width3_version}, isScalarizable, isPacketizable}
   { {"allOne","allOne_v2","allOne_v4","allOne_v8","allOne_v16",INVALID_ENTRY}, false, true},
@@ -55,4 +108,5 @@ TableRow mappings[] = {
 //this file is automatically gnerated by tblgen. It is strongly recmommended to use this mechanism, not to write string hardcoded
 #include "CustomMappings.gen"
 };
+#endif
 #endif//__CUSTOM_VERSION_MAPPING_H__

@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
+ * Copyright ï¿½ 2010-2012, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -16,8 +16,6 @@
 
 namespace intel {
 
-extern const char *volacanoScalarSelect[];
-
 /// @brief
 ///  Runtime services for Intel's Opencl SDK
 ///  These are services for runtime-specific information. Such services include
@@ -31,10 +29,10 @@ public:
 
   /// @brief Constructor which get arbitraty table as input
   OpenclRuntime(const Module *runtimeModule,
-                const char **scalarSelects = volacanoScalarSelect);
+                const char **scalarSelects);
 
   /// @brief Destructor
-  ~OpenclRuntime() {}
+  virtual ~OpenclRuntime() {}
 
   /// @brief Find a function in the runtime's built-in functions
   /// @param Name Function name to look for
@@ -70,7 +68,7 @@ public:
   /// @brief Checks if function is a 'faked function', (i.e., if the given name is
   //  has a definition in the builtin-runtime module, or is it just a
   //  synthesized name for internal usage.
-  bool isFakedFunction(StringRef fname)const;
+  virtual bool isFakedFunction(StringRef fname)const;
 
   /// @brief returns true if the function has no side effects
   ///  this means it can be safely vectorized regardless if it is being masked
@@ -86,7 +84,7 @@ public:
   /// @brief returns true the function needs to be replaced with fake function
   ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano   
   /// @param funcName Function name to check
-  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
+  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const = 0;
 
   /// @brief returns true the function is a scalar select builtin used by
   ///  OCLBuiltinPreVectorizationPass - currently disabled in Volcano
@@ -97,13 +95,18 @@ public:
   ///  input used by OCLBuiltinPreVectorizationPass - currently disabled in
   ///  Volcano
   /// @param funcName Function name to check
-  virtual bool isWriteImage(const std::string &funcName) const;
+  virtual bool isWriteImage(const std::string &funcName) const = 0;
+
+  /// @brief returns true the function is fake writeImage which produced in
+  /// Pre-Scalarization used AppleWiDepPrePacketizationPass
+  /// @param funcName Function name to check
+  virtual bool isFakeWriteImage(const std::string &funcName) const = 0;
 
   /// @brief returns true the function is dot product that should be inlined
   ///  used OCLBuiltinPreVectorizationPass - works only for Volcano
   /// @param funcName Function name to check
   /// @return the width of the input parameters incase of dot, 0 otherwise
-  virtual unsigned isInlineDot(const std::string &funcName) const; 
+  virtual unsigned isInlineDot(const std::string &funcName) const;
 
   /// @brief returns true if the function is a masked version that support 
   ///  i1 vector as first parameter
@@ -132,6 +135,20 @@ public:
   /// @param func_name name of the function.
   virtual bool isSafeToSpeculativeExecute(const std::string &func_name) const;
 
+  /// @brief returns true iff this is name of transposed_read_image.
+  virtual bool isTransposedReadImg(const std::string &func_name) const = 0;
+
+  /// @brief returns true iff this is name of transposed_write_image.
+  virtual bool isTransposedWriteImg(const std::string &func_name) const = 0;
+
+  /// @brief returns the read stream function from the runtime module.
+  virtual Function *getReadStream() const = 0;
+
+  /// @brief returns the write stream function from the runtime module.
+  virtual Function *getWriteStream() const = 0;
+
+  // @brief return true if this name of stream built-in.
+  virtual bool isStreamFunc(const std::string &funcName) const = 0;
 protected:
 
   /// @brief returns true if func_name is synchronization function with side effects.
@@ -182,11 +199,12 @@ protected:
   unsigned m_packetizationWidth;
 
 private:
-
+  
+  
   /// @brief holds mapping bettwen dot builtin name and operand width
   std::map<std::string, unsigned> m_dotOpWidth;
-
-  /// @brief initate the dot map 
+  
+  /// @brief initate the dot map
   void initDotMap();
 };
 
@@ -198,5 +216,56 @@ private:
 #define WG_FUNCS_NAME_PREFIX  "__async"
 
 } // Namespace
+
+namespace intel {
+// Volcano Part starts HERE
+//TODO: Move to separate file
+//////////////////////////////////////
+
+extern const char *volacanoScalarSelect[];
+
+class VolcanoOpenclRuntime : public OpenclRuntime {
+public:    
+  /// @brief Constructor
+  VolcanoOpenclRuntime(const Module *runtimeModule);
+  
+  /// @brief Destructor
+  ~VolcanoOpenclRuntime() {}
+
+  VolcanoOpenclRuntime(); // Do not implement
+
+  /// @brief returns true the function needs to be replaced with fake function
+  ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano   
+  /// @param funcName Function name to check
+  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
+
+  /// @brief returns true the function is writeImage which need scalarizing of
+  ///  input used by OCLBuiltinPreVectorizationPass - currently disabled in
+  ///  Volcano
+  /// @param funcName Function name to check
+  virtual bool isWriteImage(const std::string &funcName) const;
+
+  /// @brief returns true the function is fake writeImage which produced in
+  /// Pre-Scalarization used AppleWiDepPrePacketizationPass
+  /// @param funcName Function name to check
+  virtual bool isFakeWriteImage(const std::string &funcName) const;
+
+  /// @brief returns true iff this is name of transposed_read_image.
+  virtual bool isTransposedReadImg(const std::string &func_name) const;
+
+  /// @brief returns true iff this is name of transposed_write_image.
+  virtual bool isTransposedWriteImg(const std::string &func_name) const;
+
+  /// @brief returns the read stream function from the runtime module.
+  virtual Function *getReadStream() const;
+
+  /// @brief returns the write stream function from the runtime module.
+  virtual Function *getWriteStream() const;
+
+  // @brief return true if this name of stream built-in.
+  virtual bool isStreamFunc(const std::string &funcName) const;
+};
+
+}
 
 #endif // __OpenclRuntime_H_

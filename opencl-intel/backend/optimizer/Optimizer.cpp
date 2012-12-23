@@ -52,8 +52,10 @@ extern "C" llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<llv
 extern "C" llvm::ModulePass* createCLWGLoopBoundariesPass();
 extern "C" llvm::Pass* createCLBuiltinLICMPass();
 extern "C" llvm::Pass* createLoopStridedCodeMotionPass();
+extern "C" llvm::Pass* createCLStreamSamplerPass();
 
-extern "C" void* createOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+extern "C" void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+extern "C" void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 extern "C" void* destroyOpenclRuntimeSupport();
 extern "C" llvm::Pass *createPreventDivisionCrashesPass();
 extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
@@ -205,7 +207,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
 {
   using namespace intel;
 
-  createOpenclRuntimeSupport(pRtlModule);
+#ifndef __APPLE__
+  createVolcanoOpenclRuntimeSupport(pRtlModule);
+#else
+  createAppleOpenclRuntimeSupport(pRtlModule);
+#endif
   bool UnitAtATime LLVM_BACKEND_UNUSED = true;
   bool DisableSimplifyLibCalls = true;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -347,6 +353,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(createCLBuiltinLICMPass());
       m_modulePasses.add(llvm::createLICMPass());
       m_modulePasses.add(createLoopStridedCodeMotionPass());
+      m_modulePasses.add(createCLStreamSamplerPass());
     }
   }
 

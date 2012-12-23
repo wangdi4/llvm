@@ -44,7 +44,6 @@ set(TARGET_SOURCE_FILES
   Utils/SimplifyGEP.cpp
   Driver/OpenCL/OpenclRuntime.cpp
   Driver/Functions.cpp
-  Driver/Apple/AppleOCLData.cpp
   Driver/Apple/AppleOCLRuntime.cpp
   Predication/Predicator.cpp
   Predication/Specializer.cpp

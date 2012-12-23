@@ -60,7 +60,7 @@ private:
   Value *getWriteImgCoordsVector(Value *xCoord, Value *yCoord, CallInst *CI);
 
   ///@brief - appleOCLRuntime interface for getting builtins attributes.
-  const AppleOpenclRuntime *m_appleRuntimeServices;
+  const OpenclRuntime *m_appleRuntimeServices;
 
   
   ///@brief  holds the module of the processed function

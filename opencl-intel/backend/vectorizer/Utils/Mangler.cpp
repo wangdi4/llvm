@@ -26,6 +26,8 @@ const std::string Mangler::fake_builtin_prefix  = "_f_v.";
 const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
 const std::string Mangler::fake_prefix_insert   = "fake.insert.element";
 
+
+#ifndef __APPLE__
 llvm::StringRef imageFunctions[] = {
     "read_imagei",
     "read_imageui",
@@ -33,9 +35,13 @@ llvm::StringRef imageFunctions[] = {
     "write_imageui"
 };
 
-const char* IMG_MASK_PREFIX = "mask_";
-
 unsigned IMG_SIZE = sizeof(imageFunctions)/sizeof(imageFunctions[0]);
+#else
+llvm::StringRef imageFunctions[] = { };
+unsigned IMG_SIZE = 0;
+#endif
+
+const char* IMG_MASK_PREFIX = "mask_";
 
 static const char* getGatherScatterTypeName(Type *ElemTy) {
   if (ElemTy->isIntegerTy(8)) return "i8";

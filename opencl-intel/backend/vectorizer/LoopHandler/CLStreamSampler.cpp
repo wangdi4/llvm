@@ -32,7 +32,7 @@ namespace intel {
 
 CLStreamSampler::CLStreamSampler():
 LoopPass(ID),
-m_rtServices(static_cast<AppleOpenclRuntime *>(RuntimeServices::get()))
+m_rtServices((OpenclRuntime*)RuntimeServices::get())
 {
   initializeDominatorTreePass(*PassRegistry::getPassRegistry());
   assert(m_rtServices && "runtime services does not exist");
@@ -450,7 +450,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   assert(!foundFunction->isNull() && "should have hash entry");
   assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");
   // Currently supports only transposed write.
-  if (!foundFunction->isNull() || foundFunction->getWidth() <= 1) return;
+  if (foundFunction->isNull() || foundFunction->getWidth() <= 1) return;
 
   TranspWriteImgAttr attrs;
   attrs.m_call = writeImgCall;

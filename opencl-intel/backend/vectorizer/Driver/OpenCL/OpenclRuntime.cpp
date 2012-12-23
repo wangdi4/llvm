@@ -27,6 +27,8 @@ public:
 
   OpenClVFunction(const std::string& s): m_name(s){
   }
+  
+  ~OpenClVFunction() {  }
 
   unsigned getWidth()const{
     assert(!isNull() && "Null function");
@@ -99,7 +101,7 @@ private:
     return ( prefix == m_name.substr(0, prefix.size()) );
   }
 
-  const std::string& m_name;
+  const std::string m_name;
 };
 
 struct dotProdInlineData {
@@ -119,25 +121,15 @@ const dotProdInlineData dotInlineTable [] = {
     {NULL,0}
 };
 
-const char *volacanoScalarSelect[] = {
-  "_Z6selectccc", "_Z6selectcch", "_Z6selecthhc", "_Z6selecthhh",
-  "_Z6selectsss", "_Z6selectsst", "_Z6selecttts", "_Z6selectttt",
-  "_Z6selectiii", "_Z6selectiij", "_Z6selectjji", "_Z6selectjjj",
-  "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
-  "_Z6selectffi", "_Z6selectffj",
-  "_Z6selectddl", "_Z6selectddm",
-  NULL
-};
-
 /// @brief Constructor which get arbitraty table as input
 OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
                              const char  **scalarSelects):
 m_runtimeModule(runtimeModule),
 m_packetizationWidth(0) {
-  initDotMap();
   initScalarSelectSet(scalarSelects);
+  initDotMap();
 }
-
+  
 void OpenclRuntime::initDotMap() {
   const dotProdInlineData *entryPtr = dotInlineTable;
   while (entryPtr->name) {
@@ -305,10 +297,6 @@ bool OpenclRuntime::needSpecialCaseResolving(const std::string &funcName) const{
   return Mangler::isFakeBuiltin(funcName);
 }
 
-bool OpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
-  return false;
-}
-
 bool OpenclRuntime::isScalarSelect(const std::string &funcName) const{
   if (m_scalarSelectSet.count(funcName)) return true;
   return false;
@@ -328,19 +316,15 @@ bool OpenclRuntime::isFakedFunction(StringRef fname)const{
   //the function resides within the runtime module.
   return (pMaskedFunction == NULL);
 }
-
-bool OpenclRuntime::isWriteImage(const std::string &funcName) const{
-  return false;
-}
-
+  
 unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{
   std::map<std::string, unsigned>::const_iterator it = m_dotOpWidth.find(funcName);
   if (it != m_dotOpWidth.end()) {
-	return it->second;
+    return it->second;
   }
   return 0;
 }
-
+  
 bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
   Function *bltn = findInRuntimeModule(func_name);
   if (!bltn) return false;
@@ -368,16 +352,74 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
       basicType != reflection::primitives::ULONG)  return false;
   return true;
 }
-
+  
 } // Namespace
+
+
+
+// Volcano Part starts HERE
+//TODO: Move to separate file
+//////////////////////////////////////
+namespace intel {
+
+const char *volacanoScalarSelect[] = {
+  "_Z6selectccc", "_Z6selectcch", "_Z6selecthhc", "_Z6selecthhh",
+  "_Z6selectsss", "_Z6selectsst", "_Z6selecttts", "_Z6selectttt",
+  "_Z6selectiii", "_Z6selectiij", "_Z6selectjji", "_Z6selectjjj",
+  "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
+  "_Z6selectffi", "_Z6selectffj",
+  "_Z6selectddl", "_Z6selectddm",
+  NULL
+};
+
+bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
+  return false;
+}
+
+bool VolcanoOpenclRuntime::isWriteImage(const std::string &funcName) const{
+  return false;
+}
+
+bool VolcanoOpenclRuntime::isFakeWriteImage(const std::string &funcName) const{
+  return false;
+}
+
+VolcanoOpenclRuntime::VolcanoOpenclRuntime(const Module *runtimeModule):
+    OpenclRuntime(runtimeModule, volacanoScalarSelect)
+{
+
+}
+
+bool VolcanoOpenclRuntime::isTransposedReadImg(const std::string &func_name) const {
+  return false;
+}
+
+Function *VolcanoOpenclRuntime::getWriteStream() const {
+  return NULL;
+}
+
+bool VolcanoOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
+  return false;
+}
+
+Function *VolcanoOpenclRuntime::getReadStream() const {
+  return NULL;
+}
+
+bool VolcanoOpenclRuntime::isStreamFunc(const std::string &funcName) const {
+  return false;
+}
+
+}
+
 
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createOpenclRuntimeSupport(const Module *runtimeModule) {
+  void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
     V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
     intel::OpenclRuntime * rt =
-      new intel::OpenclRuntime(runtimeModule);
+      new intel::VolcanoOpenclRuntime(runtimeModule);
     intel::RuntimeServices::set(rt);
     return (void*)(rt);
   }

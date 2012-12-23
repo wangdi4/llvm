@@ -31,7 +31,7 @@ public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    VectorizerCore(const OptimizerConfig* pConfig=0, bool isApple = false);
+    VectorizerCore(const OptimizerConfig* pConfig=0);
     /// @brief D'tor
     ~VectorizerCore();
     /// @brief Provides name of pass
@@ -71,9 +71,6 @@ private:
 
     /// Configuration options
     const OptimizerConfig* m_pConfig;
-
-    /// True if we are in Apple environment.
-    bool m_isApple;
 
     /// Weight if the pre vectorized kernel.
     float m_preWeight;

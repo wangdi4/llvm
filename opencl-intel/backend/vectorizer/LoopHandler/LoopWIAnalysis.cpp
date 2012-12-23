@@ -122,9 +122,6 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     // be updated in the following lines of code.
     m_deps[PN] = LoopWIAnalysis::RANDOM;
     
-    // Currently support only scalar phi in the header block.
-    if (PN->getType()->isVectorTy()) continue;
-
     // The latch entry is and addition.
     Value *latchVal = PN->getIncomingValueForBlock(m_latch);
     Instruction *Inc = dyn_cast<Instruction>(latchVal);
@@ -147,9 +144,23 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     if (!stride) continue;
 
     // PN is incremented with invariant values so it is strided.
-    Constant *constStride = dyn_cast<Constant>(stride);
-    if (constStride) m_constStrides[PN] = constStride;
     m_deps[PN] = LoopWIAnalysis::STRIDED;
+    
+    // Try to update the constant stride
+    Constant *constStride = dyn_cast<Constant>(stride);
+    if (!constStride)
+      continue;
+    
+    // For vector values, this works only if the stride is a splat
+    ConstantDataVector* vectorStride = dyn_cast<ConstantDataVector>(constStride);
+    
+    if (vectorStride) {
+      constStride = vectorStride->getSplatValue();
+      if (!constStride)
+        continue;
+    }
+    
+    m_constStrides[PN] = constStride;
   }
 }
 
@@ -172,6 +183,7 @@ void LoopWIAnalysis::calculate_dep(Instruction* I) {
 }
 
 // Checks if the shuffle is broadcast (all masks are the same).
+// We do not count undef masks as different.
 bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
   assert(SVI && "null argument");
 
@@ -180,7 +192,9 @@ bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
   unsigned nElts = vTy->getNumElements();
   int ind = SVI->getMaskValue(0);
   for (unsigned i=1; i<nElts; ++i) {
-    if (SVI->getMaskValue(i) != ind) return false;
+    // For undef, getMaskValue() returns -1
+    int maskI = SVI->getMaskValue(i);
+    if ((maskI != ind) && (maskI != -1)) return false;
   }
 
   // Getting here all mask values are 0 so it is a broadcast!!
