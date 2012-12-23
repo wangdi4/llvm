@@ -16,9 +16,11 @@
 
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
+#include "TypeCast.h"
 #include <cctype>
 #include <sstream>
 #include  "llvm/Support/MutexGuard.h"
+#include  "llvm/Support/raw_ostream.h"
 #include  "llvm/ADT/ArrayRef.h"
 
 namespace reflection{
@@ -42,8 +44,14 @@ compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
   TypeIter lit = l.parameters.begin(), lend = l.parameters.end(),
   rit = r.parameters.begin();
   while(lit != lend){
-    if ((*lit)->getPrimitive() != (*rit)->getPrimitive())
+    primitives::Primitive pleft = (*lit)->getPrimitive(),
+      pright = (*rit)->getPrimitive();
+    if (pleft != pright)
       return false;
+    if (pleft == primitives::NONE){
+      if (!(*lit)->equals(*rit))
+        return false;
+    }
     ++lit;
     ++rit;
   }
