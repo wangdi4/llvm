@@ -347,41 +347,30 @@ protected:
 class Dim1ParallelForFunctor : public ParallelForFunctor
 {
 public:
-
     Dim1ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-
     void operator()()
     {
         tbb::parallel_for(tbb::blocked_range<size_t>(0, m_dim[0]), TaskLoopBody1D(m_devArenaHandler, m_task), tbb::auto_partitioner());
     }
-
 };
-
 class Dim2ParallelForFunctor : public ParallelForFunctor
 {
 public:
-
     Dim2ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-
     void operator()()
     {
         tbb::parallel_for(tbb::blocked_range2d<size_t>(0, m_dim[1],	0, m_dim[0]), TaskLoopBody2D(m_devArenaHandler, m_task), tbb::auto_partitioner());
     }
-
 };
-
 class Dim3ParallelForFunctor : public ParallelForFunctor
 {
 public:
-
     Dim3ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-
     void operator()()
     {
         tbb::parallel_for(tbb::blocked_range3d<size_t>(0, m_dim[2],	0, m_dim[1], 0, m_dim[0]), TaskLoopBody3D(m_devArenaHandler, m_task), tbb::auto_partitioner());
     }
 };
-
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
 	bool runNextCommand = true;
@@ -484,7 +473,6 @@ struct ExecuteContainerBody
 	}
 };
 
-
 void out_of_order_executor_task::operator()()
 {
     while (true)
@@ -548,11 +536,10 @@ TBBTaskExecutor::TBBTaskExecutor() :
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-    m_pExecutorList = NULL; // delete it before m_pGlobalArenaHandler is deleted, so it can safely remove itself from it
-    if (NULL != m_pGlobalArenaHandler)
-    {
-        delete m_pGlobalArenaHandler;
-    }
+    m_pExecutorList = NULL;
+    /* We don't delete m_pGlobalArenaHandler because of all kind of TBB issues in the shutdown sequence, but since this destructor is called when the whole library goes down and m_pGlobalArenaHandler
+       is a singleton, it doesn't really matter. */
+    // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 	LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
 	RELEASE_LOGGER_CLIENT;
 }
@@ -747,7 +734,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 
 void* TBBTaskExecutor::CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer)
 {
-    return new SubdevArenaHandler(uiNumSubdevComputeUnits, gWorker_threads, *this, pLegalCores, observer);
+        return new SubdevArenaHandler(uiNumSubdevComputeUnits, gWorker_threads, *this, pLegalCores, observer);
 }
 
 void TBBTaskExecutor::ReleaseSubdevice(void* pSubdevData)

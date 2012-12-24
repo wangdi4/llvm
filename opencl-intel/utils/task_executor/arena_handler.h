@@ -96,6 +96,16 @@ public:
      */
     SubdevArenaObserver(tbb::task_arena& arena, TBBTaskExecutor& taskExecutor, const unsigned int* pLegalCores, size_t szNumlegalCores, IAffinityChangeObserver& observer);
 
+    /**
+     * Destructor
+     */
+    ~SubdevArenaObserver()
+    {
+        /* We don't put this code in DevArenaObserver(), since the root device is destroyed when the library shuts down and then after all workers have terminated, calling this might cause a
+           deadlock. */
+        observe(false);
+    }
+
     // overriden methods
 
     virtual void on_scheduler_entry(bool bIsWorker);
@@ -191,6 +201,12 @@ public:
      */
     void RemoveCommandList(const base_command_list* pCmdList);
 
+    /**
+     * Whether this ArenaHandler is inside its destructor
+     */
+    bool isTerminating() const { return m_isTerminating; }
+
+
 protected:
 
     /**
@@ -218,17 +234,16 @@ private:
     std::vector<WGContextBase*> m_wgContexts; // Since each thread has its own slot in this vector, accessing it doesn't need synchronization.    
     TBBTaskExecutor& m_taskExecutor;
         
-    DevArenaObserver* m_pArenaObserver;
+    DevArenaObserver* m_pArenaObserver;    
     AtomicCounter m_numEnqueuedTasks;    
     const unsigned int m_uiNumSubdevComputeUnits;
     Intel::OpenCL::Utils::OclMutex m_mutex;
     std::set<SharedPtr<base_command_list> > m_cmdLists;
+    bool m_isTerminating;
 
     // do not implement:
     ArenaHandler(const ArenaHandler&);
-    ArenaHandler& operator=(const ArenaHandler&);
-
-    // auxiliary class for Enqueue
+    ArenaHandler& operator=(const ArenaHandler&);    
     template<typename F>
     class EnqueuedFunctorWrapper
     {
@@ -259,7 +274,6 @@ public:
 
     /**
      * Constructor
-     * @param uiNumSubdevComputeUnits   number of computing units in the sub-device
      * @param uiNumTotalComputeUnits	number of total computing units in the device
      * @param taskExecutor              a reference to the TBBTaskExecutor															
      */

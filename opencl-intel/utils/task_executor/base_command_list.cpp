@@ -25,6 +25,7 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+
 base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
     m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler)
 {
@@ -35,8 +36,11 @@ base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, 
 
 base_command_list::~base_command_list()
 {
-    Wait();
-    m_devArenaHandler.RemoveCommandList(this);
+    if (!m_devArenaHandler.isTerminating())
+    {
+        Wait();
+        m_devArenaHandler.RemoveCommandList(this);
+    }
 }
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)

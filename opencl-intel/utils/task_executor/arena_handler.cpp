@@ -171,15 +171,10 @@ void ArenaHandler::Init(DevArenaObserver* pArenaObserver)
 
 ArenaHandler::~ArenaHandler()
 {
+    m_isTerminating = true;
     /* This destructor is called in the finalization flow of task_executor, so it's not safe to call m_taskExecutor.GetWGContextPool(), which itself calls the device agent. This is why I don't
        take care for releasing the WG contexts in m_wgContexts. */
-    m_pArenaObserver->observe(false);
-    /* We want to prevent a deadlock in which after having called m_cmdLists.clear() the base_commad_lists get destroyed, call ArenaHandler::RemoveCommandList and try to lock m_mutex again. I don't use
-       OclAutoMutex in order for m_mutex.Unlock() is called before tmpSet is destroyed. */
-    m_mutex.Lock();
-    std::set<SharedPtr<base_command_list> > tmpSet(m_cmdLists.begin(), m_cmdLists.end());
     m_cmdLists.clear();
-    m_mutex.Unlock();
 }
 
 void ArenaHandler::AddCommandList(const SharedPtr<base_command_list>& pCmdList)
