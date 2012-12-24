@@ -62,6 +62,28 @@ OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [ v2u8,  v3u8,  v4u8,
 
 
 /*****************************************************************\
+ * add_sat:                                                      *
+ *   gentype add_sat (gentype x, gentype y)                      *
+ *   Returns x + y saturated                                     *
+\*****************************************************************/
+// add_sat on char16, short8
+OclBuiltinImpl add_sat_v16i8v8i16 = OclBuiltinImpl<add_sat, [v16i8, v8i16], 0, [{
+    return ($ReturnType)_mm_adds_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+  }]>;
+// add_sat on uchar16, ushort8
+OclBuiltinImpl add_sat_v16u8v8u16 = OclBuiltinImpl<add_sat, [v16u8, v8u16], 0, [{
+    return ($ReturnType)_mm_adds_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+  }]>;
+// add_sat promote
+OclBuiltinImpl add_sat_ssepromote = OclBuiltinImpl<add_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
+                                                              v2u8,  v3u8,  v4u8,  v8u8,
+                                                             v2i16, v3i16, v4i16,
+                                                             v2u16, v3u16, v4u16       ], 0, Promote2>;
+// add_sat expand
+OclBuiltinImpl add_sat_sseexpand  = OclBuiltinImpl<add_sat, [v16i16, v16u16], 0, Expand2>;
+
+
+/*****************************************************************\
  * hadd:                                                         *
  *   gentype hadd (gentype x, gentype y)                         *
  *   Returns (x + y) >> 1. The intermediate sum does             *
@@ -475,3 +497,25 @@ OclBuiltinImpl mul_hi_v4u32 = OclBuiltinImpl<mul_hi, [v4u32] , 0, [{
     $ReturnType res = ($ReturnType)_mm_blend_epi16 ((__m128i)reslo, (__m128i)reshi, 0b11001100);
     return res;
   }]>;
+
+
+/*****************************************************************\
+ * sub_sat:                                                      *
+ *   gentype sub_sat (gentype x, gentype y)                      *
+ *   Returns x - y saturated                                     *
+\*****************************************************************/
+// sub_sat on char16, short8
+OclBuiltinImpl sub_sat_v16i8v8i16 = OclBuiltinImpl<sub_sat, [v16i8, v8i16], 0, [{
+    return ($ReturnType)_mm_subs_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+  }]>;
+// sub_sat on uchar16, ushort8
+OclBuiltinImpl sub_sat_v16u8v8u16 = OclBuiltinImpl<sub_sat, [v16u8, v8u16], 0, [{
+    return ($ReturnType)_mm_subs_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+  }]>;
+// sub_sat promote
+OclBuiltinImpl sub_sat_ssepromote = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
+                                                              v2u8,  v3u8,  v4u8,  v8u8,
+                                                             v2i16, v3i16, v4i16,
+                                                             v2u16, v3u16, v4u16       ], 0, Promote2>;
+// sub_sat expand
+OclBuiltinImpl sub_sat_sseexpand  = OclBuiltinImpl<sub_sat, [v16i16, v16u16], 0, Expand2>;

@@ -487,7 +487,6 @@ list (APPEND OCL_SOURCE_FILES
   conversion_functions.cpp
   image_functions.cpp
   masked_load_store_functions.cpp
-  misc_functions.cpp
   relational_functions.cpp
   transpose_functions.cpp
   vload_vstore_functions.cpp

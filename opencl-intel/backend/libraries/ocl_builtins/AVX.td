@@ -14,5 +14,5 @@ class AVX : SSE42 {
   include "avx/math.td"
   include "avx/common.td"
   include "avx/integers.td"
-
+  include "avx/misc.td"
 }

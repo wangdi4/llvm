@@ -214,7 +214,7 @@ OclBuiltinImpl mad_sat_v1u32 = OclBuiltinImpl<mad_sat, [v1u32], 0, [{
 OclBuiltinImpl mad_sat_v1i64 = OclBuiltinImpl<mad_sat, [v1i64], 0, [{
     long multHi;
     ulong multLo;
-    multiply_signed_64_by_64($Arg0VarName, $Arg1VarName, &multLo, &multHi);
+    multiply_signed_64_by_64($Arg0VarName, $Arg1VarName, &multLo, (ulong*)&multHi);
     ulong sum = multLo + $Arg2VarName;
     // carry if overflow
     if( $Arg2VarName >= 0 )

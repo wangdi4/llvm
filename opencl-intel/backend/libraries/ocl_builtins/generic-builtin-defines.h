@@ -191,7 +191,8 @@ FORCEINLINE void multiply_signed_64_by_64( long sourceA, long sourceB, ulong * d
     (*destHi) = (long) hi;
 }
 
-
+// shuffle & shuffle2
+void* memcpy(void*, const void*, size_t);
 
 //atomic
 typedef int intrin_type;
