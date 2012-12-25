@@ -74,9 +74,16 @@ static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     CPU_MAX_WORK_GROUP_SIZE
     };
 
-static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES_NUMA[] = 
     {
         CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+        CL_DEVICE_PARTITION_BY_COUNTS,
+        CL_DEVICE_PARTITION_EQUALLY,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+    };
+
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+    {
         CL_DEVICE_PARTITION_BY_COUNTS,
         CL_DEVICE_PARTITION_EQUALLY,
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
@@ -1196,17 +1203,33 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         
 
         case CL_DEVICE_PARTITION_PROPERTIES:
-            *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                return CL_DEV_INVALID_VALUE;
+                const cl_device_partition_property* pSupportedProperties;
+                bool bNumaSupported = false;
+#ifndef _WIN32 //Numa support disabled for windows machines
+                    bNumaSupported = (0 < GetMaxNumaNode());
+#endif
+                if (bNumaSupported)
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_NUMA);
+                }
+                else
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
+                }
+                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                //if OUT paramVal is NULL it should be ignored
+                if(NULL != paramVal)
+                {
+                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
+                }
+                return CL_DEV_SUCCESS;
             }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                MEMCPY_S(paramVal, sizeof(CPU_SUPPORTED_FISSION_MODES), CPU_SUPPORTED_FISSION_MODES, sizeof(CPU_SUPPORTED_FISSION_MODES));
-            }
-            return CL_DEV_SUCCESS;
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
