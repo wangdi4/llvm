@@ -1,4 +1,6 @@
 # remove the restriction of warning as error for this component
+find_package(LLVM REQUIRED)
+
 if (NOT WIN32)
 remove_definitions( -Werror )
 endif (NOT WIN32)
@@ -49,7 +51,7 @@ if (NOT WIN32)
 	set_target_properties( ${TARGET} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
 endif (NOT WIN32)
 
-target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} task_executor gtest)
+target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} task_executor googletest)
 
 set( CREATE_DIR_NAME bin/validation/mic_device_test_type)
 
@@ -76,9 +78,9 @@ set (MIC_OPTIONS
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND clang ${MIC_OPTIONS}
+                    COMMAND ${LLVM_BINARY_DIR}/clang ${MIC_OPTIONS}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang
+                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h 
                     COMMENT "Generate optimized ${OUTPUT_FILE}"
                     VERBATIM
                    )
@@ -88,4 +90,4 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DI
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 
-add_dependencies( ${TARGET} clang clang_compiler )
+add_dependencies( ${TARGET} clang_compiler )

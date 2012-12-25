@@ -91,7 +91,7 @@ public:
 
 protected:
 
-    virtual void SetUp() 
+    virtual void SetUp()
     {
         ASSERT_FALSE(DataBufF16Elems % BufF16VectorWidth);
         ASSERT_FALSE(DataBufF32Elems % BufF32VectorWidth);
@@ -401,7 +401,7 @@ TEST_F(DataManagerDataTypes, DataTypesXMLReadWriteCheck) {
         XMLBufferContainerListReader loader(INPUT_FILE_NAME);
         BufferContainerList inp;
         loader.Read(&inp);
-        
+
         CheckValues(inp);
     }
 }
@@ -420,7 +420,7 @@ TEST_F(DataManagerDataTypes, DataTypesBinaryReadWriteCheck) {
         BinaryContainerListReader loader(INPUT_FILE_NAME);
         BufferContainerList inp;
         loader.Read(&inp);
-        
+
         CheckValues(inp);
     }
 }
@@ -489,7 +489,7 @@ public:
 
 protected:
 
-    virtual void SetUp() 
+    virtual void SetUp()
     {
         ASSERT_FALSE(DataBufF32Elems % BufF32VectorWidth);
 
@@ -587,7 +587,7 @@ public:
     static int32_t  DataBufF32Size;
 protected:
 
-    virtual void SetUp() 
+    virtual void SetUp()
     {
         NumOfBuffers = 10;
         BufF32VectorWidth = 2;
@@ -676,7 +676,7 @@ TEST_F(DataManagerContainer, BufferContainerBinaryReadWriteCheck) {
 class DataManagerBuffer : public ::testing::Test
 {
 protected:
-    virtual void SetUp() 
+    virtual void SetUp()
     {
         const int32_t NumOfElements = 100;
 
@@ -687,7 +687,7 @@ protected:
         {
              DataBufI32[cntEl] = rand();
         }
-        
+
         DataBufI32Elems = NumOfElements;
         BufI32VectorWidth = 2;
         BufI32VectorsNum = DataBufI32Elems  / BufI32VectorWidth;
@@ -759,8 +759,8 @@ TEST_F(DataManagerBuffer, BufferBinaryReadWriteCheck) {
 class DataManagerVector : public ::testing::Test
 {
 protected:
-    virtual void SetUp() 
-    { 
+    virtual void SetUp()
+    {
         const float DataBufF32[32] =
         {
             std::numeric_limits<float>::quiet_NaN(),        +0.24f,
@@ -1066,7 +1066,7 @@ TEST(DataManager, BufferContainers)
 }
 
 // test of VectorWidthWrapper class
-TEST(DataManager, VectorWidthWrapperTest) 
+TEST(DataManager, VectorWidthWrapperTest)
 {
 	VectorWidth vw;
 	// iterate over possible vector widths
@@ -1105,8 +1105,8 @@ TEST(DataManager, DataTypeValWrapperTest)
 class DataManagerNEAT : public ::testing::Test
 {
 protected:
-    virtual void SetUp() 
-    { 
+    virtual void SetUp()
+    {
         const int ArraySize = 2;
 
         /// Create NEAT data for the first BufferContainer
@@ -1130,12 +1130,12 @@ protected:
                 bAcc1.SetElem(i,j,vd1);
             }
         }
-        
+
         {
             BufferDesc descSV(4, V2, F64, true);
             IMemoryObject* bufSV = c1->CreateBuffer(descSV);
             BufferAccessor<NEATValue> ba(*bufSV);
-            
+
             ba.GetElem(0,0).SetStatus(NEATValue::ANY);
             ba.GetElem(0,1).SetStatus(NEATValue::ANY);
             ba.GetElem(1,0).SetStatus(NEATValue::UNKNOWN);
@@ -1223,3 +1223,52 @@ TEST_F(DataManagerNEAT, NEATBinaryReadWriteTest)
 
     CheckValues(inp);
 }
+
+uint64_t seedForValidation;
+
+int main(int argc, char **argv) {
+  testing::InitGoogleTest(&argc, argv);
+
+  seedForValidation = 0;
+
+  for( int count = 0; count < argc; count++ )
+  {
+      std::string strIn(argv[count]);
+      std::string key("--validationSeed=");
+      size_t found;
+
+      found = strIn.rfind(key);
+      if (found != std::string::npos) {
+          found += key.size();
+          if(strIn.size() > key.size() && found < strIn.size())
+          {
+              const size_t maxNumOfDigitsIn64bitString = 30;
+              std::string seedToParse = strIn.substr(found, maxNumOfDigitsIn64bitString);
+              std::stringstream ssIn(seedToParse);
+              ssIn>>seedForValidation;
+
+              //convert extracted integer back to string and compare
+              //parsed string and converted string
+              std::stringstream ssOut;
+              ssOut<<seedForValidation;
+              std::string extractedSeed;
+              ssOut>>extractedSeed;
+              EXPECT_TRUE(extractedSeed==seedToParse);
+          }
+      }
+  }
+
+  int rc = RUN_ALL_TESTS();
+  if (rc == 0)
+  {
+      printf("\n==============\nTEST SUCCEDDED\n==============\n");
+  }
+  else
+  {
+      printf("\n==============\nTEST FAILED\n==============\n");
+  }
+  return rc;
+}
+
+
+

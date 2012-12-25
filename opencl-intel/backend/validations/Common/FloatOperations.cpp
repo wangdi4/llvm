@@ -16,7 +16,7 @@ File Name:  FloatOperations.cpp
 
 \*****************************************************************************/
 #include "FloatOperations.h"
-#include "Conformance/reference_math.h"
+#include "reference_math.h"
 #include "imathLibd.h"
 
 namespace Validation
@@ -305,10 +305,10 @@ namespace Validation
         }
         double ulpsDiffSamePrecision(double reference, double testVal)
         {
-            union{ double d; uint64_t u; }u;     
+            union{ double d; uint64_t u; }u;
             u.d = reference;
 
-            // Note: This function presumes that someone has 
+            // Note: This function presumes that someone has
             // already tested whether the result is correctly
             // rounded before calling this function.  That test:
             //
@@ -385,7 +385,7 @@ namespace Validation
                 abort();
             }
 
-            // Note: This function presumes that someone has already 
+            // Note: This function presumes that someone has already
             // tested whether the result is correctly
             // rounded before calling this function.  That test:
             //

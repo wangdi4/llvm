@@ -85,7 +85,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 
-add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd cl_sys_utils)
+add_dependencies( ${TARGET_NAME} OclCpuBackEnd cl_sys_utils)
 
 install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin

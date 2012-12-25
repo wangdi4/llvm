@@ -44,34 +44,5 @@ set( OCL_INSTALL_DIR ${TEMP} )
 # Copy *.xml cfg files which defines the options of the test to appropriate test directory in 'Release' area.
 COPY_FILES_POST_BUILD_EX( ${TARGET} ${CMAKE_CURRENT_SOURCE_DIR} ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/gpa_test )
 
-#set( INCLUDE_HEADERS_PATH ${OCL_INSTALL_DIR}/fe_include )
-
-#set( INPUT_FILE test.cl )
-#set( OUTPUT_FILE test.bc )
-
-#add_custom_command( TARGET ${TARGET}
-#					POST_BUILD
-#					COMMAND ${CMAKE_COMMAND} -E  make_directory ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}					
-#                    COMMAND clang -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-#                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm -c -include opencl_.h -O3 -o ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/${OUTPUT_FILE}
-#                    MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-#                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang 
-#                   COMMENT "Generate optimized ${OUTPUT_FILE}"
-#                    VERBATIM
-#                   )
-
 set_source_files_properties(${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/${OUTPUT_FILE} PROPERTIES GENERATED TRUE)
-
-
-#add_custom_target( framework_test_type_kernel ALL
-#                    DEPENDS ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/${OUTPUT_FILE} ${TARGET_NAME}
-#                    COMMENT "framework_test_type_kernel: Generate optimized ${OUTPUT_FILE}"
-#                    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-#                    VERBATIM)
-
-
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
-#set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
-
-#add_dependencies( ${TARGET} clang clang_compiler )
-#add_dependencies( framework_test_type_kernel clang_compiler clang)

@@ -304,6 +304,10 @@ include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api/gen
 )
 
+link_directories( 
+            ${LLVM_LIBRARY_DIR}
+            )
+
 # Add additional lib directories
 if( LLVM_USE_INTEL_JITEVENTS )
     link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
@@ -333,8 +337,6 @@ endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 
 set (LLVM_LIBS
     # LLVM libs
-    LLVMVectorizer
-    LLVMBarrier
     LLVMLinker
     LLVMX86AsmParser
     LLVMX86AsmPrinter
@@ -403,6 +405,8 @@ endif ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
 set( JITPROFLIB jitprofiling)
 
 set( BACKEND_PASSES
+    LLVMVectorizer
+    LLVMBarrier
     AddImplicitArgs
     BuiltInFuncImport
     DebugInfoPass
@@ -428,6 +432,7 @@ target_link_libraries (${TARGET_NAME}
     OclPluginManager
     OclOptimizer
     OclUtils
+    LLVMMICModuleJIT
 
     # internal passes
     ${BACKEND_PASSES}
@@ -438,10 +443,10 @@ target_link_libraries (${TARGET_NAME}
     metadataapi
     
     # Internal libs
-    ${JITPROFLIB}
+#    ${JITPROFLIB}
 
     # LLVM LIBS
-    ${LLVM_LIBS}
+    ${LLVM_MODULE_LIBS}
 
     )
 
@@ -458,10 +463,10 @@ add_dependencies(${TARGET_NAME}
     dynamic_load
     
     # Internal libs
-    ${JITPROFLIB}
+#    ${JITPROFLIB}
 
     # LLVM LIBS
-    ${LLVM_LIBS}
+    ${LLVM_MODULE_LIBS}
 )
 
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
@@ -476,25 +481,27 @@ if (ENABLE_SDE)
 endif (ENABLE_SDE)
 
 if (WIN32)
+    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
+    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${PDB_NAME}"
+                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
                              )
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.
         set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
+                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
                                 )
     endif (${MSVC_VERSION} EQUAL 1500)
     if (INSTALL_PDBS)
-        install(FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+        install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
-    install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+    install(FILES ${OCL_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

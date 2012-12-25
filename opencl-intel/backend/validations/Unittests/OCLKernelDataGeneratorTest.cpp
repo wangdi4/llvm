@@ -30,6 +30,7 @@ File Name: OCLKernelDataGeneratorTest.cpp
 #include "llvm/Assembly/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 #include "OpenCLKernelArgumentsParser.h"
 #include <string>
 #include "Buffer.h"
@@ -306,7 +307,7 @@ namespace{
         IMemoryObject* buff = bc->GetMemoryObject(0);
         BufferAccessor<float> acc(*buff);
         float *t_float=&(acc.GetElem(0,0));
-        for(int i =0; i<4; ++i) 
+        for(int i =0; i<4; ++i)
             EXPECT_EQ(5.0f, *(t_float++));
 
         BufferDesc buffDsc = GetBufferDescription(buff->GetMemoryObjectDesc());
@@ -321,7 +322,7 @@ namespace{
         buff = bc->GetMemoryObject(1);
         BufferAccessor<uint64_t> acc1(*buff);
         t_int64=&(acc1.GetElem(0,0));
-        for(int i =0; i<16; ++i) 
+        for(int i =0; i<16; ++i)
             EXPECT_EQ(uint64_t(123456), *(t_int64++));
 
         buffDsc = GetBufferDescription(buff->GetMemoryObjectDesc());

@@ -15,7 +15,7 @@
 
 \****************************************************************************/
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 #include "NameMangleAPI.h"
 #include "antlr/ANTLRException.hpp"
 #include "Type.h"
@@ -252,7 +252,7 @@ TEST(DemangleTest, duplicateParam0){
 //
 TEST(DemangleTest, imageAmbiguity){
   const char* name = "_Z11mask_vstoretDv16_imPU3AS1i";
-  ::testing::AssertionSuccess() << "demangling " << name << std::endl;
+  ::testing::AssertionSuccess() << "demangling " << name; // << std::endl;
   FunctionDescriptor fd = demangle(name);
   ASSERT_EQ("mask_vstore", fd.name);
   ASSERT_EQ(4U, fd.parameters.size());
@@ -424,7 +424,7 @@ TEST(MangleAPI, visitorExample){
     std::cout << printVisitor.ordinalStr();
     (*bi)->accept(&printVisitor);
     ++bi;
-  } 
+  }
 }
 
 TEST(Type, TypeCast){
@@ -462,3 +462,18 @@ TEST(MemoryLeaks, StructTy){
 
 }//end namespace test
 }//end namespace namemangling
+
+int main(int argc, char** argv)
+{
+   ::testing::InitGoogleTest(&argc, argv);
+   int rc = RUN_ALL_TESTS();
+   if (rc == 0) {
+      printf("\n==============\nTEST SUCCEDDED\n==============\n");
+      return true;
+   }
+   else {
+      printf("\n==============\nTEST FAILED\n==============\n");
+      return false;
+   }
+   return true;
+}

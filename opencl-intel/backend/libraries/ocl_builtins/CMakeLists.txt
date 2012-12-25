@@ -74,7 +74,7 @@ message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
-set (BUILTINS_INSTALL_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+set (BUILTINS_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
@@ -118,26 +118,27 @@ message ("SVML binary dir: ${SVML_DLL_DIR}")
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG) 
-  set (CLANG clang)
+  set (CLANG "${LLVM_BINARY_DIR}/clang")
 else()
   set (CLANG OCL_HOST_CLANG)
 endif()
 if (NOT DEFINED OCL_HOST_OPT) 
-  set (LLVM_OPT opt)
+  set (LLVM_OPT "${LLVM_BINARY_DIR}/opt")
 else ()
   set (LLVM_OPT OCL_HOST_OPT)
 endif()
 if (NOT DEFINED OCL_HOST_LLVM_LINK) 
-  set (LLVM_LINK llvm-link)
+  set (LLVM_LINK "${LLVM_BINARY_DIR}/llvm-link")
 else()
   set (LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
 if (NOT DEFINED OCL_HOST_LLC) 
-  set (LLC llc)
+  set (LLC "${LLVM_BINARY_DIR}/llc")
 else()
   set (LLC OCL_HOST_LLC)
 endif()
 
+set (OCL_TBLGEN_EXE  "${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ocl-tblgen.exe")
 
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
 if (WIN32)	
@@ -368,8 +369,8 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ${cl_builtins_TABLEGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
-        DEPENDS ${cl_builtins_TABLEGEN_EXE} ${depend_tds}
+        COMMAND ${OCL_TBLGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
+        DEPENDS ocl-tblgen ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
@@ -464,19 +465,19 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
 
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-  if (WIN32)
-    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
-    if( PREBUILD_IMAGE_LIBRARY)
-      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
-    endif( PREBUILD_IMAGE_LIBRARY)
-    install( FILES ${INSTALL_LIST} DESTINATION bin)
-  else(WIN32)
-    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
-    if( PREBUILD_IMAGE_LIBRARY)
-      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
-    endif( PREBUILD_IMAGE_LIBRARY)
-    install( FILES ${INSTALL_LIST} DESTINATION bin)
-  endif(WIN32)
+  #if (WIN32)
+  #  set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
+  #  if( PREBUILD_IMAGE_LIBRARY)
+  #    set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+  #  endif( PREBUILD_IMAGE_LIBRARY)
+  #  install( FILES ${INSTALL_LIST} DESTINATION bin)
+  #else(WIN32)
+  #  set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
+  #  if( PREBUILD_IMAGE_LIBRARY)
+  #    set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+  #  endif( PREBUILD_IMAGE_LIBRARY)
+  #  install( FILES ${INSTALL_LIST} DESTINATION bin)
+  #endif(WIN32)
 
 endfunction( create_target)
 

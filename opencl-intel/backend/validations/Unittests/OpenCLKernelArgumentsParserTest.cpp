@@ -21,6 +21,7 @@ File Name:  OpenCLKernelArgumentsParserTest.cpp
 #include "llvm/Assembly/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "OpenCLKernelArgumentsParser.h"
 #include <gtest/gtest.h>
@@ -111,7 +112,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, IntVectorPointerArguments)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfIntVectorPointerArguments";
         createModule(Context, M, kernelName, "<4 x i32>* %a, i64 %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -139,7 +140,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, IntArguments)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfIntArguments";
         createModule(Context, M, kernelName, "i30 %a");
         IOpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -226,7 +227,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, VectorInStruct)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfVectorInStruct";
         createModule(Context, M, kernelName, "{<100 x i64>} %a");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -249,7 +250,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, ArrayInStruct)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfArrayInStruct";
         createModule(Context, M, kernelName, "{[5 x i16]} %a, {[10 x <1 x i64>]} %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -365,7 +366,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, TestOfVector)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfVector";
         createModule(Context, M, kernelName, "<16 x float> %a, <13 x i64> %b, <1 x double> %c");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -403,7 +404,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, TestOfPointer)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "testOfPointer";
         createModule(Context, M, kernelName, "<10000 x i64>* %a, i16* %b, float* %c, double* %d, {i64}* %e");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();
@@ -457,7 +458,7 @@ namespace {
     TEST(OpenCLKernelArgumentsParser, TestForPointerAndStruct)
     {
         LLVMContext Context;
-        Module *M = 0; 
+        Module *M = 0;
         std::string kernelName = "TestForPointerAndStruct";
         createModule(Context, M, kernelName, "{{{{{{float*}*}*}*}*}*} %a, {{{{{{i32}*}*}*}*}*}* %b");
         OpenCLKernelArgumentsParser *parser = new OpenCLKernelArgumentsParser();

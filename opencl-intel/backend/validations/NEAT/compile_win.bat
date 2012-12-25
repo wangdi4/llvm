@@ -15,11 +15,11 @@ if "%1" == "Debug" goto debug
 
 :release
 if not "%1" == "Release" goto fail
-"@ICC_CPU_CL_NATIVE@"  /nologo /c /I ../../../cl_api /I ../../llvm/include /I ../REFALU /I ../ImathLibd /I ../NEAT /I ../Common /DWIN32 /D_WINDOWS /DWINDOWS_ENABLE_CPLUSPLUS /EHsc /GS /GR- /TP /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ /Fo%3 %2
+"@ICC_CPU_CL_NATIVE@"  /nologo /c @IDIRS@ /DWIN32 /D_WINDOWS /DWINDOWS_ENABLE_CPLUSPLUS /EHsc /GS /GR- /TP /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ /Fo%3 %2
 goto fin
 
 :debug
-"@ICC_CPU_CL_NATIVE@"  /nologo /c /I ../../../cl_api /I ../../llvm/include /I ../REFALU /I ../ImathLibd /I ../NEAT /I ../Common /DWIN32 /D_WINDOWS /DWINDOWS_ENABLE_CPLUSPLUS /EHsc /GS /GR- /TP /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ /Fo%3 %2
+"@ICC_CPU_CL_NATIVE@"  /nologo /c @IDIRS@ /DWIN32 /D_WINDOWS /DWINDOWS_ENABLE_CPLUSPLUS /EHsc /GS /GR- /TP /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ /Fo%3 %2
 
 :fin
 exit /b 0

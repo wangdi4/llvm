@@ -7,17 +7,16 @@ cmake_policy(SET CMP0011 OLD)
 
 include( cmake_utils/CMakeFuncs.txt )
 
-
 # the FindSubversion.cmake module is part of the standard distribution
 include(FindSubversion)
 
 string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
 elseif (APPLE)
     #include( cmake_utils/CMake_apple_tools.cmake )
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 else ()
     include( cmake_utils/CMake_linux_tools.cmake )
 endif ()
@@ -119,6 +118,17 @@ endif (WIN32)
 
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})
+
+# Define the single binary directory where the Backend tools will be placed
+set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OCL_TOOLS_BINARY_DIR} )
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib )
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib )
+
+
+
+
 
 # END OF set OS-dependent source tree elements
 

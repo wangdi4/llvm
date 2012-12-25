@@ -1,4 +1,6 @@
 # remove the restriction of warning as error for this component
+find_package(LLVM REQUIRED)
+
 if (NOT WIN32)
 remove_definitions( -Werror )
 endif (NOT WIN32)
@@ -77,9 +79,9 @@ set (MIC_OPTIONS
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
-  COMMAND clang ${MIC_OPTIONS}
+  COMMAND ${LLVM_BINARY_DIR}/clang ${MIC_OPTIONS}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang 
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h  
   COMMENT "Generate optimized ${MIC_OUTPUT_FILE}"
   VERBATIM
 )
@@ -88,10 +90,10 @@ endif ( INCLUDE_MIC_DEVICE )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    COMMAND ${LLVM_BINARY_DIR}/clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang 
+                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h
                     COMMENT "Generate optimized ${OUTPUT_FILE}"
                     VERBATIM
                    )
@@ -117,8 +119,7 @@ endif ( INCLUDE_MIC_DEVICE )
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 #set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
-add_dependencies( ${TARGET} clang clang_compiler${BUILD_PLATFORM} )
-#add_dependencies( framework_test_type_kernel clang_compiler clang)
+add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
 
 #copy external files that tests use
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} externals/*.cl )

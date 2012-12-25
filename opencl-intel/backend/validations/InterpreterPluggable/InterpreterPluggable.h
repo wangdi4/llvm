@@ -20,16 +20,16 @@ File Name:  InterpreterPluggable.h
 #ifndef LLI_INTERPRETER_PLUGGABLE_H
 #define LLI_INTERPRETER_PLUGGABLE_H
 
-#include <../lib/ExecutionEngine/Interpreter/Interpreter.h>
+#include "Interpreter.h"
 #include "InterpreterPlugIn.h"
 #include <list>
 namespace llvm {
 
 
-class InterpreterPluggable : public Interpreter 
+class InterpreterPluggable : public Interpreter
 {
     std::list<InterpreterPlugIn*> m_pPlugins;
-    typedef std::list<InterpreterPlugIn*>::iterator PlugInIterator; 
+    typedef std::list<InterpreterPlugIn*>::iterator PlugInIterator;
     // flag if interpreter is still running
     bool m_stillRunning;
 
@@ -60,7 +60,7 @@ public:
 
     /// run with plugins call
     /// @return OK if function ended, BARRIER if barrier was found
-    InterpreterPluggable::RETCODE runWithPlugins(); 
+    InterpreterPluggable::RETCODE runWithPlugins();
 
     /// add plugin to interpreter
     void addPlugIn(InterpreterPlugIn& ref)

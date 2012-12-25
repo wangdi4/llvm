@@ -1,4 +1,6 @@
 # remove the restriction of warning as error for this component
+find_package(LLVM REQUIRED)
+
 if (NOT WIN32)
 remove_definitions( -Werror )
 endif (NOT WIN32)
@@ -73,10 +75,10 @@ set( OUTPUT_FILE test.bc )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    COMMAND ${LLVM_BINARY_DIR}/clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang
+                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h
                     COMMENT "Generate optimized ${OUTPUT_FILE}"
                     VERBATIM
                    )
@@ -84,14 +86,6 @@ add_custom_command( TARGET ${TARGET}
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} PROPERTIES GENERATED TRUE)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 
-#add_custom_target( cpu_device_test_type_kernel ALL
-#                    DEPENDS ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/${OUTPUT_FILE} ${TARGET_NAME} clang
-#                    COMMENT "cpu_device_test_type_kernel:  Generate optimized ${OUTPUT_FILE}"
-#                    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-#                    VERBATIM)
-
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
-#set_target_properties( cpu_device_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
-add_dependencies( ${TARGET} clang clang_compiler${BUILD_PLATFORM} )
-#add_dependencies( cpu_device_test_type_kernel clang_compiler )
+add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )

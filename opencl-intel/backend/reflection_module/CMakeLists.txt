@@ -9,15 +9,7 @@ remove_definitions("-pedantic")
 
 add_subdirectory(unittest)
 
-if(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe"
-)
-else(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen"
-)
-endif(WIN32)
+set (OCL_TBLGEN_EXE  "${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ocl-tblgen.exe")
 
 add_custom_command(
   OUTPUT BuiltinList.h

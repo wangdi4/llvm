@@ -64,12 +64,16 @@ else ()
   set (ICC_PLATFORM intel64)
 endif ()
 
+link_directories(
+    ${LLVM_LIBRARY_DIR}
+)
+
 if (WIN32)
-get_target_property( lib_dir NEAT_wrapper lib_dir )
-link_directories( ${lib_dir} )
+    get_target_property( lib_dir NEAT_wrapper lib_dir )
+    link_directories( ${lib_dir} )
 endif (WIN32)
-set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
-set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
+    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
+    set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
 link_directories( ${intel_lib_dir} )
 
 include_directories(
@@ -157,26 +161,26 @@ set (SATest_SOURCE_FILES
     )
 
 if (INCLUDE_MIC_DEVICE)
-set (SATest_INCLUDE_FILES
-    ${SATest_INCLUDE_FILES}
-    OpenCLMICBackendRunner.h
-    OpenCLMICArgsBuffer.h
-    COIHelpers.h
-    )
-set (SATest_SOURCE_FILES
-    ${SATest_SOURCE_FILES}
-    OpenCLMICBackendRunner.cpp
-    OpenCLMICArgsBuffer.cpp
-    COIHelpers.cpp
-    )
-add_definitions( -DINCLUDE_MIC_DEVICE )
-set( SATEST_NATIVE_NAME     SATestNative.bin)
-list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
-list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
-include_directories(${COI_DIR}/include)
-link_directories(${COI_DIR}/host-linux-release/lib)
-set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
-set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
+    set (SATest_INCLUDE_FILES
+        ${SATest_INCLUDE_FILES}
+        OpenCLMICBackendRunner.h
+        OpenCLMICArgsBuffer.h
+        COIHelpers.h
+        )
+    set (SATest_SOURCE_FILES
+        ${SATest_SOURCE_FILES}
+        OpenCLMICBackendRunner.cpp
+        OpenCLMICArgsBuffer.cpp
+        COIHelpers.cpp
+        )
+    add_definitions( -DINCLUDE_MIC_DEVICE )
+    set( SATEST_NATIVE_NAME     SATestNative.bin)
+    list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
+    list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
+    include_directories(${COI_DIR}/include)
+    link_directories(${COI_DIR}/host-linux-release/lib)
+    set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
+    set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
 endif (INCLUDE_MIC_DEVICE)
 
 add_executable(SATest
@@ -185,82 +189,58 @@ add_executable(SATest
 )
 
 target_link_libraries(SATest OCLBuilder)
+
 if (INCLUDE_MIC_DEVICE)
-set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
-target_link_libraries(SATest coi_host dynamic_load)
+    set_target_properties(SATest PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
+    target_link_libraries(SATest coi_host dynamic_load)
 
-get_target_property( CURR_RPATH SATest INSTALL_RPATH )
-set_target_properties( SATest PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
-
+    get_target_property( CURR_RPATH SATest INSTALL_RPATH )
+    set_target_properties( SATest PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
 endif (INCLUDE_MIC_DEVICE)
-
-set (LLVM_LIBS
-    # LLVM libs
-    LLVMBitReader
-
-    LLVMVectorizer
-    LLVMipo
-
-    LLVMLinker
-    LLVMArchive
-
-    LLVMCodeGen
-    LLVMScalarOpts
-    LLVMTransformUtils
-    LLVMipa
-    LLVMAnalysis
-    LLVMBitWriter
-
-    LLVMExecutionEngine
-    LLVMTarget
-    LLVMCore
-    LLVMSupport
-    OclUtils
-    LLVMAsmParser
-    )
 
 set (SATest_DEPS
     DataManager
     OpenCLKernelArgumentsParser
     OCLKernelDataGenerator
     Comparator
-    OCLInterpreter
     LLVMInterpreterPluggable
-    ${LLVM_LIBS}
+    OclUtils
+    OCLInterpreter
+    ${LLVM_MODULE_LIBS}
     dynamic_load
     )
 
 if (WIN32)
-target_link_libraries(SATest
-    ${SATest_DEPS}
-    NEAT
-    PlugInNEAT
-    ImathLibd
-    )
+    target_link_libraries(SATest
+        ${SATest_DEPS}
+        NEAT
+        PlugInNEAT
+        ImathLibd
+        )
 
-add_dependencies(SATest
-    ${SATest_DEPS}
-    OclCpuBackEnd${BUILD_PLATFORM}
-    NEAT_wrapper
-    PlugInNEAT
-    ImathLibd_wrapper
-    )
+    add_dependencies(SATest
+        ${SATest_DEPS}
+        OclCpuBackEnd${BUILD_PLATFORM}
+        NEAT_wrapper
+        PlugInNEAT
+        ImathLibd_wrapper
+        )
 else ()
 
-target_link_libraries(SATest
-    ${SATest_DEPS}
-    NEAT
-    PlugInNEAT
-    ${LLVM_BINARY_DIR}/lib/libImathLibd.so
-    )
+    target_link_libraries(SATest
+        ${SATest_DEPS}
+        NEAT
+        PlugInNEAT
+        ${LLVM_BINARY_DIR}/lib/libImathLibd.so
+        )
 
-add_dependencies(SATest
-    ${SATest_DEPS}
-    OclCpuBackEnd${BUILD_PLATFORM}
-    NEAT
-    PlugInNEAT
-    ImathLibd_wrapper
-    )
+    add_dependencies(SATest
+        ${SATest_DEPS}
+        OclCpuBackEnd${BUILD_PLATFORM}
+        NEAT
+        PlugInNEAT
+        ImathLibd_wrapper
+        )
 endif ()
 
 if (INCLUDE_MIC_DEVICE)
