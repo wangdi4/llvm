@@ -323,6 +323,14 @@ TEST(DemangleTest, addressSpaceAndUserDefTy){
   ASSERT_EQ(std::string("mta"), p->getPointee()->toString());
 }
 
+TEST(DemangleTest, appleImageMangle){
+  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
+  FunctionDescriptor fd = demangle(strImagefunction);
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_TRUE(reflection::cast<Pointer>(fd.parameters[0]));
+  std::string strMangled = mangle(fd);
+  ASSERT_STREQ(strMangled.c_str(), strImagefunction);
+}
 //
 //Manlge
 //

@@ -81,6 +81,7 @@ primitive returns [reflection::Type* pType = NULL;]
   | f:FLOAT   {pType = createType(f); }
   | d:DOUBLE  {pType = createType(d); }
   | v:VOID    {pType = createType(v); }
+  | sampler:SAMPLER_T {pType = createType(sampler);}
 ;
 
 vector_type returns [reflection::Vector* pVector = NULL;]
@@ -212,6 +213,7 @@ HALF:    "Dh";
 FLOAT:   "f";
 DOUBLE:  "d";
 VOID:    "v";
+SAMPLER_T: "uSampler";
 POINTER_PREFIX: "P";
 VECTOR_PREFIX:  "Dv";
 UNDERSCORE:     "_";

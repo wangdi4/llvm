@@ -99,7 +99,7 @@ private:
     return ( prefix == m_name.substr(0, prefix.size()) );
   }
 
-  const std::string& m_name;
+  const std::string m_name;
 };
 
 struct dotProdInlineData {
