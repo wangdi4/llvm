@@ -22,6 +22,7 @@ add_custom_command(
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParser.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParserTokenTypes.hpp
   COMMAND ${ANTLR_COMMAND}
   -o ${CMAKE_CURRENT_SOURCE_DIR}/gen ${CMAKE_CURRENT_SOURCE_DIR}/demangler.g
   DEPENDS demangler.g
