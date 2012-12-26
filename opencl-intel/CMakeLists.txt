@@ -66,7 +66,7 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER
 file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${BUILDVER_WC_REVISION}")
 
 #copy the version file to install folder
-install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ../)
+install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
