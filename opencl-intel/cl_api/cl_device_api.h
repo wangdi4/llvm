@@ -601,11 +601,11 @@ class IOCLDevice;
    Description
         Initialize internal state of the device driver, returns a set of device driver entry points.
    Input
-        dev_id          Device identifier as it appears in framework. This value is used in cl_dev_mem object identification.
-        pDevCallBacks   A pointer to an interface for callback functions provided to the device by the framework
-        pLogDesc        A pointer to an interface for logger functions provided to the device by the framework
+        dev_id				Device identifier as it appears in framework. This value is used in cl_dev_mem object identification.
+        pDevCallBacks		A pointer to an interface for callback functions provided to the device by the framework
+        pLogDesc			A pointer to an interface for logger functions provided to the device by the framework
    Output
-        pDevice         A pointer to an interface to the device
+        pDevice				A pointer to an interface to the device
    Returns
         CL_DEV_SUCCESS      The device was successfully created. pDevEntry holds updated pointers
         CL_DEV_ERROR_FAIL   Internal error
@@ -619,6 +619,7 @@ typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
 /*!
+	\param[in]	dev_id					The device ID in specific device type.
     \param[in]  param                   An enumeration that identifies the device information being queried. It can be one of
                                         the following values as specified in OCL spec. table 4.3
     \param[in]  valSize                 Specifies the size in bytes of memory pointed to by paramValue. This size in
@@ -632,10 +633,28 @@ typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                         paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value.
 */
 typedef cl_dev_err_code (fn_clDevGetDeviceInfo)(
+						unsigned int	IN	dev_id,
                         cl_device_info  IN  param,
                         size_t          IN  valSize,
                         void*           OUT paramVal,
                         size_t*         OUT paramValSizeRet
+                        );
+
+//! This function return IDs list for all devices supported by a device agent.
+/*!
+    \param[in]  deviceListSize          Specifies the number of IDs (unsigned int) that can be stored in deviceIdsList.
+	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
+    \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+	                                    If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
+										If deviceIdsListSizeRet is NULL, it is ignored.
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
+                        size_t    IN  deviceListSize,
+                        unsigned int*   OUT deviceIdsList,
+                        size_t*   OUT deviceIdsListSizeRet
                         );
 
 /*!

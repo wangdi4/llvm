@@ -57,6 +57,8 @@ using namespace Intel::OpenCL::Utils;
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
+#define    OFFLOAD_DEVICES									"OFFLOAD_DEVICES"							// string
+
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
     class MICDeviceConfig
@@ -93,6 +95,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
 		// Device safe mode setup
 		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, true); }
+
+		string		   Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
     private:
 
@@ -134,6 +138,10 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, Device_WorkerPerQueue, "Limit number of worker therads per in-order queue, 0 = no limit");
             
             std::cout << std::endl;
+
+			MICDeviceConfigPrintKey( OFFLOAD_DEVICES, Device_offloadDevices, "Restricts the process to use only the MIC cards specified as the value of the variable");
+
+			std::cout << std::endl;
             
             std::cout << "--------------------------------------------------------" << std::endl << std::endl;
         }

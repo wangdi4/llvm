@@ -148,7 +148,6 @@ public:
     // singleton
     static MemoryAllocator* getMemoryAllocator( cl_int devId,
                                                 IOCLDevLogDescriptor *pLogDesc,
-                                                MICDeviceConfig *config,
                                                 unsigned long long maxBufferAllocSize );
 
     // delete singleton if required
@@ -185,14 +184,13 @@ private:
     IOCLDevLogDescriptor*    m_pLogDescriptor;
     cl_int                   m_iLogHandle;
 
-	MICDeviceConfig* 		 m_config;
     size_t                   m_maxAllocSize;
 
     size_t                   m_2M_BufferMinSize;
     bool                     m_force_immediate_transfer;
 
     // singleton
-    MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, MICDeviceConfig *config, unsigned long long maxAllocSize );
+    MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
     virtual ~MemoryAllocator();
 
     static OclMutex*         m_instance_guard;

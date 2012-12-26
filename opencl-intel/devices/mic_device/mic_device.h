@@ -65,10 +65,8 @@ class MICDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription
 private:
     ProgramService*                 m_pProgramService;
     MemoryAllocator*                m_pMemoryAllocator;
-    MICDeviceConfig*                m_pMICDeviceConfig;
     IOCLFrameworkCallbacks*         m_pFrameworkCallBacks;
-    cl_uint                         m_uiMicId;      // internal MIC device ID
-    cl_uint                         m_uiOclDevId;   // Runtime device ID
+    cl_uint                         m_uiMicId;      // MIC device ID
     IOCLDevLogDescriptor*           m_pLogDescriptor;
     cl_int                          m_iLogHandle;
     OclDynamicLib                   m_dlRunTime;
@@ -108,13 +106,13 @@ public:
     // IOCLDeviceAgent
     //
 
-    MICDevice(cl_uint devId, cl_uint micId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
+    MICDevice(cl_uint micId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
     cl_dev_err_code                     Init();
 
     const DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
     NotificationPort&                   GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
 
-    static cl_dev_err_code   clDevGetDeviceInfo(cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
+    static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
     //Device Fission support
 

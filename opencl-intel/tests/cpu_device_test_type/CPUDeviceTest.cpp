@@ -58,6 +58,8 @@ RTMemObjService localRTMemService;
 static TestKernel_param_t	gNativeKernelParam;
 volatile bool	gExecDone = true; 
 
+unsigned int gDeviceIdInType = 0;
+
 class CPUTestCallbacks : public IOCLFrameworkCallbacks
 {
 public:
@@ -94,14 +96,14 @@ bool clGetDeviceInfo_TypeTest()
 	cl_device_type device_type;
 	size_t param_value_size;
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), NULL, &param_value_size);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_TYPE, sizeof(cl_device_type), NULL, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
 
-	iRes = clDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -137,7 +139,7 @@ bool clGetDeviceInfo_Test()
 	cl_int iRes;
 
 	//CL_DEVICE_MAX_WORK_ITEM_DIMENSION test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(maxWorkItemDimension), &maxWorkItemDimension, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(maxWorkItemDimension), &maxWorkItemDimension, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -153,7 +155,7 @@ bool clGetDeviceInfo_Test()
 		printf("maxWorkItemDimension %d\n", maxWorkItemDimension);
 	}
 	//CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, sizeof(preferredVecortWidthShort), &preferredVecortWidthShort, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, sizeof(preferredVecortWidthShort), &preferredVecortWidthShort, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -170,7 +172,7 @@ bool clGetDeviceInfo_Test()
 	}
 
 	//CL_DEVICE_MAX_CLOCK_FREQUENCY test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(maxClockFreq), &maxClockFreq, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(maxClockFreq), &maxClockFreq, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -187,7 +189,7 @@ bool clGetDeviceInfo_Test()
 	}
 
 	//CL_DEVICE_IMAGE2D_MAX_WIDTH test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(image2DMaxWidth), &image2DMaxWidth, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(image2DMaxWidth), &image2DMaxWidth, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -203,7 +205,7 @@ bool clGetDeviceInfo_Test()
 		printf("image2DMaxWidth %d\n", image2DMaxWidth);
 	}
 	//CL_DEVICE_IMAGE3D_MAX_DEPTH test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(image3DMaxDepth), &image3DMaxDepth, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(image3DMaxDepth), &image3DMaxDepth, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -219,7 +221,7 @@ bool clGetDeviceInfo_Test()
 		printf("image3DMaxDepth %d\n", image3DMaxDepth);
 	}
 	//CL_DEVICE_GLOBAL_MEM_CACHE_SIZE test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof(globalMemCacheSize), &globalMemCacheSize, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof(globalMemCacheSize), &globalMemCacheSize, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -235,7 +237,7 @@ bool clGetDeviceInfo_Test()
 		printf("globalMemCacheSize %d\n", globalMemCacheSize);
 	}
 	//CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(globalMemCacheLineSize), &globalMemCacheLineSize, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(globalMemCacheLineSize), &globalMemCacheLineSize, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -252,7 +254,7 @@ bool clGetDeviceInfo_Test()
 	}
 
 	//CL_DEVICE_PROFILING_TIMER_RESOLUTION test
-	iRes = clDevGetDeviceInfo(CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(profilingTimerResolution), &profilingTimerResolution, &param_value_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(profilingTimerResolution), &profilingTimerResolution, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -279,7 +281,7 @@ bool clGetDeviceInfo_VendorIdTest()
 	cl_uint input_size = sizeof(cl_uint);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_VENDOR_ID, input_size, &uVendorId, &param_value_size);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_VENDOR_ID, input_size, &uVendorId, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -306,7 +308,7 @@ bool clGetDeviceInfo_MaxComputeUnitTest()
 	cl_uint input_size = sizeof(cl_uint);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS, input_size, &uCoreNum, &param_value_size);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_MAX_COMPUTE_UNITS, input_size, &uCoreNum, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -332,7 +334,7 @@ bool clGetDeviceInfo_DeviceAvilable()
 	cl_uint input_size = sizeof(cl_bool);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_AVAILABLE, input_size, &bDevice, NULL);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_AVAILABLE, input_size, &bDevice, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -362,7 +364,7 @@ bool clGetDeviceInfo_DeviceExecutionProperties()
 	cl_uint input_size = sizeof(cl_device_exec_capabilities);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_EXECUTION_CAPABILITIES, input_size, &capabilities, NULL);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_EXECUTION_CAPABILITIES, input_size, &capabilities, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -399,7 +401,7 @@ bool clGetDeviceInfo_QueueProperties()
 	cl_uint input_size = sizeof(cl_command_queue_properties);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_QUEUE_PROPERTIES, input_size, &queueProperties, NULL);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_QUEUE_PROPERTIES, input_size, &queueProperties, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -434,7 +436,7 @@ bool clGetDeviceInfo_DeviceStrings()
 
 	size_t str_size = 0;
 		
-	cl_int iRes = clDevGetDeviceInfo(CL_DEVICE_NAME, STR_LEN, name, &str_size);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_NAME, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -447,7 +449,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	}
 	printf("Device name is %s\n",name);
 
-	iRes = clDevGetDeviceInfo(CL_DEVICE_VENDOR, STR_LEN, name, &str_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_VENDOR, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -461,7 +463,7 @@ bool clGetDeviceInfo_DeviceStrings()
 
 	printf("Device vendor %s\n",name);
 
-	iRes = clDevGetDeviceInfo(CL_DEVICE_PROFILE, STR_LEN, name, &str_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_PROFILE, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -475,7 +477,7 @@ bool clGetDeviceInfo_DeviceStrings()
 
 	printf("Device profile is %s\n",name);
 
-	iRes = clDevGetDeviceInfo(CL_DEVICE_VERSION, STR_LEN, name, &str_size);
+	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_VERSION, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
@@ -697,11 +699,30 @@ int main(int argc, char* argv[])
 	EXPECT_TRUE(pTaskExecutor->Activate());
 
 	//Create and Init the device
-	cl_uint					dev_id = 0;
+	cl_uint						dev_id = 0;
 	static CPUTestCallbacks		dev_callbacks;
 	static CPUTestLogger		log_desc;
 
-	cl_int iRes = clDevCreateDeviceInstance(dev_id, &dev_callbacks, &log_desc, &dev_entry);
+	size_t numDevicesInDeviceType = 0;
+	cl_int iRes = clDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
+	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
+	if (0 == numDevicesInDeviceType)
+	{
+		return false;
+	}
+
+	size_t deviceIdsListSizeRet = 0;
+	unsigned int deviceIdsList[1] = {0};
+	iRes = clDevGetAvailableDeviceList(1, deviceIdsList, &deviceIdsListSizeRet);
+	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
+	if (0 == deviceIdsListSizeRet)
+	{
+		return false;
+	}
+
+	gDeviceIdInType = deviceIdsList[0];
+
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

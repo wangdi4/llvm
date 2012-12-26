@@ -42,7 +42,7 @@ using namespace Intel::OpenCL::Framework;
 
 
 Device::Device(_cl_platform_id_int* platform) :
-	FissionableDevice(platform),m_iNextClientId(1), m_pDeviceRefCount(0), m_pDevice(NULL)
+	FissionableDevice(platform),m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(NULL)
 {
 	// initialize logger client
 	INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
@@ -125,7 +125,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 
 	default:
 		size_t s;
-		clDevErr = m_pFnClDevGetDeviceInfo(param_name, param_value_size, param_value, &s);
+		clDevErr = m_pFnClDevGetDeviceInfo(m_devId, param_name, param_value_size, param_value, &s);
 		if ((clDevErr != (int)CL_DEV_SUCCESS) || (param_value && (param_value_size < s)))
 		{
 			return CL_INVALID_VALUE;
@@ -157,10 +157,82 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	return CL_SUCCESS;
 }
 
-cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath)
+cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAgentDllPath, _cl_platform_id_int* pClPlatformId, vector< SharedPtr<Device> >* pOutDevices)
+{
+	Intel::OpenCL::Utils::OclDynamicLib dlModule;
+	// Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
+	if (!dlModule.Load(psDeviceAgentDllPath))
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	// Get pointer to the GetInfo function
+	fn_clDevGetDeviceInfo*	pFnClDevGetDeviceInfo = (fn_clDevGetDeviceInfo*)dlModule.GetFunctionPtrByName("clDevGetDeviceInfo");
+	if (NULL == pFnClDevGetDeviceInfo)
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	fn_clDevGetAvailableDeviceList* pFnClDevGetAvailableDeviceList = (fn_clDevGetAvailableDeviceList*)dlModule.GetFunctionPtrByName("clDevGetAvailableDeviceList");
+	if (NULL == pFnClDevGetAvailableDeviceList)
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	size_t numDevicesInDeviceType = 0;
+	cl_dev_err_code dev_err = pFnClDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
+
+	if ((CL_DEV_FAILED(dev_err)) || (0 == numDevicesInDeviceType))
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	unsigned int* deviceIdsList = (unsigned int*)alloca(sizeof(unsigned int) * numDevicesInDeviceType);
+	if (NULL == deviceIdsList)
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
+	size_t numDevicesInDeviceTypeRet = 0;
+	dev_err = pFnClDevGetAvailableDeviceList(numDevicesInDeviceType, deviceIdsList, &numDevicesInDeviceTypeRet);
+	if ((CL_DEV_FAILED(dev_err)) || (numDevicesInDeviceTypeRet != numDevicesInDeviceType))
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+	assert(numDevicesInDeviceType == numDevicesInDeviceTypeRet);
+
+	cl_err_code clErrRet = CL_SUCCESS;
+	cl_err_code clErr = CL_SUCCESS;
+	for (unsigned int i = 0; i < numDevicesInDeviceTypeRet; i++)
+	{
+		// create new device object
+        SharedPtr<Device> pDevice = Device::Allocate(pClPlatformId);
+		if (NULL == pDevice)
+		{
+			pOutDevices->clear();
+			clErrRet = CL_OUT_OF_HOST_MEMORY;
+			break;
+		}
+
+		clErr = pDevice->InitDevice(psDeviceAgentDllPath, pFnClDevGetDeviceInfo, deviceIdsList[i]);
+		if (CL_FAILED(clErr))
+		{
+			clErrRet = clErr;
+			pDevice = NULL;
+			continue;
+		}
+
+		pOutDevices->push_back(pDevice);
+	}
+
+	return clErrRet;
+}
+
+cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDeviceInfo* pFnClDevGetDeviceInfo, unsigned int devId)
 {
 	LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 
+	// Loading again the library in order to increase the reference counter of the library.
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 	if (!m_dlModule.Load(psDeviceAgentDllPath))
 	{
@@ -168,21 +240,15 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath)
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
-    // Get pointer to the GetInfo function
-	LOG_DEBUG(TEXT("%s"), TEXT("GetProcAddress(clDevGetDeviceInfo)"));
-	m_pFnClDevGetDeviceInfo = (fn_clDevGetDeviceInfo*)m_dlModule.GetFunctionPtrByName("clDevGetDeviceInfo");
-	if (NULL == m_pFnClDevGetDeviceInfo)
-	{
-		LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevGetDeviceInfo) failed (m_pFnClDevGetDeviceInfo==NULL)"));
-		return CL_ERR_DEVICE_INIT_FAIL;
-	}
+	m_pFnClDevGetDeviceInfo = pFnClDevGetDeviceInfo;
+	m_devId = devId;
 
 	m_stMaxLocalMemorySize = 0;
-	cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
+	cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-	    dev_err = m_pFnClDevGetDeviceInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+	    dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
     }
 
 	// Here we still don't have DeviceAgent instance intialized.
@@ -208,7 +274,7 @@ cl_err_code Device::CreateInstance()
 			}
 
 			LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-			int clDevErr = devCreateInstance(m_iId, this, this, &m_pDevice);
+			int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice);
 			if (clDevErr != (int)CL_DEV_SUCCESS)
 			{
 				LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);

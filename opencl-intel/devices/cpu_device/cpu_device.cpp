@@ -423,6 +423,7 @@ size_t CPUDevice::GetMaxSupportedPixelSize()
     Description
         This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
     Input
+		dev_id					The device ID in specific device type.
         param                   An enumeration that identifies the device information being queried. It can be one of
                                 the following values as specified in OCL spec. table 4.3
         valSize             Specifies the size in bytes of memory pointed to by paramValue. This size in
@@ -434,7 +435,7 @@ size_t CPUDevice::GetMaxSupportedPixelSize()
         CL_DEV_SUCCESS          If functions is executed successfully.
         CL_DEV_INVALID_VALUE    If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
 **************************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
+cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
                 size_t* OUT paramValSizeRet)
 {
     size_t  internalRetunedValueSize = valSize;
@@ -1301,6 +1302,37 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
     return CL_DEV_SUCCESS;
 
 }
+
+//! This function return IDs list for all devices in the same device type.
+/*!
+    \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
+	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
+    \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+	                                    If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
+										If deviceIdsListSizeRet is NULL, it is ignored.
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
+{
+	if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	assert(((deviceListSize > 0) || (NULL == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of CPU device");
+	if (deviceIdsList)
+	{
+		deviceIdsList[0] = 0;
+	}
+	if (deviceIdsListSizeRet)
+	{
+		*deviceIdsListSizeRet = 1;
+	}
+	return CL_DEV_SUCCESS;
+}
+
+
 // Device Fission support
 
 static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, cl_uint num_successfully_allocated)

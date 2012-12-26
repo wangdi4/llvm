@@ -33,6 +33,7 @@
 #include "cl_sys_defines.h"
 #include "device_service_communication.h"
 #include "mic_common_macros.h"
+#include "mic_sys_info.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIProcess_source.h>
@@ -73,7 +74,6 @@ MemoryAllocator::StaticInitializer MemoryAllocator::init_statics;
 MemoryAllocator* MemoryAllocator::getMemoryAllocator(
                                 cl_int devId,
                                 IOCLDevLogDescriptor *pLogDesc,
-                                MICDeviceConfig *config,
                                 unsigned long long maxBufferAllocSize )
 {
     MemoryAllocator* instance = NULL;
@@ -82,7 +82,7 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
 
     if (NULL == m_the_instance)
     {
-        m_the_instance = new MemoryAllocator( devId, pLogDesc, config, maxBufferAllocSize );
+        m_the_instance = new MemoryAllocator( devId, pLogDesc, maxBufferAllocSize );
         assert( NULL != m_the_instance && "Creating MIC MemoryAllocator singleton" );
     }
 
@@ -110,10 +110,11 @@ void MemoryAllocator::Release( void )
     }
 }
 
-MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MICDeviceConfig *config, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_config(config), m_maxAllocSize(maxAllocSize)
+MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
 {
-    m_2M_BufferMinSize         = config->Device_2MB_BufferMinSizeInKB() * KILOBYTE;
+	const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
+    m_2M_BufferMinSize         = tMicConfig.Device_2MB_BufferMinSizeInKB() * KILOBYTE;
 
     if ((0 < m_2M_BufferMinSize) && (m_2M_BufferMinSize <= PAGE_4K_SIZE))
     {
@@ -121,7 +122,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, MI
         m_2M_BufferMinSize = PAGE_4K_SIZE + 1;
     }
     
-    m_force_immediate_transfer = !(config->Device_LazyTransfer());
+    m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
     
     if ( NULL != logDesc )
     {

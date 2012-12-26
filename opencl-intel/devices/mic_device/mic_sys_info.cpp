@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <algorithm>
 
 #include "mic_sys_info.h"
 #include "mic_sys_info_internal.h"
@@ -16,6 +17,7 @@
 #include "cl_sys_info.h"
 #include "hw_utils.h"
 #include "mic_common_macros.h"
+#include "NumericListParser.h"
 
 #ifdef _DEBUG
     #define PRINT_DEBUG(...) fprintf(stderr, ##__VA_ARGS__)
@@ -30,6 +32,7 @@ using namespace Intel::OpenCL::MICDevice;
 volatile unsigned int       MICSysInfo::m_singletonKeeper = BEFORE_INIT;
 MICSysInfo*                 MICSysInfo::m_singleton = NULL;
 MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = NULL;
+MICDeviceConfig				MICSysInfo::m_MICDeviceConfig;
 
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
@@ -200,11 +203,16 @@ const char* clDevErr2Txt(cl_dev_err_code errorCode)
     }
 }
 
+char clMICDEVICE_CFG_PATH[MAX_PATH];
+
 MICSysInfo::MICSysInfo()
 {
     m_numEngines = 0;
     m_guardedInfoArr = NULL;
     pthread_mutex_init(&m_mutex, NULL);
+
+	// Initialize MICDeviceConfig
+	m_MICDeviceConfig.Initialize(clMICDEVICE_CFG_PATH);
 
 	// It is thread safe to allocate this static member here because "m_singleton" the only MICSysInfo instance is guarded.
 	m_info_db = new TSku2DevData;
@@ -288,6 +296,21 @@ uint32_t MICSysInfo::getEngineCount()
 
         if (tNumEngines > 0)
         {
+			// Read "OFFLOAD_DEVICES" environment variable in order to get the devices IDs that specified as available.
+			assert(m_deviceIdToCoiEngineId.size() == 0);
+			getAvailableOffloadDevicesFromEnv(m_deviceIdToCoiEngineId, tNumEngines);
+			// If "OFFLOAD_DEVICES" is not set or it define illegal IDs than set m_restrictsDeviceIDs with device IDs 0..(tNumEngines-1)
+			if (m_deviceIdToCoiEngineId.size() == 0)
+			{
+				for (unsigned int i = 0; i < tNumEngines; i++)
+				{
+					m_deviceIdToCoiEngineId.push_back(i);
+				}
+			}
+			assert(tNumEngines > 0);
+			// set tNumEngines as the amount of restricts devices
+			tNumEngines = m_deviceIdToCoiEngineId.size();
+
             m_guardedInfoArr = new guardedInfo[tNumEngines];
             assert(m_guardedInfoArr && "m_guardedInfoArr allocation failed");
             for (unsigned int i = 0; i < tNumEngines; i++)
@@ -572,8 +595,10 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         COIRESULT           result = COI_ERROR;
         COIENGINE           engine = NULL;
 
+		assert(deviceId < m_deviceIdToCoiEngineId.size());
+
         // Get a handle to the specific MIC engine
-        result = COIEngineGetHandle(CL_COI_ISA_MIC, deviceId, &engine);
+        result = COIEngineGetHandle(CL_COI_ISA_MIC, m_deviceIdToCoiEngineId[deviceId], &engine);
         if( result != COI_SUCCESS )
         {
             PRINT_DEBUG("MIC: COIEngineGetHandle result %s\n", COIResultGetName(result));
@@ -690,6 +715,28 @@ void MICSysInfo::clear_sku_info( void )
     m_info_db->clear();
 }
 
+void MICSysInfo::getAvailableOffloadDevicesFromEnv(vector<unsigned int>& deviceIdList, unsigned int coiNumEngines)
+{
+	assert(deviceIdList.size() == 0 && "deviceIdList must be empty list");
+	Intel::OpenCL::Tools::NumericListParser numericListParser(m_MICDeviceConfig.Device_offloadDevices());
+	if (false == numericListParser.Valid())
+	{
+		return;
+	}
+	vector<int> idsArr = numericListParser.GetVector();
+	sort(idsArr.begin(), idsArr.end());
+	for (unsigned int i = 0; i < idsArr.size(); i++)
+	{
+		assert(idsArr[i] >= 0);
+		// wrap around amount of COI engines.
+		unsigned int candidateId = idsArr[i] % coiNumEngines;
+		if ((0 == deviceIdList.size()) || (deviceIdList[deviceIdList.size() - 1] != candidateId))
+		{
+			deviceIdList.push_back(candidateId);
+		}
+	}
+}
+
 //TODO - AdirD change the MICSysInfo::getInstance().get...(0) from 0 to real device ID.
 
 // Device entry points
@@ -712,9 +759,9 @@ void MICSysInfo::clear_sku_info( void )
         CL_DEV_INVALID_VALUE    If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
 **************************************************************************************************************************/
 extern "C"
-cl_dev_err_code clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize, void* OUT paramVal, size_t* OUT paramValSizeRet)
+cl_dev_err_code clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN valSize, void* OUT paramVal, size_t* OUT paramValSizeRet)
 {
-    return MICSysInfo::clDevGetDeviceInfo(0, param, valSize, paramVal, paramValSizeRet);
+    return MICSysInfo::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
 }
 
 cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
@@ -846,4 +893,45 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
 
     return CL_DEV_SUCCESS;
 
+}
+
+//! This function return IDs list for all devices in the same device type.
+/*!
+    \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
+	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
+    \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+	                                    If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
+										If deviceIdsListSizeRet is NULL, it is ignored.
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t IN deviceListSize,
+                        unsigned int*   OUT deviceIdsList,
+                        size_t*   OUT deviceIdsListSizeRet)
+{
+	return MICSysInfo::clDevGetAvailableDeviceList(deviceListSize, deviceIdsList, deviceIdsListSizeRet);
+}
+
+cl_dev_err_code MICSysInfo::clDevGetAvailableDeviceList(size_t IN deviceListSize, unsigned int* OUT deviceIdsList, size_t* OUT deviceIdsListSizeRet)
+{
+	if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	MICSysInfo& tMicSysInfo = getInstance();
+	if (deviceIdsList)
+	{
+		unsigned int i;
+		for (i = 0; (i < deviceListSize) && (i < tMicSysInfo.getEngineCount()); ++i)
+		{
+			deviceIdsList[i] = i;
+		}
+		*deviceIdsListSizeRet = i;
+	}
+	else if (deviceIdsListSizeRet)
+	{
+		*deviceIdsListSizeRet = tMicSysInfo.getEngineCount();
+	}
+	return CL_DEV_SUCCESS;
 }

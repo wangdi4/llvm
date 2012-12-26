@@ -3,6 +3,7 @@ Base {
         clDevCreateDeviceInstance;
         clDevGetDeviceInfo;
         clDevErr2Txt;
+		clDevGetAvailableDeviceList;
 
     local:
         *;
