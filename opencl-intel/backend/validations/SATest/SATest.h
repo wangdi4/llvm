@@ -74,6 +74,11 @@ namespace Validation
                                IProgramRunner* pRunner,
                                const IRunComponentConfiguration* pRunConfiguration);
 
+        /// @brief Load the reference output
+        void LoadReference(IRunResult* pResult,
+                               IProgramRunner* pRunner,
+                               const IRunComponentConfiguration* pRunConfiguration);
+
         /// @brief Runs a single test in build only mode
         void RunBuildOnly(const IRunComponentConfiguration* pRunConfiguration);
 

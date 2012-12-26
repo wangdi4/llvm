@@ -144,10 +144,12 @@ void OpenCLReferenceRunner::LoadOutput(IRunResult* pRunResult, const IProgramCon
         ++it )
     {
         std::string kernelName = (*it)->GetKernelName();
+        std::cout << " trying to load reference " << (*it)->GetStampedPathReference() << std::endl;
         ReadReferenceBuffer(*it, &pRunResult->GetOutput( kernelName.c_str()));
 
         if( m_bUseNEAT )
         {
+            std::cout << " trying to load NEAT " << (*it)->GetStampedPathNeat() << std::endl;
             ReadNEATBuffer(*it, &pRunResult->GetNEATOutput(kernelName.c_str()));
         }
     }
@@ -193,12 +195,14 @@ void OpenCLReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IPro
         const IBufferContainerList& pBcl = pRunResult->GetOutput( kernelName.c_str() );
         std::auto_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(&pBcl, bcIdx));
         /// Save it to file
+        std::cout << " generating reference " << (*it)->GetStampedPathReference() << std::endl;
         WriteReferenceBuffer( *it, pNewBcl.get());
 
         if( m_bUseNEAT )
         {
             const IBufferContainerList& neatBCL = pRunResult->GetNEATOutput( kernelName.c_str() );
             std::auto_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(&neatBCL, bcIdx));
+            std::cout << " generating NEAT " << (*it)->GetStampedPathNeat() << std::endl;
             WriteNEATBuffer(*it, pNewBclNeat.get());
         }
     }
@@ -246,7 +250,7 @@ void OpenCLReferenceRunner::WriteBufferContainer(const std::string& filename,
             break;
         }
     default:
-        throw TestReferenceRunnerException("Unsupported input file type");
+        throw TestReferenceRunnerException("Unsupported output file type");
     }
 }
 
@@ -284,13 +288,13 @@ void OpenCLReferenceRunner::ReadReferenceBuffer(OpenCLKernelConfiguration* pKern
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetReferenceFilePath();
+    std::string filename = pKernelConfig->GetStampedPathReference();
     if( filename.empty() )
     {
         throw Exception::IOError("BinaryContainerListReader: cannot open reference file");
     }
 
-    ReadBufferContainer(pKernelConfig->GetReferenceFilePath(),
+    ReadBufferContainer(pKernelConfig->GetStampedPathReference(),
                         pKernelConfig->GetReferenceFileType(),
                         pContainer);
 }
@@ -300,13 +304,13 @@ void OpenCLReferenceRunner::ReadNEATBuffer(OpenCLKernelConfiguration* pKernelCon
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetNeatFilePath();
+    std::string filename = pKernelConfig->GetStampedPathNeat();
     if( filename.empty() )
     {
         throw Exception::IOError("BinaryContainerListReader: cannot open NEAT file");
     }
 
-    ReadBufferContainer(pKernelConfig->GetNeatFilePath(),
+    ReadBufferContainer(pKernelConfig->GetStampedPathNeat(),
                         pKernelConfig->GetNeatFileType(),
                         pContainer);
 }
@@ -318,11 +322,11 @@ void OpenCLReferenceRunner::WriteReferenceBuffer(OpenCLKernelConfiguration* pKer
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetReferenceFilePath();
+    std::string filename = pKernelConfig->GetStampedPathReference();
     if( filename.empty() )
         return;
 
-    WriteBufferContainer(pKernelConfig->GetReferenceFilePath(),
+    WriteBufferContainer(pKernelConfig->GetStampedPathReference(),
                          pKernelConfig->GetReferenceFileType(),
                          pContainer);
 }
@@ -332,11 +336,11 @@ void OpenCLReferenceRunner::WriteNEATBuffer(OpenCLKernelConfiguration* pKernelCo
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetNeatFilePath();
+    std::string filename = pKernelConfig->GetStampedPathNeat();
     if( filename.empty() )
         return;
 
-    WriteBufferContainer(pKernelConfig->GetNeatFilePath(),
+    WriteBufferContainer(pKernelConfig->GetStampedPathNeat(),
                          pKernelConfig->GetNeatFileType(),
                          pContainer);
 }

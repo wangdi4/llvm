@@ -36,6 +36,8 @@ File Name:  SATest.cpp
 #include <map>
 #include <cassert>
 
+#include "OpenCLStamp.h"
+
 using namespace Validation;
 using std::string;
 
@@ -158,7 +160,11 @@ void SATest::GenerateReference(IRunResult* pResult, IProgramRunner* pRunner, con
 void SATest::LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunResult* pResult)
 {
     std::auto_ptr<IProgramRunner> spRefRunner( m_factory.CreateReferenceRunner(pRunConfiguration->GetReferenceRunnerConfiguration()));
+#if STAMP_ENABLED
+    OCLStamp stamp(pRunConfiguration->GetReferenceRunnerConfiguration(),m_pProgramConfiguration,m_pProgram);
 
+    stamp.generateStamps();
+#endif
     if(pRunConfiguration->ForceReference())
     {
         GenerateReference(pResult, spRefRunner.get(), pRunConfiguration->GetReferenceRunnerConfiguration());
