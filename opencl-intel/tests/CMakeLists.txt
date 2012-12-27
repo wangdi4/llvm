@@ -10,9 +10,6 @@ if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device_test_type )
 endif( INCLUDE_MIC_DEVICE )
 
-if ( NOT WIN32 )
-    add_subdirectory( valgrind )
-endif ( NOT WIN32 )
 
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
