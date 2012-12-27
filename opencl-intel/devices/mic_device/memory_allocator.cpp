@@ -596,19 +596,14 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, NO_MOVE ) failed" );
     all_is_ok = (COI_SUCCESS == coi_err);
 
-    COI_ProcessesArray coi_processes = get_active_processes();
+	// Invalidate all SINK instances.
+    coi_err = COIBufferSetState(  m_coi_buffer, 
+                                    COI_SINK_OWNERS, COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
+                                    0, NULL, 
+                                    NULL);
 
-    // TODO: DK: Change implementation!!!!!!
-    for (unsigned int i = 0; i < coi_processes.size(); ++i)
-    {
-        coi_err = COIBufferSetState(  m_coi_buffer, 
-                                      coi_processes[i], COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
-                                      0, NULL, 
-                                      NULL);
-
-        assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, INVALID, NO_MOVE ) failed" );
-        all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
-    }
+    assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, INVALID, NO_MOVE ) failed" );
+    all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
 
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
     return (all_is_ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
@@ -626,19 +621,14 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("clDevMemObjInvalidateData enter"));
 
-    COI_ProcessesArray coi_processes = get_active_processes();
+    // Invalidate all SINK instances.
+    coi_err = COIBufferSetState(  m_coi_buffer, 
+                                    COI_SINK_OWNERS, COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
+                                    0, NULL, 
+                                    NULL);
 
-    // TODO: DK: Change implementation!!!!!!
-    for (unsigned int i = 0; i < coi_processes.size(); ++i)
-    {
-        coi_err = COIBufferSetState(  m_coi_buffer, 
-                                      coi_processes[i], COI_BUFFER_INVALID /*COI_BUFFER_VALID_MAYDROP*/, COI_BUFFER_NO_MOVE, 
-                                      0, NULL, 
-                                      NULL);
-
-        assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, VALID_MAYDROP, NO_MOVE ) failed" );
-        all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
-    }
+    assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, VALID_MAYDROP, NO_MOVE ) failed" );
+    all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
 
     return (all_is_ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
