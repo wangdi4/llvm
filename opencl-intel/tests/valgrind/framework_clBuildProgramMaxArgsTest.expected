@@ -1,0 +1,152 @@
+==28139== Memcheck, a memory error detector
+==28139== Copyright (C) 2002-2010, and GNU GPL'd, by Julian Seward et al.
+==28139== Using Valgrind-3.6.1 and LibVEX; rerun with -h for copyright info
+==28139== Command: ./framework_test_type --gtest_filter=*clBuildProgramMaxArgs*
+==28139== Parent PID: 28138
+==28139== 
+--28139-- 
+--28139-- Valgrind options:
+--28139--    --leak-check=full
+--28139--    --smc-check=all
+--28139--    --read-var-info=yes
+--28139--    --show-reachable=yes
+--28139--    --track-origins=yes
+--28139--    --log-file=/home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/validation/valgrind/framework_clBuildProgramMaxArgsTest.actual
+--28139--    --gen-suppressions=all
+--28139--    --num-callers=40
+--28139--    --leak-resolution=high
+--28139--    --partial-loads-ok=yes
+--28139--    --free-fill=99
+--28139--    --malloc-fill=FF
+--28139--    -v
+--28139--    --suppressions=/nfs/iil/disks/opencl_vlan/shohaml/trunk/src/tests/valgrind/runtime.supp
+--28139-- Contents of /proc/version:
+--28139--   Linux version 2.6.32.46-0.3-default (geeko@buildhost) (gcc version 4.3.4 [gcc-4_3-branch revision 152973] (SUSE Linux) ) #1 SMP 2011-09-29 17:49:31 +0200
+--28139-- Arch and hwcaps: AMD64, amd64-sse3-cx16
+--28139-- Page sizes: currently 4096, max supported 4096
+--28139-- Valgrind library directory: /usr/lib64/valgrind
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/validation/framework_test_type/framework_test_type (0x400000)
+--28139-- warning: addVar: unknown size (stream)
+--28139-- warning: addVar: unknown size (sstr)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--28139-- Reading syms from /lib64/ld-2.11.1.so (0x4000000)
+--28139-- Reading syms from /usr/lib64/valgrind/memcheck-amd64-linux (0x38000000)
+--28139--    object doesn't have a symbol table
+--28139--    object doesn't have a dynamic symbol table
+--28139-- Reading suppressions file: /nfs/iil/disks/opencl_vlan/shohaml/trunk/src/tests/valgrind/runtime.supp
+--28139-- Reading suppressions file: /usr/lib64/valgrind/default.supp
+--28139-- REDIR: 0x4016ef0 (strlen) redirected to 0x38041ff7 (???)
+--28139-- Reading syms from /usr/lib64/valgrind/vgpreload_core-amd64-linux.so (0x4a21000)
+--28139--    object doesn't have a symbol table
+--28139-- Reading syms from /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so (0x4c23000)
+--28139--    object doesn't have a symbol table
+==28139== WARNING: new redirection conflicts with existing -- ignoring it
+--28139--     new: 0x04016ef0 (strlen              ) R-> 0x04c28180 strlen
+--28139-- REDIR: 0x4016460 (index) redirected to 0x4c27de0 (index)
+--28139-- REDIR: 0x4016610 (strcmp) redirected to 0x4c28d00 (strcmp)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libintelocl.so (0x4e2e000)
+--28139-- Reading syms from /lib64/libpthread-2.11.1.so (0x52e1000)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtask_executor.so (0x54fe000)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libcl_logger.so (0x576d000)
+--28139-- Reading syms from /usr/lib64/libnuma.so.1 (0x5974000)
+--28139--    object doesn't have a symbol table
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtbb_preview_debug.so.2 (0x4053000)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtbbmalloc_debug.so.2 (0x5b7d000)
+--28139-- Reading syms from /usr/lib64/libstdc++.so.6.0.11 (0x5cbf000)
+--28139-- Reading syms from /lib64/libm-2.11.1.so (0x5fce000)
+--28139-- Reading syms from /lib64/libgcc_s.so.1 (0x6224000)
+--28139--    object doesn't have a symbol table
+--28139-- Reading syms from /lib64/libc-2.11.1.so (0x643b000)
+--28139-- Reading syms from /lib64/librt-2.11.1.so (0x6799000)
+--28139-- Reading syms from /lib64/libdl-2.11.1.so (0x69a2000)
+--28139-- REDIR: 0x64b9ab0 (rindex) redirected to 0x4c27bd0 (rindex)
+--28139-- REDIR: 0x64b5060 (malloc) redirected to 0x4c277d0 (malloc)
+--28139-- REDIR: 0x64b4f80 (free) redirected to 0x4c26930 (free)
+--28139-- REDIR: 0x64ba530 (strstr) redirected to 0x4c2a2d0 (strstr)
+--28139-- REDIR: 0x64bab80 (memchr) redirected to 0x4c28dc0 (memchr)
+--28139-- REDIR: 0x64bcae0 (memcpy) redirected to 0x4c28e00 (memcpy)
+--28139-- REDIR: 0x64b6150 (realloc) redirected to 0x4c278a0 (realloc)
+--28139-- REDIR: 0x64b9710 (strlen) redirected to 0x4c28120 (strlen)
+--28139-- REDIR: 0x64b45f0 (calloc) redirected to 0x4c25e50 (calloc)
+--28139-- REDIR: 0x5d85420 (operator new(unsigned long)) redirected to 0x4c272d0 (operator new(unsigned long))
+--28139-- REDIR: 0x64bb1a0 (memset) redirected to 0x4c29d30 (memset)
+--28139-- REDIR: 0x64b9910 (strncmp) redirected to 0x4c285e0 (strncmp)
+--28139-- REDIR: 0x5d85560 (operator new[](unsigned long)) redirected to 0x4c26d30 (operator new[](unsigned long))
+--28139-- REDIR: 0x5d83520 (operator delete(void*)) redirected to 0x4c265c0 (operator delete(void*))
+--28139-- REDIR: 0x5d83560 (operator delete[](void*)) redirected to 0x4c261a0 (operator delete[](void*))
+--28139-- REDIR: 0x64baff0 (memmove) redirected to 0x4c29dd0 (memmove)
+--28139-- REDIR: 0x64b8900 (index) redirected to 0x4c27ca0 (index)
+--28139-- REDIR: 0x64b8980 (strcmp) redirected to 0x4c28c40 (strcmp)
+--28139-- REDIR: 0x64bf4f0 (strchrnul) redirected to 0x4c29ed0 (strchrnul)
+--28139-- REDIR: 0x64bbcd0 (mempcpy) redirected to 0x4c29fe0 (mempcpy)
+--28139-- REDIR: 0xffffffffff600000 (???) redirected to 0x38041fe3 (???)
+--28139-- REDIR: 0x64bc940 (strcasecmp) redirected to 0x4c286c0 (strcasecmp)
+--28139-- REDIR: 0x64b9760 (strnlen) redirected to 0x4c280c0 (strnlen)
+--28139-- REDIR: 0x64b99e0 (strncpy) redirected to 0x4c28340 (strncpy)
+--28139-- REDIR: 0x64b9860 (strncat) redirected to 0x4c27fe0 (strncat)
+--28139-- REDIR: 0x64bac00 (bcmp) redirected to 0x4c29950 (bcmp)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libcpu_device.so (0x6fa6000)
+--28139-- REDIR: 0x4017530 (stpcpy) redirected to 0x4c29c60 (stpcpy)
+--28139-- REDIR: 0x64bc2e0 (stpcpy) redirected to 0x4c299f0 (stpcpy)
+--28139-- REDIR: 0x64bf4a0 (rawmemchr) redirected to 0x4c29f00 (rawmemchr)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libOclCpuBackEnd.so (0x744f000)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/__ocl_svml_h8.so (0x8c3c000)
+--28139-- memcheck GC: 1024 nodes, 1024 survivors (100.0%)
+--28139-- memcheck GC: increase table size to 2048
+--28139-- memcheck GC: 2048 nodes, 2048 survivors (100.0%)
+--28139-- memcheck GC: increase table size to 4096
+--28139-- memcheck GC: 4096 nodes, 3356 survivors ( 81.9%)
+--28139-- memcheck GC: increase table size to 8192
+--28139-- memcheck GC: 8192 nodes, 7168 survivors ( 87.5%)
+--28139-- memcheck GC: increase table size to 16384
+--28139-- memcheck GC: 16384 nodes, 14336 survivors ( 87.5%)
+--28139-- memcheck GC: increase table size to 32768
+--28139-- memcheck GC: 32768 nodes, 27925 survivors ( 85.2%)
+--28139-- memcheck GC: increase table size to 65536
+--28139-- memcheck GC: 65536 nodes, 56320 survivors ( 85.9%)
+--28139-- memcheck GC: increase table size to 131072
+--28139-- memcheck GC: 131072 nodes, 112652 survivors ( 85.9%)
+--28139-- memcheck GC: increase table size to 262144
+--28139-- memcheck GC: 262144 nodes, 224487 survivors ( 85.6%)
+--28139-- memcheck GC: increase table size to 524288
+--28139-- REDIR: 0x64b58b0 (posix_memalign) redirected to 0x4c25db0 (posix_memalign)
+--28139-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libclang_compiler.so (0x23b55000)
+--28139-- REDIR: 0x5d854c0 (operator new(unsigned long, std::nothrow_t const&)) redirected to 0x4c27100 (operator new(unsigned long, std::nothrow_t const&))
+--28139-- REDIR: 0x5d83540 (operator delete(void*, std::nothrow_t const&)) redirected to 0x4c26460 (operator delete(void*, std::nothrow_t const&))
+--28139-- Discarding syms at 0x7581cc0-0x81cd0d8 in /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libOclCpuBackEnd.so due to munmap()
+==28139== 
+==28139== HEAP SUMMARY:
+==28139==     in use at exit: 70,210 bytes in 455 blocks
+==28139==   total heap usage: 874,415 allocs, 873,960 frees, 335,694,173 bytes allocated
+==28139== 
+==28139== Searching for pointers to 455 not-freed blocks
+==28139== Checked 62,175,872 bytes
+==28139== 
+==28139== LEAK SUMMARY:
+==28139==    definitely lost: 0 bytes in 0 blocks
+==28139==    indirectly lost: 0 bytes in 0 blocks
+==28139==      possibly lost: 0 bytes in 0 blocks
+==28139==    still reachable: 0 bytes in 0 blocks
+==28139==         suppressed: 70,210 bytes in 455 blocks
+==28139== 
+==28139== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 1108 from 70)
+--28139-- 
+--28139-- used_suppression:     88 otherModule_gtest_stuff
+--28139-- used_suppression:    254 otherModule_ignore_tbb_issues
+--28139-- used_suppression:     17 tbd_ignore_dl_init_allocations_until_proper_deinition
+--28139-- used_suppression:     24 tbd_cpu_dev_init
+--28139-- used_suppression:      1 tbd_not_clear_where_these_c++_strings_were_allocated
+--28139-- used_suppression:      1 tbd_framework_proxy_init
+--28139-- used_suppression:      9 otherModule_CPUDeviceBackendModule
+--28139-- used_suppression:    101 falsePositive_nothing_is_nice_in_cpu_detect
+--28139-- used_suppression:    954 Ubuntu804-hack-1
+--28139-- used_suppression:      2 U1004-ARM-_dl_relocate_object
+==28139== 
+==28139== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 1108 from 70)
