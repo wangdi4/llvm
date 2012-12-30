@@ -41,8 +41,10 @@ static std::vector<std::string> initExpectedSharedExtenstions()
 	vec.push_back("cl_khr_local_int32_base_atomics");
 	vec.push_back("cl_khr_local_int32_extended_atomics");
 	vec.push_back("cl_khr_byte_addressable_store");
-	vec.push_back("cl_khr_gl_sharing");	
-        
+	if(!isAccelerator()){
+		vec.push_back("cl_khr_gl_sharing");	
+        }
+
         /// ToDo: 
         ///     Disabled for now; enable the following 
         ///     later when supported by the underlying
@@ -64,10 +66,13 @@ static std::vector<std::string> initExpectedCPUExtenstions()
 	vec.push_back("cl_khr_local_int32_extended_atomics");
 	vec.push_back("cl_khr_fp64");
 	vec.push_back("cl_khr_byte_addressable_store");
-	vec.push_back("cl_khr_gl_sharing");		
+	#ifdef _WIN32
+	vec.push_back("cl_khr_gl_sharing");
+	vec.push_back("cl_intel_dx9_media_sharing");	
+	#endif
 	vec.push_back("cl_ext_device_fission");
 	vec.push_back("cl_intel_printf");
-	vec.push_back("cl_intel_dx9_media_sharing");
+	
 
         /// ToDo: 
         ///     Disabled for now; enable the following 
@@ -92,7 +97,11 @@ static std::vector<std::string> initExpectedGPUExtenstions()
 	vec.push_back("cl_khr_gl_sharing");
 	vec.push_back("cl_intel_dx9_media_sharing");
 	vec.push_back("cl_khr_3d_image_writes");
+	
+	//MIC does not support 'cl_khr_d3d10_sharing' extension
+	if(!isAccelerator()){
 	vec.push_back("cl_khr_d3d10_sharing");
+	}
 	
         /// ToDo: 
         ///     Disabled for now; enable the following 
@@ -203,6 +212,9 @@ TEST_F(VR4, CPUExtensions){
 //|	All extensions that CPU returns all required extensions
 //|
 TEST_F(VR4, GPUExtensions){
+	if(isAccelerator()){ //MIC has diffrent extentions
+		return;
+	}
 	// get CPU device
 	ASSERT_NO_FATAL_FAILURE(getGPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
 
@@ -272,6 +284,10 @@ TEST_F(VR4, CPUImmediateExecutionExtension){
 
 
 TEST_F(VR4, GPUImmediateExecutionExtension){
+
+if(isAccelerator()){ //MIC has diffrent extentions
+		return;
+	}
 	cl_int errcode_ret = CL_SUCCESS;
 	
 	//get GPU device and context
@@ -280,6 +296,12 @@ TEST_F(VR4, GPUImmediateExecutionExtension){
 	
 	//try to create a command queue
 	ocl_descriptor.queues[0] = clCreateCommandQueue (ocl_descriptor.context, ocl_descriptor.devices[0], CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL, &errcode_ret);
+	
+	//extension is suported for MIC but not GPU
+	if(isAccelerator()){
+		ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
+		return;
+	}
 	ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
 }
 
@@ -302,7 +324,11 @@ TEST_F(VR4, GPUImmediateExecutionExtension){
 //|	CPU sub-devices should successfully create.
 //|
 TEST_F(VR4, CPUCreateSubDevices){
-	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
+	if(isAccelerator()){ //not suported on MIC
+	return;
+	}
+
+	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY_EXT,2,CL_PROPERTIES_LIST_END_EXT};
 	cl_device_id sub_device_array[10];
 	cl_uint num_of_sub_devices;
 
@@ -334,6 +360,10 @@ TEST_F(VR4, CPUCreateSubDevices){
 //|	The creation should fail.
 //|
 TEST_F(VR4, GPUCreateSubDevices){
+	if(isAccelerator()){ //not suported on MIC
+		return;
+	}
+
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
 	cl_device_id sub_device_array[100];
 	cl_uint num_of_sub_devices;
@@ -364,6 +394,10 @@ TEST_F(VR4, GPUCreateSubDevices){
 //|	CPU sub-devices should successfully create.
 //|
 TEST_F(VR4, CPUCreateSubDevicesWithNull){ 
+
+	if(isAccelerator()){ //not suported on MIC
+		return;
+	}
 	cl_device_partition_property_ext properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
 	
 	//get CPU device
@@ -394,6 +428,10 @@ TEST_F(VR4, CPUCreateSubDevicesWithNull){
 //|	GPU sub-devices should fail.
 //|
 TEST_F(VR4, GPUCreateSubDevicesWithNull){
+	
+	if(isAccelerator()){ //not suported on MIC
+		return;
+	}
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
 	
 	//get GPU device

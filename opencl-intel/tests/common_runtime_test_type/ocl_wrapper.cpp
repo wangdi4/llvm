@@ -1155,3 +1155,8 @@ void releaseEvent(cl_event event)
 {
 	ASSERT_EQ(CL_SUCCESS,clReleaseEvent(event));
 }
+
+//isAccelerator returns true iff second device is accelerator
+bool isAccelerator(){
+	return getSecondDeviceType() == CL_DEVICE_TYPE_ACCELERATOR;
+}

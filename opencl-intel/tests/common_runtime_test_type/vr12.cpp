@@ -36,7 +36,7 @@ class VR12: public CommonRuntime{};
 //|     into a program object. The source code is the same for both devices (i.e. no ifdef)
 //|     and include an erroneous statement for the GPU device
 //| 2.	Try to build (compiles & links) a program executable from the program source for both
-//|     the CPU and the GPU devices using a function pointer to a notification routine.
+//|     the CPU and the GPU devices using a function pointer to a notification routine.ll
 //|	
 //|	Pass criteria
 //|	-------------
@@ -87,8 +87,14 @@ TEST_F(VR12, CallbackGPUError)
     sleepMS(100);
     ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[1], 
       CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
-    ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+   if(isAccelerator()){ //not suported on MIC
+		 ASSERT_NE(CL_BUILD_ERROR, build_status);
+	}
+   else{
+		ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+	}
   }
+  
 
   // check how many times callback has been triggered
   size_t iterationLimit = 100;
@@ -164,7 +170,12 @@ TEST_F(VR12, CallbackCPUError)
     sleepMS(100);
     ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[1], 
       CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
-    ASSERT_NE(CL_BUILD_ERROR, build_status);
+	if(isAccelerator()){ 
+		 ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+	}
+   else{
+		ASSERT_NE(CL_BUILD_ERROR, build_status);
+	}
   }
 
   // check how many times callback has been triggered
