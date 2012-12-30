@@ -3,22 +3,7 @@
 // Purporse of the file GENERIC_common.td is to share code between CPU and MIC
 // during CPU built ins transition to tblgen
 
-  code Prolog = [{
-    #define ALIGN16 __attribute__((aligned(16)))
-    #define ALIGN32 __attribute__((aligned(32)))
-
-    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-    #include <intrin.h>
-    #include "generic-builtin-defines.h"
-    #ifdef __APPLE__
-    #define svmlcc intel_ocl_bicc
-    #endif
-	#ifdef __x86_64__
-	  #include "svml_ia32e.h"
-	#else
-	  #include "svml_ia32.h"
-	#endif
-  }];
+  code Prolog = [{}];
   code Epilog = [{}];
 
   code Expand1 = [{
@@ -44,49 +29,49 @@
   
   code Promote1 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName);
     return $ReturnVarName$Pattern;
   }];
   
   code Promote2 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0; 
-	n$Arg1VarName$Pattern = $Arg1VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
     return $ReturnVarName$Pattern;
   }];
   
    code Promote3 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0;
-	n$Arg1VarName$Pattern = $Arg1VarName;
-	$NativeArg2Type n$Arg2VarName = ($NativeArg2Type)0; 
-	n$Arg2VarName$Pattern = $Arg2VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName = ($NativeArg2Type)0; 
+    n$Arg2VarName$Pattern = $Arg2VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName,n$Arg2VarName);
     return $ReturnVarName$Pattern;
   }];
   
   code Promote1_scalar = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     return $NativeFunc(n$Arg0VarName);
   }];
   
   code Promote2_scalar = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0; 
-	n$Arg1VarName$Pattern = $Arg1VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
     return $NativeFunc(n$Arg0VarName, n$Arg1VarName);
   }];
 
   code Promote_fract = [{
     $NativeArg0Type n$Arg0VarName;
     $NativeArg0Type p$Arg1VarName;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, &p$Arg1VarName);
     *$Arg1VarName = p$Arg1VarName$Pattern;
     return $ReturnVarName$Pattern;

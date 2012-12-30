@@ -69,12 +69,12 @@ OclBuiltinImpl ceil_svml = OclBuiltinImpl<ceil, ceil.Types, 0, [{
 
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, copysign.Types, 0, [{
-    $Arg0Type $ReturnVarName;
-	$Arg0igentype ux = as_$Arg0igentype($Arg0VarName);
-	$Arg0igentype uy = as_$Arg1igentype($Arg1VarName);
-	ux &= $ReturnBaseType_const_signMask;
-	ux |= uy & ~$ReturnBaseType_const_signMask;
-	return as_$Arg0Type(ux);
+  $Arg0Type $ReturnVarName;
+  $Arg0igentype ux = as_$Arg0igentype($Arg0VarName);
+  $Arg0igentype uy = as_$Arg1igentype($Arg1VarName);
+  ux &= $ReturnBaseType_const_signMask;
+  ux |= uy & ~$ReturnBaseType_const_signMask;
+  return as_$Arg0Type(ux);
   }]>;
 
 
@@ -125,7 +125,7 @@ OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, expm1.Types, 0, [{
 
 // fabs
 OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, fabs.Types, 0, [{
-	return as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_signMask);
+  return as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_signMask);
   }]>;
 
 // fdim scalar
@@ -137,13 +137,13 @@ OclBuiltinImpl fdim_impl_v1f32_promote = OclBuiltinImpl<fdim, [v1f32, v1f64], 0,
 
 // fdim vector
 OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, [v2f32, v3f32, v4f32, v8f32, v16f32, 
-													v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
-    const $ReturnType Zero = 0;
-    $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
-    $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
-    $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
-    return select(tmp, NaNasFP, XorYNaN);
+                          v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+  const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
+  const $ReturnType Zero = 0;
+  $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
+  $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
+  $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
+  return select(tmp, NaNasFP, XorYNaN);
   }]>;
 
 // floor
@@ -158,18 +158,18 @@ OclBuiltinImpl fma_svml = OclBuiltinImpl<fma, fma.Types, 0, [{
 
 // fmax
 OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
-	$Arg0igentype nan = isnan($Arg1VarName);
-	$Arg0Type res = max($Arg0VarName, $Arg1VarName);
-	res = select(res, $Arg0VarName, nan);
-	return res;
+  $Arg0igentype nan = isnan($Arg1VarName);
+  $Arg0Type res = max($Arg0VarName, $Arg1VarName);
+  res = select(res, $Arg0VarName, nan);
+  return res;
   }]>;
 
 // fmin implementation
 OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
-   	$Arg0igentype nan = isnan($Arg1VarName);
-	$Arg0Type res = min($Arg0VarName, $Arg1VarName);
-	res = select(res, $Arg0VarName, nan);
-	return res;
+     $Arg0igentype nan = isnan($Arg1VarName);
+  $Arg0Type res = min($Arg0VarName, $Arg1VarName);
+  res = select(res, $Arg0VarName, nan);
+  return res;
   }]>;
 
 // fmod
@@ -266,33 +266,33 @@ OclBuiltinImpl ilogb_impl_v1f32_promote = OclBuiltinImpl<ilogb, [v1f32], 0, Prom
 OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
     const $Arg0ugentype signMask = $Arg0BaseType_const_signMask;
     const $Arg0ugentype expMask  = $Arg0BaseType_const_expMask;
-	const $Arg0ugentype StorageI64 = 64;
-	const $Arg0ugentype StorageI127 = $Arg0BaseType_const_expOffset;
-	const $Arg0ugentype p64Storage = 0x5f800000;
-	typedef union{ $Arg0Type f; $Arg0ugentype u; $Arg0igentype i; } f$Suffix_t;
-	f$Suffix_t isDenorm, isZero, isNaNorINF, isNotDenorm;
-	f$Suffix_t xx, res1, res3, factor;
+  const $Arg0ugentype StorageI64 = 64;
+  const $Arg0ugentype StorageI127 = $Arg0BaseType_const_expOffset;
+  const $Arg0ugentype p64Storage = 0x5f800000;
+  typedef union{ $Arg0Type f; $Arg0ugentype u; $Arg0igentype i; } f$Suffix_t;
+  f$Suffix_t isDenorm, isZero, isNaNorINF, isNotDenorm;
+  f$Suffix_t xx, res1, res3, factor;
 
-	xx.f = $Arg0VarName;
-	xx.u &= signMask;
-	isZero.i = as_$Arg0igentype(xx.u == 0);
-	res1.u = xx.u & expMask;
-	isNaNorINF.i = as_$Arg0igentype(res1.u == expMask);
-	isDenorm.i = as_$Arg0igentype(res1.u == 0);
-	factor.u = (isDenorm.u & StorageI64) + StorageI127;
-	xx.u &= isDenorm.u;
-	isDenorm.u &= p64Storage;
-	isDenorm.f *= xx.f;
-	isDenorm.u &= expMask;
-	res1.u >>= 23;
-	res3.u = isDenorm.u >> 23;
-	isNotDenorm.i = as_$Arg0igentype(res3.u == 0);
-	res1.u -= factor.u;
-	res3.u -= factor.u;
-	res1.i = select(res3.i, res1.i, isNotDenorm.i);
-	res1.i = select(res1.i, INT_MAX, isNaNorINF.i);
-	res1.i = select(res1.i, INT_MIN, isZero.i);
-	return as_$Arg0igentype(res1.u);
+  xx.f = $Arg0VarName;
+  xx.u &= signMask;
+  isZero.i = as_$Arg0igentype(xx.u == 0);
+  res1.u = xx.u & expMask;
+  isNaNorINF.i = as_$Arg0igentype(res1.u == expMask);
+  isDenorm.i = as_$Arg0igentype(res1.u == 0);
+  factor.u = (isDenorm.u & StorageI64) + StorageI127;
+  xx.u &= isDenorm.u;
+  isDenorm.u &= p64Storage;
+  isDenorm.f *= xx.f;
+  isDenorm.u &= expMask;
+  res1.u >>= 23;
+  res3.u = isDenorm.u >> 23;
+  isNotDenorm.i = as_$Arg0igentype(res3.u == 0);
+  res1.u -= factor.u;
+  res3.u -= factor.u;
+  res1.i = select(res3.i, res1.i, isNotDenorm.i);
+  res1.i = select(res1.i, INT_MAX, isNaNorINF.i);
+  res1.i = select(res1.i, INT_MIN, isZero.i);
+  return as_$Arg0igentype(res1.u);
   }]>;
 
 // ilogb double
@@ -351,27 +351,27 @@ OclBuiltinImpl mad_impl = OclBuiltinImpl<mad, mad.Types, 0, [{
 // maxmag
 OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
     $Arg0Type $ReturnVarName;
-	$Arg0Type xabs = fabs($Arg0VarName);
-	$Arg0Type yabs = fabs($Arg1VarName);
-	$Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
-	$Arg0igentype xLTy = xabs < yabs;
-	$Arg0igentype yLTx = yabs < xabs;
-	$ReturnVarName = select(xymax, $Arg1VarName, xLTy);
-	$ReturnVarName = select($ReturnVarName, $Arg0VarName, yLTx);
-	return $ReturnVarName;
+  $Arg0Type xabs = fabs($Arg0VarName);
+  $Arg0Type yabs = fabs($Arg1VarName);
+  $Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
+  $Arg0igentype xLTy = xabs < yabs;
+  $Arg0igentype yLTx = yabs < xabs;
+  $ReturnVarName = select(xymax, $Arg1VarName, xLTy);
+  $ReturnVarName = select($ReturnVarName, $Arg0VarName, yLTx);
+  return $ReturnVarName;
   }]>;
   
 // minmag
 OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, minmag.Types, 0, [{
     $Arg0Type $ReturnVarName;
-	$Arg0Type xabs = fabs($Arg0VarName);
-	$Arg0Type yabs = fabs($Arg1VarName);
-	$Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
-	$Arg0igentype xGTy = xabs > yabs;
-	$Arg0igentype yGTx = yabs > xabs;
-	$ReturnVarName = select(xymin, $Arg1VarName, xGTy);
-	$ReturnVarName = select($ReturnVarName, $Arg0VarName, yGTx);
-	return $ReturnVarName;
+  $Arg0Type xabs = fabs($Arg0VarName);
+  $Arg0Type yabs = fabs($Arg1VarName);
+  $Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
+  $Arg0igentype xGTy = xabs > yabs;
+  $Arg0igentype yGTx = yabs > xabs;
+  $ReturnVarName = select(xymin, $Arg1VarName, xGTy);
+  $ReturnVarName = select($ReturnVarName, $Arg0VarName, yGTx);
+  return $ReturnVarName;
   }]>;
 
 // modf
@@ -734,23 +734,23 @@ OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, native_expm1.Typ
 // native_fdim
 // built in beyond OpenCL1.2 spec
 OclBuiltinImpl native_fdim_f32_impl = OclBuiltinImpl<native_fdim, native_fdim.Types, 0, [{
-   	return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, as_$Arg0igentype($Arg0VarName-$Arg1VarName));
+     return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, as_$Arg0igentype($Arg0VarName-$Arg1VarName));
   }]>;
 
 // native_fmod
 // built in beyond OpenCL1.2 spec
 OclBuiltinImpl native_fmod_f32_impl = OclBuiltinImpl<native_fmod, native_fmod.Types, 0, [{
     $Arg0Type m_trunc = trunc($Arg0VarName / $Arg1VarName);
-	$Arg0Type m_mul = $Arg1VarName * m_trunc;
-	return $Arg0VarName - m_mul;
+  $Arg0Type m_mul = $Arg1VarName * m_trunc;
+  return $Arg0VarName - m_mul;
   }]>;
 
 // native_fract
 // built in beyond OpenCL1.2 spec
 code native_fract_impl = [{
     *$Arg1VarName = floor($Arg0VarName);
-	$Arg0Type m_sub  = $Arg0VarName - *$Arg1VarName;
-	return min(m_sub, ($Arg0Type) $ReturnBaseType_const_fractLimit);
+  $Arg0Type m_sub  = $Arg0VarName - *$Arg1VarName;
+  return min(m_sub, ($Arg0Type) $ReturnBaseType_const_fractLimit);
   }];
 
 OclBuiltinImpl native_fract_pas_f32 = OclBuiltinImpl<native_fract_pas, native_fract_pas.Types, 0, native_fract_impl>;

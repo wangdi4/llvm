@@ -139,7 +139,8 @@ OclBuiltinImpl clz_igeneric = OclBuiltinImpl<clz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // clz on scalar uchar
 OclBuiltinImpl clz_v1char = OclBuiltinImpl<clz, [v1u8], 0, [{
-    return __builtin_clzc($Arg0VarName);
+    //return __builtin_clzc($Arg0VarName);
+    return __builtin_clz((uint)$Arg0VarName)-24;
   }]>;
 // clz on scalar ushort
 OclBuiltinImpl clz_v1short = OclBuiltinImpl<clz, [v1u16], 0, [{

@@ -2,23 +2,23 @@
 
 //promote and expand
 
-	OclBuiltinImpl degrees_promote	=	OclBuiltinImpl	<degrees,	[v2f32, v3f32],											0, Promote1>;
-	OclBuiltinImpl degrees_expand	=	OclBuiltinImpl	<degrees,	[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64],			0, Expand1>;
-	OclBuiltinImpl max_promote 		=	OclBuiltinImpl	<max,		[v2f32, v3f32], 										0, Promote2>;
-	OclBuiltinImpl max_expand 		=	OclBuiltinImpl	<max,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl min_promote 		=	OclBuiltinImpl	<min, 		[v2f32, v3f32], 										0, Promote2>;
-    OclBuiltinImpl min_expand 		=	OclBuiltinImpl	<min, 		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl mix_promote		= 	OclBuiltinImpl	<mix, 		[v2f32, v3f32], 										0, Promote3>;
-	OclBuiltinImpl mix_expand		= 	OclBuiltinImpl	<mix, 		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand3>;
-	OclBuiltinImpl radians_promote	= 	OclBuiltinImpl	<radians,	[v2f32, v3f32],											0, Promote1>;
-	OclBuiltinImpl radians_expand	= 	OclBuiltinImpl	<radians,	[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64],			0, Expand1>;
-	OclBuiltinImpl step_promote 	=	OclBuiltinImpl	<step,		[v2f32, v3f32], 										0, Promote2>;
-	OclBuiltinImpl step_expand 		=	OclBuiltinImpl	<step,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl sign_promote 	=	OclBuiltinImpl	<sign,		[v2f32, v3f32], 										0, Promote1>;
-	OclBuiltinImpl sign_expand 		=	OclBuiltinImpl	<sign,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand1>;
-	OclBuiltinImpl smoothstep_promote 	=	OclBuiltinImpl	<smoothstep,		[v2f32, v3f32], 										0, Promote3>;
-	OclBuiltinImpl smoothstep_expand 	=	OclBuiltinImpl	<smoothstep,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand3>;
-	
+    OclBuiltinImpl degrees_promote    = OclBuiltinImpl    <degrees,     [v2f32, v3f32],                               0, Promote1>;
+    OclBuiltinImpl degrees_expand     = OclBuiltinImpl    <degrees,     [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
+    OclBuiltinImpl max_promote        = OclBuiltinImpl    <max,         [v2f32, v3f32],                               0, Promote2>;
+    OclBuiltinImpl max_expand         = OclBuiltinImpl    <max,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+    OclBuiltinImpl min_promote        = OclBuiltinImpl    <min,         [v2f32, v3f32],                               0, Promote2>;
+    OclBuiltinImpl min_expand         = OclBuiltinImpl    <min,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+    OclBuiltinImpl mix_promote        = OclBuiltinImpl    <mix,         [v2f32, v3f32],                               0, Promote3>;
+    OclBuiltinImpl mix_expand         = OclBuiltinImpl    <mix,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand3>;
+    OclBuiltinImpl radians_promote    = OclBuiltinImpl    <radians,     [v2f32, v3f32],                               0, Promote1>;
+    OclBuiltinImpl radians_expand     = OclBuiltinImpl    <radians,     [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
+    OclBuiltinImpl step_promote       = OclBuiltinImpl    <step,        [v2f32, v3f32],                               0, Promote2>;
+    OclBuiltinImpl step_expand        = OclBuiltinImpl    <step,        [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+    OclBuiltinImpl sign_promote       = OclBuiltinImpl    <sign,        [v2f32, v3f32],                               0, Promote1>;
+    OclBuiltinImpl sign_expand        = OclBuiltinImpl    <sign,        [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
+    OclBuiltinImpl smoothstep_promote = OclBuiltinImpl    <smoothstep,  [v2f32, v3f32],                               0, Promote3>;
+    OclBuiltinImpl smoothstep_expand  = OclBuiltinImpl    <smoothstep,  [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand3>;
+    
 // ======GENERIC CPU specific implementation=======================
 //  clamp
 //
@@ -63,55 +63,55 @@ OclBuiltinImpl min_v2f64 = OclBuiltinImpl<min, [v2f64], 0, [{
 // step
 OclBuiltinImpl step_v4f32 = OclBuiltinImpl<step,
   [v4f32] , 0, [{
-	$ReturnType $ReturnVarName;
-	$ReturnVarName = _mm_cmpge_ps($Arg1VarName,$Arg0VarName);
-	$ReturnVarName = _mm_and_ps($ReturnVarName,*(($ReturnType *)f4const_oneStorage));
+    $ReturnType $ReturnVarName;
+    $ReturnVarName = _mm_cmpge_ps($Arg1VarName,$Arg0VarName);
+    $ReturnVarName = _mm_and_ps($ReturnVarName,*(($ReturnType *)f4const_oneStorage));
     return $ReturnVarName;
   }]>;
   
 OclBuiltinImpl step_v2f64 = OclBuiltinImpl<step,
   [v2f64] , 0, [{
-	$ReturnType $ReturnVarName;
-	$ReturnVarName = _mm_cmpge_pd($Arg1VarName,$Arg0VarName);
-	$ReturnVarName = _mm_and_pd($ReturnVarName,*(($ReturnType *)d2const_oneStorage));
+    $ReturnType $ReturnVarName;
+    $ReturnVarName = _mm_cmpge_pd($Arg1VarName,$Arg0VarName);
+    $ReturnVarName = _mm_and_pd($ReturnVarName,*(($ReturnType *)d2const_oneStorage));
     return $ReturnVarName;
   }]>;
    
   
 // sign
 OclBuiltinImpl sign_v4f32 = OclBuiltinImpl<sign,[v4f32] , 0, [{
-	//if X=nan -> x=0	
-	//	__m128 nan = _mm_set1_ps(0x7FFFFFFF); // or numeric_limits<float>::quiet_NaN();
+    //if X=nan -> x=0    
+    //    __m128 nan = _mm_set1_ps(0x7FFFFFFF); // or numeric_limits<float>::quiet_NaN();
     
     $ReturnType f4res = _mm_cmpneq_ps($Arg0VarName, *(($ReturnType *)f4const_nanStorage)); //if x=nan f4res=0
-	$Arg0VarName = _mm_and_ps(f4res, $Arg0VarName);//if f4res=0 (x=nan) x=0
-	
-	//if x>0 return res=1
-	$ReturnType res = _mm_cmpgt_ps($Arg0VarName, _mm_setzero_ps());
-	res =  _mm_and_ps(res, *(($ReturnType *)f4const_oneStorage)); //res = 1 if x>0
-	
-	//if x<-0 return res1=-1
-	$ReturnType res1 = _mm_cmplt_ps($Arg0VarName, *(($ReturnType *)f4const_minusZeroStorage)); ////res1 = -1 if x<-0
-	res1 =  _mm_and_ps(res1, *(($ReturnType *)f4const_minusOneStorage));
-	res = _mm_or_ps(res, res1);
-	//if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
-	return res;
+    $Arg0VarName = _mm_and_ps(f4res, $Arg0VarName);//if f4res=0 (x=nan) x=0
+    
+    //if x>0 return res=1
+    $ReturnType res = _mm_cmpgt_ps($Arg0VarName, _mm_setzero_ps());
+    res =  _mm_and_ps(res, *(($ReturnType *)f4const_oneStorage)); //res = 1 if x>0
+    
+    //if x<-0 return res1=-1
+    $ReturnType res1 = _mm_cmplt_ps($Arg0VarName, *(($ReturnType *)f4const_minusZeroStorage)); ////res1 = -1 if x<-0
+    res1 =  _mm_and_ps(res1, *(($ReturnType *)f4const_minusOneStorage));
+    res = _mm_or_ps(res, res1);
+    //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
+    return res;
   }]>;
   
 OclBuiltinImpl sign_v2f64 = OclBuiltinImpl<sign,[v2f64] , 0, [{
-	//if X=nan -> x=0	
+     //if X=nan -> x=0    
      $ReturnType d2res = _mm_cmpneq_pd($Arg0VarName, *(($ReturnType *)d2const_nanStorage));//if x=nan d2res=0
-	 $Arg0VarName = _mm_and_pd(d2res, $Arg0VarName);//if d2res=0 (x=nan) x=0
+     $Arg0VarName = _mm_and_pd(d2res, $Arg0VarName);//if d2res=0 (x=nan) x=0
 
-//if x>0 return res=1
-	$ReturnType res = _mm_cmpgt_pd($Arg0VarName, _mm_setzero_pd());
-	res =  _mm_and_pd(res, *(($ReturnType *)d2const_oneStorage)); //res = 1 if x>0
+    //if x>0 return res=1
+    $ReturnType res = _mm_cmpgt_pd($Arg0VarName, _mm_setzero_pd());
+    res =  _mm_and_pd(res, *(($ReturnType *)d2const_oneStorage)); //res = 1 if x>0
 
-//if x<-0 return res1=-1
-	$ReturnType res1 = _mm_cmplt_pd($Arg0VarName, *(($ReturnType *)d2const_minusZeroStorage)); ////res1 = -1 if x<-0
-	res1 =  _mm_and_pd(res1, *(($ReturnType *)d2const_minusOneStorage));
-	res = _mm_or_pd(res, res1);
-	//if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
-	return res;
+    //if x<-0 return res1=-1
+    $ReturnType res1 = _mm_cmplt_pd($Arg0VarName, *(($ReturnType *)d2const_minusZeroStorage)); ////res1 = -1 if x<-0
+    res1 =  _mm_and_pd(res1, *(($ReturnType *)d2const_minusOneStorage));
+    res = _mm_or_pd(res, res1);
+    //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
+    return res;
   }]>;
   

@@ -19,42 +19,42 @@ list<OclType> math_svml_vF32vF32_expand = [v3f32, v16f32];
 
 // ceil float8
 OclBuiltinImpl ceil_v8f32_impl = OclBuiltinImpl<ceil, [v8f32], 0, [{
-	return _mm256_ceil_ps($Arg0VarName);
+  return _mm256_ceil_ps($Arg0VarName);
   }]>;
 
 // floor float8
 OclBuiltinImpl floor_v8f32_impl = OclBuiltinImpl<floor, [v8f32], 0, [{
-	return _mm256_floor_ps($Arg0VarName);
+  return _mm256_floor_ps($Arg0VarName);
   }]>;
 
 // trunc
 OclBuiltinImpl trunc_v8f32_impl = OclBuiltinImpl<trunc, [v8f32], 0, [{
-	return _mm256_round_ps($Arg0VarName, _MM_FROUND_TO_ZERO);
+  return _mm256_round_ps($Arg0VarName, _MM_FROUND_TO_ZERO);
   }]>;
 
 // round
 OclBuiltinImpl round_v8f32_impl = OclBuiltinImpl<round, [v8f32], 0, [{
-	const int mth_signMask = 0x7FFFFFFF;
-	float8 xAbs = fabs($Arg0VarName);
-	int8 xSign = as_int8($Arg0VarName) & ~mth_signMask;
-	float8 xAbsRounded = _mm256_round_ps(xAbs, _MM_FROUND_TO_NEAREST_INT);
-	float8 xDiff = xAbs - xAbsRounded;
-	xDiff = as_float8(xDiff == 0.5f);
-	xDiff = as_float8(as_int8(xDiff) & as_int(1.0f));
-	$Arg0VarName = xAbsRounded + xDiff;
-	$Arg0VarName = as_float8(as_int8($Arg0VarName) | xSign);
-	return $Arg0VarName;
+  const int mth_signMask = 0x7FFFFFFF;
+  float8 xAbs = fabs($Arg0VarName);
+  int8 xSign = as_int8($Arg0VarName) & ~mth_signMask;
+  float8 xAbsRounded = _mm256_round_ps(xAbs, _MM_FROUND_TO_NEAREST_INT);
+  float8 xDiff = xAbs - xAbsRounded;
+  xDiff = as_float8(xDiff == 0.5f);
+  xDiff = as_float8(as_int8(xDiff) & as_int(1.0f));
+  $Arg0VarName = xAbsRounded + xDiff;
+  $Arg0VarName = as_float8(as_int8($Arg0VarName) | xSign);
+  return $Arg0VarName;
   }]>;
 
 // rint
 OclBuiltinImpl rint_v8f32_impl = OclBuiltinImpl<rint, [v8f32], 0, [{
-	return _mm256_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  return _mm256_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 
 // rsqrt
 OclBuiltinImpl rsqrt_v8f32_impl = OclBuiltinImpl<rsqrt, [v8f32], 0, [{
-	const float8 temp = _mm256_sqrt_ps($Arg0VarName);
-	return 1.0f/temp;
+  const float8 temp = _mm256_sqrt_ps($Arg0VarName);
+  return 1.0f/temp;
   }]>;
 
 // intel_maskmove() 
@@ -115,16 +115,16 @@ OclBuiltinImpl trunc_v4f64_impl = OclBuiltinImpl<trunc, [v4f64], 0, [{
 
 // round 
 OclBuiltinImpl round_v4f64_impl = OclBuiltinImpl<round, [v4f64], 0, [{
-	const long mth_signMask = 0x7FFFFFFFFFFFFFFF;
-	double4 xAbs = fabs($Arg0VarName);
-	long4 xSign = as_long4($Arg0VarName) & ~mth_signMask;
-	double4 xAbsRounded = _mm256_round_pd(xAbs, _MM_FROUND_TO_NEAREST_INT);
-	double4 xDiff = xAbs - xAbsRounded;
-	xDiff = as_double4(xDiff == 0.5);
-	xDiff = as_double4(as_long4(xDiff) & as_long(1.0));
-	$Arg0VarName = xAbsRounded + xDiff;
-	$Arg0VarName = as_double4(as_long4($Arg0VarName) | xSign);
-	return $Arg0VarName;
+  const long mth_signMask = 0x7FFFFFFFFFFFFFFF;
+  double4 xAbs = fabs($Arg0VarName);
+  long4 xSign = as_long4($Arg0VarName) & ~mth_signMask;
+  double4 xAbsRounded = _mm256_round_pd(xAbs, _MM_FROUND_TO_NEAREST_INT);
+  double4 xDiff = xAbs - xAbsRounded;
+  xDiff = as_double4(xDiff == 0.5);
+  xDiff = as_double4(as_long4(xDiff) & as_long(1.0));
+  $Arg0VarName = xAbsRounded + xDiff;
+  $Arg0VarName = as_double4(as_long4($Arg0VarName) | xSign);
+  return $Arg0VarName;
   }]>;
 
 // rint 
