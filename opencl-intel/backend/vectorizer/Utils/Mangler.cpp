@@ -317,7 +317,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
     maskedName = "masked_";
 
   // Determine load or store
-  std::string baseFuncName;
+  std::string baseFuncName = "unknown";
   if (isLoad) {
     if (isScatterGather)
       baseFuncName = "gather_transpose_";
@@ -331,7 +331,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   }
 
   // Determine vector element type
-  std::string typeName;
+  std::string typeName = "unknown";
   if (origVecType->getScalarSizeInBits() == 8) {
     typeName = "char";
   } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isIntegerTy()) {
@@ -346,3 +346,34 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   return funcName.str();
 }
 
+std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType) {
+
+  // Determine load or store
+  std::string baseFuncName;
+  if (isLoad) {
+    baseFuncName = "load_";
+  } else { // isStore
+    baseFuncName = "store_";
+  }
+
+  // Determine vector element type
+  std::string typeName = "unknown";
+  if (vecType->getScalarSizeInBits() == 8) {
+    typeName = "char";
+  } else if ((vecType->getScalarSizeInBits() == 16) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "short";
+  } else if ((vecType->getScalarSizeInBits() == 32) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "int";
+  } else if ((vecType->getScalarSizeInBits() == 64) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "long";
+  } else if (vecType->getElementType()->isFloatTy()) {
+    typeName = "float";
+  } else if (vecType->getElementType()->isDoubleTy()) {
+    typeName = "double";
+  }
+
+  std::stringstream funcName;
+  funcName << "masked_" << baseFuncName << typeName << vecType->getNumElements();
+
+  return funcName.str();
+}

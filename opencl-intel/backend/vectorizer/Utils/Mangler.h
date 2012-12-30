@@ -97,6 +97,12 @@ public:
   static std::string getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,
           VectorType * origVecType, unsigned int packetWidth);
 
+  /// @brief Get mangled name for masked load/store function
+  /// @param isLoad True if this is load, false otherwise
+  /// @param vecType Vector type of the data to load/store
+  /// @return name
+  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType);
+
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name
   /// @return the builtin name with a fake builtin name
