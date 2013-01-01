@@ -216,11 +216,11 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   Type* retType = isOriginalFuncRetVector ? 
     static_cast<Type*>(ArrayType::get(originalFunc->getReturnType(), 2)) :
     static_cast<Type*>(VectorType::get(originalFunc->getReturnType(), 2));
-  CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, CI);    
+  SmallVector<Attributes, 4> attrs;
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
+  CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);    
   V_ASSERT(newCall && "adding function failed");
-  Function *F = newCall->getCalledFunction();
-  F->addAttribute(~0, Attribute::ReadNone);
-  F->addAttribute(~0, Attribute::NoUnwind);
   SmallVector<Instruction*, 2> extractVals;
   for (unsigned i=0; i < 2; ++i) {
     if (isOriginalFuncRetVector) {

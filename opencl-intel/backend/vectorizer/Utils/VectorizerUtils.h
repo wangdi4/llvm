@@ -69,7 +69,7 @@ public:
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
   static CallInst *createFunctionCall(Module *pModule, const std::string &name,
-    Type *retType, const SmallVectorImpl<Value *> &args, Instruction* insertBefore);
+    Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore);
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast

@@ -211,7 +211,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   if(type == Mangler::Scatter) args.push_back(Data);
 
   // Create new gather/scatter caller instruction
-  Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, caller->getType(), args, caller);
+  Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, caller->getType(), args, SmallVector<Attributes, 4>(), caller);
 
   // Replace caller with new gather/scatter caller instruction
   caller->replaceAllUsesWith(newCaller);
@@ -296,7 +296,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
     args.push_back(CombinedMask);
 
     // Call cttz intrinsics name
-    Instruction *CttzCaller = VectorizerUtils::createFunctionCall(pModule, sname.str(), MaskCombinedTy, args, caller);
+    Instruction *CttzCaller = VectorizerUtils::createFunctionCall(pModule, sname.str(), MaskCombinedTy, args, SmallVector<Attributes, 4>(), caller);
     // Convert cttz result to i32 before using it as index parameter for extract element instruction.
     CttzCaller = BitCastInst::CreateIntegerCast(CttzCaller, i32Ty, false,  "ZExti16Toi32", caller);
     // Mask with (Vector-width-1), this is needed for the case of zero mask!

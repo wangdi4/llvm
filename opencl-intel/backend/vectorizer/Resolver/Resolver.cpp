@@ -8,6 +8,7 @@
 #include "Logger.h"
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
+#include "FakeInsert.h"
 
 #include <vector>
 
@@ -196,6 +197,9 @@ void FuncResolver::resolve(CallInst* caller) {
     V_STAT(m_unresolvedCallCtr++;)
     return resolveFunc(caller);
   }
+  if (Mangler::isFakeInsert(calledName)) {
+    return resolveFakeInsert(caller);
+  }
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -361,7 +365,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     args.push_back(extMask);
     CallInst* newCall = VectorizerUtils::createFunctionCall(
             caller->getParent()->getParent()->getParent(), funcName, 
-            caller->getType(), args, caller);
+            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
     caller->replaceAllUsesWith(newCall);
     caller->eraseFromParent();
     return true;
@@ -476,7 +480,7 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     args.push_back(extMask);
     (void) VectorizerUtils::createFunctionCall(
             caller->getParent()->getParent()->getParent(), funcName, 
-            caller->getType(), args, caller);
+            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
     // no need in 'funcName' call instruction value - as it has void result
     caller->eraseFromParent();
     return true;
@@ -534,6 +538,14 @@ Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Va
   V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
              "Extended mask type smaller than original mask type!");
   return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
+}
+
+void FuncResolver::resolveFakeInsert(CallInst* caller) {
+  FakeInsert FI(*caller);
+  InsertElementInst *IEI = InsertElementInst::Create(FI.getVectorArg(), FI.getNewEltArg(), FI.getIndexArg(), "insertelt", caller);
+  caller->replaceAllUsesWith(IEI);
+  VectorizerUtils::SetDebugLocBy(IEI, caller);
+  caller->eraseFromParent();
 }
 
 } // namespace

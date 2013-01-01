@@ -125,6 +125,7 @@ private:
   std::string recoverOriginalFunctionName(const std::string name);
   /*! \} */
 
+  void resolveFakeInsert(CallInst* caller);
   /// load storage
   typedef std::vector<CallInst*> bin_t;
 

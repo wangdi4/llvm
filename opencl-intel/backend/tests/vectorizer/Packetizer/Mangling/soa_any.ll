@@ -1,15 +1,16 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify -S -o - %s \
+; RUN: | FileCheck %s
 
 ; ModuleID = 'run_any.cl'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-win32"
 
+; calls to any() are uniform, so do expect the SOA version to be called
 ;CHECK: @run_any
-;CHECK-NOT: call i32 @_Z3any
-;CHECK: call <16 x i32> @_Z8soa_any4Dv16_cS_S_S_
-;CHECK-NOT: call i32 @_Z3any
+;CHECK-NOT: call <16 x i32> @_Z8soa_any4Dv16_cS_S_S_
+;CHECK: call i32 @_Z3any
+;CHECK-NOT: call <16 x i32> @_Z8soa_any4Dv16_cS_S_S_
+;CHECK: ret
 define void @run_any(<4 x i8> %inp1, <4 x i8> %inp2, <4 x i8> %inp3, <4 x i8> %inp4) nounwind {
 entry:
   %inp1.addr = alloca <4 x i8>, align 4

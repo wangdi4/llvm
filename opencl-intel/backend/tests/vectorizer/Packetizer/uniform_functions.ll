@@ -234,3 +234,39 @@ entry:
   store double %call1, double addrspace(1)* %arrayidx2, align 8
   ret void
 }
+
+; RUN: opt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %s -S -o - \
+; RUN: | FileCheck %s
+
+
+%struct._image2d_t = type opaque
+
+define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x float> addrspace(1)* nocapture %dst) nounwind {
+; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
+; CHECK: [[C1:%[a-zA-Z0-9_]+]] = tail call i32 @get_global_id(i32 0) nounwind readnone
+; CHECK: [[S0:%[a-zA-Z0-9_]+]] = insertelement <4 x i32> undef, i32 [[C1]], i32 0
+; CHECK: [[S1:%[a-zA-Z0-9_]+]] = shufflevector <4 x i32> [[S0]], <4 x i32> undef, <4 x i32> zeroinitializer
+; CHECK: [[A0:%[a-zA-Z0-9_]+]] = add <4 x i32> [[S1]], <i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[E0:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 0
+; CHECK: [[E1:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 1
+; CHECK: [[E2:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 2
+; CHECK: [[E3:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 3
+; CHECK: [[G0:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E0]]
+; CHECK: [[G1:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E1]]
+; CHECK: [[G2:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E2]]
+; CHECK: [[G3:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E3]]
+; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G0]], align 16
+; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G1]], align 16
+; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G2]], align 16
+; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G3]], align 16
+; CHECK: ret void
+entry:
+  %call = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
+  %call1 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 %call1
+  store <4 x float> %call, <4 x float> addrspace(1)* %arrayidx, align 16
+  ret void
+}
+
+
+declare <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t*, i32, <2 x float>) nounwind readnone
