@@ -91,6 +91,21 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
 
 static const cl_device_affinity_domain CPU_SUPPORTED_AFFINITY_DOMAINS = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
 
+typedef enum 
+{
+    CPU_DEVICE_DATA_TYPE_CHAR  = 0,
+    CPU_DEVICE_DATA_TYPE_SHORT,
+    CPU_DEVICE_DATA_TYPE_INT,
+    CPU_DEVICE_DATA_TYPE_FLOAT,
+    CPU_DEVICE_DATA_TYPE_LONG, 
+    CPU_DEVICE_DATA_TYPE_DOUBLE,
+    CPU_DEVICE_DATA_TYPE_HALF
+} CPUDeviceDataTypes;
+
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 4, 2, 2, 0};  //SSE4.2 has 16 byte (XMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[]   = {16, 8, 4, 8, 2, 4, 0};  //AVX supports 32 byte (YMM) registers only for floats and doubles
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[]  = {32, 16, 8, 8, 4, 4, 0}; //AVX2 has a full set of 32 byte (YMM) registers
+
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
     switch(errorCode)
@@ -364,6 +379,34 @@ void CPUDevice::GenerateAffinityPermutation(cl_uint *pComputeUnits, unsigned lon
 	pAffinityPermutation[0] = 0;
 }
 
+cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
+{
+    const bool     avx1Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+    const bool     avx2Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
+    const cl_uint* pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42;
+
+    if (avx1Support)
+    {
+        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX;
+    }
+    if (avx2Support)
+    {
+        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2;
+    }
+
+    return pVectorWidths[(int)dataType];
+}
+
+CPUDeviceDataTypes NativeVectorToCPUDeviceDataType(cl_device_info native_type)
+{
+    // For OpenCL 1.2, the CL_DEVICE_NATIVE_VECTOR_WIDTH_XXX defines are consecutive and start at CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR
+    // Re-implement this function if that ceases being the case
+    cl_uint dataTypeOffset = native_type - CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR;
+
+    // The CPUDeviceDataTypes enum starts at 0 and follows the same order of types
+    return (CPUDeviceDataTypes)dataTypeOffset;
+}
+
 CPUDevice::~CPUDevice()
 {
 }
@@ -500,9 +543,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ):
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):   //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):  //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):  //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):    //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):   //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //FALL THROUGH
         {
+            //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -511,13 +559,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_uint*)paramVal = 16;
+                *(cl_uint*)paramVal = 1;
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT):
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
         {
+            //We prefer the users won't use half
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -526,45 +574,32 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_uint*)paramVal = 8;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):// FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT):// FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_uint*)paramVal = 4;
+                *(cl_uint*)paramVal = 0;
             }
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG): 
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG): 
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):   //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):  //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ): //FALL THROUGH
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                *pinternalRetunedValueSize = sizeof(cl_uint);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
-                {
-                    *(cl_uint*)paramVal = 2;
-                }
-                return CL_DEV_SUCCESS;
+                return CL_DEV_INVALID_VALUE;
             }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE):
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+               CPUDeviceDataTypes dataType = NativeVectorToCPUDeviceDataType(param);
+                *(cl_uint*)paramVal        = GetNativeVectorWidth(dataType);
+            }
+            return CL_DEV_SUCCESS;
+        }
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the __DOUBLE_ENABLED__ macro
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -575,25 +610,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if(NULL != paramVal)
             {
 #ifdef __DOUBLE_ENABLED__
-                *(cl_uint*)paramVal = 2;
+                *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
 #else
                 *(cl_uint*)paramVal = 0;
 #endif
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_uint*)paramVal = 0;    // TODO: change when halfs are supported
             }
             return CL_DEV_SUCCESS;
         }
