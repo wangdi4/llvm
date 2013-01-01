@@ -2,23 +2,15 @@
 
 //promote and expand
 
-    OclBuiltinImpl degrees_promote    = OclBuiltinImpl    <degrees,     [v2f32, v3f32],                               0, Promote1>;
-    OclBuiltinImpl degrees_expand     = OclBuiltinImpl    <degrees,     [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
-    OclBuiltinImpl max_promote        = OclBuiltinImpl    <max,         [v2f32, v3f32],                               0, Promote2>;
-    OclBuiltinImpl max_expand         = OclBuiltinImpl    <max,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
-    OclBuiltinImpl min_promote        = OclBuiltinImpl    <min,         [v2f32, v3f32],                               0, Promote2>;
-    OclBuiltinImpl min_expand         = OclBuiltinImpl    <min,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
-    OclBuiltinImpl mix_promote        = OclBuiltinImpl    <mix,         [v2f32, v3f32],                               0, Promote3>;
-    OclBuiltinImpl mix_expand         = OclBuiltinImpl    <mix,         [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand3>;
-    OclBuiltinImpl radians_promote    = OclBuiltinImpl    <radians,     [v2f32, v3f32],                               0, Promote1>;
-    OclBuiltinImpl radians_expand     = OclBuiltinImpl    <radians,     [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
-    OclBuiltinImpl step_promote       = OclBuiltinImpl    <step,        [v2f32, v3f32],                               0, Promote2>;
-    OclBuiltinImpl step_expand        = OclBuiltinImpl    <step,        [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
-    OclBuiltinImpl sign_promote       = OclBuiltinImpl    <sign,        [v2f32, v3f32],                               0, Promote1>;
-    OclBuiltinImpl sign_expand        = OclBuiltinImpl    <sign,        [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
-    OclBuiltinImpl smoothstep_promote = OclBuiltinImpl    <smoothstep,  [v2f32, v3f32],                               0, Promote3>;
-    OclBuiltinImpl smoothstep_expand  = OclBuiltinImpl    <smoothstep,  [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand3>;
-    
+	OclBuiltinImpl max_promote 		=	OclBuiltinImpl	<max,		[v2f32, v3f32], 										0, Promote2>;
+	OclBuiltinImpl max_expand 		=	OclBuiltinImpl	<max,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
+	OclBuiltinImpl min_promote 		=	OclBuiltinImpl	<min, 		[v2f32, v3f32], 										0, Promote2>;
+	OclBuiltinImpl min_expand 		=	OclBuiltinImpl	<min, 		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
+	OclBuiltinImpl step_promote 	=	OclBuiltinImpl	<step,		[v2f32, v3f32], 										0, Promote2>;
+	OclBuiltinImpl step_expand 		=	OclBuiltinImpl	<step,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
+	OclBuiltinImpl sign_promote 	=	OclBuiltinImpl	<sign,		[v2f32, v3f32], 										0, Promote1>;
+	OclBuiltinImpl sign_expand 		=	OclBuiltinImpl	<sign,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand1>;
+
 // ======GENERIC CPU specific implementation=======================
 //  clamp
 //
