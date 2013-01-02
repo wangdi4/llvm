@@ -1,6 +1,12 @@
 ; XFAIL: *
 ; XFAIL: win32
 ; RUN: llc < %s -mtriple=x86_64-pc-linux -march=y86-64 -mcpu=knc | FileCheck %s
+;
+; Best known sequence:
+; shl 1, index -> mask
+; mov mask -> k1
+; vstorelo val -> (%rsp)
+; vloadunpack (%rsp), arr{K1}
 define <8 x double> @test_shuffle(<8 x double> %arr, double %val, i32 %index){
   %1 = insertelement <8 x double> %arr, double %val, i32 %index
 ; CHECK: vkmov %eax, %k1
