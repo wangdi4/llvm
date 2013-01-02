@@ -49,10 +49,11 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     VectorType *RetTy = dyn_cast<VectorType>(caller->getType());
     if (!MaskTy || !RetTy) {
       V_PRINT(DEBUG_TYPE, "Non vector type unsupported for gather "<<calledName<<"\n");
-      if (!MaskTy && !RetTy)
+      if (!MaskTy && !RetTy) {
         V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR GATHER " << *caller << "\n");
-      else
+      } else {
         V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR GATHER " << *caller << "\n");
+      }
       return false;
     }
 
@@ -93,10 +94,11 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     VectorType *DataTy = dyn_cast<VectorType>(Data->getType());
     if (!MaskTy || !DataTy) {
       V_PRINT(DEBUG_TYPE, "Non vector type unsupported for scatter "<<calledName<<"\n");
-      if (!MaskTy && !DataTy)
+      if (!MaskTy && !DataTy) {
         V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR SCATTER " << *caller << "\n");
-      else
+      } else {
         V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR SCATTER " << *caller << "\n");
+      }
       return false;
     }
 

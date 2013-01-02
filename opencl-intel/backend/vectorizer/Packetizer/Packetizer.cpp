@@ -1116,13 +1116,15 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
       MO.Index = Index;
       MO.Base = Base;
     }
-    else
+    else {
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
+    }
   }
-  else if (!Gep)
+  else if (!Gep) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
-  else
+  } else {
     V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
+  }
 }
 
 
@@ -1913,7 +1915,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
 
 void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 {
-//  V_PRINT(packetizer, "\t\InsertElement Instruction\n");
+  V_PRINT(packetizer, "\t\tInsertElement Instruction\n");
   V_ASSERT(IEI && "instruction type dynamic cast failed");
 
   if (m_packetWidth!=8 && m_packetWidth!=4) {

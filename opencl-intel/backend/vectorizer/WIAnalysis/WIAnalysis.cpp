@@ -138,7 +138,7 @@ void WIAnalysis::updateDeps() {
 WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
   V_PRINT("WIA","Asking about "<<*val<<"\n");
   if (! m_rtServices->orderedWI()) {
-  V_PRINT("WIA","Random!!\n");
+    V_PRINT("WIA","Random!!\n");
     if(PrintWiaCheck) {
         outs()<<"whichDepend function "<< "WIA" <<"Random!!"<<"4"<< "\n";
     }

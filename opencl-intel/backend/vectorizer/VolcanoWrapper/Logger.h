@@ -67,7 +67,7 @@ extern FILE * moduleDmp;
 #ifndef NDEBUG
     #define V_PRINT(type, x)    DEBUG_WITH_TYPE( #type , errs() << x )
 #else
-    #define V_PRINT(type, x)
+    #define V_PRINT(type, x)    do { } while (0)
 #endif
 #define V_DUMP(ptr)
 #define V_DUMP_MODULE(ptr)

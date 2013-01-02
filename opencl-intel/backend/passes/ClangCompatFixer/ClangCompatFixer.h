@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2011).
+Copyright (c) Intel Corporation (2010-2012).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -12,7 +12,7 @@ Copyright (c) Intel Corporation (2010-2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  PreventDivCrashes.h
+File Name:  ClangCompatFixer.h
 
 \*****************************************************************************/
 
@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param M  Module to transform
     /// @returns  true if changed
     virtual bool runOnModule(Module &M);
-    
+
   private:
     /// @brief Breaks FMA intrinsics back into a mul+add
     /// @param F - Function to replace FMAs in
