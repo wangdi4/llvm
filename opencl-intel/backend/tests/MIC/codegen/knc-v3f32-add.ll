@@ -3,7 +3,9 @@
 ; 
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     
+; RUN:     | FileCheck %s -check-prefix=KNC
+; failing test on purpose because of performance bug
+; KNC: dsaas
 
 target datalayout = "e-p:64:64"
 
