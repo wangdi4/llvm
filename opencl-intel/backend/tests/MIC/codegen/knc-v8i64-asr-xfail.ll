@@ -1,5 +1,5 @@
-; XFAIL: *
-
+; XFAIL: win32
+;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:        -march=y86-64 -mcpu=knc \
 ; RUN: | FileCheck %s -check-prefix=KNC 
@@ -13,7 +13,7 @@ entry:
 ; KNC: vpcmpltd 
 ; KNC: vpsllvd
 ; KNC: vpsrlvd
-; KNC: vpsrad $31, [[Z1]], [[Z2:%zmm[0-9]+]]
+; KNC: vpsrad $31, (%rdi), [[Z2:%zmm[0-9]+]]
 ; KNC: vmovdqa32 [[Z1]]{cdab}, [[Z2]]
 ; KNC: vpsravd
 ; KNC: vpsravd
@@ -27,8 +27,8 @@ define <8 x i64> @shiftright7(<8 x i64> %a) nounwind readnone ssp {
 entry:
 
 ; KNC: shiftright7:
-; KNC: vpsrld $4
 ; KNC: vpslld $28
+; KNC: vpsrld $4
 ; KNC: vpsrad $4 
 
   %shr = ashr <8 x i64> %a, <i64 4, i64 4, i64 4, i64 4, i64 4, i64 4, i64 4, i64 4>
@@ -39,8 +39,8 @@ define <8 x i64> @shiftright8(<8 x i64> %a) nounwind readnone ssp {
 entry:
 
 ; KNC: shiftright8:
-; KNC: vpsrad $5
 ; KNC: vpsrad $31
+; KNC: vpsrad $5
 
   %shr = ashr <8 x i64> %a, <i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37>
   ret <8 x i64> %shr
