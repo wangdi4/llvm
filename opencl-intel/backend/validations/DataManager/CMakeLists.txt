@@ -1,4 +1,4 @@
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
 
 # TinyXML library is used for serialization to XML.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
@@ -50,6 +50,3 @@ add_library(DataManager
   Buffer.cpp
   BufferContainer.cpp
 )
-
-target_link_libraries(DataManager tinyxml_STL NEAT)
-add_dependencies(DataManager tinyxml_STL NEAT)

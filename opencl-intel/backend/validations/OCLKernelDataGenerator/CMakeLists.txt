@@ -1,4 +1,5 @@
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
+
 # TinyXML library is used for serialization to XML.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/DataManager )

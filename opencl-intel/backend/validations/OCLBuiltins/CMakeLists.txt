@@ -1,7 +1,7 @@
 #
 # Settings for Linux compilation
 #
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
 
 if (NOT WIN32)
 
@@ -53,27 +53,3 @@ include_directories (
   ${VALIDATIONS_ROOT}/REFALU
   )
 
-if (WIN32)  
-get_target_property( lib_dir REFALU_wrapper lib_dir )
-link_directories( ${lib_dir} )
-endif (WIN32)
-
-target_link_libraries(OCLBuiltins
-  LLVMSupport
-  REFALU
-  name_mangle
-  )
-
-if (WIN32) 
-add_dependencies(OCLBuiltins
-  LLVMSupport
-  REFALU_wrapper
-  name_mangle
-  )
-else (WIN32)
-add_dependencies(OCLBuiltins
-  LLVMSupport
-  REFALU
-  name_mangle
-  )
-endif (WIN32)

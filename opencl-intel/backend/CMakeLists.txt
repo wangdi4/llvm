@@ -6,16 +6,6 @@ set( OCL_BACKEND_STAND_ALONE      ON  CACHE STRING "")
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set_property( GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "__BUILD__")
 
-set(LLVM_TARGETS_TO_BUILD X86 CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
-if (INCLUDE_MIC_DEVICE)
-    list ( APPEND LLVM_TARGETS_TO_BUILD Y86)
-endif ()
-
-if (NOT MSVC)
-    list( APPEND LLVM_TARGETS_TO_BUILD CBackend CppBackend)
-endif ()
-
-message ("LLVM_TARGETS_TO_BUILD: ${LLVM_TARGETS_TO_BUILD}")
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
 set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
@@ -53,6 +43,8 @@ if (NOT WIN32)
         message(STATUS "Using system assembler, check that its version is 4.3.x")
         set( CMAKE_ASM_COMPILER        as )
     endif(CVCC_ASM_PATH)    
+
+    set(ADD_CXX_FLAGS   "-D  __STDC_LIMIT_MACROS  -D __STDC_CONSTANT_MACROS")
     
 endif (NOT WIN32)
 
@@ -156,16 +148,16 @@ endmacro( CREATE_ASM_RULES )
 ###############################################################################################
 
 option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
-message("Build OpenCL CPU Apple backend plugin: ${LLVM_BUILD_APPLE_BACKEND}")
 
 find_package(LLVM REQUIRED)
 project(Backend)
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
 
+message( STATUS "LLVM include directory: ${LLVM_INCLUDE_DIR}")
+
 if (LLVM_BUILD_APPLE_BACKEND)
     
-    set(ADD_CXX_FLAGS   "-D  __STDC_LIMIT_MACROS  -D __STDC_CONSTANT_MACROS -fno-rtti")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  ${ADD_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS} -fno-rtti")
     
     add_subdirectory(utils)
     add_subdirectory(metadata_api)
@@ -177,6 +169,8 @@ if (LLVM_BUILD_APPLE_BACKEND)
     add_subdirectory(apple_plugin)
     
 else(LLVM_BUILD_APPLE_BACKEND)
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
 
     if(INCLUDE_MIC_DEVICE)
     add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
@@ -256,8 +250,8 @@ else(LLVM_BUILD_APPLE_BACKEND)
     set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
     set_target_properties( DataManager PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
     if(WIN32)
-        set_target_properties( NEAT_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
-        set_target_properties( REFALU_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
+#        set_target_properties( NEAT_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
+#        set_target_properties( REFALU_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
     else ()
         set_target_properties( NEAT PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( REFALU PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )

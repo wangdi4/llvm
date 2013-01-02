@@ -9,8 +9,6 @@ remove_definitions("-pedantic")
 
 add_subdirectory(unittest)
 
-set (OCL_TBLGEN_EXE  "${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ocl-tblgen.exe")
-
 add_custom_command(
   OUTPUT BuiltinList.h
   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
@@ -22,7 +20,7 @@ add_custom_command(
 
 add_custom_command(
   OUTPUT CustomMappings.gen
-  COMMAND ${OCL_TBLGEN_EXE} -gen-vectorizer-map
+  COMMAND ocl-tblgen -gen-vectorizer-map
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
@@ -48,7 +46,6 @@ add_library(
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/llvm/include
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
   ${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -58,5 +55,9 @@ target_link_libraries(
   name_mangle
   LLVMSupport
 )
+
+if (NOT WIN32)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

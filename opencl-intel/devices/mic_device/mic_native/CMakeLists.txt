@@ -13,7 +13,7 @@ set( DEVICE   MIC )
 # Set Backend dependencies
 #
 set( BACKEND_LIB            OclDeviceExecutor )
-set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/backend/llvm/lib )
+set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
 set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
 if (KNC_CARD)

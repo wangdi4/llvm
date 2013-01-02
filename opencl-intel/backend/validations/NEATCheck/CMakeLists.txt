@@ -5,7 +5,6 @@ include_directories( ${VALIDATIONS_ROOT}/DataManager )
 include_directories( ${VALIDATIONS_ROOT}/NEAT )
 
 if (WIN32)
-    get_target_property( lib_dir NEAT_wrapper lib_dir )
     set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
 
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -14,8 +13,7 @@ if (WIN32)
       set (ICC_PLATFORM intel64)
     endif ()
 
-    set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
-    link_directories( ${lib_dir} ${intel_lib_dir} )
+    link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
 endif()
 
 link_directories (
@@ -31,5 +29,6 @@ target_link_libraries(NEATChecker
     NEAT
     DataManager
     ImathLibd
+    tinyxml_STL
     ${LLVM_MODULE_LIBS}
 )

@@ -36,7 +36,7 @@ add_executable(${TARGET_NAME}
 
 
 target_link_libraries(${TARGET_NAME}
-  OclUtils
+  OclBackendUtils
   dynamic_load
   OclPluginManager
   googletest

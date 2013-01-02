@@ -25,6 +25,10 @@ target_link_libraries(
   ${LLVM_MODULE_LIBS}
 )
 
+if (NOT WIN32)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif (NOT WIN32)
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
 install(FILES metadatatest.ll DESTINATION bin)

@@ -35,9 +35,9 @@ add_executable(
 
 target_link_libraries(ocl-tblgen
   name_mangle
-  LLVMSupport
-  LLVMCore
-  LLVMBitReader
-  LLVMAsmParser
-  LLVMTableGen
+  ${LLVM_MODULE_LIBS}
 )
+
+if (NOT WIN32)
+  target_link_libraries(ocl-tblgen pthread)
+endif (NOT WIN32)

@@ -1,4 +1,4 @@
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
 
 include_directories( ${VALIDATIONS_ROOT}/DataManager )
 # NEAT library to (de)serialize NEAT data.

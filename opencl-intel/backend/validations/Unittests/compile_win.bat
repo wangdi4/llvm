@@ -1,4 +1,4 @@
-@echo off
+REM @echo off
 rem Compilation of a C file by ICC Compiler
 rem All variables in the form of CMake vars will be replaced by CMake:
 rem     ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment
@@ -16,11 +16,18 @@ if "%1" == "Debug" goto debug
 
 :release
 if not "%1" == "Release" goto fail
-"@ICC_CPU_CL_NATIVE@" /nologo /c @IDIRS@ /DWIN32 /D_WINDOWS /D_UNICODE /DUNICODE /EHsc /GS /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ /Fo%3 %2
+set CMDLINE="@ICC_CPU_CL_NATIVE@" /nologo /c @IDIRS_RELEASE@ /DWIN32 /D_WINDOWS /D_UNICODE /DUNICODE /EHsc /GS /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Release@ /Fo%3 %2
+echo Running %CMDLINE% >> c:\temp\out.txt
+
+%CMDLINE%
+
 goto fin
 
 :debug
-"@ICC_CPU_CL_NATIVE@" /nologo /c @IDIRS@ /DWIN32 /D_WINDOWS /D_UNICODE /DUNICODE /EHsc /GS /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ /Fo%3 %2
+set CMDLINE="@ICC_CPU_CL_NATIVE@" /nologo /c @IDIRS_DEBUG@ /DWIN32 /D_WINDOWS /D_UNICODE /DUNICODE /EHsc /GS /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div /W3 /Zi @BUILD_TYPE_ICC_COMPILER_FLAGS_Debug@ /Fo%3 %2
+echo Running %CMDLINE% >> c:\temp\out.txt
+
+%CMDLINE%
 
 :fin
 exit /b 0

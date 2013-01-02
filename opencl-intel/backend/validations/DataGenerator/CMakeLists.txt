@@ -1,4 +1,4 @@
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
 
 set (DG_INCLUDE_FILES
   DataGenerator.h
@@ -14,5 +14,3 @@ add_library(DataGenerator
   DataGenerator.cpp
   DGHelper.cpp
 )
-
-add_dependencies(DataGenerator DataManager)

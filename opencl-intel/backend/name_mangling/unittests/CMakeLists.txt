@@ -3,13 +3,6 @@ use_eh(TRUE)
 
 set(TARGET_NAME NameManglingTests)
 
-set (OCL_TBLGEN_EXE  "${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ocl-tblgen.exe")
-
-set(GenCommand ${OCL_TBLGEN_EXE} -gen-ocl-biheader 
-  -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
-  -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h)
-
 include_directories(
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${NAME_MANGLE_ROOT_DIR}/antlruntime/include
@@ -20,14 +13,16 @@ link_directories(
     ${LLVM_LIBRARY_DIR}
 )
 
+message(STATUS "NameManglingTests link directories: ${LLVM_LIBRARY_DIR}")
+
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  COMMAND ${OCL_TBLGEN_EXE} -gen-ocl-biheader 
+  COMMAND ocl-tblgen -gen-ocl-biheader 
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   DEPENDS ocl-tblgen
-  COMMENT "genereating demangled headers... ${GenCommand}"
+  COMMENT "Genereating demangled headers..."
   VERBATIM
 )
 
@@ -45,6 +40,10 @@ target_link_libraries(
   googletest
   LLVMSupport
 )
+
+if (NOT WIN32)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 

@@ -77,8 +77,6 @@ if (NOT WIN32)
     set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
     set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
-    # Target directory
-    set(OCL_CPU_DEBUGGING_LIB_DIR ${OCL_CPU_DEBUGGING_DIR}/lib/Linux${PLATFORM})
 
     # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
     #
@@ -111,13 +109,8 @@ endif (NOT WIN32)
 # Settings for Windows compilation
 #
 if (WIN32)
-
-    # Target directory
-    set(OCL_CPU_DEBUGGING_LIB_DIR ${OCL_CPU_DEBUGGING_DIR}/lib/Win${PLATFORM})
-
     # Linker flags
     set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
-
 endif (WIN32)
 
 
@@ -130,7 +123,7 @@ set (OCL_CPU_DEBUGGING_INCLUDE_FILES
     debuginfo_utils.h
     debugservermessages.pb.h
     protobufpackedmessage.h
-	resource.h
+    resource.h
 )
 
 set (OCL_CPU_DEBUGGING_SOURCE_FILES
@@ -146,17 +139,6 @@ set (OCL_CPU_DEBUGGING_RC_FILES
     OclCpuDebugging.rc
 )
 
-if (WIN32)
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
-    endif (${MSVC_VERSION} EQUAL 1500)
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
 
 include_directories(
   ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
@@ -165,8 +147,6 @@ include_directories(
 
 # Add additional lib direcories
 link_directories (
-    ${OCL_CPU_DEBUGGING_LIB_DIR}
-    ${TBB_LIB_DIR}
     ${LLVM_LIBRARY_DIR}
 ) 
 
@@ -174,15 +154,8 @@ link_directories (
 add_library (${TARGET_NAME} SHARED 
     ${OCL_CPU_DEBUGGING_INCLUDE_FILES}
     ${OCL_CPU_DEBUGGING_SOURCE_FILES}
-	${OCL_CPU_DEBUGGING_RC_FILES}
+    ${OCL_CPU_DEBUGGING_RC_FILES}
 )
-
-#For OCL SDK - Shared libraries should be in the same location as executables
-if ((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    set_target_properties(${TARGET_NAME} PROPERTIES
-                LIBRARY_OUTPUT_DIRECTORY ${RT_OUTPUT_DIRECTORY})
-endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
 
 # Link with appropriate libs
 if (WIN32)
@@ -192,20 +165,16 @@ else (WIN32)
 endif (WIN32)
 
 target_link_libraries (${TARGET_NAME} 
-  
     ${SOCKETLIB}
     cl_sys_utils
-    
-    # LLVM LIBS
+    protobuf
     ${LLVM_MODULE_LIBS}
-    ) 
+) 
 
-if (WIN32)
-    target_link_libraries( ${TARGET_NAME} protobuf )
-else (WIN32)
-    target_link_libraries( ${TARGET_NAME} protobuf pthread )
+if (NOT WIN32)
+    target_link_libraries( ${TARGET_NAME} pthread )
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
-endif (WIN32)
+endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 

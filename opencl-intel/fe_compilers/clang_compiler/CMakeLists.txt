@@ -11,10 +11,6 @@ set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 include_directories( AFTER
             ${LLVM_INCLUDE_DIR}
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/tools/clang/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/include
-            ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/tools/clang/include
-            ${CMAKE_CURRENT_BINARY_DIR}/../../backend/llvm/include
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib

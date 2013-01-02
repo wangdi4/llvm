@@ -138,8 +138,6 @@ else()
   set (LLC OCL_HOST_LLC)
 endif()
 
-set (OCL_TBLGEN_EXE  "${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ocl-tblgen.exe")
-
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
 if (WIN32)	
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -174,10 +172,10 @@ set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 
 set (CLANG_COMPILER_PARAMS 
-  -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim
-  -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim 
+  -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins 
   -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
-  -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics
+  -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics 
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -include opencl_.h
   )
 
@@ -216,8 +214,6 @@ function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}_${ARCH}${OCL_OUTPUT_EXTENSION} )
 
-  # -- BUGBUG -- ${LLVM_OPT} ${CLANG} dependency is removed as it is changed most frequently during LLVM development and 
-  #              in the context of BI Clang compilation these changes have least impact on generated IR
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
@@ -226,7 +222,7 @@ function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
     DEPENDS ${HEADER_FILES}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
-    COMMENT "OCL Compiling ${INPUT_FILE}"
+    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
     VERBATIM
     )
 
@@ -369,7 +365,7 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ${OCL_TBLGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
+        COMMAND ocl-tblgen ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
         DEPENDS ocl-tblgen ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )

@@ -92,7 +92,7 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                             COMMAND ${DEVICE_LINKER} ${TARGET_EXE} ${OBJ_FILES}
 
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${OCL_BINARY_DIR}/backend/llvm/lib/libOclDeviceExecutor.a
+                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT}
 
                             WORKING_DIRECTORY ${BIN_DIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
@@ -177,8 +177,8 @@ list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_DIR}/device-linux-release/lib
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-                -L ${OCL_BINARY_DIR}/backend/llvm/lib
-                -L ${BACKEND_ROOT_DIR}/external/vtune/libknc
+                -L ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
+                #-L ${LLVM_LIBRARY_DIR}/external/vtune/libknc
 
                 # libs to link
                 -lcoi_device
