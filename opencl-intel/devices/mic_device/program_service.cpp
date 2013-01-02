@@ -821,7 +821,11 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     }
     else
     {
-        RemoveProgramFromDevice( pEntry );
+		// In case that the program kernel count is 0, than we didn't pass it to device side, so we should not remove it from device side.
+        if (pEntry->pProgram->GetKernelsCount() > 0)
+		{
+			RemoveProgramFromDevice( pEntry );
+		}
         DeleteProgramEntry(pEntry);
         dev_err_code = CL_DEV_SUCCESS;
     }
