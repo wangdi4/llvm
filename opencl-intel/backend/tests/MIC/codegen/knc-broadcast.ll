@@ -1,4 +1,4 @@
-; XFAIL: *
+; XFAIL: win32
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
 ; RUN:     | FileCheck %s -check-prefix=KNC
@@ -9,12 +9,7 @@
 target datalayout = "e-p:64:64"
 
 define <16 x float> @broadcastf32(float %e) nounwind readnone ssp {
-; KNF: broadcastf32:
-; KNF: vshuf128x32 $0, $0, %v0, %v0
-;
-; KNC: broadcastf32:
-; KNC: vpxord [[R1:%zmm[1-9]([0-9])*]], {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
-; KNC: vpremd %zmm0, [[R1]], %zmm0
+; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
   %1 = insertelement <16 x float> undef, float %e, i32 0
   %2 = insertelement <16 x float> %1, float %e, i32 1
   %3 = insertelement <16 x float> %2, float %e, i32 2
@@ -35,14 +30,8 @@ define <16 x float> @broadcastf32(float %e) nounwind readnone ssp {
 }
 
 define <8 x double> @broadcastf64(double %e) nounwind readnone ssp {
-; KNF: broadcastf64:
-; KNF: vshuf128x32 $68, $0, %v0, %v0
-;
 ; KNC: broadcastf64:
-; KNC: .long 0
-; KNC: .long 1
-; KNC: vbroadcastsd _const_{{[0-9]}}(%rip), [[R0:%zmm[0-9]+]]
-; KNC: vpermd %zmm0, [[R0]], %zmm0
+; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
   %1 = insertelement <8 x double> undef, double %e, i32 0
   %2 = insertelement <8 x double> %1, double %e, i32 1
   %3 = insertelement <8 x double> %2, double %e, i32 2
@@ -103,13 +92,7 @@ define <8 x i64> @broadcasti64(i64 %e) nounwind readnone ssp {
 }
 
 define <16 x i32> @broadcastv16i32(<16 x i32> %v) nounwind readnone ssp {
-; KNF: broadcastv16i32:
-; KNF: vshuf128x32 $170, $85, %v0, %v0
-;
-; KNC: broadcastv16i32:
-; KNC: .long 6
-; KNC: vbroadcastss _const_{{[0-9]}}(%rip), [[R0:%zmm[0-9]+]]
-; KNC: vpermd %zmm0, [[R0]], %zmm0
+; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
   %t = extractelement <16 x i32> %v, i32 6
   %1 = insertelement <16 x i32> undef, i32 %t, i32 0
   %2 = insertelement <16 x i32> %1, i32 %t, i32 1
@@ -131,10 +114,8 @@ define <16 x i32> @broadcastv16i32(<16 x i32> %v) nounwind readnone ssp {
 }
 
 define <16 x i32> @broadcastv16i32_0(<16 x i32> %v) nounwind readnone ssp {
-;
-; KNC: broadcastv16i32_0
-; KNC: vpxord [[R1:%zmm[1-9]([0-9])*]], {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
-; KNC: vpermd %zmm0, [[R1]], %zmm0
+
+; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
 
   %t = extractelement <16 x i32> %v, i32 0
   %1 = insertelement <16 x i32> undef, i32 %t, i32 0
@@ -157,14 +138,8 @@ define <16 x i32> @broadcastv16i32_0(<16 x i32> %v) nounwind readnone ssp {
 }
 
 define <8 x i64> @broadcastv8i64(<8 x i64> %v) nounwind readnone ssp {
-; KNF: broadcastv8i64:
-; KNF: vshuf128x32 $68, $255, %v0, %v0
-;
-; KNC: broadcastv8i64:
-; KNC: .long 12
-; KNC: .long 13
-; KNC: vbroadcastsd _const_{{[0-9]}}(%rip), [[R0:%zmm[0-9]+]]
-; KNC: vpermd %zmm0, [[R0]], %zmm0
+; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
+
   %e = extractelement <8 x i64> %v, i32 6
   %1 = insertelement <8 x i64> undef, i64 %e, i32 0
   %2 = insertelement <8 x i64> %1, i64 %e, i32 1

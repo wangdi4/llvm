@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -37,7 +36,7 @@ entry:
 
 define float @load_gbfi() nounwind readnone ssp {
 entry:
-; CHECK: vloadd 20+gbf(%rip){1to16}, %v0
+; CHECK: vbroadcastss 20+gbf(%rip), %zmm0{%k1}
   %addr = getelementptr float* @gbf, i32 5
   %0 = load float * %addr, align 8
   ret float %0
@@ -81,42 +80,42 @@ entry:
 
 define float @load_float(float * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadd    (%rdi){1to16}, %v0
+; CHECK: vbroadcastss (%rdi), %zmm0{%k1}
   %0 = load float *%a
   ret float %0
 }
 
 define double @load_double(double * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadq    (%rdi){1to8}, %v0
+; CHECK: vbroadcastsd (%rdi), %zmm0{%k1} 
   %0 = load double *%a
   ret double %0
 }
 
 define <16 x i32> @load_16i32(<16 x i32> * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadq    (%rdi), %v0
+; CHECK: vmovapd   (%rdi), %zmm0
   %0 = load <16 x i32> *%a
   ret <16 x i32> %0
 }
 
 define <8 x i64> @load_8i64(<8 x i64> * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadq    (%rdi), %v0
+; CHECK: vmovapd   (%rdi), %zmm0
   %0 = load <8 x i64> *%a
   ret <8 x i64> %0
 }
 
 define <16 x float> @load_16float(<16 x float> * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadq    (%rdi), %v0
+; CHECK: vmovapd   (%rdi), %zmm0
   %0 = load <16 x float> *%a
   ret <16 x float> %0
 }
 
 define <8 x double> @load_8double(<8 x double> * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadq    (%rdi), %v0
+; CHECK: vmovapd   (%rdi), %zmm0
   %0 = load <8 x double> *%a
   ret <8 x double> %0
 }
@@ -139,10 +138,10 @@ entry:
 
 define double @load_double_na4(double * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadd    4(%rdi){1to16}, %v0
-; CHECK: movl      $1, %eax
-; CHECK: vkmov     %eax, %k1
-; CHECK: vloadd    (%rdi){1to16}, %v0{%k1}
+; CHECK: vpbroadcastd 4(%rdi), %zmm0
+; CHECK: movl      $1, {{%[a-z0-9]+}}
+; CHECK: kmov     {{%[a-z0-9]+}}, %k1
+; CHECK: vpbroadcastd (%rdi), %zmm0{%k1}
   %0 = load double *%a, align 4
   ret double %0
 }
@@ -163,10 +162,8 @@ entry:
 
 define <8 x i64> @load_8i64_na4(<8 x i64> * %a) nounwind readnone ssp {
 entry:
-; CHECK: vloadunpackld (%rdi), %v0
-; CHECK: testq     $63, %rdi
-; CHECK: je 
-; CHECK: vloadunpackhd 64(%rdi), %v0
+; CHECK: vloadunpackld (%rdi), %zmm0
+; CHECK: vloadunpackhd 64(%rdi), %zmm0
   %0 = load <8 x i64> *%a, align 4
   ret <8 x i64> %0
 }
@@ -177,24 +174,24 @@ entry:
 
 define <16 x i1> @load_gk16 () nounwind readnone ssp {
 entry:
-; CHECK:  movl      gk16(%rip), %eax
-; CHECK:  vkmov     %eax, %k1
+; CHECK:  movl      gk16(%rip), [[R1:%[a-z]+]] 
+; CHECK:  kmov      [[R1]], %k1
   %0 = load <16 x i1> * @gk16, align 8
   ret <16 x i1> %0
 }
 
 define <16 x i1> @load_16i1(<16 x i1> * %a) nounwind readnone ssp {
 entry:
-; CHECK:  movzwl    (%rdi), %eax
-; CHECK:  vkmov     %eax, %k1
+; CHECK:  movzwl    (%rdi), [[R1:%[a-z]+]]
+; CHECK:  kmov      [[R1]], %k1
   %0 = load <16 x i1> *%a, align 2
   ret <16 x i1> %0
 }
 
 define <8 x i1> @load_8i1(<8 x i1> * %a) nounwind readnone ssp {
 entry:
-; CHECK:  movl      (%rdi), %eax
-; CHECK:  vkmov     %eax, %k1
+; CHECK:  movl      (%rdi), [[R1:%[a-z]+]]
+; CHECK:  kmov      [[R1]], %k1
   %0 = load <8 x i1> *%a, align 4
   ret <8 x i1> %0
 }
@@ -202,7 +199,7 @@ entry:
 define <8 x i1> @load_8i1_a2(<8 x i1> * %a) nounwind readnone ssp {
 entry:
 ; CHECK:  movb      (%rdi), %al
-; CHECK:  vkmov     %eax, %k1
+; CHECK:  kmov     %eax, %k1
   %0 = load <8 x i1> *%a, align 2
   ret <8 x i1> %0
 }

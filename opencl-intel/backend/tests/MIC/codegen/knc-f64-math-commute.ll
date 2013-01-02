@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -13,13 +12,7 @@ target datalayout = "e-p:64:64"
 
 define double @add1(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vaddpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-
-
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vaddpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vaddpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp1 = load double* @f                          ; <double> [#uses=1]
   %add = fadd double %tmp1, %a                     ; <double> [#uses=1]
   ret double %add
@@ -27,11 +20,7 @@ entry:
 
 define double @add2(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vaddpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vaddpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vaddpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp = load double* @f                           ; <double> [#uses=1]
   %add = fadd double %a, %tmp                    ; <double> [#uses=1]
   ret double %add
@@ -39,26 +28,16 @@ entry:
 
 define double @mul1(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vmulpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vmulpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vmulpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp1 = load double* @f                          ; <double> [#uses=1]
   %mul = fmul double %tmp1, %a                     ; <double> [#uses=1]
   ret double %mul
 }
 
 
-
-
 define double @mul2(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vmulpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vmulpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vmulpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp = load double* @f                           ; <double> [#uses=1]
   %mul = fmul double %a, %tmp                      ; <double> [#uses=1]
   ret double %mul
@@ -66,11 +45,7 @@ entry:
 
 define double @sub1(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vsubpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vsubpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vsubpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp1 = load double* @f                          ; <double> [#uses=1]
   %sub = fsub double %a, %tmp1                     ; <double> [#uses=1]
   ret double %sub
@@ -78,11 +53,7 @@ entry:
 
 define double @sub2(double %a) nounwind readonly ssp {
 entry:
-; KNF: vkmov {{%[a-z]+}}, [[R1:%k[0-9]+]]
-; KNF: vsubrpd  {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}, {{%v[0-9]+}}{[[R1]]}
-;
-; KNC: movq {{[^(]+\(%[a-z]+\)}}, [[R1:%[a-z]+]]
-; KNC: vsubrpd ([[R1]]){1to8}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC:  vsubrpd    f(%rip){1to8}, %zmm0, %zmm0{%k1}
   %tmp = load double* @f                           ; <double> [#uses=1]
   %sub = fsub double %tmp, %a                      ; <double> [#uses=1]
   ret double %sub

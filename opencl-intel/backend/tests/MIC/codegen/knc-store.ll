@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -38,7 +37,7 @@ entry:
 
 define void @store_gbsi(float %v) nounwind readnone ssp {
 entry:
-; CHECK: vstored   %v0{a}, 20+gbf(%rip)
+; CHECK: vpackstorelps %zmm0, 20+gbf(%rip){%k1}
   %addr = getelementptr float* @gbf, i32 5
   store float %v, float * %addr, align 8
   ret void
@@ -82,42 +81,42 @@ entry:
 
 define void @store_float(float * %a, float %v) nounwind readnone ssp {
 entry:
-; CHECK: vstored   %v0{a}, (%rdi)
+; CHECK: vpackstorelps %zmm0, (%rdi){%k1}
   store float %v, float *%a
   ret void
 }
 
 define void @store_double(double * %a, double %v) nounwind readnone ssp {
 entry:
-; CHECK: vstoreq   %v0{a}, (%rdi)
+; CHECK: vpackstorelpd %zmm0, (%rdi){%k1}
   store double %v, double *%a
   ret void
 }
 
 define void @store_16i32(<16 x i32> * %a, <16 x i32> %v) nounwind readnone ssp {
 entry:
-; CHECK: vstored   %v0, (%rdi)
+; CHECK: vmovdqa32 %zmm0, (%rdi)
   store <16 x i32> %v, <16 x i32> *%a
   ret void
 }
 
 define void @store_8i64(<8 x i64> * %a, <8 x i64> %v) nounwind readnone ssp {
 entry:
-; CHECK: vstoreq   %v0, (%rdi)
+; CHECK: vmovdqa64 %zmm0, (%rdi)
   store <8 x i64>  %v, <8 x i64> *%a
   ret void
 }
 
 define void @store_16float(<16 x float> * %a, <16 x float> %v) nounwind readnone ssp {
 entry:
-; CHECK: vstored   %v0, (%rdi)
+; CHECK: vmovdqa32 %zmm0, (%rdi)
   store <16 x float>%v, <16 x float> *%a
   ret void
 }
 
 define void @store_8double(<8 x double> * %a, <8 x double> %v) nounwind readnone ssp {
 entry:
-; CHECK: vstoreq   %v0, (%rdi)
+; CHECK: vmovdqa64 %zmm0, (%rdi)
   store <8 x double> %v, <8 x double> *%a
   ret void
 }
@@ -141,11 +140,11 @@ entry:
 define void @store_double_na4(double * %a, double %v) nounwind readnone ssp {
 entry:
 ; CHECK: movl      $1, %eax
-; CHECK: vkmov     %eax, %k1
+; CHECK: kmov     %eax, %k1
 ; CHECK: movl      $2, %eax
-; CHECK: vkmov     %eax, %k2
-; CHECK: vpackstoreld %v0, (%rdi){%k1}
-; CHECK: vpackstoreld %v0, 4(%rdi){%k2}
+; CHECK: kmov     %eax, %k2
+; CHECK: vpackstoreld %zmm0, (%rdi){%k1}
+; CHECK: vpackstoreld %zmm0, 4(%rdi){%k2}
   store double %v, double *%a, align 4
   ret void
 }
@@ -158,8 +157,8 @@ entry:
 
 define void @store_16i32_na2(<16 x i32> * %a, <16 x i32>%v) nounwind readnone ssp {
 entry:
-; CHECK: vpackstoreld
 ; CHECK: vpackstorehd
+; CHECK: vpackstoreld
   store <16 x i32> %v, <16 x i32> *%a, align 2
   ret void
 }
@@ -177,7 +176,7 @@ entry:
 
 define void @store_gk16 (<16 x i1> %v) nounwind readnone ssp {
 entry:
-; CHECK:  vkmov     %k1, %e[[R0:[a-z]+]]
+; CHECK:  kmov     %k1, %e[[R0:[a-z]+]]
 ; CHECK:  movw      %[[R0]], gk16(%rip)
   store <16 x i1> %v, <16 x i1> * @gk16, align 8
   ret void
@@ -185,7 +184,7 @@ entry:
 
 define void @store_v16i1 (<16 x i1> %v, <16 x i1> *%p) nounwind readnone ssp {
 entry:
-; CHECK:  vkmov     %k1, %e[[R0:[a-z]+]]
+; CHECK:  kmov     %k1, %e[[R0:[a-z]+]]
 ; CHECK:  movw      %[[R0]], (%rdi)
   store <16 x i1> %v, <16 x i1> * %p, align 8
   ret void
@@ -193,7 +192,7 @@ entry:
 
 define void @store_v8i1 (<8 x i1> %v, <8 x i1> *%p) nounwind readnone ssp {
 entry:
-; CHECK:  vkmov     %k1, %eax
+; CHECK:  kmov      %k1, %eax
 ; CHECK:  movb      %al, (%rdi)
   store <8 x i1> %v, <8 x i1> * %p, align 1
   ret void

@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -13,14 +12,9 @@ target datalayout = "e-p:64:64"
 
 define void @test(double %a, double %b) nounwind readnone ssp {
 entry:
-; KNF: vcmppd    {nlt}, %v0, %v1, %k0{%k1}
-; KNF: vkortest  %k0, %k0
-; KNF: jne
-;
 ; KNC: vcmpnltpd %zmm0, %zmm1, %k0{%k1}
-; KNC: kmovd %k0, [[R1:%[a-z]+]]
-; KNC: testq [[R1]], [[R1]]
-; KNC: jne
+; KNC: jknzd
+; KNC-NOT: testq
   %cmp = fcmp ogt double %a, %b
   br i1 %cmp, label %if.then, label %if.end
 

@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -13,11 +12,8 @@ target datalayout = "e-p:64:64"
 
 define double @load() nounwind readonly ssp {
 entry:
-
-; KNF: vloadq {{[^(]+}}(%rip){1to8}, {{%v[0-9]+}}
+; KNC: vbroadcastsd d(%rip), %zmm0{%k1}
 ;
-; KNC: movq {{[^(]+}}(%rip), [[R1:%r[a-z]+]]
-; KNC: vbroadcastsd ([[R1]]), {{%zmm[0-9]+}}
   %tmp = load double* @d                          ; <double> [#uses=1]
   ret double %tmp
 }
