@@ -423,8 +423,8 @@ entry:
 ; KNC: shiftleft8:
 ; KNC: vmovdqa32 %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}{%k1}
 ; KNC: vmovdqa32 %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}{%k1}
-; KNC: vpslld $5, %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}
-; KNC: vpslld $5, %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}
+; KNC: vpsrld $5, %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}
+; KNC: vpsrld $5, %zmm{{[0-9]+}}{cdab}, %zmm{{[0-9]+}}
 
   %shr = lshr <16 x i64> %a, <i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37, i64 37>
   store <16 x i64> %shr, <16 x i64>* %ptr
