@@ -30,7 +30,7 @@ entry:
 
 define <8 x i64> @sub1(<8 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: mul1 
+; CHECK: sub1
 ; CHECK-NOT: subq
 ; CHECK: ret
   %tmp1 = load <8 x i64>* @g, align 64

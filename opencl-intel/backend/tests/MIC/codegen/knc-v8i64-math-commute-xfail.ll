@@ -14,39 +14,39 @@ define <8 x i64> @div1(<8 x i64> %a) nounwind readonly ssp {
 entry:
 ; CHECK: div1
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: xorl %edx, %edx
-; CHECK: divq
+; CHECK: cqto
+; CHECK: idivq
 ; CHECK: movq %rax
 ; CHECK: ret
   %tmp1 = load <8 x i64>* @g, align 64
-  %div = udiv <8 x i64> %a, %tmp1
+  %div = sdiv <8 x i64> %a, %tmp1
   ret <8 x i64> %div
 }
