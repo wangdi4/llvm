@@ -1,17 +1,9 @@
 ; XFAIL: win32
 ; XFAIL: *
 ; 
-; REVIEW: Once this compiles, we need to add KNF: lines with the
-;         expected output.
-;
-; RUNc: llc < %s -mtriple=x86_64-pc-linux \
-; RUNc:       -march=y86-64 -mcpu=knc \
-; RUNc:     | FileCheck %s -check-prefix=KNC
-;
-
-; RUN: cat files_that_does_not_exist
-; guyblank: test gets stuck on KNC, added the previous line so that it won't
-; guyblank: be marked as unresolved
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:       -march=y86-64 -mcpu=knc \
+; RUN:     
 
 target datalayout = "e-p:64:64"
 
