@@ -1,8 +1,8 @@
+cmake_minimum_required(VERSION 2.8.4)
+
 set(TARGET_NAME OclCpuDebugging)
 
 project(${TARGET_NAME})
-
-cmake_minimum_required(VERSION 2.8.4)
 
 add_subdirectory( protobuf )
 
