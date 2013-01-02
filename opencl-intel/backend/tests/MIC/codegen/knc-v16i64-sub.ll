@@ -21,7 +21,7 @@ entry:
   ret void
 }
 
-define void @sub2(<16 x i64>* nocapture %a, <16 x i64> %b, <16 x i64>* %s) nounwind gssp {
+define void @sub2(<16 x i64>* nocapture %a, <16 x i64> %b, <16 x i64>* %s) nounwind ssp {
 entry:
 ; CHECK: sub2
 ; CHECK: vpsubsetbd %zmm0, %k{{[1-7]+}}, [[Z3:%zmm[0-9]+]]{%k
@@ -35,7 +35,7 @@ entry:
   ret void
 }
 
-define void @sub3(<16 x i64> %a, <16 x i64>* nocapture %b, <16 x i64>* %s) nounwind gssp {
+define void @sub3(<16 x i64> %a, <16 x i64>* nocapture %b, <16 x i64>* %s) nounwind ssp {
 entry:
 ; CHECK: sub3
 ; CHECK: vpsubsetbd (%rdi), %k{{[1-7]+}}, [[Z0:%zmm[0-9]+]]{%k
@@ -49,7 +49,7 @@ entry:
   ret void
 }
 
-define void @sub4(<16 x i64> %a, <16 x i64>* %s) nounwind gssp {
+define void @sub4(<16 x i64> %a, <16 x i64>* %s) nounwind ssp {
 entry:
 ; CHECK: sub4
 ; CHECK: vpsubsetbd 64+gb(%rip), %k{{[1-7]+}}, [[Z1:%zmm[0-9]+]]{%k
@@ -63,7 +63,7 @@ entry:
   ret void
 }
 
-define void @sub5(<16 x i64> %a, <16 x i64>* %s) nounwind gssp {
+define void @sub5(<16 x i64> %a, <16 x i64>* %s) nounwind ssp {
 entry:
 ; CHECK: sub5
 ; CHECK: vpsubsetbd ([[R0:%r[a-z]+]]), %k{{[1-7]+}}, [[Z0:%zmm[0-9]+]]{%k
