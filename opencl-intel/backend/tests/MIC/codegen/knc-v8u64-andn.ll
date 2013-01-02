@@ -14,9 +14,9 @@ target datalayout = "e-p:64:64"
 
 define <8 x i64> @and1(<8 x i64> %a, <8 x i64> %b) nounwind readnone ssp {
 entry:
-; KNF: vandnpq {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
-;
+; KNC: and1
 ; KNC: vpandnq {{%zmm[0-9]+}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC: ret
   %not = xor <8 x i64> %a, <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>
   %and = and <8 x i64> %not, %b
   ret <8 x i64> %and
@@ -24,9 +24,9 @@ entry:
 
 define <8 x i64> @and2(<8 x i64>* nocapture %a, <8 x i64> %b) nounwind readonly ssp {
 entry:
-; KNF: vandnpq {{\(%[a-z]+\)}}, {{%v[0-9]+}}
-;
+; KNC: and2
 ; KNC: vpandnq {{\(%[a-z]+\)}}, {{%zmm[0-9]+}}
+; KNC: ret
   %not = xor <8 x i64> %b, <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>
   %tmp1 = load <8 x i64>* %a, align 64
   %and = and <8 x i64> %tmp1, %not
@@ -35,9 +35,9 @@ entry:
 
 define <8 x i64> @and3(<8 x i64> %a, <8 x i64>* nocapture %b) nounwind readonly ssp {
 entry:
-; KNF: vandnpq {{\(%[a-z]+\)}}, {{%v[0-9]+}}
-;
+; KNC: and3
 ; KNC: vpandnq {{\(%[a-z]+\)}}, {{%zmm[0-9]+}}
+; KNC: ret
   %not = xor <8 x i64> %a, <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>
   %tmp2 = load <8 x i64>* %b, align 64
   %and = and <8 x i64> %tmp2, %not
@@ -46,11 +46,9 @@ entry:
 
 define <8 x i64> @and4(<8 x i64> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: vandnpq ([[R1]]), {{%v[0-9]+}}
-;
-; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: vpandnq ([[R1]]), {{%zmm[0-9]+}}
+; KNC: and4
+; KNC: vpandnq {{[^(]+\(%rip\)}}, {{%zmm[0-9]+}}
+; KNC: ret
   %not = xor <8 x i64> %a, <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>
   %tmp1 = load <8 x i64>* @gb, align 64
   %and = and <8 x i64> %tmp1, %not
@@ -59,13 +57,10 @@ entry:
 
 define <8 x i64> @and5(<8 x i64> %a) nounwind readonly ssp {
 entry:
-; KNF: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNF: movq ([[R1]]), [[R2:%[a-z]+]]
-; KNF: vandnpq ([[R2]]), {{%v[0-9]+}}
-;
+; KNC: and5
 ; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: movq ([[R1]]), [[R2:%[a-z]+]]
 ; KNC: vpandnq ([[R2]]), {{%zmm[0-9]+}}
+; KNC: ret
   %not = xor <8 x i64> %a, <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>
   %tmp1 = load <8 x i64>** @pgb, align 8
   %tmp2 = load <8 x i64>* %tmp1, align 64
