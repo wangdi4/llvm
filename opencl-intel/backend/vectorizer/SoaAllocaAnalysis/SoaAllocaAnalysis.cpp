@@ -118,6 +118,7 @@ namespace intel {
           continue;
         }
         // Cannot support GEP with last index for vector type!
+        V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as Gep value (" << *usage << ")\n");
         return false;
       }
       else if (isa<LoadInst>(usage)) {
@@ -179,6 +180,7 @@ namespace intel {
       }
     }
     // Reaching here means alloca instruction is SOA supported
+    V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca is supported (" << *pAI << ")\n");
     return true;
   }
 
