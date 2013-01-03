@@ -45,7 +45,7 @@ if (WIN32)
     install(TARGETS ${TARGET_NAME} 
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib)
+        LIBRARY DESTINATION bin)
     
 else (WIN32)
     # icc executables and env scripts
@@ -103,8 +103,8 @@ else (WIN32)
     message (" ${TARGET_NAME} sources are in: ${IMATHLIBD_SOURCE_DIR}")
 
     # target directory for .dll/.so 
-    set(IMATHLIBD_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set(IMATHLIBD_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})	
+    set(IMATHLIBD_INSTALL_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
+    set(IMATHLIBD_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
     message ("IMATHLIBD library will be in: ${IMATHLIBD_INSTALL_DIR}")
 
     #

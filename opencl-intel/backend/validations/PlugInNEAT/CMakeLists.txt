@@ -42,16 +42,3 @@ include_directories (
   ${BACKEND_ROOT_DIR}/validations/ImathLibd
   )
 
-target_link_libraries(PlugInNEAT
-  NEAT
-  DataManager
-  LLVMSupport
-  OCLBuiltins
-  )
-
-add_dependencies( PlugInNEAT
-  LLVMInterpreterPluggable
-  DataManager
-  LLVMSupport
-  OCLBuiltins
-  )

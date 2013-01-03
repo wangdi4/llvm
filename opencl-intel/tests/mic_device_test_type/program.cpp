@@ -35,7 +35,7 @@ void CL_CALLBACK _TestKernel(void* params)
 		myParams->buff[i] = i;
 	}
 }
-
+/*
 int main(int argc, char** argv)
 {
    ::testing::InitGoogleTest(&argc, argv);
@@ -50,3 +50,4 @@ int main(int argc, char** argv)
    }
    return true;
 }
+*/

@@ -57,6 +57,7 @@ add_library( ${TARGET_LIB_NAME} STATIC
  
 link_directories(
     ${LLVM_LIBRARY_DIR}
+    ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
 )
 
 if (WIN32)
@@ -76,6 +77,7 @@ add_executable(${TARGET_NAME}
 )
 
 target_link_libraries(${TARGET_NAME}
+    ${TARGET_LIB_NAME}
     DataManager 
     tinyxml_STL
     Comparator
@@ -93,9 +95,17 @@ target_link_libraries(${TARGET_NAME}
     OCLKernelDataGenerator
     OpenCLKernelArgumentsParser
     name_mangle
-    ${TARGET_LIB_NAME}
     ${LLVM_MODULE_LIBS}
 )
+
+if( NOT WIN32)
+    target_link_libraries(${TARGET_NAME}
+        pthread
+    )
+    add_dependencies(${TARGET_NAME}
+        ImathLibd_wrapper
+    )
+endif ()
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 

@@ -178,7 +178,7 @@ list( APPEND MIC_LINK_FLAGS
                 -L ${COI_DIR}/device-linux-release/lib
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
                 -L ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
-                #-L ${LLVM_LIBRARY_DIR}/external/vtune/libknc
+                -L ${BACKEND_ROOT_DIR}/external/vtune/libknc
 
                 # libs to link
                 -lcoi_device

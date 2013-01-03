@@ -10,34 +10,35 @@ include (../../cmake_utils/CMakeFuncs.txt)
 include( ../../cmake_utils/itt.cmake )
 
 if (KNC_CARD)
-	set( COI_SDK_PATH           /opt/intel/mic/coi )
+    set( COI_SDK_PATH           /opt/intel/mic/coi )
 endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )
 
-link_directories( ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-		${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+link_directories( 
+    ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
+    ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
 )
 
 if(WIN32)
-	link_directories(
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
-	)
+    link_directories(
+        ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
+    )
 else (WIN32)
-	link_directories(
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
-		${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
-	)
+    link_directories(
+        ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
+        ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
+    )
 endif(WIN32)
 
 set( TARGET mic_device_test_type )
 
 include_directories( AFTER
             ../../utils/cl_sys_utils/export
-		../../externals/gtest/include
-		../../devices/mic_device
+        ../../externals/gtest/include
+        ../../devices/mic_device
             )
                 
 
@@ -47,8 +48,8 @@ CALCULATE_TARGET_SOURCES()
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
-	get_target_property( CURR_RPATH ${TARGET} INSTALL_RPATH )
-	set_target_properties( ${TARGET} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
+    get_target_property( CURR_RPATH ${TARGET} INSTALL_RPATH )
+    set_target_properties( ${TARGET} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
 endif (NOT WIN32)
 
 target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} task_executor googletest)
@@ -77,7 +78,7 @@ set (MIC_OPTIONS
 )
 
 add_custom_command( TARGET ${TARGET}
-					POST_BUILD
+                    POST_BUILD
                     COMMAND ${LLVM_BINARY_DIR}/clang ${MIC_OPTIONS}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h 

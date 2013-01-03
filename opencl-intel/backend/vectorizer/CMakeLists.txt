@@ -74,5 +74,3 @@ target_link_libraries(
   reflection_module
   name_mangle
 )
-
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )

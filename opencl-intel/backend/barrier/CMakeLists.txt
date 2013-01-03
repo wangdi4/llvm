@@ -24,5 +24,4 @@ add_library( ${TARGET_NAME}
   ${headers}
 )
 
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 

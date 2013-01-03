@@ -43,6 +43,14 @@ target_link_libraries(${TARGET_NAME}
   ${LLVM_MODULE_LIBS}
 )
 
+if( NOT WIN32)
+    target_link_libraries(${TARGET_NAME}
+        pthread
+        dl
+    )
+endif ()
+
+
 # install the bitcode files that the project loads
 install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION bin)
 

@@ -63,8 +63,8 @@ install(TARGETS ${TARGET_NAME}
 
 if (NOT WIN32) 
   list(APPEND LINK_LIBS
-        LLVMCBackend
-        LLVMCBackendInfo
+        #LLVMCBackend
+        #LLVMCBackendInfo
         LLVMCppBackend
         LLVMCppBackendInfo
       )
@@ -95,8 +95,9 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangStaticAnalyzerFrontend
                                       clangStaticAnalyzerCheckers
                                       clangStaticAnalyzerCore
+                                      OclPluginManager
                                       ${LLVM_MODULE_LIBS}
-                                      OclPluginManager)
+                                      )
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1

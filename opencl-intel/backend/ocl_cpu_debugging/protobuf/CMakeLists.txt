@@ -6,6 +6,7 @@
 
 # set that name of the main output file as a target name
 set( TARGET_NAME protobuf )
+use_rtti(TRUE)
 
 include_directories( . include src )
 

@@ -2,6 +2,7 @@
 # Settings for Linux compilation
 #
 set(TARGET_NAME SATest)
+use_rtti(FALSE)
 
 if (NOT WIN32)
 
@@ -187,6 +188,7 @@ add_executable(${TARGET_NAME}
 
 target_link_libraries(${TARGET_NAME}
     OCLBuilder
+    PlugInNEAT
     DataManager
     OpenCLKernelArgumentsParser
     OCLKernelDataGenerator
@@ -194,12 +196,12 @@ target_link_libraries(${TARGET_NAME}
     LLVMInterpreterPluggable
     OclBackendUtils
     OCLInterpreter
+    NEAT
+    REFALU
+    OCLBuiltins
     name_mangle
     dynamic_load
     tinyxml_STL
-    NEAT
-    REFALU
-    PlugInNEAT
     ImathLibd
     ${LLVM_MODULE_LIBS}
     )

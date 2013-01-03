@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8.4)
+use_rtti(TRUE)
 
 set(TARGET_NAME OclCpuDebugging)
 
@@ -145,9 +146,22 @@ include_directories(
   ${OCL_SOURCE_DIR}/externals/tbb/include
 )
 
+if (WIN32)
+    if (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2008
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
+    else (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2010
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+    endif (${MSVC_VERSION} EQUAL 1500)
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
 # Add additional lib direcories
 link_directories (
     ${LLVM_LIBRARY_DIR}
+    ${TBB_LIB_DIR}
 ) 
 
 # Create DLL
