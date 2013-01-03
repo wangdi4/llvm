@@ -274,6 +274,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 void CLStreamSampler::hoistReadImgCalls() {
   // Obtain the stream read from the runtime module.
   Function *LibReadSteamFunc = m_rtServices->getReadStream();
+  if (!LibReadSteamFunc) return;
   Function * readStreamFunc = getLibraryFunc(LibReadSteamFunc);
   assert(readStreamFunc && "failed to get read stream func");
   if (!readStreamFunc) return;
@@ -401,6 +402,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
 void CLStreamSampler::sinkWriteImgCalls() {
   // Obtain the stream write from the runtime module.
   Function *LibWriteStreamFunc = m_rtServices->getWriteStream();
+  if (!LibWriteStreamFunc) return;
   Function * writeStreamFunc = getLibraryFunc(LibWriteStreamFunc);
   assert(writeStreamFunc && "failed to get write stream func");
   if (!writeStreamFunc) return;
