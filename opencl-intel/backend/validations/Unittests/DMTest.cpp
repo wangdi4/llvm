@@ -1258,16 +1258,7 @@ int main(int argc, char **argv) {
       }
   }
 
-  int rc = RUN_ALL_TESTS();
-  if (rc == 0)
-  {
-      printf("\n==============\nTEST SUCCEDDED\n==============\n");
-  }
-  else
-  {
-      printf("\n==============\nTEST FAILED\n==============\n");
-  }
-  return rc;
+  return RUN_ALL_TESTS();
 }
 
 

@@ -383,15 +383,6 @@ TEST(GenTest, soaGenTest){
 int main(int argc, char** argv)
 {
    ::testing::InitGoogleTest(&argc, argv);
-   int rc = RUN_ALL_TESTS();
-   if (rc == 0) {
-      printf("\n==============\nTEST SUCCEDDED\n==============\n");
-      return true;
-   }
-   else {
-      printf("\n==============\nTEST FAILED\n==============\n");
-      return false;
-   }
-   return true;
+   return RUN_ALL_TESTS();
 }
 

@@ -30,7 +30,6 @@ if (LLVM_CONFIG_EXECUTABLE)
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     
-    
     execute_process(
       COMMAND ${LLVM_CONFIG_EXECUTABLE} --cppflags
       OUTPUT_VARIABLE LLVM_CFLAGS
@@ -81,24 +80,33 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMExecutionEngine
             LLVMDebugInfo
             LLVMBitWriter
-#            LLVMBarrier
-#            LLVMVectorizer
             LLVMipo
             LLVMAsmParser
             LLVMArchive
-            LLVMBitReader
-#            LLVMCppBackend
-#            LLVMCppBackendInfo
+            LLVMBitReader)
+           
+if (NOT WIN32)            
+        list(APPEND LLVM_MODULE_LIBS
+             LLVMCppBackend
+             LLVMCppBackendInfo
 #            LLVMCBackend
 #            LLVMCBackendInfo
-#            LLVMY86AsmParser
-#            LLVMY86CodeGen
-#            LLVMY86Desc
-#            LLVMMICModuleJIT
-#            LLVMY86AsmPrinter
+        )
+endif( NOT WIN32)
+if( INCLUDE_MIC_DEVICE)
+        list(APPEND LLVM_MODULE_LIBS
+            LLVMY86AsmParser
+            LLVMY86CodeGen
+            LLVMY86Desc
+            LLVMMICModuleJIT
+            LLVMY86AsmPrinter
+            LLVMY86Disassembler
+            LLVMY86Info
+            LLVMY86Utils
+            )
+endif( INCLUDE_MIC_DEVICE)
+        list(APPEND LLVM_MODULE_LIBS
             LLVMX86Disassembler
-#            LLVMY86Disassembler
-#            LLVMY86Info
             LLVMX86AsmParser
             LLVMX86CodeGen
             LLVMX86Desc
@@ -113,7 +121,6 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMAnalysis
             LLVMTarget
             LLVMX86AsmPrinter
-#            LLVMY86Utils
             LLVMCore
             LLVMX86Info
             LLVMMC
@@ -146,24 +153,33 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMExecutionEngine
             LLVMDebugInfo
             LLVMBitWriter
-#            LLVMBarrier
-#            LLVMVectorizer
             LLVMipo
             LLVMAsmParser
             LLVMArchive
             LLVMBitReader
-#            LLVMCppBackend
-#            LLVMCppBackendInfo
+            )
+if (NOT WIN32)
+        list (APPEND LLVM_MODULE_LIBS
+            LLVMCppBackend
+            LLVMCppBackendInfo
 #            LLVMCBackend
 #            LLVMCBackendInfo
-#            LLVMY86AsmParser
-#            LLVMY86CodeGen
-#            LLVMY86Desc
-#            LLVMMICModuleJIT
-#            LLVMY86AsmPrinter
+        )
+endif( NOT WIN32)
+if( INCLUDE_MIC_DEVICE)
+        list( APPEND LLVM_MODULE_LIBS
+            LLVMY86AsmParser
+            LLVMY86CodeGen
+            LLVMY86Desc
+            LLVMMICModuleJIT
+            LLVMY86AsmPrinter
+            LLVMY86Disassembler
+            LLVMY86Info
+            LLVMY86Utils
+            )
+endif( INCLUDE_MIC_DEVICE)
+        list(APPEND LLVM_MODULE_LIBS
             LLVMX86Disassembler
-#            LLVMY86Disassembler
-#            LLVMY86Info
             LLVMX86AsmParser
             LLVMX86CodeGen
             LLVMX86Desc
@@ -178,7 +194,6 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMAnalysis
             LLVMTarget
             LLVMX86AsmPrinter
-#            LLVMY86Utils
             LLVMCore
             LLVMX86Info
             LLVMMC

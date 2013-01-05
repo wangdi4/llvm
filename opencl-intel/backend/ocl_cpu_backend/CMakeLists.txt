@@ -308,7 +308,7 @@ link_directories(
             ${LLVM_LIBRARY_DIR}
             )
 
-# Add additional lib directories
+# Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
     link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
 endif( LLVM_USE_INTEL_JITEVENTS )
@@ -316,6 +316,13 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
+
+if ( INCLUDE_MIC_DEVICE )
+    link_directories( 
+        ${BACKEND_ROOT_DIR}/external/pcg 
+        ${BACKEND_ROOT_DIR}/external/pcg/${CMAKE_BUILD_TYPE}
+    )
+endif(INCLUDE_MIC_DEVICE)
 
 # Create DLL
 add_library (${TARGET_NAME} SHARED
@@ -358,7 +365,6 @@ target_link_libraries (${TARGET_NAME}
     OclPluginManager
     OclOptimizer
     OclBackendUtils
-    LLVMMICModuleJIT
 
     # internal passes
     ${BACKEND_PASSES}
@@ -372,6 +378,15 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
+if ( INCLUDE_MIC_DEVICE )
+    target_link_libraries (${TARGET_NAME}
+        pcg
+        irc
+        svml
+    )
+endif(INCLUDE_MIC_DEVICE)
+    
+    
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 add_definitions( -DOclCpuBackEnd_EXPORTS )
 if (KNC_CARD) 

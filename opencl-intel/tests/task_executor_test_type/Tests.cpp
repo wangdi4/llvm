@@ -170,17 +170,7 @@ TEST(TaskExecutorTestType, Test_OOO)
 }
 
 int main(int argc, char* argv[])
-{	
-	::testing::InitGoogleTest(&argc, argv);
-
-	const int rc = RUN_ALL_TESTS();
-	if (rc == 0)
-    {
-        cout << endl << "==============" << endl << "TEST SUCCEDDED" << endl << "==============" << endl;
-	}
-	else
-    {
-		cout << endl << "==============" << endl << "TEST FAILED" << endl << "==============" << endl;
-	}
-	return rc == 0;
+{
+    ::testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
 }

@@ -3,13 +3,13 @@
 
 #
 #  Variables which override defaults (used only by OCL SDK build)
-#	  OCL_INSTALL_DIR			   overrides output directory. The default is where the rest of OCL CPU BE resides.
-#	  OCL_CLANG_HEADERS			 overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
-#     OCL_GLOBAL_INCLUDE		 overrides directory name for global headers. The default is 'cl_api' in Volcano root
-#     OCL_SOURCE_DIR				 TRUE when invoked by OCL SDK build
+#      OCL_INSTALL_DIR               overrides output directory. The default is where the rest of OCL CPU BE resides.
+#      OCL_CLANG_HEADERS             overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
+#     OCL_GLOBAL_INCLUDE         overrides directory name for global headers. The default is 'cl_api' in Volcano root
+#     OCL_SOURCE_DIR                 TRUE when invoked by OCL SDK build
 #     OCL_HOST_CLANG         overrides 'clang' tool selection. The default is to use 'clang' tool from the same build
-#     OCL_HOST_OPT					 overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
-#     OCL_HOST_LLVM_LINK		 overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
+#     OCL_HOST_OPT                     overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
+#     OCL_HOST_LLVM_LINK         overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
 #
 
 #
@@ -43,23 +43,6 @@ else ()
 endif ()
 message ("OCL Builtins build: ${PLATFORM}")
 
-# Build type selection (Debug or Release) follows Visual Studio (in Windows case) or LLVM build type (for Linux)
-# IMPORTANT: once we will switch to Visual Studio 10, the ${CMAKE_CFG_INTDIR} comparison must be done vs. $(Configuration) rather than $(OutDir)!
-if (WIN32)
-  if (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))
-    set (CL_BUILD_TYPE ${CMAKE_CFG_INTDIR})
-  endif()	
-  if (MSVC_VERSION EQUAL 1500 AND ${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
-    set (CL_BUILD_TYPE ${CMAKE_CFG_INTDIR})
-  endif()
-else ()
-  set (CL_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-endif ()
-
-#
-# Project directories
-#
-
 add_subdirectory (utils/TableGen)
 
 # Implicit:
@@ -70,11 +53,8 @@ add_subdirectory (utils/TableGen)
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 
-# separate subdirs for each build type (Debug or Release)
-set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
-
 # target directory for OCL .rtl, and .dll/.so of SVML library
-set (BUILTINS_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
@@ -139,15 +119,15 @@ else()
 endif()
 
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
-if (WIN32)	
+if (WIN32)    
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set (TRIPLE i686-pc-win32-elf)
   else ()
     set (TRIPLE x86_64-pc-win32-elf) 
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)	
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)    
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set	(TRIPLE i686-pc-Linux)
+    set    (TRIPLE i686-pc-Linux)
   else ()
     set (TRIPLE amd64)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4) 
@@ -173,7 +153,7 @@ set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim 
-  -mconstructor-aliases	-fcolor-diagnostics -O3 -opencl-builtins 
+  -mconstructor-aliases    -fcolor-diagnostics -O3 -opencl-builtins 
   -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
   -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics 
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -include opencl_.h
@@ -406,28 +386,27 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
   endif( )
 
   # intermediate directory for OpenCL compilation/link
-  # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
-  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
+  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
   
-# generate OCL builtin implementation
-# following commented block is used during tblgen transition. Will be removed
-# before finishing exporting all BI from the previous implementation to tableGen
-# you can do it to specific arch, for example the following implementation, it will use only 
-# on the given arch, 
-#  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-#    # autogen OCL builtin implementation from tablegen file
-#    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
-# list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-#  else( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-#    list (APPEND OCL_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/math_functions.cpp)
-# list (APPEND HEADER_FILES		${CL_BUILTIN_SOURCE_DIR}/cl_math_declaration.h 	)
-#  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-	
+  # generate OCL builtin implementation
+  # following commented block is used during tblgen transition. Will be removed
+  # before finishing exporting all BI from the previous implementation to tableGen
+  # you can do it to specific arch, for example the following implementation, it will use only 
+  # on the given arch, 
+  #  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
+  #    # autogen OCL builtin implementation from tablegen file
+  #    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
+  # list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+  #  else( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
+  #    list (APPEND OCL_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/math_functions.cpp)
+  # list (APPEND HEADER_FILES        ${CL_BUILTIN_SOURCE_DIR}/cl_math_declaration.h     )
+  #  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
+    
   if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) )
-	tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
-	list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
- endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9)  )	
-	
+    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
+    list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9)  )    
+    
   if( OCL_TABLEGEN_FILE )
     # autogen OCL builtin implementation from tablegen file
     tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_TABLEGEN_FILE} -gen-ocl-bi)
@@ -457,23 +436,23 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
-    )
+  )
 
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-  #if (WIN32)
-  #  set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
-  #  if( PREBUILD_IMAGE_LIBRARY)
-  #    set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
-  #  endif( PREBUILD_IMAGE_LIBRARY)
-  #  install( FILES ${INSTALL_LIST} DESTINATION bin)
-  #else(WIN32)
-  #  set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
-  #  if( PREBUILD_IMAGE_LIBRARY)
-  #    set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
-  #  endif( PREBUILD_IMAGE_LIBRARY)
-  #  install( FILES ${INSTALL_LIST} DESTINATION bin)
-  #endif(WIN32)
+  if (WIN32)
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
+    if( PREBUILD_IMAGE_LIBRARY)
+      set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    endif( PREBUILD_IMAGE_LIBRARY)
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
+  else(WIN32)
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
+    if( PREBUILD_IMAGE_LIBRARY)
+      set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    endif( PREBUILD_IMAGE_LIBRARY)
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
+  endif(WIN32)
 
 endfunction( create_target)
 
@@ -521,7 +500,7 @@ add_subdirectory (corei7)
 add_subdirectory (sandybridge)
 add_subdirectory (haswell)
 if (INCLUDE_ATOM)
-	add_subdirectory (core2)
+    add_subdirectory (core2)
 endif()
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (knc)
