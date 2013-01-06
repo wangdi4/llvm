@@ -4697,12 +4697,18 @@ public:
         void (CL_CALLBACK * notifyFptr)(cl_program, void *) = NULL,
         void* data = NULL) const
     {
+		VECTOR_CLASS<cl_device_id> device_list;
+        for(unsigned int i = 0 ; i < devices.size() ; ++i)
+        {
+            device_list.push_back(devices[i]());
+        }
+
         return detail::errHandler(
             ::clBuildProgram(
                 object_,
                 (cl_uint)
-                devices.size(),
-                (cl_device_id*)&devices.front(),
+                device_list.size(),
+                &device_list.front(),
                 options,
                 notifyFptr,
                 data),
