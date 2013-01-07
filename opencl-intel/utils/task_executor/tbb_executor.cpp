@@ -313,6 +313,7 @@ volatile bool gIsExiting = false;
 		ITaskSet &task;
         TaskLoopBody1D(ArenaHandler& devArenaHandler, ITaskSet &t) : TaskLoopBody(devArenaHandler), task(t) {}
 		void operator()(const tbb::blocked_range<size_t>& r) const {
+
 			size_t uiNumberOfWorkGroups;
 			size_t firstWGID[1] = {r.begin()}; 
 			size_t lastWGID[1] = {r.end()}; 
@@ -344,37 +345,11 @@ protected:
 
 };
 
-class Dim1ParallelForFunctor : public ParallelForFunctor
-{
-public:
-    Dim1ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-    void operator()()
-    {
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_dim[0]), TaskLoopBody1D(m_devArenaHandler, m_task), tbb::auto_partitioner());
-    }
-};
-class Dim2ParallelForFunctor : public ParallelForFunctor
-{
-public:
-    Dim2ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-    void operator()()
-    {
-        tbb::parallel_for(tbb::blocked_range2d<size_t>(0, m_dim[1],	0, m_dim[0]), TaskLoopBody2D(m_devArenaHandler, m_task), tbb::auto_partitioner());
-    }
-};
-class Dim3ParallelForFunctor : public ParallelForFunctor
-{
-public:
-    Dim3ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : ParallelForFunctor(dim, task, devArenaHandler) { }
-    void operator()()
-    {
-        tbb::parallel_for(tbb::blocked_range3d<size_t>(0, m_dim[2],	0, m_dim[1], 0, m_dim[0]), TaskLoopBody3D(m_devArenaHandler, m_task), tbb::auto_partitioner());
-    }
-};
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
 	bool runNextCommand = true;
     ITaskBase* cmd = pCmd.GetPtr();
+
 
 	if ( cmd->IsTaskSet() )
 	{
@@ -391,21 +366,19 @@ static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list&
 		if (1 == dimCount)
 		{
 			assert(dim[0] <= CL_MAX_INT32);
-			Dim1ParallelForFunctor functor(dim, *pTask, cmdList.GetDevArenaHandler());
-            cmdList.ExecuteFunction(functor);
+
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, dim[0]), TaskLoopBody1D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
 		} else if (2 == dimCount)
 		{
 			assert(dim[0] <= CL_MAX_INT32);
 			assert(dim[1] <= CL_MAX_INT32);
-			Dim2ParallelForFunctor functor(dim, *pTask, cmdList.GetDevArenaHandler());
-            cmdList.ExecuteFunction(functor);
+            tbb::parallel_for(tbb::blocked_range2d<size_t>(0, dim[1], 0, dim[0]), TaskLoopBody2D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
 		} else
 		{
 			assert(dim[0] <= CL_MAX_INT32);
 			assert(dim[1] <= CL_MAX_INT32);
 			assert(dim[2] <= CL_MAX_INT32);
-			Dim3ParallelForFunctor functor(dim, *pTask, cmdList.GetDevArenaHandler());
-            cmdList.ExecuteFunction(functor);
+            tbb::parallel_for(tbb::blocked_range3d<size_t>(0, dim[2], 0, dim[1], 0, dim[0]), TaskLoopBody3D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
 		}
 		runNextCommand = pTask->Finish(FINISH_COMPLETED);
 	}
@@ -483,13 +456,13 @@ void out_of_order_executor_task::operator()()
         while (NULL != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
 			ExecuteContainerBody functor(pTask, *m_list);
-            m_list->EnqueueFunction<ExecuteContainerBody>(functor);
+            m_list->EnqueueOOOFunc<ExecuteContainerBody>(functor);
             pTask = GetTask();
         }
         if (NULL != pTask && NULL != dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
             // synchronization point
-            m_list->WaitOnOOOTaskGroup();
+            m_list->WaitForAllCommands();
             static_cast<SyncTask*>(pTask.GetPtr())->Execute();
             m_list->m_execTaskRequests.fetch_and_store(0);
             break;
@@ -576,7 +549,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
         return 0;
     }
     m_pScheduler->initialize(gWorker_threads + 1);   // see comment above the definition of m_pScheduler
-    m_pGlobalArenaHandler = new RootDevArenaHandler(gWorker_threads, gWorker_threads, *this);
+    m_pGlobalArenaHandler = new RootDevArenaHandler(gWorker_threads, *this);
 
 	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
 	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
@@ -734,12 +707,22 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 
 void* TBBTaskExecutor::CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer)
 {
+    if (uiNumSubdevComputeUnits < gWorker_threads)
+    {
         return new SubdevArenaHandler(uiNumSubdevComputeUnits, gWorker_threads, *this, pLegalCores, observer);
+    }
+    else
+    {
+        return m_pGlobalArenaHandler;   // since m_pGlobalArenaHandler lives as long as TBBTaskExecutor, no reference counting is needed.
+    }
 }
 
 void TBBTaskExecutor::ReleaseSubdevice(void* pSubdevData)
 {
-    delete (ArenaHandler*)pSubdevData;
+	if (pSubdevData != m_pGlobalArenaHandler)
+	{
+		delete (ArenaHandler*)pSubdevData;
+	}
 }
 
 void TBBTaskExecutor::WaitUntilEmpty(void* pSubdevData)
