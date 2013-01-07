@@ -44,6 +44,7 @@ set(TARGET_INCLUDE_FILES
   Type.h
   NameMangleAPI.h
   FunctionDescriptor.h
+  Refcount.h
   TypeCast.h
   Utils.h
   gen/DemangleLexer.hpp
