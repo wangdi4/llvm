@@ -1,3 +1,4 @@
+use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
 include_directories(BEFORE "WIAnalysis")

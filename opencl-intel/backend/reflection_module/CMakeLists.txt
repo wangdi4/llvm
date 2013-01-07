@@ -8,7 +8,7 @@ project (${TARGET_NAME})
 remove_definitions("-pedantic")
 
 if(NOT APPLE)
-	add_subdirectory(unittest)
+  add_subdirectory(unittest)
 
 if(WIN32)
 set (OCL_TBLGEN_EXE

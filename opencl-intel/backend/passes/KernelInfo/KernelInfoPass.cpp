@@ -25,21 +25,7 @@ File Name:  KernelInfoPass.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-
   char KernelInfo::ID = 0;
-
-  FunctionPass* createKernelInfoPass() {
-    return new KernelInfo();
-  }
-
-  void getKernelInfoMap(FunctionPass *pPass, std::map<std::string, TKernelInfo>& infoMap) {
-    KernelInfo *pKU = dynamic_cast<KernelInfo*>(pPass);
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
-    }
-  }
 
   bool KernelInfo::runOnFunction(Function &Func) {
     m_mapKernelInfo[Func.getName().str()].kernelExecutionLength = getExecutionLength(&Func);
@@ -83,22 +69,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
   bool KernelInfoWrapper::runOnModule(Module& Mod) {
     llvm::FunctionPassManager FPM(&Mod);
-    FunctionPass* pPass = createKernelInfoPass();
-    FPM.add(pPass);
+    KernelInfo* pKernelInfoPass = new KernelInfo();
+    FPM.add(pKernelInfoPass);
     
     for (llvm::Module::iterator i = Mod.begin(), e = Mod.end(); i != e; ++i) {
         FPM.run(*i);
     }
-    getKernelInfoMap(pPass, m_mapKernelInfo);
+    m_mapKernelInfo.clear();
+    m_mapKernelInfo.insert(pKernelInfoPass->getKernelInfoMap().begin(), pKernelInfoPass->getKernelInfoMap().end());
     return false;
   }
 
   void getKernelInfoMap(ModulePass *pPass, std::map<std::string, TKernelInfo>& infoMap) {
-    KernelInfoWrapper *pKU = dynamic_cast<KernelInfoWrapper*>(pPass);
+    KernelInfoWrapper *pKU = (KernelInfoWrapper*)pPass;
 
     infoMap.clear();
     if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
+      infoMap.insert(pKU->getKernelInfoMap().begin(), pKU->getKernelInfoMap().end());
     }
   }
 

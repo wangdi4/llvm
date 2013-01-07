@@ -55,7 +55,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief performs KernelInfo pass on the module
     bool runOnModule(Module& Mod);
 
-    friend void getKernelInfoMap(ModulePass *pPass, std::map<std::string, TKernelInfo>& infoMap);
+    /// @brief get Kernel Info Map
+    std::map<std::string, TKernelInfo>& getKernelInfoMap() {
+      return m_mapKernelInfo;
+    }
   protected:
     /// @brief map between kernel and its kernel info
     std::map<std::string, TKernelInfo>  m_mapKernelInfo;
@@ -88,7 +91,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       AU.setPreservesAll();
     }
 
-    friend void getKernelInfoMap(FunctionPass *pPass, std::map<std::string, TKernelInfo>& infoMap);
+    /// @brief get Kernel Info Map
+    std::map<std::string, TKernelInfo>& getKernelInfoMap() {
+      return m_mapKernelInfo;
+    }
 
   protected:
 
