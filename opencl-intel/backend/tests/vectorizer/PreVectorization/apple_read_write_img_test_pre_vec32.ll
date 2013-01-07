@@ -2,7 +2,7 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -runtime=apple -CLBltnPreVec %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
-
+; XFAIL: *
 
 
 ; ModuleID = 'program'

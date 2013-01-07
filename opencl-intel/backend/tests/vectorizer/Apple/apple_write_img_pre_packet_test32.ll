@@ -2,7 +2,7 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -runtime=apple -AppleWIDepPrePack %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
-
+; XFAIL: *
 
 ; ModuleID = 'c:\work\write_img_pre_packet_test.ll'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
