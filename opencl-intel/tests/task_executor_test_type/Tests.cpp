@@ -28,11 +28,8 @@ ITaskExecutor* TaskExecutorTester::m_pTaskExecutor = NULL;
 
 static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& taskExecutor, bool bIsFullDevice)
 {
-    CommandListCreationParam cmdListCreationParam;
-
-    cmdListCreationParam.isOOO = bOutOfOrder;
-    cmdListCreationParam.isSubdevice = pSubdevData != NULL;
-    SharedPtr<ITaskList> pTaskList = taskExecutor.CreateTaskList(&cmdListCreationParam, pSubdevData);
+    SharedPtr<ITaskList> pTaskList = taskExecutor.CreateTaskList(
+                                bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER, pSubdevData);
     if (NULL == pTaskList)
     {
         cerr << "TaskExecutor::CreateTaskList returned NULL" << endl;
@@ -79,10 +76,6 @@ static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& tas
 
 static bool RunSubdeviceTest(unsigned int uiSubdevSize, ITaskExecutor& taskExecutor)
 {
-    CommandListCreationParam cmdListCreationParam;
-
-    cmdListCreationParam.isOOO = false;
-    cmdListCreationParam.isSubdevice = true;    
     taskExecutor.Activate();
     std::vector<unsigned int> legalCores;
     for (unsigned int i = 0; i < uiSubdevSize; i++)

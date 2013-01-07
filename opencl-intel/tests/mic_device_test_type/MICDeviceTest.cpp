@@ -687,7 +687,7 @@ int main(int argc, char* argv[])
 	::testing::InitGoogleTest(&argc, argv);
 
 	// Initialize Task Executor
-	int iThreads = GetTaskExecutor()->Init(0, false);
+	int iThreads = GetTaskExecutor()->Init(ITaskExecutor::AUTO_THREADS, false);
 	EXPECT_TRUE(iThreads>0);
 
 	ITaskExecutor* pTaskExecutor = GetTaskExecutor();

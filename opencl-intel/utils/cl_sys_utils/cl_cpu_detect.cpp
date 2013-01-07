@@ -27,6 +27,7 @@
 
 #include "cl_cpu_detect.h"
 #include "cl_env.h"
+#include "hw_utils.h"
 
 #if defined( _WIN32 )
 #include <windows.h>
@@ -39,38 +40,6 @@
 
 #include <assert.h>
 #include <string.h>
-
-#if !defined(_WIN32)
-extern "C" void hw_cpuid( struct CPUID_PARAMS *);
-
-//------------------------------------------------------------------------------
-// void ASM_FUNCTION cpuid( int cpuid_info[4], UINT32 type);
-//------------------------------------------------------------------------------
-
-#define __cpuid( p_cpuid_info, type )                                          \
-{                                                                              \
-    CPUID_PARAMS __cpuid_params;                                        \
-    __cpuid_params.m_rax = type;                                               \
-    hw_cpuid( &__cpuid_params);                                                \
-                                                                               \
-    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
-    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
-    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
-    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
-}
-#define __cpuidex( p_cpuid_info, type, rcxVal )                                \
-{                                                                              \
-    CPUID_PARAMS __cpuid_params;                                        \
-    __cpuid_params.m_rax = type;                                               \
-    __cpuid_params.m_rcx = rcxVal;                                               \
-    hw_cpuid( &__cpuid_params);                                                \
-                                                                               \
-    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
-    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
-    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
-    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
-}
-#endif
 
 #if defined(_M_X64) || defined(__LP64__)
 
@@ -322,7 +291,7 @@ void CPUDetect::GetCPUInfo()
                     }
                     // AVX2 support
                     viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
-                    __cpuidex((int*)viCPUInfo, 7, 0); //eax=7, ecx=0
+                    cpuid(viCPUInfo, 7, 0); //eax=7, ecx=0
                     if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
                     {
                         m_uiCPUFeatures |= CFS_AVX20;

@@ -31,7 +31,7 @@ void TaskGroup::WaitForAll()
     m_arenaHandler.Execute(waiter);
 }
 
-base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
+base_command_list::base_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
     m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler), m_taskGroup(devArenaHandler)
 {
 	m_execTaskRequests = 0;
@@ -118,8 +118,10 @@ bool base_command_list::Flush()
 	return true;
 }
 
-unsigned int in_order_command_list::LaunchExecutorTask(bool blocking)
+unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask )
 {
+    assert( NULL == pTask );
+    
 	in_order_executor_task functor(this); 
 	if (!blocking)
 	{
@@ -133,8 +135,10 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking)
 	}
 }
 
-unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
+unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask)
 {
+    assert( NULL == pTask );
+    
     out_of_order_executor_task functor(this);
     if (!blocking)
     {
@@ -147,3 +151,14 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
         return 0;
     }
 }
+
+unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask )
+{
+    assert( NULL != pTask );
+    assert( true == blocking );
+    
+	immediate_executor_task functor(this, *pTask); 
+	m_devArenaHandler.Execute<immediate_executor_task>(functor);
+	return 0;
+}
+

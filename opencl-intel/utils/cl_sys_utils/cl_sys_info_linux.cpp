@@ -40,7 +40,9 @@ using namespace Intel::OpenCL::Utils;
 #include <sys/sysinfo.h>
 
 //cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
-#include <numa.h>
+#ifndef DISABLE_NUMA_SUPPORT
+    #include <numa.h>
+#endif
 
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
@@ -91,7 +93,7 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;
-	int cpuInfo[4] = {-1};
+	UINT32 cpuInfo[4] = {-1};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
 
@@ -328,8 +330,12 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 {
+#ifndef DISABLE_NUMA_SUPPORT    
     int ret = numa_max_node();
     return (unsigned long)ret;
+#else
+    return 1;
+#endif // DISABLE_NUMA_SUPPORT
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -337,6 +343,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
 {
+#ifndef DISABLE_NUMA_SUPPORT    
     struct bitmask b;
     unsigned long long CPUs;
     b.size  = 8 * sizeof(unsigned long long);
@@ -358,6 +365,9 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
         ++cpu;
     }
     return true;
+#else
+    return false;
+#endif // DISABLE_NUMA_SUPPORT
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

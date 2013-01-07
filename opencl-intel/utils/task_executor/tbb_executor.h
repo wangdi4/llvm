@@ -26,7 +26,6 @@
 */
 #pragma once
 
-#include <set>
 #include "task_executor.h"
 #include <tbb/tbb.h>
 
@@ -55,13 +54,14 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		TBBTaskExecutor();
 		virtual ~TBBTaskExecutor();
-		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);        
+		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);    
+        void Finalize();
 
 		bool Activate();
 		void Deactivate();
 
 		unsigned int GetNumWorkingThreads() const;
-		SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData);
+		SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param, void* pSubdevTaskExecData);
 		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
 		te_wait_result	WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData = NULL);
 
@@ -153,6 +153,20 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         SharedPtr<ITaskBase> GetTask();
 
 	    out_of_order_command_list* m_list;
+    };
+
+    class immediate_executor_task
+    {
+    public:
+        immediate_executor_task(immediate_command_list* list, const SharedPtr<ITaskBase>& pTask ) : 
+            m_list(list), m_pTask( pTask ) {}
+
+        void operator()();
+
+    protected:
+        immediate_command_list*     m_list;
+        SharedPtr<ITaskBase>        m_pTask;
+        
     };
 
 }}}

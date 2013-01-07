@@ -1,13 +1,14 @@
 #include "native_printf.h"
-#include "execution_task.h"
 #include "wg_context.h"
-#include "thread_local_storage.h"
+#include "native_thread_pool.h"
 #include <sink/COIProcess_sink.h>
 
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDeviceNative;
+using namespace Intel::OpenCL::Utils;
 
 PrintfHandle::PrintfHandle() : m_flushAtExit(false)
 {
@@ -32,9 +33,23 @@ int PrintfHandle::print(const char* buffer)
 
 int MICNativeBackendPrintfFiller::Print(void* id, const char* buffer)
 {
-	TlsAccessor tlsAccessor;
-	NDrangeTls ndRangeTls(&tlsAccessor);
-	WGContext* pCtx = (WGContext*)ndRangeTls.getTls(NDrangeTls::WG_CONTEXT);
+    if (NULL == m_thread_pool)
+    {
+        OclAutoMutex lock(&m_lock);
+        if (NULL == m_thread_pool)
+        {
+            m_thread_pool = ThreadPool::getInstance();
+        }
+    }
+
+    assert( NULL != m_thread_pool );
+    if (NULL == m_thread_pool)
+    {
+        return 0;
+    }
+
+    // remove volatile qualifier
+	WGContext* pCtx = const_cast<ThreadPool*>(m_thread_pool)->findActiveWGContext();
 	assert(pCtx);
 	if (NULL == pCtx)
 	{
