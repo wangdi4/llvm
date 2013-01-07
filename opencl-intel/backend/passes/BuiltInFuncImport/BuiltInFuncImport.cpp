@@ -16,429 +16,306 @@ File Name:  BuiltInFuncImport.cpp
 
 \*****************************************************************************/
 
-// This pass imports built-in functions from builtins module to destination module.
-
-#include <llvm/Pass.h>
+#include "BuiltInFuncImport.h"
 #include <llvm/Module.h>
 #include <llvm/DerivedTypes.h>
-#include <llvm/Constants.h>
 #include <llvm/Transforms/Utils/Cloning.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Instruction.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/Version.h>
 #include <llvm/Support/InstIterator.h>
 #include <llvm/Instructions.h>
+#include <llvm/Version.h>
 
-#include <list>
-#include <map>
-#include <set>
 #include <string>
-#include <iostream>
 
 using namespace llvm;
-using namespace std;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class BIImport : public ModulePass
-{
-protected:
+  char BIImport::ID = 0;
 
-  // Type used to hold a set of Functions and augment it during traversal.
-  typedef std::vector<llvm::Function*>             TFunctionsVec;
+  bool BIImport::runOnModule(Module &M) {
+    if (m_pSourceModule == NULL) {
+      // If there is no source module, then nothing can be imported.
+      return false;
+    }
 
-  // Type used to hold a set of Functions and augment it during traversal.
-  typedef std::set<llvm::Function*>                TFunctionsSet;
+    // Initialize members
+    m_pModule = &M;
+    m_valueMap.clear();
+    m_functionsToImport.clear();
+    m_globalsToImport.clear();
 
-  // Types used to map all Globals used by a Function.
-  typedef std::list<const llvm::GlobalVariable*>         TGlobalsLst;
-  typedef std::map<const llvm::Function*, TGlobalsLst>   TGlobalUsageMap;
-
-public:
-  BIImport(Module* pRTModule) : ModulePass(ID), m_pRTModule(pRTModule) {
-  }
-
-  /// @brief Provides name of pass
-  virtual const char *getPassName() const {
-    return "BIImport";
-  }
-
-  bool runOnModule(Module &M);
-
-protected:
-
-  void BuildRTModuleFunc2Funcs();
-
-  void BuildRTModuleFunc2Globals();
-
-  void CollectFuncs2Import(Module*, ValueToValueMapTy&, TFunctionsVec&);
-
-  void ImportGlobals(Module*, TFunctionsVec&, ValueToValueMapTy&);
-
-  void ImportFunctions(Module*, TFunctionsVec&, ValueToValueMapTy&);
-
-  void ImportFunctionArrays(Module*, TFunctionsVec&, ValueToValueMapTy&);
-
-  void GetCalledFunctions(const Function*, TFunctionsVec&);
-protected:
-
-  static char ID; // Pass identification, replacement for typeid.
-
-  Module* m_pRTModule;
-
-  TGlobalUsageMap    m_mapFunc2Glb;
-};
-
-char BIImport::ID = 0;
-
-
-/// \brief First find all "root" functions that are only declared in destination module and defined in builtins module,
-///        excluding those whose name starts with "get_". Then scan all the functions which they call, iteratively.
-///        Make sure each such called function has a declaration in the destination module.
-///        Add it to list of all functions to be imported, unless it's an intrinsic.
-///        Add the builtin-module-definition -to- destination-module-declation to valueMap.
-///
-/// \param pModule The destination module.
-///
-/// \param valueMap In/Out: maps Functions (and GlobalVariables) in builtins module
-///        to their counterpart in the destination module. Augmented with the functions encountered.
-/// \param allFuncs2Import Out: contains all functions to be imported, i.e., all root functions
-///        plus any (non intrinsic) functions they call, iteratively.
-void BIImport::CollectFuncs2Import(Module* pModule, ValueToValueMapTy& valueMap, TFunctionsVec& allFuncs2Import)
-{
-  assert(allFuncs2Import.empty() && "Starting to fill a non-empty list of all functions.");
-
-  TFunctionsVec tmpFuncs2Import;
-
-  // Find all "root" functions.
-  for (Module::iterator it = pModule->begin(), e = pModule->end(); it != e; ++it)
-  {
-    std::string pFuncName = it->getName().str();
-    if (it->isDeclaration() && (pFuncName.substr(0,4) != "get_"))
-    {
-      Function* pImpFunc = m_pRTModule->getFunction(pFuncName);
-      if (pImpFunc) {
-          if(pImpFunc->isDeclaration() && pImpFunc->isMaterializable()) {
-              m_pRTModule->Materialize(pImpFunc);
-          }
-          if(!pImpFunc->isDeclaration()) {
-            // Map built-in function to its declaration in destination module.
-            valueMap[pImpFunc] = it;
-            tmpFuncs2Import.push_back(pImpFunc);
-          }
+    CollectRootFunctionsToImport();
+    // Global variables might contain pointers to function, thus, need
+    // to check if there is new functions to import after collecting globals.
+    // Adding new functions, might cause adding new globals, thus, need to loop
+    // on collecting globals & functions till there is no more functions to import.
+    while(true) {
+      CollectGlobalsToImport();
+      if(!CollectSourceFunctionsToImport()) {
+        // Break when there is no new functions to import
+        break;
       }
     }
+    ImportGlobalVariablesInitializations();
+    ImportFunctionDefinitions();
+
+    // If value map is not empty, then "probably" imported some values, thus module was changed.
+    return !m_valueMap.empty();
   }
 
-  // Find all functions called by "root" functions.
-  while (!tmpFuncs2Import.empty())
-  {
-    // Move first function from tmp to all functions lists.
-    Function* impF = tmpFuncs2Import.back();
-    tmpFuncs2Import.pop_back();
-    allFuncs2Import.push_back(impF);
+  void BIImport::CollectRootFunctionsToImport() {
+    assert(m_functionsToImport.empty() && "Starting to fill a non-empty list of all functions.");
 
-    // Check all functions called by this first function.
+    TFunctionsVec rootFunctionsToImport;
 
-    TFunctionsVec calledFuncs;
-    GetCalledFunctions(impF, calledFuncs);
-
-    TFunctionsVec::iterator calledFuncIt, calledFuncE;
-    for (calledFuncIt = calledFuncs.begin(), calledFuncE = calledFuncs.end();
-         calledFuncIt != calledFuncE; ++calledFuncIt)
-    {
-      Function* calledFunc = *calledFuncIt;
-
-      if (valueMap.count(calledFunc)) continue;  // We already mapped this function.
-
-      Function* calledFuncDest = pModule->getFunction(calledFunc->getName());
-      // Check if function declaration already exists in the destination module.
-      if (calledFuncDest == NULL)
-      {
-        // Create declaration inside the destination module.
-        calledFuncDest = Function::Create(calledFunc->getFunctionType(),
-                    calledFunc->getLinkage(),
-                    calledFunc->getName(), pModule);
-                    calledFuncDest->setAttributes(calledFunc->getAttributes());
+    // Find all "root" functions.
+    for (Module::iterator it = m_pModule->begin(), e = m_pModule->end(); it != e; ++it) {
+      Function *pDstFunc = it;
+      std::string pFuncName = pDstFunc->getName().str();
+      if (pDstFunc->isDeclaration()) {
+        Function* pSrcFunc = m_pSourceModule->getFunction(pFuncName);
+        if (!pSrcFunc) continue;
+        if (MapAndImportFunctionDclIfNeeded(pSrcFunc, pDstFunc)) {
+          rootFunctionsToImport.push_back(pSrcFunc);
+        }
       }
-      if (calledFuncDest->isDeclaration() && !calledFunc->isDeclaration())
-      {
-        // We need to import the called function too.
-        tmpFuncs2Import.push_back(calledFunc);
-      }
-
-      valueMap[calledFunc] = calledFuncDest;
     }
-  }
-}
-
-/// \brief Get all the functions called by given function.
-/// \param [IN] pFunc The given function.
-/// \param [OUT] calledFuncs The list of all functions called by pFunc.
-void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) {
-  TFunctionsSet visitedSet;
-  for ( const_inst_iterator ii = inst_begin(pFunc), ie = inst_end(pFunc); ii != ie; ++ii ) {
-    const CallInst *pInstCall = dyn_cast<CallInst>(&*ii);
-    if(!pInstCall) continue;
-    Function* pCalledFunc = pInstCall->getCalledFunction();
-    if(!pCalledFunc){
-      // This case can occur only if CallInst is calling something other than LLVM function.
-      // Thus, no need to handle this case.
-      continue;
-    }
-    if(visitedSet.count(pCalledFunc)) continue;
-
-    if(pCalledFunc->isDeclaration() && pCalledFunc->isMaterializable()) {
-      m_pRTModule->Materialize(const_cast<Function*>(pCalledFunc));
-    }
-    visitedSet.insert(pCalledFunc);
-    calledFuncs.push_back(pCalledFunc);
-  }
-}
-
-/// \brief Scan all global variables used by functions to be imported.
-///        Import them into the destination module.
-///        Add the builtin-module-global -to- destination-module-global mapping into valueMap.
-///
-/// \param pModule The destination module.
-///
-/// \param allFuncs2Import In: contains all functions to be imported.
-///
-/// \param valueMap In/Out: maps elements (Functions and GlobalVariables) in builtins module
-///                 to their counterpart in the destination module.
-void BIImport::ImportGlobals(Module* pModule, TFunctionsVec& allFuncs2Import, ValueToValueMapTy& valueMap)
-{
-  // Iterate through all functions to import, importing the globals they use and marking them in valueMap.
-  TFunctionsVec::iterator func2ImportIt, func2ImportE;
-  for (func2ImportIt = allFuncs2Import.begin(), func2ImportE = allFuncs2Import.end();
-       func2ImportIt != func2ImportE; ++func2ImportIt)
-  {
-    // Check all globals used by function to import, if any.
-    TGlobalUsageMap::iterator func2GlbsIt = m_mapFunc2Glb.find(*func2ImportIt);
-    if (func2GlbsIt == m_mapFunc2Glb.end()) continue;
-
-    // Get list of all used global variables.
-    TGlobalsLst& globalsLst = func2GlbsIt->second;
-    TGlobalsLst::iterator globalsIt, globalsE;
-    for (globalsIt = globalsLst.begin(), globalsE = globalsLst.end(); globalsIt != globalsE; ++globalsIt)
-    {
-      GlobalVariable* usedGlobal = const_cast<GlobalVariable*>(*globalsIt);
-
-      if (valueMap.count(usedGlobal)) continue; // We already mapped this global.
-
-      /*
-       GlobalVariable(Module &M, Type *Ty, bool isConstant,
-       LinkageTypes Linkage, Constant *Initializer,
-       const Twine &Name = "",
-       GlobalVariable *InsertBefore = 0,
-       ThreadLocalMode = NotThreadLocal,
-       unsigned AddressSpace = 0);
-
-       */
-
-      GlobalVariable *usedGlobalDest =
-                     new GlobalVariable(*pModule,
-                                        usedGlobal->getType()->getElementType(),
-                                        usedGlobal->isConstant(),
-                                        usedGlobal->getLinkage(),
-                                        usedGlobal->hasInitializer()?
-                                        usedGlobal->getInitializer() : 0,
-                                        usedGlobal->getName(),
-                                        0,
-#if LLVM_VERSION >= 3425
-                                        GlobalVariable::NotThreadLocal,
-#else
-                                        false,
-#endif
-                                        usedGlobal->getType()->getAddressSpace());
-
-      // Propagate alignment, visibility and section info.
-      usedGlobalDest->copyAttributesFrom(usedGlobal);
-      usedGlobalDest->setAlignment(usedGlobal->getAlignment());
-
-      valueMap[usedGlobal] = usedGlobalDest;
-    }
-  }
-}
-
-/// \brief Iterate over all functions to import, and perform the actual importation.
-///
-/// \param pModule The destination module to import to.
-///
-/// \param allFuncs2Import Set of functions of builtin module to import.
-///
-/// \param valueMap Maps each Function (definition) in builtin module to the Function (declaration) in the
-///        destination module (among other mappings). Assumed to contain a map of each function to be imported,
-///        over to a declaration in the destination module.
-void BIImport::ImportFunctions(Module* pModule, TFunctionsVec& allFuncs2Import, ValueToValueMapTy& valueMap)
-{
-  TFunctionsVec::iterator impIt, impE;
-  for (impIt = allFuncs2Import.begin(), impE = allFuncs2Import.end(); impIt != impE; ++impIt)
-  {
-    const Function* origF = *impIt;
-    ValueToValueMapTy::iterator newFs = valueMap.find(origF);
-    assert (newFs != valueMap.end() && "Missing clone of function.");
-    assert (isa<Function>(newFs->second) && "Function in list for importing not mapped to destination function");
-    Function* Dst = cast<Function>(newFs->second);
-
-    // Clone the original function.
-    ValueToValueMapTy vmap;
-    Function* Src = CloneFunction(origF, vmap, false, NULL);
-    Dst->setAttributes(origF->getAttributes());
-
-    // Following is taken from ModuleLinker::linkFunctionBody(Function *Dst, Function *Src)
-    // in order to feed an external ValueMap.
-
-    assert(Src && Dst && Dst->isDeclaration() && !Src->isDeclaration());
-
-    // Go through and convert function arguments over, remembering the mapping.
-    Function::arg_iterator DI = Dst->arg_begin();
-    for (Function::arg_iterator I = Src->arg_begin(), E = Src->arg_end();
-         I != E; ++I, ++DI) {
-      DI->setName(I->getName());  // Copy the name over.
-
-      // Add a mapping to our mapping.
-      valueMap[I] = DI;
-    }
-
-    assert(DI == Dst->arg_end() &&
-           "Src and Dst have a different number of args");
-
-    // Clone the body of the function into the dest function.
-    SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
-    CloneFunctionInto(Dst, Src, valueMap, false, Returns);
-
-    // There is no need to map the arguments anymore.
-    for (Function::arg_iterator I = Src->arg_begin(), E = Src->arg_end();
-         I != E; ++I)
-      valueMap.erase(I);
-
-    delete Src;
-  }
-}
-
-/// \brief Scan all arrays that point to imported functions, and import them.
-///        For every array A that holds pointers to functions F that have been cloned,
-///        create a new array A' holding pointers to the clones F', and modify every
-///        cloned global variable G' to use A' instead of A.
-///        Note the both A and F belong to builtins module, whereas A', F' and G' belong
-///        to the destination module.
-///
-/// \param pModule The destination module.
-///
-/// \param allFuncs2Import In: contains all functions to be imported.
-///
-/// \param valueMap In: maps elements (Functions and GlobalVariables) in builtins module
-///                 to their counterpart in the destination module.
-void BIImport::ImportFunctionArrays(Module* pModule, TFunctionsVec& allFuncs2Import, ValueToValueMapTy& valueMap)
-{
-  typedef std::set<const ConstantArray *> TConstantArrays;
-
-  TConstantArrays origArrays;
-
-  // Check if any function F that we import is pointed to by an array A (both of the builtins module),
-  // and collect all such arrays.
-  for (TFunctionsVec::iterator impIt =  allFuncs2Import.begin(), impE =  allFuncs2Import.end(); impIt != impE; ++impIt)
-  {
-    for (Value::use_iterator I = (*impIt)->use_begin(), E = (*impIt)->use_end(); I != E; ++I)
-    {
-      if (isa<ConstantArray>(*I)) origArrays.insert(cast<ConstantArray>(*I));
-      else assert ((isa<Instruction>(*I) || isa<ConstantExpr>(*I)) &&
-                   "The only non-Instruction allowed to use an imported function is a ConstantArray");
-    }
+    // Collect functions recursively used by root functions
+    CollectFunctionChainToImport(rootFunctionsToImport);
   }
 
-  // Clone every array A pointing to functions F that we import, such that A' point to the corresponding functions F',
-  // and update every GlobalVariable G' using A to use A' instead (where A', F' and G' belong to destination module).
-  for (TConstantArrays::iterator conIt = origArrays.begin(), conE = origArrays.end(); conIt != conE; ++conIt)
-  {
-    const ConstantArray * origArray = *conIt;
-    std::vector<Constant*> elements;
-    for (User::const_op_iterator i = origArray->op_begin(), e = origArray->op_end(); i != e; ++i)
-    {
-      assert (isa<Function>(*i) && "Constant Array of functions contains non-Function operand");
-      ValueToValueMapTy::iterator newFs = valueMap.find(cast<Function>(*i));
-      assert (newFs != valueMap.end() && "Missing clone of function.");
-      assert (isa<Function>(newFs->second) && "Function mapped to non-Function.");
-      elements.push_back(cast<Function>(newFs->second));
-    }
-
-    Constant * newArray = ConstantArray::get(origArray->getType(), elements);
-    for (Value::const_use_iterator I1 = origArray->use_begin(), E1 = origArray->use_end(); I1 != E1; ++I1)
-    {
-      assert (isa<GlobalVariable>(*I1) && "ConstantArray holding imported function must be used by GlobalVariables only");
-      const GlobalVariable * GV = cast<GlobalVariable>(*I1);
-      if (GV->getParent() == pModule) ((GlobalVariable*)GV)->replaceUsesOfWith ((ConstantArray*)origArray, newArray);
-    }
-  }
-}
-
-/// \brief Main entry point. Find all builtins to import, and import them along with callees and globals.
-///
-/// \param M The destination module.
-bool BIImport::runOnModule(Module &M)
-{
-  if (m_pRTModule == NULL) return false;
-
-  ValueToValueMapTy valueMap;
-
-  TFunctionsVec funcs2Import;
-
-  // Collect functions to import.
-  CollectFuncs2Import(&M, valueMap, funcs2Import);
-
-  if (funcs2Import.empty()) return false;  // Nothing to import.
-
-  // It is safe now to calculate the Function2Global map
-  // as all needed functions are already materialized.
-  BuildRTModuleFunc2Globals();
-
-  // Import global variables required by all functions to be imported.
-  ImportGlobals(&M, funcs2Import, valueMap);
-
-  // Import functions.
-  ImportFunctions(&M, funcs2Import, valueMap);
-
-  // Import arrays holding pointers to functions that have been imported.
-  ImportFunctionArrays(&M, funcs2Import, valueMap);
-  return true;
-}
-
-/// \brief Enumerate globals and the functions that use them, building the function-to-globals map.
-///        Later we will export the needed globals to a destination module.
-void BIImport::BuildRTModuleFunc2Globals()
-{
-  Module::GlobalListType &lstGlobals = m_pRTModule->getGlobalList();
-  for (Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it)
-  {
-    GlobalVariable* pVal = it;
-    GlobalValue::use_iterator use_it, use_e;
-    for (use_it = pVal->use_begin(), use_e = pVal->use_end(); use_it != use_e; ++use_it)
-    {
-      User* user = *use_it;
-      if (isa<Instruction>(user))
-      {
-        Function* pFunc = cast<Instruction>(user)->getParent()->getParent();
-        m_mapFunc2Glb[pFunc].push_back(pVal);
+  void BIImport::CollectGlobalsToImport() {
+    Module::GlobalListType &lstGlobals = m_pSourceModule->getGlobalList();
+    // Iterate over all globals in source module and check if any needs to be imported
+    for (Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it) {
+      GlobalVariable* pGlobalVal = it;
+      if (m_valueMap.count(pGlobalVal)) {
+        // Global variable is already mapped to destination module
         continue;
       }
-      assert (isa<ConstantExpr>(user) &&
-              "Global Variable may be used only in Instruction or Constant Expression");
-      for (Value::use_iterator it = user->use_begin(), e = user->use_end(); it != e; ++it)
-      {
-        assert (isa<Instruction>(*it) &&
-                "Global variable used by constant expression can in turn be used by instruction only");
-        Function* pFunc = cast<Instruction>(*it)->getParent()->getParent();
-        m_mapFunc2Glb[pFunc].push_back(pVal);
+      if (IsSrcValUsedInModule(pGlobalVal)) {
+        // Global value is used in module import it without initialization
+        ImportGlobalVariableDeclaration(pGlobalVal);
+        if (pGlobalVal->hasInitializer()) {
+          // Global value has initializer add it to globals list to import
+          m_globalsToImport.push_back(pGlobalVal);
+        }
       }
     }
   }
-}
+
+  bool BIImport::CollectSourceFunctionsToImport() {
+    TFunctionsVec tmpFunctionsToImport;
+    // Iterate over all functions in source module and check if any needs to be imported
+    for (Module::iterator it = m_pSourceModule->begin(), e = m_pSourceModule->end(); it != e; ++it) {
+      Function *pSrcFunc = it;
+      if (MapAndImportFunctionDclIfNeeded(pSrcFunc, NULL)) {
+        tmpFunctionsToImport.push_back(pSrcFunc);
+      }
+    }
+    if(tmpFunctionsToImport.empty()) {
+      // No new functions to import
+      return false;
+    }
+    // We have new functions to import
+    // Collect functions recursively used by these new functions
+    CollectFunctionChainToImport(tmpFunctionsToImport);
+    return true;
+  }
+
+  void BIImport::ImportGlobalVariablesInitializations() {
+    // Loop over all of the globals to import and import their initialization
+    for (TGlobalsVec::iterator it = m_globalsToImport.begin(),
+        e = m_globalsToImport.end(); it != e; ++it) {
+      GlobalVariable *pSrcGlobal = *it;
+      assert(pSrcGlobal->hasInitializer() && "source global variable already inialized!");
+
+      // Grab destination global variable.
+      GlobalVariable *pDstGlobal = dyn_cast<GlobalVariable>(m_valueMap[pSrcGlobal]);
+      assert(pDstGlobal != NULL && "global variable must be mapped to global variable");
+      assert(!pDstGlobal->hasInitializer() && "global variable already has initialization");
+      // Figure out what the initializer looks like in the dest module.
+      pDstGlobal->setInitializer(MapValue(pSrcGlobal->getInitializer(), m_valueMap));
+    }
+  }
+
+  void BIImport::ImportFunctionDefinitions() {
+    // Loop over all of the functions to import and import their definition
+    for (TFunctionsVec::iterator it = m_functionsToImport.begin(),
+        e = m_functionsToImport.end(); it != e; ++it) {
+      Function *pSrcFunction = *it;
+      assert(pSrcFunction && !pSrcFunction->isDeclaration() && "source function has no definition");
+
+      Function *pDstFunction = dyn_cast<Function>(m_valueMap[pSrcFunction]);
+      assert(pDstFunction != NULL && "function must be mapped to function");
+      assert(pDstFunction->isDeclaration() && "destination function is not a declaration");
+
+      // Go through and convert function arguments over, remembering the mapping.
+      Function::arg_iterator itDst = pDstFunction->arg_begin();
+      Function::arg_iterator itSrc = pSrcFunction->arg_begin();
+      Function::arg_iterator eSrc = pSrcFunction->arg_end();
+      for (; itSrc != eSrc; ++itSrc, ++itDst) {
+        // Copy the name over.
+        itDst->setName(itSrc->getName());
+        // Add a mapping to our mapping.
+        m_valueMap[itSrc] = itDst;
+      }
+
+      // Clone the body of the function into the dest function.
+      SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
+      CloneFunctionInto(pDstFunction, pSrcFunction, m_valueMap, false, Returns);
+
+      // There is no need to map the arguments anymore.
+      for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
+        m_valueMap.erase(it);
+      }
+    }
+  }
 
 
-}}}
+  void BIImport::CollectFunctionChainToImport(TFunctionsVec &rootFunctionsToImport) {
+    // Find all functions called by "root" functions.
+    while (!rootFunctionsToImport.empty()) {
+      // Move source function from root list to functions to import list.
+      Function* pSrcFunc = rootFunctionsToImport.back();
+      rootFunctionsToImport.pop_back();
+      m_functionsToImport.push_back(pSrcFunc);
+
+      // Get functions called by current source function
+      TFunctionsVec calledFuncs;
+      GetCalledFunctions(pSrcFunc, calledFuncs);
+
+      // Loop over all called functions and check if any need to be imported
+      TFunctionsVec::iterator calledFuncIt = calledFuncs.begin();
+      TFunctionsVec::iterator calledFuncE = calledFuncs.end();
+      for (; calledFuncIt != calledFuncE; ++calledFuncIt) {
+        Function* pCalledFunc = *calledFuncIt;
+        if (MapAndImportFunctionDclIfNeeded(pCalledFunc, NULL)) {
+          // In this case we have a new function that need to be import and
+          // was not handled yet, added it to the functions-to-imprt list
+          rootFunctionsToImport.push_back(pCalledFunc);
+        }
+      }
+    }
+  }
+
+  bool BIImport::MapAndImportFunctionDclIfNeeded(Function *pSrcFunc, Function *pDstFunc) {
+    assert(pSrcFunc && "Function to import is a NULL");
+    if (m_valueMap.count(pSrcFunc)) {
+      // Source function declaration is already mapped to destination module
+      return false;
+    }
+    bool isNeededByModule =
+      (pDstFunc != NULL && IsDestValUsedInModule(pDstFunc)) ||
+      (pDstFunc == NULL && IsSrcValUsedInModule(pSrcFunc));
+    if (!isNeededByModule) {
+      // No need to import source function, it is not needed by destination module
+      return false;
+    }
+    if (!pDstFunc) {
+      // Create declaration inside the destination module.
+      pDstFunc = Function::Create(pSrcFunc->getFunctionType(), pSrcFunc->getLinkage(), pSrcFunc->getName(), m_pModule);
+      pDstFunc->setAttributes(pSrcFunc->getAttributes());
+    }
+    if(pSrcFunc->isDeclaration() && pSrcFunc->isMaterializable()) {
+      // Materialize function source function
+      m_pSourceModule->Materialize(pSrcFunc);
+    }
+    // Map source function to its declaration in destination module.
+    m_valueMap[pSrcFunc] = pDstFunc;
+    // Return true only if source function is a definition that need to be imported
+    return !pSrcFunc->isDeclaration();
+  }
+
+  void BIImport::ImportGlobalVariableDeclaration(GlobalVariable* pSrcGlobal) {
+    GlobalVariable *pDstGlobal =
+        new GlobalVariable(*m_pModule,
+            pSrcGlobal->getType()->getElementType(),
+            pSrcGlobal->isConstant(),
+            pSrcGlobal->getLinkage(),
+            0, // We only create global variable declaration, no init yet!
+            pSrcGlobal->getName(),
+            0,
+#if LLVM_VERSION >= 3425
+            pSrcGlobal->getThreadLocalMode(),
+#else
+            pSrcGlobal->isThreadLocal(),
+#endif
+            pSrcGlobal->getType()->getAddressSpace());
+
+    // Propagate alignment, visibility and section info.
+    pDstGlobal->copyAttributesFrom(pSrcGlobal);
+    pDstGlobal->setAlignment(pSrcGlobal->getAlignment());
+
+    m_valueMap[pSrcGlobal] = pDstGlobal;
+  }
+
+  void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) {
+    TFunctionsSet visitedSet;
+    // Iterate over function instructions and look for call instructions
+    for (const_inst_iterator it = inst_begin(pFunc), e = inst_end(pFunc); it != e; ++it) {
+      const CallInst *pInstCall = dyn_cast<CallInst>(&*it);
+      if(!pInstCall) continue;
+      Function* pCalledFunc = pInstCall->getCalledFunction();
+      if(!pCalledFunc){
+        // This case can occur only if CallInst is calling something other than LLVM function.
+        // Thus, no need to handle this case - function casting is not allowed (and not expected!)
+        continue;
+      }
+      if(visitedSet.count(pCalledFunc)) continue;
+
+      visitedSet.insert(pCalledFunc);
+      calledFuncs.push_back(pCalledFunc);
+    }
+  }
+
+  bool BIImport::IsDestValUsedInModule(Value *pVal) {
+    // Given value is assumed to be part of destination module
+    assert(pVal && "Given value pointer is a NULL");
+    // Iterate over function usages and check (recursively) if any is an instruction
+    for (Value::use_iterator it = pVal->use_begin(), e = pVal->use_end(); it != e; ++it) {
+      User* user = *it;
+      if(isa<Instruction>(user)) {
+        assert(cast<Instruction>(user)->getParent()->getParent()->getParent()
+          == m_pModule && "value is assumed to be part of destination module");
+        // found a function using this value that is needed to be import to destination module.
+        return true;
+      }
+      if (IsDestValUsedInModule(user)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool BIImport::IsSrcValUsedInModule(Value *pVal) {
+    // Given value is assumed to be part of source module
+    assert(pVal && "Given vlaue pointer is a NULL");
+    // Iterate over value usages and check if any is part "needed to import" function
+    for (Value::use_iterator it = pVal->use_begin(), e = pVal->use_end(); it != e; ++it) {
+      User* user = *it;
+      if (isa<Instruction>(user)) {
+        Function* pFunc = cast<Instruction>(user)->getParent()->getParent();
+        if (m_valueMap.count(pFunc)) {
+          assert(cast<Instruction>(user)->getParent()->getParent()->getParent()
+            == m_pSourceModule && "value is assumed to be part of source module");
+          // found a function using this value that is needed to be import to destination module.
+          return true;
+        }
+        // The usage is an instruction in a function that is not needed by the
+        // destenation module, discard this usage and continue to check other usages.
+        continue;
+      }
+      // If we reach here, means the usage is a global value or constant
+      if (IsSrcValUsedInModule(user)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+}}} //namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule) {
   return new Intel::OpenCL::DeviceBackend::BIImport(pRTModule);

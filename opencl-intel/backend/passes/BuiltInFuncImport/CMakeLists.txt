@@ -1,10 +1,15 @@
 set(TARGET_NAME BuiltInFuncImport)
 
+set(TARGET_INCLUDE_FILES
+    BuiltInFuncImport.h
+)
+
 set(TARGET_SOURCE_FILES
     BuiltInFuncImport.cpp
 )
 
 add_library(${TARGET_NAME}
+    ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )
 
