@@ -37,7 +37,7 @@ using namespace llvm;
 char intel::Vectorizer::ID = 0;
 
 extern "C" Pass *createSpecialCaseBuiltinResolverPass();
-extern "C" FunctionPass *createVectorizerCorePass(const intel::OptimizerConfig*, bool);
+extern "C" FunctionPass *createVectorizerCorePass(const intel::OptimizerConfig*);
 
 namespace intel {
 
@@ -130,11 +130,7 @@ bool Vectorizer::runOnModule(Module &M)
 
 
   // Create the vectorizer core pass that will do the vectotrization work.
-#ifdef __APPLE__
-  VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig, true);
-#else
-  VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig, false);
-#endif
+  VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   FunctionPassManager vectPM(&M);
   vectPM.add(vectCore);
 
