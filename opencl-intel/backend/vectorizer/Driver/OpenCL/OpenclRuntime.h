@@ -24,17 +24,6 @@ namespace intel {
 ///  functions.
 /// @Author Sion Berkowits
 
-/// @brief list of built-ins which return a second value by pointer
-static const char* BuiltinReturnByPtr[] = {
-  "fract",
-  "modf",
-  "native_fract",
-  "native_modf",
-  "native_sincos",
-  "sincos",
-};
-static const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
-
 class OpenclRuntime : public RuntimeServices {
 public:
 
@@ -229,56 +218,5 @@ private:
 #define WG_FUNCS_NAME_PREFIX  "__async"
 
 } // Namespace
-
-namespace intel {
-// Volcano Part starts HERE
-//TODO: Move to separate file
-//////////////////////////////////////
-
-extern const char *volacanoScalarSelect[];
-
-class VolcanoOpenclRuntime : public OpenclRuntime {
-public:    
-  /// @brief Constructor
-  VolcanoOpenclRuntime(const Module *runtimeModule);
-  
-  /// @brief Destructor
-  ~VolcanoOpenclRuntime() {}
-
-  VolcanoOpenclRuntime(); // Do not implement
-
-  /// @brief returns true the function needs to be replaced with fake function
-  ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano   
-  /// @param funcName Function name to check
-  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
-
-  /// @brief returns true the function is writeImage which need scalarizing of
-  ///  input used by OCLBuiltinPreVectorizationPass - currently disabled in
-  ///  Volcano
-  /// @param funcName Function name to check
-  virtual bool isWriteImage(const std::string &funcName) const;
-
-  /// @brief returns true the function is fake writeImage which produced in
-  /// Pre-Scalarization used AppleWiDepPrePacketizationPass
-  /// @param funcName Function name to check
-  virtual bool isFakeWriteImage(const std::string &funcName) const;
-
-  /// @brief returns true iff this is name of transposed_read_image.
-  virtual bool isTransposedReadImg(const std::string &func_name) const;
-
-  /// @brief returns true iff this is name of transposed_write_image.
-  virtual bool isTransposedWriteImg(const std::string &func_name) const;
-
-  /// @brief returns the read stream function from the runtime module.
-  virtual Function *getReadStream() const;
-
-  /// @brief returns the write stream function from the runtime module.
-  virtual Function *getWriteStream() const;
-
-  // @brief return true if this name of stream built-in.
-  virtual bool isStreamFunc(const std::string &funcName) const;
-};
-
-}
 
 #endif // __OpenclRuntime_H_

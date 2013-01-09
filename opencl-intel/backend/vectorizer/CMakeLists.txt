@@ -46,6 +46,7 @@ set(TARGET_SOURCE_FILES
   Driver/OpenCL/OpenclRuntime.cpp
   Driver/Functions.cpp
   Driver/Apple/AppleOCLRuntime.cpp
+  Driver/Volcano/VolcanoOpenclRuntime.cpp
   Predication/Predicator.cpp
   Predication/Specializer.cpp
   Predication/PhiCanon.cpp

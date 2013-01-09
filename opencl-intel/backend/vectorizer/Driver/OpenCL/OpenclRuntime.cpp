@@ -120,6 +120,17 @@ const dotProdInlineData dotInlineTable [] = {
 	{"_Z3dotDv4_dS_",4},
     {NULL,0}
 };
+  
+const char* BuiltinReturnByPtr[] = {
+  "fract",
+  "modf",
+  "native_fract",
+  "native_modf",
+  "native_sincos",
+  "sincos",
+};
+const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
+  
 
 /// @brief Constructor which get arbitraty table as input
 OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
@@ -369,77 +380,3 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
 } // Namespace
 
 
-
-// Volcano Part starts HERE
-//TODO: Move to separate file
-//////////////////////////////////////
-namespace intel {
-
-const char *volacanoScalarSelect[] = {
-  "_Z6selectccc", "_Z6selectcch", "_Z6selecthhc", "_Z6selecthhh",
-  "_Z6selectsss", "_Z6selectsst", "_Z6selecttts", "_Z6selectttt",
-  "_Z6selectiii", "_Z6selectiij", "_Z6selectjji", "_Z6selectjjj",
-  "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
-  "_Z6selectffi", "_Z6selectffj",
-  "_Z6selectddl", "_Z6selectddm",
-  NULL
-};
-
-bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
-  return false;
-}
-
-bool VolcanoOpenclRuntime::isWriteImage(const std::string &funcName) const{
-  return false;
-}
-
-bool VolcanoOpenclRuntime::isFakeWriteImage(const std::string &funcName) const{
-  return false;
-}
-
-VolcanoOpenclRuntime::VolcanoOpenclRuntime(const Module *runtimeModule):
-    OpenclRuntime(runtimeModule, volacanoScalarSelect)
-{
-
-}
-
-bool VolcanoOpenclRuntime::isTransposedReadImg(const std::string &func_name) const {
-  return false;
-}
-
-Function *VolcanoOpenclRuntime::getWriteStream() const {
-  return NULL;
-}
-
-bool VolcanoOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
-  return false;
-}
-
-Function *VolcanoOpenclRuntime::getReadStream() const {
-  return NULL;
-}
-
-bool VolcanoOpenclRuntime::isStreamFunc(const std::string &funcName) const {
-  return false;
-}
-
-}
-
-
-/// Support for static linking of modules for Windows
-/// This pass is called by a modified Opt.exe
-extern "C" {
-  void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
-    V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::OpenclRuntime * rt =
-      new intel::VolcanoOpenclRuntime(runtimeModule);
-    intel::RuntimeServices::set(rt);
-    return (void*)(rt);
-  }
-
-  void* destroyOpenclRuntimeSupport() {
-    delete intel::RuntimeServices::get();
-    intel::RuntimeServices::set(0);
-    return 0;
-  }
-}
