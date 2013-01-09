@@ -49,6 +49,9 @@ if(NOT APPLE)
 set(BUILT_IN_LIST_H
   BuiltinList.h
 )
+set(CUSTOM_MAPPINGS_GEN
+  CustomMappings.gen
+)
 else(NOT APPLE)
 set(BUILT_IN_LIST_H
   apple_include/BuiltinList.h
@@ -59,7 +62,7 @@ set(TARGET_SOURCE_FILES
   BuiltinKeeper.cpp
   VersionStrategy.cpp
   BuiltinMap.cpp
-  CustomMappings.gen
+  ${CUSTOM_MAPPINGS_GEN}
 )
 
 set(TARGET_INCLUDE_FILES
