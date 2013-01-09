@@ -163,7 +163,7 @@ CPUDetect::CPUDetect(void)
           }
 #endif
 #elif defined(__APPLE__)
-          XCRInfo[0] = 0x00000006;
+          xgetbv( XCRInfo )
 #endif
                 if ((XCRInfo[0] & 0x00000006) == 0x00000006)
                 {

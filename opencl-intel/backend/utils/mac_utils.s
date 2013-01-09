@@ -14,7 +14,7 @@
 #*
 #*   Module Name:
 #*
-#*     linux64_utils.s
+#*     mac_utils.s
 #*
 #*   Abstract:
 #*
