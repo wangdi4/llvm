@@ -710,7 +710,7 @@ int	ThreadTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 		return g_iThreadPoolSize;
 	}
 
-	if ( 0 == uiNumThreads)
+	if ( AUTO_THREADS == uiNumThreads)
 	{
 		SYSTEM_INFO siSysInfo;
 		GetSystemInfo(&siSysInfo); 

@@ -37,9 +37,9 @@ link_directories( ${TBB_LIB_DIR} )
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
-	target_link_libraries( ${TARGET} intelocl googletest pthread)
+	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest pthread)
 else (NOT WIN32)
-	target_link_libraries( ${TARGET} intelocl googletest delayimp)
+	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest delayimp)
 	set_target_properties(${TARGET} PROPERTIES
 		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
 		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
@@ -117,7 +117,7 @@ endif ( INCLUDE_MIC_DEVICE )
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 #set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
-add_dependencies( ${TARGET} clang clang_compiler )
+add_dependencies( ${TARGET} clang clang_compiler${BUILD_PLATFORM} )
 #add_dependencies( framework_test_type_kernel clang_compiler clang)
 
 #copy external files that tests use

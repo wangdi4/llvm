@@ -41,7 +41,7 @@ void build(const std::string& code, std::string fileName){
     exit(1);
   }
   //deleting the temporary file
-//  remove(tmpfile);
+  remove(tmpfile);
 }
 
 //generates 'dummy code' (which does nothing but lets the module compile)

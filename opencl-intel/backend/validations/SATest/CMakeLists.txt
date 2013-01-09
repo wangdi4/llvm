@@ -76,6 +76,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/DataManager
     ${VALIDATIONS_ROOT}/NEAT
+    ${VALIDATIONS_ROOT}/REFALU
     ${VALIDATIONS_ROOT}/Comparator
     ${VALIDATIONS_ROOT}/Common
     ${VALIDATIONS_ROOT}/OCLBuiltins
@@ -127,6 +128,8 @@ set (SATest_INCLUDE_FILES
     OpenCLFactory.h
     BackendOptions.h
     OpenCLBackendRunner.h
+    ${VALIDATIONS_ROOT}/Common/md5.h
+    OpenCLStamp.h
 )
 
 set (SATest_SOURCE_FILES
@@ -154,6 +157,8 @@ set (SATest_SOURCE_FILES
     OpenCLCPUBackendRunner.cpp
     OpenCLFactory.cpp
     OpenCLBackendRunner.cpp
+    ${VALIDATIONS_ROOT}/Common/md5.cpp
+    OpenCLStamp.cpp
     )
 
 if (INCLUDE_MIC_DEVICE)
@@ -240,7 +245,7 @@ target_link_libraries(SATest
 
 add_dependencies(SATest
     ${SATest_DEPS}
-    OclCpuBackEnd
+    OclCpuBackEnd${BUILD_PLATFORM}
     NEAT_wrapper
     PlugInNEAT
     ImathLibd_wrapper
@@ -256,7 +261,7 @@ target_link_libraries(SATest
 
 add_dependencies(SATest
     ${SATest_DEPS}
-    OclCpuBackEnd
+    OclCpuBackEnd${BUILD_PLATFORM}
     NEAT
     PlugInNEAT
     ImathLibd_wrapper

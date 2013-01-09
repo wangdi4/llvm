@@ -9,6 +9,8 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Module.h"
 
+#include "RuntimeServices.h"
+
 using namespace llvm;
 
 namespace intel {
@@ -26,6 +28,7 @@ public:
     m_unresolvedLoadCtr = 0;
     m_unresolvedStoreCtr = 0;
     m_unresolvedCallCtr = 0;
+    m_rtServices = RuntimeServices::get();
   }
 
   /// @brief LLVM Function pass entry
@@ -78,6 +81,10 @@ private:
   ///   define <V x T> @masked_load(<V x i1> %pred, <V x T>* %ptr)
   /// @param caller Instruction to resolve
   void resolveLoadVector(CallInst* caller, unsigned align);
+  /// @brief Tries to produce masked vector load
+  /// @param caller original load instruction
+  /// @return TRUE if masked load was produced, or FALSE otherwise
+  bool isResolvedMaskedLoad(CallInst* caller);  
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define T @masked_loat(i1 %pred, T* %ptr)
   /// @param caller Instruction to resolve
@@ -93,6 +100,10 @@ private:
   ///   define void @masked_store(<V x i1> %prd, <V x T>, %vl, <V x T>* %ptr)
   /// @param caller Instruction to resolve
   void resolveStoreVector(CallInst* caller, unsigned align);
+  /// @brief Tries to produce masked vector store
+  /// @param caller original store instruction
+  /// @return TRUE if masked store was produced, or FALSE otherwise
+  bool isResolvedMaskedStore(CallInst* caller);  
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define @masked_loat(i1 %pred, T %val, T* %ptr)
   /// @param caller Instruction to resolve
@@ -114,6 +125,7 @@ private:
   std::string recoverOriginalFunctionName(const std::string name);
   /*! \} */
 
+  void resolveFakeInsert(CallInst* caller);
   /// load storage
   typedef std::vector<CallInst*> bin_t;
 
@@ -129,6 +141,13 @@ private:
   /// @param bin Load instructions to reorder.
   void packLoadBin(const bin_t& bin);
 
+  /// @brief extend mask value to that expected by masked load/store BI (as the LAST argument)
+  /// Vectorizer mask is of 'i1' type - which is not supported in OpenCL functions
+  /// @param maskLoadStoreBI function with mask of concern.
+  /// @param Mask            mask to be extended
+  /// @return BitCast which is generated for the extension
+  Instruction* extendMaskAsBIParameter(Function* maskLoadStoreBI, Value* Mask);
+
   /// Instructions to protect using CF guard
   //(predicator - controlled instructions)
   std::map<Value*, std::vector<Instruction*> > m_toCF;
@@ -140,6 +159,9 @@ private:
   int m_unresolvedStoreCtr;
   /// Counter of unresolved masked call instructions
   int m_unresolvedCallCtr;
+
+  // Pointer to runtime service object
+  const RuntimeServices * m_rtServices;
 
 };
 

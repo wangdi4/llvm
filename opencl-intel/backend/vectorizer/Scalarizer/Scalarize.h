@@ -90,13 +90,22 @@ private:
   ///  the vector return - these will be transformed by the packetizer into 
   ///  vectors
   /// @param CI - call instruction to handle
-  void scalarizeInputReturnOfScalarCall(CallInst* CI);
+  void scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CallInst* CI);
 
   ///@brief this function handles case when scalar builtin return vector by
   /// creating extracts of the return value, and update the SCM as if the Call 
   /// was generated with scalar arguments.
   ///@param callerInst call instrunction to handle
   void handleScalarRetVector(CallInst* callerInst);
+  /*! \} */
+
+  ///@brief this function handles case when scalar builtin return vector by
+  ///       creating extracts of the return value, but does *not* update the SCM.
+  ///       Instead it returns the resulting scalarized extracts and leaves updating
+  ///       the SCM to the caller.
+  ///@param callerInst call instrunction to handle
+  ///@param scalarizedExtracts Container for scalarized extracts to be written to
+  void handleScalarRetVector(CallInst* callerInst, SmallVectorImpl<Value*>& scalarizedExtracts);
   /*! \} */
 
   ///@brief Check if worth scalarize Load/Store with given vector type
@@ -179,7 +188,7 @@ private:
   /// @param isOrigValueRemoved True if original (vector) value was erased during scalarization
   /// @param matchDbgLoc True if we want to match debug loc of the scalar value to orig Value.  
   void updateSCMEntryWithValues(SCMEntry *entry, Value *scalarValues[],
-                                Value *origValue, bool isOrigValueRemoved,
+                                const Value *origValue, bool isOrigValueRemoved,
                                 bool matchDbgLoc = true);
 
   /// @brief returns an SCM entry if it exists. otherwise return NULL.
@@ -214,7 +223,14 @@ private:
    *  \{ */
 
   /// @brief Data structure for holding "real" inputs/output of function call
-  typedef SmallVector<Value*, 4> funcRootsVect;
+  //         first - arguments of function
+  //         second - retuns of function. There may be more than one return value, e.g. sincos
+  typedef std::pair< SmallVector<Value*, 4>, SmallVector<Value*, 4>  > funcRootsVect;
+  /// @brief Some getters which access funcRootsVect and make the code more readable
+  static SmallVectorImpl<Value*>& getReturns(funcRootsVect& FRV) { return FRV.second; }
+  static const SmallVectorImpl<Value*>& getReturns(const funcRootsVect& FRV) { return FRV.second; }
+  static SmallVectorImpl<Value*>& getArgs(funcRootsVect& FRV) { return FRV.first; }
+  static const SmallVectorImpl<Value*>& getArgs(const funcRootsVect& FRV) { return FRV.first; }
 
   /// @brief Map of all function calls, to strucutres of "real" inputs/output
   DenseMap<CallInst*, funcRootsVect> m_scalarizableRootsMap;
@@ -238,16 +254,6 @@ private:
   /// @param loc - location of the new call.
   /// @returns fake extract call.
   Value *createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc);
-
-  /// @brief creates fake call that mimics insert element that is used 
-  ///        when a vectorizable built-in contains a vector argument.
-  /// @param vec - the base vector to insert element into.
-  /// @param indConst - the constant index to mimic extract for.
-  /// @param val - value to insert.
-  /// @param loc - location of the new call.
-  /// @returns fake insert call.
-  Value *createFakeInsertElt(Value *vec, Constant *indConst, Value *val, 
-                             Instruction *loc);
 
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;

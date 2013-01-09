@@ -65,6 +65,8 @@ private:
 
   void handleInlineDot(CallInst *CI, unsigned opWidth);
 
+  void handleReturnByPtrBuiltin(CallInst *CI, const std::string &funcName);
+
   /// @brief utility function that inserts declaration to into m_curModule
   /// @param name - name of function to insert
   /// @param fType - FunctionType of function to insert
@@ -73,7 +75,10 @@ private:
   Function *getOrInsertDeclarationToModule(std::string &name, const FunctionType *fType,
                                            const AttrListPtr &attrs);
 
-  Function *getOrInsertFakeDeclarationModule(std::string &name);
+  /// @brief utility function that inserts a fake declaration to into m_curModule
+  /// @param name - name of function to insert
+  /// @return inserted functuion declaration in curModule
+  Function *getOrInsertFakeDeclarationToModule(const std::string &name);
 
   /// @brief main fucntion implements regular function replacement f
   ///  queries the runtimeServices for the fakeFunction and roots all input arguments

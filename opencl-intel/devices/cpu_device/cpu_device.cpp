@@ -74,7 +74,7 @@ static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     CPU_MAX_WORK_GROUP_SIZE
     };
 
-static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES_NUMA[] = 
     {
         CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
         CL_DEVICE_PARTITION_BY_COUNTS,
@@ -82,7 +82,29 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
+static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
+    {
+        CL_DEVICE_PARTITION_BY_COUNTS,
+        CL_DEVICE_PARTITION_EQUALLY,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+    };
+
 static const cl_device_affinity_domain CPU_SUPPORTED_AFFINITY_DOMAINS = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+
+typedef enum 
+{
+    CPU_DEVICE_DATA_TYPE_CHAR  = 0,
+    CPU_DEVICE_DATA_TYPE_SHORT,
+    CPU_DEVICE_DATA_TYPE_INT,
+    CPU_DEVICE_DATA_TYPE_FLOAT,
+    CPU_DEVICE_DATA_TYPE_LONG, 
+    CPU_DEVICE_DATA_TYPE_DOUBLE,
+    CPU_DEVICE_DATA_TYPE_HALF
+} CPUDeviceDataTypes;
+
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 4, 2, 2, 0};  //SSE4.2 has 16 byte (XMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[]   = {16, 8, 4, 8, 2, 4, 0};  //AVX supports 32 byte (YMM) registers only for floats and doubles
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[]  = {32, 16, 8, 8, 4, 4, 0}; //AVX2 has a full set of 32 byte (YMM) registers
 
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
@@ -357,6 +379,34 @@ void CPUDevice::GenerateAffinityPermutation(cl_uint *pComputeUnits, unsigned lon
 	pAffinityPermutation[0] = 0;
 }
 
+cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
+{
+    const bool     avx1Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+    const bool     avx2Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
+    const cl_uint* pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42;
+
+    if (avx1Support)
+    {
+        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX;
+    }
+    if (avx2Support)
+    {
+        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2;
+    }
+
+    return pVectorWidths[(int)dataType];
+}
+
+CPUDeviceDataTypes NativeVectorToCPUDeviceDataType(cl_device_info native_type)
+{
+    // For OpenCL 1.2, the CL_DEVICE_NATIVE_VECTOR_WIDTH_XXX defines are consecutive and start at CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR
+    // Re-implement this function if that ceases being the case
+    cl_uint dataTypeOffset = native_type - CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR;
+
+    // The CPUDeviceDataTypes enum starts at 0 and follows the same order of types
+    return (CPUDeviceDataTypes)dataTypeOffset;
+}
+
 CPUDevice::~CPUDevice()
 {
 }
@@ -416,6 +466,7 @@ size_t CPUDevice::GetMaxSupportedPixelSize()
     Description
         This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
     Input
+		dev_id					The device ID in specific device type.
         param                   An enumeration that identifies the device information being queried. It can be one of
                                 the following values as specified in OCL spec. table 4.3
         valSize             Specifies the size in bytes of memory pointed to by paramValue. This size in
@@ -427,12 +478,12 @@ size_t CPUDevice::GetMaxSupportedPixelSize()
         CL_DEV_SUCCESS          If functions is executed successfully.
         CL_DEV_INVALID_VALUE    If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
 **************************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
+cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
                 size_t* OUT paramValSizeRet)
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
-    int     viCPUInfo[4] = {-1};
+    UINT32  viCPUInfo[4] = {-1};
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
@@ -492,9 +543,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ):
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):   //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):  //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):  //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):    //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):   //FALL THROUGH
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //FALL THROUGH
         {
+            //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -503,13 +559,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_uint*)paramVal = 16;
+                *(cl_uint*)paramVal = 1;
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT):
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
         {
+            //We prefer the users won't use half
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -518,45 +574,32 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_uint*)paramVal = 8;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):// FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT):// FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_uint*)paramVal = 4;
+                *(cl_uint*)paramVal = 0;
             }
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG): 
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG): 
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):   //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT): //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):  //FALL THROUGH
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ): //FALL THROUGH
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                *pinternalRetunedValueSize = sizeof(cl_uint);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
-                {
-                    *(cl_uint*)paramVal = 2;
-                }
-                return CL_DEV_SUCCESS;
+                return CL_DEV_INVALID_VALUE;
             }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE):
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+               CPUDeviceDataTypes dataType = NativeVectorToCPUDeviceDataType(param);
+                *(cl_uint*)paramVal        = GetNativeVectorWidth(dataType);
+            }
+            return CL_DEV_SUCCESS;
+        }
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the __DOUBLE_ENABLED__ macro
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -567,25 +610,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
             if(NULL != paramVal)
             {
 #ifdef __DOUBLE_ENABLED__
-                *(cl_uint*)paramVal = 2;
+                *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
 #else
                 *(cl_uint*)paramVal = 0;
 #endif
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_uint*)paramVal = 0;    // TODO: change when halfs are supported
             }
             return CL_DEV_SUCCESS;
         }
@@ -1196,17 +1224,33 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
         
 
         case CL_DEVICE_PARTITION_PROPERTIES:
-            *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                return CL_DEV_INVALID_VALUE;
+                const cl_device_partition_property* pSupportedProperties;
+                bool bNumaSupported = false;
+#ifndef _WIN32 //Numa support disabled for windows machines
+                    bNumaSupported = (0 < GetMaxNumaNode());
+#endif
+                if (bNumaSupported)
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_NUMA);
+                }
+                else
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
+                }
+                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                //if OUT paramVal is NULL it should be ignored
+                if(NULL != paramVal)
+                {
+                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
+                }
+                return CL_DEV_SUCCESS;
             }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                MEMCPY_S(paramVal, sizeof(CPU_SUPPORTED_FISSION_MODES), CPU_SUPPORTED_FISSION_MODES, sizeof(CPU_SUPPORTED_FISSION_MODES));
-            }
-            return CL_DEV_SUCCESS;
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
@@ -1278,6 +1322,37 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(cl_device_info IN param, size_t IN
     return CL_DEV_SUCCESS;
 
 }
+
+//! This function return IDs list for all devices in the same device type.
+/*!
+    \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
+	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
+    \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+	                                    If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
+										If deviceIdsListSizeRet is NULL, it is ignored.
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
+{
+	if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
+	assert(((deviceListSize > 0) || (NULL == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of CPU device");
+	if (deviceIdsList)
+	{
+		deviceIdsList[0] = 0;
+	}
+	if (deviceIdsListSizeRet)
+	{
+		*deviceIdsListSizeRet = 1;
+	}
+	return CL_DEV_SUCCESS;
+}
+
+
 // Device Fission support
 
 static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, cl_uint num_successfully_allocated)
@@ -2106,7 +2181,15 @@ void CPUDevice::clDevCloseDevice(void)
 
 const char* CPUDevice::clDevFEModuleName() const
 {
+#if defined (_WIN32)
+#if defined (_M_X64)
+	static const char* sFEModuleName = "clang_compiler64";
+#else
+	static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
 	static const char* sFEModuleName = "clang_compiler";
+#endif
 	return sFEModuleName;
 }
 

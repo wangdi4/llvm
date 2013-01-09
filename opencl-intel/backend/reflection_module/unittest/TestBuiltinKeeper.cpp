@@ -206,6 +206,19 @@ TEST(VectorizerReference, syntesizedFunctions){
   ASSERT_EQ("allZero_v16", allzerov.first);
 }
 
+//BuiltinKepper functionality tests
+TEST(Functionality, duplicatedScalarEntry){
+  const char*const sincosToscalarize = "_Z18_retbyarray_sincosDv4_d";
+  const char*const sincosScalarVersion = "_Z17sincos_scalarizedd";
+  const char*const sincosExpectedVectorized = "_Z14sincos_ret2ptrDv4_dPS_S0_";
+  const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
+  PairSW scalarVersion = pKeeper->getVersion(sincosToscalarize, width::SCALAR);
+  ASSERT_STREQ(scalarVersion.first.c_str(), sincosScalarVersion);
+  PairSW v4Version = pKeeper->getVersion(sincosScalarVersion, width::FOUR);
+  ASSERT_STREQ(sincosExpectedVectorized, v4Version.first.c_str());
+}
+
+
 //
 //Bi Transpose test
 //

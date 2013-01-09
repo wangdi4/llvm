@@ -65,6 +65,9 @@ set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif")
 file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${BUILDVER_WC_REVISION}")
 
+#copy the version file to install folder
+install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
+
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
@@ -106,6 +109,13 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else ()
     set(ADDR 64)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+
+# set windows binary suffix 
+if (WIN32)
+    set (BUILD_PLATFORM ${ADDR})
+else (WIN32)
+    set (BUILD_PLATFORM "")
+endif (WIN32)
 
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})

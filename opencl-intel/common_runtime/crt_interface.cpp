@@ -3683,6 +3683,8 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
     }
     CrtContext* ctx = pgm->m_contextCRT;
 
+    cl_uint refNumKernelArgs = 0;
+
     for( cl_uint i=0; i < pgm->m_buildContexts.size(); i++)
     {
         cl_context ctxObj = pgm->m_buildContexts[i];
@@ -3692,6 +3694,23 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
         if (CL_SUCCESS == errCode)
         {
             crtKernel->m_ContextToKernel[ctxObj] = knlObj;
+            
+            // As for now, we only support #difference number of arguments detection for the sake of 
+            // supporting CL_INVALID_KERNEL_DEFINITION
+            if( i == 0 )
+            {
+                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &refNumKernelArgs, NULL );
+            }
+            else
+            {
+                cl_uint numKernelArgs = 0;
+                knlObj->dispatch->clGetKernelInfo(knlObj, CL_KERNEL_NUM_ARGS, sizeof( cl_uint ), &numKernelArgs, NULL );
+                if( refNumKernelArgs != numKernelArgs )
+                {
+                    errCode = CL_INVALID_KERNEL_DEFINITION;
+                    goto FINISH;
+                }
+            }
         }
     }
 

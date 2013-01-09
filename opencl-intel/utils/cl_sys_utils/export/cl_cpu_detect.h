@@ -37,15 +37,17 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	cl_err_code IsCPUSupported();
 
 	// CPU Features enumeration
-	enum ECPUFeatureSupport
+    enum ECPUFeatureSupport
     {
-        CFS_NONE	= 0x0000,
-		CFS_SSE2	= 0x0001,
-		CFS_SSE3	= 0x0002,
-		CFS_SSSE3	= 0x0004,
-		CFS_SSE41	= 0x0008,
-		CFS_SSE42	= 0x0010,
-		CFS_AVX10	= 0x0020
+        CFS_NONE    = 0x0000,
+        CFS_SSE2    = 0x0001,
+        CFS_SSE3    = 0x0002,
+        CFS_SSSE3   = 0x0004,
+        CFS_SSE41   = 0x0008,
+        CFS_SSE42   = 0x0010,
+        CFS_AVX10   = 0x0020,
+        CFS_AVX20   = 0x0040,
+        CFS_FMA     = 0x0080
     };
 
 	// Processor type enumeration
@@ -54,8 +56,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
         PT_ALL,
         PT_YONAH,
         PT_MEROM,
-		PT_PENRYN,
-		PT_NEHALEM
+        PT_PENRYN,
+        PT_NEHALEM,
+        PT_SANDYBRIDGE,
+        PT_HASWELL
     };
 
 	// CPU detection class (singleton)

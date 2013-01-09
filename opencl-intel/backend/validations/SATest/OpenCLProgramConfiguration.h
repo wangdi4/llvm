@@ -25,6 +25,11 @@ File Name:  OpenCLProgramConfiguration.h
 #include "tinyxml.h"
 #include <list>
 #include <cl_device_api.h>
+#include <vector>
+#include "llvm/Support/DataTypes.h"
+
+#include <iostream>
+#include <iomanip>
 
 namespace Validation
 {
@@ -125,9 +130,66 @@ namespace Validation
             return m_neatFilePath;
         }
 
+        /// @brief save stamp, insert it into the reference file name and mark it as "inserted"
+        void SetReferenceStamp(const std::vector<uint8_t> stamp)
+        {
+            m_referenceStamp = stamp;
+        }
+
+        /// @brief save stamp, insert it into the neat file name and mark it as "inserted"
+        void SetNeatStamp(const std::vector<uint8_t> stamp)
+        {
+            m_neatStamp = stamp;
+        }
+        ///  @brief get reference stamp
+        const std::vector<uint8_t> GetReferenceStamp() const
+        {
+            return m_referenceStamp;
+        }
+        ///  @brief get neat stamp
+        const std::vector<uint8_t> GetNeatStamp() const
+        {
+            return m_neatStamp;
+        }
+
+        ///  @brief get reference file name with stamp
+        std::string GetStampedPathReference()
+        {
+#if STAMP_ENABLED
+            return GetStampedPath(m_referenceFilePath, m_referenceStamp);
+#else
+            return GetReferenceFilePath();
+#endif
+        }
+        ///  @brief get neat file name with stamp
+        std::string GetStampedPathNeat()
+        {
+#if STAMP_ENABLED
+            return GetStampedPath(m_neatFilePath, m_neatStamp);
+#else
+            return GetNeatFilePath();
+#endif
+        }
+
     private:
         bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
         DataFileType GetDataFileType(const std::string& strFileType);
+
+
+        std::string GetStampedPath( const std::string& path, const std::vector<uint8_t>& stamp)
+        {
+            std::ostringstream ss;
+            ss << path;
+
+            if(stamp.size() > 0) {
+                ss << '.';
+                ss << std::hex << std::uppercase << std::setfill( '0' );
+                for (std::vector<uint8_t>::const_iterator i = stamp.begin(), e = stamp.end(); i != e; ++i)
+                ss << std::setw(2) << int(*i);
+            }
+            return ss.str();        
+        }
+
 
     private:
         // Global work offset
@@ -169,6 +231,12 @@ namespace Validation
 
         // base directory
         std::string m_baseDirectory;
+
+        // md5 stamp for reference file
+        std::vector<uint8_t> m_referenceStamp;
+        // md5 stamp for NEAT file
+        std::vector<uint8_t> m_neatStamp;
+
     };
 
     /// @brief This class contain OpenCL Include Directories

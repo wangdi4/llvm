@@ -345,6 +345,7 @@ target_link_libraries(${TARGET_NAME}
   OCLBuilder
   OCLKernelDataGenerator
   OpenCLKernelArgumentsParser
+  name_mangle
 )
 
 add_dependencies(${TARGET_NAME} 
@@ -361,6 +362,7 @@ add_dependencies(${TARGET_NAME}
   dynamic_load
   OCLRecorderStat
   OCLBuilder
+  name_mangle
   )
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")

@@ -129,24 +129,42 @@ threadid_t clMyThreadId()
 
 #else
 #include <unistd.h>
-#include <numa.h>
 #include <sys/syscall.h>
 
-bool clIsNumaAvailable()
-{
-	static int iNuma = -1;
-	
-	if ( -1 == iNuma )
-	{
-		iNuma = numa_available();
-	}
-	return (-1 != iNuma);
-}
+#ifndef DISABLE_NUMA_SUPPORT
 
-void clNUMASetLocalNodeAlloc()
-{
-	numa_set_localalloc();
-}
+    // need numa support
+    #include <numa.h>
+
+    bool clIsNumaAvailable()
+    {
+        static int iNuma = -1;
+        
+        if ( -1 == iNuma )
+        {
+            iNuma = numa_available();
+        }
+        return (-1 != iNuma);
+    }
+
+    void clNUMASetLocalNodeAlloc()
+    {
+        numa_set_localalloc();
+    }
+
+#else 
+
+    // no numa support
+    bool clIsNumaAvailable()
+    {
+        return false;
+    }
+
+    void clNUMASetLocalNodeAlloc()
+    {
+    }
+
+#endif // DISABLE_NUMA_SUPPORT
 
 void clSleep(int milliseconds)
 {

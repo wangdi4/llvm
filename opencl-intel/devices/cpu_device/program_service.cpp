@@ -355,6 +355,8 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
+    const char *p = NULL;
+
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
     TProgramEntry* pEntry = (TProgramEntry*)prog;
@@ -393,11 +395,22 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
     pEntry->clBuildStatus = status;
     
-    // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && !strncmp(options, "-dump-opt-llvm=", 15))
+    // if the user requested -dump-opt-asm, emit the asm of this module into a file
+    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
+        (NULL != (p = strstr(options, "-dump-opt-asm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
-        ProgramDumpConfig dumpOptions(options);
+        ProgramDumpConfig dumpOptions(p);
+        m_pBackendCompiler->DumpJITCodeContainer( pEntry->pProgram->GetProgramCodeContainer(),
+            dumpOptions.GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE,""));
+    }
+
+    // if the user requested -dump-opt-llvm, print the IR of this module
+    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
+        (NULL != (p = strstr(options, "-dump-opt-llvm="))))
+    {
+        assert( pEntry->pProgram && "Program must be created already");
+        ProgramDumpConfig dumpOptions(p);
         m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
 

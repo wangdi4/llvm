@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME task_executor )
+set( TARGET_NAME task_executor${BUILD_PLATFORM} )
 
 include( ../../cmake_utils/itt.cmake )
 
@@ -19,6 +19,10 @@ endif (WIN32 AND NOT BUILD_X64)
 include_directories( BEFORE . )
 
 if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_definitions( -DRESOURCE_X64 )
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
+    
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )

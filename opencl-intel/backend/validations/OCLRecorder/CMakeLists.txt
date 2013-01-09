@@ -31,7 +31,7 @@ set (OCL_RECORDER_INCLUDE_FILES
   ocl_source_recorder.h
   stdafx.h
   targetver.h
-  md5.h
+  ${VALIDATIONS_ROOT}/Common/md5.h
   )
   
 set (OCL_RECORDER_SOURCE_FILES
@@ -39,7 +39,7 @@ set (OCL_RECORDER_SOURCE_FILES
   ocl_recorder.cpp
   ocl_source_recorder.cpp
   stdafx.cpp
-  md5.cpp
+  ${VALIDATIONS_ROOT}/Common/md5.cpp
   )
 
 # Resources

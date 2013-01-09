@@ -21,8 +21,8 @@
 #pragma once
 
 #include <cassert>
+#include <vector>
 #include <set>
-#include <map>
 #include "tbb/task_scheduler_observer.h"
 #include "tbb/task_arena.h"
 #include "cl_device_api.h"
@@ -96,6 +96,16 @@ public:
      */
     SubdevArenaObserver(tbb::task_arena& arena, TBBTaskExecutor& taskExecutor, const unsigned int* pLegalCores, size_t szNumlegalCores, IAffinityChangeObserver& observer);
 
+    /**
+     * Destructor
+     */
+    ~SubdevArenaObserver()
+    {
+        /* We don't put this code in DevArenaObserver(), since the root device is destroyed when the library shuts down and then after all workers have terminated, calling this might cause a
+           deadlock. */
+        observe(false);
+    }
+
     // overriden methods
 
     virtual void on_scheduler_entry(bool bIsWorker);
@@ -103,10 +113,11 @@ public:
     virtual void on_scheduler_exit(bool bIsWorker);
 
 private:
+    static const unsigned int ILLEGAL_CORE = (unsigned int)(-1);
 
     Intel::OpenCL::Utils::OclMutex m_mutex;
-    std::set<unsigned int> m_legalCores;
-    std::map<int, unsigned int> m_slots2Cores;
+    std::vector<unsigned int> m_legalCores;  // use m_legalCores as a stack
+    std::vector<unsigned int> m_slots2Cores; // use vectors and not arrays to avoid extra memory allocations overhead
     IAffinityChangeObserver& m_observer;    
 };
 
@@ -120,7 +131,7 @@ public:
     /**
      * Destructor
      */
-    ~ArenaHandler();
+    virtual ~ArenaHandler();
 
     /**
      * @return a pointer to the work group context for the current worker thread
@@ -133,7 +144,7 @@ public:
      * @param f the functor object
      */
     template <class F>
-    void Enqueue(F& f);
+    void Enqueue(F& f) { m_arena.enqueue(f); }
 
     /**
      * Execute a functor on the arena.
@@ -170,9 +181,9 @@ public:
     }
 
     /**
-     * @return whether there are enqueued EnqueuedRunnable objects in the arena
+     * @return whether there are enqueued tasks in the sub-device's command lists
      */
-    bool AreEnqueuedTasks() const { return m_numEnqueuedTasks > 0; }    
+    bool AreEnqueuedTasks() const;
 
     /**
      * @return the number of compute units of the sub-device of this ArenaHandler
@@ -190,6 +201,16 @@ public:
      * @param pCmdList the base_command_list to remove
      */
     void RemoveCommandList(const base_command_list* pCmdList);
+
+    /**
+     * Whether this ArenaHandler is inside its destructor
+     */
+    bool isTerminating() const { return m_isTerminating; }
+
+    /**
+     * @return Whether the master thread should join the work of this device's arena
+     */
+    virtual bool ShouldMasterJoinWork() const = 0;
 
 protected:
 
@@ -218,35 +239,15 @@ private:
     std::vector<WGContextBase*> m_wgContexts; // Since each thread has its own slot in this vector, accessing it doesn't need synchronization.    
     TBBTaskExecutor& m_taskExecutor;
         
-    DevArenaObserver* m_pArenaObserver;
-    AtomicCounter m_numEnqueuedTasks;    
+    DevArenaObserver* m_pArenaObserver;    
     const unsigned int m_uiNumSubdevComputeUnits;
-    Intel::OpenCL::Utils::OclMutex m_mutex;
+    mutable Intel::OpenCL::Utils::OclReaderWriterLock m_cmdListsRWLock;
     std::set<SharedPtr<base_command_list> > m_cmdLists;
+    bool m_isTerminating;
 
     // do not implement:
     ArenaHandler(const ArenaHandler&);
-    ArenaHandler& operator=(const ArenaHandler&);
-
-    // auxiliary class for Enqueue
-    template<typename F>
-    class EnqueuedFunctorWrapper
-    {
-    public:
-
-        EnqueuedFunctorWrapper(ArenaHandler& arenaHandler, F& f) : m_arenaHandler(arenaHandler), m_functor(f) { }
-
-        void operator()()
-        {
-            m_arenaHandler.m_numEnqueuedTasks--;
-            m_functor();            
-        }
-
-    private:
-
-        ArenaHandler& m_arenaHandler;
-        F m_functor;
-    };
+    ArenaHandler& operator=(const ArenaHandler&);    
 
 };
 
@@ -259,15 +260,18 @@ public:
 
     /**
      * Constructor
-     * @param uiNumSubdevComputeUnits   number of computing units in the sub-device
      * @param uiNumTotalComputeUnits	number of total computing units in the device
      * @param taskExecutor              a reference to the TBBTaskExecutor															
      */
-    RootDevArenaHandler(unsigned int uiNumSubdevComputeUnits, unsigned int uiNumTotalComputeUnits, TBBTaskExecutor& taskExecutor) :
-      ArenaHandler(uiNumSubdevComputeUnits, uiNumTotalComputeUnits, taskExecutor), m_devArenaObserver(m_arena, taskExecutor)
+    RootDevArenaHandler(unsigned int uiNumTotalComputeUnits, TBBTaskExecutor& taskExecutor) :
+      ArenaHandler(uiNumTotalComputeUnits, uiNumTotalComputeUnits, taskExecutor), m_devArenaObserver(m_arena, taskExecutor)
       {
           Init(&m_devArenaObserver);
       }
+
+    // overriden methods:
+
+    bool ShouldMasterJoinWork() const { return true; }
 
 private:
 
@@ -294,9 +298,22 @@ public:
         IAffinityChangeObserver& observer);
 
     /**
+     * Destructor
+     */
+    ~SubdevArenaHandler()
+    {
+        // stop observing before the observer is destroyed
+        m_subdevArenaObserver.observe(false);
+    }
+
+    /**
      * @return the internal command list of this ArenaHandler
      */
     base_command_list& GetInternalCommandList() { return *m_pInternalCmdList; }
+
+    // overriden methods:
+
+    bool ShouldMasterJoinWork() const { return false; }
 
 private:
 
@@ -304,12 +321,5 @@ private:
     SubdevArenaObserver m_subdevArenaObserver;
 
 };
-
-template <class F>
-void ArenaHandler::Enqueue(F& f)
-{
-    m_numEnqueuedTasks++;
-    m_arena.enqueue(EnqueuedFunctorWrapper<F>(*this, f));
-}
 
 }}}

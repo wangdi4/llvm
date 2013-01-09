@@ -165,8 +165,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
  */
 cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pQueueEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
 {    
-    m_pEventsManager->RegisterQueueEvent(pQueueEvent, NULL);    
-    
     const cl_err_code errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
     if(CL_FAILED(errVal))
     {

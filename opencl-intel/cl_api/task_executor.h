@@ -40,9 +40,12 @@
 
 #include <stddef.h>
 #include <cl_sys_defines.h>
-#include "ocl_itt.h"
 #include "cl_shared_ptr.h"
 #include "cl_device_api.h"
+
+#ifndef DEVICE_NATIVE
+#include "ocl_itt.h"
+#endif
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -84,10 +87,43 @@ typedef enum
 	TE_WAIT_NOT_SUPPORTED				// Wait for completion doesn't supported
 } te_wait_result;
 
+// The following enum defines CommandList type
+typedef enum 
+{
+	TE_CMD_LIST_IN_ORDER            = 0,// Process tasks in order of enqueing
+	TE_CMD_LIST_OUT_OF_ORDER,           // Process tasks in any order
+    TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
+} TE_CMD_LIST_TYPE;
+
+// preferred CommandList scheduling type
+typedef enum  
+{
+    TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC = 0,             // in TBB case - use auto_partitioner for TaskSets
+    TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet        
+
+    TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
+} TE_CMD_LIST_PREFERRED_SCHEDULING;
+
+// TaskSets optimizations
+typedef enum 
+{
+    TASK_SET_OPTIMIZE_DEFAULT = 0,      // in TBB case - use TBB internal by-tile approach in 2D/3D cases
+    TASK_SET_OPTIMIZE_BY_ROW,           // Optimize 2D/3D cases by row
+    TASK_SET_OPTIMIZE_BY_COLUMN,        // Optimize 2D/3D cases by column
+    TASK_SET_OPTIMIZE_BY_TILE,          // Optimize 2D/3D cases by tile
+
+    TASK_SET_OPTIMIZE_BY_LAST
+} TASK_SET_OPTIMIZATION;
+
+// Command List Creation params
 struct CommandListCreationParam
 {
-    bool  isOOO;
-    bool  isSubdevice;
+    TE_CMD_LIST_TYPE                    cmdListType;
+    TE_CMD_LIST_PREFERRED_SCHEDULING    preferredScheduling;
+
+    CommandListCreationParam( TE_CMD_LIST_TYPE type, 
+                              TE_CMD_LIST_PREFERRED_SCHEDULING sched = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC ) :
+        cmdListType(type), preferredScheduling(sched) {}
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -107,14 +143,14 @@ public:
 
 	// Returns true in case current task is a syncronization point
 	// No more tasks will be executed in this case
-	virtual bool	CompleteAndCheckSyncPoint() = 0;
+	virtual bool	CompleteAndCheckSyncPoint() { return false; }
 	
 	// Set current command as syncronization point
 	// Returns true if command is already completed
-	virtual bool	SetAsSyncPoint() = 0;
+	virtual bool	SetAsSyncPoint() { return false; }
 
 	// Returns true if command is already completed
-	virtual bool	IsCompleted() const = 0;
+	virtual bool	IsCompleted() const { return false; }
 
     // Releases task object, shall be called instead of delete operator.
     virtual long	Release() = 0;
@@ -144,7 +180,6 @@ public:
 class ITaskSet: public ITaskBase
 {
 public:
-
     PREPARE_SHARED_PTR(ITaskSet)
 
 	bool	IsTaskSet() const {return true;}
@@ -173,6 +208,11 @@ public:
     // Final stage, free execution resources
 	// Return false when command execution fails
 	virtual bool	Finish(FINISH_REASON reason) = 0;
+
+    // Optimize By
+    virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    virtual unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+    
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -183,7 +223,8 @@ public:
 
     PREPARE_SHARED_PTR(ITaskList)
 
-    // Enqueue a given task for execution, the function is asynchronous and exits immediately.
+    // Enqueue a given task for execution, the function is asynchronous and exits immediately in in-order and out-of-order lists.
+    // In immediate list the task is enqueued, flushed and executes immediately. Functions returns only after the task completes.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
 	virtual unsigned int	Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
@@ -194,6 +235,7 @@ public:
 	// Add the calling thread to execution pool
 	// Function blocks, until the pTask is completed or in case of NULL
 	// all tasks belonging to the list are completed.
+	// Not supported for immediate lists
     virtual te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;    
 
 };
@@ -210,9 +252,11 @@ class ITaskExecutor
 {
 public:
 	// Init task executor to use uiNumThreads for execution
-	// if uiNumThreads == 0, number of threads will be defined by implementation
+	// if uiNumThreads == AUTO_THREADS, number of threads will be defined by implementation
 	// Returns 0, if succeeded, else -1
+	static const unsigned int AUTO_THREADS = (unsigned int)(-1);
     virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
+    virtual void Finalize() = 0;
 
     /**
      * Set the IWGContextPool of the device agent
@@ -241,7 +285,7 @@ public:
 	virtual unsigned int GetNumWorkingThreads() const = 0;
 
     // pSubdevTaskExecData is private data of the TaskExecutor for the specific sub-device or NULL for the root device
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData) = 0;
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param, void* pSubdevTaskExecData = NULL) = 0;
 
 	// Execute task immediately, independently to "listed" tasks. If pSubdevTaskExecData is not NULL, the task will be executed on this sub-device
     virtual unsigned int Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL) = 0; // Dynamically detect Task or TaskSet

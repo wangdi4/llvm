@@ -1757,7 +1757,7 @@ TYPED_TEST(NEATMathTestOneArg, logb)
     }
 }
 
-TYPED_TEST(NEATMathTestOneArg, cbrt)
+TYPED_TEST(NEATMathTestOneArg, DISABLED_cbrt)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;
@@ -3763,8 +3763,7 @@ static bool TestNEATVal_fdim(NEATValue x, NEATValue y, NEATValue test)
     return passed;
 }
 
-// disabled until bug CSSD100013820 will be fixed
-TYPED_TEST(NEATMathTestTwoArgs, DISABLED_fdim)
+TYPED_TEST(NEATMathTestTwoArgs, fdim)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;

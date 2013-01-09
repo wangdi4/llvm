@@ -25,8 +25,11 @@
 #pragma once
 
 #include "cl_dev_backend_api.h"
+#include "cl_synch_objects.h"
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+
+class ThreadPool;
 
 class PrintfHandle
 {
@@ -39,20 +42,24 @@ public:
 	int print(const char* buffer);
 
 private:
-
-	bool m_flushAtExit;
+	bool                m_flushAtExit;
 };
 
 class MICNativeBackendPrintfFiller : public Intel::OpenCL::DeviceBackend::ICLDevBackendBufferPrinter
 {
 public:
 
+    MICNativeBackendPrintfFiller() : m_thread_pool(NULL) {}
 	virtual ~MICNativeBackendPrintfFiller() {};
 
 	/**
      * @effects sends a final buffer to be printed
      */
 	int Print(void* id, const char* buffer);
+    
+private:
+    volatile ThreadPool*                m_thread_pool;
+    Intel::OpenCL::Utils::OclSpinMutex  m_lock;
 };
 
 }}}

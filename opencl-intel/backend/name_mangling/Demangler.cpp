@@ -45,7 +45,6 @@ std::vector<reflection::Type*> m_parameters;
 const char* PREFIX = "_Z";
 
 size_t PREFIX_LEN = 2;
-
 //parsing methods for the raw mangled name
 //
 static bool peelPrefix(llvm::StringRef& s){

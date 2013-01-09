@@ -26,18 +26,15 @@ using namespace std;
 
 ITaskExecutor* TaskExecutorTester::m_pTaskExecutor = NULL;
 
-static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& taskExecutor, bool bSize1Subdev)
+static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& taskExecutor, bool bIsFullDevice)
 {
-    CommandListCreationParam cmdListCreationParam;
-
-    cmdListCreationParam.isOOO = bOutOfOrder;
-    cmdListCreationParam.isSubdevice = pSubdevData != NULL;
-    SharedPtr<ITaskList> pTaskList = taskExecutor.CreateTaskList(&cmdListCreationParam, pSubdevData);
+    SharedPtr<ITaskList> pTaskList = taskExecutor.CreateTaskList(
+                                bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER, pSubdevData);
     if (NULL == pTaskList)
     {
         cerr << "TaskExecutor::CreateTaskList returned NULL" << endl;
         return false;
-    }
+    }	
     for (unsigned int uiNumDims = 1; uiNumDims <= 3; uiNumDims++)
     {
         std::vector<SharedPtr<TesterTaskSet> > tasks(1000);
@@ -52,25 +49,25 @@ static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& tas
             cerr << "Flush failed failed" << endl;
             return false;
         }
-        // for now we can't do WaitForCompletion on the whole task list (giving NULL as the argument) because of what seems to be a bug in TBB (#1954).
-#if 1
+
+		const bool bWaitShouldBeSupported = NULL == pSubdevData || bIsFullDevice;
         for (size_t i = 0; i < tasks.size(); i++)
         {
             const te_wait_result res = pTaskList->WaitForCompletion(tasks[i]);
-            if ((bSize1Subdev && res != TE_WAIT_NOT_SUPPORTED) || (!bSize1Subdev && res != TE_WAIT_COMPLETED))
+			
+            if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) || (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED))
             {
                 cerr << "WaitForCompletion doesn't return result as expected" << endl;
                 return false;
             }
         }
-#else
+        
         const te_wait_result res = pTaskList->WaitForCompletion(NULL);
-        if ((bSize1Subdev && res != TE_WAIT_NOT_SUPPORTED) || (!bSize1Subdev && res != TE_WAIT_COMPLETED))
+        if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) || (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED))
         {
             cerr << "WaitForCompletion doesn't return result as expected" << endl;
             return false;
         }
-#endif
     }    
     return true;
 }
@@ -79,10 +76,6 @@ static bool RunSomeTasks(void* pSubdevData, bool bOutOfOrder, ITaskExecutor& tas
 
 static bool RunSubdeviceTest(unsigned int uiSubdevSize, ITaskExecutor& taskExecutor)
 {
-    CommandListCreationParam cmdListCreationParam;
-
-    cmdListCreationParam.isOOO = false;
-    cmdListCreationParam.isSubdevice = true;    
     taskExecutor.Activate();
     std::vector<unsigned int> legalCores;
     for (unsigned int i = 0; i < uiSubdevSize; i++)
@@ -96,9 +89,9 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize, ITaskExecutor& taskExecu
         cerr << "CreateSubdevice returned NULL" << endl;
         return false;
     }
-    const bool bResult = RunSomeTasks(pSubdevData, false, taskExecutor, 1 == uiSubdevSize);
+	const bool bResult = RunSomeTasks(pSubdevData, false, taskExecutor, uiSubdevSize == taskExecutor.GetNumWorkingThreads());
 
-    if (uiSubdevSize > 1 || 0 == uiSubdevSize)   // subdevices with size 1 don't support WaitForCompletion
+    if (0 == uiSubdevSize)   // subdevices with size 1 don't support WaitForCompletion
     {
         SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(1);
         taskExecutor.Execute(pTaskSet, pSubdevData);
@@ -127,6 +120,12 @@ bool SubdeviceSize1Test()
     return RunSubdeviceTest(1, tester.GetTaskExecutor());
 }
 
+bool SubdeviceFullDevice()
+{
+	TaskExecutorTester tester;
+	return RunSubdeviceTest(tester.GetTaskExecutor().GetNumWorkingThreads(), tester.GetTaskExecutor());
+}
+
 bool BasicTest()
 {
     TaskExecutorTester tester;    
@@ -144,7 +143,7 @@ bool OOOTest()
 
     ITaskExecutor& taskExecutor = tester.GetTaskExecutor();
     taskExecutor.Activate();
-    const bool bResult = RunSomeTasks(NULL, true, taskExecutor, false);
+    const bool bResult = RunSomeTasks(NULL, true, taskExecutor, true);
     taskExecutor.Deactivate();
     return bResult;
 }
@@ -162,6 +161,11 @@ TEST(TaskExecutorTestType, Test_Subdevices)
 TEST(TaskExecutorTestType, Test_SubdeviceSize1)
 {
     EXPECT_TRUE(SubdeviceSize1Test());
+}
+
+TEST(TaskExecutorTestType, Test_SubdeviceFullDevice)
+{
+	EXPECT_TRUE(SubdeviceFullDevice());
 }
 
 TEST(TaskExecutorTestType, Test_OOO)

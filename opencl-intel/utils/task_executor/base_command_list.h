@@ -23,6 +23,7 @@
 #include "cl_synch_objects.h"
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
+#include "tbb/tbb.h"
 #include "tbb/task_group.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -34,6 +35,8 @@ class TBBTaskExecutor;
 class ArenaHandler;
 
 using Intel::OpenCL::Utils::SharedPtr;
+using Intel::OpenCL::Utils::OclOsDependentEvent;
+using Intel::OpenCL::Utils::OclMutex;
 
 // Master thread syncronization task
 // This task used to mark when any master thread requested synchronization point
@@ -63,6 +66,96 @@ protected:
 	volatile bool	m_bFired;
 };
 
+/**
+ * This class represents a group of tasks for which one can wait to their completion. It replaces tbb::task_group, which can't be used the way we need: parallel_for from one task_group might
+ * steal the task which starts another parallel_for.
+ */
+class TaskGroup
+{
+public:
+
+    /**
+     * Constructor
+     * @param arenaHandler the ArenaHandler for enqueuing and executing tasks
+     */
+    TaskGroup(ArenaHandler& arenaHandler) : m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_arenaHandler(arenaHandler)
+    {
+        m_rootTask.increment_ref_count();
+    }
+
+    /**
+     * Destructor
+     */
+    ~TaskGroup()
+    {
+        assert(m_rootTask.ref_count() == 1);    // steady state of reference count when no functor is pending execution is 1
+        tbb::task::destroy(m_rootTask);
+    }
+
+    /**
+     * Enqueue a functor
+     * @param F the functor's type
+     * @param f the functor object			
+     */
+    template<typename F>
+    void EnqueueFunc(const F& f);
+
+    /**
+     * Wait for all functor objects enqueued up to this point to complete
+     */
+    void WaitForAll();
+
+private:
+
+    tbb::task_group_context m_taskGroupContext;
+    tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed    
+    ArenaHandler& m_arenaHandler;
+
+    // auxiliary functor classes to be replaced by lambda functions
+    class ArenaFunctor
+    {
+    protected:
+
+        ArenaFunctor(tbb::task& rootTask) : m_rootTask(rootTask) { }
+
+        tbb::task& m_rootTask;
+    };    
+
+    template<typename F>
+    class ArenaFunctorRunner : public ArenaFunctor
+    {
+    public:
+
+        ArenaFunctorRunner<F>(tbb::task& rootTask, const F& func) : ArenaFunctor(rootTask), m_func(func) { }
+
+        void operator()()
+        {
+            m_func();
+            m_rootTask.decrement_ref_count();
+        }
+
+    private:
+
+        F m_func;
+
+    };
+
+    class ArenaFunctorWaiter : public ArenaFunctor
+    {
+    public:
+
+        ArenaFunctorWaiter(tbb::task& rootTask) : ArenaFunctor(rootTask) { }
+
+        void operator()()
+        {
+            m_rootTask.wait_for_all();  // joins the work in current arena  WARNING: consumes stack, need to reduce number of simultaneously run calls to avoid memory blow-up            
+        }
+
+    };
+
+};
+
 class base_command_list : public ITaskList
 {
 public:	    
@@ -89,24 +182,47 @@ public:
     template<typename F>
     void ExecuteFunction(F& f);
 
-    void Wait();
+	/**
+     * Wait for all tasks (commands and executor tasks) to be completed
+     */
+    virtual void Wait()
+	{
+		m_taskGroup.WaitForAll();
+	}
 
     ArenaHandler& GetDevArenaHandler() { return m_devArenaHandler; }
 
+    virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() { return TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC; }
+    
+    virtual tbb::affinity_partitioner* GetAffinityPartitioner() { return NULL; }
+   
     std::string GetTypeName() const { return "base_command_list"; }
+
+    /**
+     * Enqueue a functor to be run on the device's arena
+     * @param F type of functor
+     * @param func the functor object to be enqueued
+     */
+    template<typename F>
+    void EnqueueFunc(const F& func)
+    {
+        m_taskGroup.EnqueueFunc(func);
+    }
+	friend class immediate_executor_task;
+
+    bool HaveIncomingWork() const
+	{
+		return !m_quIncomingWork.IsEmpty();
+	}
 
 protected:
 	friend class in_order_executor_task;
 	friend class out_of_order_executor_task;
 
-    base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler);	    
-	
-	bool HaveIncomingWork() const
-	{
-		return !m_quIncomingWork.IsEmpty();
-	}
+    base_command_list( TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler);	    	
 
-	virtual unsigned int LaunchExecutorTask(bool blocking) = 0;
+	virtual unsigned int LaunchExecutorTask(bool blocking,
+                                            const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL) = 0;
 
 	inline unsigned int InternalFlush(bool blocking);
 
@@ -123,49 +239,7 @@ protected:
 	tbb::atomic<bool>		m_bMasterRunning;
 
     ArenaHandler&           m_devArenaHandler;
-    tbb::task_group         m_taskGroup;
-
-    // auxiliary functor classes to be replaced by lambda functions
-    class TaskGroupFunctor
-    {
-    protected:
-
-        TaskGroupFunctor(tbb::task_group& taskGroup) : m_taskGroup(taskGroup) { }
-
-        tbb::task_group& m_taskGroup;
-    };
-
-    template<typename F>
-    class TaskGroupRunner : public TaskGroupFunctor
-    {
-    public:
-
-        TaskGroupRunner<F>(tbb::task_group& taskGroup, F& func) : TaskGroupFunctor(taskGroup), m_func(func) {}
-
-        void operator()()
-        {
-            m_taskGroup.run(m_func);
-        }
-
-    private:
-
-        F m_func;
-
-    };
-
-    class TaskGroupWaiter : public TaskGroupFunctor
-    {
-    public:
-
-        TaskGroupWaiter(tbb::task_group& taskGroup) : TaskGroupFunctor(taskGroup) { }
-
-        void operator()()
-        {
-            TaskGroupFunctor::m_taskGroup.wait();
-        }
-
-    };
-
+    TaskGroup               m_taskGroup;
 
 private:
 	//Disallow copy constructor
@@ -179,18 +253,26 @@ public:
 
     PREPARE_SHARED_PTR(in_order_command_list)
 
-    static SharedPtr<in_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
+    static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
+                                                      ArenaHandler& devArenaHandler, 
+                                                      const CommandListCreationParam* param = NULL )
     {
-        return new in_order_command_list(subdevice, pTBBExec, devArenaHandler);
+        return new in_order_command_list(pTBBExec, devArenaHandler, param);
     }
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL );
 
 private:
+    tbb::affinity_partitioner        m_ap;
+    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
-    in_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler) { }
+    in_order_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, devArenaHandler) 
+    {
+        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
+    }
 };
 
 class out_of_order_command_list : public base_command_list
@@ -199,32 +281,89 @@ public:
 
     PREPARE_SHARED_PTR(out_of_order_command_list)
 
-    static SharedPtr<out_of_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
+    static SharedPtr<out_of_order_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
+                                                          ArenaHandler& devArenaHandler, 
+                                                          const CommandListCreationParam* param = NULL )
     {
-        return new out_of_order_command_list(subdevice, pTBBExec, devArenaHandler);
+        return new out_of_order_command_list(pTBBExec, devArenaHandler, param);
     }
 
-    ~out_of_order_command_list()
-    {
-        m_oooTaskGroup.wait();
-    }
-
+    /**
+     * Enqueue a task to execute a functor for OOO execution
+     * @param F the functor's type
+     * @param f the functor's object			
+     */
     template<typename F>
-    void EnqueueFunction(F& f);
+    void EnqueueOOOFunc(const F& f)
+    {
+        m_oooTaskGroup.EnqueueFunc(f);
+    }
 
-    void WaitOnOOOTaskGroup();
+	/**
+     * Wait for all the enqueued commands to be completed
+     */
+	void WaitForAllCommands()
+    {
+        m_oooTaskGroup.WaitForAll();
+    }
+
+    // overriden methods:    
+
+    void Wait()
+    {
+        base_command_list::Wait();
+        m_oooTaskGroup.WaitForAll();
+    }
+        
+private:
+
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL);
+
+    TaskGroup m_oooTaskGroup;
+
+    out_of_order_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, devArenaHandler), m_oooTaskGroup(devArenaHandler) { }
+};
+
+class immediate_command_list : public base_command_list
+{
+public:
+
+    PREPARE_SHARED_PTR(immediate_command_list)
+
+    static SharedPtr<immediate_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
+                                                       ArenaHandler& devArenaHandler, 
+                                                       const CommandListCreationParam* param )
+    {
+        return new immediate_command_list(pTBBExec, devArenaHandler, param);
+    }
+
+    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+    {        
+        return LaunchExecutorTask( true, &pTask );
+    }
+
+    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait)
+    {
+        return TE_WAIT_NOT_SUPPORTED;
+    }
+
+    bool Flush() { return true; }
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL);
 
 private:
-
-    /* It is not allowed to call task_group::wait() from a worker thread that belongs to the same task_group, therefore we need a task_group for running the
-       OOO tasks that is different than the one used to launch the executor task. */
-    tbb::task_group m_oooTaskGroup;
-
-    out_of_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler) { }
+    tbb::affinity_partitioner m_ap;
+    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
+    
+    immediate_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, devArenaHandler) 
+    {
+        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
+    }
 };
 
 }}}
+

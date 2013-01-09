@@ -40,7 +40,11 @@ BEGIN
 
             VALUE "CompanyName"     ,"Intel Corporation"
             VALUE "InternalName"    ,"OpenCL SDK"
-            VALUE "OriginalFilename","cpu_device.dll"
+#ifdef RESOURCE_X64
+            VALUE "OriginalFilename","cpu_device64.dll"
+#else
+            VALUE "OriginalFilename","cpu_device32.dll"
+#endif
         END
     END
 

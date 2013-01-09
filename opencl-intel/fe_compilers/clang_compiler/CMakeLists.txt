@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME clang_compiler )
+set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 include_directories( AFTER
             ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/llvm/tools/clang/include
@@ -24,6 +24,10 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_definitions( -DRESOURCE_X64 )
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
+    
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
@@ -77,7 +81,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
                                       ${LINK_LIBS} 
-									  task_executor
+									  task_executor${BUILD_PLATFORM}
 									  clangFrontendTool
 									  clangAnalysis
 									  clangAST
@@ -133,7 +137,7 @@ set( COMPILER_OPTIONS -cc1
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
 	
-add_custom_command( TARGET clang_compiler
+add_custom_command( TARGET clang_compiler${BUILD_PLATFORM}
 					PRE_BUILD
                     COMMAND clang ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"

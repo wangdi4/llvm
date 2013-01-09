@@ -144,10 +144,12 @@ void OpenCLReferenceRunner::LoadOutput(IRunResult* pRunResult, const IProgramCon
         ++it )
     {
         std::string kernelName = (*it)->GetKernelName();
+        std::cout << " trying to load reference " << (*it)->GetStampedPathReference() << std::endl;
         ReadReferenceBuffer(*it, &pRunResult->GetOutput( kernelName.c_str()));
 
         if( m_bUseNEAT )
         {
+            std::cout << " trying to load NEAT " << (*it)->GetStampedPathNeat() << std::endl;
             ReadNEATBuffer(*it, &pRunResult->GetNEATOutput(kernelName.c_str()));
         }
     }
@@ -193,12 +195,14 @@ void OpenCLReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IPro
         const IBufferContainerList& pBcl = pRunResult->GetOutput( kernelName.c_str() );
         std::auto_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(&pBcl, bcIdx));
         /// Save it to file
+        std::cout << " generating reference " << (*it)->GetStampedPathReference() << std::endl;
         WriteReferenceBuffer( *it, pNewBcl.get());
 
         if( m_bUseNEAT )
         {
             const IBufferContainerList& neatBCL = pRunResult->GetNEATOutput( kernelName.c_str() );
             std::auto_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(&neatBCL, bcIdx));
+            std::cout << " generating NEAT " << (*it)->GetStampedPathNeat() << std::endl;
             WriteNEATBuffer(*it, pNewBclNeat.get());
         }
     }
@@ -246,7 +250,7 @@ void OpenCLReferenceRunner::WriteBufferContainer(const std::string& filename,
             break;
         }
     default:
-        throw TestReferenceRunnerException("Unsupported input file type");
+        throw TestReferenceRunnerException("Unsupported output file type");
     }
 }
 
@@ -284,13 +288,13 @@ void OpenCLReferenceRunner::ReadReferenceBuffer(OpenCLKernelConfiguration* pKern
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetReferenceFilePath();
+    std::string filename = pKernelConfig->GetStampedPathReference();
     if( filename.empty() )
     {
         throw Exception::IOError("BinaryContainerListReader: cannot open reference file");
     }
 
-    ReadBufferContainer(pKernelConfig->GetReferenceFilePath(),
+    ReadBufferContainer(pKernelConfig->GetStampedPathReference(),
                         pKernelConfig->GetReferenceFileType(),
                         pContainer);
 }
@@ -300,13 +304,13 @@ void OpenCLReferenceRunner::ReadNEATBuffer(OpenCLKernelConfiguration* pKernelCon
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetNeatFilePath();
+    std::string filename = pKernelConfig->GetStampedPathNeat();
     if( filename.empty() )
     {
         throw Exception::IOError("BinaryContainerListReader: cannot open NEAT file");
     }
 
-    ReadBufferContainer(pKernelConfig->GetNeatFilePath(),
+    ReadBufferContainer(pKernelConfig->GetStampedPathNeat(),
                         pKernelConfig->GetNeatFileType(),
                         pContainer);
 }
@@ -318,11 +322,11 @@ void OpenCLReferenceRunner::WriteReferenceBuffer(OpenCLKernelConfiguration* pKer
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetReferenceFilePath();
+    std::string filename = pKernelConfig->GetStampedPathReference();
     if( filename.empty() )
         return;
 
-    WriteBufferContainer(pKernelConfig->GetReferenceFilePath(),
+    WriteBufferContainer(pKernelConfig->GetStampedPathReference(),
                          pKernelConfig->GetReferenceFileType(),
                          pContainer);
 }
@@ -332,11 +336,11 @@ void OpenCLReferenceRunner::WriteNEATBuffer(OpenCLKernelConfiguration* pKernelCo
     assert( NULL != pKernelConfig);
     assert( NULL != pContainer);
 
-    std::string filename = pKernelConfig->GetNeatFilePath();
+    std::string filename = pKernelConfig->GetStampedPathNeat();
     if( filename.empty() )
         return;
 
-    WriteBufferContainer(pKernelConfig->GetNeatFilePath(),
+    WriteBufferContainer(pKernelConfig->GetStampedPathNeat(),
                          pKernelConfig->GetNeatFileType(),
                          pContainer);
 }
@@ -788,9 +792,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         runConfig->GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0));
 
     // memory for storing kernel data marked with local addr space
-    // Warning!: method delete [] is called on scratchMem
-    // be careful that pointers in scratchMem are allocated by operator new[]
-    std::vector<int8_t*> localsMemVec;
+    NEATPlugIn::GlobalAddressMapTy NEATlocalMap;
 
     std::vector<GenericValue> ArgVals;
     std::string kernelName = pKernelConfig->GetKernelName();
@@ -892,7 +894,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT)
         {
             // create NEAT plug in
-            pNEAT = new NEATPlugIn(m_bUseFmaNEAT);
+            pNEAT = new NEATPlugIn(m_bUseFmaNEAT, NEATlocalMap);
             InterpreterPluggable *pInterp = static_cast<InterpreterPluggable*>(pExecEngine);
             pInterp->addPlugIn(*pNEAT);
             // set arguments for NEAT
@@ -950,41 +952,26 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                     }
                 }
 
-                std::vector<void*> localNEATMemList;
                 // handle local variables for NEAT
                 if(m_bUseNEAT)
                 {
-                    FOR3_LOCALWG
+                    NEATPlugIn *pNeat = localNEATs[0];
+
+                    for(uint32_t i=0, cntNeat=0;i<localList.size();++i)
                     {
-                        NEATPlugIn *pNeat = localNEATs[idx];
+                        const GlobalVariable * GV = localList[i];
+                        const Type *GlobalType =
+                            GV->getType()->getElementType();
 
-                        for(uint32_t i=0, cntNeat=0;i<localList.size();++i)
-                        {
-                            const GlobalVariable * GV = localList[i];
-                            const Type *GlobalType =
-                                GV->getType()->getElementType();
+                        // skip unsupported variables
+                        if(NEATTargetData::IsNEATSupported(GlobalType) == false)
+                            continue;
 
-                            // skip unsupported variables
-                            if(NEATTargetData::IsNEATSupported(GlobalType)
-                                                            == false)
-                                continue;
-
-                            DEBUG(dbgs() << "About to add NEAT supported "
-                                "__local variable:\n " << *GV << "\n");
-
-                            if(idx == 0)
-                            {   // zero WI allocate space
-                                void *globalMem =
-                                    pNeat->getOrEmitGlobalVariable(GV);
-                                localNEATMemList.push_back(globalMem);
-                                localsMemVec.push_back((int8_t*) globalMem);
-                            }
-                            else
-                            {   // next WIs add mapping
-                                pNeat->updateGlobalMapping(localList[i], localNEATMemList[cntNeat]);
-                            }
-                            cntNeat++;
-                        }
+                        DEBUG(dbgs() << "About to add NEAT supported "
+                            "__local variable:\n " << *GV << "\n");
+                        // zero WI allocate space
+                        pNeat->getOrEmitGlobalVariable(GV);
+                        cntNeat++;
                     }
                 } // if(m_bUseNEAT)
 
@@ -1043,8 +1030,11 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         delete localEngines[i];
     }
 
-    for(std::size_t i=0; i<localsMemVec.size(); ++i)
-        delete [] localsMemVec[i];
+    for(NEATPlugIn::GlobalAddressMapTy::iterator I = NEATlocalMap.begin(), E=NEATlocalMap.end(); 
+        I!=E; ++I)
+    {
+        delete [] (int8_t*)(*I).second;
+    }
 
     // release lock
     InterpreterLock->release();

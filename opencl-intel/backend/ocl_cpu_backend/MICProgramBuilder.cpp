@@ -19,6 +19,7 @@ File Name:  MICProgramBuilder.cpp
 #include <vector>
 #include <string>
 #include "cl_types.h"
+#include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
 #include "ProgramBuilder.h"
 #include "Optimizer.h"
@@ -215,7 +216,13 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
 {
     assert(spModule && "Invalid module for post optimization processing.");
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 
-    std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule));
+
+    std::string dumpAsm("");
+    if(NULL != pOptions)
+    {
+      dumpAsm = pOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMPFILE, "");
+    }
+    std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule, dumpAsm));
 
     // populate the Module JIT
     pModuleJIT->SetJITCodeSize(spMICModuleJIT->getJITCodeSize());

@@ -32,6 +32,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include "mic_config.h"
+#include "hw_utils.h"
+#include "cl_sys_info.h"
 
 using namespace std;
 
@@ -42,12 +44,6 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 #define MIC_TRACER_MAX_CHAR_POINTER_SIZE 32
 
 #ifdef ENABLE_MIC_TRACER
-
-#ifdef DEVICE_NATIVE
-	#define RDTSC(X) X=_RDTSC()
-#else
-	#define RDTSC(X) X=_gettime()
-#endif
 
 #define TRACE_COMMAND_GENERAL(TYPE, NAME, NUM_OF_COUNTERS, INDEX) private: \
 														static const unsigned int next_to_use_##NAME = INDEX + NUM_OF_COUNTERS; \
@@ -110,7 +106,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 														 void set_current_time_##NAME(unsigned int idx = 0) \
 														 { \
 														     set_valid_##NAME(idx); \
-														     RDTSC(m_data->m_valuesArr[INDEX+idx].value.value_##TYPE); \
+														     m_data->m_valuesArr[INDEX+idx].value.value_##TYPE = _RDTSC(); \
 														 }; \
 														 void add_delta_time_##NAME(TYPE& in, unsigned int idx = 0) \
                                                          { \
@@ -169,20 +165,16 @@ private:
 	COMMAND_DATA* m_data;
 
 public:
-
-	static inline unsigned_long_long _RDTSC(void)
-	{
-		 unsigned int a, d;
-		 __asm__ __volatile__("rdtsc" : "=a" (a), "=d" (d));
-		 return (((unsigned_long_long)a) | (((unsigned_long_long)d) << 32));
-	}
-
-	static inline unsigned_long_long _gettime(void)
-	{
-		struct timespec tp;
-		clock_gettime(CLOCK_MONOTONIC, &tp);
-		return (unsigned long long)(tp.tv_sec * 1000000000 + tp.tv_nsec);	
-	}
+    
+    static inline unsigned long long _RDTSC()
+    {
+#ifdef DEVICE_NATIVE
+        return Intel::OpenCL::Utils::RDTSC();
+#else
+        return Intel::OpenCL::Utils::HostTime();
+#endif
+    }
+    
 
 };
 

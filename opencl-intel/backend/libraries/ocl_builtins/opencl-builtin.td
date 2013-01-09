@@ -153,6 +153,7 @@ defm f16 : _OCLTYPE2_<"f16", 16, "half">;
 defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
+def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
 def image2d: OclType<"image2d_t", "image2d_t", 1, 0, 0>;
 def void: OclType<"void", "void", 1, 0, 0>;
 
@@ -551,6 +552,15 @@ def downgentype : OclGenType<"downgentype"> {
   list<string> T1 = !foreach(n, T0, !subst("i16", "i8", n));
   list<string> T2 = !foreach(n, T1, !subst("i32", "i16", n));
   list<string> Tout = !foreach(n, T2, !subst("i64", "i32", n));
+}
+
+//converts the given typed to v2 vNxT -> v2XT e.g. v1f32 -> v2f32
+def v2gentype : OclGenType<"v2gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v2", n));
+  list<string> T1 = !foreach(n, T0, !subst("v3", "v2", n));
+  list<string> T2 = !foreach(n, T1, !subst("v4", "v2", n));
+  list<string> T3 = !foreach(n, T2, !subst("v8", "v2", n));
+  list<string> Tout = !foreach(n, T3, !subst("v16", "v2", n));
 }
 
 // OclBuiltinAttr

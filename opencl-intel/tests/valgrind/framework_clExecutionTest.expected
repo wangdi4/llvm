@@ -1,0 +1,1973 @@
+==21834== Memcheck, a memory error detector
+==21834== Copyright (C) 2002-2010, and GNU GPL'd, by Julian Seward et al.
+==21834== Using Valgrind-3.6.1 and LibVEX; rerun with -h for copyright info
+==21834== Command: ./framework_test_type --gtest_filter=*clCreateContext*
+==21834== Parent PID: 21833
+==21834== 
+--21834-- 
+--21834-- Valgrind options:
+--21834--    --leak-check=full
+--21834--    --smc-check=all
+--21834--    --read-var-info=yes
+--21834--    --show-reachable=yes
+--21834--    --track-origins=yes
+--21834--    --log-file=/home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/validation/valgrind/framework_clExecutionTest.actual
+--21834--    --gen-suppressions=all
+--21834--    -v
+--21834--    --suppressions=/nfs/iil/disks/opencl_vlan/shohaml/trunk/src/tests/valgrind/runtime.supp
+--21834-- Contents of /proc/version:
+--21834--   Linux version 2.6.32.46-0.3-default (geeko@buildhost) (gcc version 4.3.4 [gcc-4_3-branch revision 152973] (SUSE Linux) ) #1 SMP 2011-09-29 17:49:31 +0200
+--21834-- Arch and hwcaps: AMD64, amd64-sse3-cx16
+--21834-- Page sizes: currently 4096, max supported 4096
+--21834-- Valgrind library directory: /usr/lib64/valgrind
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/validation/framework_test_type/framework_test_type (0x400000)
+--21834-- warning: addVar: unknown size (stream)
+--21834-- warning: addVar: unknown size (sstr)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- warning: addVar: unknown size (gtest_fatal_failure_checker)
+--21834-- Reading syms from /lib64/ld-2.11.1.so (0x4000000)
+--21834-- Reading syms from /usr/lib64/valgrind/memcheck-amd64-linux (0x38000000)
+--21834--    object doesn't have a symbol table
+--21834--    object doesn't have a dynamic symbol table
+--21834-- Reading suppressions file: /nfs/iil/disks/opencl_vlan/shohaml/trunk/src/tests/valgrind/runtime.supp
+--21834-- Reading suppressions file: /usr/lib64/valgrind/default.supp
+--21834-- REDIR: 0x4016ef0 (strlen) redirected to 0x38041ff7 (???)
+--21834-- Reading syms from /usr/lib64/valgrind/vgpreload_core-amd64-linux.so (0x4a21000)
+--21834--    object doesn't have a symbol table
+--21834-- Reading syms from /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so (0x4c23000)
+--21834--    object doesn't have a symbol table
+==21834== WARNING: new redirection conflicts with existing -- ignoring it
+--21834--     new: 0x04016ef0 (strlen              ) R-> 0x04c28180 strlen
+--21834-- REDIR: 0x4016460 (index) redirected to 0x4c27de0 (index)
+--21834-- REDIR: 0x4016610 (strcmp) redirected to 0x4c28d00 (strcmp)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libintelocl.so (0x4e2e000)
+--21834-- Reading syms from /lib64/libpthread-2.11.1.so (0x52e1000)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtask_executor.so (0x54fe000)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libcl_logger.so (0x576d000)
+--21834-- Reading syms from /usr/lib64/libnuma.so.1 (0x5974000)
+--21834--    object doesn't have a symbol table
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtbb_preview_debug.so.2 (0x4053000)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libtbbmalloc_debug.so.2 (0x5b7d000)
+--21834-- Reading syms from /usr/lib64/libstdc++.so.6.0.11 (0x5cbf000)
+--21834-- Reading syms from /lib64/libm-2.11.1.so (0x5fce000)
+--21834-- Reading syms from /lib64/libgcc_s.so.1 (0x6224000)
+--21834--    object doesn't have a symbol table
+--21834-- Reading syms from /lib64/libc-2.11.1.so (0x643b000)
+--21834-- Reading syms from /lib64/librt-2.11.1.so (0x6799000)
+--21834-- Reading syms from /lib64/libdl-2.11.1.so (0x69a2000)
+--21834-- REDIR: 0x64b9ab0 (rindex) redirected to 0x4c27bd0 (rindex)
+--21834-- REDIR: 0x64b5060 (malloc) redirected to 0x4c277d0 (malloc)
+--21834-- REDIR: 0x64b4f80 (free) redirected to 0x4c26930 (free)
+--21834-- REDIR: 0x64ba530 (strstr) redirected to 0x4c2a2d0 (strstr)
+--21834-- REDIR: 0x64bab80 (memchr) redirected to 0x4c28dc0 (memchr)
+--21834-- REDIR: 0x64bcae0 (memcpy) redirected to 0x4c28e00 (memcpy)
+--21834-- REDIR: 0x64b6150 (realloc) redirected to 0x4c278a0 (realloc)
+--21834-- REDIR: 0x64b9710 (strlen) redirected to 0x4c28120 (strlen)
+--21834-- REDIR: 0x64b45f0 (calloc) redirected to 0x4c25e50 (calloc)
+--21834-- REDIR: 0x5d85420 (operator new(unsigned long)) redirected to 0x4c272d0 (operator new(unsigned long))
+--21834-- REDIR: 0x64bb1a0 (memset) redirected to 0x4c29d30 (memset)
+--21834-- REDIR: 0x64b9910 (strncmp) redirected to 0x4c285e0 (strncmp)
+--21834-- REDIR: 0x5d85560 (operator new[](unsigned long)) redirected to 0x4c26d30 (operator new[](unsigned long))
+--21834-- REDIR: 0x5d83520 (operator delete(void*)) redirected to 0x4c265c0 (operator delete(void*))
+--21834-- REDIR: 0x5d83560 (operator delete[](void*)) redirected to 0x4c261a0 (operator delete[](void*))
+--21834-- REDIR: 0x64baff0 (memmove) redirected to 0x4c29dd0 (memmove)
+--21834-- REDIR: 0x64b8900 (index) redirected to 0x4c27ca0 (index)
+--21834-- REDIR: 0x64b8980 (strcmp) redirected to 0x4c28c40 (strcmp)
+--21834-- REDIR: 0x64bf4f0 (strchrnul) redirected to 0x4c29ed0 (strchrnul)
+--21834-- REDIR: 0x64bbcd0 (mempcpy) redirected to 0x4c29fe0 (mempcpy)
+--21834-- REDIR: 0xffffffffff600000 (???) redirected to 0x38041fe3 (???)
+--21834-- REDIR: 0x64bc940 (strcasecmp) redirected to 0x4c286c0 (strcasecmp)
+--21834-- REDIR: 0x64b9760 (strnlen) redirected to 0x4c280c0 (strnlen)
+--21834-- REDIR: 0x64b99e0 (strncpy) redirected to 0x4c28340 (strncpy)
+--21834-- REDIR: 0x64b9860 (strncat) redirected to 0x4c27fe0 (strncat)
+--21834-- REDIR: 0x64bac00 (bcmp) redirected to 0x4c29950 (bcmp)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libcpu_device.so (0x6fa6000)
+--21834-- REDIR: 0x4017530 (stpcpy) redirected to 0x4c29c60 (stpcpy)
+--21834-- REDIR: 0x64bc2e0 (stpcpy) redirected to 0x4c299f0 (stpcpy)
+--21834-- REDIR: 0x64bf4a0 (rawmemchr) redirected to 0x4c29f00 (rawmemchr)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libOclCpuBackEnd.so (0x744f000)
+--21834-- Reading syms from /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/__ocl_svml_h8.so (0x8c3c000)
+--21834-- memcheck GC: 1024 nodes, 1024 survivors (100.0%)
+--21834-- memcheck GC: increase table size to 2048
+--21834-- memcheck GC: 2048 nodes, 2048 survivors (100.0%)
+--21834-- memcheck GC: increase table size to 4096
+--21834-- memcheck GC: 4096 nodes, 3356 survivors ( 81.9%)
+--21834-- memcheck GC: increase table size to 8192
+--21834-- memcheck GC: 8192 nodes, 7168 survivors ( 87.5%)
+--21834-- memcheck GC: increase table size to 16384
+--21834-- memcheck GC: 16384 nodes, 14336 survivors ( 87.5%)
+--21834-- memcheck GC: increase table size to 32768
+--21834-- memcheck GC: 32768 nodes, 27925 survivors ( 85.2%)
+--21834-- memcheck GC: increase table size to 65536
+--21834-- memcheck GC: 65536 nodes, 56320 survivors ( 85.9%)
+--21834-- memcheck GC: increase table size to 131072
+--21834-- memcheck GC: 131072 nodes, 112652 survivors ( 85.9%)
+--21834-- memcheck GC: increase table size to 262144
+--21834-- memcheck GC: 262144 nodes, 224487 survivors ( 85.6%)
+--21834-- memcheck GC: increase table size to 524288
+--21834-- REDIR: 0x64b58b0 (posix_memalign) redirected to 0x4c25db0 (posix_memalign)
+--21834-- Discarding syms at 0x7581cc0-0x81cd0d8 in /home/OpenCL/users/shohaml/trunk/install/SLES64/Debug/bin/libOclCpuBackEnd.so due to munmap()
+==21834== 
+==21834== HEAP SUMMARY:
+==21834==     in use at exit: 29,150 bytes in 178 blocks
+==21834==   total heap usage: 771,338 allocs, 771,160 frees, 281,166,562 bytes allocated
+==21834== 
+==21834== Searching for pointers to 178 not-freed blocks
+==21834== Checked 57,196,832 bytes
+==21834== 
+==21834== 8 bytes in 1 blocks are indirectly lost in loss record 2 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AE74BE: ???
+==21834==    by 0x7AE74ED: ???
+==21834==    by 0x7AE75DD: ???
+==21834==    by 0x7AE7759: ???
+==21834==    by 0x7AEC435: ???
+==21834==    by 0x7B13F69: ???
+==21834==    by 0x7B13FA8: ???
+==21834==    by 0x7B13FF8: ???
+==21834==    by 0x7B141CF: ???
+==21834==    by 0x7798000: ???
+==21834==    by 0x7796376: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 16 bytes in 1 blocks are indirectly lost in loss record 8 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AEDD42: ???
+==21834==    by 0x7AEDD71: ???
+==21834==    by 0x7AEDE61: ???
+==21834==    by 0x7AEDFDD: ???
+==21834==    by 0x7AEB97B: ???
+==21834==    by 0x7AD9B16: ???
+==21834==    by 0x7AE8444: ???
+==21834==    by 0x7AE85DC: ???
+==21834==    by 0x7ADC2C4: ???
+==21834==    by 0x7ADC40C: ???
+==21834==    by 0x81CD0C5: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 24 bytes in 1 blocks are indirectly lost in loss record 11 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x773E9BF: ???
+==21834==    by 0x773AB7D: ???
+==21834==    by 0x773ABAF: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 25 bytes in 1 blocks are indirectly lost in loss record 14 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7714857: ???
+==21834==    by 0x7713599: ???
+==21834==    by 0x77135CB: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 25 bytes in 1 blocks are indirectly lost in loss record 15 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76A1FAC: ???
+==21834==    by 0x76970D8: ???
+==21834==    by 0x7697146: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 26 bytes in 1 blocks are indirectly lost in loss record 16 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7755D58: ???
+==21834==    by 0x774B4FC: ???
+==21834==    by 0x774B52E: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 26 bytes in 1 blocks are indirectly lost in loss record 17 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x77361F7: ???
+==21834==    by 0x772675D: ???
+==21834==    by 0x772678F: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 26 bytes in 1 blocks are indirectly lost in loss record 18 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7723687: ???
+==21834==    by 0x771C224: ???
+==21834==    by 0x771C256: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 26 bytes in 1 blocks are indirectly lost in loss record 19 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x770605B: ???
+==21834==    by 0x76FC348: ???
+==21834==    by 0x76FC37A: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 27 bytes in 1 blocks are indirectly lost in loss record 20 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x77427F7: ???
+==21834==    by 0x774057D: ???
+==21834==    by 0x77405AF: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 27 bytes in 1 blocks are indirectly lost in loss record 21 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x771AEDB: ???
+==21834==    by 0x7717463: ???
+==21834==    by 0x7717495: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 27 bytes in 1 blocks are indirectly lost in loss record 22 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7B13F69: ???
+==21834==    by 0x7B13FA8: ???
+==21834==    by 0x7B13FF8: ???
+==21834==    by 0x7B141CF: ???
+==21834==    by 0x7798000: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 28 bytes in 1 blocks are indirectly lost in loss record 23 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76FAC27: ???
+==21834==    by 0x76F89B5: ???
+==21834==    by 0x76F89E7: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 29 bytes in 1 blocks are indirectly lost in loss record 24 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x776C570: ???
+==21834==    by 0x776A9AC: ???
+==21834==    by 0x776A9DE: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 29 bytes in 1 blocks are indirectly lost in loss record 25 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76F3267: ???
+==21834==    by 0x76EDF71: ???
+==21834==    by 0x76EDFA3: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 29 bytes in 1 blocks are indirectly lost in loss record 26 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76D5F41: ???
+==21834==    by 0x76D3D95: ???
+==21834==    by 0x76D3DC7: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 30 bytes in 1 blocks are indirectly lost in loss record 27 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7743F03: ???
+==21834==    by 0x7742A69: ???
+==21834==    by 0x7742A9B: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 30 bytes in 1 blocks are indirectly lost in loss record 28 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76EDABB: ???
+==21834==    by 0x76ED4A1: ???
+==21834==    by 0x76ED4D3: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 30 bytes in 1 blocks are indirectly lost in loss record 29 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76E384B: ???
+==21834==    by 0x76DD66A: ???
+==21834==    by 0x76DD69C: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 30 bytes in 1 blocks are indirectly lost in loss record 30 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x768C584: ???
+==21834==    by 0x75F4261: ???
+==21834==    by 0x75F4293: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 31 bytes in 1 blocks are indirectly lost in loss record 31 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76F31EF: ???
+==21834==    by 0x76EDF2F: ???
+==21834==    by 0x76EDFA3: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 31 bytes in 1 blocks are indirectly lost in loss record 32 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76EB9E7: ???
+==21834==    by 0x76E9901: ???
+==21834==    by 0x76E9933: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 31 bytes in 1 blocks are indirectly lost in loss record 33 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76E8D81: ???
+==21834==    by 0x76E6F79: ???
+==21834==    by 0x76E6FAB: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 32 bytes in 1 blocks are still reachable in loss record 35 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x4F7E2FA: Intel::OpenCL::Utils::ReferenceCountedObject::operator new(unsigned long) (cl_shared_ptr.h:100)
+==21834==    by 0x554C3F9: Intel::OpenCL::TaskExecutor::SyncTask::Allocate() (base_command_list.h:48)
+==21834==    by 0x5549A2E: Intel::OpenCL::TaskExecutor::base_command_list::base_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.cpp:30)
+==21834==    by 0x5543914: Intel::OpenCL::TaskExecutor::in_order_command_list::in_order_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:193)
+==21834==    by 0x554396E: Intel::OpenCL::TaskExecutor::in_order_command_list::Allocate(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:184)
+==21834==    by 0x553E3C2: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::AllocateResources() (tbb_executor.cpp:612)
+==21834==    by 0x553E702: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::Activate() (tbb_executor.cpp:604)
+==21834==    by 0x4FBD93F: Intel::OpenCL::Framework::Context::Context(long const*, unsigned int, unsigned int, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::Framework::FissionableDevice>*, void (*)(char const*, void const*, unsigned long, void*), void*, int*, ocl_entry_points*, ocl_gpa_data*, Intel::OpenCL::Framework::ContextModule const&) (Context.cpp:82)
+==21834==    by 0x4FA5FD9: Intel::OpenCL::Framework::Context::Allocate(long const*, unsigned int, unsigned int, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::Framework::FissionableDevice>*, void (*)(char const*, void const*, unsigned long, void*), void*, int*, ocl_entry_points*, ocl_gpa_data*, Intel::OpenCL::Framework::ContextModule const&) (Context.h:88)
+==21834==    by 0x4F93574: Intel::OpenCL::Framework::ContextModule::CreateContext(long const*, unsigned int, _cl_device_id* const*, void (*)(char const*, void const*, unsigned long, void*), void*, int*) (context_module.cpp:278)
+==21834==    by 0x4F90D2C: Intel::OpenCL::Framework::ContextModule::CreateContextFromType(long const*, unsigned long, void (*)(char const*, void const*, unsigned long, void*), void*, int*) (context_module.cpp:352)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN5Intel6OpenCL5Utils22ReferenceCountedObjectnwEm
+   fun:_ZN5Intel6OpenCL12TaskExecutor8SyncTask8AllocateEv
+   fun:_ZN5Intel6OpenCL12TaskExecutor17base_command_listC2EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_listC1EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_list8AllocateEbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor17AllocateResourcesEv
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor8ActivateEv
+   fun:_ZN5Intel6OpenCL9Framework7ContextC1EPKljjPNS0_5Utils9SharedPtrINS1_17FissionableDeviceEEEPFvPKcPKvmPvESE_PiP16ocl_entry_pointsP12ocl_gpa_dataRKNS1_13ContextModuleE
+   fun:_ZN5Intel6OpenCL9Framework7Context8AllocateEPKljjPNS0_5Utils9SharedPtrINS1_17FissionableDeviceEEEPFvPKcPKvmPvESE_PiP16ocl_entry_pointsP12ocl_gpa_dataRKNS1_13ContextModuleE
+   fun:_ZN5Intel6OpenCL9Framework13ContextModule13CreateContextEPKljPKP13_cl_device_idPFvPKcPKvmPvESD_Pi
+   fun:_ZN5Intel6OpenCL9Framework13ContextModule21CreateContextFromTypeEPKlmPFvPKcPKvmPvES9_Pi
+}
+==21834== 32 bytes in 1 blocks are indirectly lost in loss record 37 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7767C2C: ???
+==21834==    by 0x7764B51: ???
+==21834==    by 0x7764B83: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 32 bytes in 1 blocks are indirectly lost in loss record 38 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76DBF0B: ???
+==21834==    by 0x76D869B: ???
+==21834==    by 0x76D86CD: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 32 bytes in 1 blocks are indirectly lost in loss record 39 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76D712B: ???
+==21834==    by 0x76D64CD: ???
+==21834==    by 0x76D64FF: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 33 bytes in 1 blocks are indirectly lost in loss record 40 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x776A882: ???
+==21834==    by 0x776A465: ???
+==21834==    by 0x776A497: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 42 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7762A88: ???
+==21834==    by 0x7760368: ???
+==21834==    by 0x776039A: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 43 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7748D37: ???
+==21834==    by 0x7746E3A: ???
+==21834==    by 0x7746E6C: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 44 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76D3917: ???
+==21834==    by 0x76D2ED1: ???
+==21834==    by 0x76D2F03: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 45 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x75F2AEE: ???
+==21834==    by 0x75F1D79: ???
+==21834==    by 0x75F1DAB: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 46 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x75EE6E6: ???
+==21834==    by 0x75ED49D: ???
+==21834==    by 0x75ED4CF: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 34 bytes in 1 blocks are indirectly lost in loss record 47 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x75E475A: ???
+==21834==    by 0x75E2966: ???
+==21834==    by 0x75E2998: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 35 bytes in 1 blocks are indirectly lost in loss record 48 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7769AAC: ???
+==21834==    by 0x7769609: ???
+==21834==    by 0x776963B: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 35 bytes in 1 blocks are indirectly lost in loss record 49 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x776473A: ???
+==21834==    by 0x7762C30: ???
+==21834==    by 0x7762C62: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 36 bytes in 1 blocks are indirectly lost in loss record 50 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x776D94E: ???
+==21834==    by 0x776CD75: ???
+==21834==    by 0x776CDA7: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 36 bytes in 1 blocks are indirectly lost in loss record 51 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x776A39E: ???
+==21834==    by 0x7769B71: ???
+==21834==    by 0x7769BA3: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 37 bytes in 1 blocks are indirectly lost in loss record 52 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x769300E: ???
+==21834==    by 0x7692215: ???
+==21834==    by 0x7692247: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 39 bytes in 1 blocks are indirectly lost in loss record 53 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x77693D6: ???
+==21834==    by 0x7768019: ???
+==21834==    by 0x776804B: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 40 bytes in 1 blocks are indirectly lost in loss record 56 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D4C372: ???
+==21834==    by 0x7587748: ???
+==21834==    by 0x79AFBB3: ???
+==21834==    by 0x7D33E1A: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x7AEB951: ???
+==21834==    by 0x7AD9B16: ???
+==21834==    by 0x7AE8444: ???
+==21834==    by 0x7AE854A: ???
+==21834==    by 0x7ADC275: ???
+==21834==    by 0x7ADC40C: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 40 bytes in 1 blocks are indirectly lost in loss record 57 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x76F5FE4: ???
+==21834==    by 0x7AEE829: ???
+==21834==    by 0x7AEE945: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x7692112: ???
+==21834==    by 0x7691D4D: ???
+==21834==    by 0x7691D7F: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 40 bytes in 1 blocks are indirectly lost in loss record 59 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D4C372: ???
+==21834==    by 0x7587748: ???
+==21834==    by 0x79AFBB3: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x79AE542: ???
+==21834==    by 0x77602D5: ???
+==21834==    by 0x7CF11DF: ???
+==21834==    by 0x7CF923E: ???
+==21834==    by 0x7CFA6B8: ???
+==21834==    by 0x7CFA7A4: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 40 bytes in 1 blocks are indirectly lost in loss record 60 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D4C372: ???
+==21834==    by 0x7587748: ???
+==21834==    by 0x79AFBB3: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x7D37C8D: ???
+==21834==    by 0x76A66E1: ???
+==21834==    by 0x7709755: ???
+==21834==    by 0x7B45DA0: ???
+==21834==    by 0x7B46851: ???
+==21834==    by 0x7B46A2B: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 48 bytes in 1 blocks are still reachable in loss record 67 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x555157C: __gnu_cxx::new_allocator<std::_Rb_tree_node<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::allocate(unsigned long, void const*) (new_allocator.h:92)
+==21834==    by 0x55515A1: std::_Rb_tree<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, std::_Identity<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::less<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::_M_get_node() (stl_tree.h:357)
+==21834==    by 0x5552AE9: std::_Rb_tree<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, std::_Identity<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::less<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::_M_create_node(Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> const&) (stl_tree.h:366)
+==21834==    by 0x5552C02: std::_Rb_tree<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, std::_Identity<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::less<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::_M_insert_(std::_Rb_tree_node_base const*, std::_Rb_tree_node_base const*, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> const&) (stl_tree.h:852)
+==21834==    by 0x5552D51: std::_Rb_tree<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, std::_Identity<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::less<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::_M_insert_unique(Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> const&) (stl_tree.h:1148)
+==21834==    by 0x5552E6E: std::set<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list>, std::less<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> >, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> > >::insert(Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> const&) (stl_set.h:381)
+==21834==    by 0x554DB85: Intel::OpenCL::TaskExecutor::ArenaHandler::AddCommandList(Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::base_command_list> const&) (arena_handler.cpp:183)
+==21834==    by 0x5549A98: Intel::OpenCL::TaskExecutor::base_command_list::base_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.cpp:34)
+==21834==    by 0x5543914: Intel::OpenCL::TaskExecutor::in_order_command_list::in_order_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:193)
+==21834==    by 0x554396E: Intel::OpenCL::TaskExecutor::in_order_command_list::Allocate(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:184)
+==21834==    by 0x553E3C2: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::AllocateResources() (tbb_executor.cpp:612)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN9__gnu_cxx13new_allocatorISt13_Rb_tree_nodeIN5Intel6OpenCL5Utils9SharedPtrINS3_12TaskExecutor17base_command_listEEEEE8allocateEmPKv
+   fun:_ZNSt8_Rb_treeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor17base_command_listEEES6_St9_IdentityIS6_ESt4lessIS6_ESaIS6_EE11_M_get_nodeEv
+   fun:_ZNSt8_Rb_treeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor17base_command_listEEES6_St9_IdentityIS6_ESt4lessIS6_ESaIS6_EE14_M_create_nodeERKS6_
+   fun:_ZNSt8_Rb_treeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor17base_command_listEEES6_St9_IdentityIS6_ESt4lessIS6_ESaIS6_EE10_M_insert_EPKSt18_Rb_tree_node_baseSF_RKS6_
+   fun:_ZNSt8_Rb_treeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor17base_command_listEEES6_St9_IdentityIS6_ESt4lessIS6_ESaIS6_EE16_M_insert_uniqueERKS6_
+   fun:_ZNSt3setIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor17base_command_listEEESt4lessIS6_ESaIS6_EE6insertERKS6_
+   fun:_ZN5Intel6OpenCL12TaskExecutor12ArenaHandler14AddCommandListERKNS0_5Utils9SharedPtrINS1_17base_command_listEEE
+   fun:_ZN5Intel6OpenCL12TaskExecutor17base_command_listC2EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_listC1EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_list8AllocateEbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor17AllocateResourcesEv
+}
+==21834== 56 bytes in 1 blocks are indirectly lost in loss record 68 of 112
+==21834==    at 0x4C2783D: malloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D58DF4: ???
+==21834==    by 0x7AA5DB0: ???
+==21834==    by 0x7AA5DE6: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x7AA5C46: ???
+==21834==    by 0x7AA3F0F: ???
+==21834==    by 0x7AA453A: ???
+==21834==    by 0x7AA545B: ???
+==21834==    by 0x7AA6822: ???
+==21834==    by 0x7AD76F4: ???
+==21834==    by 0x7AD774D: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 56 (16 direct, 40 indirect) bytes in 1 blocks are definitely lost in loss record 69 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x79AFBA3: ???
+==21834==    by 0x7D33E1A: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x7AEB951: ???
+==21834==    by 0x7AD9B16: ???
+==21834==    by 0x7AE8444: ???
+==21834==    by 0x7AE854A: ???
+==21834==    by 0x7ADC275: ???
+==21834==    by 0x7ADC40C: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 56 (16 direct, 40 indirect) bytes in 1 blocks are definitely lost in loss record 71 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x79AFBA3: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x79AE542: ???
+==21834==    by 0x77602D5: ???
+==21834==    by 0x7CF11DF: ???
+==21834==    by 0x7CF923E: ???
+==21834==    by 0x7CFA6B8: ???
+==21834==    by 0x7CFA7A4: ???
+==21834==    by 0x7CFA835: ???
+==21834==    by 0x7597560: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 56 (16 direct, 40 indirect) bytes in 1 blocks are definitely lost in loss record 72 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x79AFBA3: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB0C: ???
+==21834==    by 0x7D37C8D: ???
+==21834==    by 0x76A66E1: ???
+==21834==    by 0x7709755: ???
+==21834==    by 0x7B45DA0: ???
+==21834==    by 0x7B46851: ???
+==21834==    by 0x7B46A2B: ???
+==21834==    by 0x7B4FC3B: ???
+==21834==    by 0x7B4EBAC: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 64 bytes in 1 blocks are still reachable in loss record 75 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x554B6EC: __gnu_cxx::new_allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>*>::allocate(unsigned long, void const*) (new_allocator.h:92)
+==21834==    by 0x554B721: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_M_allocate_map(unsigned long) (stl_deque.h:459)
+==21834==    by 0x554B896: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_M_initialize_map(unsigned long) (stl_deque.h:504)
+==21834==    by 0x554BA6A: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_Deque_base(std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > const&, unsigned long) (stl_deque.h:383)
+==21834==    by 0x554C167: std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::deque(std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > const&) (stl_deque.h:728)
+==21834==    by 0x554C254: std::queue<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > >::queue(std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > const&) (stl_queue.h:137)
+==21834==    by 0x554D7AA: Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> >::OclNaiveConcurrentQueue() (cl_synch_objects.h:315)
+==21834==    by 0x5549A1E: Intel::OpenCL::TaskExecutor::base_command_list::base_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.cpp:30)
+==21834==    by 0x5543914: Intel::OpenCL::TaskExecutor::in_order_command_list::in_order_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:193)
+==21834==    by 0x554396E: Intel::OpenCL::TaskExecutor::in_order_command_list::Allocate(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:184)
+==21834==    by 0x553E3C2: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::AllocateResources() (tbb_executor.cpp:612)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN9__gnu_cxx13new_allocatorIPN5Intel6OpenCL5Utils9SharedPtrINS2_12TaskExecutor9ITaskBaseEEEE8allocateEmPKv
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EE15_M_allocate_mapEm
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EE17_M_initialize_mapEm
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EEC2ERKS7_m
+   fun:_ZNSt5dequeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EEC1ERKS8_
+   fun:_ZNSt5queueIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESt5dequeIS6_SaIS6_EEEC1ERKS9_
+   fun:_ZN5Intel6OpenCL5Utils23OclNaiveConcurrentQueueINS1_9SharedPtrINS0_12TaskExecutor9ITaskBaseEEEEC1Ev
+   fun:_ZN5Intel6OpenCL12TaskExecutor17base_command_listC2EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_listC1EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_list8AllocateEbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor17AllocateResourcesEv
+}
+==21834== 64 bytes in 1 blocks are indirectly lost in loss record 76 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7B13F1C: ???
+==21834==    by 0x7B13FA8: ???
+==21834==    by 0x7B13FF8: ???
+==21834==    by 0x7B141CF: ???
+==21834==    by 0x7798000: ???
+==21834==    by 0x7796376: ???
+==21834==    by 0x7798141: ???
+==21834==    by 0x75A07A4: ???
+==21834==    by 0x7B2BB15: ???
+==21834==    by 0x7B225E3: ???
+==21834==    by 0x759EA60: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 72 (16 direct, 56 indirect) bytes in 1 blocks are definitely lost in loss record 77 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AA5DDB: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x7AA5C46: ???
+==21834==    by 0x7AA3F0F: ???
+==21834==    by 0x7AA453A: ???
+==21834==    by 0x7AA545B: ???
+==21834==    by 0x7AA6822: ???
+==21834==    by 0x7AD76F4: ???
+==21834==    by 0x7AD774D: ???
+==21834==    by 0x7AD5022: ???
+==21834==    by 0x7ACBBB6: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 128 bytes in 1 blocks are indirectly lost in loss record 86 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AEB6AC: ???
+==21834==    by 0x7AEB966: ???
+==21834==    by 0x7AD9B16: ???
+==21834==    by 0x7AE8444: ???
+==21834==    by 0x7AE854A: ???
+==21834==    by 0x7ADC275: ???
+==21834==    by 0x7ADC40C: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834==    by 0x7451FFF: ???
+==21834==    by 0x400E037: call_init (in /lib64/ld-2.11.1.so)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   fun:call_init
+}
+==21834== 432 bytes in 1 blocks are still reachable in loss record 95 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x4F7E2FA: Intel::OpenCL::Utils::ReferenceCountedObject::operator new(unsigned long) (cl_shared_ptr.h:100)
+==21834==    by 0x5543955: Intel::OpenCL::TaskExecutor::in_order_command_list::Allocate(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:184)
+==21834==    by 0x553E3C2: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::AllocateResources() (tbb_executor.cpp:612)
+==21834==    by 0x553E702: Intel::OpenCL::TaskExecutor::TBBTaskExecutor::Activate() (tbb_executor.cpp:604)
+==21834==    by 0x4FBD93F: Intel::OpenCL::Framework::Context::Context(long const*, unsigned int, unsigned int, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::Framework::FissionableDevice>*, void (*)(char const*, void const*, unsigned long, void*), void*, int*, ocl_entry_points*, ocl_gpa_data*, Intel::OpenCL::Framework::ContextModule const&) (Context.cpp:82)
+==21834==    by 0x4FA5FD9: Intel::OpenCL::Framework::Context::Allocate(long const*, unsigned int, unsigned int, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::Framework::FissionableDevice>*, void (*)(char const*, void const*, unsigned long, void*), void*, int*, ocl_entry_points*, ocl_gpa_data*, Intel::OpenCL::Framework::ContextModule const&) (Context.h:88)
+==21834==    by 0x4F93574: Intel::OpenCL::Framework::ContextModule::CreateContext(long const*, unsigned int, _cl_device_id* const*, void (*)(char const*, void const*, unsigned long, void*), void*, int*) (context_module.cpp:278)
+==21834==    by 0x4F90D2C: Intel::OpenCL::Framework::ContextModule::CreateContextFromType(long const*, unsigned long, void (*)(char const*, void const*, unsigned long, void*), void*, int*) (context_module.cpp:352)
+==21834==    by 0x4F86FA1: clCreateContextFromType (cl_framework.cpp:155)
+==21834==    by 0x476226: clCreateContextTest() (clCreateContext.cpp:43)
+==21834==    by 0x4DAA19: FrameworkTestType_Test_clCreateContextTest_Test::TestBody() (framework_test_type.cpp:137)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN5Intel6OpenCL5Utils22ReferenceCountedObjectnwEm
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_list8AllocateEbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor17AllocateResourcesEv
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor8ActivateEv
+   fun:_ZN5Intel6OpenCL9Framework7ContextC1EPKljjPNS0_5Utils9SharedPtrINS1_17FissionableDeviceEEEPFvPKcPKvmPvESE_PiP16ocl_entry_pointsP12ocl_gpa_dataRKNS1_13ContextModuleE
+   fun:_ZN5Intel6OpenCL9Framework7Context8AllocateEPKljjPNS0_5Utils9SharedPtrINS1_17FissionableDeviceEEEPFvPKcPKvmPvESE_PiP16ocl_entry_pointsP12ocl_gpa_dataRKNS1_13ContextModuleE
+   fun:_ZN5Intel6OpenCL9Framework13ContextModule13CreateContextEPKljPKP13_cl_device_idPFvPKcPKvmPvESD_Pi
+   fun:_ZN5Intel6OpenCL9Framework13ContextModule21CreateContextFromTypeEPKlmPFvPKcPKvmPvES9_Pi
+   fun:clCreateContextFromType
+   fun:_Z19clCreateContextTestv
+   fun:_ZN47FrameworkTestType_Test_clCreateContextTest_Test8TestBodyEv
+}
+==21834== 512 bytes in 1 blocks are still reachable in loss record 98 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x5541CDB: __gnu_cxx::new_allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> >::allocate(unsigned long, void const*) (new_allocator.h:92)
+==21834==    by 0x554B787: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_M_allocate_node() (stl_deque.h:448)
+==21834==    by 0x554B7B3: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_M_create_nodes(Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>**, Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>**) (stl_deque.h:542)
+==21834==    by 0x554B8E3: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_M_initialize_map(unsigned long) (stl_deque.h:516)
+==21834==    by 0x554BA6A: std::_Deque_base<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::_Deque_base(std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > const&, unsigned long) (stl_deque.h:383)
+==21834==    by 0x554C167: std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > >::deque(std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > const&) (stl_deque.h:728)
+==21834==    by 0x554C254: std::queue<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > >::queue(std::deque<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>, std::allocator<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> > > const&) (stl_queue.h:137)
+==21834==    by 0x554D7AA: Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> >::OclNaiveConcurrentQueue() (cl_synch_objects.h:315)
+==21834==    by 0x5549A1E: Intel::OpenCL::TaskExecutor::base_command_list::base_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.cpp:30)
+==21834==    by 0x5543914: Intel::OpenCL::TaskExecutor::in_order_command_list::in_order_command_list(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:193)
+==21834==    by 0x554396E: Intel::OpenCL::TaskExecutor::in_order_command_list::Allocate(bool, Intel::OpenCL::TaskExecutor::TBBTaskExecutor*, Intel::OpenCL::TaskExecutor::ArenaHandler&) (base_command_list.h:184)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN9__gnu_cxx13new_allocatorIN5Intel6OpenCL5Utils9SharedPtrINS2_12TaskExecutor9ITaskBaseEEEE8allocateEmPKv
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EE16_M_allocate_nodeEv
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EE15_M_create_nodesEPPS6_SA_
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EE17_M_initialize_mapEm
+   fun:_ZNSt11_Deque_baseIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EEC2ERKS7_m
+   fun:_ZNSt5dequeIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESaIS6_EEC1ERKS8_
+   fun:_ZNSt5queueIN5Intel6OpenCL5Utils9SharedPtrINS1_12TaskExecutor9ITaskBaseEEESt5dequeIS6_SaIS6_EEEC1ERKS9_
+   fun:_ZN5Intel6OpenCL5Utils23OclNaiveConcurrentQueueINS1_9SharedPtrINS0_12TaskExecutor9ITaskBaseEEEEC1Ev
+   fun:_ZN5Intel6OpenCL12TaskExecutor17base_command_listC2EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_listC1EbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+   fun:_ZN5Intel6OpenCL12TaskExecutor21in_order_command_list8AllocateEbPNS1_15TBBTaskExecutorERNS1_12ArenaHandlerE
+}
+==21834== 520 bytes in 1 blocks are indirectly lost in loss record 99 of 112
+==21834==    at 0x4C25F19: calloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D31A59: ???
+==21834==    by 0x7D31EDE: ???
+==21834==    by 0x79AFD2E: ???
+==21834==    by 0x79AFD65: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB58: ???
+==21834==    by 0x79AE55A: ???
+==21834==    by 0x77602D5: ???
+==21834==    by 0x7CF11DF: ???
+==21834==    by 0x7CF923E: ???
+==21834==    by 0x7CFA6B8: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 544 (24 direct, 520 indirect) bytes in 1 blocks are definitely lost in loss record 100 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x79AFD55: ???
+==21834==    by 0x7D33D72: ???
+==21834==    by 0x79AFB58: ???
+==21834==    by 0x79AE55A: ???
+==21834==    by 0x77602D5: ???
+==21834==    by 0x7CF11DF: ???
+==21834==    by 0x7CF923E: ???
+==21834==    by 0x7CFA6B8: ???
+==21834==    by 0x7CFA7A4: ???
+==21834==    by 0x7CFA835: ???
+==21834==    by 0x7597560: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 1,024 bytes in 1 blocks are indirectly lost in loss record 101 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AEE09B: ???
+==21834==    by 0x7AEE27A: ???
+==21834==    by 0x7AEE3BF: ???
+==21834==    by 0x7AEC348: ???
+==21834==    by 0x776D94E: ???
+==21834==    by 0x776CD75: ???
+==21834==    by 0x776CDA7: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834==    by 0x7451FFF: ???
+==21834==    by 0x400E037: call_init (in /lib64/ld-2.11.1.so)
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   fun:call_init
+}
+==21834== 1,024 bytes in 1 blocks are indirectly lost in loss record 102 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D4A327: ???
+==21834==    by 0x7D4A504: ???
+==21834==    by 0x7D4A649: ???
+==21834==    by 0x7D4A6F2: ???
+==21834==    by 0x7D496D7: ???
+==21834==    by 0x75ABE25: ???
+==21834==    by 0x75AB6B4: ???
+==21834==    by 0x75A9BDE: ???
+==21834==    by 0x759FEA8: ???
+==21834==    by 0x75A44E2: ???
+==21834==    by 0x758C065: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 1,040 bytes in 1 blocks are indirectly lost in loss record 103 of 112
+==21834==    at 0x4C25F19: calloc (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7D39CE3: ???
+==21834==    by 0x7AEE9D1: ???
+==21834==    by 0x7AEEA11: ???
+==21834==    by 0x7AEEA38: ???
+==21834==    by 0x7AEC3A6: ???
+==21834==    by 0x76E8D81: ???
+==21834==    by 0x76E6F79: ???
+==21834==    by 0x76E6FAB: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834==    by 0x7451FFF: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:calloc
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== 3,466 (8 direct, 3,458 indirect) bytes in 1 blocks are definitely lost in loss record 109 of 112
+==21834==    at 0x4C27337: operator new(unsigned long) (in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so)
+==21834==    by 0x7AED7FF: ???
+==21834==    by 0x7D33E1A: ???
+==21834==    by 0x7AED5EE: ???
+==21834==    by 0x7AEB50F: ???
+==21834==    by 0x7AD9B0A: ???
+==21834==    by 0x7AE8444: ???
+==21834==    by 0x7AE854A: ???
+==21834==    by 0x7ADC275: ???
+==21834==    by 0x7ADC40C: ???
+==21834==    by 0x81CD0C5: ???
+==21834==    by 0x75807DA: ???
+==21834== 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:_Znwm
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+==21834== LEAK SUMMARY:
+==21834==    definitely lost: 96 bytes in 6 blocks
+==21834==    indirectly lost: 5,178 bytes in 50 blocks
+==21834==      possibly lost: 0 bytes in 0 blocks
+==21834==    still reachable: 1,088 bytes in 5 blocks
+==21834==         suppressed: 22,788 bytes in 117 blocks
+==21834== 
+==21834== ERROR SUMMARY: 6 errors from 6 contexts (suppressed: 26 from 26)
+--21834-- 
+--21834-- used_suppression:      8 otherModule_ignore_tbb_issues
+--21834-- used_suppression:     12 tbd_ignore_dlopen_issues_until_proper_definition
+--21834-- used_suppression:      5 tbd_cpu_dev_init
+--21834-- used_suppression:     11 tbd_ignore_dl_init_allocations_until_proper_deinition
+--21834-- used_suppression:      6 tbd_framework_proxy_init
+--21834-- used_suppression:      6 tbd_smart_pointers_debug_allocatedObjectsMap_not_freed
+--21834-- used_suppression:      3 tbd_not_clear_where_these_c++_strings_were_allocated
+--21834-- used_suppression:      8 otherModule_CPUDeviceBackendModule
+--21834-- used_suppression:      2 U1004-ARM-_dl_relocate_object
+==21834== 
+==21834== ERROR SUMMARY: 6 errors from 6 contexts (suppressed: 26 from 26)

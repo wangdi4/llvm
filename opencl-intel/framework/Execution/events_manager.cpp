@@ -180,20 +180,23 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 		// Or if WaitForCompletion() fails,
 		// Move event to the Explicit Wait list and skip to next event
         SharedPtr<QueueEvent> pQueueEvent = evtIt->DynamicCast<QueueEvent>();
-		if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE) &&
-			 !CL_FAILED(pQueueEvent->GetEventQueue()->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
-		{
-			bWaitForEventSuccess = true;
+		if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE))
+        {
+            SharedPtr<IOclCommandQueueBase> pQueueEventQueue = pQueueEvent->GetEventQueue();
+            if ((NULL != pQueueEventQueue) && !CL_FAILED(pQueueEventQueue->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
+		    {
+			    bWaitForEventSuccess = true;
 
-			// At this stage the event is completed
-			assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
-			// Now check even error code for failure
-			if ((*evtIt)->GetReturnCode() < 0)
-			{
-				err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
-			}
-		}
-		else
+			    // At this stage the event is completed
+			    assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
+			    // Now check even error code for failure
+			    if ((*evtIt)->GetReturnCode() < 0)
+			    {
+				    err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+			    }
+		    }
+        }
+		if (!bWaitForEventSuccess)
 		{
 			vExplicitWaitEvents.push_back(*evtIt);
 		}

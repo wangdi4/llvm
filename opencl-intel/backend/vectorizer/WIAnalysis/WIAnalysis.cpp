@@ -396,8 +396,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   if (isTidGen && dim == 0) return WIAnalysis::CONSECUTIVE;
 
   // Check if function is declared inside "this" module
-  if (! inst->getCalledFunction()->isDeclaration()) {
-    // For functions declared in this module - it is unsafe to assume anything
+  if (!inst->getCalledFunction()->isDeclaration()) {
+    // For functions defined in this module - it is unsafe to assume anything
     return WIAnalysis::RANDOM;
   }
 

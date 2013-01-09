@@ -38,6 +38,8 @@ void ScalarizeFunction::preScalarizeScanFunctions()
 
 bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 {
+  llvm::SmallVectorImpl<Value*> &rets = getReturns(rootVals);
+  llvm::SmallVectorImpl<Value*> &args = getArgs(rootVals);
   // Look for the called function in the built-in functions hash 
   Function *vectorFunc = CI->getCalledFunction();
   std::string vectorFuncName = vectorFunc->getName().str();
@@ -71,15 +73,24 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // the scalar function's argument types to vector width
   FunctionType *scalarFuncType = scalarFunc->getFunctionType();
   FunctionType *vectorFuncType = vectorFunc->getFunctionType();
+  Type *SFRT = scalarFuncType->getReturnType();
   unsigned numInputParams = scalarFuncType->getNumParams();
-  V_ASSERT(!scalarFuncType->getReturnType()->isVoidTy() && "scalar func expected to have ret val");
+  V_ASSERT(!SFRT->isVoidTy() && "scalar func expected to have ret val");
   bool isVectorFuncReturnsVoid = vectorFuncType->getReturnType()->isVoidTy();
 
   std::vector<Type*> desiredArgsTypes;
-  Type *desiredRetValType = VectorType::get(scalarFuncType->getReturnType(), vectorWidth);
+  Type *desiredRetValType;
+
+  if (SFRT->isVectorTy()) {
+    // Handle case: [2 x <4 x float>] sincos_retbyarray(<4 x float> %arg) --> <2 x float> prevec_sincos(float %arg)
+    VectorType *SFRTAsVec = cast<VectorType>(SFRT);
+    assert(cast<ArrayType>(vectorFuncType->getReturnType())->getNumElements() == SFRTAsVec->getNumElements());
+    desiredRetValType = ArrayType::get(VectorType::get(SFRTAsVec->getElementType(), vectorWidth) ,2);
+  } else {
+    desiredRetValType = VectorType::get(SFRT, vectorWidth);
+  }
   unsigned vectorIndex = isVectorFuncReturnsVoid ? 1 : 0;
-  for (unsigned scalarIndex = 0; scalarIndex < numInputParams; ++scalarIndex, ++vectorIndex)
-  {
+  for (unsigned scalarIndex = 0; scalarIndex < numInputParams; ++scalarIndex, ++vectorIndex) {
     if (scalarFuncType->getParamType(scalarIndex) == vectorFuncType->getParamType(vectorIndex))
     {
       // Same argument type in both scalar and vector functions - means no scalarization needed
@@ -98,13 +109,28 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   if (desiredFuncType == vectorFuncType)
   {
     // No scanning to do. Just fill the output vector and exit
-    rootVals.push_back(CI);
+    if (SFRT->isVectorTy()) {
+      //Sort usages (which are assumed to be all extractvalue's) by index
+      
+      rets.resize(SFRT->getNumElements());
+      for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui!=ue;
+          ++ui) {
+        unsigned idx = cast<ExtractValueInst>(*ui)->getIndices()[0];
+        V_ASSERT(0 == rets[idx]);
+        rets[idx] = *ui;
+      }
+      V_ASSERT(rets.size() == 2 || rets.size() == 1);
+    } else {
+      rets.push_back(CI);
+    }
     for (unsigned i = 0; i < numInputParams; ++i)
     {
-      rootVals.push_back(CI->getArgOperand(i));
+      args.push_back(CI->getArgOperand(i));
     }
     return true;
   }
+  V_ASSERT(!SFRT->isVectorTy() && 
+          "Should have already handled all cases of scalar functions which return a vector");
 
   // Getting here, the function doesn't have the desired type.
   // Need to scan the code, and find the "root" values (before they were casted)
@@ -121,7 +147,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // If root return value was not found, give up on the scanning
   if (!rootRetVal) return false;
   // add return-value root to rootVals vector
-  rootVals.push_back(rootRetVal); 
+  rets.push_back(rootRetVal); 
 
   // Second, obtain the input arguments, and fill the rootVals vector
   for (unsigned i = 0; i < numInputParams; ++i)
@@ -130,7 +156,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
       CI->getArgOperand(callArgumentIndex), desiredArgsTypes[i], CI);
     // If root value was not found, give up on the scanning
     if (!rootInputArg) return false;
-    rootVals.push_back(rootInputArg);
+    args.push_back(rootInputArg);
     ++callArgumentIndex;
   }
   return true;

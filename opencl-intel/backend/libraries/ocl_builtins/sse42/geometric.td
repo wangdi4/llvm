@@ -74,7 +74,7 @@ OclBuiltinImpl cross_v3f32 = OclBuiltinImpl<cross, [v3f32], 0, [{
 
 OclBuiltinImpl cross_v4f32 = OclBuiltinImpl<cross, [v4f32], 0, [{
     double4 t0, t1;
-    double4 res;
+    double4 res = (double4)0;
 
     t0 = convert_double4($Arg0VarName);
     t1 = convert_double4($Arg1VarName);
@@ -93,13 +93,9 @@ OclBuiltinImpl cross_v4f32 = OclBuiltinImpl<cross, [v4f32], 0, [{
     t0.hi = t0.hi - t1.hi;
 
     res.lo = _mm_shuffle_pd(t0.lo, t0.hi, 0b01);
-    res.hi = _mm_shuffle_pd(t0.lo, t0.hi, 0b10);
+    res.s2 = t0.s0;
 
-    float4 resultLo;
-    float4 resultHi;
-    resultLo =  _mm_cvtpd_ps(res.lo);
-    resultHi =  _mm_cvtpd_ps(res.hi);
-    return _mm_movelh_ps (resultLo, resultHi);
+    return convert_float4(res);
   }]>;
 
 OclBuiltinImpl cross_v3f64 = OclBuiltinImpl<cross, [v3f64], 0, [{
@@ -113,7 +109,7 @@ OclBuiltinImpl cross_v3f64 = OclBuiltinImpl<cross, [v3f64], 0, [{
   }]>;
 
 OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
-    double4 res;
+    double4 res = (double4)0;
 
     double2 p0Lo = _mm_shuffle_pd($Arg0VarName.lo, $Arg0VarName.hi, 0b01);
     double2 p0Hi = _mm_shuffle_pd($Arg0VarName.lo, $Arg0VarName.hi, 0b10);
@@ -129,7 +125,7 @@ OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
     $Arg0VarName.hi = $Arg0VarName.hi - $Arg1VarName.hi;
 
     res.lo = _mm_shuffle_pd($Arg0VarName.lo, $Arg0VarName.hi, 0b01);
-    res.hi = _mm_shuffle_pd($Arg0VarName.lo, $Arg0VarName.hi, 0b10);
+    res.s2 = $Arg0VarName.s0;
 
     return res;
   }]>;

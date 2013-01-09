@@ -45,9 +45,9 @@ declare i32 @get_global_id(i32)
 ;CHECK: [[NAME3:%[1-9]+]] = load float {{.*}}
 ;CHECK: [[NAME4:%[1-9]+]] = load float {{.*}}
 ;CHECK:  {{.*}}insertelement <4 x float> undef, float [[NAME1]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x float> %temp.vect, float [[NAME2]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x float> %temp.vect{{[1-9]+}}, float [[NAME3]]{{.*}}
-;CHECK:  {{.*}}insertelement <4 x float> %temp.vect{{[1-9]+}}, float [[NAME4]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x float> %assembled.vect, float [[NAME2]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x float> %assembled.vect{{[1-9]+}}, float [[NAME3]]{{.*}}
+;CHECK:  {{.*}}insertelement <4 x float> %assembled.vect{{[1-9]+}}, float [[NAME4]]{{.*}}
 
 ;CHECK: ret
 

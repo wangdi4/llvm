@@ -500,31 +500,14 @@ endfunction( create_target)
 
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
-  atomic_functions.cpp
   conversion_functions.cpp
   image_functions.cpp
-  integer_functions.cpp
   masked_load_store_functions.cpp
-  misc_functions.cpp
   relational_functions.cpp
   transpose_functions.cpp
   vload_vstore_functions.cpp
   )
 
-
-if( MIC_TARGET )
-  if( NOT AUTOGEN_OCL_BUILTIN )
-    list (APPEND OCL_SOURCE_FILES
-      mic_common_functions.cpp
-      mic_geometry_functions.cpp
-      mic_integer_functions.cpp
-      mic_math_functions.cpp
-      mic_misc_functions.cpp
-      mic_relational_functions.cpp
-      mic_vload_vstore_functions.cpp
-      )
-  endif( NOT AUTOGEN_OCL_BUILTIN )
-endif( MIC_TARGET )
 
 list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
   ${CL_BUILTIN_SOURCE_DIR}/image_callback_functions.cpp
@@ -533,13 +516,8 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
-  cl_integer_declaration.h
   cl_relational_declaration.h
   masked_load_store_functions.h
-  mic_defines.h
-  mic_intrinsic_common_vars.h
-  mic_cl_relational_declaration.h
-  mic_cl_geometry_declaration.h
   transpose_functions.h
   )
 

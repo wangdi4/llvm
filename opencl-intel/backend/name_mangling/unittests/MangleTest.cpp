@@ -28,9 +28,9 @@ using namespace reflection;
 
 namespace namemangling { namespace tests{
 
-static const char* getParameterString(const FunctionDescriptor& fd,
+static std::string getParameterString(const FunctionDescriptor& fd,
   int index){
-  return fd.parameters[index]->toString().c_str();
+  return fd.parameters[index]->toString();
 }
 
 struct Range{
@@ -256,10 +256,10 @@ TEST(DemangleTest, imageAmbiguity){
   FunctionDescriptor fd = demangle(name);
   ASSERT_EQ("mask_vstore", fd.name);
   ASSERT_EQ(4U, fd.parameters.size());
-  ASSERT_STREQ("ushort", getParameterString(fd, 0));
-  ASSERT_STREQ("int16", getParameterString(fd, 1));
-  ASSERT_STREQ("ulong", getParameterString(fd, 2));
-  ASSERT_STREQ("__global int *", getParameterString(fd, 3));
+  ASSERT_EQ(std::string("ushort"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("int16"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("ulong"), getParameterString(fd, 2));
+  ASSERT_EQ(std::string("__global int *"), getParameterString(fd, 3));
 }
 
 TEST(DemangleTest, imageBuiltin){
@@ -267,9 +267,9 @@ TEST(DemangleTest, imageBuiltin){
   FunctionDescriptor fd = demangle(name);
   ASSERT_EQ("read_imagef", fd.name);
   ASSERT_EQ(3U, fd.parameters.size());
-  ASSERT_STREQ("_image2d_t *", getParameterString(fd, 0));
-  ASSERT_STREQ("uint", getParameterString(fd, 1));
-  ASSERT_STREQ("float2", getParameterString(fd, 2));
+  ASSERT_EQ(std::string("_image2d_t *"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("uint"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("float2"), getParameterString(fd, 2));
 }
 
 TEST(DemangleTest, duplicatedVector){
@@ -277,9 +277,10 @@ TEST(DemangleTest, duplicatedVector){
   FunctionDescriptor fd = demangle(name);
   ASSERT_EQ("max", fd.name);
   ASSERT_EQ(2U, fd.parameters.size());
-  ASSERT_STREQ("int2", getParameterString(fd, 0));
-  ASSERT_STREQ("int2", getParameterString(fd, 1));
+  ASSERT_EQ(std::string("int2"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("int2"), getParameterString(fd, 1));
 }
+
 TEST(DemangleTest, voidptr){
   FunctionDescriptor fd = demangle("_Z34trans_coord_int_NONE_FALSE_NEARESTPvDv4_i");
   ASSERT_STREQ("trans_coord_int_NONE_FALSE_NEAREST", fd.name.c_str());
@@ -289,15 +290,15 @@ TEST(DemangleTest, voidptr){
 TEST(DemangleTest, userDefinedTy1){
   FunctionDescriptor fd = demangle("_Z6myfunc4myTy");
   ASSERT_STREQ("myfunc", fd.name.c_str());
-  ASSERT_STREQ("myTy", getParameterString(fd, 0));
+  ASSERT_EQ(std::string("myTy"), getParameterString(fd, 0));
   ASSERT_EQ(1U, fd.parameters.size());
 }
 
 //tests user defined types, one after the other
 TEST(DemangleTest, userDefinedTy2){
   FunctionDescriptor fd = demangle("_Z6myfunc5myTy16myTy21");
-  ASSERT_STREQ("myTy1", getParameterString(fd, 0));
-  ASSERT_STREQ("myTy21", getParameterString(fd, 1));
+  ASSERT_EQ(std::string("myTy1"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("myTy21"), getParameterString(fd, 1));
 }
 
 //Address space tests
@@ -319,6 +320,7 @@ TEST(DemangleTest, addressSpaceAndUserDefTy){
   Pointer* p = cast<Pointer>(fd.parameters[0]);
   ASSERT_TRUE(p);
   ASSERT_EQ(std::string("__constant"), *p->beginAttributes());
+  ASSERT_EQ(std::string("mta"), p->getPointee()->toString());
 }
 
 TEST(DemangleTest, appleImageMangle){
@@ -329,13 +331,6 @@ TEST(DemangleTest, appleImageMangle){
   std::string strMangled = mangle(fd);
   ASSERT_STREQ(strMangled.c_str(), strImagefunction);
 }
-
-TEST(DemangleTest, appleImage){
-  const char*const appleImage = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
-  FunctionDescriptor fd = demangle(appleImage);
-  ASSERT_EQ(3U, fd.parameters.size());
-}
-
 //
 //Manlge
 //
@@ -395,6 +390,7 @@ TEST(MangleBasic, scalardouble){
 //
 //MangleAPI
 //
+
 TEST(MangleAPI, visitorExample){
   const char* soaFunc = "_Z5dummyiDv4_fPS_" ;
   FunctionDescriptor fd = demangle(soaFunc);

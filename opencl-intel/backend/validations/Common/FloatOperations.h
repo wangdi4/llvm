@@ -709,18 +709,14 @@ namespace Validation
             UNUSED_ARGUMENT(_notUsed);
             typedef typename superT<T>::type SuperT;
             assert(tol >= 0.0);
+            FloatParts<T> aParts(a), bParts(b);
+            if( a==T(0.0)&&b==T(0.0)&&(aParts.sign != bParts.sign ))
+                return false;
             return (::fabs(Utils::ulpsDiffSamePrecision((SuperT) a, (SuperT)b)) <= tol);
         }
 
-        /// TODO: enable double with tolerance when Utils:: functions are done for long doubles
-        ///  !!!!!!! HACK. Currently eq_tol works as eq. Since long doubles are not supported Visual studio
-        /// LONG double specialization
         template<>
-        inline bool eq_tol<double>(const double& a, const double& b, const double&)
-        {
-            // TODO: Enable for long doubles
-            return Utils::eq( a, b);
-        }
+        bool eq_tol<double>(const double& a, const double& b, const double&);
         ///  !!! HACK. Currently eq_tol works as eq.
         /// CFloat16 specialization
         template<>

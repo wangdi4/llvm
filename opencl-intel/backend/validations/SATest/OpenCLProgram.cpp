@@ -97,7 +97,15 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 source[read] = '\0';
                 indata.close();
                 //building the CL code:
+#if defined (_WIN32)
+#if defined (_M_X64)
+                std::string clangLib = buildLibName("clang_compiler64");
+#else
+                std::string clangLib = buildLibName("clang_compiler32");
+#endif
+#else
                 std::string clangLib = buildLibName("clang_compiler");
+#endif
                 OCLBuilder& builder = OCLBuilder::instance().
                 withSource(source).
                 withBuildOptions(buildOptions.str().c_str()).

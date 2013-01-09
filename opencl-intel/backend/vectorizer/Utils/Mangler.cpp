@@ -23,6 +23,7 @@ const std::string Mangler::prefetch             = "prefetch";
 const std::string Mangler::name_allOne          = "allOne";
 const std::string Mangler::name_allZero         = "allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
+const std::string Mangler::retbyarray_builtin_prefix  = "_retbyarray_";
 const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
 const std::string Mangler::fake_prefix_insert   = "fake.insert.element";
 
@@ -273,6 +274,20 @@ std::string Mangler::getFakeBuiltinName(const std::string& name) {
   return fake_builtin_prefix+name;
 }
 
+std::string Mangler::getRetByArrayBuiltinName(const std::string& name) {
+  reflection::FunctionDescriptor ret = ::demangle(name.c_str());
+  V_ASSERT(ret.parameters.size() == 2 && "Expected exactly two arguments");
+  // Remove the pointer argument
+  ret.parameters.resize(1);
+  // Create the name of the builtin function we will be replacing with.
+  // If the orginal function was scalar, use the same function that will
+  // planted by the Scalarizer
+  ret.name = reflection::cast<reflection::Vector>(ret.parameters[0]) ?
+    retbyarray_builtin_prefix+ret.name :
+    ret.name + "_scalarized";
+  return ::mangle(ret);
+}
+
 unsigned Mangler::getMangledStoreAlignment(const std::string& name) {
   V_ASSERT(isMangledStore(name) && "not a mangled store");
   unsigned alignStart = name.find(mask_prefix_store) + mask_prefix_store.length();
@@ -309,7 +324,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
     maskedName = "masked_";
 
   // Determine load or store
-  std::string baseFuncName;
+  std::string baseFuncName = "unknown";
   if (isLoad) {
     if (isScatterGather)
       baseFuncName = "gather_transpose_";
@@ -323,7 +338,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   }
 
   // Determine vector element type
-  std::string typeName;
+  std::string typeName = "unknown";
   if (origVecType->getScalarSizeInBits() == 8) {
     typeName = "char";
   } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isIntegerTy()) {
@@ -338,3 +353,34 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   return funcName.str();
 }
 
+std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType) {
+
+  // Determine load or store
+  std::string baseFuncName;
+  if (isLoad) {
+    baseFuncName = "load_";
+  } else { // isStore
+    baseFuncName = "store_";
+  }
+
+  // Determine vector element type
+  std::string typeName = "unknown";
+  if (vecType->getScalarSizeInBits() == 8) {
+    typeName = "char";
+  } else if ((vecType->getScalarSizeInBits() == 16) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "short";
+  } else if ((vecType->getScalarSizeInBits() == 32) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "int";
+  } else if ((vecType->getScalarSizeInBits() == 64) && vecType->getElementType()->isIntegerTy()) {
+    typeName = "long";
+  } else if (vecType->getElementType()->isFloatTy()) {
+    typeName = "float";
+  } else if (vecType->getElementType()->isDoubleTy()) {
+    typeName = "double";
+  }
+
+  std::stringstream funcName;
+  funcName << "masked_" << baseFuncName << typeName << vecType->getNumElements();
+
+  return funcName.str();
+}

@@ -1,5 +1,8 @@
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
+if(BUILD_QTGUI )
+	add_subdirectory( kernel_builder_module)
+endif(BUILD_QTGUI )
 add_subdirectory( debugger_test_type )
 add_subdirectory( tools_test_type)
 add_subdirectory( task_executor_test_type )
@@ -7,6 +10,9 @@ if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device_test_type )
 endif( INCLUDE_MIC_DEVICE )
 
+if ( NOT WIN32 )
+    add_subdirectory( valgrind )
+endif ( NOT WIN32 )
 
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
@@ -37,5 +43,5 @@ endif(INCLUDE_CMRT)
 #Samples
 option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
 if (INCLUDE_SMPLS)
-    add_subdirectory( samples_tests )
+    add_subdirectory( samples )
 endif(INCLUDE_SMPLS)

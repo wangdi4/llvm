@@ -129,11 +129,7 @@ private:
 RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 {
 	ITaskExecutor *pTE = (ITaskExecutor*)pParam;
-    CommandListCreationParam p;
-    p.isOOO = false;
-    p.isSubdevice = false;
- 
-    SharedPtr<ITaskList> pList = pTE->CreateTaskList(&p, NULL);
+    SharedPtr<ITaskList> pList = pTE->CreateTaskList(TE_CMD_LIST_IN_ORDER);
 
 	volatile int done = 0;
     pList->Enqueue(SharedPtr<ITaskBase>(TestSet::Allocate(1, &done)));
@@ -169,10 +165,7 @@ bool test_task_executor()
 		ITaskExecutor* pTaskExecutor = GetTaskExecutor();        
         pTaskExecutor->SetWGContextPool(&pool);
 		pTaskExecutor->Activate();
-		CommandListCreationParam p;
-		p.isOOO = false;
-		p.isSubdevice = false;
-        SharedPtr<ITaskList> pList = pTaskExecutor->CreateTaskList(&p, NULL);
+        SharedPtr<ITaskList> pList = pTaskExecutor->CreateTaskList(TE_CMD_LIST_IN_ORDER);
 #if 0
 #ifdef _WIN32
 		HANDLE hMaster = (HANDLE)_beginthreadex(NULL, 0, &MasterThread, GetTaskExecutor(), 0, NULL);

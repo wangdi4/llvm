@@ -22,6 +22,7 @@ using namespace std;
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::Utils;
+using namespace Intel::OpenCL::TaskExecutor;
 
 extern char **environ;
 
@@ -50,8 +51,8 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 };
 
 
-DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false), m_config(config)
+DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
 {
     pthread_mutex_init(&m_mutex, NULL);
     pthread_cond_init(&m_cond, NULL);
@@ -65,11 +66,10 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
 }
 
 cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, 
-                                                                             MICDeviceConfig *config,
                                                                              DeviceServiceCommunication** ppDeviceServiceCom)
 {
     // find the first unused device index
-    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId, config);
+    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
 	if (NULL == tDeviceServiceComm)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -145,7 +145,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 		}
 
 		// Write to file host trace
-		MICDevice::m_tracer->draw_host_to_file(m_config);
+		MICDevice::m_tracer->draw_host_to_file(MICSysInfo::getInstance().getMicDeviceConfig());
 #endif
 		ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 		// Run release device function on device side
@@ -293,68 +293,76 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
 	do
 	{
+		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
 		// Get the amount of compute units in the device
-		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
+		unsigned int numOfWorkers   = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
+		unsigned int numOfCores     = info.getNumOfCores(pDevServiceComm->m_uiMicId);
+        unsigned int threadsPerCore = numOfWorkers / numOfCores;
+
+        if (threadsPerCore > MIC_NATIVE_MAX_THREADS_PER_CORE)
+        {
+            threadsPerCore = MIC_NATIVE_MAX_THREADS_PER_CORE;
+        }
 
         mic_exec_env_options mic_device_options;
         memset( &mic_device_options, 0, sizeof(mic_device_options) );
         
-        mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
-        mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
-        mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
-		mic_device_options.num_of_cores				= pDevServiceComm->m_config->Device_NumCores();
-        mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
-        mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
-        mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
-		mic_device_options.kernel_safe_mode         = pDevServiceComm->m_config->Device_safeKernelExecution();
-		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
-        mic_device_options.trap_workers             = pDevServiceComm->m_config->Device_TbbTrapWorkers();
+        mic_device_options.stop_at_load             = tMicConfig.Device_StopAtLoad();
+        mic_device_options.use_affinity             = tMicConfig.Device_UseAffinity();
+        mic_device_options.threads_per_core         = tMicConfig.Device_ThreadsPerCore();
+		mic_device_options.num_of_cores				= tMicConfig.Device_NumCores();
+        mic_device_options.ignore_core_0            = tMicConfig.Device_IgnoreCore0();
+        mic_device_options.ignore_last_core         = tMicConfig.Device_IgnoreLastCore();
+        mic_device_options.use_TBB_grain_size       = tMicConfig.Device_TbbGrainSize();
+		mic_device_options.kernel_safe_mode         = tMicConfig.Device_safeKernelExecution();
+		mic_device_options.use_vtune                = tMicConfig.UseVTune();
+        mic_device_options.trap_workers             = tMicConfig.Device_TbbTrapWorkers();
         
-        //BUGBUG: TBB slowness workaround
-        mic_device_options.workers_per_queue		= pDevServiceComm->m_config->Device_WorkerPerQueue();
-
-        string tbb_scheduler = pDevServiceComm->m_config->Device_TbbScheduler();
+        string tbb_scheduler = tMicConfig.Device_TbbScheduler();
      
         if (tbb_scheduler == "affinity")
         {
-            mic_device_options.tbb_scheduler = mic_TBB_affinity;
-        }
-        else if (tbb_scheduler == "openmp")
-        {
-            mic_device_options.tbb_scheduler = mic_TBB_openmp;
+            mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
         }
         else
         {
-            mic_device_options.tbb_scheduler = mic_TBB_auto;
+            mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
         }
 
-        string block_optimization = pDevServiceComm->m_config->Device_TbbBlockOptimization();
+        string block_optimization = tMicConfig.Device_TbbBlockOptimization();
         
         if (block_optimization == "rows")
         {
-            mic_device_options.tbb_block_optimization = mic_TBB_block_by_row;
+            mic_device_options.tbb_block_optimization = TASK_SET_OPTIMIZE_BY_ROW;
         }
         else if (block_optimization == "columns")
         {
-            mic_device_options.tbb_block_optimization = mic_TBB_block_by_column;
+            mic_device_options.tbb_block_optimization = TASK_SET_OPTIMIZE_BY_COLUMN;
         }
         else if (block_optimization == "tiles")
         {
-            mic_device_options.tbb_block_optimization = mic_TBB_block_by_tile;
+            mic_device_options.tbb_block_optimization = TASK_SET_OPTIMIZE_BY_TILE;
         }
         else
         {
-            mic_device_options.tbb_block_optimization = mic_TBB_block_by_default_TBB_tile;
+            mic_device_options.tbb_block_optimization = TASK_SET_OPTIMIZE_DEFAULT;
         }
         
 		memset(mic_device_options.mic_cpu_arch_str, 0, MIC_CPU_ARCH_STR_SIZE);
 		MEMCPY_S(mic_device_options.mic_cpu_arch_str, MIC_CPU_ARCH_STR_SIZE, get_mic_cpu_arch(), sizeof(get_mic_cpu_arch()));
 
-        if ((0 == mic_device_options.num_of_worker_threads) || (mic_device_options.num_of_worker_threads > numOfWorkers))
+        if ((0 == mic_device_options.threads_per_core) || (mic_device_options.threads_per_core > threadsPerCore))
         {
-            mic_device_options.num_of_worker_threads = numOfWorkers;
+            mic_device_options.threads_per_core = threadsPerCore;
         }
-        mic_device_options.min_work_groups_number   = MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_worker_threads );
+
+        if ((0 == mic_device_options.num_of_cores) || (mic_device_options.num_of_cores > numOfCores))
+        {
+            mic_device_options.num_of_cores = numOfCores;
+        }
+
+        mic_device_options.min_work_groups_number   = 
+            MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_cores * mic_device_options.threads_per_core );
 
 		vector<char*> additionalEnvVars;
 		// If USE VTUNE need to send some env variables to sink side

@@ -46,8 +46,7 @@ GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_ob
 	MemoryObject(pContext),
 	m_active_groups_count(0),
     m_BS(NULL),
-	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL), 
-	m_updateParentFlag(0)
+	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)
 {
 	INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
@@ -963,8 +962,12 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 		return err;
 	}
 
-	// add pSubBuffer to parent m_subBuffersList
-	addSubBuffer(pSubBuffer);
+	// If shared context (more than one device)
+	if (m_active_groups_count > 1)
+    {
+		// add pSubBuffer to parent m_subBuffersList
+		addSubBuffer(pSubBuffer);
+	}
 
 	assert(NULL != ppBuffer);
 	*ppBuffer = pSubBuffer;
@@ -998,6 +1001,14 @@ void GenericMemObject::addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer)
 				break;
 			}
 		}
+	}
+	if (MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode())
+	{
+		// Push the new sub-buffer to updateParentList (The other sub-buffers already close to the parent)
+		TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
+		// push the new sub-buffer to updateParentList in order to move the new sub-buffer and the parent buffer to single device at the next memory request.
+		pUpdateParentList->push_back(pSubBuffer);
+		setUpdateParentFlag(true);
 	}
 	// Add pSubBuffer to m_subBuffersList
 	pSubBuffersList->push_back(pSubBuffer);
@@ -1343,7 +1354,7 @@ bool GenericMemObjectBackingStore::AllocateData( void )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType, GenericMemObject& buffer)
-	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer), m_isZombie(false)
+	: GenericMemObject(pContext, clObjType), m_rBuffer(buffer)
 {
 }
 

@@ -61,11 +61,10 @@ static    unsigned int    UNUSED(gSupportedBinTypesCount) = ARRAY_ELEMENTS(gSupp
 
 ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks,
                                               IOCLDevLogDescriptor *logDesc,
-                                              MICDeviceConfig *config,
                                               DeviceServiceCommunication& dev_service) :
     m_DevService( dev_service), m_BE_Compiler( m_DevService, MIC_BACKEND_DLL_NAME ),
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
-    m_pCallBacks(devCallbacks), m_pMICConfig(config)
+    m_pCallBacks(devCallbacks)
 {
     if ( NULL != logDesc )
     {
@@ -184,8 +183,8 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
         case CL_DEV_BACKEND_OPTION_SUBDEVICE:
 			return get_mic_cpu_arch();
 
-        //case CL_DEV_BACKEND_OPTION_DUMPFILE:
-        //    return m_dump_file_name.c_str();
+        case CL_DEV_BACKEND_OPTION_DUMPFILE:
+            return m_dump_file_name.c_str();
 
         default:
             return defaultValue;
@@ -361,9 +360,10 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
+		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
         // get compiler options
-        m_BE_Compiler.MICOptions.init( m_pMICConfig->UseVectorizer(),
-                                       m_pMICConfig->UseVTune()
+        m_BE_Compiler.MICOptions.init( tMicConfig.UseVectorizer(),
+                                       tMicConfig.UseVTune()
                                       );
 
         err = be_factory->GetCompilationService( &m_BE_Compiler.MICOptions,
@@ -671,6 +671,9 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
+
+    const char *p = NULL;
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
     TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
@@ -718,7 +721,12 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     
     if (NULL != compiler)
     {
-        ret = compiler->BuildProgram(pEntry->pProgram, NULL);
+        MICBackendOptions dumpOptions( m_DevService );
+        if( (NULL != options) && ('\0' != *options) &&
+            (NULL != (p = strstr(options, "-dump-opt-asm="))) )
+            dumpOptions.init_for_dump(p);
+
+        ret = compiler->BuildProgram(pEntry->pProgram, &dumpOptions);
         MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
     }
     
@@ -737,12 +745,13 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cmdTracer.set_current_time_command_host_time_end();
 
     // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && !strncmp(options, "-dump-opt-llvm=", 15))
+    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
+        (NULL != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         
         MICBackendOptions dumpOptions( m_DevService );
-        dumpOptions.init_for_dump(options);
+        dumpOptions.init_for_dump(p);
         
         compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
@@ -812,7 +821,11 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     }
     else
     {
-        RemoveProgramFromDevice( pEntry );
+		// In case that the program kernel count is 0, than we didn't pass it to device side, so we should not remove it from device side.
+        if (pEntry->pProgram->GetKernelsCount() > 0)
+		{
+			RemoveProgramFromDevice( pEntry );
+		}
         DeleteProgramEntry(pEntry);
         dev_err_code = CL_DEV_SUCCESS;
     }

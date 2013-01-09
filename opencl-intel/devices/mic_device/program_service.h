@@ -81,7 +81,7 @@ class ProgramService
 {
 
 public:
-    ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, MICDeviceConfig *config,
+    ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc,
                     DeviceServiceCommunication& dev_service );
     virtual ~ProgramService();
 
@@ -204,8 +204,6 @@ private:
     TProgramList                   m_Programs;
     OclMutex                       m_muPrograms;
     IOCLFrameworkCallbacks*        m_pCallBacks;
-
-    MICDeviceConfig               *m_pMICConfig;
 
 
     ICLDevBackendCompilationService* GetCompilationService(void);

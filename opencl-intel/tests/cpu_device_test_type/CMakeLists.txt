@@ -50,8 +50,8 @@ CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-#add_dependencies( ${TARGET} cpu_device cl_sys_utils task_executor)
-target_link_libraries( ${TARGET}  cl_sys_utils cpu_device task_executor googletest)
+#add_dependencies( ${TARGET} cpu_device${BUILD_PLATFORM} cl_sys_utils task_executor${BUILD_PLATFORM})
+target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest)
 
 set( CREATE_DIR_NAME bin/validation/cpu_device_test_type)
 
@@ -93,5 +93,5 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DI
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 #set_target_properties( cpu_device_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
-add_dependencies( ${TARGET} clang clang_compiler )
+add_dependencies( ${TARGET} clang clang_compiler${BUILD_PLATFORM} )
 #add_dependencies( cpu_device_test_type_kernel clang_compiler )

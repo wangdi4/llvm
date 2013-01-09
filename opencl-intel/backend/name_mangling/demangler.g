@@ -81,7 +81,7 @@ primitive returns [reflection::Type* pType = NULL;]
   | f:FLOAT   {pType = createType(f); }
   | d:DOUBLE  {pType = createType(d); }
   | v:VOID    {pType = createType(v); }
-  | sampler:SAMPLER_T {pType = createType(sampler);} //sampler_t maps to type i32
+  | sampler:SAMPLER_T {pType = createType(sampler);}
 ;
 
 vector_type returns [reflection::Vector* pVector = NULL;]
@@ -145,8 +145,10 @@ address_space returns [std::string attribute]
     assert (endString != beginString && "address space is not a valid suffix");
     assert(suffixLen>0 && "invalid suffix len");
     std::string strAddressSpace = m_pLexer->readN(suffixLen);
+    //Every address space starts with "AS"
     const std::string AS("AS");
     assert(strAddressSpace.size() > AS.size() && "invalid address space");
+    assert(strAddressSpace.substr(0, AS.size()) == AS && "invalid address space");
     beginString = strAddressSpace.c_str() + AS.size();
     long addressSpace = strtol(beginString, &endString, 10);
     assert (endString != beginString &&"address space is not a valid suffix");

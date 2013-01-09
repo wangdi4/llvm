@@ -279,12 +279,15 @@ cl_err_code	Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pMemO
 }
 
 // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
+// arg Must be reference because it content might be change during LockOnDevice.
 inline
-cl_err_code Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
+cl_err_code Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
 {
     assert( NULL != arg.pMemObj );
     SharedPtr<OclEvent> mem_event = NULL;
-	cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, &mem_event );
+	// initialize arg.access_rights_realy_used to be arg.access_rights (It can change to READ_WRITE during LockOnDevice() operation)
+	arg.access_rights_realy_used = arg.access_rights;
+	cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, &arg.access_rights_realy_used, mem_event );
 
 	if (CL_SUCCESS != errCode)
 	{
@@ -299,7 +302,7 @@ cl_err_code Command::AcquireSingleMemoryObject( const MemoryObjectArg& arg, cons
     return (NULL != mem_event) ? CL_NOT_READY : errCode;
 }
 
-cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
+cl_err_code Command::AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev )
 {
     if ( m_memory_objects_acquired )
     {
@@ -313,56 +316,40 @@ cl_err_code Command::AcquireMemoryObjectsInt( const MemoryObjectArgList* pList, 
     cl_err_code retErrCode = CL_SUCCESS;
 	cl_err_code errCode = CL_SUCCESS;
 
-    if (NULL != pList)
-    {
-        MemoryObjectArgList::const_iterator it     = pList->begin();
-        MemoryObjectArgList::const_iterator it_end = pList->end();
+    MemoryObjectArgList::iterator it     = argList.begin();
+    MemoryObjectArgList::const_iterator it_end = argList.end();
 
-        for (; it != it_end; ++it )
-        {
-            const MemoryObjectArg& arg = *it;
-            errCode = AcquireSingleMemoryObject( arg, targetDevice );
-			if ((CL_SUCCESS != errCode) && ((CL_SUCCESS == retErrCode) || (CL_NOT_READY == retErrCode)))
-			{
-				retErrCode = errCode;
-			}
-        }
-    }
-    else
+    for (; it != it_end; ++it )
     {
-        assert( NULL != pSingle);
-        retErrCode = AcquireSingleMemoryObject( *pSingle, targetDevice );
+        MemoryObjectArg& arg = *it;
+        errCode = AcquireSingleMemoryObject( arg, targetDevice );
+		if ((CL_SUCCESS != errCode) && ((CL_SUCCESS == retErrCode) || (CL_NOT_READY == retErrCode)))
+		{
+			retErrCode = errCode;
+		}
     }
 
     return retErrCode;
 }
 
-void Command::RelinquishMemoryObjectsInt( const MemoryObjectArgList* pList, const MemoryObjectArg* pSingle, const SharedPtr<FissionableDevice>& pDev )
+void Command::RelinquishMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev )
 {
     if ( !m_memory_objects_acquired )
     {
         return;
-    }
+    } 
 
     m_memory_objects_acquired = false;
     
     const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
 
-    if (NULL != pList)
-    {      
-        MemoryObjectArgList::const_iterator it     = pList->begin();
-        MemoryObjectArgList::const_iterator it_end = pList->end();
+    MemoryObjectArgList::const_iterator it     = argList.begin();
+    MemoryObjectArgList::const_iterator it_end = argList.end();
 
-        for (; it != it_end; ++it )
-        {
-            const MemoryObjectArg& arg = *it;            
-            arg.pMemObj->UnLockOnDevice( targetDevice, arg.access_rights ); 
-        }
-    }
-    else
+    for (; it != it_end; ++it )
     {
-        assert( NULL != pSingle );
-        pSingle->pMemObj->UnLockOnDevice( targetDevice, pSingle->access_rights );
+        const MemoryObjectArg& arg = *it;  
+        arg.pMemObj->UnLockOnDevice( targetDevice, arg.access_rights_realy_used ); 
     }
 }
 
@@ -533,8 +520,8 @@ cl_err_code CopyMemObjCommand::Init()
 
     bool override_target = m_pDstMemObj->IsWholeObjectCovered(m_uiDstNumDims, m_szDstOrigin, m_szRegion);
 
-    m_objs.push_back( MemoryObjectArg( m_pSrcMemObj, MemoryObject::READ_ONLY ) );
-    m_objs.push_back( MemoryObjectArg( m_pDstMemObj, override_target ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE) );
+    m_MemOclObjects.push_back( MemoryObjectArg( m_pSrcMemObj, MemoryObject::READ_ONLY ) );
+    m_MemOclObjects.push_back( MemoryObjectArg( m_pDstMemObj, override_target ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE) );
 
     return CL_SUCCESS;
 }
@@ -548,7 +535,7 @@ cl_err_code CopyMemObjCommand::Init()
  ******************************************************************/
 cl_err_code CopyMemObjCommand::Execute()
 {
-	cl_err_code res = AcquireMemoryObjects(m_objs);
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
         return res;
@@ -616,7 +603,8 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(SharedPtr<FissionableDevice> pDevice
  ******************************************************************/
 cl_err_code CopyMemObjCommand::CommandDone()
 {
-    RelinquishMemoryObjects(m_objs);
+    RelinquishMemoryObjects(m_MemOclObjects);
+
     return CL_SUCCESS;
 }
 
@@ -823,8 +811,7 @@ MapMemObjCommand::MapMemObjCommand(
 			m_szRegion[i] = 1;
     }
 
-    m_pMemObj.pMemObj = pMemObj;
-    m_pMemObj.access_rights = MemoryObject::READ_WRITE;
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
 }
 
 /******************************************************************
@@ -840,7 +827,8 @@ MapMemObjCommand::~MapMemObjCommand()
             delete m_pPostfixCommand;
         }
         
-        m_pMemObj.pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
+		assert(m_MemOclObjects.size() == 1);
+        m_MemOclObjects[0].pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
     }
 }
 
@@ -851,7 +839,8 @@ MapMemObjCommand::~MapMemObjCommand()
 cl_err_code MapMemObjCommand::Init()
 {
     cl_err_code res;
-    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
+	assert(m_MemOclObjects.size() == 1);
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
 
     res = pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(res))
@@ -905,7 +894,8 @@ cl_err_code MapMemObjCommand::Init()
     if ((CL_MAP_WRITE_INVALIDATE_REGION & m_clMapFlags) && 
         (pMemObj->IsWholeObjectCovered(pMemObj->GetNumDimensions(), m_szOrigin, m_szRegion)))
     {
-        m_pMemObj.access_rights = MemoryObject::WRITE_ENTIRE;
+		assert(m_MemOclObjects.size() == 1);
+        m_MemOclObjects[0].access_rights = MemoryObject::WRITE_ENTIRE;
     }
 
 	// Initialize GPA data
@@ -927,7 +917,7 @@ cl_err_code MapMemObjCommand::Execute()
         return CL_NOT_READY;
     }
 
-	cl_err_code res = AcquireMemoryObjects( m_pMemObj, m_pActualMappingDevice);
+	cl_err_code res = AcquireMemoryObjects( m_MemOclObjects, m_pActualMappingDevice);
     if ( CL_SUCCESS != res )
     {
         return res;
@@ -982,7 +972,7 @@ cl_err_code MapMemObjCommand::CommandDone()
 		m_pPostfixCommand = NULL;
 	}
 
-    RelinquishMemoryObjects( m_pMemObj, m_pActualMappingDevice );
+    RelinquishMemoryObjects( m_MemOclObjects, m_pActualMappingDevice );
     // Don't remove buffer pendency, the buffer should be alive at least until unmap is done.
 
     m_bResourcesAllocated = false;
@@ -1091,7 +1081,8 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
 	}
 #endif // ITT
 	
-	err = m_pMemObj.pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
+	assert(m_MemOclObjects.size() == 1);
+	err = m_MemOclObjects[0].pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
 
 #if defined(USE_ITT)
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
@@ -1115,7 +1106,6 @@ cl_err_code	MapMemObjCommand::PostfixExecute()
 UnmapMemObjectCommand::UnmapMemObjectCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, 
 											 SharedPtr<MemoryObject> pMemObject, void* pMappedPtr):
 	Command(cmdQueue),
-    m_pMemObject(pMemObject, MemoryObject::READ_WRITE),
     m_pMappedPtr(pMappedPtr),
     m_pActualMappingDevice(NULL),
     m_ExecutionType( DEVICE_EXECUTION_TYPE ),
@@ -1123,6 +1113,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(SharedPtr<IOclCommandQueueBase> cmd
 	m_pOclEntryPoints(pOclEntryPoints),
 	m_bResourcesAllocated(false)
 {
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObject, MemoryObject::READ_WRITE ) );
 }
 
 /******************************************************************
@@ -1138,7 +1129,8 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
             delete m_pPrefixCommand;
         }
         
-        m_pMemObject.pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
+		assert(m_MemOclObjects.size() == 1);
+        m_MemOclObjects[0].pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
     }
 }
 
@@ -1148,7 +1140,8 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
 cl_err_code UnmapMemObjectCommand::Init()
 {
     ConstSharedPtr<FissionableDevice> actual_dev;
-    SharedPtr<MemoryObject> pMemObj = m_pMemObject.pMemObj;
+	assert(m_MemOclObjects.size() == 1);
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
     
     /* First check the the region has been mapped - just get the 1st mapped region, the user should
         handle code with multiple map/unmap commands */
@@ -1163,7 +1156,8 @@ cl_err_code UnmapMemObjectCommand::Init()
 
     if (bDiscardPreviousData)
     {
-        m_pMemObject.access_rights = MemoryObject::WRITE_ENTIRE;
+		assert(m_MemOclObjects.size() == 1);
+        m_MemOclObjects[0].access_rights = MemoryObject::WRITE_ENTIRE;
     }
    
     m_pActualMappingDevice = const_cast<FissionableDevice*>(actual_dev.GetPtr());
@@ -1216,7 +1210,7 @@ cl_err_code UnmapMemObjectCommand::Execute()
         return CL_NOT_READY;
     }
 
-	cl_err_code res = AcquireMemoryObjects( m_pMemObject, m_pActualMappingDevice);
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects, m_pActualMappingDevice);
     if ( CL_SUCCESS != res )
     {
         return res;
@@ -1304,7 +1298,8 @@ cl_err_code	UnmapMemObjectCommand::PrefixExecute()
 	}
 #endif // ITT
 
-	err = m_pMemObject.pMemObj->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
+	assert(m_MemOclObjects.size() == 1);
+	err = m_MemOclObjects[0].pMemObj->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
 
 #if defined(USE_ITT)
 	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
@@ -1336,10 +1331,11 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 	}
 
     // Here we do the actual operation off releasing the mapped region.
-    errVal = m_pMemObject.pMemObj->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr, true);
+	assert(m_MemOclObjects.size() == 1);
+    errVal = m_MemOclObjects[0].pMemObj->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr, true);
     m_pMappedRegion = NULL;
 
-    RelinquishMemoryObjects(m_pMemObject, m_pActualMappingDevice);
+    RelinquishMemoryObjects(m_MemOclObjects, m_pActualMappingDevice);
 
     m_bResourcesAllocated = false;
     return errVal;
@@ -1891,7 +1887,6 @@ ReadMemObjCommand::ReadMemObjCommand(
     const size_t    szDstSlicePitch
     ):
 	MemoryCommand(cmdQueue),
-    m_pMemObj(pMemObj),
     m_szMemObjRowPitch(szRowPitch),
     m_szMemObjSlicePitch(szSlicePitch),
     m_pDst(pDst),
@@ -1899,6 +1894,7 @@ ReadMemObjCommand::ReadMemObjCommand(
 	m_szDstSlicePitch(szDstSlicePitch)
 {
 //	size_t uiDimCount = m_pMemObj->GetNumDimensions();
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_ONLY ) );
 
     // Set region
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
@@ -1954,21 +1950,26 @@ cl_err_code ReadMemObjCommand::Execute()
 {
 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
-	cl_err_code res = AcquireMemoryObjects( m_pMemObj, MemoryObject::READ_ONLY );
+	assert(m_MemOclObjects.size() == 1);
+	m_MemOclObjects[0].access_rights = MemoryObject::READ_ONLY;
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+	
+	SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
+
     if ( CL_SUCCESS != res )
     {
         return res;
 	}
 
 	SharedPtr<OclEvent> pObjEvent;
-	cl_err_code clErr = m_pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
+	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
 		return clErr;
 	}
 
     create_dev_cmd_rw(
-		m_commandType == CL_COMMAND_READ_BUFFER_RECT ? MAX_WORK_DIM  : m_pMemObj->GetNumDimensions(),
+		m_commandType == CL_COMMAND_READ_BUFFER_RECT ? MAX_WORK_DIM  : pMemObj->GetNumDimensions(),
 		m_pDst, m_szOrigin, m_szDstOrigin, m_szRegion, m_szDstRowPitch, m_szDstSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
         CL_DEV_CMD_READ );
 
@@ -1984,7 +1985,7 @@ cl_err_code ReadMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::CommandDone()
 {
-    RelinquishMemoryObjects(m_pMemObj, MemoryObject::READ_ONLY);
+    RelinquishMemoryObjects(m_MemOclObjects);
     return CL_SUCCESS;
 }
 
@@ -2136,7 +2137,6 @@ WriteMemObjCommand::WriteMemObjCommand(
 	const size_t    szSrcSlicePitch
     ):
 	MemoryCommand(cmdQueue),
-    m_pMemObj(pMemObj,MemoryObject::READ_WRITE),
 	m_bBlocking(bBlocking),
     m_szMemObjRowPitch(szRowPitch),
     m_szMemObjSlicePitch(szSlicePitch),
@@ -2144,6 +2144,7 @@ WriteMemObjCommand::WriteMemObjCommand(
 	m_szSrcRowPitch(szSrcRowPitch),
 	m_szSrcSlicePitch(szSrcSlicePitch)
 {
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
 	// Set region
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
     {
@@ -2199,7 +2200,8 @@ WriteMemObjCommand::~WriteMemObjCommand()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Init()
 {
-    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
+	assert(m_MemOclObjects.size() == 1);
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
     
 	// If we are blocking command, we need to allocate internal buffer
 	if ( m_bBlocking )
@@ -2247,11 +2249,12 @@ cl_err_code WriteMemObjCommand::Init()
 
 	// Initialize GPA data
 	GPA_InitCommand();
+	assert(m_MemOclObjects.size() == 1);
     if (pMemObj->IsWholeObjectCovered(
-                            CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : m_pMemObj.pMemObj->GetNumDimensions(),
+                            CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : m_MemOclObjects[0].pMemObj->GetNumDimensions(),
                             m_szOrigin, m_szRegion))
     {
-        m_pMemObj.access_rights = MemoryObject::WRITE_ENTIRE;
+        m_MemOclObjects[0].access_rights = MemoryObject::WRITE_ENTIRE;
     }
     return CL_SUCCESS;
 }
@@ -2261,13 +2264,14 @@ cl_err_code WriteMemObjCommand::Init()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Execute()
 {  
-	cl_err_code res = AcquireMemoryObjects( m_pMemObj );
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
         return res;
 	}
 
-    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
+	assert(m_MemOclObjects.size() == 1);
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
  	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
 
 	/// memory object resides on target device, update it
@@ -2302,7 +2306,7 @@ cl_err_code WriteMemObjCommand::CommandDone()
 		m_pTempBuffer = NULL;
 	}
 
-    RelinquishMemoryObjects(m_pMemObj);
+    RelinquishMemoryObjects(m_MemOclObjects);
     return CL_SUCCESS;
 }
 
@@ -2346,7 +2350,7 @@ FillMemObjCommand::FillMemObjCommand(
     }
 
     MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-    m_pMemObj.pMemObj = pMemObj;
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
 }
 
 FillMemObjCommand::FillMemObjCommand(
@@ -2369,7 +2373,7 @@ FillMemObjCommand::FillMemObjCommand(
 	m_szRegion[0] = pszRegion;
 
 	MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-	m_pMemObj.pMemObj = pMemObj;
+	m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
 }
 
 /******************************************************************
@@ -2389,14 +2393,16 @@ cl_err_code FillMemObjCommand::Init()
 		return m_internalErr;
 	}
 
+	assert(m_MemOclObjects.size() == 1);
+	SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
     // Allocate
-    m_internalErr = m_pMemObj.pMemObj->CreateDeviceResource(m_pDevice);
+    m_internalErr = pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(m_internalErr) )
     {
         return m_internalErr;
     }
 
-	m_pMemObj.access_rights = (m_pMemObj.pMemObj->IsWholeObjectCovered( m_numOfDimms, m_szOffset, m_szRegion )) ?
+	m_MemOclObjects[0].access_rights = (pMemObj->IsWholeObjectCovered( m_numOfDimms, m_szOffset, m_szRegion )) ?
                                             MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE;
 
 	// Initialize GPA data
@@ -2416,14 +2422,15 @@ cl_err_code FillMemObjCommand::Execute()
 
 	/// memory object resides on target device, update it
 	SharedPtr<OclEvent> pObjEvent;
-    SharedPtr<MemoryObject> pMemObj = m_pMemObj.pMemObj;
+	assert(m_MemOclObjects.size() == 1);
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
 	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &(m_fillCmdParams.memObj), &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
 		return clErr;
 	}
 
-	cl_err_code res = AcquireMemoryObjects( m_pMemObj );
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
         return res;
@@ -2459,7 +2466,7 @@ cl_err_code FillMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code FillMemObjCommand::CommandDone()
 {
-    RelinquishMemoryObjects(m_pMemObj);
+    RelinquishMemoryObjects(m_MemOclObjects);
     return CL_SUCCESS;
 }
 
@@ -2536,7 +2543,7 @@ cl_err_code MigrateMemObjCommand::Init()
         cl_err = GetMemObjectDescriptor( pMemObj, &( m_migrateCmdParams.memObjs[i]));
         assert( CL_SUCCESS == cl_err );
 
-        m_MemObjects.push_back( MemoryObjectArg(pMemObj, access ));
+        m_MemOclObjects.push_back( MemoryObjectArg(pMemObj, access ));
     }
     
 	// Initialize GPA data
@@ -2549,7 +2556,7 @@ cl_err_code MigrateMemObjCommand::Init()
  ******************************************************************/
 cl_err_code MigrateMemObjCommand::Execute()
 {
-	cl_err_code res = AcquireMemoryObjects( m_MemObjects );
+	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
         return res;
@@ -2570,7 +2577,7 @@ cl_err_code MigrateMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code MigrateMemObjCommand::CommandDone()
 {
-    RelinquishMemoryObjects(m_MemObjects);
+    RelinquishMemoryObjects(m_MemOclObjects);
     return CL_SUCCESS;
 }
 

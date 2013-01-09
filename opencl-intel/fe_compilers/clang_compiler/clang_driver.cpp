@@ -450,10 +450,20 @@ int ClangFECompilerCompileTask::Compile()
 	size_t dResSize = NULL;
 	llvm::MemoryBuffer *pchBuff = NULL;
 
+#if defined (_WIN32)
+#if defined (_M_X64)
+	static const char* sFEModuleName = "clang_compiler64";
+#else
+	static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
+	static const char* sFEModuleName = "clang_compiler";
+#endif
+
 	// Get the handle to the current module
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
 					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-					  "clang_compiler",
+					  sFEModuleName,
 					  &hMod);
 
 	// Locate the resource
@@ -1246,6 +1256,10 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             }
         }
         else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
+        else if (opt_i->find("-dump-opt-asm=") == 0)
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }

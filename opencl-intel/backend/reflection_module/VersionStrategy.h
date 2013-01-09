@@ -102,13 +102,17 @@ public:
   //  same function, as follows:
   // <v1>, <v2>, <v4> <v8>, <v16>, <v3>. Empty entries should be signaled by
   // reflection::FunctionDescriptor::nullString()
-  void assumeResponsability(const TableRow&);
+  void assumeResponsability(const TableRow*);
 
   PairSW operator()(const PairSW&)const;
 private:
-  //maps each version to the index of its containig row in the table
-  llvm::StringMap<int> m_rowIndex;
-  std::vector<TableRow> m_table;
+  //Maps each version to the list of containing rows in the table
+  //Duplicate entries in the table are supported by using TableRowList as the container.
+  //There can be duplicates in the case where there are two rows (more than two is not possible)
+  //that define separate rules for scalaring and packetizing, e.g. sincos.
+  typedef llvm::SmallVector<const TableRow*, 2> TableRowList;
+  typedef llvm::StringMap<TableRowList> FuncName2TableRowLookup;
+  FuncName2TableRowLookup m_func2row;
 };
 
 std::pair<std::string,width::V> fdToPair(const FunctionDescriptor&);

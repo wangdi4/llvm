@@ -34,7 +34,7 @@ CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-target_link_libraries( ${TARGET}  cl_sys_utils task_executor googletest)
+target_link_libraries( ${TARGET}  cl_sys_utils task_executor${BUILD_PLATFORM} googletest)
 
 set( CREATE_DIR_NAME bin/validation/task_executor_test_type )
 

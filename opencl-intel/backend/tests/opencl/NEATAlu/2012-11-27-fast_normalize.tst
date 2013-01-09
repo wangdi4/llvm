@@ -1,0 +1,1 @@
+; RUN: ValidationTests --validationSeed=2375344163 --gtest_filter=NEAT*/*.fast_normalize

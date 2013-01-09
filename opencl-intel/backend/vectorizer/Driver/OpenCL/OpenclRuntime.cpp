@@ -211,6 +211,8 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   // them first.
   if (isWorkItemBuiltin(func_name))  return true;
   if (isSafeLLVMIntrinsic(func_name)) return true;
+  if (Mangler::isFakeExtract(func_name)) return true;
+  if (Mangler::isFakeInsert(func_name)) return true;
 
   // If it is not a built-in, don't know if it has side effect.
   Function *funcRT = findInRuntimeModule(func_name);
@@ -289,6 +291,17 @@ bool OpenclRuntime::isSafeLLVMIntrinsic(const std::string &func_name) const {
   if (0 == func_name.compare("llvm.var.annotation")) return true;
   if (0 == func_name.compare("llvm.dbg.declare")) return true;
   if (0 == func_name.compare("llvm.dbg.value")) return true;
+  return false;
+}
+
+bool OpenclRuntime::isReturnByPtrBuiltin(const std::string &func_name) const {
+  if (!findInRuntimeModule(func_name)) return false;
+  FunctionDescriptor ret = demangle(func_name.c_str());
+  if (ret == FunctionDescriptor::null()) return false;
+  llvm::ArrayRef<const char*> A(BuiltinReturnByPtr);
+  for (size_t i=0; i < A.size(); ++i)
+    if (llvm::StringRef(A[i]) == ret.name)
+      return true;
   return false;
 }
 

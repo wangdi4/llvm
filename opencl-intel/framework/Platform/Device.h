@@ -177,6 +177,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static SharedPtr<Device> Allocate(_cl_platform_id_int* platform) { return SharedPtr<Device>(new Device(platform)); }
 
 		/******************************************************************************************
+		* Function:		CreateAndInitAllDevicesOfDeviceType
+		* Description:	allocate and initialize all the devices with the same type.
+		* Arguments:	psDeviceAgentDllPath [in] full path of devices driver's dll
+		*               pClPlatformId [in] the platform id
+		*				pOutDevices [out] the initialized devices
+		* Return value:	CL_SUCCESS - operation succeeded
+		*******************************************************************************************/
+		static cl_err_code CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAgentDllPath, _cl_platform_id_int* pClPlatformId, vector< SharedPtr<Device> >* pOutDevices);
+
+		/******************************************************************************************
 		* Function: 	GetInfo
 		* Description:	get object specific information (inherited from OCLObject) the function
 		*				query the desirable parameter value from the device
@@ -192,16 +202,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							size_t		param_value_size,
 							void *		param_value,
 							size_t *	param_value_size_ret) const;
-
-		/******************************************************************************************
-		* Function: 	InitDevice
-		* Description:	Load OpenCL device library
-		* Arguments:	pwcDllPath [in]		full path of device driver's dll
-		* Return value:	CL_SUCCESS - operation succeeded
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code InitDevice(const char * psDeviceAgentDllPath);
 
 		/******************************************************************************************
 		* Function: 	CreateInstance
@@ -291,6 +291,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		Device(_cl_platform_id_int* platform);
 
+		/******************************************************************************************
+		* Function: 	InitDevice
+		* Description:	Load OpenCL device library
+		* Arguments:	pwcDllPath [in]		full path of device driver's dll
+		*				devId [in]			the device id inside specific device type.
+		* Return value:	CL_SUCCESS - operation succeeded
+		* Author:		Uri Levy
+		* Date:			December 2008
+		******************************************************************************************/
+		cl_err_code InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDeviceInfo* pFnClDevGetDeviceInfo, unsigned int devId);
+
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// callback functions
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -308,12 +319,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// class private members
 		///////////////////////////////////////////////////////////////////////////////////////////
 
-		Intel::OpenCL::Utils::OclDynamicLib			m_dlModule;
+		Intel::OpenCL::Utils::OclDynamicLib		m_dlModule;
 		// front-end compiler
-		SharedPtr<FrontEndCompiler>						    m_pFrontEndCompiler;
+		SharedPtr<FrontEndCompiler>				m_pFrontEndCompiler;
 
         // Pointer to the device GetInfo function.
-        fn_clDevGetDeviceInfo*	m_pFnClDevGetDeviceInfo;
+        fn_clDevGetDeviceInfo*					m_pFnClDevGetDeviceInfo;
 
         cl_int							        m_iNextClientId;		// hold the next client logger id
 
@@ -323,7 +334,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>	m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
-		IOCLDeviceAgent*	m_pDevice;
+		unsigned int							m_devId;
+
+		IOCLDeviceAgent*						m_pDevice;
 
 		DECLARE_LOGGER_CLIENT;											// device's class logger client
 

@@ -25,7 +25,7 @@ public:
   /// @brief set debug location of I according to SetBy.
   /// @param I instruction whose debug location will be set.
   /// @param setBy instruction from which debug location is gathered.
-  static void SetDebugLocBy(Instruction *I, Instruction *setBy);
+  static void SetDebugLocBy(Instruction *I, const Instruction *setBy);
   
   /// @brief set debug location of I according to SetBy.
   /// @param I instruction whose debug location will be set.
@@ -68,8 +68,8 @@ public:
   /// @param args list of arguments to call the function with
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
-  static Instruction *createFunctionCall(Module *pModule, std::string name,
-    Type *retType, SmallVectorImpl<Value *> &args, Instruction* insertBefore);
+  static CallInst *createFunctionCall(Module *pModule, const std::string &name,
+    Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore);
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast

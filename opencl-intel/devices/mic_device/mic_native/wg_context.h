@@ -30,12 +30,13 @@
 #include <cl_device_api.h>
 #include <cl_dev_backend_api.h>
 #include "native_printf.h"
+#include "hw_exceptions_handler.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-class WGContext
+class WGContext : public WGContextBase
 {
 public:
 	WGContext();
@@ -49,6 +50,7 @@ public:
     void                        InvalidateContext();
 
 	Intel::OpenCL::MICDeviceNative::PrintfHandle* getPrintHandle() { return m_pPrintHandle; };
+    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper& jitExecWapper() { return m_hw_wrapper; }
 
 protected:
 	ICLDevBackendExecutable_*		m_pContext;
@@ -58,6 +60,7 @@ protected:
 	size_t							m_stPrivMemAllocSize;
 
 	PrintfHandle*					m_pPrintHandle;
+    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper m_hw_wrapper;
 } __attribute__((aligned(64))); // Align to cache line size
 
 }}}

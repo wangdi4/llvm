@@ -369,6 +369,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createResolveWICallPass());
     m_localBuffersPass = createLocalBuffersPass(m_kernelsLocalBufferMap, debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
+    // clang converts OCL's local to global. 
+    // createLocalBuffersPass changes the local allocation from global to a kernel argument.
+    // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure 
+    // we will not allocate redundant space on the jit
+    if (debugType != Native)
+      m_modulePasses.add(llvm::createGlobalOptimizerPass());  
   }
 
 #ifdef _DEBUG

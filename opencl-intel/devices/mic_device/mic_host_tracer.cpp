@@ -176,10 +176,11 @@ void HostTracer::prepare_header_host(stringstream& headerStrStream, MICDeviceCon
 	headerStrStream << "COUNTERS}" << endl;
 	headerStrStream << "{CONFIGURATION" << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_USE_AFFINITY" << "\t" << ((config->Device_UseAffinity() == true) ? "TRUE" : "FALSE") << endl;
-	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_NUM_WORKERS" << "\t" << config->Device_NumWorkers() << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE" << "\t" << config->Device_ThreadsPerCore() << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_NUM_CORES" << "\t" << config->Device_NumCores() << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0" << "\t" << ((config->Device_IgnoreCore0() == true) ? "TRUE" : "FALSE") << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE" << "\t" << ((config->Device_IgnoreLastCore() == true) ? "TRUE" : "FALSE") << endl;
-	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_MB" << "\t" << config->Device_2MB_BufferMinSizeInMB() << endl;
+	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB" << "\t" << config->Device_2MB_BufferMinSizeInKB() << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE" << "\t" << config->Device_TbbGrainSize() << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER" << "\t" << config->Device_TbbScheduler() << endl;
 	headerStrStream << "\t" << "CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS" << "\t" << config->Device_TbbTrapWorkers() << endl;

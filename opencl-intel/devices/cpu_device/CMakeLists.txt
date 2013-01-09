@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME cpu_device )
+set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
@@ -44,7 +44,10 @@ link_directories( 	${TBB_LIB_DIR}
 				)
 
 if (WIN32)
-     add_definitions( -D_WINDOWS )
+    add_definitions( -D_WINDOWS )
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_definitions( -DRESOURCE_X64 )
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
 else ()
 	add_definitions( -D_LINUX )
  	message( WARNING " Task Analizer DLLs for Linux are not ready yet" )
@@ -98,7 +101,7 @@ install( TARGETS ${TARGET_NAME}
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
-                                      task_executor 
+                                      task_executor${BUILD_PLATFORM} 
                                       ${LINK_LIBS} )
 									  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
@@ -108,16 +111,16 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008 	
         set_target_properties( ${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
 	    )
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
     else(${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.	
-	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor.dll /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}")
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     

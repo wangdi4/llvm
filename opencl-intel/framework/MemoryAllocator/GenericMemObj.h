@@ -95,10 +95,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent );
+        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
         // release data locking on device. 
-        // MUST pass the same usage value as LockOnDevice
+        // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
 		virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
 		cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
@@ -189,7 +189,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// devSharingGroupId is the destination device that 'this' memory object should move.
 		// usage - the ask usage memory.
 		// return SharedPtr<OclEvent> if during the update, one of the operations was async. otherwise return NULL.
-		cl_err_code updateParent(unsigned int devSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<OclEvent>* pOutEvent);
+		cl_err_code updateParent(unsigned int devSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<OclEvent>& pOutEvent);
 
 		// returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
@@ -223,18 +223,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		inline TSubBufferList* getSubBuffersListPtr() { return  &(getParentMemObj().m_subBuffersList); };
 		
 		// Get m_updateParentList of this hierarchical memory group. (use 'm_updateParentList' only by getting it from this method.)
-		inline TSubBufferList* getUpdateParentListPtr() { return &(getParentMemObj().m_updateParentList); };
+		inline TSubBufferList* getUpdateParentListPtr() { return &(getParentMemObj().m_updateParentStruct.m_updateParentList); };
+
+		// Get m_updateParentInProcessSubBufferList of this hierarchical memory group. (use 'm_updateParentInProcessSubBufferList' only by getting it from this method.)
+		inline TSubBufferList* getSubBuffersInUpdateProcessListPtr() { return &(getParentMemObj().m_updateParentStruct.m_updateParentInProcessSubBufferList); };
+
+		// Get m_eventOfSubBufferInUpdateProcessList of this hierarchical memory group. (use 'm_updateParentInProcessSubBufferList' only by getting it from this method.)
+		inline vector< SharedPtr<OclEvent> >* getEventsOfSubBuffersInUpdateProcessListPtr() { return &(getParentMemObj().m_updateParentStruct.m_eventOfSubBufferInUpdateProcessList); };
+
+		// Get m_parentValidSharingGroupIdDuringUpdate of this hierarchical memory group. (use 'm_updateParentInProcessSubBufferList' only by getting it from this method.)
+		inline unsigned int getParentValidSharingGroupId() { return getParentMemObj().m_updateParentStruct.m_parentValidSharingGroupIdDuringUpdate; };
+		
+		// Set m_parentValidSharingGroupIdDuringUpdate of this hierarchical memory group. (use 'm_updateParentInProcessSubBufferList' only by getting it from this method.)
+		inline void setParentValidSharingGroupId(unsigned int parentValidSharingGroupId) { getParentMemObj().m_updateParentStruct.m_parentValidSharingGroupIdDuringUpdate = parentValidSharingGroupId; };
+			
 
 		/* Set m_updateParentFlag of the parent to 'updateParent' value.
 		   if m_updateParentList of the parent is not empty than call it with 'true' otherwise with 'false' */
 		inline void setUpdateParentFlag(bool updateParent) 
 		{ 
-			assert(getParentMemObj().m_updateParentList.size() > 0 && "If the list is empty than we should not update the parent");
-			getParentMemObj().m_updateParentFlag.exchange(updateParent); 
+			assert(((false == updateParent) || (getParentMemObj().m_updateParentStruct.m_updateParentList.size() > 0)) && "If the list is empty than we should not update the parent");
+			getParentMemObj().m_updateParentStruct.m_updateParentFlag.exchange(updateParent); 
 		};
 
 		// retun the parent memory object.
 		virtual GenericMemObject& getParentMemObj() { return *this; };
+
+		bool isInUse() {return m_data_valid_state.m_groups_with_active_users_count > 0; };
 
     private:
 
@@ -268,12 +283,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 		        {return CL_INVALID_OPERATION;}
 
-            void SetCompletionRequired () { m_completion_required = true; };
-            bool IsCompletionRequired() const { return m_completion_required; };
-
         protected:
 
-            DataCopyEvent(_cl_context_int* context) : OclEvent(context), m_completion_required(false)
+            DataCopyEvent(_cl_context_int* context) : OclEvent(context)
             {
                 SetEventState(EVENT_STATE_HAS_DEPENDENCIES); 
             };
@@ -281,8 +293,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			virtual ~DataCopyEvent() {};
 
 		private:
-
-            bool m_completion_required;
 
 	        // A MemObjectEvent object cannot be copied
 	        DataCopyEvent(const DataCopyEvent&);           // copy constructor
@@ -298,7 +308,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 			PREPARE_SHARED_PTR(DataCopyJointEvent)
 
-			static SharedPtr<DataCopyJointEvent> Allocate(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>* pOutEvent)
+			static SharedPtr<DataCopyJointEvent> Allocate(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>& pOutEvent)
             {
                 return new GenericMemObject::DataCopyJointEvent(context, destDevSharingGroupId, usage, isParent, pMemObj, parentValidGrpId, pOutEvent);
             }
@@ -315,42 +325,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				return m_parentValidGroupId;
 			}
 
-			// Set the updateChildList.
-			inline void setUpdateChildList(const vector<GenericMemObjectSubBuffer*>& updateChildList)
+			// Set the updateChildEventList.
+			inline void setUpdateChildEventList(const vector< SharedPtr<OclEvent> >& updateChildEventList)
 			{
-				assert(m_updateParentList.size() == 0 && "The size of m_updateParentList must be 0 when calling to setUpdateChildList()");
-				m_updateParentList = updateChildList;
+				assert(m_updateParentEventList.size() == 0 && "The size of m_updateParentList must be 0 when calling to setUpdateChildList()");
+				m_updateParentEventList = updateChildEventList;
 			}
 
-			// Get the updateChildList.
-			inline vector<GenericMemObjectSubBuffer*>& getUpdateChildList()
+			// Get the updateChildEventList.
+			inline vector< SharedPtr<OclEvent> >& getUpdateChildEventList()
 			{
-				return m_updateParentList;
+				return m_updateParentEventList;
 			}
 
-			// Clear the content of m_updateParentList
-			inline void resetUpdateChildList()
+			// Clear the content of m_updateParentEventList
+			inline void resetUpdateChildEventList()
 			{
-				m_updateParentList.clear();
-			}
-
-			// Set the zombieBuffersList
-			inline void setZombieBuffersList(const TSubBufferList& zombieBuffersList)
-			{
-				assert(m_zombieBuffersList.size() == 0 && "The size of m_zombieBuffersList must be 0 when calling to setZombieBuffersList()");
-				m_zombieBuffersList = zombieBuffersList;
-			}
-
-			// Get the zombieBuffersList.
-			inline TSubBufferList& getZombieBuffersList()
-			{
-				return m_zombieBuffersList;
-			}
-
-			// Clear the content of m_zombieBuffersList
-			inline void resetZombieBuffersList()
-			{
-				m_zombieBuffersList.clear();
+				m_updateParentEventList.clear();
 			}
 
 			// Set the parentChildList.
@@ -366,15 +357,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				return m_subBuffersList;
 			}
 
-			// call it if the caller shall erase zombies.
-			inline void setEraseZombies()
+			// Set m_hasZombieUpdate to true. (call it if zombie update done)
+			inline void setHasZombieUpdate()
 			{
-				m_eraseZombiesFromParentList = true;
+				m_hasZombieUpdate = true;
 			}
 
-			inline bool isEraseZombies()
+			// Get the m_hasZombieUpdate.
+			inline bool getHasZombieUpdate()
 			{
-				return m_eraseZombiesFromParentList;
+				return m_hasZombieUpdate;
 			}
 
 		protected:
@@ -391,8 +383,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		private:
 
-			DataCopyJointEvent(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>* pOutEvent) : DataCopyEvent(context), 
-				m_destDevSharingGroupId(destDevSharingGroupId), m_memoryUsage(usage), m_isParent(isParent), m_pMemObj(pMemObj), m_parentValidGroupId(parentValidGrpId), m_eraseZombiesFromParentList(false), m_pOutEvent(pOutEvent)
+			DataCopyJointEvent(_cl_context_int* context, unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, GenericMemObject* pMemObj, unsigned int parentValidGrpId, SharedPtr<OclEvent>& pOutEvent) : DataCopyEvent(context), 
+				m_destDevSharingGroupId(destDevSharingGroupId), m_memoryUsage(usage), m_isParent(isParent), m_pMemObj(pMemObj), m_parentValidGroupId(parentValidGrpId), m_hasZombieUpdate(false), m_pOutEvent(pOutEvent)
             {
 			};
 
@@ -410,13 +402,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			GenericMemObject::update_parent_stage	m_nextStage;
 			unsigned int							m_parentValidGroupId;
 
-			bool									m_eraseZombiesFromParentList;
-
-			vector<GenericMemObjectSubBuffer*>		m_updateParentList;
-			TSubBufferList							m_zombieBuffersList;
+			vector< SharedPtr<OclEvent> >			m_updateParentEventList;
 			TSubBufferList							m_subBuffersList;
 
-			SharedPtr<OclEvent>*					m_pOutEvent;
+			bool									m_hasZombieUpdate;
+
+			SharedPtr<OclEvent>  					m_pOutEvent;
 		};
 
         //
@@ -543,20 +534,32 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         };
 
+		struct DataCopyEventWrapper
+		{
+			DataCopyEventWrapper() : ev(NULL), completionReq(false) {};
+			SharedPtr<DataCopyEvent> ev;
+			bool completionReq;
+		};
+
         // FSM machine code, return non-NULL if operation is in-process
         void           data_sharing_set_init_state( bool valid );
-        SharedPtr<DataCopyEvent> data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access );
         // read path
-        SharedPtr<DataCopyEvent> data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred );
-        SharedPtr<DataCopyEvent> drive_copy_between_groups( DataCopyState staring_state, 
+        void data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred, DataCopyEventWrapper* returned_event );
+        void drive_copy_between_groups( DataCopyState staring_state, 
                                                   unsigned int from_grp_id, 
-                                                  unsigned int to_group_id );
+                                                  unsigned int to_group_id,
+												  DataCopyEventWrapper* returned_event);
         void           invalidate_data_for_group( SharingGroup& group );
         void           ensure_single_data_copy( unsigned int group_id );
+
+	protected:
+
+		void data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access, DataCopyEventWrapper* returned_event );
         // FSM utilities
         void           acquire_data_sharing_lock();
-        SharedPtr<OclEvent>      release_data_sharing_lock( SharedPtr<DataCopyEvent> returned_event );
+        SharedPtr<OclEvent>      release_data_sharing_lock( DataCopyEventWrapper* returned_event );
         class          DataSharingAutoLock;
+	private:
 
         DataValidState                      m_data_valid_state;    // overall state - sum of all devices
         OclSpinMutex                        m_global_lock;         // lock for control structures changes
@@ -587,13 +590,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Vector of all my sub-buffers. Use only the parent instance.
 		TSubBufferList										m_subBuffersList;
 
-		// Vector of sub buffers that should update the parent before the next memory object request. Use only the parent instance.
-		TSubBufferList										m_updateParentList;
+		struct update_parent_struct
+		{
+			update_parent_struct() : m_parentValidSharingGroupIdDuringUpdate(MAX_DEVICE_SHARING_GROUP_ID), m_updateParentFlag(0) {};
 
-		AtomicCounter										m_updateParentFlag;
+			// Vector of sub buffers that should update the parent before the next memory object request. Use only the parent instance.
+			TSubBufferList					m_updateParentList;
+
+			// Vector of sub buffers that in update parent process (due to update parent of m_updateParentList or zombies). Use only the parent instance.
+			TSubBufferList					m_updateParentInProcessSubBufferList;
+
+			// Vector of DataCopyEvent(s) for each event that create due to update parent of m_updateParentList or zombies. Use only the parent instance.
+			vector< SharedPtr<OclEvent> >	m_eventOfSubBufferInUpdateProcessList;
+
+			unsigned int					m_parentValidSharingGroupIdDuringUpdate;
+
+			AtomicCounter					m_updateParentFlag;
+		};
+
+		update_parent_struct								m_updateParentStruct;						
 
 		// Mutex for parent buffer / sub-buffers sync. Use only the parent instance.
-		OclSpinMutex										m_buffersSyncLock;
+		OclMutex											m_buffersSyncLock;
 
 		// Call it when new sub-buffer creates.
 		// pSubBuffer is the sub-buffer that created.
@@ -619,7 +637,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void updateHierarchicalMemoryMode();
 
 		/* The UpdateParent pipeline implementation */
-		cl_err_code updateParentInt(unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<DataCopyJointEvent> dataCopyJointEvent, update_parent_stage stage, SharedPtr<OclEvent>* pOutEvent);
+		cl_err_code updateParentInt(unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<DataCopyJointEvent> dataCopyJointEvent, update_parent_stage stage, SharedPtr<OclEvent>& pOutEvent);
 
 		/* If this buffer is valid on preferedDevice than lock on it, otherwise lock on the first device that it valid on, if it is not valid on all devices than lock on 'preferedDevice'.
 		   esume that the LockOnDevice() operation will not sent async operation because the device is alreay on the device.
@@ -639,19 +657,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			}
 		};
 
-		/* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent m_subBuffersList.
-		   Assume that the caller own m_buffersSyncLock mutex*/
-		inline void unlockOnDeviceAndRemoveFromChildList(unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj)
-		{
-			unlockOnDeviceAndRemoveFromListInt(getSubBuffersListPtr(), parentValidSharingGroupId, pMemObj);
-		};
-
 		/* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent list 'parentList'.
 		   Assume that the caller own m_buffersSyncLock mutex*/
 		void unlockOnDeviceAndRemoveFromListInt(TSubBufferList* parentList, unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj);
 
 		/* Return true if m_updateParentFlag != 0 --> if m_updateParentList of the parent is not empty. */
-		inline bool getUpdateParentFlag() { return (0 != (long)(getParentMemObj().m_updateParentFlag));  };
+		inline bool getUpdateParentFlag() { return (0 != (long)(getParentMemObj().m_updateParentStruct.m_updateParentFlag));  };
 	};
 
 	class GenericMemObjectSubBuffer : public GenericMemObject
@@ -691,7 +702,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list by the caller
 		// Overwrite parent implementation.
-		virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent );
+		virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
 		// release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
@@ -717,9 +728,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
         
         const GenericMemObject& m_rBuffer;
-
-		volatile bool m_isZombie;
-
 	};
 
 	class GenericMemObjectBackingStore : public IOCLDevBackingStore

@@ -14,10 +14,11 @@ include "ll_intrinsics.td"
 class Generic : TargetImpl {
 
 include "GENERIC_common.td"
-//include "GENERIC/integer.td"
+include "GENERIC/integer.td"
 //include "GENERIC/common.td"
 //include "GENERIC/conversion.td"
 //include "GENERIC/conversion_sat.td"
 //include "GENERIC/atomic.td"
 include "GENERIC/geometric.td"
+include "GENERIC/misc.td"
 }

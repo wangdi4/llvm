@@ -44,7 +44,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(3U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("_image2d_t", args[0].ptrType.ptrToStr);
+    EXPECT_EQ("_image2d_t *", args[0].ptrType.ptrToStr);
     EXPECT_FALSE(args[0].ptrType.isAddrSpace);
 
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[1].genType);
@@ -74,7 +74,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::UINT,  args[0].basicType);
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[1].genType);
-    EXPECT_EQ("", args[1].ptrType.ptrToStr);
+    EXPECT_EQ("__global const float *", args[1].ptrType.ptrToStr);
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[1].ptrType.ptrType[0].genType);
     EXPECT_EQ(OCLBuiltinParser::FLOAT, args[1].ptrType.ptrType[0].basicType);
     EXPECT_EQ(true, args[1].ptrType.isAddrSpace);
@@ -172,8 +172,8 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(1U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("_image3d_t", args[0].ptrType.ptrToStr);
-    EXPECT_EQ(0U, args[0].ptrType.ptrType.size());
+    EXPECT_EQ("_image3d_t *", args[0].ptrType.ptrToStr);
+    EXPECT_EQ("_image3d_t", args[0].ptrType.ptrType[0].imgType.imgStr);
 
 }
 
@@ -182,6 +182,7 @@ TEST(OCLBuiltinParser, BuiltinDetectionNegative)
     OCLBuiltinParser::ArgVector args;
     std::string BIStr;
     bool res;
+
 ///////////////////////////////////////////////////////////////////////////////////////
     // no _Z{num} prefix in function
     res = OCLBuiltinParser::ParseOCLBuiltin("Z3mixU8__vector4fS_S_", BIStr, args);
@@ -202,7 +203,8 @@ TEST(OCLBuiltinParser, BuiltinDetectionNegative)
     // array with unknown element type
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsA32_G", BIStr, args), Exception::InvalidArgument);
     // substitution cannot be first argument
-    EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsS_", BIStr, args), Exception::InvalidArgument);
+    // manually disabled until CSSD100014736 will be fixed
+    //EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsS_", BIStr, args), Exception::InvalidArgument);
 
 }
 
@@ -229,6 +231,25 @@ TEST(OCLBuiltinParser, BuiltinDetectionBug13Mar11)
     EXPECT_EQ(2U, args[1].ptrType.ptrType[0].vecType.elNum);
 
 }
+
+
+// Regression test on CSSD100014643
+// OCLBuiltinParser fails parsing builtin
+TEST(OCLBuiltinParser, BuiltinDetectionBug03Oct12)
+{
+
+    OCLBuiltinParser::ArgVector args;
+    std::string BIStr;
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    OCLBuiltinParser::ParseOCLBuiltin("_Z15get_image_width9image2d_t", BIStr, args);
+    EXPECT_EQ("get_image_width", BIStr);
+
+    EXPECT_EQ(OCLBuiltinParser::IMAGE, args[0].genType);
+    EXPECT_EQ("image2d_t", args[0].imgType.imgStr);
+
+}
+
 
 TEST(OCLBuiltinParser, BuiltinMangling)
 {

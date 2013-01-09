@@ -187,16 +187,29 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW& sw)const{
 //HardCodedVersionStrategy
 //
 
-void HardCodedVersionStrategy::assumeResponsability(const TableRow& tableRow){
-  size_t index = m_table.size();
-  m_table.push_back(tableRow);
-  for (size_t i=0 ; i<width::OCL_VERSIONS ; ++i)
-    m_rowIndex[tableRow.names[i]] = index;
+void HardCodedVersionStrategy::assumeResponsability(const TableRow* tableRow){
+  for (size_t i=0 ; i<width::OCL_VERSIONS ; ++i) {
+    if (llvm::StringRef(tableRow->names[i]) == INVALID_ENTRY) continue;
+    FuncName2TableRowLookup::iterator it = m_func2row.find(tableRow->names[i]);
+    assert((it == m_func2row.end() || i == 0)
+          //Only the scalar function name can be duplicate. This happens when
+          //there are two rows for the same function: one for scalarizing,
+          //and another for packetizing.
+        && "Unexpected duplicate function name in custom mapping!");
+    if (it != m_func2row.end()) {
+      assert(it->second.size() == 1 && "More than two entries are not allowed");
+      assert(it->second[0]->isScalarizable == !tableRow->isScalarizable &&
+          it->second[0]->isPacketizable == !tableRow->isPacketizable &&
+          "If two rows are defined for same function, one must be for scalarizing and the other for packetizing");
+      it->second.push_back(tableRow);
+    } else
+      m_func2row[tableRow->names[i]] = TableRowList(1, tableRow);
+  }
 }
 
 PairSW HardCodedVersionStrategy::operator()(const PairSW& p)const{
-  llvm::StringMap<int>::const_iterator it = m_rowIndex.find(p.first);
-  if (it == m_rowIndex.end())
+  FuncName2TableRowLookup::const_iterator it = m_func2row.find(p.first);
+  if (it == m_func2row.end())
     return nullPair();
   int tindex;
   width::V w = p.second;
@@ -223,13 +236,17 @@ PairSW HardCodedVersionStrategy::operator()(const PairSW& p)const{
       assert( false && "unreachable code");
       tindex = 0;
   }
-  TableRow versions = m_table[it->second];
-  llvm::StringRef strVersion = versions.names[tindex];
-  if (width::SCALAR == w && p.first != strVersion.str() && !versions.isScalarizable)
-    return nullPair();
-  if (width::SCALAR != w && !versions.isPacketizable)
-    return nullPair();
-  return PairSW(std::make_pair(std::string(versions.names[tindex]), w));
+  const TableRowList &rows = it->second;
+  for (unsigned i=0; i<rows.size(); ++i) {
+    const TableRow *r = rows[i];
+    llvm::StringRef strVersion = r->names[tindex];
+    if (width::SCALAR == w && p.first != strVersion.str() && !r->isScalarizable)
+      continue;
+    if (width::SCALAR != w && !r->isPacketizable)
+      continue;
+    return PairSW(std::make_pair(std::string(r->names[tindex]), w));
+  }
+  return nullPair();
 }
 
 //

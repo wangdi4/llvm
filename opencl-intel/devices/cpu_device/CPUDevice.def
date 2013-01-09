@@ -1,6 +1,6 @@
-LIBRARY	"cpu_device"
 
 EXPORTS
 	clDevCreateDeviceInstance
 	clDevGetDeviceInfo
+	clDevGetAvailableDeviceList
 	clDevErr2Txt

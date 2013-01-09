@@ -3,22 +3,7 @@
 // Purporse of the file GENERIC_common.td is to share code between CPU and MIC
 // during CPU built ins transition to tblgen
 
-  code Prolog = [{
-    #define ALIGN16 __attribute__((aligned(16)))
-    #define ALIGN32 __attribute__((aligned(32)))
-
-    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-    #include <intrin.h>
-    #include "generic-builtin-defines.h"
-    #ifdef __APPLE__
-    #define svmlcc intel_ocl_bicc
-    #endif
-	#ifdef __x86_64__
-	  #include "svml_ia32e.h"
-	#else
-	  #include "svml_ia32.h"
-	#endif
-  }];
+  code Prolog = [{}];
   code Epilog = [{}];
 
   code Expand1 = [{
@@ -44,49 +29,49 @@
   
   code Promote1 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName);
     return $ReturnVarName$Pattern;
   }];
   
   code Promote2 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0; 
-	n$Arg1VarName$Pattern = $Arg1VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
     return $ReturnVarName$Pattern;
   }];
   
    code Promote3 = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0;
-	n$Arg1VarName$Pattern = $Arg1VarName;
-	$NativeArg2Type n$Arg2VarName = ($NativeArg2Type)0; 
-	n$Arg2VarName$Pattern = $Arg2VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
+    $NativeArg2Type n$Arg2VarName = ($NativeArg2Type)0; 
+    n$Arg2VarName$Pattern = $Arg2VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName,n$Arg2VarName);
     return $ReturnVarName$Pattern;
   }];
   
   code Promote1_scalar = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     return $NativeFunc(n$Arg0VarName);
   }];
   
   code Promote2_scalar = [{
     $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)0; 
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeArg1Type n$Arg1VarName = ($NativeArg1Type)0; 
-	n$Arg1VarName$Pattern = $Arg1VarName;
+    n$Arg1VarName$Pattern = $Arg1VarName;
     return $NativeFunc(n$Arg0VarName, n$Arg1VarName);
   }];
 
   code Promote_fract = [{
     $NativeArg0Type n$Arg0VarName;
     $NativeArg0Type p$Arg1VarName;
-	n$Arg0VarName$Pattern = $Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
     $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, &p$Arg1VarName);
     *$Arg1VarName = p$Arg1VarName$Pattern;
     return $ReturnVarName$Pattern;
@@ -149,33 +134,21 @@
   }]>;
 
   // clamp_s. for float and double
-  // NOTE: integer and common BIs has clamp, min, max BIs. 
-  // TODO: when integer ops are implemented in tblgen then add type clamp_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                            v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, 
-                                                            [{
+  // NOTE: integer and common BIs has clamp, min, max BIs.
+  OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, clamp_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     $Arg2VecType vec$Arg2VarName = ($Arg2VecType)$Arg2VarName;
     return $Func($Arg0VarName, vec$Arg1VarName, vec$Arg2VarName);
   }]>;
 
   // max_s
-  // TODO: when integer ops are implemented in tblgen then add type max_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl max_s_generic = OclBuiltinImpl<max_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                        v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, 
-                                                        [{
+  OclBuiltinImpl max_s_generic = OclBuiltinImpl<max_s, max_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }]>;
 
   // min_s
-  // TODO: when integer ops are implemented in tblgen then add type min_s.Types instead of clearly 
-  // specifying float and double vectors. 
-  OclBuiltinImpl min_s_generic = OclBuiltinImpl<min_s, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, 
-                                                        v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0,
-                                                        [{
+  OclBuiltinImpl min_s_generic = OclBuiltinImpl<min_s, min_s.Types, 0, [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }]>;

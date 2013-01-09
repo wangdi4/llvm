@@ -78,7 +78,7 @@ OclBuiltinImpl maxmag_f32_promote = OclBuiltinImpl<maxmag, [v1f32, v2f32, v3f32]
 
 // ceil
 OclBuiltinImpl ceil_f32_impl = OclBuiltinImpl<ceil, [v4f32], 0, [{
-	return _mm_ceil_ps($Arg0VarName);
+    return _mm_ceil_ps($Arg0VarName);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl ceil_f32_promote = OclBuiltinImpl<ceil, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -86,7 +86,7 @@ OclBuiltinImpl ceil_f32_expand = OclBuiltinImpl<ceil, [v8f32, v16f32], 0, Expand
 
 // floor
 OclBuiltinImpl floor_f32_impl = OclBuiltinImpl<floor, [v4f32], 0, [{
-	return _mm_floor_ps($Arg0VarName);
+    return _mm_floor_ps($Arg0VarName);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl floor_f32_promote = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -94,7 +94,7 @@ OclBuiltinImpl floor_f32_expand = OclBuiltinImpl<floor, [v8f32, v16f32], 0, Expa
 
 // trunc
 OclBuiltinImpl trunc_f32_impl = OclBuiltinImpl<trunc, [v4f32], 0, [{
-	return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_ZERO);
+    return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_ZERO);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl trunc_f32_promote = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -102,16 +102,16 @@ OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v8f32, v16f32], 0, Expa
 
 // round
 OclBuiltinImpl round_f32_impl = OclBuiltinImpl<round, [v4f32], 0, [{
-	const int mth_signMask = 0x7FFFFFFF;
-	float4 xAbs = fabs($Arg0VarName);
-	int4 xSign = as_int4($Arg0VarName) & ~mth_signMask;
-	float4 xAbsRounded = _mm_round_ps(xAbs, _MM_FROUND_TO_NEAREST_INT);
-	float4 xDiff = xAbs - xAbsRounded;
-	xDiff = as_float4(xDiff == 0.5f);
-	xDiff = as_float4(as_int4(xDiff) & as_int(1.0f));
-	$Arg0VarName = xAbsRounded + xDiff;
-	$Arg0VarName = as_float4(as_int4($Arg0VarName) | xSign);
-	return $Arg0VarName;
+    const int mth_signMask = 0x7FFFFFFF;
+    float4 xAbs = fabs($Arg0VarName);
+    int4 xSign = as_int4($Arg0VarName) & ~mth_signMask;
+    float4 xAbsRounded = _mm_round_ps(xAbs, _MM_FROUND_TO_NEAREST_INT);
+    float4 xDiff = xAbs - xAbsRounded;
+    xDiff = as_float4(xDiff == 0.5f);
+    xDiff = as_float4(as_int4(xDiff) & as_int(1.0f));
+    $Arg0VarName = xAbsRounded + xDiff;
+    $Arg0VarName = as_float4(as_int4($Arg0VarName) | xSign);
+    return $Arg0VarName;
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl round_f32_promote = OclBuiltinImpl<round, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -119,7 +119,7 @@ OclBuiltinImpl round_f32_expand = OclBuiltinImpl<round, [v8f32, v16f32], 0, Expa
 
 // rint
 OclBuiltinImpl rint_f32_impl = OclBuiltinImpl<rint, [v4f32], 0, [{
-	return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+    return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl rint_f32_promote = OclBuiltinImpl<rint, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -127,8 +127,8 @@ OclBuiltinImpl rint_f32_expand = OclBuiltinImpl<rint, [v8f32, v16f32], 0, Expand
 
 // rsqrt
 OclBuiltinImpl rsqrt_f32_impl = OclBuiltinImpl<rsqrt, [v4f32], 0, [{
-	const float4 temp = _mm_sqrt_ps($Arg0VarName);
-	return 1.0f/temp;
+    const float4 temp = _mm_sqrt_ps($Arg0VarName);
+    return 1.0f/temp;
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl rsqrt_f32_promote = OclBuiltinImpl<rsqrt, [v1f32, v2f32, v3f32], 0, Promote1>;
@@ -221,7 +221,7 @@ OclBuiltinImpl native_sqrt_f32_expand = OclBuiltinImpl<native_sqrt, [v8f32, v16f
 // ceil 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl ceil_f64_impl = OclBuiltinImpl<ceil, [v2f64], 0, [{
-	return _mm_ceil_pd($Arg0VarName);
+    return _mm_ceil_pd($Arg0VarName);
   }]>;
 OclBuiltinImpl ceil_f64_promote = OclBuiltinImpl<ceil, [v1f64], 0, Promote1>;
 OclBuiltinImpl ceil_f64_expand = OclBuiltinImpl<ceil, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -229,7 +229,7 @@ OclBuiltinImpl ceil_f64_expand = OclBuiltinImpl<ceil, [v3f64, v4f64, v8f64, v16f
 // floor 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl floor_f64_impl = OclBuiltinImpl<floor, [v2f64], 0, [{
-	return _mm_floor_pd($Arg0VarName);
+    return _mm_floor_pd($Arg0VarName);
   }]>;
 OclBuiltinImpl floor_f64_promote = OclBuiltinImpl<floor, [v1f64], 0, Promote1>;
 OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -237,7 +237,7 @@ OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v4f64, v8f64, v1
 // trunc 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl trunc_f64_impl = OclBuiltinImpl<trunc, [v2f64], 0, [{
-	return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_ZERO);
+    return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_ZERO);
   }]>;
 OclBuiltinImpl trunc_f64_promote = OclBuiltinImpl<trunc, [v1f64], 0, Promote1>;
 OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -245,16 +245,16 @@ OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v4f64, v8f64, v1
 // round 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl round_f64_impl = OclBuiltinImpl<round, [v2f64], 0, [{
-	const long mth_signMask = 0x7FFFFFFFFFFFFFFF;
-	double2 xAbs = fabs($Arg0VarName);
-	long2 xSign = as_long2($Arg0VarName) & ~mth_signMask;
-	double2 xAbsRounded = _mm_round_pd(xAbs, _MM_FROUND_TO_NEAREST_INT);
-	double2 xDiff = xAbs - xAbsRounded;
-	xDiff = as_double2(xDiff == 0.5);
-	xDiff = as_double2(as_long2(xDiff) & as_long(1.0));
-	$Arg0VarName = xAbsRounded + xDiff;
-	$Arg0VarName = as_double2(as_long2($Arg0VarName) | xSign);
-	return $Arg0VarName;
+    const long mth_signMask = 0x7FFFFFFFFFFFFFFF;
+    double2 xAbs = fabs($Arg0VarName);
+    long2 xSign = as_long2($Arg0VarName) & ~mth_signMask;
+    double2 xAbsRounded = _mm_round_pd(xAbs, _MM_FROUND_TO_NEAREST_INT);
+    double2 xDiff = xAbs - xAbsRounded;
+    xDiff = as_double2(xDiff == 0.5);
+    xDiff = as_double2(as_long2(xDiff) & as_long(1.0));
+    $Arg0VarName = xAbsRounded + xDiff;
+    $Arg0VarName = as_double2(as_long2($Arg0VarName) | xSign);
+    return $Arg0VarName;
   }]>;
 OclBuiltinImpl round_f64_promote = OclBuiltinImpl<round, [v1f64], 0, Promote1>;
 OclBuiltinImpl round_f64_expand = OclBuiltinImpl<round, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -262,7 +262,7 @@ OclBuiltinImpl round_f64_expand = OclBuiltinImpl<round, [v3f64, v4f64, v8f64, v1
 // rint 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl rint_f64_impl = OclBuiltinImpl<rint, [v2f64], 0, [{
-	return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+    return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 OclBuiltinImpl rint_f64_promote = OclBuiltinImpl<rint, [v1f64], 0, Promote1>;
 OclBuiltinImpl rint_f64_expand = OclBuiltinImpl<rint, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -271,7 +271,7 @@ OclBuiltinImpl rint_f64_expand = OclBuiltinImpl<rint, [v3f64, v4f64, v8f64, v16f
 // sqrt 
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl sqrt_f64_impl = OclBuiltinImpl<sqrt, [v2f64], 0, [{
-	return _mm_sqrt_pd($Arg0VarName);
+    return _mm_sqrt_pd($Arg0VarName);
   }]>;
 OclBuiltinImpl sqrt_f64_promote = OclBuiltinImpl<sqrt, [v1f64], 0, Promote1>;
 OclBuiltinImpl sqrt_f64_expand = OclBuiltinImpl<sqrt, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
@@ -307,16 +307,16 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
   // promote f(v3) to v4. common code for float3 and double3
   code Promote1_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName;
-	n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
     return $Func(n$Arg0VarName).s012;
   }];
   
   // promote f(v3, v3) to v4. common code for float3 and double3
   code Promote2_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName;
-	n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
     $Arg1BaseType#4  n$Arg1VarName;
-	n$Arg1VarName.s012 = $Arg1VarName;
+    n$Arg1VarName.s012 = $Arg1VarName;
     $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, n$Arg1VarName);
     return $ReturnVarName.s012;
   }];
@@ -324,11 +324,11 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
   // promote f(v3, v3, v3) to v4. common code for float3 and double3
   code Promote3_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName; 
-	n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
     $Arg1BaseType#4 n$Arg1VarName;
-	n$Arg1VarName.s012 = $Arg1VarName;
+    n$Arg1VarName.s012 = $Arg1VarName;
     $Arg2BaseType#4 n$Arg2VarName; 
-	n$Arg2VarName.s012 = $Arg2VarName;
+    n$Arg2VarName.s012 = $Arg2VarName;
     $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, n$Arg1VarName,n$Arg2VarName);
     return $ReturnVarName.s012;
   }];
@@ -337,7 +337,7 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
   code Promote_2Ptr_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName = ($Arg0BaseType#4)0;
     $Arg1BaseType#4 p$Arg1VarName;
-	n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
     $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, &p$Arg1VarName);
     *$Arg1VarName = p$Arg1VarName.s012;
     return $ReturnVarName.s012;
@@ -348,7 +348,7 @@ OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64
     $Arg0BaseType#4 n$Arg0VarName;
     $Arg1BaseType#4 n$Arg1VarName;
     $Arg2BaseType#4 p$Arg2VarName;
-	n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
     n$Arg1VarName.s012 = $Arg1VarName;
     $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, n$Arg1VarName, &p$Arg2VarName);
     *$Arg2VarName = p$Arg2VarName.s012;

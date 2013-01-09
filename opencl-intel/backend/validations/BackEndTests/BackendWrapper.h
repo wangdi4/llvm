@@ -36,7 +36,11 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 #if defined(_WIN32)
 /// @brief the backend dll file name
-#define CPUBACKEND_DLL_NAME             "OclCpuBackEnd.dll"
+#if defined(_M_X64)
+#define CPUBACKEND_DLL_NAME             "OclCpuBackEnd64.dll"
+#else
+#define CPUBACKEND_DLL_NAME             "OclCpuBackEnd32.dll"
+#endif
 /// @brief the plugin dll file name, in our case its the SamplePlugin
 #define PLUGIN_DLL_NAME                 "OCLSamplePlugin.dll"
 #else

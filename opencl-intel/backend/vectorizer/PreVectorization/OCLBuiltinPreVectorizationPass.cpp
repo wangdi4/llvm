@@ -28,6 +28,9 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
       if (unsigned opWidth = m_runtimeServices->isInlineDot(funcName)) {
         handleInlineDot(CI, opWidth);
         changed = true;
+      } else if (m_runtimeServices->isReturnByPtrBuiltin(funcName)) {
+        handleReturnByPtrBuiltin(CI, funcName);
+        changed = true;
       } else if (m_runtimeServices->isWriteImage(funcName)) {
         handleWriteImage(CI, funcName);
         changed = true;
@@ -40,6 +43,7 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
       }
     }
   }
+
 
   // incase we we replaced some function than we erase these instruction - since DCE fails some times
   // and run DCE for removing Instruction that became dead by rooting
@@ -60,7 +64,7 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
 void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string &funcName) {
   // write image is special case since we need to break the input coordinates 
   // since they are not passed
-  Function *fakeFunc = getOrInsertFakeDeclarationModule(funcName);
+  Function *fakeFunc = getOrInsertFakeDeclarationToModule(funcName);
   if (!fakeFunc) return;
   
   const FunctionType *fakeFuncType = fakeFunc->getFunctionType();
@@ -142,7 +146,7 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
 
 void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, std::string &funcName) {
   // Find (or create) declaration for newly called function
-  Function *fakeFunc = getOrInsertFakeDeclarationModule(funcName);
+  Function *fakeFunc = getOrInsertFakeDeclarationToModule(funcName);
   if (!fakeFunc) return;
   
   V_PRINT(prevectorization, "\nreplacing:    " << *CI << "\nwith:   " << *fakeFunc << "\n");
@@ -176,18 +180,61 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   m_removedInsts.push_back(CI);
 }
 
-Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationModule(std::string &funcName) {
-  std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
-  Function *fakeFuncRT = m_runtimeServices->findInRuntimeModule(fakeFuncName);
-  V_ASSERT(fakeFuncRT && "fake function was not found in RT module!!!");
-  if (!fakeFuncRT) return NULL;
+Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(const std::string &funcName) {
+  std::string MangledFuncName = Mangler::getFakeBuiltinName(funcName);
+  Function *FuncRT = m_runtimeServices->findInRuntimeModule(MangledFuncName);
+  V_ASSERT(FuncRT && "function was not found in RT module!!!");
+  if (!FuncRT) return NULL;
 
-  Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
-	  fakeFuncRT->getFunctionType(), fakeFuncRT->getAttributes());
+  Constant * funcConst = m_curModule->getOrInsertFunction(MangledFuncName,
+	  FuncRT->getFunctionType(), FuncRT->getAttributes());
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);
   V_ASSERT(func && "Function type mismatch, caused a constant expression cast!");
   return func;
+}
+
+void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, const std::string &funcName) {
+  //%sinval = <4 x float> sincos(<4 x float> %arg, <4 x float>* %cos)
+  // --> 
+  //%sincos = [2 x <4 x float>] sincos_retbyarray(<4 x float> %arg)
+  //%sinval = <4 x float> extractvalue %sincos, 0
+  //%extractval1 = <4 x float> extractvalue %sincos, 1
+  //store <4 x float>* %cos, %extractval1
+  V_ASSERT(CI->getNumArgOperands() == 2 && "Function is expected to have exactly two arguments");
+  Value* Op0 = CI->getArgOperand(0);
+  Value* Op1 = CI->getArgOperand(1);
+  const Function* originalFunc = CI->getCalledFunction();
+  V_ASSERT(cast<PointerType>(Op1->getType())->getElementType() == Op0->getType() &&
+      originalFunc->getReturnType() == Op0->getType() &&
+      "Function must be of form: gentype foo(gentype, gentype*)");
+  bool isOriginalFuncRetVector = originalFunc->getReturnType()->isVectorTy();
+  //This function has no implementation it's later replaced by the Packetizer
+  //by a call to a 'real' function.
+  std::string newFuncName = Mangler::getRetByArrayBuiltinName(funcName);
+  SmallVector<Value *, 1> args(1, Op0);
+  Type* retType = isOriginalFuncRetVector ? 
+    static_cast<Type*>(ArrayType::get(originalFunc->getReturnType(), 2)) :
+    static_cast<Type*>(VectorType::get(originalFunc->getReturnType(), 2));
+  SmallVector<Attributes, 4> attrs;
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
+  CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);    
+  V_ASSERT(newCall && "adding function failed");
+  SmallVector<Instruction*, 2> extractVals;
+  for (unsigned i=0; i < 2; ++i) {
+    if (isOriginalFuncRetVector) {
+      SmallVector<unsigned, 1> Idx(1, i);
+      extractVals.push_back(ExtractValueInst::Create(newCall, Idx, newFuncName + "_extract.", CI));
+    } else {
+      Value *constIndex = ConstantInt::get(Type::getInt32Ty(CI->getContext()), i);
+      extractVals.push_back(ExtractElementInst::Create(newCall, constIndex, newFuncName + "_extract.", CI));
+    }
+  }
+  new StoreInst(extractVals[1], Op1, CI);
+  CI->replaceAllUsesWith(extractVals[0]);
+  VectorizerUtils::SetDebugLocBy(extractVals[0], CI);
+  m_removedInsts.push_back(CI);
 }
 
 
