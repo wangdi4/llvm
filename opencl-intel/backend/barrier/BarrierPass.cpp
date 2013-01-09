@@ -2,6 +2,7 @@
  * TODO: add Copyright � 2011, Intel Corporation
  *********************************************************************************************/
 #include "BarrierPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -21,6 +22,8 @@ extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrier
 namespace intel {
 
   char Barrier::ID = 0;
+
+  OCL_INITIALIZE_PASS(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
 
   Barrier::Barrier(bool isNativeDebug = false) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {}
 
@@ -1030,10 +1033,6 @@ namespace intel {
     }
   }
 
-  //Register this pass...
-  static RegisterPass<Barrier> BP("B-Barrier",
-    "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs",
-    false, true);
 
 } // namespace intel
 

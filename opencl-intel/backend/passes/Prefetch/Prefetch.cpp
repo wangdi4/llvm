@@ -11,6 +11,7 @@
 #include "OCLAddressSpace.h"
 
 #include "Prefetch.h"
+#include "OCLPassSupport.h"
 #include <sstream>
 #include <string>
 #include <map>
@@ -20,7 +21,7 @@
 #include <stdio.h>
 #endif // TUNE_PREFETCH
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
 const std::string Prefetch::m_prefetchIntrinsicName = "llvm.x86.mic.prefetch";
 const int Prefetch::L2MissLatency = 512;
@@ -34,7 +35,7 @@ const int Prefetch::defaultTripCount = 16;
 
 const int Prefetch::defaultL1PFType = 1;
 const int Prefetch::defaultL2PFType = 2;
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 STATISTIC(PF_SerialBB, "Counts accesses not concidered for prefetch since their BB has no vector instructions");
 STATISTIC(PF_LargeDiff256, "Counts accesses that were merged although had distance > 256 < 1024");
@@ -48,15 +49,31 @@ static cl::opt<int>
     PFL2Distance("pfl2dist", cl::init(0), cl::Hidden,
                  cl::desc("Number of iterations ahead to prefetch to the L2"));
 static cl::opt<int>
-    PFL1Type("pfl1type", cl::init(Intel::OpenCL::DeviceBackend::Prefetch::defaultL1PFType), cl::Hidden,
+    PFL1Type("pfl1type", cl::init(intel::Prefetch::defaultL1PFType), cl::Hidden,
              cl::desc("Prefetch type (L1). See SDM for details. Negative number disables these prefetches"));
 
 static cl::opt<int>
-    PFL2Type("pfl2type", cl::init(Intel::OpenCL::DeviceBackend::Prefetch::defaultL2PFType), cl::Hidden,
+    PFL2Type("pfl2type", cl::init(intel::Prefetch::defaultL2PFType), cl::Hidden,
              cl::desc("Prefetch type (L2). See SDM for details. Negative number disables these prefetches"));
 
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::DeviceBackend;
+
+namespace intel{
+
+/// Support for dynamic loading of modules under Linux
+char Prefetch::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
+
+Prefetch::Prefetch() : FunctionPass(ID) {
+  //initializePrefetchPass(*PassRegistry::getPassRegistry());
+  init();
+}
 
 void Prefetch::init() {
   const char *val;
@@ -111,7 +128,7 @@ static const SCEV *OffsetOfSCEV(const SCEV *S, ScalarEvolution &SE) {
   // IMPORTANT NOTE: here is the base assumption that the value of Unknown
   // operations is always aligned, or at least, all unknown values have
   // the same alignment
-  if (S->getSCEVType() == scUnknown) 
+  if (S->getSCEVType() == scUnknown)
     return SE.getConstant(IntegerType::get(SE.getContext(), 64), 0);
 
   // Travers operands of expressions of all other types and get their offset
@@ -999,16 +1016,10 @@ bool Prefetch::runOnFunction(Function &F) {
   return modified;
 }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 extern "C" {
 FunctionPass * createPrefetchPass() {
-  return new Intel::OpenCL::DeviceBackend::Prefetch();
+  return new intel::Prefetch();
 }
 }
-
-/// Support for dynamic loading of modules under Linux
-char Intel::OpenCL::DeviceBackend::Prefetch::ID = 0;
-static RegisterPass<Intel::OpenCL::DeviceBackend::Prefetch>
-    CLIPrefetch("prefetch", "Auto Prefetch in Function");
-

@@ -8,6 +8,10 @@ set(INSTTOFUNCCALL_SOURCE_FILES
     InstToFuncCall.cpp
 )
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/passes
+)
+
 add_library(${TARGET_NAME}
     ${INSTTOFUNCCALL_INCLUDE_FILES}
     ${INSTTOFUNCCALL_SOURCE_FILES}

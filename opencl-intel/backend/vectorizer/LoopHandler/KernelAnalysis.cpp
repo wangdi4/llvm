@@ -11,6 +11,7 @@
 #include <string.h>
 #include "llvm/Constants.h"
 #include "LoopUtils.h"
+#include "OCLPassSupport.h"
 
 extern "C" {
   void fillNoBarrierPathSet(const Module *M, std::set<std::string>& noBarrierPath)
@@ -18,7 +19,7 @@ extern "C" {
     noBarrierPath.clear();
     NamedMDNode *noBarrier =M->getNamedMetadata("cl.noBarrierPath.kernels");
     if (!noBarrier) return;
-    assert (noBarrier->getNumOperands() == 1 && 
+    assert (noBarrier->getNumOperands() == 1 &&
         "expected single operand pointing to set of names");
     MDNode *noBarrierNames = noBarrier->getOperand(0);
     for (unsigned i=0; i < noBarrierNames->getNumOperands(); ++i) {
@@ -30,8 +31,12 @@ extern "C" {
   }
 }
 
-char intel::KernelAnalysis::ID = 0;
 namespace intel {
+
+char KernelAnalysis::ID = 0;
+
+OCL_INITIALIZE_PASS(KernelAnalysis, "kernel-analysis", "analyzes which function go in barrier route", false, false)
+
 KernelAnalysis::KernelAnalysis():
 ModulePass(ID)
 {
@@ -61,7 +66,7 @@ bool KernelAnalysis::isUnsupportedDim(Value *v) {
   ConstantInt *constDim = dyn_cast<ConstantInt>(v);
   // If arg is not a constant return true
   if (!constDim) return true;
-  // Also if it is illegal constant 
+  // Also if it is illegal constant
   unsigned dim =  constDim->getValue().getZExtValue();
   if (dim > 2) return true;
   return false;
@@ -91,7 +96,7 @@ void KernelAnalysis::fillKernelCallers() {
     FSet kernelRootSet;
     FSet kernelUsers;
     kernelRootSet.insert(kernel);
-    LoopUtils::fillFuncUsersSet(kernelRootSet, kernelUsers); 
+    LoopUtils::fillFuncUsersSet(kernelRootSet, kernelUsers);
     // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
     // multiple time (because of the WG loop of the calling kernel)
@@ -99,8 +104,8 @@ void KernelAnalysis::fillKernelCallers() {
       m_unsupportedFunc.insert(kernel);
     }
   }
-  
-  // Also can not use explicit loops on kernel callers since the barrier 
+
+  // Also can not use explicit loops on kernel callers since the barrier
   // pass need to handle them in order to process the called kernels.
   FSet kernelSet (m_kernels.begin(), m_kernels.end());
   LoopUtils::fillFuncUsersSet(kernelSet, m_unsupportedFunc);
@@ -111,19 +116,19 @@ bool KernelAnalysis::runOnModule(Module& M) {
   m_unsupportedFunc.clear();
   m_kernels.clear();
   LoopUtils::GetOCLKernel(M, m_kernels);
-  
+
   fillKernelCallers();
   fillBarrierUsersFuncs();
   fillUnsupportedTIDFuncs();
-  
-  
+
+
   NamedMDNode *noBarrier = M.getOrInsertNamedMetadata("cl.noBarrierPath.kernels");
   SmallVector<Value *, 5> Operands;
   for (FVec::iterator fit = m_kernels.begin(), fe = m_kernels.end();
        fit != fe; ++fit) {
     Function *F = *fit;
     if (!F || m_unsupportedFunc.count(F)) continue;
-    
+
     std::string funcName = F->getName();
     Operands.push_back(MDString::get(F->getContext(), funcName));
   }
@@ -133,14 +138,14 @@ bool KernelAnalysis::runOnModule(Module& M) {
 
 void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
   if ( !M ) return;
-  
+
   OS << "\nKernelAnalysis\n";
   std::set<std::string> noBarrierPath;
   fillNoBarrierPathSet(M, noBarrierPath);
   for (unsigned i=0, e = m_kernels.size(); i<e; ++i) {
     Function *F = m_kernels[i];
     if (!F) continue;
-    
+
     std::string funcName = F->getName();
     if (noBarrierPath.count(funcName)) {
       OS << funcName << " yes\n";
@@ -152,12 +157,10 @@ void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
 
 } //namespace intel
 extern "C" ModulePass *createKernelAnalysisPass()
-{ 
+{
   return new intel::KernelAnalysis();
 }
 
-static RegisterPass<intel::KernelAnalysis> barrier_users("kernel-analysis", 
-                          "analyzes which function go in barrier route");
 
 
 

@@ -8,6 +8,10 @@ set(PREVENTDIVCRASHES_SOURCE_FILES
     PreventDivCrashes.cpp
 )
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/passes
+)
+
 add_library(${TARGET_NAME}
     ${PREVENTDIVCRASHES_INCLUDE_FILES}
     ${PREVENTDIVCRASHES_SOURCE_FILES}

@@ -8,6 +8,10 @@ set(RELAXEDPASS_SOURCE_FILES
     RelaxedPass.cpp
 )
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/passes
+)
+
 add_library(${TARGET_NAME}
     ${RELAXEDPASS_INCLUDE_FILES}
     ${RELAXEDPASS_SOURCE_FILES}

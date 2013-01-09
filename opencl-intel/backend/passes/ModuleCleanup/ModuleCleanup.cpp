@@ -27,14 +27,18 @@ File Name:  ModuleCleanup.cpp
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+extern "C"
+{
+    ModulePass* createModuleCleanupPass(SmallVectorImpl<Function*> &vectFunctions)
+    {
+        return new intel::ModuleCleanup(vectFunctions);
+    }
+}
+
+namespace intel{
 
     char ModuleCleanup::ID = 0;
 
-    ModulePass* createModuleCleanupPass(SmallVectorImpl<Function*> &vectFunctions)
-    {
-        return new ModuleCleanup(vectFunctions);
-    }
 
     bool ModuleCleanup::runOnModule(Module& M)
     {
@@ -89,11 +93,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
         for (it = funcUsers.begin(), ie = funcUsers.end(); it != ie; ++it)
         {
             bool isNeeded = isNeededByKernel(*it);
-            if (isNeeded) 
+            if (isNeeded)
             {
                 // Function "func" is needed! Add it to the list
                 m_neededFuncsSet.insert(func);
-                return true; 
+                return true;
             }
         }
 
@@ -129,4 +133,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
         }
     }
 
-}}}
+}

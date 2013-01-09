@@ -3,12 +3,15 @@
  *********************************************************************************************/
 
 #include "SplitBBonBarrierPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 
 namespace intel {
 
   char SplitBBonBarrier::ID = 0;
+
+  OCL_INITIALIZE_PASS(SplitBBonBarrier, "B-SplitOnBarrier", "Barrier Pass - Split Basic Block on Barrier", false, true)
 
   SplitBBonBarrier::SplitBBonBarrier() : ModulePass(ID) {}
 
@@ -39,9 +42,6 @@ namespace intel {
     return true;
   }
 
-  //Register this pass...
-  static RegisterPass<SplitBBonBarrier> SBBB("B-SplitOnBarrier",
-        "Barrier Pass - Split Basic Block on Barrier", false, true);
 
 } // namespace intel
 

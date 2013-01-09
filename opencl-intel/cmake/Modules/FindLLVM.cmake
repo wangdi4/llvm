@@ -83,7 +83,9 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMipo
             LLVMAsmParser
             LLVMArchive
-            LLVMBitReader)
+            LLVMBitReader
+            LLVMMICModuleJIT
+)
            
 if (NOT WIN32)            
         list(APPEND LLVM_MODULE_LIBS
@@ -98,7 +100,6 @@ if( INCLUDE_MIC_DEVICE)
             LLVMY86AsmParser
             LLVMY86CodeGen
             LLVMY86Desc
-            LLVMMICModuleJIT
             LLVMY86AsmPrinter
             LLVMY86Disassembler
             LLVMY86Info
@@ -157,6 +158,7 @@ endif( INCLUDE_MIC_DEVICE)
             LLVMAsmParser
             LLVMArchive
             LLVMBitReader
+            LLVMMICModuleJIT
             )
 if (NOT WIN32)
         list (APPEND LLVM_MODULE_LIBS
@@ -171,7 +173,6 @@ if( INCLUDE_MIC_DEVICE)
             LLVMY86AsmParser
             LLVMY86CodeGen
             LLVMY86Desc
-            LLVMMICModuleJIT
             LLVMY86AsmPrinter
             LLVMY86Disassembler
             LLVMY86Info

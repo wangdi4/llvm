@@ -9,12 +9,16 @@
 #include "llvm/Constants.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
+#include "OCLPassSupport.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
 
 namespace intel {
+/// Support for dynamic loading of modules under Linux
+char intel::ScalarizeFunction::ID = 0;
 
+OCL_INITIALIZE_PASS(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
 ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
@@ -27,7 +31,7 @@ ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
   m_SCMArrays.push_back(m_SCMAllocationArray);
   m_SCMArrayLocation = 0;
-  
+
   V_PRINT(scalarizer, "ScalarizeFunction constructor\n");
 }
 
@@ -85,7 +89,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   {
     Instruction *currInst = &*sI;
     // Move iterator to next instruction BEFORE scalarizing current instruction
-    ++sI; 
+    ++sI;
     dispatchInstructionToScalarize(currInst);
   }
 
@@ -183,7 +187,7 @@ void ScalarizeFunction::dispatchInstructionToScalarize(Instruction *I)
     case Instruction::IntToPtr :
     case Instruction::BitCast :
       scalarizeInstruction(dyn_cast<CastInst>(I));
-      break; 
+      break;
     case Instruction::PHI :
       scalarizeInstruction(dyn_cast<PHINode>(I));
       break;
@@ -244,7 +248,7 @@ void ScalarizeFunction::recoverNonScalarizableInst(Instruction *Inst)
     }
   }
   else
-  {    
+  {
     unsigned numOperands = Inst->getNumOperands();
     for (unsigned i = 0; i < numOperands; i++)
     {
@@ -359,7 +363,7 @@ void ScalarizeFunction::scalarizeInstruction(CastInst *CI)
   V_PRINT(scalarizer, "\t\tCast instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
   VectorType *instType = dyn_cast<VectorType>(CI->getType());
-  
+
   // For BitCast - we only scalarize if src and dst types have same vector length
   if (isa<BitCastInst>(CI)) {
     if (!instType) return recoverNonScalarizableInst(CI);
@@ -493,7 +497,7 @@ void ScalarizeFunction::scalarizeInstruction(SelectInst * SI)
     for (unsigned i = 0; i < numElements; i++) condOp[i] = conditionVal;
   }
 
-  // Generate new (scalar) instructions  
+  // Generate new (scalar) instructions
   Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
   for (unsigned dup = 0; dup < numElements; dup++)
   {
@@ -647,7 +651,7 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
     {
       newVector[i] = allValues[maskValue];
     }
-    else 
+    else
     {
       newVector[i] = undef;
     }
@@ -667,7 +671,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_PRINT(scalarizer, "\t\tCall instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
 
-  // Find corresponding entry in functions hash (in runtimeServices) 
+  // Find corresponding entry in functions hash (in runtimeServices)
   std::string funcName = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
@@ -738,7 +742,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     Value *operand[MAX_INPUT_VECTOR_WIDTH];
 
     // Check if arg has same type for scalar & vector functions (means it shouldn't be scalarized)
-    bool isScalarized = (CI->getArgOperand(argIndex)->getType() != 
+    bool isScalarized = (CI->getArgOperand(argIndex)->getType() !=
       scalarFunction->getFunctionType()->getParamType(argIndex));
 
     if (isScalarized)
@@ -769,7 +773,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     newFuncCalls[dup] = CallInst::Create(scalarFunction,
       ArrayRef<Value*>(newArgs[dup]), CI->getName(), CI);
   }
-  
+
   // Make sure all vector arguments which weren't used as scalarized, still have their
   // original (vector) value intact - or regenerate it if needed
   for (SmallPtrSet<Value*, 2>::iterator iter = nonScalarizedVectors.begin();
@@ -1023,7 +1027,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     Value *operand0[MAX_INPUT_VECTOR_WIDTH];
     bool opIsConst;
     obtainScalarizedValues(operand0, &opIsConst, SI->getOperand(indexData), SI);
-  
+
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
     Value *operandBase = BitCastInst::CreatePointerCast(operand1->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", SI);
     Type * indexType = operand1->getOperand(1)->getType();
@@ -1051,12 +1055,12 @@ void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(Call
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");
-  const FunctionType* ScalarFunctionType = 
+  const FunctionType* ScalarFunctionType =
       CI->getCalledFunction()->getFunctionType();
-    
+
   // running over all params checking if parameter should be marked soa
   unsigned numScalarArgs = ScalarFunctionType->getNumParams();
-  for (unsigned scalarArgInd=0; scalarArgInd < numScalarArgs; ++scalarArgInd){ 
+  for (unsigned scalarArgInd=0; scalarArgInd < numScalarArgs; ++scalarArgInd){
     Value* curScalarParam = CI->getArgOperand(scalarArgInd);
     if (curScalarParam->getType()->isVectorTy())
     {
@@ -1067,7 +1071,7 @@ void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(Call
 
   // handling case when return type is vector
   Type* scalarizeRetType = ScalarFunctionType->getReturnType();
-  if (scalarizeRetType->isVectorTy()){ 
+  if (scalarizeRetType->isVectorTy()){
     handleScalarRetVector(CI);
   }
 }
@@ -1090,7 +1094,7 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
 
   unsigned numElements = cast<VectorType>(callerInst->getType())->getNumElements();
   SmallVector<Value*, 16> newExtractInsts;
-  // Break result vector into scalars. 
+  // Break result vector into scalars.
   Instruction* nextInst = ++BasicBlock::iterator(clone);
   for (unsigned i = 0; i < numElements; i++)
   {
@@ -1146,12 +1150,12 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
                                                Value *origValue, Instruction *origInst)
 {
   V_PRINT(scalarizer, "\t\t\tObtaining scalar value... " << *origValue << "\n");
-  
+
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
 
   VectorType *origType = dyn_cast<VectorType>(origValue->getType());
   V_ASSERT((origType || isSoaAlloca) && "All non SoaAlloca derived values must have a vector type!");
-  unsigned width = isSoaAlloca ? 
+  unsigned width = isSoaAlloca ?
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
     origType->getNumElements();
 
@@ -1169,7 +1173,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
   if (currEntry && (NULL != currEntry->scalarValues[0]))
   {
     // Value was found in SCM
-    V_PRINT(scalarizer, 
+    V_PRINT(scalarizer,
         "\t\t\tFound existing entry in lookup of " << origValue->getName() << "\n");
     for (unsigned i = 0; i < width; i++)
     {
@@ -1221,7 +1225,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
   }
   else
   {
-    V_PRINT(scalarizer, 
+    V_PRINT(scalarizer,
         "\t\t\tCreating scalar conversion for " << origValue->getName() << "\n");
     // Value is an Instruction/global/function argument, and was not converted to scalars yet.
     // Create scalar values (break down the vector) and place in SCM:
@@ -1270,7 +1274,7 @@ void ScalarizeFunction::resolveVectorValues()
   for (; it !=e ; ++it){
     obtainVectorValueWhichMightBeScalarizedImpl(*it);
   }
-}  
+}
 
 void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vectorVal)
 {
@@ -1310,7 +1314,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
     VectorizerUtils::SetDebugLocBy(insert, vectorInst);
     assembledVector = insert;
     V_STAT(m_transposeCtr[((InsertElementInst*)assembledVector)->getOpcode()]++;)
-    V_PRINT(scalarizer, 
+    V_PRINT(scalarizer,
         "\t\t\tCreated vector assembly inst:" << *assembledVector << "\n");
   }
   // Replace the uses of "vectorVal" with the new vector
@@ -1347,7 +1351,7 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
 ScalarizeFunction::SCMEntry *ScalarizeFunction::getSCMEntry(Value *origValue)
 {
   // origValue may be scalar or vector:
-  // When the actual returned value of the CALL inst is different from the The "proper" retval 
+  // When the actual returned value of the CALL inst is different from the The "proper" retval
   // the original CALL inst value may be scalar (i.e. int2 is converted to double which is a scalar)
   V_ASSERT(!isa<UndefValue>(origValue) && "Trying to create SCM to undef value...");
   if (m_SCM.count(origValue)) return m_SCM[origValue];
@@ -1379,11 +1383,11 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
                                                  const Value *origValue,
                                                  bool isOrigValueRemoved,
                                                  bool matchDbgLoc)
-{  
+{
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
   V_ASSERT((origValue->getType()->isArrayTy() ||  origValue->getType()->isVectorTy() || isSoaAlloca) &&
     "only SoaAlloca derived or Vector values are supported");
-  unsigned width = isSoaAlloca ? 
+  unsigned width = isSoaAlloca ?
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
     dyn_cast<VectorType>(origValue->getType())->getNumElements();
 
@@ -1394,10 +1398,10 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
     V_ASSERT(NULL != scalarValues[i] && "Trying to fill SCM with NULL value");
     entry->scalarValues[i] = scalarValues[i];
   }
-  
-  if (matchDbgLoc) 
+
+  if (matchDbgLoc)
   {
-    if (const Instruction *origInst = dyn_cast<Instruction>(origValue)) 
+    if (const Instruction *origInst = dyn_cast<Instruction>(origValue))
     {
       for (unsigned i = 0; i < width; ++i)
       {
@@ -1435,7 +1439,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
   for (unsigned index = 0; index < m_DRL.size(); ++index)
   {
     DRLEntry current = m_DRL[index];
-    V_PRINT(scalarizer, 
+    V_PRINT(scalarizer,
         "\tDRL Going to fix value of orig inst: " << *current.unresolvedInst << "\n");
     Instruction *vectorInst = dyn_cast<Instruction>(current.unresolvedInst);
     V_ASSERT(vectorInst && "DRL only handles unresolved instructions");
@@ -1443,7 +1447,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
     bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(vectorInst);
     VectorType *currType = dyn_cast<VectorType>(vectorInst->getType());
     V_ASSERT((currType || isSoaAlloca) && "Cannot have DRL of non-vector value that is non SoaAlloca derived value");
-    unsigned width = isSoaAlloca ? 
+    unsigned width = isSoaAlloca ?
       m_soaAllocaAnalysis->getSoaAllocaVectorWidth(vectorInst) :
       currType->getNumElements();
 
@@ -1457,9 +1461,9 @@ void ScalarizeFunction::resolveDeferredInstructions()
 
       // This instruction was not scalarized. Create scalar values and place in SCM.
       //   %scalar0 = extractelement <4 x Type> %vector, i32 0
-      //   %scalar1 = extractelement <4 x Type> %vector, i32 1 
+      //   %scalar1 = extractelement <4 x Type> %vector, i32 1
       //   %scalar2 = extractelement <4 x Type> %vector, i32 2
-      //   %scalar3 = extractelement <4 x Type> %vector, i32 3 
+      //   %scalar3 = extractelement <4 x Type> %vector, i32 3
       // Place the vector break-down instructions right after the actual vector
       BasicBlock::iterator insertLocation(vectorInst);
       ++insertLocation;
@@ -1470,7 +1474,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
 
       for (unsigned i = 0; i < width; i++)
       {
-        Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);      
+        Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
         Instruction *EE = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
         VectorizerUtils::SetDebugLocBy(EE, vectorInst);
         newInsts[i] = EE;
@@ -1512,7 +1516,4 @@ extern "C" {
   }
 }
 
-/// Support for dynamic loading of modules under Linux
-char intel::ScalarizeFunction::ID = 0;
-static RegisterPass<intel::ScalarizeFunction> SCALARIZER("scalarize", "Scalarize functions");
 

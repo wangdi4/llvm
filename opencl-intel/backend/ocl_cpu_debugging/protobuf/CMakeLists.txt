@@ -48,8 +48,6 @@ src/google/protobuf/io/zero_copy_stream.cc
 src/google/protobuf/io/zero_copy_stream_impl.cc
 src/google/protobuf/io/zero_copy_stream_impl_lite.cc)
 
-message(STATUS "Protobuf sources: ${TARGET_SOURCE_FILES}")
-
 SET_UNICODE_ON()
 
 # add a target named ${TARGET_NAME}

@@ -19,10 +19,14 @@ File Name:  SimplifyGEP.cpp
 #include "SimplifyGEP.h"
 #include "VectorizerUtils.h"
 #include "llvm/Support/InstIterator.h"
-
+#include "OCLPassSupport.h"
 #include <vector>
 
 namespace intel {
+
+char SimplifyGEP::ID = 0;
+
+OCL_INITIALIZE_PASS(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
@@ -153,7 +157,7 @@ namespace intel {
       // Now remove old PhiNode, as we replaced all its uses
       pPhiNode->eraseFromParent();
     }
-    
+
     return true;
   }
 
@@ -224,7 +228,7 @@ namespace intel {
         for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
           Value *index = pGEP->getOperand(i);
           if (newIndex) {
-            Instruction *addIndex = 
+            Instruction *addIndex =
               BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
             VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
             newIndex = addIndex;
@@ -241,7 +245,7 @@ namespace intel {
         // Add last Index
         Value *index = pGEP->getOperand(pGEP->getNumOperands()-1);
         if (newIndex) {
-          Instruction *addIndex = 
+          Instruction *addIndex =
               BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
           VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
           newIndex = addIndex;
@@ -316,7 +320,7 @@ namespace intel {
     // Supported simplifying PhiNode should apply the following:
     //   1. Has only two entries
     //   2. Its value is a pointer type
-    //   3. One of its value should be a Gep instruction with the PhiNode as its base 
+    //   3. One of its value should be a Gep instruction with the PhiNode as its base
     //   4. The Gep instruction should have one index
     //   5. The Gep instruction should have one usage (the PhiNode itself)
     // This is not a supported case for simplifying PhiNode.
@@ -340,7 +344,4 @@ extern "C" {
   }
 }
 
-char intel::SimplifyGEP::ID = 0;
-static RegisterPass<intel::SimplifyGEP>
-CLISimplifyGEP("SimplifyGEP", "SimplifyGEP simplify GEP instructions");
 

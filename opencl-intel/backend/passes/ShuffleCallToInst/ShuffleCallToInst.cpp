@@ -17,6 +17,7 @@ File Name:  ShuffleCallToInst.cpp
 \*****************************************************************************/
 
 #include "ShuffleCallToInst.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Constants.h"
@@ -26,15 +27,17 @@ File Name:  ShuffleCallToInst.cpp
 extern "C" {
     /// @brief Creates new ShuffleCallToInst pass
     void* createShuffleCallToInstPass() {
-        return new Intel::OpenCL::DeviceBackend::ShuffleCallToInst();
+        return new intel::ShuffleCallToInst();
     }
 }
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
     using namespace llvm;
 
     /// @brief Pass identification, replacement for typeid
     char ShuffleCallToInst::ID = 0;
+
+    OCL_INITIALIZE_PASS(ShuffleCallToInst, "shuffle-call-to-inst", "Replace calls to shuffle functions that has const mask with LLVM shuffle instruction", false, false)
 
 
     /// @brief  LLVM Function pass entry
@@ -157,8 +160,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         return NOT_SHUFFLE;
     }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 
-/// Register pass for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::ShuffleCallToInst> ShuffleCallToInstPass("shuffle-call-to-inst", "Replace calls to shuffle functions that has const mask with LLVM shuffle instruction.");

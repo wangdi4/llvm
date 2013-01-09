@@ -3,6 +3,7 @@
  *********************************************************************************************/
 
 #include "DataPerInternalFunctionPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
@@ -12,6 +13,8 @@
 namespace intel {
   char DataPerInternalFunction::ID = 0;
   unsigned int DataPerInternalFunction::m_badOffset = (unsigned int)(-1);
+
+  OCL_INITIALIZE_PASS(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
 
   DataPerInternalFunction::DataPerInternalFunction() : ModulePass(ID) {}
 
@@ -184,9 +187,6 @@ namespace intel {
     OS << "DONE\n";
   }
 
-  //Register this pass...
-  static RegisterPass<DataPerInternalFunction> DPV("B-FunctionAnalysis",
-    "Barrier Pass - Collect Data per Internal Function", false, true);
 
 
 } // namespace intel

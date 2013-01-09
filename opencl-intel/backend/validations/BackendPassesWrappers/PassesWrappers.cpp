@@ -17,6 +17,7 @@ File Name:  PassesWrappers.cpp
 \*****************************************************************************/
 
 #include "ImplicitArgsUtils.h"
+#include "OCLPassSupport.h"
 
 #include "ModuleCleanup.h"
 #include "AddImplicitArgs.h"
@@ -32,7 +33,7 @@ File Name:  PassesWrappers.cpp
 ///        so the wrappers hide the original pass constructor and provide a constructor
 ///        with no arguments for opt.
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
     /// @brief PassesWrappersSupporter, initiate the variables that are needed by
     ///        the passes classes
@@ -100,39 +101,41 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         static char ID;
     };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+char intel::ModuleCleanupWrapper::ID = 0;
+char intel::AddImplicitArgsWrapper::ID = 0;
+char intel::LocalBuffersWrapper::ID = 0;
+char intel::LocalBuffersWithDebugWrapper::ID = 0;
 
-char Intel::OpenCL::DeviceBackend::ModuleCleanupWrapper::ID = 0;
-char Intel::OpenCL::DeviceBackend::AddImplicitArgsWrapper::ID = 0;
-char Intel::OpenCL::DeviceBackend::LocalBuffersWrapper::ID = 0;
-char Intel::OpenCL::DeviceBackend::LocalBuffersWithDebugWrapper::ID = 0;
+OCL_INITIALIZE_PASS(ModuleCleanupWrapper, "module-cleanup", "Cleans OpenCL module: removes functions which are not kernels (or called by kernels)", false, false)
+OCL_INITIALIZE_PASS(AddImplicitArgsWrapper, "add-implicit-args", "Adds the implicit arguments to signature of all functions of the module (that are defined inside the module)", false, false)
+OCL_INITIALIZE_PASS(LocalBuffersWrapper, "local-buffers", "Resolves the internal local variables and map them to local buffer", false, false)
+OCL_INITIALIZE_PASS(LocalBuffersWithDebugWrapper, "local-buffers-debug", "Resolves the internal local variables and map them to local buffer, in debugger mode", false, false)
+
+
+} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
 
 
 // Create functions for use in opt
 extern "C" {
     void* createModuleCleanupWrapper()
     {
-        return new Intel::OpenCL::DeviceBackend::ModuleCleanupWrapper();
+        return new intel::ModuleCleanupWrapper();
     }
 
     void* createAddImplicitArgsWrapper()
     {
-        return new Intel::OpenCL::DeviceBackend::AddImplicitArgsWrapper();
+        return new intel::AddImplicitArgsWrapper();
     }
 
     void* createLocalBuffersWrapper()
     {
-        return new Intel::OpenCL::DeviceBackend::LocalBuffersWrapper();
+        return new intel::LocalBuffersWrapper();
     }
 
     void* createLocalBuffersWithDebugWrapper()
     {
-        return new Intel::OpenCL::DeviceBackend::LocalBuffersWithDebugWrapper();
+        return new intel::LocalBuffersWithDebugWrapper();
     }
 }
 
-// Register passes for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::ModuleCleanupWrapper>         ModuleCleanupPass("module-cleanup", "Cleans OpenCL module: removes functions which are not kernels (or called by kernels).");
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::AddImplicitArgsWrapper>       AddImplicitArgsPass("add-implicit-args", "Adds the implicit arguments to signature of all functions of the module (that are defined inside the module)");
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::LocalBuffersWrapper>          LocalBuffersPass("local-buffers", "Resolves the internal local variables and map them to local buffer");
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::LocalBuffersWithDebugWrapper> LocalBuffersWithDebugPass("local-buffers-debug", "Resolves the internal local variables and map them to local buffer, in debugger mode");

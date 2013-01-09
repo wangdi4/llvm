@@ -24,11 +24,22 @@ File Name:  AddImplicitArgs.cpp
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-extern "C" int getVectorizerFunctions(Pass *V, SmallVectorImpl<Function*> &Functions);
+extern "C"{
+  int getVectorizerFunctions(Pass *V, SmallVectorImpl<Function*> &Functions);
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
   /// @brief Creates new AddImplicitArgs module pass
-  /// @returns new AddImplicitArgs module pass  
+  /// @returns new AddImplicitArgs module pass
+  ModulePass* createAddImplicitArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
+    return new intel::AddImplicitArgs(vectFunctions);
+  }
+
+}
+
+using namespace Intel::OpenCL::DeviceBackend;
+
+namespace intel{
+  /// @brief Creates new AddImplicitArgs module pass
+  /// @returns new AddImplicitArgs module pass
   ModulePass* createAddImplicitArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
     return new AddImplicitArgs(vectFunctions);
   }
@@ -75,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         runOnFunction(pFunc, isAKernel);
     }
 
-    
+
     // Update vectorized functions with the new functions
     for ( unsigned int i=0; i < m_pVectFunctions->size(); ++i  ) {
       // Check if this function is a vectorized function
@@ -85,7 +96,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           (*m_pVectFunctions)[i] = m_oldToNewFunctionMap[pVecFunc];
       }
     }
-    
+
 
     // Go over all call instructions that need to be changed
     // and add implicit arguments to them
@@ -135,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   Function* AddImplicitArgs::runOnFunction(Function *pFunc, bool isAKernel) {
 
-    unsigned int directLocalSize = 
+    unsigned int directLocalSize =
       (unsigned int) m_localBuffersAnalysis->getDirectLocalsSize(pFunc);
 
     std::vector<llvm::Type *> newArgsVec;
@@ -148,7 +159,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
     // Add implicit arguments to the signature
-    
+
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 3));
@@ -249,12 +260,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         pCallArgs[7] = pSpecialBuf;
         pCallArgs[8] = pCurrWI;
 
-        // Memory leak in here. Who deletes this ? Seriously! 
+        // Memory leak in here. Who deletes this ? Seriously!
         m_fixupCalls[pCall] = pCallArgs;
 
       }
     }
-    
+
     std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
     for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end();
        it != e; ++it) {
@@ -268,14 +279,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       {
         arguments.push_back(CI->getArgOperand(i));
       }
-      
+
       // Push undefs for new arguments
       unsigned int numOriginalParams = CI->getNumArgOperands();
       for (unsigned i = numOriginalParams; i < numOriginalParams + CompilationUtils::NUMBER_IMPLICIT_ARGS; ++i) {
         arguments.push_back(UndefValue::get(newArgsVec[i]));
       }
-        
-      // Replace the original function with a call 
+
+      // Replace the original function with a call
       CallInst* pNewCall = CallInst::Create(pNewF, ArrayRef<Value*>(arguments), "", CI);
 
       // Copy debug metadata to new function if available
@@ -284,12 +295,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
 
       // Update CI in the m_fixupCalls, now the map needs to have only the newly created call
-      if (m_fixupCalls.count(CI) > 0) {        
+      if (m_fixupCalls.count(CI) > 0) {
         Value **pCallArgs = m_fixupCalls[CI];
         m_fixupCalls.erase(CI);
         m_fixupCalls[pNewCall] = pCallArgs;
       }
-      
+
       CI->replaceAllUsesWith(pNewCall);
       // Need to erase from parent to make sure there are no uses for the called function when we delete it
       CI->eraseFromParent();
@@ -304,7 +315,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     pFunc->deleteBody();
 
     // Map original function to new function
-    
+
     m_oldToNewFunctionMap[pFunc] = pNewF;
 
     for ( Value::use_iterator UI = pNewF->use_begin(),
@@ -325,7 +336,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     for(;MDIter != EndMDIter; MDIter++)
     {
       for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++)
-      { 
+      {
         // Replace metadata with metada containing information about the wrapper
         MDNode* pMetadata = MDIter->getOperand(ui);
         std::set<MDNode *> visited;
@@ -351,7 +362,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         elem = pMetadata->getOperand(i);
         if (m_pFunc == dyn_cast<Function>(elem))
           elem = m_pNewF;
-      }  
+      }
       values.push_back(elem);
     }
     MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
@@ -364,7 +375,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Detect size_t size
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
     /*
-      struct sLocalId 
+      struct sLocalId
       {
         size_t  Id[MAX_WORK_DIM];
       };
@@ -400,4 +411,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

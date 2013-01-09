@@ -13,8 +13,6 @@ link_directories(
     ${LLVM_LIBRARY_DIR}
 )
 
-message(STATUS "NameManglingTests link directories: ${LLVM_LIBRARY_DIR}")
-
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   COMMAND ocl-tblgen -gen-ocl-biheader 

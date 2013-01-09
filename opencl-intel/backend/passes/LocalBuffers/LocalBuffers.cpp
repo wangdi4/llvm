@@ -27,22 +27,18 @@ File Name:  LocalBuffers.cpp
 #endif
 #include "llvm/Target/TargetData.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+extern "C"
+{
+  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
+    return new intel::LocalBuffers(isNativeDBG);
+  }
+
+}
+
+namespace intel{
 
   char LocalBuffers::ID = 0;
 
-  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
-    return new LocalBuffers(isNativeDBG);
-  }
-
-  void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, TLLVMKernelInfo>& infoMap) {
-    LocalBuffers *pKU = static_cast<LocalBuffers*>(pPass);
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
-    }
-  }
 
   bool LocalBuffers::runOnModule(Module &M) {
 
@@ -326,7 +322,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Getting the implicit arguments
     Argument *pLocalMem = 0;
 
-    CompilationUtils::getImplicitArgs(pFunc, &pLocalMem, NULL, NULL,
+    Intel::OpenCL::DeviceBackend::CompilationUtils::getImplicitArgs(pFunc, &pLocalMem, NULL, NULL,
       NULL, NULL, NULL, NULL, NULL, NULL);
 
     // Apple LLVM-IR workaround
@@ -377,4 +373,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+  void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>& infoMap) {
+    intel::LocalBuffers *pKU = static_cast<intel::LocalBuffers*>(pPass);
+
+    infoMap.clear();
+    if ( NULL != pKU ) {
+      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
+    }
+  }
+} // namespace intel
