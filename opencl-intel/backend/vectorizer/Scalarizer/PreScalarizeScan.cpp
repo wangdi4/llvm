@@ -1,5 +1,5 @@
 /*********************************************************************************************
- * Copyright © 2010, Intel Corporation
+ * Copyright ï¿½ 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
@@ -112,7 +112,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     if (SFRT->isVectorTy()) {
       //Sort usages (which are assumed to be all extractvalue's) by index
       
-      rets.resize(SFRT->getNumElements());
+      rets.resize(cast<VectorType>(SFRT)->getNumElements());
       for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui!=ue;
           ++ui) {
         unsigned idx = cast<ExtractValueInst>(*ui)->getIndices()[0];
