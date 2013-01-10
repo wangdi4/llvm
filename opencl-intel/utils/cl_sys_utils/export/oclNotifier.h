@@ -16,6 +16,12 @@ typedef struct CommandData {
 	Intel::OpenCL::Utils::AtomicCounter refCounter; //holds the number of callbacks that will use this struct
 } CommandData;
 
+//a struct to help send function parameters in a more elegant way 
+typedef struct OclParameters {
+	list< pair< string,string > > parameters; //name and value
+} OclParameters;
+
+#define ADD_PARAMETER(params, par) params.parameters.push_back(make_pair(#par, stringify(par)))
 // an abstract class that one can implement and register in order to get callbacks 
 class oclNotifier
 {
@@ -88,21 +94,6 @@ public:
 	//virtual void KernelSetArg (cl_kernel /* kernel */)=0;
 
 	/* Command Callbacks */
-
-// 	virtual void CommandEnqueue(cl_command_queue /* queue */ , void* /* pCommand */,cl_command_type /* commandType */, const char* /* commandName */, void** /* oclObjectArray */, cl_uint /* numObjects */)=0;
-// 
-// 	virtual inline void CommandEnqueue(cl_command_queue queue, void* pCommand, cl_command_type commandType, const char* commandName, void* oclObject1, void* oclObject2) {
-// 		void* objects[] = {oclObject1,oclObject2};
-// 		CommandEnqueue(queue, pCommand, commandType, commandName, objects,2);
-// 	}
-// 
-// 	virtual inline void CommandEnqueue(cl_command_queue queue, void* pCommand, cl_command_type commandType, const char* commandName, void* oclObject) {
-// 		void* objects[] = {oclObject};
-// 		CommandEnqueue(queue, pCommand, commandType, commandName, objects,1);
-// 	}
-// 	virtual void CommandRunning(void* /* pCommand */)=0;
-// 
-// 	virtual void CommandComplete(void* /* pCommand */, cl_int /* CompletionResult */)=0;
 	
 	virtual void CommandCallBack(cl_event event, cl_int event_command_exec_status, CommandData *data)=0;
 	/* generic Callbacks */
@@ -110,6 +101,8 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
 
 	virtual void ObjectRetain( const void* obj)=0;
+
+	virtual void TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -217,12 +210,6 @@ public:
 
 	/* Command Callbacks */
 
-// 	virtual void CommandEnqueue(cl_command_queue /* queue */ , void* /* pCommand */,cl_command_type /* commandType */, const char* /* commandName */, void** /* oclObjectArray */, cl_uint /* numObjects */);
-// 
-// 	virtual void CommandRunning(void* /* pCommand */);
-// 
-// 	virtual void CommandComplete(void* /* pCommand */, cl_int /* CompletionResult */);
-
 	virtual void CommandCallBack(cl_event event, cl_int event_command_exec_status, CommandData *data);
 
 	/* generic Callbacks */
@@ -230,6 +217,8 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
 
 	virtual void ObjectRetain( const void* obj);
+
+	virtual void TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters);
 
 	virtual ~NotifierCollection();
 private:

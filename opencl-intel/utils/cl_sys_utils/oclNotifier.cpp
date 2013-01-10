@@ -288,6 +288,11 @@ void NotifierCollection::ObjectRetain( const void* obj){
 	NOTIFY(ObjectRetain, obj);	
 }
 
+void NotifierCollection::TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters){
+	CHECK_FOR_NULL(call);
+	NOTIFY(TraceCall, call, errcode_ret, parameters);
+}
+
 //used in order to make the supermarket principal work
 #define IF_EMPTY_RETURN if (notifiers.empty()) return
 
