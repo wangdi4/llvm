@@ -62,7 +62,7 @@ extern "C" void hw_cpuid( struct CPUID_PARAMS *);
 }
 #endif
 
-#if defined(_M_X64) || defined(__LP64__)
+#if defined(_M_X64) || defined(__LP64__) || defined(__APPLE__)
 
 #if defined(_M_X64)
   #pragma pack (1)
