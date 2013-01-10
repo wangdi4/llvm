@@ -21,8 +21,8 @@
 #pragma once
 
 #include <cassert>
-#include <vector>
 #include <set>
+#include <map>
 #include "tbb/task_scheduler_observer.h"
 #include "tbb/task_arena.h"
 #include "cl_device_api.h"
@@ -113,11 +113,10 @@ public:
     virtual void on_scheduler_exit(bool bIsWorker);
 
 private:
-    static const unsigned int ILLEGAL_CORE = (unsigned int)(-1);
 
     Intel::OpenCL::Utils::OclMutex m_mutex;
-    std::vector<unsigned int> m_legalCores;  // use m_legalCores as a stack
-    std::vector<unsigned int> m_slots2Cores; // use vectors and not arrays to avoid extra memory allocations overhead
+    std::set<unsigned int> m_legalCores;
+    std::map<int, unsigned int> m_slots2Cores;
     IAffinityChangeObserver& m_observer;    
 };
 

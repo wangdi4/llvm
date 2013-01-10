@@ -41,10 +41,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
            Calculate it once (Thread safe) */
         uint32_t getEngineCount();
 
-        /* Return the number of cores on the device. */
-        cl_uint getNumOfCores(uint32_t deviceId);
-
-        /* Return the number of parallel hw threads on the device.
+        /* Return the number of parallel compute cores on the device.
            If failed return 1 (According to OpenCL 1.1 spec the minimum value is 1)*/
         cl_uint getNumOfComputeUnits(uint32_t deviceId);
 

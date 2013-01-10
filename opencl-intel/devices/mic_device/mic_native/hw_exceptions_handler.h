@@ -38,14 +38,8 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
     {
     public:
         // object is required only for JIT wrapping
-        HWExceptionsWrapper(TlsAccessor* tlsAccessor = NULL) : m_bInside_JIT(false), m_is_attached(false)
-        {
-            thread_init( tlsAccessor );
-        }
-        ~HWExceptionsWrapper() { thread_fini( NULL ); }
-
-        void thread_init( TlsAccessor* tlsAccessor );
-        void thread_fini( TlsAccessor* tlsAccessor );
+        HWExceptionsWrapper(TlsAccessor* tlsAccessor);
+        ~HWExceptionsWrapper();
         
         // wrap JIT code execution
         cl_dev_err_code Execute( ICLDevBackendExecutable_* code, 
@@ -55,19 +49,14 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
 
         // setup global HW exception handling in a process
         // Convert all exceptions into std::runtime_error C++ exceptions
-        static void Init( void ) { setup_signals( true ); }
-        static void Fini( void ) { setup_signals( false ); }
+        static void Init( void );
 
     private:
+		TlsAccessor* m_pTlsAccessor;
         sigjmp_buf setjump_buffer;
         bool       m_bInside_JIT;
-        bool       m_is_attached;
 
         static void catch_signal(int signum, siginfo_t *siginfo, void *context);
-        static void setup_signals( bool install );
-
-        static volatile bool g_finished;
-        static int  g_sigs[];
         
     };
 

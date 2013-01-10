@@ -174,7 +174,7 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
     m_pJITAllocator = NULL;
 
     void* pCallBack = NULL;
-    size_t size = sizeof(pCallBack);
+    size_t size = 0;
     if(NULL != pBackendOptions && 
        pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pCallBack, &size))
     {

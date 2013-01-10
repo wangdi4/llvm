@@ -483,7 +483,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
-    UINT32  viCPUInfo[4] = {-1};
+    int     viCPUInfo[4] = {-1};
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)

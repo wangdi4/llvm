@@ -33,15 +33,13 @@
 #include <string>
 
 #include "pragmas.h"
-#include "cl_synch_objects.h"
-#include "thread_local_storage.h"
+#include "native_synch_objects.h"
 #include "program_memory_manager.h"
 #include "mic_device_interface.h"
 #include "cl_dev_backend_api.h"
 #include "native_printf.h"
 #include "ICLDevBackendSerializationService.h"
 
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::UtilsNative;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::MICDevice;
@@ -160,7 +158,7 @@ private:
 
     BackendInterfaces              m_BE_Executor;
 
-    OclMutex                       m_muProgMap;
+    OclMutexNative                 m_muProgMap;
     TProgId2Map                    m_ProgId2Map;
 
 

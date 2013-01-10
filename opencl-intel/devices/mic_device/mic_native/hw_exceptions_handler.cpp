@@ -38,25 +38,13 @@
 #include "native_globals.h"
 
 using namespace Intel::OpenCL::MICDevice;
-using namespace Intel::OpenCL::MICDeviceNative;
+
+namespace Intel { namespace OpenCL { namespace MICDeviceNative {
+
 using namespace Intel::OpenCL::UtilsNative;
-
-int HWExceptionsWrapper::g_sigs[] = { 
-    /*SIGFPE,*/  // for some reason (?) STL containers throw this HW exception that is handled internally
-    /*SIGBUS,*/  // triggered by unalined data access (+some other cases, relevant to drivers and OS)
-    SIGILL,      // invalid operation only
-    SIGSEGV      // segmentation fault only
-};
-
-volatile bool HWExceptionsWrapper::g_finished = false;
 
 void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *context)
 {
-    if (g_finished)
-    {
-        return;
-    }
-    
     psiginfo(siginfo, "*** OPENCL MIC DEVICE HW EXCEPTION ***");fflush(stderr);
     //psignal( signum, " ");
 
@@ -92,77 +80,53 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
 }
 
 
-void HWExceptionsWrapper::setup_signals( bool install )
+void HWExceptionsWrapper::Init( void )
 {   
     //
     // Setup Linux signal handlers
     //
     
-    struct sigaction sig_setup;    
+    int sigs[] = { 
+                    /*SIGFPE,*/  // for some reason (?) STL containers throw this HW exception that is handled internally
+                    /*SIGBUS,*/  // triggered by unalined data access (+some other cases, relevant to drivers and OS)
+                    SIGILL,      // invalid operation only
+                    SIGSEGV      // segmentation fault only
+                  };
 
-    if (install)
-    {
-        sig_setup.sa_sigaction = catch_signal;
-        sig_setup.sa_flags = SA_NODEFER|SA_SIGINFO;
-    }
-    else
-    {
-        sig_setup.sa_handler = SIG_DFL;
-        sig_setup.sa_flags   = SA_RESETHAND;
-    }
+    struct sigaction sig_setup;    
+    sig_setup.sa_sigaction = catch_signal;
+    sig_setup.sa_flags = SA_NODEFER|SA_SIGINFO;
     sigemptyset(&sig_setup.sa_mask); 
 
-    for (unsigned int i = 0; i < sizeof(g_sigs)/sizeof(g_sigs[0]); ++i)
+    for (unsigned int i = 0; i < sizeof(sigs)/sizeof(sigs[0]); ++i)
     {
-        if (0 != sigaction( g_sigs[i], &sig_setup, NULL ))
+        if (0 != sigaction( sigs[i], &sig_setup, NULL ))
         {
-            NATIVE_PRINTF("Cannot establish HW exception handler for %s\n", sys_siglist[g_sigs[i]]);
+            NATIVE_PRINTF("Cannot establish HW exception handler for %s\n", sys_siglist[sigs[i]]);
         }
-    }
-
-    if (!install)
-    {
-        g_finished = true;
     }
 }
 
-void HWExceptionsWrapper::thread_init( TlsAccessor* tlsAccessor )
+HWExceptionsWrapper::HWExceptionsWrapper(TlsAccessor* tlsAccessor) : m_pTlsAccessor(tlsAccessor), m_bInside_JIT(false)
 {
 	if (!gMicExecEnvOptions.kernel_safe_mode)
 	{
 		return;
 	}
 
-    if (NULL != tlsAccessor)
-    {
-        NDrangeTls ndRangeTls(tlsAccessor);
-        ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, this );   
-        m_is_attached = true;
-    }
+	NDrangeTls ndRangeTls(m_pTlsAccessor);
+    ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, this );
 }
 
-void HWExceptionsWrapper::thread_fini( TlsAccessor* tlsAccessor )
+HWExceptionsWrapper::~HWExceptionsWrapper()
 {
 	if (!gMicExecEnvOptions.kernel_safe_mode)
 	{
 		return;
 	}
 
-    if (m_is_attached)
-    {
-        if (NULL != tlsAccessor)
-        {
-            NDrangeTls ndRangeTls(tlsAccessor);
-            ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
-        }
-        else
-        {
-            TlsAccessor tls;
-            NDrangeTls ndRangeTls(&tls);
-            ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
-        }
-        m_is_attached = false;
-    }
+    NDrangeTls ndRangeTls(m_pTlsAccessor);
+    ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
 }
 
 cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code, 
@@ -196,3 +160,4 @@ cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code,
 	return return_code;
 }
 
+}}};

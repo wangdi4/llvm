@@ -25,8 +25,6 @@
 #include "cl_sys_info.h"
 #include "cl_shared_ptr.hpp"
 
-#define SPARE_TBB_SLOTS 2
-
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 using namespace Intel::OpenCL::Utils;
@@ -89,22 +87,14 @@ bool DevArenaObserver::on_scheduler_leaving()
 }
 
 // SubdevArenaObserver's methods:
+
 SubdevArenaObserver::SubdevArenaObserver(tbb::task_arena& arena, TBBTaskExecutor& taskExecutor, const unsigned int* pLegalCores, size_t szNumlegalCores, IAffinityChangeObserver& observer) :
 	DevArenaObserver(arena, taskExecutor), m_observer(observer)
 {
-    m_legalCores.reserve( szNumlegalCores );
     for (size_t i = 0; i < szNumlegalCores; i++)
     {
-        m_legalCores.push_back(pLegalCores[i]);
+        m_legalCores.insert(pLegalCores[i]);
     }	
-
-    // TBB does not allow single-slot arenas, so allocate with some spare slots
-    unsigned int nSlots = szNumlegalCores + SPARE_TBB_SLOTS;
-    m_slots2Cores.resize( nSlots );
-    for (unsigned int i = 0; i < nSlots; ++i)
-    {
-        m_slots2Cores[i] = ILLEGAL_CORE;
-    }
 }
 
 void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
@@ -118,16 +108,15 @@ void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
     {
         const int iCurSlot = tbb::task_arena::current_slot();
         assert(iCurSlot >= 0);
-        unsigned int uiCoreId;
-        {
+		
+		unsigned int uiCoreId;
+		{
 			OclAutoMutex mutex(&m_mutex);
-            assert(m_legalCores.size() > 0);
-            uiCoreId = m_legalCores.back();
-            m_legalCores.pop_back();
-            assert(m_slots2Cores.size() > (size_t)iCurSlot);
-            assert(m_slots2Cores[iCurSlot] == ILLEGAL_CORE);
-            m_slots2Cores[iCurSlot] = uiCoreId;
-        }
+			assert(m_legalCores.size() > 0);
+			uiCoreId = *m_legalCores.begin();
+			m_legalCores.erase(uiCoreId);
+			m_slots2Cores[iCurSlot] = uiCoreId;
+		}
         m_observer.NotifyAffinity(iCurSlot, uiCoreId);
     }
 }
@@ -142,11 +131,11 @@ void SubdevArenaObserver::on_scheduler_exit(bool bIsWorker)
     if (bIsWorker)
     {
         const int iCurSlot = tbb::task_arena::current_slot();
+
         OclAutoMutex autoMutex(&m_mutex);
-        assert(m_slots2Cores.size() > (size_t)iCurSlot);
-        assert(m_slots2Cores[iCurSlot] != ILLEGAL_CORE);
-        m_legalCores.push_back(m_slots2Cores[iCurSlot]);
-        m_slots2Cores[iCurSlot] = ILLEGAL_CORE;
+        assert(m_slots2Cores.find(iCurSlot) != m_slots2Cores.end());
+        m_legalCores.insert(m_slots2Cores[iCurSlot]);
+        m_slots2Cores.erase(iCurSlot);
     }
 }
 
@@ -238,7 +227,7 @@ SubdevArenaHandler::SubdevArenaHandler(unsigned int uiNumSubdevComputeUnits, uns
     IAffinityChangeObserver& observer) :
     ArenaHandler(uiNumSubdevComputeUnits, uiNumTotalComputeUnits, taskExecutor), m_subdevArenaObserver(m_arena, taskExecutor, pLegalCores, uiNumSubdevComputeUnits, observer)
 {    
-    m_pInternalCmdList = in_order_command_list::Allocate(&taskExecutor, *this);
+    m_pInternalCmdList = in_order_command_list::Allocate(true, &taskExecutor, *this);
     Init(&m_subdevArenaObserver);
 }
 

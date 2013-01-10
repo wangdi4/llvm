@@ -95,7 +95,7 @@ NDrangeTls::NDrangeTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccesso
 {
 }
 
-ExecutorTls::ExecutorTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::EXECUTOR) 
+TbbTls::TbbTls(TlsAccessor* tlsAccessor) : TlsGeneralAccessor(tlsAccessor, TlsAccessor::TBB) 
 {
 }
 

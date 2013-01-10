@@ -8,29 +8,40 @@
 
 #include "native_buffer_commands.h"
 #include "mic_device_interface.h"
-#include "cl_shared_ptr.hpp"
 
 using namespace std;
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
-FillMemObjTask::FillMemObjTask( const QueueOnDevice& queue ) : TaskHandler(queue), 
-    m_pFillMemObjDispatcherData(NULL), m_fillBufPtr(NULL)
+extern void execute_command(uint32_t					in_BufferCount,
+							 void**						in_ppBufferPointers,
+							 uint64_t*					in_pBufferLengths,
+							 void*						in_pMiscData,
+							 uint16_t					in_MiscDataLength,
+							 void*						in_pReturnValue,
+							 uint16_t					in_ReturnValueLength,
+							 TaskHandler::TASK_TYPES	taskType);
+
+
+FillMemObjTask::FillMemObjTask() : m_pFillMemObjDispatcherData(NULL), m_fillBufPtr(NULL)
 {
 }
 
-bool FillMemObjTask::InitTask()
+cl_dev_err_code FillMemObjTask::init(TaskHandler* pTaskHandler)
 {
+	assert(pTaskHandler);
+
+	m_pCommandTracer = &(pTaskHandler->m_commandTracer);
 	// Set total buffers size and num of buffers for the tracer.
-	commandTracer().add_delta_num_of_buffer_sent_to_device(m_lockBufferCount);
+	m_pCommandTracer->add_delta_num_of_buffer_sent_to_device((pTaskHandler->m_lockBufferCount));
 	unsigned long long bufSize = 0;
-	for (unsigned int i = 0; i < m_lockBufferCount; i++)
+	for (unsigned int i = 0; i < pTaskHandler->m_lockBufferCount; i++)
 	{
-		bufSize = m_lockBufferLengths[i];
-		commandTracer().add_delta_buffers_size_sent_to_device(bufSize);
+		bufSize = pTaskHandler->m_lockBufferLengths[i];
+		m_pCommandTracer->add_delta_buffers_size_sent_to_device(bufSize);
 	}
 
-	m_pFillMemObjDispatcherData = (fill_mem_obj_dispatcher_data*)m_dispatcherData;
+	m_pFillMemObjDispatcherData = (fill_mem_obj_dispatcher_data*)(pTaskHandler->m_dispatcherData);
 	assert(m_pFillMemObjDispatcherData);
 	// According to the implementation only one preExeDirective should be. it suppose to be BUFFER directive
 	assert(m_pFillMemObjDispatcherData->preExeDirectivesCount == 1);
@@ -39,16 +50,16 @@ bool FillMemObjTask::InitTask()
 	assert(preExeDirective.id == BUFFER);
 	// According to the implementation the buffer should be in index 0
 	assert(preExeDirective.bufferDirective.bufferIndex == 0);
-	assert(preExeDirective.bufferDirective.bufferIndex < m_lockBufferCount);
+	assert(preExeDirective.bufferDirective.bufferIndex < pTaskHandler->m_lockBufferCount);
 	// Get the pointer of the buffer we like to fill
-	m_fillBufPtr = (char*)(m_lockBufferPointers[preExeDirective.bufferDirective.bufferIndex]);
+	m_fillBufPtr = (char*)(pTaskHandler->m_lockBufferPointers[preExeDirective.bufferDirective.bufferIndex]);
 
-	return true;
+	return CL_DEV_SUCCESS;
 }
 
-void FillMemObjTask::FinishTask()
+void FillMemObjTask::finish(TaskHandler* pTaskHandler)
 {
-	fill_mem_obj_dispatcher_data* pDispatcherData = (fill_mem_obj_dispatcher_data*)(m_dispatcherData);
+	fill_mem_obj_dispatcher_data* pDispatcherData = (fill_mem_obj_dispatcher_data*)(pTaskHandler->m_dispatcherData);
 	assert(pDispatcherData);
 	COIEVENT completionBarrier;
 	bool findBarrier = false;
@@ -65,38 +76,72 @@ void FillMemObjTask::FinishTask()
 		completionBarrier = postExeDirective.barrierDirective.barrier;
 	}
 	// Last command, Do NOT call any method of this object after it perform.
-	queue().FinishTask(this, completionBarrier, findBarrier);
+	pTaskHandler->FinishTask(completionBarrier, findBarrier);
 }
 
-bool FillMemObjTask::Execute()
+
+TBBFillMemObjTask::TBBFillMemObjTask() : FillMemObjTask(), TBBTaskInterface(), m_pTaskExecutor(NULL)
 {
-    queue().SignalTaskStart( this );
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-    
+}
+
+cl_dev_err_code TBBFillMemObjTask::init(TaskHandler* pTaskHandler)
+{
+	// Call my parent (FillMemObjTask init() method)
+	cl_dev_err_code result = FillMemObjTask::init(pTaskHandler);
+	if (CL_DEV_FAILED(result))
+	{
+		m_pTaskExecutor = NULL;
+		return result;
+	}
+
+	// According to TBB documentation "Always allocate memory for task objects using special overloaded new operators (11.3.2) provided by the library, otherwise the results are undefined.
+	// Destruction of a task is normally implicit. (When "execute()" method completes)
+	m_pTaskExecutor = new (tbb::task::allocate_root()) TBBFillMemObjExecutor(this, pTaskHandler);
+	assert(m_pTaskExecutor);
+	if (NULL == m_pTaskExecutor)
+	{
+		pTaskHandler->setTaskError( CL_DEV_OUT_OF_MEMORY );
+		finish(pTaskHandler);
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	return CL_DEV_SUCCESS;
+}
+
+void TBBFillMemObjTask::run()
+{
+	// Call explicitly to 'tbb::task::execute()'
+	m_pTaskExecutor->execute();
+	// In case of calling 'execute()' explicitly We should destroy the tbb::task explicitly also.
+	tbb::task::destroy(*m_pTaskExecutor);
+	m_pTaskExecutor = NULL;
+}
+
+TBBFillMemObjTask::TBBFillMemObjExecutor::TBBFillMemObjExecutor(TBBFillMemObjTask* pTbbFillMemObjTask, TaskHandler* pTaskHandler) : m_pTbbFillMemObjTask(pTbbFillMemObjTask), m_taskHandler(pTaskHandler)
+{
+}
+
+tbb::task* TBBFillMemObjTask::TBBFillMemObjExecutor::execute()
+{
 	// Copy the arrived dispatcher data to memFillInfo which contain the fill mem info. 
 	fill_mem_obj_dispatcher_data memFillInfo;
-	memcpy(&memFillInfo, m_pFillMemObjDispatcherData, sizeof(fill_mem_obj_dispatcher_data));
+	memcpy(&memFillInfo, m_pTbbFillMemObjTask->m_pFillMemObjDispatcherData, sizeof(fill_mem_obj_dispatcher_data));
 	// Represent the current pattern
 	chunk_struct pattern;
 	pattern.fromPtr = memFillInfo.pattern;
 	pattern.size = memFillInfo.pattern_size;
 	// Represent the lastChunk that didn't fill yet. (The ptr and its size)
 	chunk_struct lastChunk;
-	lastChunk.fromPtr = m_fillBufPtr + memFillInfo.from_offset;
+	lastChunk.fromPtr = m_pTbbFillMemObjTask->m_fillBufPtr + memFillInfo.from_offset;
 	lastChunk.size = 0;
 
-	executeInternal(m_fillBufPtr, &memFillInfo, &lastChunk, &pattern);
+	executeInternal(m_pTbbFillMemObjTask->m_fillBufPtr, &memFillInfo, &lastChunk, &pattern);
 	// Call to fill the last chunk.
 	copyPatternOnContRegion(&lastChunk, &pattern);
-
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-
-    FinishTask();
-    return true;
+	return NULL;
 }
 
-
-void FillMemObjTask::copyPatternOnContRegion(chunk_struct* chunk, chunk_struct* pattern)
+void TBBFillMemObjTask::TBBFillMemObjExecutor::copyPatternOnContRegion(chunk_struct* chunk, chunk_struct* pattern)
 {
 	assert(pattern->size <= chunk->size);
 	assert((chunk->size % pattern->size) == 0);
@@ -110,7 +155,7 @@ void FillMemObjTask::copyPatternOnContRegion(chunk_struct* chunk, chunk_struct* 
 	}
 }
 
-void FillMemObjTask::executeInternal(char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, chunk_struct* lastChunk, chunk_struct* pattern)
+void TBBFillMemObjTask::TBBFillMemObjExecutor::executeInternal(char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, chunk_struct* lastChunk, chunk_struct* pattern)
 {
 	// Leaf
 	if (pMemFillInfo->dim_count == 1)
@@ -154,8 +199,5 @@ void fill_mem_object(uint32_t         in_BufferCount,
 					 void*            in_pReturnValue,
 					 uint16_t         in_ReturnValueLength)
 {
-	QueueOnDevice::execute_command( in_BufferCount, in_ppBufferPointers, in_pBufferLengths, 
-                                    in_pMiscData, in_MiscDataLength, 
-                                    in_pReturnValue, in_ReturnValueLength, 
-                                    FILL_MEM_OBJ_TYPE );
+	execute_command(in_BufferCount, in_ppBufferPointers, in_pBufferLengths, in_pMiscData, in_MiscDataLength, in_pReturnValue, in_ReturnValueLength, TaskHandler::FILL_MEM_OBJ_TYPE);
 }
