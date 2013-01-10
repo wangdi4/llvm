@@ -1,10 +1,10 @@
-set(TARGET oclopt)
+set(TARGET_NAME oclopt)
 
 include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
 
 link_directories(${LLVM_LIBRARY_DIR})
 
-add_executable(${TARGET}
+add_executable(${TARGET_NAME}
     ocl_opt.cpp
 )
 
@@ -29,9 +29,17 @@ set(OCL_BE_PASSES_DEPS
     BackendPassesWrappers
 )
 
-target_link_libraries(${TARGET}
+target_link_libraries(${TARGET_NAME}
     ${OCL_BE_PASSES}
     ${OCL_BE_PASSES_DEPS}
-    ${LLVM_MODULE_LIBS}
     optEngine
+    ${LLVM_MODULE_LIBS}
 )
+
+if( NOT WIN32)
+    target_link_libraries(${TARGET_NAME}
+#        pthread
+        dl
+    )
+endif ()
+

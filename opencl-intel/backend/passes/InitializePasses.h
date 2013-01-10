@@ -8,10 +8,11 @@
 #ifndef OCL_INITIALIZEPASSES_H
 #define OCL_INITIALIZEPASSES_H
 
+namespace llvm {
+    class PassRegistry;
+}
+
 namespace intel {
-
-class llvm::PassRegistry;
-
 void initializePhiCanonPass(llvm::PassRegistry&);
 void initializePredicatorPass(llvm::PassRegistry&);
 void initializeWIAnalysisPass(llvm::PassRegistry&);
@@ -48,7 +49,6 @@ void initializeLocalBuffersWithDebugWrapperPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
 void initializeShiftZeroUpperBitsPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
-
 }
 
 #endif
