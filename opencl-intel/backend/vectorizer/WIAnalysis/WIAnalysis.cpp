@@ -6,12 +6,17 @@
 #include "llvm/Constants.h"
 #include "Functions.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 namespace intel {
 
 char WIAnalysis::ID = 0;
 
-OCL_INITIALIZE_PASS(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
+OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
+
+
 
 static cl::opt<bool>
 PrintWiaCheck("print-wia-check", cl::init(false), cl::Hidden,
@@ -78,6 +83,13 @@ gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* STR */  {RND, RND, RND, RND, RND},
   /* RND */  {RND, RND, RND, RND, RND}
 };
+
+WIAnalysis::WIAnalysis() : FunctionPass(ID) {
+    initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+    m_rtServices = RuntimeServices::get();
+    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+}
+
 
 bool WIAnalysis::runOnFunction(Function &F) {
 

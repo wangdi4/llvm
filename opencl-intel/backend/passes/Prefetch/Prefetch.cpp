@@ -12,6 +12,7 @@
 
 #include "Prefetch.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include <sstream>
 #include <string>
 #include <map>
@@ -68,10 +69,12 @@ OCL_INITIALIZE_PASS_BEGIN(Prefetch, "prefetch", "Auto Prefetch in Function", fal
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
+
 Prefetch::Prefetch() : FunctionPass(ID) {
-  //initializePrefetchPass(*PassRegistry::getPassRegistry());
+  initializePrefetchPass(*PassRegistry::getPassRegistry());
   init();
 }
 

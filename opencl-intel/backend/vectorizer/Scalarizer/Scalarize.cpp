@@ -10,6 +10,7 @@
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
@@ -18,10 +19,14 @@ namespace intel {
 /// Support for dynamic loading of modules under Linux
 char intel::ScalarizeFunction::ID = 0;
 
-OCL_INITIALIZE_PASS(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
+OCL_INITIALIZE_PASS_BEGIN(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
 ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
+  initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
+
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
   m_rtServices = RuntimeServices::get();

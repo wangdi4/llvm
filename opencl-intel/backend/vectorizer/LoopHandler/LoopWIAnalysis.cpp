@@ -7,11 +7,16 @@
 #include "LoopUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
+namespace intel {
 
 char intel::LoopWIAnalysis::ID = 0;
 
-namespace intel {
+OCL_INITIALIZE_PASS_BEGIN(LoopWIAnalysis, "LoopWIAnalysis", "LoopWIAnalysis provides work item dependency info for loops", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_END(LoopWIAnalysis, "LoopWIAnalysis", "LoopWIAnalysis provides work item dependency info for loops", false, false)
 
 const unsigned int LoopWIAnalysis::MinIndexBitwidthToPreserve = 16;
 
@@ -37,25 +42,30 @@ mul_conversion[LoopWIAnalysis::NumDeps][LoopWIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND}
 };
 
+
+LoopWIAnalysis::LoopWIAnalysis():LoopPass(ID){
+  initializeLoopWIAnalysisPass(*PassRegistry::getPassRegistry());
+};
+
 LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   if (m_deps.count(val)) return m_deps[val];
-  // We go throgh instruction inside the loops according to Dominator Tree 
+  // We go throgh instruction inside the loops according to Dominator Tree
   // Thus the only value that were not encounterd before should be invariant
   // or instruction computed inside sub-loops.
   bool isInvariant = m_curLoop->isLoopInvariant(val);
-  assert((isInvariant || (isa<Instruction>(val) 
+  assert((isInvariant || (isa<Instruction>(val)
      && LoopUtils::inSubLoop(m_curLoop, cast<Instruction>(val))))
     && "non invariant value with no dep");
-  
+
   // We dont assume anything on values computed in sub-loops.
   if (!isInvariant) return LoopWIAnalysis::RANDOM;
-  
+
   // Non - vectors invariant are considered uniform.
   if (!val->getType()->isVectorTy()) {
     m_deps[val] = LoopWIAnalysis::UNIFORM;
     return LoopWIAnalysis::UNIFORM;
   }
-  
+
   // Vectors are considered uniform only if all the elements are the same.
   ValDependancy res = LoopWIAnalysis::RANDOM;
   if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(val)) {
@@ -113,7 +123,7 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     // Initiate the phi with random, if it is found to be strided it will
     // be updated in the following lines of code.
     m_deps[PN] = LoopWIAnalysis::RANDOM;
-    
+
     // Currently support only scalar phi in the header block.
     if (PN->getType()->isVectorTy()) continue;
 
@@ -129,7 +139,7 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     Value *op0 = Inc->getOperand(0);
     Value *op1 = Inc->getOperand(1);
     // isLoopInvariant means that the operand is either not an instruction
-    // or it is an instruction outside of the loop. Note that we assume 
+    // or it is an instruction outside of the loop. Note that we assume
     // LICM ran before.
     if (op0 == PN && m_curLoop->isLoopInvariant(op1)) {
       stride = op1;
@@ -185,7 +195,7 @@ bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
   const ConstantVector *CV = dyn_cast<ConstantVector>(v);
   if (!CV) return false;
 
-  assert(isa<VectorType>(CV->getType()) && 
+  assert(isa<VectorType>(CV->getType()) &&
                     "constant vector should have vector type");
   VectorType *vTy = cast<VectorType>(CV->getType());
   // Case not vector int type return false.
@@ -211,18 +221,18 @@ bool LoopWIAnalysis::isSequentialVector(Instruction *I) {
   if (!vTy) return false;
 
   // Pattern of of creation sequential ids is addition of constant <0, 1, 2 ,..>
-  // with broadcast using shuffle. 
+  // with broadcast using shuffle.
   Value *op0 = I->getOperand(0);
   Value *op1 = I->getOperand(1);
   ShuffleVectorInst *SVI = NULL;
   if (isConsecutiveConstVector(op0)) {
-    SVI = dyn_cast<ShuffleVectorInst>(op1);  
+    SVI = dyn_cast<ShuffleVectorInst>(op1);
   } else if (isConsecutiveConstVector(op1)) {
     SVI = dyn_cast<ShuffleVectorInst>(op0);
   }
   if (!SVI || !isBroadcast(SVI)) return false;
 
-  // We further demand that the shuffle is broadcast of strided value with 
+  // We further demand that the shuffle is broadcast of strided value with
   // the same width of the vector.
   unsigned maskVal = SVI->getMaskValue(0);
   InsertElementInst *IEI = dyn_cast<InsertElementInst>(SVI->getOperand(0));
@@ -254,7 +264,7 @@ void LoopWIAnalysis::ScanLoop(DomTreeNode *N) {
   // We don't analyze instruction in sub-loops.
   if (!LoopUtils::inSubLoop(m_curLoop, BB)) {
     // Avoid analyzing original header phi nodes thar were already analyzed.
-    BasicBlock::iterator I = BB == m_header ? 
+    BasicBlock::iterator I = BB == m_header ?
                   (BasicBlock::iterator)BB->getFirstNonPHI() : BB->begin();
     for (BasicBlock::iterator E = BB->end(); I != E; I++) calculate_dep(I);
   }
@@ -305,7 +315,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::calculate_dep(CastInst *CI) {
   return LoopWIAnalysis::RANDOM;
 }
 
-LoopWIAnalysis::ValDependancy 
+LoopWIAnalysis::ValDependancy
 LoopWIAnalysis::calculate_dep(BinaryOperator* BO) {
   // Special treatment for generation of sequential index.
   if (BO->getOpcode() == Instruction::Add && isSequentialVector(BO)) {
@@ -321,7 +331,7 @@ LoopWIAnalysis::calculate_dep(BinaryOperator* BO) {
 
   switch (BO->getOpcode()) {
     case Instruction::Add:
-    case Instruction::FAdd: { 
+    case Instruction::FAdd: {
       if (dep0 == LoopWIAnalysis::STRIDED && dep1 == LoopWIAnalysis::UNIFORM) {
         updateConstStride(BO, op0);
       } else if (dep1 == LoopWIAnalysis::STRIDED && dep0 == LoopWIAnalysis::UNIFORM) {
@@ -349,7 +359,7 @@ LoopWIAnalysis::calculate_dep(BinaryOperator* BO) {
 }
 
 // On extract element the scalar value has the type of the vector value.
-LoopWIAnalysis::ValDependancy  
+LoopWIAnalysis::ValDependancy
 LoopWIAnalysis::calculate_dep(ExtractElementInst *EEI) {
   Value *vectorOp = EEI->getVectorOperand();
   updateConstStride(EEI, vectorOp);
@@ -381,7 +391,7 @@ void LoopWIAnalysis::updateConstStride(Value *toUpadte, Value *updateBy, bool ne
         //errs() << "unsupported constant\n";
       }
     }
-    
+
   }
 }
 
@@ -392,7 +402,7 @@ Constant *LoopWIAnalysis::getConstStride(Value *v) {
 }
 
 bool LoopWIAnalysis::isUniform(Value *v) {
-  // Uniform values might not be calculated on the analysis 
+  // Uniform values might not be calculated on the analysis
   // pre-processing stage, so check the dependency on the fly.
   return getDependency(v) == LoopWIAnalysis::UNIFORM;
 }
@@ -427,5 +437,3 @@ void LoopWIAnalysis::setValStrided(Value *v, Constant *constStride) {
 }// namespace intel
 
 
-static RegisterPass<intel::LoopWIAnalysis>
-CLILoopWIAnalysis("LoopWIAnalysis", "LoopWIAnalysis provides work item dependency info for loops");

@@ -5,7 +5,7 @@
 #include "DataPerValuePass.h"
 #include "BarrierUtils.h"
 #include "OCLPassSupport.h"
-
+#include "InitializePasses.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
@@ -14,9 +14,16 @@
 namespace intel {
   char DataPerValue::ID = 0;
 
-  OCL_INITIALIZE_PASS(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
+  OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValue)
+  OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
 
-  DataPerValue::DataPerValue() : ModulePass(ID), m_pTD(0) {}
+  DataPerValue::DataPerValue()
+    : ModulePass(ID), m_pTD(0)
+  {
+    initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool DataPerValue::runOnModule(Module &M) {
     //Get Analysis data

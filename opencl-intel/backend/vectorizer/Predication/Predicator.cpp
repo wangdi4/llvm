@@ -22,6 +22,7 @@
 #include "Logger.h"
 #include "llvm/Constants.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -41,6 +42,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(RegionInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
 Predicator::Predicator() :

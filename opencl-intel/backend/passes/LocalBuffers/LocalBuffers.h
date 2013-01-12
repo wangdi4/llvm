@@ -44,7 +44,7 @@ namespace intel{
 
     /// @brief Constructor with debug parameter
     /// @param isNatveiDBG true if native debug set
-    LocalBuffers(bool isNativeDBG) : ModulePass(ID), m_isNativeDBG(isNativeDBG) {}
+    LocalBuffers(bool isNativeDBG);
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

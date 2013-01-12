@@ -18,6 +18,7 @@ File Name:  LocalBuffers.cpp
 
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "llvm/Version.h"
 
 #if LLVM_VERSION >= 3425
@@ -38,6 +39,11 @@ extern "C"
 namespace intel{
 
   char LocalBuffers::ID = 0;
+
+
+  LocalBuffers::LocalBuffers(bool isNativeDBG) : ModulePass(ID), m_isNativeDBG(isNativeDBG) {
+      initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
 
   bool LocalBuffers::runOnModule(Module &M) {

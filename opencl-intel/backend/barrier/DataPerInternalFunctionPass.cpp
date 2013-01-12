@@ -4,7 +4,7 @@
 
 #include "DataPerInternalFunctionPass.h"
 #include "OCLPassSupport.h"
-
+#include "InitializePasses.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
@@ -14,9 +14,15 @@ namespace intel {
   char DataPerInternalFunction::ID = 0;
   unsigned int DataPerInternalFunction::m_badOffset = (unsigned int)(-1);
 
-  OCL_INITIALIZE_PASS(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
+  OCL_INITIALIZE_PASS_END(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
 
-  DataPerInternalFunction::DataPerInternalFunction() : ModulePass(ID) {}
+  DataPerInternalFunction::DataPerInternalFunction()
+    : ModulePass(ID)
+  {
+      initializeDataPerInternalFunctionPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool DataPerInternalFunction::runOnModule(Module &M) {
     //Initialize barrier utils class with current module

@@ -2,6 +2,7 @@
 #include "llvm/Support/InstIterator.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "Mangler.h"
 
 
@@ -11,6 +12,7 @@ char AppleWIDepPrePacketizationPass::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(AppleWIDepPrePacketizationPass, "AppleWIDepPrePack", "handle pre packetization wi-dep special builtins for apple envioronment", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(AppleWIDepPrePacketizationPass, "AppleWIDepPrePack", "handle pre packetization wi-dep special builtins for apple envioronment", false, false)
 
 AppleWIDepPrePacketizationPass::AppleWIDepPrePacketizationPass():

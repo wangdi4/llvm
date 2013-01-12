@@ -18,6 +18,8 @@ File Name:  LocalBuffAnalysis.cpp
 
 #include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "cpu_dev_limits.h"
 
@@ -36,11 +38,9 @@ namespace intel{
     return new LocalBuffAnalysis();
   }
 
-  // Need to register analysis pass, otherwise, the passes that use this analysis cannot get this pass' info
-  static RegisterPass<LocalBuffAnalysis>
-    LocalBuffersAnalysisPass("LocalBuffAnalysis", "LocalBuffAnalysis provides local values analysis info");
-
   char LocalBuffAnalysis::ID = 0;
+
+  OCL_INITIALIZE_PASS(LocalBuffAnalysis, "LocalBuffAnalysis", "LocalBuffAnalysis provides local values analysis info", false, false)
 
   bool LocalBuffAnalysis::runOnModule(Module &M) {
 

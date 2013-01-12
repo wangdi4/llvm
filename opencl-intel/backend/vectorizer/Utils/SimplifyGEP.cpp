@@ -21,12 +21,19 @@ File Name:  SimplifyGEP.cpp
 #include "llvm/Support/InstIterator.h"
 #include "OCLPassSupport.h"
 #include <vector>
+#include "InitializePasses.h"
 
 namespace intel {
 
 char SimplifyGEP::ID = 0;
 
-OCL_INITIALIZE_PASS(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
+OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
+
+  SimplifyGEP::SimplifyGEP() : FunctionPass(ID) {
+    initializeSimplifyGEPPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module

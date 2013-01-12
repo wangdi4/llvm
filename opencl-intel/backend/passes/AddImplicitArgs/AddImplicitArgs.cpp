@@ -18,6 +18,7 @@ File Name:  AddImplicitArgs.cpp
 
 #include "AddImplicitArgs.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "TLLVMKernelInfo.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -38,16 +39,12 @@ extern "C"{
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel{
-  /// @brief Creates new AddImplicitArgs module pass
-  /// @returns new AddImplicitArgs module pass
-  ModulePass* createAddImplicitArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
-    return new AddImplicitArgs(vectFunctions);
-  }
 
   char AddImplicitArgs::ID = 0;
 
   AddImplicitArgs::AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions) :
     ModulePass(ID), m_pVectFunctions(&vectFunctions) {
+        initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool AddImplicitArgs::runOnModule(Module &M) {
