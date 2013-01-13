@@ -7,7 +7,6 @@ include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
-include_directories(BEFORE "VolcanoWrapper")
 include_directories(BEFORE "WIAnalysis")
 
 include_directories(../arch_headers)
@@ -79,18 +78,18 @@ set(TARGET_INCLUDE_FILES
   Scalarizer/Scalarize.h
   SoaAllocaAnalysis/SoaAllocaAnalysis.h
   Utils/FakeInsert.h
+  Utils/Logger.h
   Utils/LoopUtils.h
   Utils/Mangler.h
   Utils/RuntimeServices.h
   Utils/SimplifyGEP.h
   Utils/SpecialCaseFuncs.h
+  Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
   Utils/VectorizerFunction.h
   Utils/VectorizerUtils.h
-  VolcanoWrapper/Logger.h
   VolcanoWrapper/Main.h
-  VolcanoWrapper/VecConfig.h
   WIAnalysis/WIAnalysis.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )

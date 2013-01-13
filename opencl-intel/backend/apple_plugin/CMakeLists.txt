@@ -25,7 +25,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/metadata_api/gen
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/vectorizer/AppleWrapper
+    ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/../cl_api
     ${CVMS_INCLUDE_DIR}
 )
