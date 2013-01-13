@@ -286,7 +286,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   }
 
-  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1
+  // In Apple build TRANSPOSE_SIZE_1 is not declared
+  if( pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
     && debugType == None
     && uiOptLevel != 0)
   {
