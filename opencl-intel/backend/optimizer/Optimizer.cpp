@@ -22,6 +22,10 @@ File Name:  Optimizer.cpp
 #include "cl_device_api.h"
 #include "cl_types.h"
 #include "CPUDetect.h"
+#include "debuggingservicetype.h"
+#ifndef __APPLE__
+#include "PrintIRPass.h"
+#endif //#ifndef __APPLE__
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
@@ -34,11 +38,9 @@ File Name:  Optimizer.cpp
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-#include "PrintIRPass.h"
-#include "debuggingservicetype.h"
+
 
 extern "C" void* createInstToFuncCallPass(bool);
-extern "C" llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 
 extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
                                             const intel::OptimizerConfig* pConfig,
@@ -67,13 +69,14 @@ extern "C" llvm::Pass *createClangCompatFixerPass();
 
 #ifndef __APPLE__
 extern "C" llvm::FunctionPass *createPrefetchPass();
-#endif
+extern "C" llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
+#endif //#ifndef __APPLE__
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #ifndef __APPLE__
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
-#endif
+#endif //#ifndef __APPLE__
 llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
@@ -217,7 +220,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
   bool isProfiling = pConfig->GetProfilingFlag();
-#endif
+
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
@@ -225,7 +228,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
-
+#endif //#ifndef __APPLE__
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
 #ifdef __APPLE__
@@ -233,12 +236,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
   m_funcPasses.add(new llvm::TargetData(pModule));
-
+#ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
-
+#endif //#ifndef __APPLE__
   m_modulePasses.add(createShuffleCallToInstPass());
 
   unsigned int uiOptLevel;
@@ -293,21 +296,23 @@ Optimizer::Optimizer( llvm::Module* pModule,
     if (isProfiling) {
       m_modulePasses.add(createProfilingInfoPass());
     }
- #endif
-
+ 
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
+#endif //#ifndef __APPLE__
     if(pRtlModule != NULL) {
         m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig,
                                                 m_vectFunctions, m_vectWidths);
         m_modulePasses.add(m_vectorizerPass);
     }
+#ifndef __APPLE__
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
     }
+#endif //#ifndef __APPLE__
   }
 #ifdef _DEBUG
   m_modulePasses.add(llvm::createVerifierPass());

@@ -83,7 +83,6 @@ add_library(
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
 )
 
 if(NOT APPLE)

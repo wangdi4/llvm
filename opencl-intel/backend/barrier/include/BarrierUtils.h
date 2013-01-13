@@ -4,7 +4,11 @@
 #ifndef __BARRIER_UTILS_H__
 #define __BARRIER_UTILS_H__
 
-#include "CL/cl.h"
+#if defined(__APPLE__)
+  #include "OpenCL/cl.h"
+#else
+  #include "CL/cl.h"
+#endif
 #include "llvm/Constants.h"
 
 //Forward declaration

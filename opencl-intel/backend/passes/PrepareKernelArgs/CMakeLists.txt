@@ -10,7 +10,6 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
-    ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/passes/LocalBuffAnalysis
