@@ -169,6 +169,7 @@ int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
 #if !defined(__AVX__)
 
 // TODO : move this to transpose_functions.cpp
+// CSSD100015383
 #if !defined(__SSE4_2__) 
 void transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut) {

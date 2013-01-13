@@ -29,6 +29,7 @@
 #include <intrin.h>
 
 
+// TODO: when porting that file to Tablegen look into CSSD100015383
 
 #if defined(__SSE4_2__)
 
