@@ -133,190 +133,170 @@ extern "C" {
 // which support SSSE3 only
 __m128i _mm_cvtepi8_epi16(__m128i param)
 {
-	ALIGN16 short	a[8];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<8; ++i)
-	{
-		r[2*i] = (char)a[i];
-		r[2*i+1] = a[i] < 0 ? 0xFF : 0;
-	}
+  char16 tmp = as_char16(param);
+  short8 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+  res.s4 = tmp.s4;
+  res.s5 = tmp.s5;
+  res.s6 = tmp.s6;
+  res.s7 = tmp.s7;
+
+  return (__m128i)res;
 }
 __m128i _mm_cvtepu8_epi16(__m128i param)
 {
-	ALIGN16 short	a[8];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<8; ++i)
-	{
-		r[2*i] = (char)a[i];
-		r[2*i+1] = 0;
-	}
+  uchar16 tmp = as_uchar16(param);
+  ushort8 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+  res.s4 = tmp.s4;
+  res.s5 = tmp.s5;
+  res.s6 = tmp.s6;
+  res.s7 = tmp.s7;
+
+  return (__m128i)res;
 }
 __m128i _mm_cvtepi8_epi32(__m128i param)
 {
-	ALIGN16 int		a[4];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<4; ++i)
-	{
-		r[4*i] = (char)a[i];
-		r[4*i+1] = r[4*i+2] = r[4*i+3] = a[i] < 0 ? 0xFF : 0;
-	}
+  char16 tmp = as_char16(param);
+  int4 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepi16_epi32(__m128i param)
 {
-	ALIGN16 int		a[4];
-	ALIGN16 short	r[8];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<4; ++i)
-	{
-		r[2*i] = (short)a[i];
-		r[2*i+1] = a[i] < 0 ? 0xFFFF : 0;
-	}
+  short8 tmp = as_short8(param);
+  int4 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepu8_epi32(__m128i param)
 {
-	ALIGN16 int		a[4];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<4; ++i)
-	{
-		r[4*i] = (char)a[i];
-		r[4*i+1] = r[4*i+2] = r[4*i+3] = 0;
-	}
+  uchar16 tmp = as_uchar16(param);
+  uint4 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepu16_epi32(__m128i param)
 {
-	ALIGN16 int		a[4];
-	ALIGN16 short	r[8];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<4; ++i)
-	{
-		r[2*i] = (short)a[i];
-		r[2*i+1] = 0;
-	}
+	ushort8 tmp = as_ushort8(param);
+  uint4 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+  res.s2 = tmp.s2;
+  res.s3 = tmp.s3;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepi8_epi64(__m128i param)
 {
-	ALIGN16 long	a[2];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[8*i] = (char)a[i];
-		r[8*i+1] = r[8*i+2] = r[8*i+3] = r[8*i+4] =
-			r[8*i+5] = r[8*i+6] = r[8*i+7] = a[i] < 0 ? 0xFF : 0;
-	}
+  char16 tmp = as_char16(param);
+  long2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepi16_epi64(__m128i param)
 {
-	ALIGN16 long 	a[2];
-	ALIGN16 short	r[8];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[4*i] = (short)a[i];
-		r[4*i+1] = r[4*i+2] = r[4*i+3] = a[i] < 0 ? 0xFFFF : 0;
-	}
+	short8 tmp = as_short8(param);
+  long2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepi32_epi64(__m128i param)
 {
-	ALIGN16 long	a[2];
-	ALIGN16 int		r[4];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[2*i] = (int)a[i];
-		r[2*i+1] = a[i] < 0 ? 0xFFFFFFFF : 0;
-	}
+	int4 tmp = as_int4(param);
+  long2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepu8_epi64(__m128i param)
 {
-	ALIGN16 long	a[2];
-	ALIGN16 char	r[16];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[8*i] = (char)a[i];
-		r[8*i+1] = r[8*i+2] = r[8*i+3] = r[8*i+4] =
-			r[8*i+5] = r[8*i+6] = r[8*i+7] = 0;
-	}
+  uchar16 tmp = as_uchar16(param);
+  ulong2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepu16_epi64(__m128i param)
 {
-	ALIGN16 long 	a[2];
-	ALIGN16 short	r[8];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[4*i] = (short)a[i];
-		r[4*i+1] = r[4*i+2] = r[4*i+3] = 0;
-	}
+	ushort8 tmp = as_ushort8(param);
+  ulong2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
 __m128i _mm_cvtepu32_epi64(__m128i param)
 {
-	ALIGN16 long	a[2];
-	ALIGN16 int		r[4];
-	_mm_store_si128((__m128i*)a, param);
-	for(int i=0; i<2; ++i)
-	{
-		r[2*i] = (int)a[i];
-		r[2*i+1] = 0;
-	}
+	uint4 tmp = as_uint4(param);
+  ulong2 res;
 
-	return _mm_load_si128((__m128i*)r);
+  res.s0 = tmp.s0;
+  res.s1 = tmp.s1;
+
+  return (__m128i)res;
 }
 
-__m128i _mm_packus_epi32( 
-   __m128i a_x,
-   __m128i b_x
-   )
+__m128i _mm_packus_epi32(    __m128i a_x,   __m128i b_x   )
 {
-	ALIGN16 int			a[4];
-	ALIGN16 int			b[4];
-	ALIGN16 short		r[8];
-	_mm_store_si128((__m128i*)a, a_x);
-	_mm_store_si128((__m128i*)b, b_x);
+  int4 a = min( max( as_int4(a_x), 0), 0xFFFF);
+  int4 b = min( max( as_int4(b_x), 0), 0xFFFF);
+  ushort8 res;
 
-	for(int i=0; i<4;++i)
-	{
-		r[i] = (a[i] < 0) ? 0 : ((a[i] > 0xffff) ? 0xffff : (short)a[i]);
-		r[i+4] = (b[i] < 0) ? 0 : ((b[i] > 0xffff) ? 0xffff : (short)b[i]);
-	}
+  res.s0 = a.s0;
+  res.s1 = a.s1;
+  res.s2 = a.s2;
+  res.s3 = a.s3;
+  res.s4 = b.s0;
+  res.s5 = b.s1;
+  res.s6 = b.s2;
+  res.s7 = b.s3;
 
-	return _mm_load_si128((__m128i*)r);
+  return (__m128i)res;
 }
 #endif
 

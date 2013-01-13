@@ -165,7 +165,128 @@ int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
 #ifdef OVERLOAD_TRANSPOSES
 
 // if AVX is not defined then simulate missing transposes
+// TODO : move this to transpose_functions.cpp
 #if !defined(__AVX__)
+
+// TODO : move this to transpose_functions.cpp
+#if !defined(__SSE4_2__) 
+void transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
+                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
+ (*xOut).s0 = xyzw0.s0;
+ (*xOut).s1 = xyzw1.s0;
+ (*xOut).s2 = xyzw2.s0;
+ (*xOut).s3 = xyzw3.s0;
+
+ (*yOut).s0 = xyzw0.s1;
+ (*yOut).s1 = xyzw1.s1;
+ (*yOut).s2 = xyzw2.s1;
+ (*yOut).s3 = xyzw3.s1;
+
+ (*zOut).s0 = xyzw0.s2;
+ (*zOut).s1 = xyzw1.s2;
+ (*zOut).s2 = xyzw2.s2;
+ (*zOut).s3 = xyzw3.s2;
+
+ (*wOut).s0 = xyzw0.s3;
+ (*wOut).s1 = xyzw1.s3;
+ (*wOut).s2 = xyzw2.s3;
+ (*wOut).s3 = xyzw3.s3;
+}
+
+void __inline__ __attribute__((always_inline)) transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
+                              char4 xyzw4, char4 xyzw5, char4 xyzw6, char4 xyzw7,
+                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+ char4 xLow;
+ char4 yLow;
+ char4 zLow;
+ char4 wLow;
+
+ transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+                              &xLow, &yLow, &zLow, &wLow);
+
+ char4 xHigh;
+ char4 yHigh;
+ char4 zHigh;
+ char4 wHigh;
+
+ transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+                              &xHigh, &yHigh, &zHigh, &wHigh);
+
+ (*xOut).lo = xLow;
+ (*xOut).hi = xHigh;
+ (*yOut).lo = yLow;
+ (*yOut).hi = yHigh;
+ (*zOut).lo = zLow;
+ (*zOut).hi = zHigh;
+ (*wOut).lo = wLow;
+ (*wOut).hi = wHigh;
+}
+
+void __inline__ __attribute__((always_inline)) transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
+                              char4* xyzw0, char4* xyzw1, char4* xyzw2, char4* xyzw3,
+                              char4* xyzw4, char4* xyzw5, char4* xyzw6, char4* xyzw7) {
+ char4 xLow = xIn.lo;
+ char4 yLow = yIn.lo;
+ char4 zLow = zIn.lo;
+ char4 wLow = wIn.lo;
+
+ transpose_char4x4(xLow, yLow, zLow, wLow,
+                            xyzw0, xyzw1, xyzw2, xyzw3);
+
+ char4 xHigh = xIn.hi;
+ char4 yHigh = yIn.hi;
+ char4 zHigh = zIn.hi;
+ char4 wHigh = wIn.hi;
+
+ transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
+                            xyzw4, xyzw5, xyzw6, xyzw7);
+}
+
+
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
+ char4 xyzw0 = *pLoadAdd0;
+ char4 xyzw1 = *pLoadAdd1;
+ char4 xyzw2 = *pLoadAdd2;
+ char4 xyzw3 = *pLoadAdd3;
+
+ transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+                              xOut, yOut, zOut, wOut);
+}
+
+void __inline__ __attribute__((always_inline)) transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
+  transpose_char4x4(xIn, yIn, zIn, wIn,
+                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
+}
+
+void __inline__ __attribute__((always_inline)) gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
+                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
+ char4 xyzw0 = *pLoadAdd0;
+ char4 xyzw1 = *pLoadAdd1;
+ char4 xyzw2 = *pLoadAdd2;
+ char4 xyzw3 = *pLoadAdd3;
+ char4 xyzw4 = *pLoadAdd4;
+ char4 xyzw5 = *pLoadAdd5;
+ char4 xyzw6 = *pLoadAdd6;
+ char4 xyzw7 = *pLoadAdd7;
+
+ transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
+                    xyzw4, xyzw5, xyzw6, xyzw7,
+                    xOut, yOut, zOut, wOut);
+}
+
+void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
+                               char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
+  transpose_char8x4(xIn, yIn, zIn, wIn,
+                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
+                              pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
+}
+
+#endif
+
 // simulate masked transposes. they are not implemented in transpose_functions.cpp
 void masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask)
@@ -560,12 +681,8 @@ int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
     
-#ifdef __SSE4_1__
-    __m128i mask = _mm_cmpgt_epi32((__m128i)urcoord, (__m128i)upper);
-    urcoord = (int4)_mm_andnot_si128(mask, (__m128i)urcoord);
-#else
-    urcoord = urcoord % upper;
-#endif
+    urcoord = urcoord <= upper ? urcoord : 0;
+
     return urcoord;
 }
 
@@ -625,13 +742,9 @@ float4 trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord
 
     int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
-    
-#ifdef __SSE4_1__
-    __m128i mask = _mm_cmpgt_epi32((__m128i)urcoord, (__m128i)upper);
-    *square0 = (int4)_mm_andnot_si128(mask, (__m128i)urcoord);
-#else
-    *square0 = urcoord % upper;
-#endif
+
+    *square0 = urcoord <= upper ? urcoord : 0;
+
     return float4AllZeros;
 }
 
@@ -697,18 +810,9 @@ float4 trans_coord_float_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord,
     int4 sq0 = ProjectNearest(ucoord - halfhalfhalfzero);
     int4 sq1 = sq0 + oneOneOneZero;
 
-#ifdef __SSE4_1__
-    __m128i mask0 = _mm_cmpgt_epi32((__m128i)int4AllZeros, (__m128i)sq0);
-    __m128i addedVal = _mm_and_si128(mask0, (__m128i)upper);
-    *square0 = sq0 + (int4)addedVal;
+    *square0 = sq0 < (int4)0 ? upper + sq0 : sq0;
+    *square1 = sq1 > upper - oneOneOneZero ? sq1 - upper : sq1;
 
-    int4 mask1 = (int4)_mm_cmpgt_epi32((__m128i)sq1, (__m128i)(upper-oneOneOneZero));
-    *square1 = (int4)_mm_andnot_si128((__m128i)mask1, (__m128i)sq1);
-
-#else
-    *square0 = (sq0 +upper) % upper; //sq0 < (int4)0 ? upper + sq0 : sq0;
-    *square1 = sq1 % upper; //sq1 > upper - oneOneOneZero ? sq1 - upper : sq1;
-#endif
     return frac(ucoord-halfhalfhalfzero);
 }
 
@@ -2077,11 +2181,7 @@ int4 load_pixel_RG_SIGNED_INT16(void* pPixel)
 void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
 {
     // Calculate required pixel offset
-#ifdef __SSE4_1__
-    uint4 offset = (uint4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->offset));
-#else
-    uint4 offset=(uint4)(0,0,0,0);
-#endif
+    uint4 offset = *((uint4*)(&((image_aux_data*)image)->offset));
     uint4 ocoord = ((uint4)coord) * offset;
     void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
     return pixel;
@@ -2146,19 +2246,7 @@ float4 SampleImage2DFloatCh1(float4 components, float4 frac)
     float4 consts2 = (float4)(1.f, 1.0f, 0.f, 0.f);
     float4 comp1 = (float4)(-a, a, -a, a);
     float4 comp2 = (float4)(-b, -b, b, b);
-#ifdef __SSE4_1__
-    __m128 vec1 = _mm_add_ps(consts1, comp1);
-    __m128 vec2 = _mm_add_ps(consts2, comp2);
 
-    __m128 res = _mm_mul_ps(vec1, vec2);
-    res = _mm_mul_ps(components, res);
-    
-    /// sum vector elements
-    res = _mm_hadd_ps(res, res);
-    res = _mm_hadd_ps(res, res);
-
-    return res;
-#else
     float4 vec1 = consts1 + comp1;
     float4 vec2 = consts2 + comp2;
 
@@ -2169,8 +2257,6 @@ float4 SampleImage2DFloatCh1(float4 components, float4 frac)
     float sum = res.x + res.y + res.z + res.w;
 
     return (float4)(sum, sum, sum, sum);
-#endif
-
 }
 
 
