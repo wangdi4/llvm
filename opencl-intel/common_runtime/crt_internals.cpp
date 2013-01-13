@@ -1454,54 +1454,25 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
         //     and CL_MEM_ALLOC_HOST_PTR since we are forcing CL_MEM_USE_HOST_PTR
         cl_mem_flags crtCreateFlags = crtBuffer ? m_flags :
                                      ((m_flags | CL_MEM_USE_HOST_PTR ) & ~CL_MEM_ALLOC_HOST_PTR) & ~CL_MEM_COPY_HOST_PTR;
-        cl_mem memObj  = NULL;
+        cl_mem memObj  = NULL;        
+        cl_image_desc* imageDesc = &m_imageDesc.desc;
+        cl_image_desc imageDescCopy = { 0 };
+        if( crtBuffer )
+        {
+            // In case of Image from Buffer; we need to replace the buffer
+            // handle with the underlying corresponding one.
+            imageDescCopy = m_imageDesc.desc;
+            imageDescCopy.buffer = m_imageDesc.crtBuffer->m_ContextToMemObj[ ctx ];
+            imageDesc = ( cl_image_desc* )( &imageDescCopy );
+        }
 
-        if( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE2D )
-        {
-            memObj = ctx->dispatch->clCreateImage2D(
-                ctx,
-                crtCreateFlags,
-                &m_imageFormat,
-                m_imageDesc.desc.image_width,
-                m_imageDesc.desc.image_height,
-                m_imageDesc.desc.image_row_pitch,
-                m_pBstPtr,
-                &errCode);
-        }
-        else if( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE3D )
-        {
-            memObj = ctx->dispatch->clCreateImage3D(
-                ctx,
-                crtCreateFlags,
-                &m_imageFormat,
-                m_imageDesc.desc.image_width,
-                m_imageDesc.desc.image_height,
-                m_imageDesc.desc.image_depth,
-                m_imageDesc.desc.image_row_pitch,
-                m_imageDesc.desc.image_slice_pitch,
-                m_pBstPtr,
-                &errCode);
-        }
-        else
-        {
-            cl_image_desc* imageDesc = &m_imageDesc.desc;
-            cl_image_desc imageDescCopy = { 0 };
-            if( crtBuffer )
-            {
-                // In case of Image from Buffer; we need to replace the buffer
-                // handle with the underlying corresponding one.
-                imageDescCopy = m_imageDesc.desc;
-                imageDescCopy.buffer = m_imageDesc.crtBuffer->m_ContextToMemObj[ ctx ];
-                imageDesc = ( cl_image_desc* )( &imageDescCopy );
-            }
-            memObj = ctx->dispatch->clCreateImage(
-                ctx,
-                crtCreateFlags,
-                &m_imageFormat,
-                imageDesc,
-                ( crtBuffer ? NULL : m_pBstPtr ),
-                &errCode);
-        }
+        memObj = ctx->dispatch->clCreateImage(
+            ctx,
+            crtCreateFlags,
+            &m_imageFormat,
+            imageDesc,
+            ( crtBuffer ? NULL : m_pBstPtr ),
+            &errCode);        
 
         if( ( CL_SUCCESS == errCode ) &&
             ( memObj != NULL ) )
