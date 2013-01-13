@@ -1,10 +1,12 @@
 #include "WIAnalysis.h"
-#include "llvm/Support/CommandLine.h"
 #include "Mangler.h"
+
+#include "llvm/Value.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include <string>
 #include "llvm/Constants.h"
-#include "Functions.h"
+#include "llvm/Support/InstIterator.h"
+#include <string>
 
 namespace intel {
 

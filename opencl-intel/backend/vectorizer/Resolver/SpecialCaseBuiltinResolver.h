@@ -7,10 +7,10 @@
 #ifndef __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 #define __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 
-#include "llvm/Pass.h"
-#include "Logger.h"
-#include "llvm/Type.h"
 #include "OpenclRuntime.h"
+#include "Logger.h"
+#include "llvm/Pass.h"
+#include "llvm/Type.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Scalar.h"

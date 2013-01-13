@@ -7,10 +7,12 @@
 #ifndef __LOOP_STRIDED_CODE_MOTION_H_
 #define __LOOP_STRIDED_CODE_MOTION_H_
 
-#include "llvm/Analysis/LoopPass.h"
 #include "LoopWIAnalysis.h"
+#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Instructions.h"
+
 using namespace llvm;
+
 namespace intel {
 class LoopStridedCodeMotion : public LoopPass {
 public:

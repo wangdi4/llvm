@@ -19,7 +19,7 @@ File Name:  PrintIRPass.h
 #define __IR_PRINTER__H__
 
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
+#include <llvm/Function.h>
 
 #include <vector>
 #include <sstream>
@@ -40,10 +40,6 @@ public:
     bool runOnFunction(llvm::Function &F);
 };
 
-// createPrintIRPass - Create and return a pass that dumps the module
-// to the specified file.
-llvm::FunctionPass *createIRPrinterPass(std::string dumpDir, 
-  std::string dumpName);
 }
 
 #endif

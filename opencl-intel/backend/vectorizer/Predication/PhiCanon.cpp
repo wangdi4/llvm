@@ -1,6 +1,7 @@
-#include "llvm/Analysis/Verifier.h"
 #include "PhiCanon.h"
 #include "Logger.h"
+
+#include "llvm/Analysis/Verifier.h"
 
 namespace intel {
 

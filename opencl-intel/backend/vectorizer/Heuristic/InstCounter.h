@@ -1,7 +1,9 @@
 #ifndef __INSTCOUNTER__H__
 #define __INSTCOUNTER__H__
 
-#include <stdlib.h>
+#include "RuntimeServices.h"
+#include "PostDominanceFrontier.h"
+#include "TargetArch.h"
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
@@ -11,10 +13,8 @@
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringMap.h"
-#include "RuntimeServices.h"
-#include "TargetArch.h"
-#include "PostDominanceFrontier.h"
 
+#include <stdlib.h>
 
 using namespace llvm;
 

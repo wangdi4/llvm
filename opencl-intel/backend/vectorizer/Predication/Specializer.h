@@ -1,5 +1,6 @@
 #ifndef SPECIALIZER_H
 #define SPECIALIZER_H
+#include "Linearizer.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -10,8 +11,6 @@
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
-
-#include "Linearizer.h"
 
 using namespace llvm;
 

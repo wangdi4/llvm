@@ -7,10 +7,11 @@
 #ifndef __OCL_BUILTIN_PRE_VECTORIZATION_PASS_H__
 #define __OCL_BUILTIN_PRE_VECTORIZATION_PASS_H__
 
-#include "llvm/Pass.h"
-#include "Logger.h"
-#include "llvm/Type.h"
 #include "OpenclRuntime.h"
+#include "Logger.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Type.h"
 #include "llvm/PassManager.h"
 
 using namespace llvm;

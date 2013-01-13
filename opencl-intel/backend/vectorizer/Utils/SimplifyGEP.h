@@ -18,13 +18,13 @@ File Name:  SimplifyGEP.h
 
 #ifndef __SIMPLIFY_GEP_H_
 #define __SIMPLIFY_GEP_H_
+#include "WIAnalysis.h"
+#include "Logger.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/Target/TargetData.h"
-
-#include "WIAnalysis.h"
-#include "Logger.h"
 
 using namespace llvm;
 

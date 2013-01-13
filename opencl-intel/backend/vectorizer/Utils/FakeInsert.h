@@ -7,13 +7,14 @@
 #ifndef __FAKE_INSERT_H__
 #define __FAKE_INSERT_H__
 #include "Mangler.h"
+#include "Logger.h"
+
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
-#include <vector>
-#include "Logger.h"
 
+#include <vector>
 
 using namespace llvm;
 

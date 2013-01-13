@@ -1,4 +1,11 @@
 #define DEBUG_TYPE "predicate"
+#include "Predicator.h"
+#include "VectorizerUtils.h"
+#include "Specializer.h"
+#include "Linearizer.h"
+#include "Mangler.h"
+#include "Logger.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Support/CFG.h"
@@ -13,14 +20,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/InstrTypes.h"
 #include "llvm/Type.h"
-
-#include "VectorizerUtils.h"
-#include "Specializer.h"
-#include "Predicator.h"
-#include "Linearizer.h"
-#include "Mangler.h"
-#include "Logger.h"
 #include "llvm/Constants.h"
+
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,

@@ -7,20 +7,18 @@
 #ifndef __PACKETIZER_H__
 #define __PACKETIZER_H__
 
-#include <string>
-#include <sstream>
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-
 #include "RuntimeServices.h"
 #include "WIAnalysis.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
-static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
-#define LOG_(x) __logs_vals[x]
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include <string>
+#include <sstream>
 
 namespace intel {
 

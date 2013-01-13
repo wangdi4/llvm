@@ -1,18 +1,13 @@
 #ifndef __WIANALYSIS_H_
 #define __WIANALYSIS_H_
-#include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Module.h"
-#include "llvm/Value.h"
-#include "llvm/Support/InstIterator.h"
-
 #include "RuntimeServices.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include <set>
 

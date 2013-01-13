@@ -19,6 +19,7 @@ include_directories(
   ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/OpenCL
+  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/Volcano
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
   ../
 )

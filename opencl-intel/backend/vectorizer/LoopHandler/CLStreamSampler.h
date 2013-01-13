@@ -18,11 +18,12 @@
 #ifndef __CL_STREAM_SAMPLER_H_
 #define __CL_STREAM_SAMPLER_H_
 
+#include "OpenclRuntime.h"
+#include "LoopWIAnalysis.h"
+
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/DenseMap.h"
-#include "AppleOCLRuntime.h"
-#include "LoopWIAnalysis.h"
 #include "llvm/Instructions.h"
 #include "llvm/Version.h"
 

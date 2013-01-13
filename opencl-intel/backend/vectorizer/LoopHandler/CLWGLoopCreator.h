@@ -7,9 +7,9 @@
 #ifndef __CL_WG_LOOP_CREATOR_H__
 #define __CL_WG_LOOP_CREATOR_H__
 
+#include "OpenclRuntime.h"
 #include "llvm/Pass.h"
 #include "llvm/Instructions.h"
-#include "OpenclRuntime.h"
 
 using namespace llvm;
 

@@ -4,14 +4,17 @@
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
-#include <sstream>
+#include "CLWGLoopCreator.h"
+#include "LoopUtils.h"
+#include "CLWGBoundDecoder.h"
+
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Constants.h"
-#include "CLWGLoopCreator.h"
-#include "LoopUtils.h"
-#include "CLWGBoundDecoder.h"
+#include "llvm/Module.h"
+
+#include <sstream>
 #include <set>
 
 static unsigned MAX_OCL_NUM_DIM = 3;

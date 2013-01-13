@@ -4,13 +4,19 @@
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
+#include "CLWGLoopBoundaries.h"
+#include "CLWGBoundDecoder.h"
+#include "LoopUtils.h"
+
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "CLWGLoopBoundaries.h"
 #include "llvm/Constants.h"
-#include "LoopUtils.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
 #include <set>
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);

@@ -1,34 +1,47 @@
 set(TARGET_NAME OclUtils)
 
+if(APPLE)
+set(TARGET_EXTRA_SOURCE_FILES 
+)
+set(TARGET_EXTRA_INCLUDE_FILES 
+)
+else(APPLE)
+set(TARGET_EXTRA_SOURCE_FILES 
+  SystemInfo.cpp
+)
+set(TARGET_EXTRA_INCLUDE_FILES
+  ExecutionContext.h 
+  ExplicitArgument.h
+  ExplicitLocalMemArgument.h
+  ExplicitGlobalMemArgument.h
+  SystemInfo.h
+)
+endif(APPLE)
+
 set (TARGET_INCLUDE_FILES
-    CompilationUtils.h
-    CPUDetect.h
-    debuggingservicetype.h
-    exceptions.h
-    ExecutionContext.h
-    ExplicitArgument.h
-    ExecutionContext.h
-    ExplicitLocalMemArgument.h
-    ExplicitGlobalMemArgument.h
-    FunctionArgument.h
-    IArgument.h
-    ImplicitArgProperties.h
-    ImplicitArgsUtils.h
-    ImplicitArgument.h
-    SystemInfo.h
-    TLLVMKernelInfo.h
-    TypeAlignment.h
-    ProcessorDetect.h
+  CompilationUtils.h
+  CPUDetect.h
+  debuggingservicetype.h
+  exceptions.h
+  FunctionArgument.h
+  IArgument.h
+  ImplicitArgProperties.h
+  ImplicitArgsUtils.h
+  ImplicitArgument.h
+  ProcessorDetect.h
+  TLLVMKernelInfo.h
+  TypeAlignment.h
+  ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
 set (TARGET_SOURCE_FILES
-    CompilationUtils.cpp
-    CPUDetect.cpp
-    debuggingservicetype.cpp
-    FunctionArgument.cpp
-    ImplicitArgsUtils.cpp
-    SystemInfo.cpp
-    TypeAlignment.cpp
+  CompilationUtils.cpp
+  CPUDetect.cpp
+  debuggingservicetype.cpp
+  FunctionArgument.cpp
+  ImplicitArgsUtils.cpp
+  TypeAlignment.cpp
+  ${TARGET_EXTRA_SOURCE_FILES}
 )
 
 include_directories(

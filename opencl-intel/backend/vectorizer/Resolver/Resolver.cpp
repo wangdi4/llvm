@@ -1,14 +1,15 @@
 #define DEBUG_TYPE "resolver"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
 #include "VectorizerUtils.h"
-#include "llvm/Constants.h"
 #include "FakeInsert.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Constants.h"
 
 #include <vector>
 

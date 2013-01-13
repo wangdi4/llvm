@@ -1,14 +1,19 @@
-#include <iomanip>
-#include <sstream>
 
-#include "llvm/PassManager.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/DominanceFrontier.h"
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Mangler.h"
 #include "LoopUtils.h"
 #include "OpenclRuntime.h"
+
+#include "llvm/PassManager.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
+#include <iomanip>
+#include <sstream>
 
 namespace intel {
 

@@ -1,7 +1,11 @@
 #include "AppleWIDepPrePacketizationPass.h"
-#include "llvm/Support/InstIterator.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
+
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+#include "llvm/Support/InstIterator.h"
 
 char intel::AppleWIDepPrePacketizationPass::ID = 0;
 

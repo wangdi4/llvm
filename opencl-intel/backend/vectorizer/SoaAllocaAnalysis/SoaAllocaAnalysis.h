@@ -19,11 +19,11 @@ File Name:  SoaAllocaAnalysis.h
 #ifndef __SOA_ALLOCA_ANALYSIS_H_
 #define __SOA_ALLOCA_ANALYSIS_H_
 
+#include "Logger.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
-
-#include "Logger.h"
 
 #include <map>
 #include <set>

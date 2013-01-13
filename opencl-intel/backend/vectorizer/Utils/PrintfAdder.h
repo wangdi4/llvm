@@ -27,11 +27,11 @@
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <list>
 #include <vector>
 #include <string>
 #include <sstream>
-#include "llvm/ADT/ArrayRef.h"
 
 
 using namespace llvm;

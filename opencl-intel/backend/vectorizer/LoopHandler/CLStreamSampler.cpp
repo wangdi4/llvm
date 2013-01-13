@@ -6,23 +6,28 @@
  *********************************************************************************************/
 #include "CLStreamSampler.h"
 #include "LoopUtils.h"
-#include "EnvAdapt.h"
 #include "CLWGBoundDecoder.h"
 #include "VectorizerUtils.h"
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Version.h"
-
 #if LLVM_VERSION >= 3425
 #include "llvm/Analysis/ScalarEvolution.h"
 #endif
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
 
 // On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
-#if VOLCANO_ENV
+//#if defined(__APPLE__)
+//  #if !defined(MAX_LOOP_SIZE)
+//    Error! Target max loop size not defined!
+//  #endif
+//#else
   #define MAX_LOOP_SIZE 128
-#endif
-
+//#endif
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16
 char intel::CLStreamSampler::ID = 0;

@@ -5,8 +5,10 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "Packetizer.h"
-#include "llvm/Constants.h"
 #include "VectorizerUtils.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Constants.h"
 #include "llvm/Version.h"
 
 namespace intel {

@@ -1,14 +1,15 @@
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "micresolver"
+#include "MICResolver.h"
+#include "VectorizerUtils.h"
+#include "Logger.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "MICResolver.h"
-#include "Logger.h"
 #include "llvm/Constants.h"
-#include "VectorizerUtils.h"
+
 #include <vector>
 #include <sstream>
-
 
 static bool isGatherScatterType(VectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();

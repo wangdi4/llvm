@@ -7,19 +7,20 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
-#include "llvm/Pass.h"
 #include "Logger.h"
 
+#include "llvm/Pass.h"
+
+using namespace llvm;
+
+
+namespace intel {
+class OptimizerConfig;
 
 // Used for setting the size of a container, which holds pointers to all the functions
 #define ESTIMATED_NUM_OF_FUNCTIONS 8
 // Maximum supported value for vector width
 #define MAX_SUPPORTED_VECTOR_WIDTH 16
-
-using namespace llvm;
-
-namespace intel {
-class OptimizerConfig;
 
 /// @brief Vectorizer pass is used to abstract all the Vectorizer's work
 ///  as a single module pass, which is to be scheduled by the compiler
@@ -63,7 +64,7 @@ public:
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const { AU.addRequired<LoopInfo>(); }
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
 
 private:
     Vectorizer(); // Do not implement

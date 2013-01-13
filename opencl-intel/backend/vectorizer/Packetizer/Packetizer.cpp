@@ -4,20 +4,24 @@
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
+#include "Packetizer.h"
+#include "Mangler.h"
+#include "VectorizerUtils.h"
+#include "FunctionDescriptor.h"
+#include "FakeInsert.h"
+
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Version.h"
 #if LLVM_VERSION >= 3425
 #include "llvm/IRBuilder.h"
 #else
 #include "llvm/Support/IRBuilder.h"
 #endif
 #include "llvm/Intrinsics.h"
+#include "llvm/Version.h"
 
-#include "Packetizer.h"
-#include "Mangler.h"
-#include "VectorizerUtils.h"
-#include "FunctionDescriptor.h"
-#include "FakeInsert.h"
+static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
+#define LOG_(x) __logs_vals[x]
 
 static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,

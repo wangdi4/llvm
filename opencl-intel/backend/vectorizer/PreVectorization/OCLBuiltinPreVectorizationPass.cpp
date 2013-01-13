@@ -1,10 +1,12 @@
 #include "OCLBuiltinPreVectorizationPass.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Transforms/Scalar.h"
-
-
 #include "VectorizerUtils.h"
 #include "Mangler.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
 
 char intel::OCLBuiltinPreVectorizationPass::ID = 0;
 namespace intel{

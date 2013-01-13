@@ -67,7 +67,7 @@
 #include "CPUDetect.h"
 #include "Optimizer.h"
 #include "MetaDataApi.h"
-#include "VolcanoWrapper/VecConfig.h"
+#include "VecConfig.h"
 #include "cl_device_api.h"
 #include "CompilationUtils.h"
 #include "TypeAlignment.h"

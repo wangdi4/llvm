@@ -7,10 +7,10 @@
 #ifndef __VECTORIZER_UTILS_H__
 #define __VECTORIZER_UTILS_H__
 
+#include "Logger.h"
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
 #include <vector>
-#include "Logger.h"
 
 
 using namespace llvm;

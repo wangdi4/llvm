@@ -1,5 +1,10 @@
 #ifndef __PREDICATOR_H_
 #define __PREDICATOR_H_
+#include "WIAnalysis.h"
+#include "PhiCanon.h"
+#include "Linearizer.h"
+#include "Specializer.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -11,11 +16,6 @@
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Transforms/Scalar.h"
-
-#include "WIAnalysis.h"
-#include "PhiCanon.h"
-#include "Linearizer.h"
-#include "Specializer.h"
 
 using namespace llvm;
 

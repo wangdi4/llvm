@@ -7,12 +7,13 @@
 #ifndef __APPLE_WI_DEP_PRE_PACKETIZATION_PASS_H__
 #define __APPLE_WI_DEP_PRE_PACKETIZATION_PASS_H__
 
-#include "llvm/Pass.h"
 #include "Logger.h"
-#include "llvm/Type.h"
-#include "AppleOCLRuntime.h"
-#include "llvm/PassManager.h"
+#include "OpenclRuntime.h"
 #include "WIAnalysis.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Type.h"
+#include "llvm/PassManager.h"
 #include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
@@ -62,7 +63,6 @@ private:
   ///@brief - appleOCLRuntime interface for getting builtins attributes.
   const OpenclRuntime *m_appleRuntimeServices;
 
-  
   ///@brief  holds the module of the processed function
   Module *m_curModule;
 

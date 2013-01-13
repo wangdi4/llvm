@@ -23,8 +23,8 @@
 #ifndef __CL_BUILTIN_LICM_H_
 #define __CL_BUILTIN_LICM_H_
 
+#include "OpenclRuntime.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "AppleOCLRuntime.h"
 #include "llvm/Instructions.h"
 using namespace llvm;
 namespace intel {

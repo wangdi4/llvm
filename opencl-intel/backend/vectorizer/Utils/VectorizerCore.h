@@ -7,10 +7,12 @@
 #ifndef __VECTORIZER_CORE_H__
 #define __VECTORIZER_CORE_H__
 
-#include "llvm/Pass.h"
 #include "RuntimeServices.h"
 #include "Logger.h"
 #include "VecConfig.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 // Maximum supported value for vector width
 #define MAX_SUPPORTED_VECTOR_WIDTH 16

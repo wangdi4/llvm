@@ -17,11 +17,11 @@ File Name:  SoaAllocaAnalysis.cpp
 \*****************************************************************************/
 
 #include "SoaAllocaAnalysis.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Intrinsics.h"
-
 #include "Mangler.h"
 #include "VectorizerUtils.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Intrinsics.h"
 
 #include <string>
 

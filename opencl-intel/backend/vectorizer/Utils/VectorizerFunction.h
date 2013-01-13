@@ -2,7 +2,6 @@
 #define __VECTORIZER_FUNCTION_H__
 
 #include <string>
-#include <memory>
 
 namespace reflection{
   struct FunctionDescriptor;

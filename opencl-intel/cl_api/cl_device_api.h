@@ -32,7 +32,11 @@ extern "C" {
 #endif
 
 #include <cassert>
-#include "CL/cl.h"
+#if defined(__APPLE__)
+  #include "OpenCL/cl.h"
+#else
+  #include "CL/cl.h"
+#endif
 
 #define IN
 #define OUT

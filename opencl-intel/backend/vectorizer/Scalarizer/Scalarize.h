@@ -7,8 +7,6 @@
 #ifndef __SCALARIZE_H__
 #define __SCALARIZE_H__
 
-#include <string>
-#include <sstream>
 #include "llvm/Pass.h"
 #include "llvm/Type.h"
 #include "llvm/ADT/DenseMap.h"
@@ -24,6 +22,9 @@
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
+
+#include <string>
+#include <sstream>
 
 namespace intel {
 

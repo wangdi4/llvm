@@ -7,16 +7,15 @@
 #ifndef __CL_WG_LOOP_BOUNDARIES_H__
 #define __CL_WG_LOOP_BOUNDARIES_H__
 
-#include <set>
+#include "OpenclRuntime.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Instructions.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/DenseMap.h"
-#include "OpenclRuntime.h"
-#include "CLWGBoundDecoder.h"
-#include "KernelAnalysis.h"
 
+#include <set>
 
 using namespace llvm;
 

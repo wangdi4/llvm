@@ -8,6 +8,8 @@
 #include "DXWrapperParamsCheck.h"
 #include "Mangler.h"
 
+#include "llvm/Module.h"
+
 namespace intel {
 
 bool DXWrapperParamsCheck::checkSameTypeScalar(Type* packetizeType,

@@ -3,32 +3,20 @@
 * Subject to the terms and conditions of the Master Development License
 * Agreement between Intel and Apple dated August 26, 2005; under the Intel
 * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
-u********************************************************************************************/
+********************************************************************************************/
 
-#include <iomanip>
+#include "VectorizerCore.h"
+#include "InstCounter.h"
+#include "VectorizerCommon.h"
 
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#include "llvm/Pass.h"
+#include "llvm/PassManager.h"
+#include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Pass.h"
-#include "llvm/Linker.h"
-#include "llvm/PassManager.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/Verifier.h"
-#include "VectorizerCore.h"
-#include "Packetizer.h"
-#include "Resolver.h"
-#include "WIAnalysis.h"
-#include "llvm/Constants.h"
-#include "llvm/Analysis/Passes.h"
-#include "InstCounter.h"
-#include "VecConfig.h"
-#include "IRPrinter.h"
-#include "TargetArch.h"
+
+#include <iomanip>
+#include <sstream>
 
 using namespace llvm;
 
@@ -48,7 +36,7 @@ extern "C" FunctionPass* createGatherScatterResolverPass();
 extern "C" FunctionPass* createX86ResolverPass();
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
 extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
-
+extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
 
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {

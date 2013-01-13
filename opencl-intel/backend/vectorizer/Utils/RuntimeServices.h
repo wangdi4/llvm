@@ -7,16 +7,15 @@
 #ifndef __RuntimeServices_H_
 #define __RuntimeServices_H_
 
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
 #include "VectorizerFunction.h"
 
-#define HASH_BUILTIN_MISSING "_"
+#include "llvm/Instructions.h"
 
 using namespace llvm;
 
 namespace intel {
+
+#define HASH_BUILTIN_MISSING "_"
 
 /// @brief
 ///  Interface for runtime services.

@@ -18,25 +18,21 @@ File Name:  PrintIRPass.cpp
 
 #include "IRPrinter.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 
-namespace intel
-{
+namespace intel {
 
-char IRPrinter::ID = 0;
+  char IRPrinter::ID = 0;
 
-IRPrinter::IRPrinter(std::string dumpDir, std::string dumpName):
-    FunctionPass(ID), m_dumpName(dumpName), m_dumpDir(dumpDir)
-{
+  IRPrinter::IRPrinter(std::string dumpDir, std::string dumpName):
+    FunctionPass(ID), m_dumpName(dumpName), m_dumpDir(dumpDir) {
+  }    
 
-}    
-
-bool IRPrinter::runOnFunction(llvm::Function &F)
-{
+  bool IRPrinter::runOnFunction(llvm::Function &F) {
     // Create the output file.
     std::stringstream fileName;
-    if (m_dumpDir.length() == 0)
+    if (m_dumpDir.length() == 0) {
       return false;
+    }
 
     fileName << m_dumpDir.c_str() << "/dump." 
       << F.getName().data()
@@ -47,15 +43,18 @@ bool IRPrinter::runOnFunction(llvm::Function &F)
     llvm::raw_fd_ostream FDTemp(fileName.str().c_str(), ErrorInfo,
                 llvm::raw_fd_ostream::F_Binary);
     if (!ErrorInfo.empty()) {
-        return false;
+      return false;
     }
     F.print(FDTemp, 0);
     return false;
-}
+  }
 
-llvm::FunctionPass *createIRPrinterPass(std::string dumpDir, 
-  std::string dumpName) 
-{
-    return new IRPrinter(dumpDir, dumpName);
-}
+} // namespace intel {
+
+// createPrintIRPass - Create and return a pass that dumps the module
+// to the specified file.
+extern "C" {
+  llvm::FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName) {
+    return new intel::IRPrinter(dumpDir, dumpName);
+  }
 }

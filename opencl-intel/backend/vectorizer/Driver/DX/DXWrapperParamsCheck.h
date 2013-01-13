@@ -22,8 +22,9 @@
 #ifndef __DXWRAPPERPARAMSCHECK_H__
 #define __DXWRAPPERPARAMSCHECK_H__
 
-#include "llvm/Instructions.h"
 #include "RuntimeServices.h"
+#include "llvm/Instructions.h"
+
 using namespace llvm;
 
 namespace intel {

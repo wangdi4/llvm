@@ -7,11 +7,12 @@
 #ifndef __KERNEL_ANALYSIS_H__
 #define __KERNEL_ANALYSIS_H__
 
-#include <set>
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
-using namespace llvm;
 
+#include <set>
+
+using namespace llvm;
 
 namespace intel {
 // class KernelAnalysis

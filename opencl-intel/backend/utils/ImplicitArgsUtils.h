@@ -61,6 +61,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Destructor
     ~ImplicitArgsUtils() {}
 
+#ifndef __APPLE__
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
     void createImplicitArgs(char* pDest);
@@ -94,11 +95,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Initialized the work item local IDs
     /// @param implicitArgument     The implicit arguments arguments
     void initWILocalIds(const sWorkInfo* pWorkInfo, const unsigned int packetWidth, size_t* pWIids);
-  
+#endif //#ifndef __APPLE__
 
+  private:
     /// static list of implicit argument properties 
     static ImplicitArgProperties m_implicitArgProps[m_numberOfImplicitArgs];
-
+  
     /// list of implicit arguments
     ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
   };

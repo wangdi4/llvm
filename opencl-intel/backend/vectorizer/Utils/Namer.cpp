@@ -4,15 +4,17 @@
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
+#include "Namer.h"
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Type.h"
+#include "llvm/Support/CommandLine.h"
+
 #include <string>
 #include <sstream>
 #include <algorithm>
 #include <map>
-#include "llvm/Support/CommandLine.h"
-#include "Namer.h"
+
 using namespace llvm;
 
 static cl::opt<unsigned>

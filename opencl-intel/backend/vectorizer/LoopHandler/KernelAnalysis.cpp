@@ -5,12 +5,15 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "KernelAnalysis.h"
-#include "llvm/Instructions.h"
 #include "OpenclRuntime.h"
-#include "llvm/Support/raw_ostream.h"
-#include <string.h>
-#include "llvm/Constants.h"
 #include "LoopUtils.h"
+
+#include "llvm/Instructions.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Constants.h"
+
+#include <string.h>
+
 
 extern "C" {
   void fillNoBarrierPathSet(const Module *M, std::set<std::string>& noBarrierPath)

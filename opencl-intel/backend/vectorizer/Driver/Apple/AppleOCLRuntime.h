@@ -8,7 +8,6 @@
 #define __APPLE_OCL_RUNTIME_H_
 
 #include "OpenclRuntime.h"
-#include "Functions.h"
 
 namespace intel {
 

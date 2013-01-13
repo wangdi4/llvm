@@ -7,12 +7,13 @@
 #ifndef __LOGGER__H__
 #define __LOGGER__H__
 
-
-extern FILE * prtFile;
-extern FILE * moduleDmp;
 # include "llvm/Support/raw_ostream.h"
 
 #ifdef WIN_DEBUG
+
+#include <stdlib.h>
+extern FILE * prtFile;
+extern FILE * moduleDmp;
 
 #define V_INIT_PRINT                                    \
 {                                                       \

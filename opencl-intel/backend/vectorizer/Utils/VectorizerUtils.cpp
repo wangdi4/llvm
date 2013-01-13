@@ -1,8 +1,10 @@
+
 #include "VectorizerUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/InstIterator.h"
 #include "VectorizerCommon.h"
 #include "Logger.h"
+
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Constants.h"
 #include "llvm/Module.h"
 

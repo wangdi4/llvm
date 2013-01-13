@@ -22,22 +22,25 @@
 // handled and bitcasts are added as neccesarry.
 // Author: Ran Chachick.
 
+#include "VectorizerUtils.h"
+#include "RuntimeServices.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Type.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Version.h"
+
 #include <string>
 #include <sstream>
 #include <algorithm>
 #include <map>
-#include "RuntimeServices.h"
-#include "llvm/Support/IRReader.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Version.h"
-#include "VectorizerUtils.h"
-#include "llvm/Support/CommandLine.h"
 #include <iostream>
 #include <fstream>
+
 using namespace llvm;
 
 static cl::opt<std::string>

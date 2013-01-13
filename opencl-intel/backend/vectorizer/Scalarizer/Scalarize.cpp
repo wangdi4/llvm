@@ -5,11 +5,12 @@
  * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
  *********************************************************************************************/
 #include "Scalarize.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Constants.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "FakeInsert.h"
+
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Constants.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;

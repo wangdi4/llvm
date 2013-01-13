@@ -17,12 +17,16 @@ File Name:  ImplicitArgsUtils.cpp
 \*****************************************************************************/
 
 #include "ImplicitArgsUtils.h"
-#include "ExecutionContext.h"
 #include "cpu_dev_limits.h"
+
+#ifndef __APPLE__
+#include "ExecutionContext.h"
+#endif
 
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
 
 // Initialize the implicit arguments properties
 ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs] = {
@@ -44,6 +48,7 @@ const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int
   return m_implicitArgProps[arg]; 
 }
 
+#ifndef __APPLE__
 void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // Start from the beginning of the given dest buffer
@@ -158,6 +163,6 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
     assert(false);
   }
 }
-
+#endif
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

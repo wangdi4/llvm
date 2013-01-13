@@ -27,7 +27,7 @@
 #include "BuiltinKeeper.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
-#include "OpenclRuntime.h"
+#include "VolcanoOpenclRuntime.h"
 
 using namespace reflection;
 

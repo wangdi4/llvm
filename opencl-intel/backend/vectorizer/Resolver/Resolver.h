@@ -1,5 +1,6 @@
 #ifndef __RESOLVER_H_
 #define __RESOLVER_H_
+#include "RuntimeServices.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -8,8 +9,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Module.h"
-
-#include "RuntimeServices.h"
 
 using namespace llvm;
 

@@ -3,6 +3,10 @@
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
 #include <vector>
 
 namespace llvm {
