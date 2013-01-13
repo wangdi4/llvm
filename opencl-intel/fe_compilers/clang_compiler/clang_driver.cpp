@@ -59,6 +59,10 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Path.h"
 
+#include "llvm/PassManager.h"
+#include "SPIRVerifier.h"
+#include "SPIRMaterializer.h"
+
 #include "clang_driver.h"
 
 #include <Logger.h>
@@ -70,6 +74,7 @@
 #include <vector>
 #include <cctype>
 #include <algorithm>
+
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
 using namespace clang;
@@ -202,7 +207,7 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 // ClangFECompilerCompileTask calls implementation
 ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
 																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
-: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0), m_compileSpir(false)
 {
 }
 
@@ -232,6 +237,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
                         &Opt_Disable,
                         &Denorms_Are_Zeros,
                         &Fast_Relaxed_Math,
+						&m_compileSpir,
                         &m_source_filename);
 
     // Add standard OpenCL options
@@ -367,6 +373,70 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 #endif
 }
 
+int ClangFECompilerCompileTask::CompileSpir() {
+
+	Module* M;
+	SMDiagnostic Err;
+	LLVMContext &Context = getGlobalContext();
+
+	MemoryBuffer* spirSource;
+	spirSource =  MemoryBuffer::getMemBuffer( m_pProgDesc->pProgramSource );
+	M = ParseIR( spirSource, Err, Context);
+	if ( M == 0 ) {
+		return CL_INVALID_PROGRAM;
+	}
+
+	M->setModuleIdentifier("Spir Source");
+
+	PassManager Passes;
+	FunctionPass* spirVerifier = createLightweightSPIRVerifierPass( PrintMessageAction, "", "", 1, 1, 1, 1 );
+
+	Passes.add( spirVerifier );
+	Passes.run( *M );
+
+    std::vector<unsigned char> buffer;
+    llvm::BitstreamWriter stream(buffer);
+    llvm::WriteBitcodeToStream( M, stream );
+
+	size_t	stTotSize = 0;
+	if ( !buffer.empty() )
+	{
+		stTotSize = buffer.size()+
+			sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+		m_pOutIR = new char[stTotSize];
+		if ( NULL == m_pOutIR )
+		{
+			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+			return CL_OUT_OF_HOST_MEMORY;
+		} else {
+
+			m_stOutIRSize = stTotSize;
+			cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+			MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+			pHeader->container_size = buffer.size()+sizeof(cl_llvm_prog_header);
+			pHeader->container_type = CL_PROG_CNT_PRIVATE;
+			pHeader->description.bin_type = CL_PROG_BIN_COMPILED_SPIR;
+			pHeader->description.bin_ver_major = 1;
+			pHeader->description.bin_ver_minor = 1;
+			// Fill options
+			cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
+			pProgHeader->bDebugInfo = OptDebugInfo;
+			pProgHeader->bProfiling = OptProfiling;
+			pProgHeader->bDisableOpt = Opt_Disable;
+			pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
+			pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+			pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
+			void *pIR = (void*)(pProgHeader+1);
+			// Copy IR
+			MEMCPY_S(pIR, buffer.size(), buffer.data(), buffer.size());
+		}
+	}
+
+	buffer.clear();
+
+	return CL_SUCCESS;
+}
+
 int ClangFECompilerCompileTask::Compile()
 {
 	LOG_INFO(TEXT("%s"), TEXT("enter"));
@@ -386,6 +456,12 @@ int ClangFECompilerCompileTask::Compile()
 	{
 		argArray[i] = iter->c_str();
 		iter++;
+	}
+
+	if ( m_compileSpir ) {
+		int err;
+		err = CompileSpir();
+		return err;
 	}
 
 	SmallVector<char, 4096>	Log;
@@ -638,6 +714,14 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 int ClangFECompilerLinkTask::Link()
 {
     OclAutoMutex CS(&s_serializingMutex);
+	char* pBinary = NULL;
+	bool isLlvmBitCode = false;
+
+#if defined (WIN32)
+	const char* tripleStr = "x86_64-PC-Win32";
+#elif defined (__linux__)	
+	const char* tripleStr = "x86_64-unknown-linux-gnu";
+#endif
 
     {   // create a new scope to make sure the mutex will be released last
 
@@ -649,25 +733,29 @@ int ClangFECompilerLinkTask::Link()
     ParseOptions(m_pProgDesc->pszOptions);
     ResolveFlags();
 
-    if (1 == m_pProgDesc->uiNumBinaries)
+    cl_prog_container_header*	pContainer = (cl_prog_container_header*)m_pProgDesc->pBinaryContainers[0];
+	if ( pContainer->description.bin_type == CL_PROG_BIN_COMPILED_SPIR ) {
+		isLlvmBitCode = true;
+	} else if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
+		isLlvmBitCode = true;
+	}
+    if (1 == m_pProgDesc->uiNumBinaries && !isLlvmBitCode )
     {
         m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
 
-        m_pOutIR = new char[m_pProgDesc->puiBinariesSizes[0]];
-        if ( NULL == m_pOutIR )
+		m_pOutIR = new char[m_stOutIRSize];
+		if ( NULL == m_pOutIR )
 		{
 			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
-            m_stOutIRSize = 0;
+			m_stOutIRSize = 0;
 			return CL_OUT_OF_HOST_MEMORY;
 		}
-    
-        MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
+		MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
 
-        cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
-        pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+		cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+		pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
 
         cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
-
         pProgHeader->bDebugInfo = bDebugInfoFlag;
         pProgHeader->bProfiling = bProfilingFlag;
         pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
@@ -682,21 +770,39 @@ int ClangFECompilerLinkTask::Link()
     
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
+	size_t uiBinarySize;
+	std::auto_ptr<Module> composite;
 
     // Initialize the module with the first binary
     cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
 
     cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-    size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+	if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
+		uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
+		pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
 
-    char* pBinary = (char*)pHeader + 
-                    sizeof(cl_prog_container_header) + // Skip the container
-                    sizeof(cl_llvm_prog_header); //Skip the build flags for now
+		MaterializerPass* MP = new MaterializerPass(tripleStr);
+		//MaterializerPass MP( tripleStr );
+		Module *module = MP->MaterializeSPIR( pBinary, uiBinarySize );
+		composite.reset( module );
 
-    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
-           
-    std::auto_ptr<Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+	} else {
+	    uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+		pBinary = (char*)pHeader + 
+				  sizeof(cl_prog_container_header) + // Skip the container
+				  sizeof(cl_llvm_prog_header); //Skip the build flags for now
+
+		if ( pHeader->description.bin_type == CL_PROG_BIN_COMPILED_SPIR ) {
+			MaterializerPass* MP = new MaterializerPass(tripleStr);
+			//MaterializerPass MP( tripleStr );
+			Module *module = MP->MaterializeSPIR( pBinary, uiBinarySize );
+			composite.reset( module );
+		} else {
+			MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));   
+			composite.reset(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+		}
+	}
 
     if (composite.get() == 0) 
     {
@@ -719,15 +825,21 @@ int ClangFECompilerLinkTask::Link()
     // Now go over the rest of the binaries and add them
     for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-        pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+		if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
+			uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
+			pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
+		} else {
+			pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+			if ( pHeader->description.bin_type == CL_PROG_BIN_COMPILED_SPIR ) {
+			}
+		    pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-        pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+			uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
-        uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
-
-        char* pBinary = (char*)pHeader + 
-                        sizeof(cl_prog_container_header) + // Skip the container
-                        sizeof(cl_llvm_prog_header); //Skip the build flags for now
+			pBinary = (char*)pHeader + 
+					  sizeof(cl_prog_container_header) + // Skip the container
+					  sizeof(cl_llvm_prog_header); //Skip the build flags for now
+		}
 
         MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
                
@@ -769,7 +881,6 @@ int ClangFECompilerLinkTask::Link()
             return CL_LINK_PROGRAM_FAILURE;
         }
     }
-
 
     std::vector<unsigned char> Buffer;
     BitstreamWriter Stream(Buffer);
@@ -1187,6 +1298,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  bool*        pbOptDisable,
                                                  bool*        pbDenormsAreZeros,
                                                  bool*        pbFastRelaxedMath,
+												 bool*		  pbCompileSpir,
                                                  std::string* pszFileName)
 {
     // Reset options
@@ -1196,6 +1308,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bOptDisable = false;
     bool bDenormsAreZeros = false;
     bool bFastRelaxedMath = false;
+	bool compileSpir = false;
     std::string szFileName = "";
 	
     if (!szOptions)
@@ -1348,6 +1461,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("-cl-std=CL1.2");
             pList->push_back("-D");
 	          pList->push_back("__OPENCL_C_VERSION__=120");
+		} else if ( *opt_i == "-spir") {
+			compileSpir = true;
         }       
         else {
             UnrecognizedArgs.push_back(*opt_i);
@@ -1435,6 +1550,10 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     {
         *pszFileName = szFileName;
     }
+
+	if ( pbCompileSpir ) {
+		*pbCompileSpir = compileSpir;
+	}
 
     return res;
 }

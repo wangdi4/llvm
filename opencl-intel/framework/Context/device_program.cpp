@@ -554,6 +554,12 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary)
 {
     const cl_prog_container_header* pProgCont = (cl_prog_container_header*)pBinary;
 
+	// If it is SPIR binary, no other checks needed
+    if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
+    {
+        return true;
+    }
+
     // Check container size
     if ( sizeof(cl_prog_container_header) > uiBinSize )
     {

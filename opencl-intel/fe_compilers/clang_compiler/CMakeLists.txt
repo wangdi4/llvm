@@ -15,6 +15,7 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
+            ${CMAKE_SOURCE_DIR}/backend/passes/SPIR
             )
 
 			
@@ -125,7 +126,9 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 									  LLVMTarget
 									  LLVMMC
 									  LLVMipa
-                    OclPluginManager)
+									  OclPluginManager
+									  SPIR
+									  )
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 set( COMPILER_OPTIONS -cc1

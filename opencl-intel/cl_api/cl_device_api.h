@@ -63,7 +63,9 @@ enum cl_prog_binary_type
     CL_PROG_OBJ_X86,                //!< Container holds x86 object code (.obj)
     CL_PROG_BIN_X86,                //!< Container holds x86 binary code
     CL_PROG_BIN_PTX,                //!< Container holds NVidia PTX intermediate
-    CL_PROG_BIN_CUBIN               //!< Container holds NVidia CUBbinary
+    CL_PROG_BIN_CUBIN,				//!< Container holds NVidia CUBbinary
+    CL_PROG_BIN_COMPILED_SPIR,		//!< Container holds compiled SPIR intermediate
+    CL_PROG_BIN_LINKED_SPIR        //!< Container holds linked SPIR intermediate
 };
 
 /*! \enum cl_prog_container_type
@@ -174,6 +176,11 @@ struct cl_prog_program
     \brief This structure defines a container that holds binaries or IR of OCL compiled programs
 */
 #define _CL_CONTAINER_MASK_     "CLPC"
+
+/*! \def _CL_LLVM_BITCODE_MASK_
+    \brief This header signal LLVM bitcode stream
+*/
+#define _CL_LLVM_BITCODE_MASK_		"BC"
 
 /*! \struct cl_prog_container_header
  *  \brief This structure defines a specific container for binaries or IR of OCL programs

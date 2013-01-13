@@ -49,30 +49,6 @@ typedef unsigned int uint;
  */
 typedef unsigned long ulong;
 
-/**
- * The unsigned integer type of the result of the sizeof operator. This
- * is a 32-bit unsigned integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit unsigned integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-#if defined(__i386__) || defined(i386) || defined(_M_IX86)
-typedef uint size_t;
-#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
-typedef ulong size_t;
-#endif
-
-/**
- * A signed integer type that is the result of subtracting two pointers.
- * This is a 32-bit signed integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit signed integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-#if defined(__i386__) || defined(i386) || defined(_M_IX86)
-typedef int ptrdiff_t;
-#elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
-typedef long ptrdiff_t;
-#endif
-
 typedef ptrdiff_t intptr_t;
 
 typedef size_t uintptr_t;
