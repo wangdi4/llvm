@@ -70,10 +70,4 @@ extern "C" {
     intel::RuntimeServices::set(rt);
     return (void*)(rt);
   }
-  
-  void* destroyOpenclRuntimeSupport() {
-    delete intel::RuntimeServices::get();
-    intel::RuntimeServices::set(0);
-    return 0;
-  }
 }

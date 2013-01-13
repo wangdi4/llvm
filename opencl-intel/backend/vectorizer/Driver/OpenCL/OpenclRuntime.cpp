@@ -379,4 +379,10 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
   
 } // Namespace
 
-
+extern "C" {
+  void* destroyOpenclRuntimeSupport() {
+    delete intel::RuntimeServices::get();
+    intel::RuntimeServices::set(0);
+    return 0;
+  }
+}
