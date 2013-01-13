@@ -52,7 +52,6 @@ set (PASSES_LIBS
     ModuleCleanup
     PrepareKernelArgs
     PreventDivCrashes
-    PrintIRPass
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
