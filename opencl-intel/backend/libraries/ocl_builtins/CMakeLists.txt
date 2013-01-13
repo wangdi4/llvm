@@ -181,7 +181,7 @@ set (CLANG_COMPILER_PARAMS
   )
 
 # llvm-opt
-set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -shuffle-call-to-inst -scalarrepl -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -O3)
