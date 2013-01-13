@@ -12,13 +12,14 @@
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Intrinsics.h"
+#include "llvm/Version.h"
+
 #if LLVM_VERSION >= 3425
 #include "llvm/IRBuilder.h"
 #else
 #include "llvm/Support/IRBuilder.h"
 #endif
-#include "llvm/Intrinsics.h"
-#include "llvm/Version.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
