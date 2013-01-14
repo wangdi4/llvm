@@ -253,12 +253,14 @@ cl_err_code	MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize, vo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void MemoryObject::NotifyDestruction()
 {
+    cl_mem myHandle = GetHandle();
 	// Call all notifier callbacks (calling happens in reverse order)
 	while (!m_pfnNotifiers.empty())
 	{
 		MemDtorNotifyData* notifyData = m_pfnNotifiers.top();
-		notifyData->first(GetHandle(),notifyData->second);
+		notifyData->first(myHandle, notifyData->second);
 		m_pfnNotifiers.pop();
+        delete notifyData;
 	}
 }
 
