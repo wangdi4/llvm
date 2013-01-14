@@ -25,6 +25,7 @@ File Name:  builtin_functions.cpp
 #include <map>
 #include <algorithm>
 
+
 #ifndef LLVM_BACKEND_NOINLINE_PRE
    #if defined(_WIN32)
       #define LLVM_BACKEND_NOINLINE_PRE __declspec(noinline)
@@ -57,7 +58,6 @@ using namespace Intel::OpenCL::DeviceBackend;
 #else
 #define GET_RET_ADDR() ((size_t) __builtin_return_address(0))
 #endif
-
 
 /*****************************************************************************************************************************
 *    Synchronization functions (Section 6.11.9)
@@ -141,6 +141,14 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy
   return event;
 }
 
+// set the rounding mode to the given one, and return the previous mode.
+extern "C" LLVM_BACKEND_API unsigned int set_rounding_mode(unsigned int mode)
+{
+    unsigned int old_csr = _mm_getcsr();
+    _mm_setcsr((old_csr & ~_MM_ROUND_MASK) | mode);
+    return old_csr & _MM_ROUND_MASK;
+}
+
 extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
 {
   assert(false && "Need to Implement mic_get_time_counter");
@@ -167,4 +175,5 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
     functionsTable["lasync_wg_copy_strided_g2l"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_g2l;
     functionsTable["opencl_printf"] = (unsigned long long int)(intptr_t)opencl_mic_printf;
     functionsTable["opencl_snprintf"] = (unsigned long long int)(intptr_t)opencl_snprintf;
+    functionsTable["set_rounding_mode"] = (unsigned long long int)(intptr_t)set_rounding_mode;
 }

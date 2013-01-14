@@ -27,6 +27,12 @@ const float const_pi_180f = 0.017453292519943295769236907684883f;
 const double const_pi_180 = 0.017453292519943295769236907684883;
 
 
+#define _MM_ROUND_NEAREST     0x0000
+#define _MM_ROUND_DOWN        0x2000
+#define _MM_ROUND_UP          0x4000
+#define _MM_ROUND_TOWARD_ZERO 0x6000
+unsigned int set_rounding_mode (unsigned int mode);
+
 #define new_cast(new_type, var) *(new_type *)(&var)
 
 // Apply add reduce between element of i and i+1 (stride-1)
