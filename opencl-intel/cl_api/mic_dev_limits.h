@@ -26,13 +26,14 @@
 */
 #pragma once
 
+#include "cl_kernel_arg_type.h"
 #define MIC_DEV_MAX_WI_SIZE              1024            // Maximum values that could be specified for WI in one dimension
 #define MIC_DEV_LCL_MEM_SIZE             (32*1024)
 #define MIC_DEV_DCU_LINE_SIZE            64
 #define MIC_DEV_MAXIMUM_ALIGN            128
 
 #define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
-#define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)  (((X)+MIC_DEV_MAXIMUM_ALIGN-1) & (~(MIC_DEV_MAXIMUM_ALIGN-1)))
+//#define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)  (((X)+MIC_DEV_MAXIMUM_ALIGN-1) & (~(MIC_DEV_MAXIMUM_ALIGN-1)))
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
 // Minimum memory size allocate for single WI instance
@@ -53,8 +54,6 @@
 #define MIC_MAX_LOCAL_ARGS               (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MEM_BASE_ADDR_ALIGN          (MIC_DEV_MAXIMUM_ALIGN*8) // In bits
 #define MIC_MAX_WORK_ITEM_DIMENSIONS     MAX_WORK_DIM
-// Assuming MAX_WORK_DIM == 3
-#define MIC_MAX_WI_DIM_POW_OF_2	(MAX_WORK_DIM+1)
 #define MIC_MAX_WORK_GROUP_SIZE          1024            // Must be power of 2, No API to get max number of fibers
 #define MIC_DEFAULT_WG_SIZE              32
 #define MIC_MIN_ACTUAL_PARAM_SIZE        sizeof(size_t)
