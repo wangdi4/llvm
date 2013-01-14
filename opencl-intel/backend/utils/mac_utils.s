@@ -1,24 +1,11 @@
-.file "mac_utils.s"
+#/*=================================================================================
+#Copyright (c) 2012, Intel Corporation
+#Subject to the terms and conditions of the Master Development License
+#Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+#OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+#==================================================================================*/
 
-#*****************************************************************************
-#*
-#*   Copyright (c)  1999 - 2007 Intel Corporation. All rights reserved
-#*   This software and associated documentation (if any) is furnished
-#*   under a license and monly be used or copied in accordance
-#*   with the terms of the license. Except as permitted by such
-#*   license, no part of this software or documentation may be
-#*   reproduced, stored in a retrieval system, or transmitted in any
-#*   form or by any means without the express written consent of
-#*   Intel Corporation.
-#*
-#*
-#*   Module Name:
-#*
-#*     mac_utils.s
-#*
-#*   Abstract:
-#*
-#*****************************************************************************
+.file "mac_utils.s"
 
 #================= CallKernel implementation (with and without barriers) ===================
 .text

@@ -1,7 +1,9 @@
-//////////////////////////////////////////////////////////////////
-//This is a generated file. Do not change unless you know what it is
-//you are doing
-//////////////////////////////////////////////////////////////////
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __MANGLED_BI_NAMES_H__
 #define __MANGLED_BI_NAMES_H__
 #if defined(_WIN32) || defined(_WIN64)
