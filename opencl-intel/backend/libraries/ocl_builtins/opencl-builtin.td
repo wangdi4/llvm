@@ -479,7 +479,7 @@ def u64gentype : OclGenType<"u64gentype"> {
   list<string> Tout = T8;
 }
 // f32gentype: 'vNtM' -> 'vNf32'
-def f32gentype : OclGenType<"u32gentype"> {
+def f32gentype : OclGenType<"f32gentype"> {
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "f32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "f32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "f32", n));
@@ -492,7 +492,7 @@ def f32gentype : OclGenType<"u32gentype"> {
   list<string> Tout = T8;
 }
 // f64gentype: 'vNtM' -> 'vNf64'
-def f64gentype : OclGenType<"i64gentype"> {
+def f64gentype : OclGenType<"f64gentype"> {
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "f64", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "f64", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "f64", n));
@@ -626,11 +626,12 @@ class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;
 
 
 // OclBuiltinImpl
-class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl> {
+class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl, list<pair<string, string>> customMacro = []> {
   OclBuiltin Builtin = builtin;
   list<OclType> Types = types;
   code Impl = impl;
   bit IsDeclOnly = isDeclOnly; // Just need declaration, for OCL builtin implementation defined somewhere else.
+  list<pair<string, string>> CustomMacro = customMacro;
 }
 
 //Reflection module map cell

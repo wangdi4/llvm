@@ -35,6 +35,7 @@
 
 #include <map>
 #include <vector>
+#include <string>
 
 namespace llvm {
 
@@ -165,6 +166,8 @@ public:
 
   std::string getNativeArgumentCType(unsigned, const std::string&) const;
 
+  std::string getNativeArgumentCVecLen(unsigned, const std::string&) const;
+
   std::string getNativeCFunc(const std::string&) const;
 
   std::string getExpandLoCFunc(const std::string&) const;
@@ -234,6 +237,7 @@ protected:
   struct Impl {
     const Record* m_Record;
     std::vector<const OclType*> m_Types;
+    std::map<std::string, std::string> m_customMacro;
     std::string m_Code;
     bool m_IsDeclOnly;
   };
@@ -246,7 +250,8 @@ public:
   explicit OclBuiltinDB(RecordKeeper&);
   virtual ~OclBuiltinDB();
 
-  std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&) const;
+  std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&,
+                             std::map<std::string, std::string> const&) const;
 
   std::string getNextNativeType(const std::string&) const;
 
