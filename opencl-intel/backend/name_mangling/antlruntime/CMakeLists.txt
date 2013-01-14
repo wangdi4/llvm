@@ -8,6 +8,7 @@ add_subdirectory(src)
 
 if(APPLE)
   file(GLOB ANTLR_INCLUDE_FILES ${ANTLR_INCLUDE_DIR}/antlr/*.hpp)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
   install( FILES ${ANTLR_INCLUDE_FILES}
            DESTINATION src/${SOURCE_RELATIVE_DIR}/include/antlr
          )
