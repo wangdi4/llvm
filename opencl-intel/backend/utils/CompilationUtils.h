@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __COMPILATION_UTILS_H__
 
 #include "cl_kernel_arg_type.h"
-#ifndef __APPLE_
+#ifndef __APPLE__
 #include "exceptions.h"
 #endif
 
@@ -25,7 +25,7 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-#ifndef __APPLE_
+#ifndef __APPLE__
   DEFINE_EXCEPTION(CompilerException)
 #endif
 
