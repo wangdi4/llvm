@@ -55,7 +55,7 @@ namespace intel {
     }
 
   private:
-    // Indicates whether the architecture is MIC
+    // Indicates whether the architecture supports Vector 16
     bool hasV16Support()const;
     // Indicates whether the architecture supports AVX 256
     bool hasAVX()const;
@@ -121,7 +121,7 @@ namespace intel {
       return (x + y - 1) / y;
     }
 
-    // Used to identify MIC/AVS support
+    // Used to identify Arch support
     Intel::CPUId m_cpuid;
 
     // Is this a before or after vectorization pass.

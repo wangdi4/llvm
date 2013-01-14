@@ -46,12 +46,6 @@ void CPUBuiltinLibrary::Load()
     //Klocwork warning - false alarm the Id is always in correct bounds
     const char* pCPUPrefix = m_cpuId.GetCPUPrefix();
 
-    if( Intel::CPU_SANDYBRIDGE == m_cpuId.GetCPU() && !m_cpuId.HasAVX1())
-    {
-        // Use SSE4 if AVX1 is not supported
-        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7, sizeof(void*)==8);
-    }
-
     // Load SVML functions
 #if defined (_WIN32)
     sprintf_s(szRTLibName, MAX_PATH, "%s__ocl_svml_%s.dll", szModuleName, pCPUPrefix);

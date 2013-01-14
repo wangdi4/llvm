@@ -18,8 +18,7 @@ File Name:  ResolveWICall.cpp
 
 #include "ResolveWICall.h"
 #include "CompilationUtils.h"
-
-#include "cl_device_api.h"
+#include "cl_kernel_arg_type.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Target/TargetData.h"

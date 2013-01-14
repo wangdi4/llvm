@@ -19,8 +19,10 @@ File Name:  CompilationUtils.h
 #ifndef __COMPILATION_UTILS_H__
 #define __COMPILATION_UTILS_H__
 
-#include "cpu_dev_limits.h"
+#include "cl_kernel_arg_type.h"
+#ifndef __APPLE_
 #include "exceptions.h"
+#endif
 
 #include "llvm/Module.h"
 #include "llvm/Function.h"
@@ -34,7 +36,9 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+#ifndef __APPLE_
   DEFINE_EXCEPTION(CompilerException)
+#endif
 
   /// @brief  CompilationUtils class used to provide helper utilies that are
   ///         used by several other classes.

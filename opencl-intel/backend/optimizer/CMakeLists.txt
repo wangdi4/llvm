@@ -11,11 +11,20 @@ set(TARGET_SOURCE_FILES
 include_directories(
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/passes/PrintIRPass
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/../cl_api
 )
+
+if (APPLE)
+include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers/Apple
+)
+else (APPLE)
+include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}/passes/PrintIRPass
+)
+endif (APPLE)
 
 add_library(${TARGET_NAME}
     ${TARGET_INCLUDE_FILES}

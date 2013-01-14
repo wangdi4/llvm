@@ -186,15 +186,14 @@ if (LLVM_BUILD_APPLE_BACKEND)
     add_subdirectory(vectorizer)
     add_subdirectory(apple_plugin)
     
-    file(GLOB BACKEND_INCLUDE_FILES arch_headers/*.h)
-    set(CL_API_INCLUDE_FILES 
-      ../cl_api/cl_device_api.h
-      ../cl_api/cl_types.h
-      ../cl_api/cl_types2.h
-      ../cl_api/cpu_dev_limits.h
+    set(BACKEND_INCLUDE_FILES 
+      arch_headers/Apple/TargetArch.h
     )
   
-    
+    set(CL_API_INCLUDE_FILES 
+      ../cl_api/cl_kernel_arg_type.h
+    )
+
     file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
     install( FILES ${BACKEND_INCLUDE_FILES} 

@@ -19,6 +19,7 @@ File Name:  AddImplicitArgs.cpp
 #include "AddImplicitArgs.h"
 #include "CompilationUtils.h"
 #include "TLLVMKernelInfo.h"
+#include "cl_kernel_arg_type.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/ValueMap.h"

@@ -18,12 +18,11 @@ File Name:  MICDetect.h
 
 #pragma once
 #include "TargetArch.h"
-#include "ProcessorDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
 // This class used in order to detect the MIC card type with it's features
-class MICDetect : public ProcessorDetect
+class MICDetect
 {
 public:
 

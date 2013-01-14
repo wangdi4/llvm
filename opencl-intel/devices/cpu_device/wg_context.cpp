@@ -35,6 +35,7 @@
 #endif
 #include <malloc.h>
 #include <assert.h>
+#include <memory>
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -104,7 +105,7 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 
 	InvalidateContext();
 
-	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
+	std::auto_ptr<void*> pBuffPtr(new void*[count+1]); // Additional one for private memory
 
 	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;
@@ -112,7 +113,7 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 	--count;
 	for(size_t i=0;i<count;++i)
 	{
-		pBuffPtr[i] = pCurrPtr;
+		pBuffPtr.get()[i] = pCurrPtr;
 		pCurrPtr += pBuffSizes[i];
 	}
 
@@ -122,9 +123,9 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 	    return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	pBuffPtr[count] = m_pPrivateMem;
+	pBuffPtr.get()[count] = m_pPrivateMem;
 
-	cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
+	cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr.get(), count+1, &m_pContext);
 	if (CL_DEV_FAILED(rc))
 	{
 		return CL_DEV_ERROR_FAIL;

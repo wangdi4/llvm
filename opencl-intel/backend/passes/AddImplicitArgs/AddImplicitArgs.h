@@ -20,7 +20,6 @@ File Name:  AddImplicitArgs.h
 #define __ADD_IMPLICIT_ARGS_H__
 
 #include "LocalBuffAnalysis.h"
-#include "cl_device_api.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"

@@ -19,7 +19,7 @@ File Name:  LocalBuffAnalysis.cpp
 #include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
 
-#include "cpu_dev_limits.h"
+#include "cl_kernel_arg_type.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"

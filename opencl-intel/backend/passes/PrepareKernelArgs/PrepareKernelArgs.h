@@ -21,7 +21,6 @@ File Name:  PrepareKernelArgs.h
 
 #include "LocalBuffAnalysis.h"
 #include "TLLVMKernelInfo.h"
-#include "cl_device_api.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"

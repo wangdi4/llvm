@@ -17,9 +17,7 @@ enum ECPU {
     CPU_COREI7,
     CPU_SANDYBRIDGE,
     CPU_HASWELL,
-    // MIC Cards must appear last
-    MIC_KNC,
-    MIC_FIRST = MIC_KNC,
+    RESERVED,
     DEVICE_INVALID // Always last
 };
 // CPU Features enumeration
@@ -53,7 +51,6 @@ public:
     }
     static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
-        if (Name == "knc") return MIC_KNC;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
         if (Name == "corei7") return CPU_COREI7;
@@ -84,8 +81,6 @@ public:
             return "corei7-avx";
         case CPU_HASWELL:
             return "core-avx2";
-        case MIC_KNC:
-            return "knc";
         }
     }
     const char*         GetCPUPrefix() const {
@@ -115,9 +110,6 @@ public:
                 return "g9";
             case CPU_HASWELL:
                 return "s9";
-            case MIC_KNC:
-                assert(false && "No MIC SVML lib for 32-bit OS!");
-                return 0;
             }
         }
         switch(CPU) {
@@ -137,8 +129,6 @@ public:
             return  "e9";
         case CPU_HASWELL:
             return "l9";
-        case MIC_KNC:
-            return "b2";
         }
     }
     unsigned GetLatestSupportedFeature() const {
@@ -157,7 +147,7 @@ public:
         return HasGatherScatter(m_CPU);
     };
     static bool HasGatherScatter(ECPU CPU) {
-        return CPU >= MIC_FIRST && CPU < DEVICE_INVALID;
+        return false;
     };
     static bool IsValidCPUName(const char* pCPUName) {
         return DEVICE_INVALID != GetCPUByName(pCPUName);

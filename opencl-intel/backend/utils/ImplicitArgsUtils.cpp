@@ -17,7 +17,6 @@ File Name:  ImplicitArgsUtils.cpp
 \*****************************************************************************/
 
 #include "ImplicitArgsUtils.h"
-#include "cpu_dev_limits.h"
 
 #ifndef __APPLE__
 #include "ExecutionContext.h"

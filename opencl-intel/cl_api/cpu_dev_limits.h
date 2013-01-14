@@ -26,15 +26,15 @@
 */
 #pragma once
 
-#include "cl_device_api.h"
+#include "cl_kernel_arg_type.h"
 
 #define CPU_DEV_MAX_WI_SIZE				1024			// Maximum values that could be specified for WI in one dimension
 #define CPU_DEV_LCL_MEM_SIZE			(32*1024)
 #define CPU_DEV_DCU_LINE_SIZE			64
-#define CPU_DEV_MAXIMUM_ALIGN			128
+//#define CPU_DEV_MAXIMUM_ALIGN			128
 
 #define ADJUST_SIZE_TO_DCU_LINE(X)			( ((X)+CPU_DEV_DCU_LINE_SIZE-1) & (~(CPU_DEV_DCU_LINE_SIZE-1)))
-#define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)		( ((X)+CPU_DEV_MAXIMUM_ALIGN-1) & (~(CPU_DEV_MAXIMUM_ALIGN-1)))
+//#define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)		( ((X)+CPU_DEV_MAXIMUM_ALIGN-1) & (~(CPU_DEV_MAXIMUM_ALIGN-1)))
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
 // Maximum number of arguments to be passed to the kernel
@@ -60,11 +60,8 @@
 #define CPU_MAX_WRITE_IMAGE_ARGS		(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MAX_CONSTANT_BUFFER_SIZE	(128*1024)
 #define CPU_MAX_CONSTANT_ARGS			(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
-#define CPU_MAX_LOCAL_ARGS				(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MEM_BASE_ADDR_ALIGN			(CPU_DEV_MAXIMUM_ALIGN*8) // In bits
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-// Assuming MAX_WORK_DIM == 3
-#define CPU_MAX_WI_DIM_POW_OF_2	(MAX_WORK_DIM+1)
 #define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
 #define CPU_DEFAULT_WG_SIZE				32
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)

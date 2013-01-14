@@ -18,9 +18,6 @@ File Name:  Optimizer.cpp
 
 #include "Optimizer.h"
 #include "VecConfig.h"
-#include "exceptions.h"
-#include "cl_device_api.h"
-#include "cl_types.h"
 #include "CPUDetect.h"
 #include "debuggingservicetype.h"
 #ifndef __APPLE__
@@ -38,7 +35,6 @@ File Name:  Optimizer.cpp
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-
 
 extern "C" void* createInstToFuncCallPass(bool);
 
@@ -215,7 +211,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #else
   createAppleOpenclRuntimeSupport(pRtlModule);
 #endif
-  bool UnitAtATime LLVM_BACKEND_UNUSED = true;
+  bool UnitAtATime = true;
   bool DisableSimplifyLibCalls = true;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
@@ -267,7 +263,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       &m_modulePasses,
       uiOptLevel,
       has_bar, // This parameter controls the unswitch pass
-      true,
+      UnitAtATime,
       true,
       false,
       allowAllocaModificationOpt,
@@ -446,10 +442,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 
 #ifndef __APPLE__
-    // Add prefetches only for MIC, if not in debug mode, and don't change the
+    // Add prefetches only for V16, if not in debug mode, and don't change the
     // library
-    if (debugType == None && !pConfig->GetLibraryModule() &&
-        pConfig->GetCpuId().GetCPU() == Intel::MIC_KNC) {
+    if (debugType == None && !pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
       m_modulePasses.add(createPrefetchPass());
 
       m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions

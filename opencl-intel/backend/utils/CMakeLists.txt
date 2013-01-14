@@ -10,6 +10,7 @@ set(TARGET_EXTRA_SOURCE_FILES
   SystemInfo.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES
+  exceptions.h
   ExecutionContext.h 
   ExplicitArgument.h
   ExplicitLocalMemArgument.h
@@ -22,13 +23,11 @@ set (TARGET_INCLUDE_FILES
   CompilationUtils.h
   CPUDetect.h
   debuggingservicetype.h
-  exceptions.h
   FunctionArgument.h
   IArgument.h
   ImplicitArgProperties.h
   ImplicitArgsUtils.h
   ImplicitArgument.h
-  ProcessorDetect.h
   TLLVMKernelInfo.h
   TypeAlignment.h
   ${TARGET_EXTRA_INCLUDE_FILES}
@@ -46,8 +45,17 @@ set (TARGET_SOURCE_FILES
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
+)
+
+if (APPLE)
+include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers/Apple
+)
+else (APPLE)
+include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
 )
+endif (APPLE)
 
 # Include the ASM sources
 if(BUILD_X64)

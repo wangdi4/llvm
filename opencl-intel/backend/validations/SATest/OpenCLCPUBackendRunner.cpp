@@ -46,6 +46,7 @@ File Name:  OpenCLCPUBackendRunner.cpp
 #include <llvm/Support/Debug.h>
 
 #include <string.h>
+#include <memory>
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -79,7 +80,8 @@ public:
     {
         m_pContext.reset(NULL);
 
-        void*   pBuffPtr[CPU_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
+      	std::auto_ptr<void*> pBuffPtr(new void*[count+1]); // Additional one for private memory
+
 
         // Allocate local memories
         char*   pCurrPtr = m_pLocalMem.get();
@@ -87,7 +89,7 @@ public:
         --count;
         for(size_t i=0;i<count;++i)
         {
-            pBuffPtr[i] = pCurrPtr;
+            pBuffPtr.get()[i] = pCurrPtr;
             pCurrPtr += pBuffSizes[i];
         }
 
@@ -98,9 +100,9 @@ public:
             m_pPrivateMem.reset((char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));
         }
 
-        pBuffPtr[count] = m_pPrivateMem.get();
+        pBuffPtr.get()[count] = m_pPrivateMem.get();
         DEBUG(llvm::dbgs() << "Create executable started.\n");
-        int rc = pBinary->CreateExecutable(pBuffPtr, count+1, m_pContext.getOutPtr());
+        int rc = pBinary->CreateExecutable(pBuffPtr.get(), count+1, m_pContext.getOutPtr());
         DEBUG(llvm::dbgs() << "Create executable finished.\n");
         if (CL_DEV_FAILED(rc))
         {

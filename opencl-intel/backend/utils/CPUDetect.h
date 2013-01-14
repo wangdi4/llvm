@@ -20,14 +20,13 @@ File Name:  CPUDetect.h
 #define __CPU_DETECT_H__
 
 #include "TargetArch.h"
-#include "ProcessorDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
-class CPUDetect : public ProcessorDetect
+class CPUDetect
 {
 public:
-  static CPUDetect *  GetInstance() {
+  static CPUDetect * GetInstance() {
       if (!m_Instance)
           m_Instance = new CPUDetect();
       return m_Instance;

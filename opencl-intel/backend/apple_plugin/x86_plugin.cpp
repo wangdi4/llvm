@@ -68,7 +68,7 @@
 #include "Optimizer.h"
 #include "MetaDataApi.h"
 #include "VecConfig.h"
-#include "cl_device_api.h"
+#include "cl_kernel_arg_type.h"
 #include "CompilationUtils.h"
 #include "TypeAlignment.h"
 

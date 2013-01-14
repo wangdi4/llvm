@@ -86,7 +86,4 @@ if(APPLE)
   install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
            DESTINATION src/${SOURCE_RELATIVE_DIR}
          )
-  install( DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/include/antlr
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
 endif(APPLE)

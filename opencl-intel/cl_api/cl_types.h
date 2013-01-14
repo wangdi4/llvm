@@ -28,11 +28,7 @@
 
 #include "cl_device_api.h"
 #include <tmmintrin.h>
-#if defined(__APPLE__)
-  #include <OpenCL/cl.h>
-#else
-  #include <CL/cl.h>
-#endif
+#include <CL/cl.h>
 
 // ToDo: remove on move to 1.2 spec ---------------- Start
 

@@ -19,8 +19,8 @@ File Name:  TypeAlignment.h
 #ifndef __TYPE_ALIGNMRENT_H__
 #define __TYPE_ALIGNMRENT_H__
 
-#include "cl_device_api.h"
-#include "cpu_dev_limits.h"
+#include "cl_kernel_arg_type.h"
+#include <cstring>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
