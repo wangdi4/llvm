@@ -83,15 +83,12 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		size_t	m_stOutIRSize;
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
-		bool	m_compileSpir;
     private:
       // private copy constructor to prevent wrong assignment
       ClangFECompilerCompileTask(const ClangFECompilerCompileTask&) {}
       // private operator= constructor to prevent wrong assignment
       ClangFECompilerCompileTask& 
         operator= (ClangFECompilerCompileTask const &) {return *this;}
-
-	  int CompileSpir();
 	};
 
 
@@ -198,7 +195,6 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              bool*        pbOptDisable        = NULL,
                              bool*        pbDenormsAreZeros   = NULL,
                              bool*        pbFastRelaxedMath   = NULL,
-							 bool*		  pbCompileSpir		  = NULL,
                              std::string* pszFileName         = NULL);
 
     bool ParseLinkOptions(const char* szOptions,
