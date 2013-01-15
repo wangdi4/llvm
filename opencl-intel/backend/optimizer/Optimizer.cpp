@@ -64,6 +64,7 @@ extern "C" llvm::ModulePass *createKernelAnalysisPass();
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 
 extern "C" llvm::FunctionPass *createPrefetchPass();
+extern "C" llvm::ModulePass * createRemovePrefetchPass();
  
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -226,6 +227,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
+
+  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+    m_modulePasses.add(createRemovePrefetchPass());
 
   m_modulePasses.add(createShuffleCallToInstPass());
 

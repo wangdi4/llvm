@@ -6,6 +6,7 @@ set(PREFETCH_INCLUDE_FILES
 
 set(PREFETCH_SOURCE_FILES
     Prefetch.cpp
+    RemovePrefetch.cpp
 )
 
 include_directories(
