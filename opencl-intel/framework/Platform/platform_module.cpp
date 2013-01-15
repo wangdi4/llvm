@@ -969,12 +969,12 @@ cl_device_info translatePartitionSelectorExt(cl_device_info selector)
 	{
 	case CL_DEVICE_PARENT_DEVICE_EXT:
 		return CL_DEVICE_PARENT_DEVICE;
-	case CL_DEVICE_PARTITION_TYPES_EXT:
-		return CL_DEVICE_PARTITION_PROPERTIES;
-	case CL_DEVICE_AFFINITY_DOMAINS_EXT:
-		return CL_DEVICE_PARTITION_AFFINITY_DOMAIN;
+	case CL_DEVICE_PARTITION_TYPES_EXT: //Need to propagate this EXT value to the device, so just downcast it to uint
+		return (cl_device_info)CL_DEVICE_PARTITION_TYPES_EXT;
 	case CL_DEVICE_REFERENCE_COUNT_EXT:
 		return CL_DEVICE_REFERENCE_COUNT;
+	case CL_DEVICE_AFFINITY_DOMAINS_EXT: //Need to propagate this EXT value to the device, so just downcast it to uint
+		return (cl_device_info)CL_DEVICE_AFFINITY_DOMAINS_EXT;
 	case CL_DEVICE_PARTITION_STYLE_EXT:
 		return CL_DEVICE_PARTITION_TYPE;
 	default:
