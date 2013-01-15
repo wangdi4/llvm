@@ -512,6 +512,28 @@ code MaskVStoreFHalf = [{
     mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreFHalfRTE = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_NEAREST);
+    mask_vstore_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+code MaskVStoreFHalfRTZ = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_TOWARD_ZERO);
+    mask_vstore_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+code MaskVStoreFHalfRTP = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_UP);
+    mask_vstore_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+
+code MaskVStoreFHalfRTN = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_DOWN);
+    mask_vstore_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+
+code MaskVStoreFHalfFinal = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
@@ -533,101 +555,10 @@ code MaskVStoreFHalfRTE = [{
             break; 
     }
   }];
-code MaskVStoreFHalfRTZ = [{
 
-    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
-    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all normal numbers that are too big to be represented in 16 bit precision.
-    // in rtz, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
-    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
-    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
-    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
-
-    //  NaN's should not be truncated because they will become infinities.
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-
-    __mmask16 finalMask = ~negativeOverflowMask & ~positiveOverflowMask & ~nanMask;
-    // This is silencing the lower 13 bits that we lose when moving to 16 bit precision.
-    __m512i vVal = (__m512i)(int16)~0x1fff;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, finalMask, (__m512i)$Arg1VarName, vVal);
-
-    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-  }];
-code MaskVStoreFHalfRTP = [{
-
-    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all negative normal numbers that are too big to be represented in 16 bit precision.
-    // in rtp, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
-    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
-
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-    
-    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
-    // it is used to help with with rounding to the correct direction according to the specified rules.
-    __m512i vVal = (__m512i)(int16)0x1fff;
-
-    // normal positive values should be "helped" up by setting bits [0:12], 
-    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
-    __mmask16 positiveMask = _mm512_mask_cmplt_ps($Arg0VarName, (__m512)(int16)0, $Arg1VarName);
-    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vPositiveInfinity);
-    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
-    __mmask16 fixPositiveMask = $Arg0VarName & positiveMask & notInfinityMask & ~nanMask & ~mask0;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixPositiveMask , (__m512i)$Arg1VarName, vVal);
-
-    // normal negative values should be "helped" up by turning off bit [0:12]
-    __mmask16 fixNegativeMask = $Arg0VarName & ~positiveMask & ~nanMask;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixNegativeMask, (__m512i)$Arg1VarName, ~vVal);
-
-    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-
-  }];
-
-code MaskVStoreFHalfRTN = [{
-
-    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all positive normal numbers that are too big to be represented in 16 bit precision.
-    // in rtn, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
-    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
-
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-
-    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
-    // it is used to help with with rounding to the correct direction according to the specified rules.
-    __m512i vVal = (__m512i)(int16)0x1fff;
-
-    // normal negative values should be "helped" down by setting bits [0:12], 
-    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
-    __mmask16 negativeMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, (__m512)(int16)0);
-    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, vNegativeInfinity, $Arg1VarName);
-    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
-    __mmask16 fixNegativeMask = $Arg0VarName & negativeMask & notInfinityMask & ~nanMask & ~mask0;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixNegativeMask , (__m512i)$Arg1VarName, vVal);
-
-    // normal positive values should be "helped" down by turning off bit [0:12]
-    __mmask16 fixPositiveMask = $Arg0VarName & ~negativeMask & ~nanMask;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixPositiveMask, (__m512i)$Arg1VarName, ~vVal);
-
-    mask_vstore_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-  }];
+OclBuiltinImpl mask_vstoref_half_final_gas_v16 = OclBuiltinImpl<mask_vstoref_half_final_gas,     [v16f16], 0, MaskVStoreFHalfFinal>;
+OclBuiltinImpl mask_vstoref_half_final_las_v16 = OclBuiltinImpl<mask_vstoref_half_final_las,     [v16f16], 0, MaskVStoreFHalfFinal>;
+OclBuiltinImpl mask_vstoref_half_final_pas_v16 = OclBuiltinImpl<mask_vstoref_half_final_pas,     [v16f16], 0, MaskVStoreFHalfFinal>;
 
 OclBuiltinImpl mask_vstoref_half_gas_v16      = OclBuiltinImpl<mask_vstoref_half_gas,     [v16f16], 0, MaskVStoreFHalf>;
 OclBuiltinImpl mask_vstoref_half_las_v16      = OclBuiltinImpl<mask_vstoref_half_las,     [v16f16], 0, MaskVStoreFHalf>;
@@ -700,6 +631,28 @@ code MaskVStoreAFHalf = [{
     mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreAFHalfRTE = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_NEAREST);
+    mask_vstorea_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+code MaskVStoreAFHalfRTZ = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_TOWARD_ZERO);
+    mask_vstorea_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+code MaskVStoreAFHalfRTP = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_UP);
+    mask_vstorea_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+
+code MaskVStoreAFHalfRTN = [{
+    unsigned int old = set_rounding_mode(_MM_ROUND_DOWN);
+    mask_vstorea_half_final($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+    set_rounding_mode(old);
+  }];
+
+code MaskVStoreAFHalfFinal = [{
     switch ($Arg0VarName) {
         case 0xFFFF:
             _mm512_check_store_ps((void *)($Arg3VarName + ($Arg2VarName * 16)), $Arg1VarName, _MM_DOWNCONV_PS_FLOAT16, _MM_HINT_NONE);
@@ -721,100 +674,11 @@ code MaskVStoreAFHalfRTE = [{
             break;
     }
   }];
-code MaskVStoreAFHalfRTZ = [{
 
-    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
-    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all normal numbers that are too big to be represented in 16 bit precision.
-    // in rtz, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
-    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
-    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
-    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
+OclBuiltinImpl mask_vstoreaf_half_final_gas_v16 = OclBuiltinImpl<mask_vstoreaf_half_final_gas,     [v16f16], 0, MaskVStoreAFHalfFinal>;
+OclBuiltinImpl mask_vstoreaf_half_final_las_v16 = OclBuiltinImpl<mask_vstoreaf_half_final_las,     [v16f16], 0, MaskVStoreAFHalfFinal>;
+OclBuiltinImpl mask_vstoreaf_half_final_pas_v16 = OclBuiltinImpl<mask_vstoreaf_half_final_pas,     [v16f16], 0, MaskVStoreAFHalfFinal>;
 
-    //  NaN's should not be truncated because they will become infinities.
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-
-    __mmask16 finalMask = ~negativeOverflowMask & ~positiveOverflowMask & ~nanMask;
-    // This is silencing the lower 13 bits that we lose when moving to 16 bit precision.
-    __m512i vVal = (__m512i)(int16)~0x1fff;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, finalMask, (__m512i)$Arg1VarName, vVal);
-
-    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-
-  }];
-code MaskVStoreAFHalfRTP = [{
-
-    __m512 vMaxNegativeFloat = (__m512)(int16)0xc77fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all negative normal numbers that are too big to be represented in 16 bit precision.
-    // in rtp, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 negativeOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vMaxNegativeFloat);
-    negativeOverflowMask &= _mm512_mask_cmplt_ps(negativeOverflowMask, vNegativeInfinity, $Arg1VarName);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, negativeOverflowMask, vMaxNegativeFloat);
-
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-
-    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
-    // it is used to help with with rounding to the correct direction according to the specified rules.
-    __m512i vVal = (__m512i)(int16)0x1fff;
-
-    // normal positive values should be "helped" up by setting bits [0:12], 
-    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
-    __mmask16 positiveMask = _mm512_mask_cmplt_ps($Arg0VarName, (__m512)(int16)0, $Arg1VarName);
-    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, vPositiveInfinity);
-    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
-    __mmask16 fixPositiveMask = $Arg0VarName & positiveMask & notInfinityMask & ~nanMask & ~mask0;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixPositiveMask , (__m512i)$Arg1VarName, vVal);
-
-    // normal negative values should be "helped" up by turning off bit [0:12]
-    __mmask16 fixNegativeMask = $Arg0VarName & ~positiveMask & ~nanMask;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixNegativeMask, (__m512i)$Arg1VarName, ~vVal);
-
-    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-  }];
-code MaskVStoreAFHalfRTN = [{
-
-    __m512 vMaxPositiveFloat = (__m512)(int16)0x477fefff;
-    __m512 vPositiveInfinity = (__m512)(int16)0x7f800000;
-    __m512 vNegativeInfinity = (__m512)(int16)0xff800000;
-    
-    // single out all positive normal numbers that are too big to be represented in 16 bit precision.
-    // in rtn, these numbers should be converted to the maximal number that can be represented in
-    // 16 bit.
-    __mmask16 positiveOverflowMask = _mm512_mask_cmplt_ps($Arg0VarName, vMaxPositiveFloat, $Arg1VarName);
-    positiveOverflowMask &= _mm512_mask_cmplt_ps(positiveOverflowMask, $Arg1VarName, vPositiveInfinity);  // remove infinities.
-    $Arg1VarName = _mm512_mask_mov_ps($Arg1VarName, positiveOverflowMask, vMaxPositiveFloat);
-
-    __mmask16 nanMask = _mm512_mask_cmpneq_ps($Arg0VarName, $Arg1VarName, $Arg1VarName);
-
-    // A constant with bits [0:12] on, these are the bits we lose when going to 16 bit precision.
-    // it is used to help with with rounding to the correct direction according to the specified rules.
-    __m512i vVal = (__m512i)(int16)0x1fff;
-
-    // normal negative values should be "helped" down by setting bits [0:12], 
-    // with the exception of values that don't need to be rounded at all (bits [0:12] off)
-    __mmask16 negativeMask = _mm512_mask_cmplt_ps($Arg0VarName, $Arg1VarName, (__m512)(int16)0);
-    __mmask16 notInfinityMask = _mm512_mask_cmplt_ps($Arg0VarName, vNegativeInfinity, $Arg1VarName);
-    __mmask16 mask0 = _mm512_mask_cmpeq_ps($Arg0VarName, (__m512)(float16)0, (__m512)_mm512_and_epi32((__m512i)$Arg1VarName, vVal));
-    __mmask16 fixNegativeMask = $Arg0VarName & negativeMask & notInfinityMask & ~nanMask & ~mask0;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_or_epi32((__m512i)$Arg1VarName, fixNegativeMask , (__m512i)$Arg1VarName, vVal);
-
-    // normal positive values should be "helped" down by turning off bit [0:12]
-    __mmask16 fixPositiveMask = $Arg0VarName & ~negativeMask & ~nanMask;
-    $Arg1VarName = ($NativeArg1Type)(__m512)_mm512_mask_and_epi32((__m512i)$Arg1VarName, fixPositiveMask, (__m512i)$Arg1VarName, ~vVal);
-
-    mask_vstorea_half_rte($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);   
-  }];
 OclBuiltinImpl mask_vstoreaf_half_gas_v16     = OclBuiltinImpl<mask_vstoreaf_half_gas,      [v16f16], 0, MaskVStoreAFHalf>;
 OclBuiltinImpl mask_vstoreaf_half_las_v16     = OclBuiltinImpl<mask_vstoreaf_half_las,      [v16f16], 0, MaskVStoreAFHalf>;
 OclBuiltinImpl mask_vstoreaf_half_pas_v16     = OclBuiltinImpl<mask_vstoreaf_half_pas,      [v16f16], 0, MaskVStoreAFHalf>;

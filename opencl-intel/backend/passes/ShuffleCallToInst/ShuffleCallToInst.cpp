@@ -134,6 +134,7 @@ namespace intel{
             // Create the new shufflevector instruction
             ShuffleVectorInst* newShuffleInst = new ShuffleVectorInst(firstVec, secondVec, newMask, "newShuffle", shuffleCall);
             shuffleCall->replaceAllUsesWith(newShuffleInst);
+            shuffleCall->eraseFromParent();
         }
         return true;
     }
@@ -143,6 +144,10 @@ namespace intel{
     /// @return SHUFFLE1 or SHUFFLE2 in case of a shuffle function
     ///         else NOT_SHUFFLE
     ShuffleCallToInst::ShuffleType ShuffleCallToInst::isConstShuffle(CallInst* pCall) {
+        
+        // In case of indirect function call
+        if (!pCall->getCalledFunction()) return NOT_SHUFFLE;
+        
         // Get function name
         std::string calledFuncName = pCall->getCalledFunction()->getName();
         std::string strippedName;

@@ -35,6 +35,7 @@
 #include <locale>
 #include <iostream>
 #include <sstream>
+#include <limits>
 
 #ifdef WIN32
 typedef int threadid_t;
@@ -64,6 +65,7 @@ const char* ClErrTxt(cl_err_code error_code);
 template<typename T> inline std::string stringify(const T& x)
 {
 	std::ostringstream out;
+	out.precision(std::numeric_limits<T>::digits10);
 	out << x;
 	return out.str();
 }

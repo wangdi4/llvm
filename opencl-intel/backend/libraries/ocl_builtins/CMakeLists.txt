@@ -160,7 +160,7 @@ set (CLANG_COMPILER_PARAMS
   )
 
 # llvm-opt
-set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -shuffle-call-to-inst -scalarrepl -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -O3)
@@ -403,10 +403,10 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
   # list (APPEND HEADER_FILES        ${CL_BUILTIN_SOURCE_DIR}/cl_math_declaration.h     )
   #  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
     
-  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) )
+  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) OR (ARCH STREQUAL v8))
     tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
     list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9)  )    
+ endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) OR (ARCH STREQUAL v8) )	
     
   if( OCL_TABLEGEN_FILE )
     # autogen OCL builtin implementation from tablegen file
@@ -461,7 +461,6 @@ endfunction( create_target)
 
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
-  conversion_functions.cpp
   image_functions.cpp
   masked_load_store_functions.cpp
   relational_functions.cpp

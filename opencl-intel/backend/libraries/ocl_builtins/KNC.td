@@ -128,6 +128,10 @@ def mask_vstoref_half_rtp_gas   : OclBuiltin<"mask_vstore_half_rtp", (outs), (in
 def mask_vstoref_half_rtn_pas   : OclBuiltin<"mask_vstore_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, PRIVATE;
 def mask_vstoref_half_rtn_las   : OclBuiltin<"mask_vstore_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
 def mask_vstoref_half_rtn_gas   : OclBuiltin<"mask_vstore_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
+// vstore_half_final
+def mask_vstoref_half_final_pas : OclBuiltin<"mask_vstore_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, PRIVATE;
+def mask_vstoref_half_final_las : OclBuiltin<"mask_vstore_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
+def mask_vstoref_half_final_gas : OclBuiltin<"mask_vstore_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
 // vstorea_half
 def mask_vstoreaf_half_pas      : OclBuiltin<"mask_vstorea_half", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, PRIVATE;
 def mask_vstoreaf_half_las      : OclBuiltin<"mask_vstorea_half", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
@@ -148,6 +152,10 @@ def mask_vstoreaf_half_rtp_gas  : OclBuiltin<"mask_vstorea_half_rtp", (outs), (i
 def mask_vstoreaf_half_rtn_pas  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, PRIVATE;
 def mask_vstoreaf_half_rtn_las  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
 def mask_vstoreaf_half_rtn_gas  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
+// vstorea_half_final
+def mask_vstoreaf_half_final_pas : OclBuiltin<"mask_vstorea_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, PRIVATE;
+def mask_vstoreaf_half_final_las : OclBuiltin<"mask_vstorea_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, LOCAL;
+def mask_vstoreaf_half_final_gas : OclBuiltin<"mask_vstorea_half_final", (outs), (ins masktype:$mask, up_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
 }
 // vstore_half/vstorea_half on double8
 let Types = [v8f16],

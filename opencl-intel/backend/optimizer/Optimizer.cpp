@@ -68,6 +68,7 @@ llvm::FunctionPass *createPrefetchPass();
 
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+extern "C" llvm::ModulePass * createRemovePrefetchPass();
 
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
@@ -233,6 +234,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
+
+  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+    m_modulePasses.add(createRemovePrefetchPass());
 
   m_modulePasses.add(createShuffleCallToInstPass());
 
