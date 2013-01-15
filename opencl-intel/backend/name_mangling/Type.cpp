@@ -135,7 +135,7 @@ void Pointer::accept(TypeVisitor* v)const{
 
 bool Pointer::eq(const Type* t)const{
   const Pointer* p = reflection::cast<Pointer>((Type*)t);
-  return p && (m_primitive == p->m_primitive);
+  return p && m_pType->equals(p->m_pType);
 }
 
 const Type* Pointer::getPointee()const{
