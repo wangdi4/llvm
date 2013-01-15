@@ -20,6 +20,7 @@ if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 
 if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
 	add_definitions (-DDX_MEDIA_SHARING)
+	add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
 endif ()
 endif ()
 

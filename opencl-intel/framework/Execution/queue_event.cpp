@@ -365,31 +365,38 @@ void QueueEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 {
     if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {
-        SetEventState(EVENT_STATE_READY_TO_EXECUTE);
-
-		SharedPtr<QueueEvent>pQEvent = pEvent.DynamicCast<QueueEvent>();
-        //See if I have to notify my queue or not
-        if ((NULL != pQEvent) && (pQEvent->GetEventQueue()))
+		SharedPtr<QueueEvent>                pQEvent  = pEvent.DynamicCast<QueueEvent>();
+        SharedPtr<IOclCommandQueueBase> pQEventQueue  = NULL;
+        if (NULL != pQEvent)
         {
-            if (pQEvent->GetEventQueue()->GetId() == m_pEventQueue->GetId())
-            {
-                //that event will notify my queue for me
-                if (!m_pEventQueue->IsOutOfOrderExecModeEnabled())
-                {
-                    //Optimization only valid for in-order queue
-                    return;
-                }
-            }
+            pQEventQueue = pQEvent->GetEventQueue();
         }
-        //else, I have to notify the queue myself
-        m_pEventQueue->NotifyStateChange(this, EVENT_STATE_HAS_DEPENDENCIES, EVENT_STATE_READY_TO_EXECUTE);
+
+        bool bOOO       = m_pEventQueue->IsOutOfOrderExecModeEnabled();
+        bool bSameQueue = ((NULL != pQEventQueue) && (pQEventQueue->GetId() == m_pEventQueue->GetId()));
+        if (bSameQueue && !bOOO)
+        {
+            //If we're both on the same in-order command queue, the other event will flush it so I don't need to
+            SetEventState(EVENT_STATE_READY_TO_EXECUTE);
+        }
+        else
+        {
+            //Else, I need to notify my queue that I'm ready to execute
+            //I need to cache my own event queue since once I set my state to "ready to execute" I may complete and NULLify/deref my queue
+            SharedPtr<IOclCommandQueueBase> pMyEventQueue = m_pEventQueue;
+            SetEventState(EVENT_STATE_READY_TO_EXECUTE);
+            pMyEventQueue->NotifyStateChange(this, EVENT_STATE_HAS_DEPENDENCIES, EVENT_STATE_READY_TO_EXECUTE);
+        }
     }
 }
 
 void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
 {
-    OclEvent::NotifyComplete(returnCode);
+    NotifyObservers(returnCode);
     m_pEventQueue->NotifyStateChange(this, EVENT_STATE_EXECUTING_ON_DEVICE, EVENT_STATE_DONE);
+    //No longer need my queue reference
+    m_pEventQueue = NULL;
+    MarkAsComplete();
 }
 
 cl_command_queue QueueEvent::GetQueueHandle() const

@@ -139,7 +139,8 @@ OclBuiltinImpl clz_igeneric = OclBuiltinImpl<clz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // clz on scalar uchar
 OclBuiltinImpl clz_v1char = OclBuiltinImpl<clz, [v1u8], 0, [{
-    return __builtin_clzc($Arg0VarName);
+    //return __builtin_clzc($Arg0VarName);
+    return __builtin_clz((uint)$Arg0VarName)-24;
   }]>;
 // clz on scalar ushort
 OclBuiltinImpl clz_v1short = OclBuiltinImpl<clz, [v1u16], 0, [{
@@ -214,7 +215,7 @@ OclBuiltinImpl mad_sat_v1u32 = OclBuiltinImpl<mad_sat, [v1u32], 0, [{
 OclBuiltinImpl mad_sat_v1i64 = OclBuiltinImpl<mad_sat, [v1i64], 0, [{
     long multHi;
     ulong multLo;
-    multiply_signed_64_by_64($Arg0VarName, $Arg1VarName, &multLo, &multHi);
+    multiply_signed_64_by_64($Arg0VarName, $Arg1VarName, &multLo, (ulong*)&multHi);
     ulong sum = multLo + $Arg2VarName;
     // carry if overflow
     if( $Arg2VarName >= 0 )

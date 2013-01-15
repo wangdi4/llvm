@@ -488,7 +488,7 @@ Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetTyp
 }
 
 CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string &name,
-  Type *retType, const SmallVectorImpl<Value *> &args, Instruction* insertBefore) {
+  Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore) {
   SmallVector<Type *, 8> types;
   
   for(unsigned int i=0; i<args.size(); ++i) {
@@ -498,7 +498,12 @@ CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string
   FunctionType *intr = FunctionType::get(retType, types, false);
   Constant* new_f = pModule->getOrInsertFunction(name.c_str(), intr);
   V_ASSERT(isa<Function>(new_f) && "mismatch function type");
+  Function *F = cast<Function>(new_f);
+  for (unsigned i=0; i < attrs.size(); ++i)
+    F->addAttribute(~0, attrs[i]);
   CallInst *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
+  for (unsigned i=0; i < attrs.size(); ++i)
+    newCall->addAttribute(~0, attrs[i]);
 
   // Set debug location
   SetDebugLocBy(newCall, insertBefore);

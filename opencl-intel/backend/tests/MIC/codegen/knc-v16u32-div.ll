@@ -12,7 +12,7 @@ target datalayout = "e-p:64:64"
 @gb = common global <16 x i32> zeroinitializer, align 64
 @pgb = common global <16 x i32>* null, align 8
 
-define <16 x i32> @rem1(<16 x i32> %a, <16 x i32> %b) nounwind readnone ssp {
+define <16 x i32> @div1(<16 x i32> %a, <16 x i32> %b) nounwind readnone ssp {
 entry:
 ; KNF: vstored	{{%v[0-9]}}, {{[0-9]*}}(%rsp)
 ; KNF: vstored	{{%v[0-9]}}, {{[0-9]*}}(%rsp)
@@ -153,7 +153,7 @@ entry:
   ret <16 x i32> %div
 }
 
-define <16 x i32> @rem2(<16 x i32>* nocapture %a, <16 x i32> %b) nounwind readonly ssp {
+define <16 x i32> @div2(<16 x i32>* nocapture %a, <16 x i32> %b) nounwind readonly ssp {
 entry:
 ; KNF: vstored	%v1, {{[0-9]*}}(%rsp)
 ; KNF: movl {{[0-9]*}}(%rsp), %eax
@@ -293,7 +293,7 @@ entry:
   ret <16 x i32> %div
 }
 
-define <16 x i32> @rem3(<16 x i32> %a, <16 x i32>* nocapture %b) nounwind readonly ssp {
+define <16 x i32> @div3(<16 x i32> %a, <16 x i32>* nocapture %b) nounwind readonly ssp {
 entry:
 ; KNF: vstored	%v0, {{[0-9]*}}(%rsp)
 ; KNF: movl {{[0-9]*}}(%rsp), %eax
@@ -433,7 +433,7 @@ entry:
   ret <16 x i32> %div
 }
 
-define <16 x i32> @rem4(<16 x i32> %a) nounwind readonly ssp {
+define <16 x i32> @div4(<16 x i32> %a) nounwind readonly ssp {
 entry:
 ; KNF: vstored	%v0, {{[0-9]*}}(%rsp)
 ; KNF: movl {{[0-9]*}}(%rsp), %eax
@@ -573,7 +573,7 @@ entry:
   ret <16 x i32> %div
 }
 
-define <16 x i32> @rem5(<16 x i32> %a) nounwind readonly ssp {
+define <16 x i32> @div5(<16 x i32> %a) nounwind readonly ssp {
 entry:
 ; KNF: vstored	%v0, {{[0-9]*}}(%rsp)
 ; KNF: movl {{[0-9]*}}(%rsp), %eax

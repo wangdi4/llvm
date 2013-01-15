@@ -133,6 +133,8 @@ int	clDeleteHeap(ClHeap hHeap)
 	ClHeapInfo_t *heapInfo = (ClHeapInfo_t*)hHeap;
 
 	RemoveAll( heapInfo );
+	delete heapInfo;
+
 	return 0;
 }
 

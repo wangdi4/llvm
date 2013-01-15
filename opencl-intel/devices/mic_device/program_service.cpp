@@ -61,11 +61,10 @@ static    unsigned int    UNUSED(gSupportedBinTypesCount) = ARRAY_ELEMENTS(gSupp
 
 ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks,
                                               IOCLDevLogDescriptor *logDesc,
-                                              MICDeviceConfig *config,
                                               DeviceServiceCommunication& dev_service) :
     m_DevService( dev_service), m_BE_Compiler( m_DevService, MIC_BACKEND_DLL_NAME ),
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
-    m_pCallBacks(devCallbacks), m_pMICConfig(config)
+    m_pCallBacks(devCallbacks)
 {
     if ( NULL != logDesc )
     {
@@ -361,9 +360,10 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
+		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
         // get compiler options
-        m_BE_Compiler.MICOptions.init( m_pMICConfig->UseVectorizer(),
-                                       m_pMICConfig->UseVTune()
+        m_BE_Compiler.MICOptions.init( tMicConfig.UseVectorizer(),
+                                       tMicConfig.UseVTune()
                                       );
 
         err = be_factory->GetCompilationService( &m_BE_Compiler.MICOptions,
@@ -821,7 +821,11 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     }
     else
     {
-        RemoveProgramFromDevice( pEntry );
+		// In case that the program kernel count is 0, than we didn't pass it to device side, so we should not remove it from device side.
+        if (pEntry->pProgram->GetKernelsCount() > 0)
+		{
+			RemoveProgramFromDevice( pEntry );
+		}
         DeleteProgramEntry(pEntry);
         dev_err_code = CL_DEV_SUCCESS;
     }

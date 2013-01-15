@@ -139,7 +139,7 @@ else ()
     SET(CMAKE_SKIP_BUILD_RPATH                  TRUE )   # do not add pointers to the build tree
 endif (BUILD_FOR_COMPILATION_PURPOSES_ONLY)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE )   # build rpath as if already installed
-SET(CMAKE_INSTALL_RPATH                     "$ORIGIN" ) # the rpath to use - search through installation dir only
+SET(CMAKE_INSTALL_RPATH                     "$ORIGIN::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::" ) # the rpath to use - search through installation dir only
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 # C switches

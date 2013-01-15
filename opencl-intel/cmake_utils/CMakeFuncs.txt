@@ -222,3 +222,18 @@ function( PRINT_TOOLS )
     message(CMAKE_SHARED_LINKER_FLAGS_RELEASE " - "  ${CMAKE_SHARED_LINKER_FLAGS_RELEASE})
 endfunction( PRINT_TOOLS )
 
+#
+# Removes the given path from the PATH environment 
+# Usage: remove_path( PATH )
+#
+function( remove_path PATHARG )
+    foreach(PATH $ENV{PATH})
+        string(TOUPPER ${PATHARG} UPATHARG)
+        string(TOUPPER ${PATH} UPATH)
+        string(COMPARE NOTEQUAL ${UPATH} ${UPATHARG} PATH_NOTFOUND)
+        if( PATH_NOTFOUND)
+            set( NEW_PATH ${NEW_PATH} ${PATH})
+        endif()
+    endforeach(PATH)
+    set(ENV{PATH} "${NEW_PATH}")
+endfunction( remove_path )

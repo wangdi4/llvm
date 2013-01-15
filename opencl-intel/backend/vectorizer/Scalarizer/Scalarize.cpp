@@ -11,6 +11,7 @@
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "FakeInsert.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
@@ -1114,42 +1115,16 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
 }
 
 Value *ScalarizeFunction::createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc) {
+  VectorType *vTy = dyn_cast<VectorType>(vec->getType());
+  V_ASSERT(vTy && "vec must be a vector");
   SmallVector<Value *, 2> args;
   args.push_back(vec);
   args.push_back(indConst);
-  std::vector<Type *> types;
-  types.push_back(vec->getType());
-  types.push_back(indConst->getType());
-  VectorType *vTy = dyn_cast<VectorType>(vec->getType());
-  V_ASSERT(vTy && "vec must be a vector");
-  Type *elTy = vTy->getElementType();
-  FunctionType *fTy = FunctionType::get(elTy, ArrayRef<Type *>(types), false);
-  Constant *funcConst = m_currFunc->getParent()->getOrInsertFunction(Mangler::getFakeExtractName(), fTy);
-  Function *F = dyn_cast<Function>(funcConst);
-  V_ASSERT(funcConst && "adding function failed");
-  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "fake_extract", loc);
-  return CI;
+  SmallVector<Attributes, 4> attrs;
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
+  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), Mangler::getFakeExtractName(), vTy->getElementType(), args, attrs, loc);
 }
-
-Value *ScalarizeFunction::createFakeInsertElt(Value *vec, Constant *indConst, Value *val, Instruction *loc) {
-  SmallVector<Value *, 3> args;
-  args.push_back(vec);
-  args.push_back(val);
-  args.push_back(indConst);
-  std::vector<Type *> types;
-  types.push_back(vec->getType());
-  types.push_back(val->getType());
-  types.push_back(indConst->getType());
-  V_ASSERT(dyn_cast<VectorType>(vec->getType()) && "vec must be a vector");
-  FunctionType *fTy = FunctionType::get(vec->getType(), ArrayRef<Type *>(types), false);
-  Constant *funcConst = m_currFunc->getParent()->getOrInsertFunction(Mangler::getFakeInsertName(), fTy);
-  Function *F = dyn_cast<Function>(funcConst);
-  V_ASSERT(funcConst && "adding function failed");
-  CallInst *CI = CallInst::Create(F, ArrayRef<Value *>(args), "", loc);
-  return CI;
-}
-
-
 
 void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsConstant,
                                                Value *origValue, Instruction *origInst)
@@ -1345,9 +1320,9 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   // For each of the scalar values, use insert-elements to create vector
   for (unsigned i = 0; i < width; i++) {
     // Get index
-    Constant *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
+    ConstantInt *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
     // Place element in vector
-    assembledVector = createFakeInsertElt(assembledVector, constIndex, inputs[i], loc);
+    assembledVector = FakeInsert::create(assembledVector, constIndex, inputs[i], loc);
   }
   return assembledVector;
 }

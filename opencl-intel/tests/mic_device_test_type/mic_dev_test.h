@@ -61,11 +61,16 @@ extern "C" int clDevCreateDeviceInstance(
 								   );
 
 extern "C" int clDevGetDeviceInfo(
+							unsigned int	dev_id,
 							cl_device_info  param, 
 							size_t          valSize, 
 							void*           paramVal,
 							size_t*         paramValSizeRet						
 							);
+
+extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListSize,
+                        unsigned int*   OUT deviceIdsList,
+                        size_t*   OUT deviceIdsListSizeRet);
 
 extern "C" char* clDevErr2Txt(cl_dev_err_code error_code);
 

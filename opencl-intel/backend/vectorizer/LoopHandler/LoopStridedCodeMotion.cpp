@@ -31,7 +31,7 @@ OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, "cl-loop-stride", "move strided v
 
 LoopStridedCodeMotion::LoopStridedCodeMotion() : LoopPass(ID) {
   initializeLoopStridedCodeMotionPass(*PassRegistry::getPassRegistry());
-};
+}
 
 // this pass assumes LICM ran before it, moved loop invariant values
 // outside of the loop.

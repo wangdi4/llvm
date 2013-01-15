@@ -107,60 +107,60 @@ PlatformModule::~PlatformModule()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
 {
-    unsigned int supported_devices_count = (unsigned int)devices.size();
-
-    if (0 == supported_devices_count)
+	unsigned int supported_devices_type_count = (unsigned int)devices.size();
+	
+	if (0 == supported_devices_type_count)
     {
         return CL_INVALID_DEVICE;
     }
 
-	m_ppRootDevices = new SharedPtr<Device>[supported_devices_count];
-	if (NULL == m_ppRootDevices)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+	m_uiRootDevicesCount = 0;
+	m_pDefaultDevice = NULL;
+	m_ppRootDevices = NULL;
 
-    cl_err_code clErrRet = CL_SUCCESS;
-    m_uiRootDevicesCount = 0; 
-	for(unsigned int ui=0; ui<supported_devices_count; ++ui)
+	cl_err_code clErrRet = CL_SUCCESS;
+	vector< SharedPtr<Device> > devicesList;
+	for(unsigned int ui = 0; ui < supported_devices_type_count; ++ui)
 	{
-		// create new device object
-        SharedPtr<Device> pDevice = Device::Allocate(&m_clPlatformId);
-		if (NULL == pDevice)
-		{
-            m_mapDevices.ReleaseAllObjects(false);
-            m_uiRootDevicesCount = 0;
-            clErrRet = CL_OUT_OF_HOST_MEMORY;
-            break;
-		}
-
 		string strDevice = OS_DLL_POST(devices[ui]);
 
-		clErrRet = pDevice->InitDevice(strDevice.c_str());
+		clErrRet = Device::CreateAndInitAllDevicesOfDeviceType(strDevice.c_str(), &m_clPlatformId, &devicesList);
 		if (CL_FAILED(clErrRet))
 		{
+			if (CL_OUT_OF_HOST_MEMORY == clErrRet)
+			{
+				devicesList.clear();
+				break;
+			}
 			LOG_ERROR(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
 			continue;
 		}
-
-		// assign device in the objects map
-		m_mapDevices.AddObject(pDevice);
-		m_ppRootDevices[m_uiRootDevicesCount] = pDevice;
-        ++m_uiRootDevicesCount;
-
-		if (defaultDevice != "" && defaultDevice == devices[ui])
-		{
-			m_pDefaultDevice = pDevice;
-		}
 	}
 
-    if (0 == m_uiRootDevicesCount)
-    {
-        delete [] m_ppRootDevices;
-        m_ppRootDevices = NULL;
-        m_pDefaultDevice = NULL;
-        return clErrRet;
-    }
+	if (devicesList.size() == 0)
+	{
+		return clErrRet;
+	}
+
+	m_uiRootDevicesCount = devicesList.size();
+	m_ppRootDevices = new SharedPtr<Device>[m_uiRootDevicesCount];
+	if (NULL == m_ppRootDevices)
+	{
+		m_uiRootDevicesCount = 0;
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+
+	for(unsigned int ui = 0; ui < m_uiRootDevicesCount; ++ui)
+	{
+		m_ppRootDevices[ui] = devicesList[ui];
+		// assign device in the objects map
+		m_mapDevices.AddObject(devicesList[ui]);
+		
+		if ((NULL == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
+		{
+			m_pDefaultDevice = devicesList[ui];
+		}
+	}
 
 	return CL_SUCCESS;
 }

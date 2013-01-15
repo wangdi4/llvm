@@ -99,7 +99,7 @@ private:
     return ( prefix == m_name.substr(0, prefix.size()) );
   }
 
-  const std::string& m_name;
+  const std::string m_name;
 };
 
 struct dotProdInlineData {
@@ -219,6 +219,8 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   // them first.
   if (isWorkItemBuiltin(func_name))  return true;
   if (isSafeLLVMIntrinsic(func_name)) return true;
+  if (Mangler::isFakeExtract(func_name)) return true;
+  if (Mangler::isFakeInsert(func_name)) return true;
 
   // If it is not a built-in, don't know if it has side effect.
   Function *funcRT = findInRuntimeModule(func_name);

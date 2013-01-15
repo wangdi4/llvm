@@ -41,9 +41,9 @@ def mask_mad  : OclBuiltin<"mask_mad",  (outs gentype:$ret), (ins masktype:$mask
 def lprefetch : OclBuiltin<"lprefetch", (outs), (ins pgentype:$ptr, size_t:$numElements, size_t:$elmSize), [v1i8], []>;
 
 // Memory Fence Functions
-def mem_fence : OclBuiltin<"mem_fence", (outs), (ins size_t:$flags), [v1i64], []>;
-def read_mem_fence : OclBuiltin<"read_mem_fence", (outs), (ins size_t:$flags), [v1i64], []>;
-def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins size_t:$flags), [v1i64], []>;
+def mem_fence : OclBuiltin<"mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
+def read_mem_fence : OclBuiltin<"read_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
+def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
 
 
 // native math builtins
@@ -216,28 +216,28 @@ class KNC : Generic {
 
 
   code Prolog = [{
-  #if defined (__MIC__) || defined(__MIC2__)
+    #if defined (__MIC__) || defined(__MIC2__)
 
-  #ifdef __cplusplus
-  extern "C" {
-  #endif
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
 
-  #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-  #include <intrin.h>
+    #include <intrin.h>
 
-  #include "generic-builtin-defines.h"
-  #include "knc-builtin-defines.h"
-  #include "mic_dev_limits.h"
+    #include "generic-builtin-defines.h"
+    #include "knc-builtin-defines.h"
+    #include "mic_dev_limits.h"
   }];
 
   code Epilog = [{
-  #pragma OPENCL EXTENSION cl_khr_fp64 : disable
+    #pragma OPENCL EXTENSION cl_khr_fp64 : disable
 
-  #ifdef __cplusplus
-  }
-  #endif
-  #endif // defined (__MIC__) || defined(__MIC2__)
+    #ifdef __cplusplus
+    }
+    #endif
+    #endif // defined (__MIC__) || defined(__MIC2__)
   }];
 
   code NonMaskPromote1 = [{

@@ -676,4 +676,7 @@ void *user_data),void *user_data);
 //releaseEvent - calls and validate clReleaseEvent
 void releaseEvent(cl_event event);
 
+//isAccelerator returns true iff second device is accelerator
+bool isAccelerator();
+
 #endif /* OCL_WRAPPER_GTEST_ */

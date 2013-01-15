@@ -45,8 +45,6 @@ HostTracer* MICDevice::m_tracer = NULL;
 set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
 OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;
 
-char clMICDEVICE_CFG_PATH[MAX_PATH];
-
 typedef struct _cl_dev_internal_cmd_list
 {
     void*               cmd_list;
@@ -123,8 +121,8 @@ MICDevice::TMicsSet MICDevice::FilterMicDevices( size_t count, const IOCLDeviceA
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-MICDevice::MICDevice(cl_uint uiDevId, cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
-    : m_pMICDeviceConfig(NULL), m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),m_uiOclDevId(uiDevId),
+MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
+    : m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),
     m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(NULL), m_pDeviceServiceComm(NULL)
 {
 }
@@ -134,23 +132,20 @@ cl_dev_err_code MICDevice::Init()
 	m_tracer = HostTracer::getHostTracerInstace();
     if ( NULL != m_pLogDescriptor )
     {
-        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiOclDevId, "MIC Device", &m_iLogHandle);
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, "MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;
         }
     }
 
-    m_pMICDeviceConfig = new MICDeviceConfig();
-    m_pMICDeviceConfig->Initialize(clMICDEVICE_CFG_PATH);
-
     // Enable VTune source level profiling
-    MICDevInfo.bEnableSourceLevelProfiling = m_pMICDeviceConfig->UseVTune();
+    MICDevInfo.bEnableSourceLevelProfiling = MICSysInfo::getInstance().getMicDeviceConfig().UseVTune();
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
     // trying to upload next free device.
-    cl_dev_err_code result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, m_pMICDeviceConfig, &m_pDeviceServiceComm);
+    cl_dev_err_code result = DeviceServiceCommunication::deviceSeviceCommunicationFactory(m_uiMicId, &m_pDeviceServiceComm);
     if (CL_DEV_FAILED(result))
     {
         return result;
@@ -164,8 +159,8 @@ cl_dev_err_code MICDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pProgramService = new ProgramService( m_uiOclDevId, m_pFrameworkCallBacks, m_pLogDescriptor,
-                                           m_pMICDeviceConfig, *m_pDeviceServiceComm);
+    m_pProgramService = new ProgramService( m_uiMicId, m_pFrameworkCallBacks, m_pLogDescriptor,
+                                           *m_pDeviceServiceComm);
 
     if (NULL == m_pProgramService)
     {
@@ -179,7 +174,7 @@ cl_dev_err_code MICDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiOclDevId, m_pLogDescriptor, m_pMICDeviceConfig, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
+    m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiMicId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
     if (NULL == m_pMemoryAllocator)
     {
@@ -250,7 +245,7 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
-    MICDevice *pNewDevice = new MICDevice(dev_id, 0, pDevCallBacks, pLogDesc);
+    MICDevice *pNewDevice = new MICDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
@@ -737,7 +732,7 @@ cl_dev_err_code MICDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
     m_pLogDescriptor = pLogDescriptor;
     if ( NULL != m_pLogDescriptor )
     {
-        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiOclDevId, "MIC Device", &m_iLogHandle);
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, "MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
         {
             return CL_DEV_ERROR_FAIL;
@@ -809,12 +804,6 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
     {
         delete(m_pDeviceServiceComm);
         m_pDeviceServiceComm = NULL;
-    }
-
-	if( NULL != m_pMICDeviceConfig)
-    {
-        delete m_pMICDeviceConfig;
-        m_pMICDeviceConfig = NULL;
     }
 
     if (! preserve_object)

@@ -19,8 +19,18 @@ CALCULATE_TARGET_SOURCES()
 
 SET_UNICODE_OFF()
 
+# Include the ASM sources
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    if (WIN32)
+        set (UTILS_ASM_SOURCES kernel_execute_64.asm)
+    else (WIN32)
+        set (UTILS_ASM_SOURCES linux64_utils.s)
+    endif (WIN32)
+    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
+endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
 if (NOT WIN32)
   link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX})
   target_link_libraries( ${TARGET_NAME} cl_hw_utils numa )

@@ -5,10 +5,6 @@
 ; RUN:       -march=y86-64 -mcpu=knc \
 ; RUN:     | FileCheck %s
 ;
-; RUNc: llc < %s -mtriple=x86_64-pc-linux \
-; RUNc:       -march=y86-64 -mcpu=knc \
-; RUNc:     | FileCheck %s
-;
 
 target datalayout = "e-p:64:64"
 

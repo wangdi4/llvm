@@ -18,6 +18,7 @@
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "FunctionDescriptor.h"
+#include "FakeInsert.h"
 
 static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
@@ -389,10 +390,11 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     // since we are never getting uniform values from other dependencies
     // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
-    if (!(isa<CallInst>(I) && I->getType()->isVectorTy()))
-      //CSSD100015262: Uniform scalar calls which return vector types not
-      //             handled correctly by Packetizer
-      return useOriginalConstantInstruction(I);
+    if (isa<CallInst>(I) && I->getType()->isVectorTy()) {
+      // Ensure that any fake calls related to this call are handled
+      mapAnyFakeUsages(cast<CallInst>(I)); 
+    }
+    return useOriginalConstantInstruction(I);
   }
 
   switch (I->getOpcode())
@@ -507,9 +509,9 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
     // Set scalar operand into cloned scalar instruction
     if (isa<CallInst>(I)) {
       for (unsigned i = 0; i < m_packetWidth; i++) {
-        V_ASSERT(dyn_cast<CallInst>(duplicateInsts[i])->getArgOperand(op)->getType() == multiOperands[i]->getType() &&
+        V_ASSERT(cast<CallInst>(duplicateInsts[i])->getArgOperand(op)->getType() == multiOperands[i]->getType() &&
           "original operand type is different than new operand type");
-        dyn_cast<CallInst>(duplicateInsts[i])->setArgOperand(op, multiOperands[i]);
+        cast<CallInst>(duplicateInsts[i])->setArgOperand(op, multiOperands[i]);
       }
     }
     else {
@@ -863,7 +865,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter/prefetch caller instruction
-  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
+  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+      SmallVector<Attributes, 4>(), MO.Orig);
 
   // In case the vector size cross cache line we need to also prefetch the next cachelines.
   // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
@@ -873,7 +876,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
     vecVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecVal));
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
-    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, MO.Orig);
+    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+        SmallVector<Attributes, 4>(), MO.Orig);
   }
 
   return newCaller;
@@ -938,7 +942,8 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     obtainMultiScalarValues(NumOfElements, CI->getArgOperand(1), MO.Orig);
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
-    return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args, MO.Orig);
+    return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
+        SmallVector<Attributes, 4>(), MO.Orig);
   }
   default:
     V_ASSERT(false && "unexpected type of memory operation");
@@ -1010,7 +1015,8 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       V_ASSERT(false && "unexpected type of memory operation");
       break;
   }
-  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args, MO.Orig);
+  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args,
+      SmallVector<Attributes, 4>(), MO.Orig);
 }
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
@@ -1259,7 +1265,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
           args.push_back(CI->getArgOperand(2));
           VCMEntry * newEntry = allocateNewVCMEntry();
           newEntry->isScalarRemoved = false;
-          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), Mangler::demangle(scalarFuncName), CI->getType(), args, CI);
+          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+              Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attributes, 4>(), CI);
           m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
           m_removedInsts.insert(CI);
           return;
@@ -1557,19 +1564,15 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
     // Make sure our chain is made of fake insert elements.
     CallInst* fakeIEI = dyn_cast<CallInst>(val);
     if (!fakeIEI) return false;
-    std::string insertName = fakeIEI->getCalledFunction()->getName();
-    V_ASSERT(Mangler::isFakeInsert(insertName) && "expected fake.insert");
-    if (!Mangler::isFakeInsert(insertName)) return false;
-    unsigned start = Mangler::isMangledCall(insertName) ? 1 : 0;
-    Value* index = fakeIEI->getArgOperand(2 + start);
-    // Obtain the constant indext
-    ConstantInt* CI = dyn_cast<ConstantInt>(index);
-    V_ASSERT(CI && "index should be constant");
-    uint64_t idx = CI->getZExtValue();
+    V_ASSERT(FakeInsert::isFakeInsert(*fakeIEI) && "Not a fake insert");
+    if (!FakeInsert::isFakeInsert(*fakeIEI)) return false;
+    FakeInsert FI(*fakeIEI);
+    ConstantInt* index = FI.getIndexArg();
+    uint64_t idx = index->getZExtValue();
     // Fetch or create vectorized value
-    obtainVectorizedValue(&roots[idx], fakeIEI->getArgOperand(1 + start), place);
+    obtainVectorizedValue(&roots[idx], FI.getNewEltArg(), place);
     // move to the next Insert-Element in chain
-    val = fakeIEI->getArgOperand(0 + start);
+    val = FI.getVectorArg();
   }
   // success!
   return true;
@@ -1598,30 +1601,45 @@ bool PacketizeFunction::handleReturnValueSOA(CallInst* CI, CallInst *soaRet){
 
   // Map the elements to fake extracts generated by the scalarizer to
   // the vector elemetns.
-  mapVectorMultiReturn(CI, scalars);
+  mapFakeExtractUsagesTo(CI, scalars);
   return true;
 }
 
-void PacketizeFunction::mapVectorMultiReturn (CallInst* CI,
-                 SmallVectorImpl<Instruction *>& returnedVals) {
+void PacketizeFunction::mapFakeExtractUsagesTo(CallInst* CI,
+    SmallVectorImpl<Instruction *>& returnedPacketVals) {
   // Replace fake extracts (generated by the scalarizer), with a vectorized value
   for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
-    CallInst* fakeEI = dyn_cast<CallInst>(*ui);
-    V_ASSERT(fakeEI && "user must be an fake ExtractElement (scalarizer should take care of it");
-    std::string extractName = fakeEI->getCalledFunction()->getName();
-    V_ASSERT(Mangler::isFakeExtract(extractName) &&
-        "user must be an fake ExtractElement (scalarizer should take care of it");
-
-    // Extract index (expected to be a constant)
-    unsigned start = Mangler::isMangledCall(extractName) ? 1 : 0;
-    Value *scalarIndexVal = fakeEI->getArgOperand(1 + start);
-    V_ASSERT(isa<ConstantInt>(scalarIndexVal));
-    uint64_t scalarIndex = cast<ConstantInt>(scalarIndexVal)->getZExtValue();
-    V_ASSERT(scalarIndex < returnedVals.size() && "Extracting out of bound error");
-
+    CallInst* FE = cast<CallInst>(*ui);
+    uint64_t scalarIndex = getFakeExtractIndex(FE)->getZExtValue();
+    V_ASSERT(scalarIndex < returnedPacketVals.size() && "Extracting out of bound error");
     // Place value conversion in VCM entry
-    createVCMEntryWithVectorValue(fakeEI, returnedVals[scalarIndex]);
-    m_removedInsts.insert(fakeEI);
+    createVCMEntryWithVectorValue(FE, returnedPacketVals[scalarIndex]);
+    m_removedInsts.insert(FE);
+  }
+}
+
+ConstantInt *PacketizeFunction::getFakeExtractIndex(const CallInst* FE) {
+  std::string extractName = FE->getCalledFunction()->getName();
+  V_ASSERT(Mangler::isFakeExtract(extractName) &&
+      "user must be an fake ExtractElement (scalarizer should take care of it");
+  V_ASSERT(!Mangler::isMangledCall(extractName) && "fake extract has no side effects and should not be masked");
+  // Extract index (expected to be a constant)
+  Value *scalarIndexVal = FE->getArgOperand(1);
+  return cast<ConstantInt>(scalarIndexVal);
+}
+
+void PacketizeFunction::mapAnyFakeUsages(CallInst* CI) {
+  V_ASSERT(CI && CI->getType()->isVectorTy() && "Why was this called on a scalar call?");
+  for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui) {
+    if (CallInst *FE = dyn_cast<CallInst>(*ui)) {
+      if (Mangler::isFakeExtract(FE->getCalledFunction()->getName())) {
+        ConstantInt *Idx = getFakeExtractIndex(FE);
+        ExtractElementInst *EE = ExtractElementInst::Create(CI, Idx, "extractelem");
+        EE->insertAfter(CI);
+        createVCMEntryWithSingleScalarValue(FE, EE);
+        m_removedInsts.insert(FE);
+      }
+    }
   }
 }
 
@@ -1652,7 +1670,7 @@ bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) 
 
   // Map the elements to fake extracts generated by the scalarizer to
   // the vector elemetns.
-  mapVectorMultiReturn(CI, loads);
+  mapFakeExtractUsagesTo(CI, loads);
   return true;
 }
 

@@ -18,15 +18,21 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "arena_handler.h"
 #include "base_command_list.hpp"
+#include "arena_handler.h"
 #include "tbb_executor.h"
 #include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+void TaskGroup::WaitForAll()
+{
+    ArenaFunctorWaiter waiter(m_rootTask);
+    m_arenaHandler.Execute(waiter);
+}
+
 base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
-    m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler)
+    m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler), m_taskGroup(devArenaHandler)
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
@@ -35,15 +41,18 @@ base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, 
 
 base_command_list::~base_command_list()
 {
-    Wait();
-    m_devArenaHandler.RemoveCommandList(this);
+    if (!m_devArenaHandler.isTerminating())
+    {
+        Wait();
+        m_devArenaHandler.RemoveCommandList(this);
+    }
 }
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
 {
-    if (m_devArenaHandler.GetNumSubdevComputeUnits() == 1)
+	if (!m_devArenaHandler.ShouldMasterJoinWork())
     {
-        return TE_WAIT_NOT_SUPPORTED;   // master thread can't join a sub-device with size 1
+        return TE_WAIT_NOT_SUPPORTED;
     }
 	// Request processing task to stop
 	if ( NULL != pTaskToWait )
@@ -109,19 +118,12 @@ bool base_command_list::Flush()
 	return true;
 }
 
-void base_command_list::Wait()
-{
-	TaskGroupWaiter functor(m_taskGroup);
-	m_devArenaHandler.Execute(functor);
-}
-
 unsigned int in_order_command_list::LaunchExecutorTask(bool blocking)
 {
 	in_order_executor_task functor(this); 
 	if (!blocking)
 	{
-		TaskGroupRunner<in_order_executor_task> runner(m_taskGroup, functor);
-		m_devArenaHandler.Enqueue<TaskGroupRunner<in_order_executor_task> >(runner);
+        m_taskGroup.EnqueueFunc(functor);
 		return 1;
 	}
 	else
@@ -136,8 +138,7 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
     out_of_order_executor_task functor(this);
     if (!blocking)
     {
-        TaskGroupRunner<out_of_order_executor_task> runner(m_taskGroup, functor);
-        m_devArenaHandler.Enqueue<TaskGroupRunner<out_of_order_executor_task> >(runner);
+        m_taskGroup.EnqueueFunc(functor);
         return 1;
     }
     else
@@ -145,10 +146,4 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
         m_devArenaHandler.Execute<out_of_order_executor_task>(functor);
         return 0;
     }
-}
-
-void out_of_order_command_list::WaitOnOOOTaskGroup()
-{
-    TaskGroupWaiter functor(m_oooTaskGroup);
-	m_devArenaHandler.Execute(functor);
 }

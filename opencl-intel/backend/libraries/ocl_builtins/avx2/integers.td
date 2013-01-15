@@ -14,6 +14,21 @@ OclBuiltinImpl abs_avx2native = OclBuiltinImpl<abs, [v16i16, v8i32] , 0, [{
 
 
 /*****************************************************************\
+ * add_sat:                                                      *
+ *   gentype add_sat (gentype x, gentype y)                      *
+ *   Returns x + y saturated                                     *
+\*****************************************************************/
+// add_sat on short16
+OclBuiltinImpl add_sat_v16i8v8i16 = OclBuiltinImpl<add_sat, [v16i16], 0, [{
+    return ($ReturnType)_mm256_adds_epi16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName);
+  }]>;
+// add_sat on ushort16
+OclBuiltinImpl add_sat_v16u8v8u16 = OclBuiltinImpl<add_sat, [v16u16], 0, [{
+    return ($ReturnType)_mm256_adds_epu16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName);
+  }]>;
+
+
+/*****************************************************************\
  * rhadd:                                                        *
  *   gentype rhadd (gentype x, gentype y)                        *
  *   Returns (x + y + 1) >> 1. The intermediate sum does         *
@@ -173,3 +188,19 @@ OclBuiltinImpl mul_hi_v2u64 = OclBuiltinImpl<mul_hi, [v4u64] , 0, [{
 
     return (ulong4) _mm256_load_si256((const __m256i *)tempX);
   }]>;
+
+
+/*****************************************************************\
+ * sub_sat:                                                      *
+ *   gentype sub_sat (gentype x, gentype y)                      *
+ *   Returns x - y saturated                                     *
+\*****************************************************************/
+// sub_sat on short16
+OclBuiltinImpl sub_sat_v16i8v8i16 = OclBuiltinImpl<sub_sat, [v16i16], 0, [{
+    return ($ReturnType)_mm256_subs_epi16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName);
+  }]>;
+// sub_sat on ushort16
+OclBuiltinImpl sub_sat_v16u8v8u16 = OclBuiltinImpl<sub_sat, [v16u16], 0, [{
+    return ($ReturnType)_mm256_subs_epu16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName);
+  }]>;
+

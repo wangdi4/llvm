@@ -53,6 +53,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
         // Vectored value does not exist - create it
         if (foundEntry->isScalarRemoved == false)
         {
+          V_ASSERT(!origValue->getType()->isVectorTy() && "Original value is expected to be scalar");
           // Original value is kept, so just need to broadcast it
           //  %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
           //  %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
@@ -220,6 +221,13 @@ void PacketizeFunction::createVCMEntryWithVectorValue(Instruction *origInst,
   m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
 }
 
+
+void PacketizeFunction::createVCMEntryWithSingleScalarValue(Instruction * origInst,
+    Instruction * ScalarValue) {
+  //Broadcast the scalar value and handle like multi-scalar
+  SmallVector<Instruction*, MAX_PACKET_WIDTH> Broadcast(m_packetWidth, ScalarValue);
+  createVCMEntryWithMultiScalarValues(origInst, &Broadcast[0]);
+}
 
 void PacketizeFunction::createVCMEntryWithMultiScalarValues(Instruction * origInst,
                                                             Instruction * multiScalarValues[])

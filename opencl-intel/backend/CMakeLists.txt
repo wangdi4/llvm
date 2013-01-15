@@ -149,8 +149,8 @@ endmacro( CREATE_ASM_RULES )
 
 option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
-find_package(LLVM REQUIRED)
 project(Backend)
+
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
 use_rtti(FALSE)
 

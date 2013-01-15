@@ -50,8 +50,8 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 };
 
 
-DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId, MICDeviceConfig *config) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false), m_config(config)
+DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
 {
     pthread_mutex_init(&m_mutex, NULL);
     pthread_cond_init(&m_cond, NULL);
@@ -65,11 +65,10 @@ DeviceServiceCommunication::~DeviceServiceCommunication()
 }
 
 cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(unsigned int uiMicId, 
-                                                                             MICDeviceConfig *config,
                                                                              DeviceServiceCommunication** ppDeviceServiceCom)
 {
     // find the first unused device index
-    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId, config);
+    DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
 	if (NULL == tDeviceServiceComm)
 	{
 		return CL_DEV_OUT_OF_MEMORY;
@@ -145,7 +144,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 		}
 
 		// Write to file host trace
-		MICDevice::m_tracer->draw_host_to_file(m_config);
+		MICDevice::m_tracer->draw_host_to_file(MICSysInfo::getInstance().getMicDeviceConfig());
 #endif
 		ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 		// Run release device function on device side
@@ -293,27 +292,28 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
 	do
 	{
+		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
 		// Get the amount of compute units in the device
 		unsigned int numOfWorkers = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
 
         mic_exec_env_options mic_device_options;
         memset( &mic_device_options, 0, sizeof(mic_device_options) );
         
-        mic_device_options.stop_at_load             = pDevServiceComm->m_config->Device_StopAtLoad();
-        mic_device_options.use_affinity             = pDevServiceComm->m_config->Device_UseAffinity();
-        mic_device_options.num_of_worker_threads    = pDevServiceComm->m_config->Device_NumWorkers();
-		mic_device_options.num_of_cores				= pDevServiceComm->m_config->Device_NumCores();
-        mic_device_options.ignore_core_0            = pDevServiceComm->m_config->Device_IgnoreCore0();
-        mic_device_options.ignore_last_core         = pDevServiceComm->m_config->Device_IgnoreLastCore();
-        mic_device_options.use_TBB_grain_size       = pDevServiceComm->m_config->Device_TbbGrainSize();
-		mic_device_options.kernel_safe_mode         = pDevServiceComm->m_config->Device_safeKernelExecution();
-		mic_device_options.use_vtune                = pDevServiceComm->m_config->UseVTune();
-        mic_device_options.trap_workers             = pDevServiceComm->m_config->Device_TbbTrapWorkers();
+        mic_device_options.stop_at_load             = tMicConfig.Device_StopAtLoad();
+        mic_device_options.use_affinity             = tMicConfig.Device_UseAffinity();
+        mic_device_options.num_of_worker_threads    = tMicConfig.Device_NumWorkers();
+		mic_device_options.num_of_cores				= tMicConfig.Device_NumCores();
+        mic_device_options.ignore_core_0            = tMicConfig.Device_IgnoreCore0();
+        mic_device_options.ignore_last_core         = tMicConfig.Device_IgnoreLastCore();
+        mic_device_options.use_TBB_grain_size       = tMicConfig.Device_TbbGrainSize();
+		mic_device_options.kernel_safe_mode         = tMicConfig.Device_safeKernelExecution();
+		mic_device_options.use_vtune                = tMicConfig.UseVTune();
+        mic_device_options.trap_workers             = tMicConfig.Device_TbbTrapWorkers();
         
         //BUGBUG: TBB slowness workaround
-        mic_device_options.workers_per_queue		= pDevServiceComm->m_config->Device_WorkerPerQueue();
+        mic_device_options.workers_per_queue		= tMicConfig.Device_WorkerPerQueue();
 
-        string tbb_scheduler = pDevServiceComm->m_config->Device_TbbScheduler();
+        string tbb_scheduler = tMicConfig.Device_TbbScheduler();
      
         if (tbb_scheduler == "affinity")
         {
@@ -328,7 +328,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
             mic_device_options.tbb_scheduler = mic_TBB_auto;
         }
 
-        string block_optimization = pDevServiceComm->m_config->Device_TbbBlockOptimization();
+        string block_optimization = tMicConfig.Device_TbbBlockOptimization();
         
         if (block_optimization == "rows")
         {

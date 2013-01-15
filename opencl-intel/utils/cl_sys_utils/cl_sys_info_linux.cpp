@@ -44,6 +44,9 @@ using namespace Intel::OpenCL::Utils;
 
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
+
+#include "valgrind/valgrind.h"
+
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
 
@@ -362,7 +365,14 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
 ////////////////////////////////////////////////////////////////////
 unsigned int Intel::OpenCL::Utils::GetCpuId()
 {
-	const int id = sched_getcpu();
+	int id;
+
+	if (RUNNING_ON_VALGRIND)
+	{
+		id = 0;
+	} else {
+		id = sched_getcpu();
+	}
 	assert(id >= 0);
 	return (unsigned int)id;
 }

@@ -64,6 +64,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
   #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 #endif
 
+#if OCL_EVENT_WAIT_STRATEGY != OCL_EVENT_WAIT_OS_DEPENDENT
+  #error "Data race in OclEvent::SetEventState, waiters on queue event are released before the queue reference is dropped. See: CSSD100014359"
+#endif
+
 
 
 	/**********************************************************************************************
@@ -186,6 +190,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * @param retCode exec state, or negative error code.
 		 */
 		void NotifyObservers(const cl_int retCode);
+
+		/**
+		 * Mark this event as complete, releasing all waiters on it
+		 */
+		void MarkAsComplete();
+
 
 		//Some implementations of possible methods for waiting 
 		void        WaitSpin();

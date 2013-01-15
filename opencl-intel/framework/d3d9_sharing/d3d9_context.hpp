@@ -21,6 +21,8 @@
 #include "d3d9_context.h"
 #include "d3d9_resource.h"
 
+#define CL_DX9_OBJECT_SURFACE     0x3002
+
 namespace Intel { namespace OpenCL { namespace Framework
 {
 

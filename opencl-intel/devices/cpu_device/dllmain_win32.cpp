@@ -71,11 +71,22 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 /************************************************************************************************************************
    clDevGetDeviceInfo
 **************************************************************************************************************************/
-extern "C" cl_dev_err_code clDevGetDeviceInfo(  cl_device_info  param, 
+extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN	dev_id,
+							cl_device_info  param, 
                             size_t          valSize, 
                             void*           paramVal,
-                            size_t*         paramValSizeRet
+				            size_t*         paramValSizeRet
                             )
 {
-    return CPUDevice::clDevGetDeviceInfo(param, valSize, paramVal, paramValSizeRet);
+    return CPUDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
+}
+
+/************************************************************************************************************************
+	clDevGetAvailableDeviceList
+*************************************************************************************************************************/
+extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListSize,
+                        unsigned int*   OUT deviceIdsList,
+                        size_t*   OUT deviceIdsListSizeRet)
+{
+	return CPUDevice::clDevGetAvailableDeviceList(deviceListSize, deviceIdsList, deviceIdsListSizeRet);
 }

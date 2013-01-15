@@ -307,12 +307,6 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 
     if (m_needLoadBuiltins)
       m_pExecEngine->addModule(m_pBuiltinModule->GetRtlModule());
-
-    // Register the VTune listener
-    if(m_pVTuneListener)
-    {
-        m_pExecEngine->RegisterJITEventListener(m_pVTuneListener);
-    }
 }
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const

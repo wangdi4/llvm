@@ -9,6 +9,8 @@
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
 #include "OCLPassSupport.h"
+#include "FakeInsert.h"
+
 #include <vector>
 
 namespace intel {
@@ -200,6 +202,9 @@ void FuncResolver::resolve(CallInst* caller) {
     V_STAT(m_unresolvedCallCtr++;)
     return resolveFunc(caller);
   }
+  if (Mangler::isFakeInsert(calledName)) {
+    return resolveFakeInsert(caller);
+}
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -290,11 +295,11 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
 void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Ptr = caller->getArgOperand(1);
-  assert(caller->getNumArgOperands() == 2 && "Bad number of operands");
+  V_ASSERT(caller->getNumArgOperands() == 2 && "Bad number of operands");
 
   Type *Tp = caller->getType();
-  assert(Tp->isVectorTy() && "Return value must be of vector type");
-  assert(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
+  V_ASSERT(Tp->isVectorTy() && "Return value must be of vector type");
+  V_ASSERT(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
 
   // Uniform mask for vector load.
   // Perform a single wide load and a single IF.
@@ -304,6 +309,11 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     toPredicate(loader, Mask);
     caller->replaceAllUsesWith(loader);
     caller->eraseFromParent();
+    return;
+  }
+
+  // Masked vector load - try to utilize masked load built-in (if available)
+  if (isResolvedMaskedLoad(caller)) {
     return;
   }
 
@@ -337,6 +347,35 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
 
   caller->replaceAllUsesWith(Ret);
   caller->eraseFromParent();
+}
+
+bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
+  Value *Mask = caller->getArgOperand(0);
+  Value *Ptr = caller->getArgOperand(1);
+  PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
+  VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
+  V_ASSERT(vecType && "Pointer must be of vector type");
+  // check availability of masked store BI
+  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(true, vecType);
+  Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
+
+  if (loadFuncRT) {
+    // If there is a matching BI function - call it instead of fake function call
+    SmallVector<Value*, 8> args;
+    // at first, extend mask to the size expected by BI functions
+    Instruction* extMask = extendMaskAsBIParameter(loadFuncRT, Mask); 
+    VectorizerUtils::SetDebugLocBy(extMask, caller);
+    extMask->insertBefore(caller);
+    args.push_back(Ptr); 
+    args.push_back(extMask);
+    CallInst* newCall = VectorizerUtils::createFunctionCall(
+            caller->getParent()->getParent()->getParent(), funcName, 
+            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
+    caller->replaceAllUsesWith(newCall);
+    caller->eraseFromParent();
+    return true;
+  }
+  return false;
 }
 
 void FuncResolver::resolveStore(CallInst* caller) {
@@ -373,10 +412,11 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Data = caller->getArgOperand(1);
   Value *Ptr = caller->getArgOperand(2);
-  assert(caller->getNumArgOperands() == 3 && "Bad number of operands");
+  V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
+  V_ASSERT(caller->getType()->isVoidTy() && "Store is expected to return 'void'");
 
   Type *Tp = Data->getType();
-  assert(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
+  V_ASSERT(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
 
   VectorType *VT = cast<VectorType>(Tp);
   unsigned NumElem = VT->getNumElements();
@@ -391,6 +431,11 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
     toPredicate(storer, Mask);
     caller->replaceAllUsesWith(storer);
     caller->eraseFromParent();
+    return;
+  }
+
+  // Masked vector store - try to utilize masked store built-in (if available)
+  if (isResolvedMaskedStore(caller)) {
     return;
   }
 
@@ -415,6 +460,37 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   }
 
   caller->eraseFromParent();
+}
+
+bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
+  Value *Mask = caller->getArgOperand(0);
+  Value *Data = caller->getArgOperand(1);
+  Value *Ptr = caller->getArgOperand(2);
+  PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
+  VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
+  V_ASSERT(vecType && "Pointer must be of vector type");
+  // check availability of masked store BI
+  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(false, vecType);
+  Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
+
+  if (storeFuncRT) {
+    // If there is a matching BI function - call it instead of fake function call 
+    SmallVector<Value*, 8> args;
+    // at first, extend mask to the size expected by BI functions
+    Instruction* extMask = extendMaskAsBIParameter(storeFuncRT, Mask); 
+    VectorizerUtils::SetDebugLocBy(extMask, caller);
+    extMask->insertBefore(caller);
+    args.push_back(Ptr);
+    args.push_back(Data);
+    args.push_back(extMask);
+    (void) VectorizerUtils::createFunctionCall(
+            caller->getParent()->getParent()->getParent(), funcName, 
+            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
+    // no need in 'funcName' call instruction value - as it has void result
+    caller->eraseFromParent();
+    return true;
+  }
+  return false;
 }
 
 
@@ -459,6 +535,23 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   caller->eraseFromParent();
 }
 
+Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Value* Mask) {
+  // Retrieve mask argument type (assumed to be the LAST parameter in masked load/store BI)
+  FunctionType* funcType = maskLoadStoreBI->getFunctionType();
+  Type* extMaskType = funcType->getParamType(funcType->getNumParams() - 1);
+  // SIGN-extend the mask to the argument type (as MSB of mask matters)
+  V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
+             "Extended mask type smaller than original mask type!");
+  return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
+}
+
+void FuncResolver::resolveFakeInsert(CallInst* caller) {
+  FakeInsert FI(*caller);
+  InsertElementInst *IEI = InsertElementInst::Create(FI.getVectorArg(), FI.getNewEltArg(), FI.getIndexArg(), "insertelt", caller);
+  caller->replaceAllUsesWith(IEI);
+  VectorizerUtils::SetDebugLocBy(IEI, caller);
+  caller->eraseFromParent();
+}
 
 } // namespace
 

@@ -1,35 +1,35 @@
 code add_g = [{
-	return __sync_fetch_and_add($Arg0VarName, $Arg1VarName);
+    return __sync_fetch_and_add($Arg0VarName, $Arg1VarName);
   }];
 code add_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = oldValue + $Arg1VarName;
     return oldValue;
   }];
 code sub_g = [{
-	return __sync_fetch_and_sub($Arg0VarName, $Arg1VarName);
+    return __sync_fetch_and_sub($Arg0VarName, $Arg1VarName);
   }];
 code sub_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = oldValue - $Arg1VarName;
     return oldValue;
   }];
 code xchg_g = [{
-	_mm_mfence();
-	return ($ReturnType)__sync_lock_test_and_set($Arg0VarName, $Arg1VarName);
+    _mm_mfence();
+    return ($ReturnType)__sync_lock_test_and_set($Arg0VarName, $Arg1VarName);
   }];
 code xchg_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = $Arg1VarName;
-	return oldValue;
+    return oldValue;
   }];
 code xchg_g_fp = [{
     _mm_mfence();
-	int ret = ( __sync_lock_test_and_set((intrin_type*)$Arg0VarName, *((int *)(&$Arg1VarName))) );
-	return as_float(ret);
+    int ret = ( __sync_lock_test_and_set((intrin_type*)$Arg0VarName, *((int *)(&$Arg1VarName))) );
+    return as_float(ret);
   }];
 
 
@@ -46,7 +46,7 @@ code max_g = [{
 code max_l = [{
     $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = (($Arg1VarName > oldValue) ? $Arg1VarName : oldValue);
-	return oldValue;
+    return oldValue;
   }];
 code min_g = [{
     while (true)
@@ -60,11 +60,11 @@ code min_g = [{
 code min_l = [{
     $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = (($Arg1VarName < oldValue) ? $Arg1VarName : oldValue);
-	return oldValue;
+    return oldValue;
   }];
 
 code inc_g = [{
-	return __sync_fetch_and_add($Arg0VarName, 1);
+    return __sync_fetch_and_add($Arg0VarName, 1);
   }];
 code inc_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
@@ -73,28 +73,28 @@ code inc_l = [{
     return oldValue;
   }];
 code dec_g = [{
-	return __sync_fetch_and_sub($Arg0VarName, 1);
+    return __sync_fetch_and_sub($Arg0VarName, 1);
   }];
 code dec_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = oldValue - 1;
     return oldValue;
   }];
 code cmpxchg_g = [{
-	return __sync_val_compare_and_swap($Arg0VarName, $Arg1VarName, $Arg2VarName);
+    return __sync_val_compare_and_swap($Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
 code cmpxchg_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     $ReturnType oldValue = *$Arg0VarName;
     if (oldValue == $Arg1VarName)
     {
-        *$Arg0VarName = $Arg2VarName;;
+      *$Arg0VarName = $Arg2VarName;
     }
-	return oldValue;
+    return oldValue;
   }];
 code and_g = [{
-	return __sync_fetch_and_and($Arg0VarName, $Arg1VarName);
+    return __sync_fetch_and_and($Arg0VarName, $Arg1VarName);
   }];
 code and_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
@@ -103,20 +103,20 @@ code and_l = [{
     return oldValue;
   }];
 code or_g = [{
-	return __sync_fetch_and_or($Arg0VarName, $Arg1VarName);
+    return __sync_fetch_and_or($Arg0VarName, $Arg1VarName);
   }];
 code or_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = oldValue | $Arg1VarName;
     return oldValue;
   }];
 code xor_g = [{
-	return __sync_fetch_and_xor($Arg0VarName, $Arg1VarName);
+    return __sync_fetch_and_xor($Arg0VarName, $Arg1VarName);
   }];
 code xor_l = [{
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
-	$ReturnType oldValue = *$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
     *$Arg0VarName = oldValue ^ $Arg1VarName;
     return oldValue;
   }];

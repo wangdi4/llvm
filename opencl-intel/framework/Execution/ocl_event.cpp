@@ -275,10 +275,8 @@ cl_err_code OclEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEven
 	return CL_SUCCESS;
 }
 
-
-void OclEvent::NotifyComplete(cl_int returnCode)
+void OclEvent::MarkAsComplete()
 {
-	//block further requests to add notifiers
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 	Intel::OpenCL::Utils::OclOsDependentEvent* pPrevEvent = m_pCurrentEvent.test_and_set(NULL, OCL_EVENT_COMPLETED);
 	assert(OCL_EVENT_COMPLETED!=pPrevEvent && "Event was already set as completed");
@@ -292,7 +290,12 @@ void OclEvent::NotifyComplete(cl_int returnCode)
 	assert(!m_complete && "Trying second notification");
 	m_complete = true;
 #endif
+}
 
+void OclEvent::NotifyComplete(cl_int returnCode)
+{
+	//block further requests to add notifiers
+    MarkAsComplete();
 	NotifyObservers(returnCode);
 }
 

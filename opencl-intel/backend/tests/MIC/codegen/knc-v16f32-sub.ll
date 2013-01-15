@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 
 ;
@@ -15,8 +14,7 @@ target datalayout = "e-p:64:64"
 
 define <16 x float> @sub1(<16 x float> %a, <16 x float> %b) nounwind readnone ssp {
 entry:
-; KNF: vsubps {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
-;
+; KNC: sub1:
 ; KNC: vsubps {{%zmm[0-9]+}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %sub = fsub <16 x float> %a, %b
   ret <16 x float> %sub
@@ -24,8 +22,7 @@ entry:
 
 define <16 x float> @sub2(<16 x float>* nocapture %a, <16 x float> %b) nounwind readonly ssp {
 entry:
-; KNF: vsubrps {{\(%[a-z]+\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
-;
+; KNC: sub2:
 ; KNC: vsubrps {{\(%[a-z]+\)}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp1 = load <16 x float>* %a, align 64
   %sub = fsub <16 x float> %tmp1, %b
@@ -34,8 +31,7 @@ entry:
 
 define <16 x float> @sub3(<16 x float> %a, <16 x float>* nocapture %b) nounwind readonly ssp {
 entry:
-; KNF: vsubps {{\(%[a-z]+\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
-;
+; KNC: sub3:
 ; KNC: vsubps {{\(%[a-z]+\)}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp2 = load <16 x float>* %b, align 64
   %sub = fsub <16 x float> %a, %tmp2
@@ -44,10 +40,8 @@ entry:
 
 define <16 x float> @sub4(<16 x float> %a) nounwind readonly ssp {
 entry:
-; KNF: vsubps {{[^(]+\(%rip\)}}, {{%v[0-9]+}}, {{%v[0-9]+}}
-;
-; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: vsubps ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC: sub4:
+; KNC: vsubps {{[^(]+\(%rip\)}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp1 = load <16 x float>* @gb, align 64
   %sub = fsub <16 x float> %a, %tmp1
   ret <16 x float> %sub
@@ -55,12 +49,9 @@ entry:
 
 define <16 x float> @sub5(<16 x float> %a) nounwind readonly ssp {
 entry:
-; KNF: movq pgb(%rip), %rax
-; KNF: vsubps  (%rax), {{%v[0-9]+}}, {{%v[0-9]+}}
-;
-; KNC: movq {{[^(]+\(%rip\)}}, [[R1:%[a-z]+]]
-; KNC: movq ([[R1]]), [[R2:%[a-z]+]]
-; KNC: vsubps ([[R2]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC: sub5:
+; KNC: movq pgb(%rip), [[R1:%[a-z]+]]
+; KNC: vsubps ([[R1]]), {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
   %tmp1 = load <16 x float>** @pgb, align 8
   %tmp2 = load <16 x float>* %tmp1, align 64
   %sub = fsub <16 x float> %a, %tmp2

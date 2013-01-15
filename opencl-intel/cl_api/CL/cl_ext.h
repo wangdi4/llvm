@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008-2010 The Khronos Group Inc.
+ * Copyright (c) 2008 - 2012 The Khronos Group Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and/or associated documentation files (the
@@ -39,9 +39,6 @@ extern "C" {
 #else
 	#include <CL/cl.h>
 #endif
-
-/* cl_khr_fp64 extension - no extension #define since it has no functions  */
-#define CL_DEVICE_DOUBLE_FP_CONFIG                  0x1032
 
 /* cl_khr_fp16 extension - no extension #define since it has no functions  */
 #define CL_DEVICE_HALF_FP_CONFIG                    0x1033
@@ -118,6 +115,48 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
     cl_uint *        /* num_platforms */);
 
 
+/* Extension: cl_khr_image2D_buffer
+ *
+ * This extension allows a 2D image to be created from a cl_mem buffer without a copy.
+ * The type associated with a 2D image created from a buffer in an OpenCL program is image2d_t.
+ * Both the sampler and sampler-less read_image built-in functions are supported for 2D images
+ * and 2D images created from a buffer.  Similarly, the write_image built-ins are also supported
+ * for 2D images created from a buffer.
+ *
+ * When the 2D image from buffer is created, the client must specify the width,
+ * height, image format (i.e. channel order and channel data type) and optionally the row pitch
+ *
+ * The pitch specified must be a multiple of CL_DEVICE_IMAGE_PITCH_ALIGNMENT pixels.
+ * The base address of the buffer must be aligned to CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT pixels.
+ */
+    
+/*************************************
+ * cl_khr_initalize_memory extension *
+ *************************************/
+    
+#define CL_CONTEXT_MEMORY_INITIALIZE_KHR            0x200E
+    
+    
+/**************************************
+ * cl_khr_terminate_context extension *
+ **************************************/
+    
+#define CL_DEVICE_TERMINATE_CAPABILITY_KHR          0x200F
+#define CL_CONTEXT_TERMINATE_KHR                    0x2010
+
+#define cl_khr_terminate_context 1
+extern CL_API_ENTRY cl_int CL_API_CALL clTerminateContextKHR(cl_context /* context */) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /* context */) CL_EXT_SUFFIX__VERSION_1_2;
+    
+    
+/*
+ * Extension: cl_khr_spir
+ *
+ * This extension adds support to create an OpenCL program object from a 
+ * Standard Portable Intermediate Representation (SPIR) instance
+ */
+
 /******************************************
 * cl_nv_device_attribute_query extension *
 ******************************************/
@@ -135,7 +174,6 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
 * cl_amd_device_attribute_query *
 *********************************/
 #define CL_DEVICE_PROFILING_TIMER_OFFSET_AMD        0x4036
-
 
 #ifdef CL_VERSION_1_1
    /***********************************
@@ -207,62 +245,6 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clIcdGetPlatformIDsKHR_fn)(
 
 #endif /* CL_VERSION_1_1 */
 
-#if defined DX_MEDIA_SHARING
-#include <wtypes.h>
-#include <d3d9types.h>
-#include <d3d9.h>
-typedef cl_uint cl_dx9_device_source_intel;
-typedef cl_uint cl_dx9_device_set_intel;
-#define CL_D3D9_DEVICE_INTEL                    0x4022
-#define CL_DX9_ADAPTER_NAME_INTEL               0x4023
-#define CL_D3D9EX_DEVICE_INTEL                  0x4070
-#define CL_DXVA_DEVICE_INTEL                    0x4071
-#define CL_PREFERRED_DEVICES_FOR_DX9_INTEL      0x4024
-#define CL_ALL_DEVICES_FOR_DX9_INTEL            0x4025
-#define CL_CONTEXT_D3D9_DEVICE_INTEL            0x4026
-#define CL_CONTEXT_D3D9EX_DEVICE_INTEL          0x4072
-#define CL_CONTEXT_DXVA_DEVICE_INTEL            0x4073
-#define CL_MEM_DX9_RESOURCE_INTEL               0x4027
-#define CL_MEM_DX9_SHARED_HANDLE_INTEL          0x4074
-#define CL_IMAGE_DX9_PLANE_INTEL                0x4075
-#define CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL    0x402A
-#define CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL    0x402B
-#define CL_INVALID_DX9_DEVICE_INTEL             -1010
-#define CL_INVALID_DX9_RESOURCE_INTEL           -1011
-#define CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL  -1012
-#define CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL      -1013
-#define CL_DX9_OBJECT_SURFACE                0x3002
-
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *clCreateFromDX9MediaSurfaceINTEL_fn)(
-    cl_context          /*context*/,
-    cl_mem_flags        /*flags*/,
-    IDirect3DSurface9 * /*resource*/,
-    HANDLE              /*sharedHandle*/,
-    UINT                /*plane*/,
-    cl_int *            /*errcode_ret*/);
-typedef CL_API_ENTRY cl_int (CL_API_CALL *clEnqueueAcquireDX9ObjectsINTEL_fn)(
-    cl_command_queue /*command_queue*/,
-    cl_uint /*num_objects*/,
-    const cl_mem * /*mem_objects*/,
-    cl_uint /*num_events_in_wait_list*/,
-    const cl_event * /*event_wait_list*/,
-    cl_event * /*event*/);
-typedef CL_API_ENTRY cl_int (CL_API_CALL *clEnqueueReleaseDX9ObjectsINTEL_fn)(
-    cl_command_queue /*command_queue*/,
-    cl_uint /*num_objects*/,
-    cl_mem * /*mem_objects*/,
-    cl_uint /*num_events_in_wait_list*/,
-    const cl_event * /*event_wait_list*/,
-    cl_event * /*event*/);
-typedef CL_API_ENTRY cl_int (CL_API_CALL* clGetDeviceIDsFromDX9INTEL_fn)(
-    cl_platform_id /*platform*/,
-    cl_dx9_device_source_intel /*dx9_device_source*/,
-    void* /*dx9_object*/,
-    cl_dx9_device_set_intel /*dx9_device_set*/,
-    cl_uint /*num_entries*/, 
-    cl_device_id* /*devices*/, 
-    cl_uint* /*num_devices*/);
-#endif /* DX9_MEDIA_SHARING */
 #ifdef __cplusplus
 }
 #endif

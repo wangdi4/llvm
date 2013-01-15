@@ -204,6 +204,10 @@ TEST_F(VR11, GPUErrorKernelOnCPU)
 //|
 TEST_F(VR11, GPUErrorKernelOnGPU)
 {
+	//run only if second device is not accelerator
+	if(isAccelerator()){
+		return;
+	}
 	// get pltfrom and device ids
 	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, ocl_descriptor.devices));
 	// cpu is at index 0, gpu is at index 1
@@ -244,6 +248,11 @@ TEST_F(VR11, GPUErrorKernelOnGPU)
 //|
 TEST_F(VR11, GPUErrorKernelOnCPUGPU)
 {
+	
+	//run only if second device is not accelerator
+	if(isAccelerator()){
+		return;
+	}
 	// get pltfrom and device ids
 	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, ocl_descriptor.devices));
 	// cpu is at index 0, gpu is at index 1

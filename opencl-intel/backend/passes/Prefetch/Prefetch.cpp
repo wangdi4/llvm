@@ -8,6 +8,7 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Instructions.h"
+#include "llvm/Type.h"
 #include "OCLAddressSpace.h"
 
 #include "Prefetch.h"
@@ -17,14 +18,30 @@
 #include <string>
 #include <map>
 
+// Un-comment the following line if you want to get auto-prefetch statistics and decision information.
+// Will run in debug and release mode. Should be disabled while the code is committed.
 //#define TUNE_PREFETCH
+
+#ifdef TUNE_PREFETCH
+    #define TUNEPF(X)   do { X; } while (0)
+#else // TUNE_PREFETCH
+    #define TUNEPF(X)
+#endif // TUNE_PREFETCH
+
 #ifdef TUNE_PREFETCH
 #include <stdio.h>
 #endif // TUNE_PREFETCH
 
 namespace intel{
 
+const std::string Prefetch::m_intrinsicName = "llvm.x86.mic.";
 const std::string Prefetch::m_prefetchIntrinsicName = "llvm.x86.mic.prefetch";
+const std::string Prefetch::m_gatherPrefetchIntrinsicName = "gatherpf";
+const std::string Prefetch::m_scatterPrefetchIntrinsicName = "scatterpf";
+const std::string Prefetch::m_gatherIntrinsicName = "mic.gather.";
+const std::string Prefetch::m_maskGatherIntrinsicName = "mic.mask.gather.";
+const std::string Prefetch::m_scatterIntrinsicName = "mic.scatter.";
+const std::string Prefetch::m_maskScatterIntrinsicName = "mic.mask.scatter.";
 const int Prefetch::L2MissLatency = 512;
 const int Prefetch::L1MissLatency = 32;
 const int Prefetch::L1PrefetchSlots = 8;
@@ -38,9 +55,54 @@ const int Prefetch::defaultL1PFType = 1;
 const int Prefetch::defaultL2PFType = 2;
 } // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-STATISTIC(PF_SerialBB, "Counts accesses not concidered for prefetch since their BB has no vector instructions");
-STATISTIC(PF_LargeDiff256, "Counts accesses that were merged although had distance > 256 < 1024");
-STATISTIC(PF_LargeDiff1024, "Counts accesses that were not merged since had distance > 1024");
+#ifdef TUNE_PREFETCH
+STATISTIC(PFStat_SerialBB, "Accesses not considered for prefetch since their BB has no vector instructions");
+STATISTIC(PFStat_LargeDiff256, "Accesses that were merged although had distance > 256 < 1024");
+STATISTIC(PFStat_LargeDiff1024, "Accesses that were not merged since had distance > 1024");
+STATISTIC(PFStat_BBNotInLoop, "Basic blocks that are not in a loop");
+STATISTIC(PFStat_NonSimpleLoad, "Non simple loads that were ignored for prefetching");
+STATISTIC(PFStat_LocalLoad, "Loads from the local space that were ignored for prefetching");
+STATISTIC(PFStat_PrivateLoad, "Loads from the private space that were ignored for prefetching");
+STATISTIC(PFStat_NonSimpleStore, "Non simple stores that were ignored for prefetching");
+STATISTIC(PFStat_LocalStore, "Stores to the local space that were ignored for prefetching");
+STATISTIC(PFStat_PrivateStore, "Stores to the private space that were ignored for prefetching");
+STATISTIC(PFStat_ManualPFAbortAPF, "Abort memory access search since prefetch intrinsic was found");
+STATISTIC(PFStat_UnknwnGather, "Gather from Unknown address space");
+STATISTIC(PFStat_GlobalGather, "Gather from Global address space");
+STATISTIC(PFStat_LocalGather, "Gather from Local address space");
+STATISTIC(PFStat_ConstantGather, "Gather from Constant address space");
+STATISTIC(PFStat_PrivateGather, "Gather from Private address space");
+
+STATISTIC(PFStat_UnknwnMaskGather, "Mask Gather from Unknown address space");
+STATISTIC(PFStat_GlobalMaskGather, "Mask Gather from Global address space");
+STATISTIC(PFStat_LocalMaskGather, "Mask Gather from Local address space");
+STATISTIC(PFStat_ConstantMaskGather, "Mask Gather from Constant address space");
+STATISTIC(PFStat_PrivateMaskGather, "Mask Gather from Private address space");
+
+STATISTIC(PFStat_UnknwnScatter, "Scatter from Unknown address space");
+STATISTIC(PFStat_GlobalScatter, "Scatter from Global address space");
+STATISTIC(PFStat_LocalScatter, "Scatter from Local address space");
+STATISTIC(PFStat_ConstantScatter, "Scatter from Constant address space");
+STATISTIC(PFStat_PrivateScatter, "Scatter from Private address space");
+
+STATISTIC(PFStat_UnknwnMaskScatter, "Mask Scatter from Unknown address space");
+STATISTIC(PFStat_GlobalMaskScatter, "Mask Scatter from Global address space");
+STATISTIC(PFStat_LocalMaskScatter, "Mask Scatter from Local address space");
+STATISTIC(PFStat_ConstantMaskScatter, "Mask Scatter from Constant address space");
+STATISTIC(PFStat_PrivateMaskScatter, "Mask Scatter from Private address space");
+
+STATISTIC(PFStat_nonSCAVAbleAccess, "Memory access in loop w/o scalar evolution");
+STATISTIC(PFStat_accessStepIsLoopVariant, "Memory access pattern is non-stride");
+STATISTIC(PFStat_accessStepIsLoopInvariant, "Memory access is constant in inner-most loop, has scalar evolution in an outer loop");
+STATISTIC(PFStat_accessMatchInSameBB, "Access match in the same BB");
+STATISTIC(PFStat_accessMatchInDOMBB, "Access match in a dominating BB");
+STATISTIC(PFStat_matchExact, "Access address exact match");
+STATISTIC(PFStat_matchSameLine, "Access address match same cache line");
+STATISTIC(PFStat_partLine, "PF triggered by partial cache line access");
+STATISTIC(PFStat_oneLine, "PF triggered by full cache line access");
+STATISTIC(PFStat_multLines, "PF triggered by multiple line access");
+STATISTIC(PFStat_variableStep, "Access step is variable (non-constant or unknown constant))");
+#endif // TUNE_PREFETCH
 
 static cl::opt<int>
 PFL1Distance("pfl1dist", cl::init(0), cl::Hidden,
@@ -78,6 +140,10 @@ Prefetch::Prefetch() : FunctionPass(ID) {
   init();
 }
 
+Prefetch::~Prefetch() {
+  TUNEPF (PrintStatistics());
+}
+
 void Prefetch::init() {
   const char *val;
   int ival;
@@ -98,6 +164,23 @@ void Prefetch::init() {
     std::istringstream(std::string(val)) >> ival;
     PFL2Type = ival;
   }
+
+  m_disableAPF = false;
+  if (getenv("DISAPF")) {
+    m_disableAPF = true;
+}
+
+  m_coopAPFMPF = false;
+  m_exclusiveMPF = false;
+  if ((val = getenv("APFMPF")) != NULL) {
+    std::string APFMPF(val);
+    if (APFMPF.compare("COOP") == 0)
+      m_coopAPFMPF = true;
+    if (APFMPF.compare("EXCLUSIVE") == 0)
+      m_exclusiveMPF = true;
+  }
+
+  TUNEPF (EnableStatistics());
 }
 
 // getConstStep - calculate loop step.
@@ -109,6 +192,7 @@ static int getConstStep (const SCEV *S, ScalarEvolution &SE) {
     const SCEV * SAddrStep = AR->getStepRecurrence(SE);
     if (SAddrStep->getSCEVType() == scConstant)
       return (cast<SCEVConstant>(SAddrStep)->getValue()->getZExtValue());
+    TUNEPF(PFStat_variableStep++);
   }
   return 0;
 }
@@ -296,17 +380,19 @@ static const SCEV *PromoteSCEV(const SCEV *S, Loop *L, ScalarEvolution &SE,
   return 0;
 }
 
-// memAccessExists - checks if acccess overlaps with another access
+// memAccessExists - checks if access overlaps with another access
 // recorded in MAV.
-// accessIsReady tells weather all access details are already calculated
+// accessIsReady tells whether all access details are already calculated
 bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
                                 bool accessIsReady) {
   // Check first if an exact access is already detected. If yes - no need
   // to go into other analysis
   for (unsigned i = 0; i < MAV.size(); i++) {
     // If the exact same address is already detected drop the new one
-    if (access.S == MAV[i].S)
+    if (access.S == MAV[i].S) {
+      TUNEPF(PFStat_matchExact++);
       return true;
+  }
   }
 
   DEBUG (dbgs() << "Found SCEV in this BB of type " <<
@@ -335,6 +421,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
 
       // if accesses are in the same cache line discard this one
       if (constDiff >= 0 && constDiff < CacheLineSize) {
+        TUNEPF(PFStat_matchSameLine++);
         return true;
       }
       // if the step is not constant we can't evaluate further
@@ -342,26 +429,33 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
         continue;
 
       int iterOffset = constDiff % access.step;
+      int diffSteps = constDiff / access.step;
+      if (diffSteps < 0)
+        diffSteps = -diffSteps;
       // if accesses are in the same cache line in another iteration
       if (iterOffset >= 0 && iterOffset < CacheLineSize) {
-        // prefetch for the more advanced access (step and diff are in the
-        // same direction) is better, since the back access will catch up in
-        // later iterations
+        TUNEPF (
+          if (diffSteps > 256 && diffSteps <=1024)
+            PFStat_LargeDiff256++;
+          if (diffSteps > 1024)
+            PFStat_LargeDiff1024++;
+          );
         // don't merge accesses if iteration distance between accesses is too
         // large so the code may suffer from long cache warmup at the
         // beginning and from prefetches that hit the caches later
-        if ((constDiff < 0) == (access.step < 0) && constDiff / access.step < 1024) {
+        if (diffSteps < 1024) {
+        // prefetch for the more advanced access (step and diff are in the
+        // same direction) is better, since the back access will catch up in
+        // later iterations
+          if ((constDiff < 0) == (access.step < 0)) {
           MAV[i].S = access.S;
           MAV[i].offset = access.offset;
-          int diffSteps = constDiff / access.step;
-          if (diffSteps > 256 && diffSteps <=1024)
-            PF_LargeDiff256++;
-          if (diffSteps > 1024)
-            PF_LargeDiff1024++;
         }
+          TUNEPF (PFStat_matchSameLine++);
         return true;
       }
     }
+  }
   }
 
   return false;
@@ -407,7 +501,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
   // collect all addresses accessed by loads and stores, which are from Global
   // address space and simple. Stores should not be to non temporal locations.
-  for (unsigned int bbi = 0; bbi < domBB.size() && noManualPrefetch; bbi++) {
+  for (unsigned int bbi = 0; bbi < domBB.size() && (noManualPrefetch || m_coopAPFMPF); bbi++) {
     BasicBlock *BB = domBB[bbi];
 
     // insert to the list BBs dominated by this one
@@ -419,8 +513,10 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
     // prefetch only inside loops
     Loop *L = m_LI->getLoopFor(BB);
-    if (!L)
+    if (!L) {
+      TUNEPF (PFStat_BBNotInLoop++);
       continue;
+    }
 
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end();
         II != IE; ++II) {
@@ -439,8 +535,16 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
             pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Constant   )) {
           addr = pLoadInst->getPointerOperand();
           accessSize = getSize(I->getType());
-        } else
+        } else {
+          TUNEPF (
+            if (!pLoadInst->isSimple()) PFStat_NonSimpleLoad++;
+            if (pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Local)
+              PFStat_LocalLoad++;
+            if (pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Private)
+              PFStat_PrivateLoad++;
+            );
           continue;
+        }
       } else if ((pStoreInst = dyn_cast<StoreInst>(I)) != NULL) {
         if (pStoreInst->isSimple() &&
             (pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Global ||
@@ -448,13 +552,79 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
             pStoreInst->getMetadata(NTSKind) == NULL) {
           addr = pStoreInst->getPointerOperand();
           accessSize = getSize(pStoreInst->getValueOperand()->getType());
-        } else
+        } else {
+          TUNEPF (
+            if (!pStoreInst->isSimple()) PFStat_NonSimpleStore++;
+            if (pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Local)
+              PFStat_LocalStore++;
+            if (pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Private)
+              PFStat_PrivateStore++;
+          );
           continue;
+        }
       } else if ((pCallInst = dyn_cast<CallInst>(I)) != NULL &&
                   pCallInst->getCalledFunction()) {
         StringRef Name = pCallInst->getCalledFunction()->getName();
-        if (Name.compare(m_prefetchIntrinsicName) == 0)
+        if (Name.find(m_intrinsicName) != std::string::npos) {
+          if (Name.find(m_prefetchIntrinsicName) != std::string::npos ||
+              Name.find(m_gatherPrefetchIntrinsicName) != std::string::npos ||
+              Name.find(m_scatterPrefetchIntrinsicName) != std::string::npos) {
+            TUNEPF (PFStat_ManualPFAbortAPF++);
           noManualPrefetch = false;
+          }
+          else {
+            TUNEPF (
+            int addrSpace = 0;
+            if (Name.find(m_gatherIntrinsicName) != std::string::npos) {
+              assert (I->getOperand(1)->getType()->isPointerTy() && "expected pointer type");
+              addrSpace = cast<PointerType>(I->getOperand(1)->getType())->getAddressSpace();
+              switch (addrSpace) {
+                default: assert(false && "Unknown address space detected for gather"); break;
+                case 0: PFStat_UnknwnGather++; break;
+                case Utils::OCLAddressSpace::Global: PFStat_GlobalGather++; break;
+                case Utils::OCLAddressSpace::Local: PFStat_LocalGather++; break;
+                case Utils::OCLAddressSpace::Constant: PFStat_ConstantGather++; break;
+                case Utils::OCLAddressSpace::Private: PFStat_PrivateGather++; break;
+              }
+            }
+            else if (Name.find(m_maskGatherIntrinsicName) != std::string::npos) {
+              assert (I->getOperand(3)->getType()->isPointerTy() && "expected pointer type");
+              addrSpace = cast<PointerType>(I->getOperand(3)->getType())->getAddressSpace();
+              switch (addrSpace) {
+                default: assert(false && "Unknown address space detected for masked gather"); break;
+                case 0: PFStat_UnknwnMaskGather++; break;
+                case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskGather++; break;
+                case Utils::OCLAddressSpace::Local: PFStat_LocalMaskGather++; break;
+                case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskGather++; break;
+                case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskGather++; break;
+              }
+            }
+            else if (Name.find(m_scatterIntrinsicName) != std::string::npos) {
+              assert (I->getOperand(0)->getType()->isPointerTy() && "expected pointer type");
+              addrSpace = cast<PointerType>(I->getOperand(0)->getType())->getAddressSpace();
+              switch (addrSpace) {
+                default: assert(false && "Unknown address space detected for scatter"); break;
+                case 0: PFStat_UnknwnScatter++; break;
+                case Utils::OCLAddressSpace::Global: PFStat_GlobalScatter++; break;
+                case Utils::OCLAddressSpace::Local: PFStat_LocalScatter++; break;
+                case Utils::OCLAddressSpace::Constant: PFStat_ConstantScatter++; break;
+                case Utils::OCLAddressSpace::Private: PFStat_PrivateScatter++; break;
+              }
+            }
+            else if (Name.find(m_maskScatterIntrinsicName) != std::string::npos) {
+              assert (I->getOperand(0)->getType()->isPointerTy() && "expected pointer type");
+              addrSpace = cast<PointerType>(I->getOperand(0)->getType())->getAddressSpace();
+              switch (addrSpace) {
+                default: assert(false && "Unknown address space detected for masked scatter"); break;
+                case 0: PFStat_UnknwnMaskScatter++; break;
+                case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskScatter++; break;
+                case Utils::OCLAddressSpace::Local: PFStat_LocalMaskScatter++; break;
+                case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskScatter++; break;
+                case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskScatter++; break;
+              }
+            } ); // TUNEPF()
+          }
+        }
         continue;
       } else {
         continue;
@@ -464,8 +634,10 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       assert (accessSize > 0 && "found non positive access size");
 
       // verify that scalar evolution is possible for this address type
-      if (!m_SE->isSCEVable(addr->getType()))
+      if (!m_SE->isSCEVable(addr->getType())) {
+        TUNEPF (PFStat_nonSCAVAbleAccess++);
         continue;
+      }
 
       // Get the symbolic expression for this address.
       const SCEV *SAddr = m_SE->getSCEVAtScope(addr, L);
@@ -473,8 +645,17 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // keep only addresses which have computable evolution in this loop
       // TODO: hoist prefetches for addresses that have computable evolution
       // in outer loop
-      if (!m_SE->hasComputableLoopEvolution(SAddr, L))
+      if (!m_SE->hasComputableLoopEvolution(SAddr, L)) {
+        TUNEPF (
+          switch (m_SE->getLoopDisposition(SAddr, L)) {
+            default:
+            case ScalarEvolution::LoopComputable: assert (false && "unexpected loop disposition detected in SCEV");
+            case ScalarEvolution::LoopVariant: PFStat_accessStepIsLoopVariant++; break;
+            case ScalarEvolution::LoopInvariant: PFStat_accessStepIsLoopInvariant++; break;
+          }
+        );
         continue;
+      }
 
       // if this is not an Add Recurrence expression already
       // simplify address scev so step is always assumed to be non wrapping.
@@ -521,6 +702,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         MAV.push_back(access);
         DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
                access.S->dump(););
+      } else {
+        TUNEPF (PFStat_accessMatchInSameBB++);
       }
       // if access is for more than 64 bytes record references for all
       // accessedcache lines
@@ -536,11 +719,18 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
             DEBUG (dbgs() << "Added access at offset " << i <<
                   " bytes from base\n   ";
             access.S->dump(););
+          } else {
+            TUNEPF (PFStat_accessMatchInSameBB++);
           }
         }
       }
     } // end loop over instructions
   } // end loop over BBs
+
+  // if using the mode where manual prefetches should not be used with
+  // auto-prefetching - leave now
+  if (m_exclusiveMPF == true && noManualPrefetch == false)
+    return false;
 
   // Merge overlapping accesses into dominating BBs
   for (unsigned int bbi = domBB.size()-1; bbi != 0; bbi--) {
@@ -555,14 +745,14 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
     // non vectorized code will not prefetch as long as this pass does not
     // implement loop unrolling, to avoid excessive prefetching.
-    // it can heart corner cases like scalar load followd by vectorized
+    // it can hurt corner cases like scalar load followed by vectorized
     // function call that are the only instructions in a BB
     // if this BB belongs to a loop that is not vectorized - do not emit
     // prefetches for it.
     Loop *L = m_LI->getLoopFor(BB);
     assert (L && "BB with PF candidates is expected to be inside a loop");
     if (m_isVectorized.find(L) == m_isVectorized.end()) {
-      PF_SerialBB += MAV.size();
+      TUNEPF (PFStat_SerialBB += MAV.size());
       m_addresses.erase(BB);
       continue;
     }
@@ -580,8 +770,10 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // check for each access that is not detected as recurring already if
       // it's recurring in its dominator
       for (unsigned i = 0; i < MAV.size(); i++) {
-        if (!MAV[i].recurring && memAccessExists(MAV[i], iDomMAV, true))
-          MAV[i].recurring = true;;
+        if (!MAV[i].recurring && memAccessExists(MAV[i], iDomMAV, true)) {
+          MAV[i].recurring = true;
+          TUNEPF(PFStat_accessMatchInDOMBB++);
+      }
       }
 
       // maintenance:
@@ -618,8 +810,23 @@ void Prefetch::countPFPerLoop () {
     // count the number of non-recurring accesses in this BB
     unsigned MAVSize = 0;
     for (unsigned int i = 0; i < MAV.size(); i++)
-      if (!MAV[i].recurring)
+      if (!MAV[i].recurring) {
         MAVSize++;
+        TUNEPF (
+          int accessSize;
+          StoreInst *pStoreInst;
+          if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
+            accessSize = getSize(pStoreInst->getValueOperand()->getType());
+          else
+            accessSize = getSize(MAV[i].I->getType());
+          if (accessSize < 64)
+            PFStat_partLine++;
+          if (accessSize == 64)
+            PFStat_oneLine++;
+          if (accessSize > 64)
+            PFStat_multLines++;
+          );
+      }
 
     // BB with all recurring accesses where removed already from the map
     assert (MAVSize &&
@@ -846,11 +1053,11 @@ void Prefetch::getPFDistance() {
       first = false;
       firstNumThreads = m_numThreads;
     }
-#ifdef TUNE_PREFETCH
+    TUNEPF (
     printf ("First Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
             (long long int )((void *)L), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
             info.iterLen);
-#endif // TUNE_PREFETCH
+    );
     DEBUG (dbgs() << "First Loop " << (void *)L << " Num Refs " << info.numRefs
       << " NumThreads " << info.numThreads << " distL1 " << info.L1Distance <<
       " distL2 " << info.L2Distance << " iterLen " << info.iterLen << "\n");
@@ -869,11 +1076,11 @@ void Prefetch::getPFDistance() {
         "there's a loop that prefers less threads");
     if (info.numThreads > m_numThreads)
       getPFDistance(it->first, info);
-#ifdef TUNE_PREFETCH
+    TUNEPF (
     printf ("Final Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
             (long long int )((void *)it->first), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
             info.iterLen);
-#endif // TUNE_PREFETCH
+    );
     DEBUG (dbgs() << "Final Loop " << (void *)it->first <<
         " Num Refs " << info.numRefs << " NumThreads " << info.numThreads <<
         " distL1 " << info.L1Distance << " distL2 " << info.L2Distance <<
@@ -967,9 +1174,7 @@ bool Prefetch::autoPrefetch(Function &F) {
 
   // calculate prefetch distance for all loops in a function
   if (PFL1Distance == 0 || PFL2Distance == 0) {
-#ifdef TUNE_PREFETCH
-    printf ("Function: %s\n", F.getName().data());
-#endif // TUNE_PREFETCH
+    TUNEPF (printf ("Function: %s\n", F.getName().data()));
     DEBUG (dbgs() << "Function: " << F.getName() << "\n");
     getPFDistance();
   }
@@ -986,7 +1191,7 @@ bool Prefetch::autoPrefetch(Function &F) {
 bool Prefetch::runOnFunction(Function &F) {
   // don't bother if prefetching is disabled.
   DEBUG (dbgs() << "prefetch go " << F.getName() << "\n";);
-  if (PFL1Type < 0 && PFL2Type < 0)
+  if (m_disableAPF)
     return false;
 
   // connect some analysis passes

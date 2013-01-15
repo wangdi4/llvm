@@ -19,20 +19,16 @@
 // problem reports or change requests be submitted to it directly
 
 #include "base_command_list.h"
+#include "arena_handler.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 template<typename F>
-void out_of_order_command_list::EnqueueFunction(F& f)
+void TaskGroup::EnqueueFunc(const F& f)
 {
-	TaskGroupRunner<F> functor(m_oooTaskGroup, f);
-	m_devArenaHandler.Enqueue(functor);
-}
-
-template<typename F>
-void base_command_list::ExecuteFunction(F& f)
-{
-	m_devArenaHandler.Execute(f);
+    m_rootTask.increment_ref_count();   // Increment the reference count here. It will be decremented inside runner's function after f() has been called.
+    ArenaFunctorRunner<F> runner(m_rootTask, f); 
+    m_arenaHandler.Enqueue(runner);
 }
 
 }}}

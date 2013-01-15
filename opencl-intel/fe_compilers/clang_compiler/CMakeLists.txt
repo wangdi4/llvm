@@ -4,8 +4,6 @@
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
 
-find_package(LLVM REQUIRED)
-
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 

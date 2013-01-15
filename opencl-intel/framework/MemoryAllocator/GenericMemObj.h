@@ -283,12 +283,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	        cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 		        {return CL_INVALID_OPERATION;}
 
-            void SetCompletionRequired () { m_completion_required = true; };
-            bool IsCompletionRequired() const { return m_completion_required; };
-
         protected:
 
-            DataCopyEvent(_cl_context_int* context) : OclEvent(context), m_completion_required(false)
+            DataCopyEvent(_cl_context_int* context) : OclEvent(context)
             {
                 SetEventState(EVENT_STATE_HAS_DEPENDENCIES); 
             };
@@ -296,8 +293,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			virtual ~DataCopyEvent() {};
 
 		private:
-
-            bool m_completion_required;
 
 	        // A MemObjectEvent object cannot be copied
 	        DataCopyEvent(const DataCopyEvent&);           // copy constructor
@@ -539,21 +534,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         };
 
+		struct DataCopyEventWrapper
+		{
+			DataCopyEventWrapper() : ev(NULL), completionReq(false) {};
+			SharedPtr<DataCopyEvent> ev;
+			bool completionReq;
+		};
+
         // FSM machine code, return non-NULL if operation is in-process
         void           data_sharing_set_init_state( bool valid );
         // read path
-        SharedPtr<DataCopyEvent> data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred );
-        SharedPtr<DataCopyEvent> drive_copy_between_groups( DataCopyState staring_state, 
+        void data_sharing_bring_data_to_sharing_group( unsigned int group_id, bool* data_transferred, DataCopyEventWrapper* returned_event );
+        void drive_copy_between_groups( DataCopyState staring_state, 
                                                   unsigned int from_grp_id, 
-                                                  unsigned int to_group_id );
+                                                  unsigned int to_group_id,
+												  DataCopyEventWrapper* returned_event);
         void           invalidate_data_for_group( SharingGroup& group );
         void           ensure_single_data_copy( unsigned int group_id );
 
 	protected:
-		SharedPtr<DataCopyEvent> data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access );
+
+		void data_sharing_fsm_process( bool acquire, unsigned int group_id, MemObjUsage access, DataCopyEventWrapper* returned_event );
         // FSM utilities
         void           acquire_data_sharing_lock();
-        SharedPtr<OclEvent>      release_data_sharing_lock( SharedPtr<DataCopyEvent> returned_event );
+        SharedPtr<OclEvent>      release_data_sharing_lock( DataCopyEventWrapper* returned_event );
         class          DataSharingAutoLock;
 	private:
 

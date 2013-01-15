@@ -500,6 +500,21 @@ TEST(FrameworkTestType, Test_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Rele
     EXPECT_TRUE(cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release());
 }
 
+TEST(FrameworkTestType, cl_ALL_Devices_SubBuffer_Simple_Test)
+{
+    EXPECT_TRUE(cl_ALL_Devices_SubBuffer_Simple_Test());
+}
+
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async)
+{
+    EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async());
+}
+
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release)
+{
+    EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release());
+}
+
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line 

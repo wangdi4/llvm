@@ -46,19 +46,20 @@ void GenericMemObject::acquire_data_sharing_lock()
 }
 
 inline
-SharedPtr<OclEvent>  GenericMemObject::release_data_sharing_lock(SharedPtr<DataCopyEvent> returned_event )
+SharedPtr<OclEvent>  GenericMemObject::release_data_sharing_lock(DataCopyEventWrapper* returned_event )
 {
     m_global_lock.Unlock();
 
-    if (returned_event && returned_event->IsCompletionRequired())
+    if (returned_event && returned_event->completionReq)
     {
+		assert(NULL != returned_event->ev && "If returned_event->completionReq == true than returned_event->ev cannot be NULL");
         // no races here because pointer to the event was removed from Sharing Group before, 
         // so there is no way to get this pointer in more places
-        returned_event->SetEventState(EVENT_STATE_DONE);
-        returned_event = NULL;
+	    returned_event->ev->SetEventState(EVENT_STATE_DONE);
+        returned_event->ev = NULL;
     }
-
-    return returned_event;
+	
+	return (NULL == returned_event) ? (SharedPtr<OclEvent>)NULL : (SharedPtr<OclEvent>)(returned_event->ev);
 }
 
 class GenericMemObject::DataSharingAutoLock{
@@ -79,10 +80,10 @@ private:
 //
 // Step through copy between groups process
 //
-SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::drive_copy_between_groups( 
-                                                  DataCopyState starting_state, 
+void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state, 
                                                   unsigned int  from_grp_id,
-                                                  unsigned int  to_grp_id )
+                                                  unsigned int  to_grp_id,
+												  DataCopyEventWrapper* returned_event)
 {
     cl_dev_err_code dev_error = CL_DEV_SUCCESS;
     bool            need_event_allocation = false;
@@ -99,7 +100,7 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::drive_copy_between_
                 assert( MAX_DEVICE_SHARING_GROUP_ID > from_grp_id );
 				if (MAX_DEVICE_SHARING_GROUP_ID <= from_grp_id)
 				{
-					return NULL;
+					return;
 				}
                 SharingGroup& from = m_sharing_groups[ from_grp_id ];
 
@@ -196,25 +197,28 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::drive_copy_between_
         }
     }
 
-    SharedPtr<DataCopyEvent> return_event = to.m_data_copy_in_process_event;
+    if (returned_event)
+	{
+		returned_event->ev = to.m_data_copy_in_process_event;
 
-    if (need_event_completion && (NULL != return_event))
-    {
-        to.m_data_copy_in_process_event = NULL;
+		if (need_event_completion && (NULL != returned_event->ev))
+		{
+			to.m_data_copy_in_process_event = NULL;
         
-        // complete and release event cannot be done inside lock - need to do this after exit from lock
-        // problem - event should be set to NULL inside lock!
-        return_event->SetCompletionRequired();
-    }
-
-    return return_event;
+			// complete and release event cannot be done inside lock - need to do this after exit from lock
+			// problem - event should be set to NULL inside lock!
+			assert(false == returned_event->completionReq && "returned_event.completionReq should set to true only once");
+			returned_event->completionReq = true;
+		}
+	}
 }
     
 //
 // Perform data copy from another sharing group
 //
-SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int group_id, 
-                                                                                                       bool* data_transferred  )
+void GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int group_id, 
+                                                                 bool* data_transferred,
+																 DataCopyEventWrapper* returned_event)
 {
     *data_transferred = false;
     
@@ -223,13 +227,17 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_bring_
     if (my_group.m_data_copy_in_process_event)
     {
         // data copy is in process
-        return my_group.m_data_copy_in_process_event;
+		if (returned_event)
+		{
+			returned_event->ev = my_group.m_data_copy_in_process_event;
+		}
+		return;
     }
 
     if (DATA_COPY_STATE_VALID == my_group.m_data_copy_state)
     {
         // sharing group will bring data to my device later during execution
-        return NULL;
+        return;
     }
 
     unsigned int copy_from = MAX_DEVICE_SHARING_GROUP_ID;
@@ -273,7 +281,7 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_bring_
     }
 
     *data_transferred = true;
-    return drive_copy_between_groups( starting_state, copy_from, group_id );
+    drive_copy_between_groups( starting_state, copy_from, group_id, returned_event);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -290,13 +298,12 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_bring_
 //
 //  Implement data sharing graph 
 //
-SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_fsm_process( bool acquire,
-                                                                             unsigned int group_id, 
-                                                                             MemObjUsage access )
+void GenericMemObject::data_sharing_fsm_process( bool acquire,
+                                                 unsigned int group_id, 
+                                                 MemObjUsage access, 
+												 DataCopyEventWrapper* returned_event)
 {
     assert( (access >= 0) && (access < MEMOBJ_USAGES_COUNT) && "Wrong MemObjUsage value" );
-
-    SharedPtr<DataCopyEvent> copy_in_process_event = NULL;
     
     bool is_read  = (access != WRITE_ENTIRE);
     bool is_write = (access != READ_ONLY);
@@ -306,7 +313,7 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_fsm_pr
     // process reading first 
     if (acquire && is_read)
     {
-        copy_in_process_event = data_sharing_bring_data_to_sharing_group(group_id, &data_transferred);
+        data_sharing_bring_data_to_sharing_group(group_id, &data_transferred, returned_event);
     }
 
     enum WritersGroupsChange 
@@ -442,12 +449,15 @@ SharedPtr<GenericMemObject::DataCopyEvent> GenericMemObject::data_sharing_fsm_pr
 
         default:
             assert( false && "Unknown Data Sharing FSM state" );
-            return NULL;
+			if (returned_event)
+			{
+				returned_event->ev = NULL;
+			}
+            return;
     }
 
 
-    m_data_valid_state.m_contains_valid_data = true;    
-    return copy_in_process_event;
+    m_data_valid_state.m_contains_valid_data = true;
 }
 
 // setup initial state at creation
@@ -602,21 +612,21 @@ cl_err_code GenericMemObject::UnLockOnDevice( IN const ConstSharedPtr<Fissionabl
 // by the caller
 SharedPtr<OclEvent> GenericMemObject::lockOnDeviceInt( IN unsigned int devSharingGroupId, IN MemObjUsage usage, bool alreadyLock )
 {
-    SharedPtr<DataCopyEvent> returned_event = NULL;
+    DataCopyEventWrapper returned_event;
 
 	if (!alreadyLock)
 	{
 		acquire_data_sharing_lock();
 	}
-    returned_event = data_sharing_fsm_process( true, devSharingGroupId, usage ); 
-    return release_data_sharing_lock(returned_event);
+    data_sharing_fsm_process( true, devSharingGroupId, usage, &returned_event ); 
+    return release_data_sharing_lock(&returned_event);
 }
 
 // release data locking on device. 
 void GenericMemObject::unLockOnDeviceInt( IN unsigned int devSharingGroupId, IN MemObjUsage usage )
 {
     DataSharingAutoLock data_sharing_lock( *this );
-    data_sharing_fsm_process( false, devSharingGroupId, usage ); 
+    data_sharing_fsm_process( false, devSharingGroupId, usage, NULL ); 
 }
 
 // Device Agent should notify when long update to/from backing store operations finished.
@@ -635,7 +645,7 @@ void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_c
     }
 
     SharingGroup&  grp = m_sharing_groups[to_grp_id];
-    SharedPtr<DataCopyEvent> returned_event = NULL;
+    DataCopyEventWrapper returned_event;
 
     if (CL_DEV_FAILED(dev_error))
     {
@@ -644,9 +654,8 @@ void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_c
     }
 
     acquire_data_sharing_lock();
-    returned_event = drive_copy_between_groups( grp.m_data_copy_state, grp.m_data_copy_from_group, to_grp_id );
-    release_data_sharing_lock(returned_event);
-
+    drive_copy_between_groups( grp.m_data_copy_state, grp.m_data_copy_from_group, to_grp_id, &returned_event );
+    release_data_sharing_lock(&returned_event);
 }
 
 cl_err_code GenericMemObject::updateParent(unsigned int devSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<OclEvent>& pOutEvent)
@@ -1073,7 +1082,7 @@ cl_err_code GenericMemObjectSubBuffer::UnLockOnDevice( IN const ConstSharedPtr<F
 		acquireBufferSyncLock();
 		// Copy of UnlockOnDeviceInt
 		DataSharingAutoLock data_sharing_lock( *this );
-		data_sharing_fsm_process( false, devSharingGroupId, usage ); 
+		data_sharing_fsm_process( false, devSharingGroupId, usage, NULL ); 
 		// unLockOnDeviceInt
 		if (MEMORY_MODE_NORMAL == getHierarchicalMemoryMode())
 		{

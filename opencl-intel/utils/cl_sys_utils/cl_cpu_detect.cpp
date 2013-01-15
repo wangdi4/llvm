@@ -28,16 +28,83 @@
 #include "cl_cpu_detect.h"
 #include "cl_env.h"
 
-#if _MSC_VER == 1600
-#include <intrin.h>
-#endif
-
 #if defined( _WIN32 )
 #include <windows.h>
+#include <intrin.h>
 #else
 #include <cstdlib>
 #include <cstring>
 #include "hw_utils.h"
+#endif
+
+#include <assert.h>
+#include <string.h>
+
+#if !defined(_WIN32)
+extern "C" void hw_cpuid( struct CPUID_PARAMS *);
+
+//------------------------------------------------------------------------------
+// void ASM_FUNCTION cpuid( int cpuid_info[4], UINT32 type);
+//------------------------------------------------------------------------------
+
+#define __cpuid( p_cpuid_info, type )                                          \
+{                                                                              \
+    CPUID_PARAMS __cpuid_params;                                        \
+    __cpuid_params.m_rax = type;                                               \
+    hw_cpuid( &__cpuid_params);                                                \
+                                                                               \
+    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
+    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
+    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
+    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
+}
+#define __cpuidex( p_cpuid_info, type, rcxVal )                                \
+{                                                                              \
+    CPUID_PARAMS __cpuid_params;                                        \
+    __cpuid_params.m_rax = type;                                               \
+    __cpuid_params.m_rcx = rcxVal;                                               \
+    hw_cpuid( &__cpuid_params);                                                \
+                                                                               \
+    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
+    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
+    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
+    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
+}
+#endif
+
+#if defined(_M_X64) || defined(__LP64__)
+
+#if defined(_M_X64)
+  #pragma pack (1)
+  #define PACKED_STRUCT
+#else
+  #define PACKED_STRUCT __attribute__ ((packed))
+#endif
+
+struct XGETBV_PARAMS {
+    unsigned long long   m_rax;
+    unsigned long long   m_rdx;
+} PACKED_STRUCT;
+
+#if defined(_M_X64)
+  #pragma pack ()
+#endif
+
+extern "C" void hw_xgetbv( struct XGETBV_PARAMS *);
+
+//------------------------------------------------------------------------------
+// void ASM_FUNCTION xgetbv( int xcr_info[2]);
+//------------------------------------------------------------------------------
+
+#define xgetbv( p_xcr_info )                                                   \
+{                                                                              \
+    struct XGETBV_PARAMS __xgetbv_params;                                      \
+    hw_xgetbv( &__xgetbv_params);                                              \
+                                                                               \
+    (p_xcr_info)[0] = (unsigned int)__xgetbv_params.m_rax;                     \
+    (p_xcr_info)[1] = (unsigned int)__xgetbv_params.m_rdx;                     \
+}
+
 #endif
 
 using namespace Intel::OpenCL::Utils;
@@ -166,6 +233,7 @@ void CPUDetect::GetCPUInfo()
     char vcCPUString[0x20] = {0};
     char vcCPUBrandString[0x40] = {0};
     unsigned int viCPUInfo[4] = {(unsigned int)-1};
+    int XCRInfo[2] = {0};
 
     // get the CPU string and the number of valid of valid IDs
     CPUID(viCPUInfo, 0);
@@ -231,7 +299,35 @@ void CPUDetect::GetCPUInfo()
 
 	if (viCPUInfo[2] & 0x10000000)
 	{
-		m_uiCPUFeatures |= CFS_AVX10;
+#if defined(_WIN32) && !defined(_M_X64)
+            // Use this inline asm in Win32 only
+            __asm
+            {
+                // specify 0 for XFEATURE_ENABLED_MASK register
+                mov ecx, 0
+                    // XGETBV result in EDX:EAX
+                    xgetbv
+                    mov XCRInfo[0], eax
+                    mov XCRInfo[1], edx
+            }
+#else
+            xgetbv( XCRInfo )
+#endif
+            if ((XCRInfo[0] & 0x00000006) == 0x00000006)
+            {
+                m_uiCPUFeatures |= CFS_AVX10;
+                if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
+                    {
+                        m_uiCPUFeatures |= CFS_FMA;
+                    }
+                    // AVX2 support
+                    viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+                    __cpuidex((int*)viCPUInfo, 7, 0); //eax=7, ecx=0
+                    if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
+                    {
+                        m_uiCPUFeatures |= CFS_AVX20;
+                    }
+            }
 	}
 
     CPUID(viCPUInfo, 0x80000000);

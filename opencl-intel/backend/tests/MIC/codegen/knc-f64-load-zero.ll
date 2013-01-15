@@ -1,4 +1,3 @@
-; XFAIL: *
 ; XFAIL: win32
 ;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
@@ -11,8 +10,8 @@ target datalayout = "e-p:64:64"
 
 define double @loadzero() nounwind readnone ssp {
 entry:
-; KNF: vxorpq {{%v[0-9]+}}, {{%v[0-9]+}}, {{%v[0-9]+}}
 ;
-; KNC: vpxord {{%zmm[0-9]+}}, {{%zmm[0-9]+}}, {{%zmm[0-9]+}}
+; KNC: vpxorq    %zmm0, %zmm0, %zmm0
+
   ret double 0.000000e+00
 }

@@ -13,6 +13,9 @@ include_directories( BEFORE
 		${CMAKE_CURRENT_SOURCE_DIR}
             )
 
+if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )            
+    add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
+endif()
 
 set(FILES_TO_COPY 
 		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} 

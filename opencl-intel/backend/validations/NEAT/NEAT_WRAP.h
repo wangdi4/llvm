@@ -12,12 +12,12 @@ Copyright (c) Intel Corporation (2011-2012).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  NEATALU.h
+File Name:  NEAT_WRAP.h
 
 
 \*****************************************************************************/
-#ifndef __NEATALU_2_H__
-#define __NEATALU_2_H__
+#ifndef __NEAT_WRAP_H__
+#define __NEAT_WRAP_H__
 
 #include "NEATValue.h"
 #include "NEATVector.h"
@@ -511,5 +511,5 @@ namespace Validation
     };
 }
 
-#endif // __NEATALU_2_H__
+#endif // __NEAT_WRAP_H__
 

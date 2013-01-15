@@ -45,7 +45,7 @@ mul_conversion[LoopWIAnalysis::NumDeps][LoopWIAnalysis::NumDeps] = {
 
 LoopWIAnalysis::LoopWIAnalysis():LoopPass(ID){
   initializeLoopWIAnalysisPass(*PassRegistry::getPassRegistry());
-};
+}
 
 LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   if (m_deps.count(val)) return m_deps[val];

@@ -1,14 +1,6 @@
-; XFAIL: win32
-; XFAIL: *
-;
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
 ; RUN:     | FileCheck %s
-;
-; RUNc: llc < %s -mtriple=x86_64-pc-linux \
-; RUNc:       -march=y86-64 -mcpu=knc \
-; RUNc:     | FileCheck %s
-;
 
 target datalayout = "e-p:64:64"
 
@@ -16,22 +8,9 @@ target datalayout = "e-p:64:64"
 
 define <16 x i64> @add1(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
+; CHECK: add1
+; CHECK-NOT: addq
+; CHECK: ret
   %tmp1 = load <16 x i64>* @g, align 128
   %add = add nsw <16 x i64> %tmp1, %a
   ret <16 x i64> %add
@@ -39,45 +18,19 @@ entry:
 
 define <16 x i64> @add2(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
-; CHECK: addq
+; CHECK: add2
+; CHECK-NOT: addq
+; CHECK: ret
   %tmp = load <16 x i64>* @g, align 128
-  %add = add nsw <16 x i64> %tmp, %a
+  %add = add nsw <16 x i64> %a, %tmp
   ret <16 x i64> %add
 }
 
 define <16 x i64> @mul1(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
+; CHECK: mul1
+; CHECK-NOT: imulq
+; CHECK: ret
   %tmp1 = load <16 x i64>* @g, align 128
   %mul = mul <16 x i64> %tmp1, %a
   ret <16 x i64> %mul
@@ -85,45 +38,19 @@ entry:
 
 define <16 x i64> @mul2(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
-; CHECK: imulq
+; CHECK: mul2
+; CHECK-NOT: imulq
+; CHECK: ret
   %tmp = load <16 x i64>* @g, align 128
-  %mul = mul <16 x i64> %tmp, %a
+  %mul = mul <16 x i64> %a, %tmp
   ret <16 x i64> %mul
 }
 
 define <16 x i64> @sub1(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
+; CHECK: sub1
+; CHECK-NOT: subq
+; CHECK: ret
   %tmp1 = load <16 x i64>* @g, align 128
   %sub = sub <16 x i64> %a, %tmp1
   ret <16 x i64> %sub
@@ -131,165 +58,10 @@ entry:
 
 define <16 x i64> @sub2(<16 x i64> %a) nounwind readonly ssp {
 entry:
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
-; CHECK: subq
+; CHECK: sub2
+; CHECK-NOT: subq
+; CHECK: ret
   %tmp = load <16 x i64>* @g, align 128
   %sub = sub <16 x i64> %tmp, %a
   ret <16 x i64> %sub
-}
-
-define <16 x i64> @div1(<16 x i64> %a) nounwind readonly ssp {
-entry:
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-  %tmp1 = load <16 x i64>* @g, align 128
-  %div = sdiv <16 x i64> %a, %tmp1
-  ret <16 x i64> %div
-}
-
-define <16 x i64> @div2(<16 x i64> %a) nounwind readonly ssp {
-entry:
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-; CHECK: movq {{[0-9]*}}(%rsp), %rax
-; CHECK: cqto
-; CHECK: idivq
-; CHECK: movq %rax
-  %tmp = load <16 x i64>* @g, align 128
-  %div = sdiv <16 x i64> %tmp, %a
-  ret <16 x i64> %div
 }

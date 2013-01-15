@@ -1,6 +1,4 @@
 # remove the restriction of warning as error for this component
-find_package(LLVM REQUIRED)
-
 if (NOT WIN32)
 remove_definitions( -Werror )
 endif (NOT WIN32)

@@ -35,7 +35,7 @@
 #if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
 #include <basetsd.h>
-#include "CL\cl_dx9_media_sharing.h"
+#include "CL\cl_d3d9.h"
 #if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
 #endif
