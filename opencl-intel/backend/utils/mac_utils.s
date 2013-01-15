@@ -117,10 +117,10 @@ _hw_xgetbv:
 #------------------------------------------------------------------------------
 .globl _hw_cpuid
 _hw_cpuid:
-        # store regs b, c, d
+        # store regs edi, ebx
         push   %ebx
-        push   %ecx
-        push   %edx
+        push   %edi
+        mov    12(%esp), %edi
         # fill regs for cpuid
         mov     M_EAX(%edi), %eax
         mov     M_EBX(%edi), %ebx
@@ -131,9 +131,8 @@ _hw_cpuid:
         mov     %ebx, M_EBX (%edi)
         mov     %ecx, M_ECX (%edi)
         mov     %edx, M_EDX (%edi)
-        # restore regs b, c, d
-        pop    %edx
-        pop    %ecx
+        # restore regs edi, ebx
+        pop    %edi
         pop    %ebx
         ret
 # end of hw_cpuid()
@@ -141,7 +140,7 @@ _hw_cpuid:
 
 ## structure definition for hw_xgetbv()
 .set MEM_EAX, 0
-.set MEM_EDX, MEM_EAX + 8
+.set MEM_EDX, MEM_EAX + 4
 
 .text
 #------------------------------------------------------------------------------
@@ -154,6 +153,9 @@ _hw_cpuid:
 #------------------------------------------------------------------------------
 .globl _hw_xgetbv
 _hw_xgetbv:
+        # store regs edi
+        push   %edi
+        mov    8(%esp), %edi
         mov		$0, %ecx
         # XGETBV return result in EDX:EAX
         .byte 15
@@ -161,5 +163,7 @@ _hw_xgetbv:
         .byte 208
         mov     %eax, MEM_EAX (%edi)
         mov     %edx, MEM_EDX (%edi)
+        # restore regs edi
+        pop   %edi
         ret
 #endif
