@@ -63,6 +63,21 @@ ulong2 _MM_SHUFFLE_EPI64(ulong2 x, ulong2 mask)
 }
 
 
+// conversion sat
+const constant float as_float_min_char    =  -128.0f;
+const constant float as_float_max_char    =   127.0f;
+const constant float as_float_min_uchar   =     0.0f;
+const constant float as_float_max_uchar   =   255.0f;
+
+// cpu conversion define // TODO: what these should be called
+const constant int minInt32 = 0xcf000000;
+const constant int maxInt32 = 0x4f000000;
+
+// TODO: remove this as its the same as generic_min_int
+const constant int minIntVal32 = 0x80000000; //-2147483648.0
+const constant int maxIntVal32 = 0x7FFFFFFF; //2147483647.0f
+
+
 #ifdef __cplusplus
 }
 #endif

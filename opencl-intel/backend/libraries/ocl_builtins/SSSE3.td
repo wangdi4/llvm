@@ -38,4 +38,6 @@ include "ssse3/integers.td"
 include "ssse3/geometric.td"
 include "ssse3/atomic.td"
 include "ssse3/misc.td"
+include "ssse3/conversion.td"
+include "ssse3/conversion_sat.td"
 }

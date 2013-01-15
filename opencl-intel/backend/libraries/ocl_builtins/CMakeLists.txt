@@ -484,7 +484,6 @@ endfunction( create_target)
 
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
-  conversion_functions.cpp
   image_functions.cpp
   masked_load_store_functions.cpp
   relational_functions.cpp

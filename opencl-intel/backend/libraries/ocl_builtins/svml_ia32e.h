@@ -311,21 +311,21 @@ float __attribute__((svmlcc))  __ocl_svml_h8_lgammaf1  (float  a);
 
 float __attribute__((svmlcc))  __ocl_svml_h8_lgammarf1  (float  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf1  (float  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosatf1  (float  a); 
 
@@ -343,21 +343,21 @@ long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosatf1  (float  a);
 
 long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf1  (float  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosatf1  (float  a); 
 
@@ -375,13 +375,13 @@ int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosatf1  (float  a);
 
 int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsatf1  (float  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf1  (ulong  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtef1  (long  a); 
 
@@ -391,13 +391,13 @@ float __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtpf1  (long  a);
 
 float __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtzf1  (long  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf1  (uint  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprtef1  (int  a); 
 
@@ -464,21 +464,21 @@ float __attribute__((svmlcc))  __ocl_svml_e9_lgammaf1  (float  a);
 
 float __attribute__((svmlcc))  __ocl_svml_e9_lgammarf1  (float  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf1  (float  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf1  (float  a); 
 
@@ -496,21 +496,21 @@ long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf1  (float  a);
 
 long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf1  (float  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf1  (float  a); 
 
@@ -528,13 +528,13 @@ int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf1  (float  a);
 
 int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf1  (float  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf1  (ulong  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef1  (long  a); 
 
@@ -544,13 +544,13 @@ float __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf1  (long  a);
 
 float __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf1  (long  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf1  (uint  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef1  (int  a); 
 
@@ -616,21 +616,21 @@ float __attribute__((svmlcc))  __ocl_svml_l9_lgammaf1  (float  a);
 
 float __attribute__((svmlcc))  __ocl_svml_l9_lgammarf1  (float  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf1  (float  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf1  (float  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf1  (float  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf1  (float  a); 
 
@@ -648,21 +648,21 @@ long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf1  (float  a);
 
 long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf1  (float  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf1  (float  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf1  (float  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf1  (float  a); 
 
@@ -680,13 +680,13 @@ int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf1  (float  a);
 
 int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf1  (float  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf1  (ulong  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf1  (long  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf1  (ulong  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef1  (long  a); 
 
@@ -696,13 +696,13 @@ float __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf1  (long  a);
 
 float __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf1  (long  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf1  (uint  a); 
 
-float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf1  (int  a); 
+float __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf1  (uint  a); 
 
 float __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef1  (int  a); 
 
@@ -1023,21 +1023,21 @@ double __attribute__((svmlcc))  __ocl_svml_h8_lgamma1  (double  a);
 
 double __attribute__((svmlcc))  __ocl_svml_h8_lgammar1  (double  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat1  (double  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosat1  (double  a); 
 
@@ -1055,21 +1055,21 @@ long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosat1  (double  a);
 
 long __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat1  (double  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosat1  (double  a); 
 
@@ -1087,13 +1087,13 @@ int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosat1  (double  a);
 
 int __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsat1  (double  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz1  (ulong  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprte1  (long  a); 
 
@@ -1103,13 +1103,13 @@ double __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtp1  (long  a);
 
 double __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtz1  (long  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz1  (uint  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprte1  (int  a); 
 
@@ -1183,21 +1183,21 @@ double __attribute__((svmlcc))  __ocl_svml_e9_lgamma1  (double  a);
 
 double __attribute__((svmlcc))  __ocl_svml_e9_lgammar1  (double  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat1  (double  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosat1  (double  a); 
 
@@ -1215,21 +1215,21 @@ long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosat1  (double  a);
 
 long __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat1  (double  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosat1  (double  a); 
 
@@ -1247,13 +1247,13 @@ int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosat1  (double  a);
 
 int __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsat1  (double  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz1  (ulong  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprte1  (long  a); 
 
@@ -1263,13 +1263,13 @@ double __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtp1  (long  a);
 
 double __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtz1  (long  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz1  (uint  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprte1  (int  a); 
 
@@ -1343,21 +1343,21 @@ double __attribute__((svmlcc))  __ocl_svml_l9_lgamma1  (double  a);
 
 double __attribute__((svmlcc))  __ocl_svml_l9_lgammar1  (double  a,  int  *  c); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat1  (double  a); 
 
-long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat1  (double  a); 
+ulong __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat1  (double  a); 
 
 long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosat1  (double  a); 
 
@@ -1375,21 +1375,21 @@ long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosat1  (double  a);
 
 long __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat1  (double  a); 
 
-int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat1  (double  a); 
+uint __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat1  (double  a); 
 
 int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosat1  (double  a); 
 
@@ -1407,13 +1407,13 @@ int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosat1  (double  a);
 
 int __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsat1  (double  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp1  (ulong  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz1  (long  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz1  (ulong  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprte1  (long  a); 
 
@@ -1423,13 +1423,13 @@ double __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtp1  (long  a);
 
 double __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtz1  (long  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp1  (uint  a); 
 
-double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz1  (int  a); 
+double __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz1  (uint  a); 
 
 double __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprte1  (int  a); 
 
@@ -1789,21 +1789,21 @@ float2 __attribute__((svmlcc))  __ocl_svml_h8_lgammaf2  (float2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_h8_lgammarf2  (float2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf2  (float2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosatf2  (float2  a); 
 
@@ -1821,21 +1821,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosatf2  (float2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf2  (float2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosatf2  (float2  a); 
 
@@ -1853,13 +1853,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosatf2  (float2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsatf2  (float2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf2  (ulong2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtef2  (long2  a); 
 
@@ -1869,13 +1869,13 @@ float2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtpf2  (long2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtzf2  (long2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf2  (uint2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprtef2  (int2  a); 
 
@@ -1942,21 +1942,21 @@ float2 __attribute__((svmlcc))  __ocl_svml_e9_lgammaf2  (float2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_e9_lgammarf2  (float2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf2  (float2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf2  (float2  a); 
 
@@ -1974,21 +1974,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf2  (float2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf2  (float2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf2  (float2  a); 
 
@@ -2006,13 +2006,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf2  (float2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf2  (float2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf2  (ulong2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef2  (long2  a); 
 
@@ -2022,13 +2022,13 @@ float2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf2  (long2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf2  (long2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf2  (uint2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef2  (int2  a); 
 
@@ -2095,21 +2095,21 @@ float2 __attribute__((svmlcc))  __ocl_svml_l9_lgammaf2  (float2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_l9_lgammarf2  (float2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf2  (float2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf2  (float2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf2  (float2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf2  (float2  a); 
 
@@ -2127,21 +2127,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf2  (float2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf2  (float2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf2  (float2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf2  (float2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf2  (float2  a); 
 
@@ -2159,13 +2159,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf2  (float2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf2  (float2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf2  (ulong2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf2  (long2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf2  (ulong2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef2  (long2  a); 
 
@@ -2175,13 +2175,13 @@ float2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf2  (long2  a);
 
 float2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf2  (long2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf2  (uint2  a); 
 
-float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf2  (int2  a); 
+float2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf2  (uint2  a); 
 
 float2 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef2  (int2  a); 
 
@@ -2504,21 +2504,21 @@ double2 __attribute__((svmlcc))  __ocl_svml_h8_lgamma2  (double2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_h8_lgammar2  (double2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat2  (double2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosat2  (double2  a); 
 
@@ -2536,21 +2536,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosat2  (double2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat2  (double2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosat2  (double2  a); 
 
@@ -2568,13 +2568,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosat2  (double2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsat2  (double2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz2  (ulong2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprte2  (long2  a); 
 
@@ -2584,13 +2584,13 @@ double2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtp2  (long2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtz2  (long2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz2  (uint2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprte2  (int2  a); 
 
@@ -2666,21 +2666,21 @@ double2 __attribute__((svmlcc))  __ocl_svml_e9_lgamma2  (double2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_e9_lgammar2  (double2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat2  (double2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosat2  (double2  a); 
 
@@ -2698,21 +2698,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosat2  (double2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat2  (double2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosat2  (double2  a); 
 
@@ -2730,13 +2730,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosat2  (double2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsat2  (double2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz2  (ulong2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprte2  (long2  a); 
 
@@ -2746,13 +2746,13 @@ double2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtp2  (long2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtz2  (long2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz2  (uint2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprte2  (int2  a); 
 
@@ -2828,21 +2828,21 @@ double2 __attribute__((svmlcc))  __ocl_svml_l9_lgamma2  (double2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_l9_lgammar2  (double2  a,  int2  *  c); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat2  (double2  a); 
 
-long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat2  (double2  a); 
+ulong2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat2  (double2  a); 
 
 long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosat2  (double2  a); 
 
@@ -2860,21 +2860,21 @@ long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosat2  (double2  a);
 
 long2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat2  (double2  a); 
 
-int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat2  (double2  a); 
+uint2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat2  (double2  a); 
 
 int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosat2  (double2  a); 
 
@@ -2892,13 +2892,13 @@ int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosat2  (double2  a);
 
 int2 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsat2  (double2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp2  (ulong2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz2  (long2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz2  (ulong2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprte2  (long2  a); 
 
@@ -2908,13 +2908,13 @@ double2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtp2  (long2  a);
 
 double2 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtz2  (long2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp2  (uint2  a); 
 
-double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz2  (int2  a); 
+double2 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz2  (uint2  a); 
 
 double2 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprte2  (int2  a); 
 
@@ -3274,21 +3274,21 @@ float3 __attribute__((svmlcc))  __ocl_svml_h8_lgammaf3  (float3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_h8_lgammarf3  (float3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf3  (float3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosatf3  (float3  a); 
 
@@ -3306,21 +3306,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosatf3  (float3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf3  (float3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosatf3  (float3  a); 
 
@@ -3338,13 +3338,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosatf3  (float3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsatf3  (float3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf3  (ulong3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtef3  (long3  a); 
 
@@ -3354,13 +3354,13 @@ float3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtpf3  (long3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtzf3  (long3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf3  (uint3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprtef3  (int3  a); 
 
@@ -3427,21 +3427,21 @@ float3 __attribute__((svmlcc))  __ocl_svml_e9_lgammaf3  (float3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_e9_lgammarf3  (float3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf3  (float3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf3  (float3  a); 
 
@@ -3459,21 +3459,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf3  (float3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf3  (float3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf3  (float3  a); 
 
@@ -3491,13 +3491,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf3  (float3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf3  (float3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf3  (ulong3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef3  (long3  a); 
 
@@ -3507,13 +3507,13 @@ float3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf3  (long3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf3  (long3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf3  (uint3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef3  (int3  a); 
 
@@ -3580,21 +3580,21 @@ float3 __attribute__((svmlcc))  __ocl_svml_l9_lgammaf3  (float3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_l9_lgammarf3  (float3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf3  (float3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf3  (float3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf3  (float3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf3  (float3  a); 
 
@@ -3612,21 +3612,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf3  (float3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf3  (float3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf3  (float3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf3  (float3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf3  (float3  a); 
 
@@ -3644,13 +3644,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf3  (float3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf3  (float3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf3  (ulong3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf3  (long3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf3  (ulong3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef3  (long3  a); 
 
@@ -3660,13 +3660,13 @@ float3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf3  (long3  a);
 
 float3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf3  (long3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf3  (uint3  a); 
 
-float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf3  (int3  a); 
+float3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf3  (uint3  a); 
 
 float3 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef3  (int3  a); 
 
@@ -3986,21 +3986,21 @@ double3 __attribute__((svmlcc))  __ocl_svml_h8_lgamma3  (double3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_h8_lgammar3  (double3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat3  (double3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosat3  (double3  a); 
 
@@ -4018,21 +4018,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosat3  (double3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat3  (double3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosat3  (double3  a); 
 
@@ -4050,13 +4050,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosat3  (double3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsat3  (double3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz3  (ulong3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprte3  (long3  a); 
 
@@ -4066,13 +4066,13 @@ double3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtp3  (long3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtz3  (long3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz3  (uint3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprte3  (int3  a); 
 
@@ -4148,21 +4148,21 @@ double3 __attribute__((svmlcc))  __ocl_svml_e9_lgamma3  (double3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_e9_lgammar3  (double3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat3  (double3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosat3  (double3  a); 
 
@@ -4180,21 +4180,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosat3  (double3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat3  (double3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosat3  (double3  a); 
 
@@ -4212,13 +4212,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosat3  (double3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsat3  (double3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz3  (ulong3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprte3  (long3  a); 
 
@@ -4228,13 +4228,13 @@ double3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtp3  (long3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtz3  (long3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz3  (uint3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprte3  (int3  a); 
 
@@ -4310,21 +4310,21 @@ double3 __attribute__((svmlcc))  __ocl_svml_l9_lgamma3  (double3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_l9_lgammar3  (double3  a,  int3  *  c); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat3  (double3  a); 
 
-long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat3  (double3  a); 
+ulong3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat3  (double3  a); 
 
 long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosat3  (double3  a); 
 
@@ -4342,21 +4342,21 @@ long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosat3  (double3  a);
 
 long3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat3  (double3  a); 
 
-int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat3  (double3  a); 
+uint3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat3  (double3  a); 
 
 int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosat3  (double3  a); 
 
@@ -4374,13 +4374,13 @@ int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosat3  (double3  a);
 
 int3 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsat3  (double3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp3  (ulong3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz3  (long3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz3  (ulong3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprte3  (long3  a); 
 
@@ -4390,13 +4390,13 @@ double3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtp3  (long3  a);
 
 double3 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtz3  (long3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp3  (uint3  a); 
 
-double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz3  (int3  a); 
+double3 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz3  (uint3  a); 
 
 double3 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprte3  (int3  a); 
 
@@ -4756,21 +4756,21 @@ float4 __attribute__((svmlcc))  __ocl_svml_h8_lgammaf4  (float4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_h8_lgammarf4  (float4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf4  (float4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosatf4  (float4  a); 
 
@@ -4788,21 +4788,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosatf4  (float4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf4  (float4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosatf4  (float4  a); 
 
@@ -4820,13 +4820,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosatf4  (float4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsatf4  (float4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf4  (ulong4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtef4  (long4  a); 
 
@@ -4836,13 +4836,13 @@ float4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtpf4  (long4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtzf4  (long4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf4  (uint4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprtef4  (int4  a); 
 
@@ -4909,21 +4909,21 @@ float4 __attribute__((svmlcc))  __ocl_svml_e9_lgammaf4  (float4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_e9_lgammarf4  (float4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf4  (float4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf4  (float4  a); 
 
@@ -4941,21 +4941,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf4  (float4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf4  (float4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf4  (float4  a); 
 
@@ -4973,13 +4973,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf4  (float4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf4  (float4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf4  (ulong4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef4  (long4  a); 
 
@@ -4989,13 +4989,13 @@ float4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf4  (long4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf4  (long4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf4  (uint4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef4  (int4  a); 
 
@@ -5062,21 +5062,21 @@ float4 __attribute__((svmlcc))  __ocl_svml_l9_lgammaf4  (float4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_l9_lgammarf4  (float4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf4  (float4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf4  (float4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf4  (float4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf4  (float4  a); 
 
@@ -5094,21 +5094,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf4  (float4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf4  (float4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf4  (float4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf4  (float4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf4  (float4  a); 
 
@@ -5126,13 +5126,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf4  (float4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf4  (float4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf4  (ulong4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf4  (long4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf4  (ulong4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef4  (long4  a); 
 
@@ -5142,13 +5142,13 @@ float4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf4  (long4  a);
 
 float4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf4  (long4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf4  (uint4  a); 
 
-float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf4  (int4  a); 
+float4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf4  (uint4  a); 
 
 float4 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef4  (int4  a); 
 
@@ -5468,21 +5468,21 @@ double4 __attribute__((svmlcc))  __ocl_svml_h8_lgamma4  (double4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_h8_lgammar4  (double4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsat4  (double4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosat4  (double4  a); 
 
@@ -5500,21 +5500,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosat4  (double4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsat4  (double4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosat4  (double4  a); 
 
@@ -5532,13 +5532,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosat4  (double4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsat4  (double4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprte4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtn4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtp4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtz4  (ulong4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprte4  (long4  a); 
 
@@ -5548,13 +5548,13 @@ double4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtp4  (long4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtz4  (long4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprte4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtn4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtp4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtz4  (uint4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprte4  (int4  a); 
 
@@ -5630,21 +5630,21 @@ double4 __attribute__((svmlcc))  __ocl_svml_e9_lgamma4  (double4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_e9_lgammar4  (double4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat4  (double4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosat4  (double4  a); 
 
@@ -5662,21 +5662,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosat4  (double4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat4  (double4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosat4  (double4  a); 
 
@@ -5694,13 +5694,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosat4  (double4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsat4  (double4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz4  (ulong4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprte4  (long4  a); 
 
@@ -5710,13 +5710,13 @@ double4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtp4  (long4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtz4  (long4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz4  (uint4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprte4  (int4  a); 
 
@@ -5792,21 +5792,21 @@ double4 __attribute__((svmlcc))  __ocl_svml_l9_lgamma4  (double4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_l9_lgammar4  (double4  a,  int4  *  c); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat4  (double4  a); 
 
-long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat4  (double4  a); 
+ulong4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat4  (double4  a); 
 
 long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosat4  (double4  a); 
 
@@ -5824,21 +5824,21 @@ long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosat4  (double4  a);
 
 long4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat4  (double4  a); 
 
-int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat4  (double4  a); 
+uint4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat4  (double4  a); 
 
 int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosat4  (double4  a); 
 
@@ -5856,13 +5856,13 @@ int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosat4  (double4  a);
 
 int4 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsat4  (double4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp4  (ulong4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz4  (long4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz4  (ulong4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprte4  (long4  a); 
 
@@ -5872,13 +5872,13 @@ double4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtp4  (long4  a);
 
 double4 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtz4  (long4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp4  (uint4  a); 
 
-double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz4  (int4  a); 
+double4 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz4  (uint4  a); 
 
 double4 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprte4  (int4  a); 
 
@@ -6236,21 +6236,21 @@ float8 __attribute__((svmlcc))  __ocl_svml_h8_lgammaf8  (float8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_h8_lgammarf8  (float8  a,  int8  *  c); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtenosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtesatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtnsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtpsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtznosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou64rtzsatf8  (float8  a); 
 
 long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtenosatf8  (float8  a); 
 
@@ -6268,21 +6268,21 @@ long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtznosatf8  (float8  a);
 
 long8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi64rtzsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtenosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtesatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtnsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtpsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtznosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptou32rtzsatf8  (float8  a); 
 
 int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtenosatf8  (float8  a); 
 
@@ -6300,13 +6300,13 @@ int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtznosatf8  (float8  a);
 
 int8 __attribute__((svmlcc))  __ocl_svml_h8_cvtfptoi32rtzsatf8  (float8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtef8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtnf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtpf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu64tofprtzf8  (ulong8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtef8  (long8  a); 
 
@@ -6316,13 +6316,13 @@ float8 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtpf8  (long8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_h8_cvti64tofprtzf8  (long8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtef8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtnf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtpf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_h8_cvtu32tofprtzf8  (uint8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_h8_cvti32tofprtef8  (int8  a); 
 
@@ -6389,21 +6389,21 @@ float8 __attribute__((svmlcc))  __ocl_svml_e9_lgammaf8  (float8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_e9_lgammarf8  (float8  a,  int8  *  c); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf8  (float8  a); 
 
 long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf8  (float8  a); 
 
@@ -6421,21 +6421,21 @@ long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf8  (float8  a);
 
 long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf8  (float8  a); 
 
 int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf8  (float8  a); 
 
@@ -6453,13 +6453,13 @@ int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf8  (float8  a);
 
 int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf8  (float8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf8  (ulong8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef8  (long8  a); 
 
@@ -6469,13 +6469,13 @@ float8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf8  (long8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf8  (long8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf8  (uint8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef8  (int8  a); 
 
@@ -6542,21 +6542,21 @@ float8 __attribute__((svmlcc))  __ocl_svml_l9_lgammaf8  (float8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_l9_lgammarf8  (float8  a,  int8  *  c); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf8  (float8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf8  (float8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf8  (float8  a); 
 
 long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf8  (float8  a); 
 
@@ -6574,21 +6574,21 @@ long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf8  (float8  a);
 
 long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf8  (float8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf8  (float8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf8  (float8  a); 
 
 int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf8  (float8  a); 
 
@@ -6606,13 +6606,13 @@ int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf8  (float8  a);
 
 int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf8  (float8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf8  (ulong8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf8  (long8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf8  (ulong8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef8  (long8  a); 
 
@@ -6622,13 +6622,13 @@ float8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf8  (long8  a);
 
 float8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf8  (long8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf8  (uint8  a); 
 
-float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf8  (int8  a); 
+float8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf8  (uint8  a); 
 
 float8 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef8  (int8  a); 
 
@@ -6863,21 +6863,21 @@ double8 __attribute__((svmlcc))  __ocl_svml_e9_lgamma8  (double8  a);
 
 double8 __attribute__((svmlcc))  __ocl_svml_e9_lgammar8  (double8  a,  int8  *  c); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsat8  (double8  a); 
 
 long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosat8  (double8  a); 
 
@@ -6895,21 +6895,21 @@ long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosat8  (double8  a);
 
 long8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsat8  (double8  a); 
 
 int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosat8  (double8  a); 
 
@@ -6927,13 +6927,13 @@ int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosat8  (double8  a);
 
 int8 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsat8  (double8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprte8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtn8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtp8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtz8  (ulong8  a); 
 
 double8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprte8  (long8  a); 
 
@@ -6943,13 +6943,13 @@ double8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtp8  (long8  a);
 
 double8 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtz8  (long8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprte8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtn8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtp8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtz8  (uint8  a); 
 
 double8 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprte8  (int8  a); 
 
@@ -7022,21 +7022,21 @@ double8 __attribute__((svmlcc))  __ocl_svml_l9_lgamma8  (double8  a);
 
 double8 __attribute__((svmlcc))  __ocl_svml_l9_lgammar8  (double8  a,  int8  *  c); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosat8  (double8  a); 
 
-long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat8  (double8  a); 
+ulong8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsat8  (double8  a); 
 
 long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosat8  (double8  a); 
 
@@ -7054,21 +7054,21 @@ long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosat8  (double8  a);
 
 long8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosat8  (double8  a); 
 
-int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat8  (double8  a); 
+uint8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsat8  (double8  a); 
 
 int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosat8  (double8  a); 
 
@@ -7086,13 +7086,13 @@ int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosat8  (double8  a);
 
 int8 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsat8  (double8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprte8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtn8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtp8  (ulong8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz8  (long8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtz8  (ulong8  a); 
 
 double8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprte8  (long8  a); 
 
@@ -7102,13 +7102,13 @@ double8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtp8  (long8  a);
 
 double8 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtz8  (long8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprte8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtn8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtp8  (uint8  a); 
 
-double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz8  (int8  a); 
+double8 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtz8  (uint8  a); 
 
 double8 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprte8  (int8  a); 
 
@@ -7381,21 +7381,21 @@ float16 __attribute__((svmlcc))  __ocl_svml_e9_lgammaf16  (float16  a);
 
 float16 __attribute__((svmlcc))  __ocl_svml_e9_lgammarf16  (float16  a,  int16  *  c); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtenosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtesatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnnosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtnsatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpnosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtpsatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtznosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou64rtzsatf16  (float16  a); 
 
 long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtenosatf16  (float16  a); 
 
@@ -7413,21 +7413,21 @@ long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtznosatf16  (float16  a
 
 long16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi64rtzsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtenosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtesatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnnosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtnsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpnosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtpsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtznosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptou32rtzsatf16  (float16  a); 
 
 int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtenosatf16  (float16  a); 
 
@@ -7445,13 +7445,13 @@ int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtznosatf16  (float16  a)
 
 int16 __attribute__((svmlcc))  __ocl_svml_e9_cvtfptoi32rtzsatf16  (float16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtef16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtnf16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtpf16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu64tofprtzf16  (ulong16  a); 
 
 float16 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtef16  (long16  a); 
 
@@ -7461,13 +7461,13 @@ float16 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtpf16  (long16  a);
 
 float16 __attribute__((svmlcc))  __ocl_svml_e9_cvti64tofprtzf16  (long16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtef16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtnf16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtpf16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_e9_cvtu32tofprtzf16  (uint16  a); 
 
 float16 __attribute__((svmlcc))  __ocl_svml_e9_cvti32tofprtef16  (int16  a); 
 
@@ -7532,21 +7532,21 @@ float16 __attribute__((svmlcc))  __ocl_svml_l9_lgammaf16  (float16  a);
 
 float16 __attribute__((svmlcc))  __ocl_svml_l9_lgammarf16  (float16  a,  int16  *  c); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtenosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtesatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnnosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtnsatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpnosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtpsatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtznosatf16  (float16  a); 
 
-long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf16  (float16  a); 
+ulong16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou64rtzsatf16  (float16  a); 
 
 long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtenosatf16  (float16  a); 
 
@@ -7564,21 +7564,21 @@ long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtznosatf16  (float16  a
 
 long16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi64rtzsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtenosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtesatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnnosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtnsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpnosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtpsatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtznosatf16  (float16  a); 
 
-int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf16  (float16  a); 
+uint16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptou32rtzsatf16  (float16  a); 
 
 int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtenosatf16  (float16  a); 
 
@@ -7596,13 +7596,13 @@ int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtznosatf16  (float16  a)
 
 int16 __attribute__((svmlcc))  __ocl_svml_l9_cvtfptoi32rtzsatf16  (float16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtef16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtnf16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtpf16  (ulong16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf16  (long16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu64tofprtzf16  (ulong16  a); 
 
 float16 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtef16  (long16  a); 
 
@@ -7612,13 +7612,13 @@ float16 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtpf16  (long16  a);
 
 float16 __attribute__((svmlcc))  __ocl_svml_l9_cvti64tofprtzf16  (long16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtef16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtnf16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtpf16  (uint16  a); 
 
-float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf16  (int16  a); 
+float16 __attribute__((svmlcc))  __ocl_svml_l9_cvtu32tofprtzf16  (uint16  a); 
 
 float16 __attribute__((svmlcc))  __ocl_svml_l9_cvti32tofprtef16  (int16  a); 
 

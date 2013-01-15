@@ -56,6 +56,10 @@ public:
 
   std::string getCVecLength() const;
 
+  std::string getLoSuffix() const;
+
+  std::string getHiSuffix() const;
+
   std::string getCBitWidth() const;
 
   std::string getExpandLoCPattern() const;

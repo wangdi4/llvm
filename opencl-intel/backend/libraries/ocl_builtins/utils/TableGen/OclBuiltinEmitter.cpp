@@ -165,6 +165,36 @@ OclType::getCVecLength() const
 }
 
 std::string
+OclType::getLoSuffix() const
+{
+  switch (m_VecLength) {
+    case 1:
+    case 2: return "";
+    case 3:
+    case 4: return "2";
+    case 8: return "4";
+    case 16: return "8";
+  }
+  GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $LoSuffix.\n");
+  return "__invalid_vec_length__";
+}
+
+std::string
+OclType::getHiSuffix() const
+{
+  switch (m_VecLength) {
+    case 1:
+    case 2:
+    case 3: return "";
+    case 4: return "2";
+    case 8: return "4";
+    case 16: return "8";
+  }
+  GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $HiSuffix.\n");
+  return "__invalid_vec_length__";
+}
+
+std::string
 OclType::getCBitWidth() const
 {
   switch (m_BitWidth) {
@@ -1062,6 +1092,10 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = getSVMLRounding(pat);
         } else if ("$Suffix" == pat) {
           val = OT->getSuffix();
+        } else if ("$LoSuffix" == pat) {
+          val = OT->getLoSuffix();
+        } else if ("$HiSuffix" == pat) {
+          val = OT->getHiSuffix();
         } else if ("$SVMLSuffix" == pat) {
           val = OT->getSVMLSuffix();
         } else if ("$SVMLDSuffix" == pat) {

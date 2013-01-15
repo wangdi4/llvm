@@ -9,4 +9,5 @@ list<OclType> NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2
 include "sse42/geometric.td"
 include "sse42/integers.td"
 include "sse42/math.td"
+include "sse42/conversion_sat.td"
 }
