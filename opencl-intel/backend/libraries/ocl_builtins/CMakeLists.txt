@@ -486,7 +486,6 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   masked_load_store_functions.cpp
-  relational_functions.cpp
   transpose_functions.cpp
 
   )
@@ -499,7 +498,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
-  cl_relational_declaration.h
   masked_load_store_functions.h
   transpose_functions.h
   )

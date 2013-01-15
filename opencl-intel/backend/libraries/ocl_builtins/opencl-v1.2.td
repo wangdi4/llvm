@@ -352,6 +352,7 @@ def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (in
 def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def islessgreater   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
+let NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
 def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
 def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
@@ -359,6 +360,7 @@ def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (in
 def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
 def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], []>;
+}
 }
 let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,

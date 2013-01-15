@@ -10,4 +10,5 @@ include "sse42/geometric.td"
 include "sse42/integers.td"
 include "sse42/math.td"
 include "sse42/conversion_sat.td"
+include "sse42/relational.td"
 }

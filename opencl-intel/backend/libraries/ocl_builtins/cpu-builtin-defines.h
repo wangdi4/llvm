@@ -20,7 +20,21 @@ const constant long long_even_mask = 0x00000000FFFFFFFF;
 const constant int  magic_num_S[] = {1, 2, 4, 8, 16, 32};
 const constant long magic_num_B[] = {0x5555555555555555, 0x3333333333333333, 0x0F0F0F0F0F0F0F0F,
                                      0x00FF00FF00FF00FF, 0x0000FFFF0000FFFF, 0x00000000FFFFFFFF};
+// sse - relational
+const constant int fnan_min = 0x7F800000; // or numeric_limits<float>::quiet_NaN();
+const constant int abs_inf = 0x7FFFFFFF; // or numeric_limits<float>::quiet_NaN();
+const constant long dnan_min =  0x7FF0000000000000; // or numeric_limits<float>::quiet_NaN();
+const constant long dnan_max = 0x7FFFFFFFFFFFFFFF; // or numeric_limits<float>::quiet_NaN();
+const constant int fexp_mask = 0x7F800000;
+const constant int fman_mask = 0x007FFFFF;
+const constant long dexp_mask = 0x7FF0000000000000;
+const constant float fltm = FLT_MIN;
+const constant int fsign_mask = 0x80000000;
+const constant long dsign_mask = 0x8000000000000000;
+const constant long FF = 0xFFFFFFFFFFFFFFFF;
 
+//avx-relational
+const constant int FFFMask8 = 0xFFFFFFFF;
 
 // shuffle and shuffle2
 const constant uchar16 _shuffle_epi16_smask = (uchar16)(0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14);
