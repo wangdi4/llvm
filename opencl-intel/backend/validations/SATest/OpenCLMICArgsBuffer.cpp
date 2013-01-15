@@ -156,6 +156,7 @@ void OpenCLMICArgsBuffer::FillArgsBuffer(IBufferContainerList * input,
             break;
         }
         case CL_KRNL_ARG_VECTOR:
+        case CL_KRNL_ARG_VECTOR_BY_REF:
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
@@ -251,7 +252,7 @@ void OpenCLMICArgsBuffer::CopyOutput(IRunResult * runResult, IBufferContainerLis
 
             // TODO : assign value
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             void* pBufferArgData = pOutBC->GetMemoryObject(i)->GetDataPtr();
 
@@ -341,7 +342,7 @@ size_t OpenCLMICArgsBuffer::CalcArgsBufferSize()
             // Need to pass pointer to somewhere in local memory buffer
             bufferSize += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             // Kernel argument is a vector
             // Need to pass all the vector in the argument buffer

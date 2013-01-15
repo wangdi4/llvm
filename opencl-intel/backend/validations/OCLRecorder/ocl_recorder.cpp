@@ -781,7 +781,7 @@ namespace Validation
 
                 stArgsOffset += sizeof(void*);
             }
-            else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type)
+            else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
             {
                 size_t elemSize = pKernelArgs[i].size_in_bytes >> 16;
                 size_t numElements = (pKernelArgs[i].size_in_bytes) & 0xFFFF;

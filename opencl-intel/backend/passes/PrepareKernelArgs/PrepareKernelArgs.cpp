@@ -133,7 +133,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       
       Value* pLoadedValue;
       
-      if (arg.type == CL_KRNL_ARG_COMPOSITE) {
+      if (arg.type == CL_KRNL_ARG_COMPOSITE || arg.type == CL_KRNL_ARG_VECTOR_BY_REF) {
         // If this is a struct argument, then the struct itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
         // foo(..., MyStruct* byval myStruct, ...)

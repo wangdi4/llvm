@@ -237,13 +237,12 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
           unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
           unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
-          if ( (uiElemSize*uiNumElem) > 4*16 )
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = uiNumElem & 0xFFFF;
-            curArg.size_in_bytes |= (uiElemSize << 16);
-            break;
-          }
+          assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
+            "We have byval pointer for legal vector type larger than 64bit");
+          curArg.type = CL_KRNL_ARG_VECTOR_BY_REF;
+          curArg.size_in_bytes = uiNumElem & 0xFFFF;
+          curArg.size_in_bytes |= (uiElemSize << 16);
+          break;
         }
         curArg.size_in_bytes = 0;
         // Detect pointer qualifier
@@ -318,8 +317,9 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
         default:
           assert(0);
-        }}
-        break;
+        }
+      }
+      break;
 
     case llvm::Type::IntegerTyID:
         {

@@ -33,6 +33,7 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
     return arg.size_in_bytes;
 
   case CL_KRNL_ARG_VECTOR:
+  case CL_KRNL_ARG_VECTOR_BY_REF:
     {
       // Extract the vector element size and the number of vector elements
       unsigned int elemSize = arg.size_in_bytes >> 16;
@@ -86,6 +87,7 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
   switch(arg.type)
   {
   case CL_KRNL_ARG_VECTOR:
+  case CL_KRNL_ARG_VECTOR_BY_REF:
     {
       size_t vectorAlignment = getSize(arg);
     

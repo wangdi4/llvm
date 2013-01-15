@@ -185,11 +185,12 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
         //typedef enum _cl_kernel_arg_type
         //{
         //    CL_KRNL_ARG_INT		= 0,	// Argument is a signed integer.
-        //    CL_KRNL_ARG_UINT,			// Argument is an unsigned integer.
+        //    CL_KRNL_ARG_UINT,             // Argument is an unsigned integer.
         //    CL_KRNL_ARG_FLOAT,			// Argument is a float.
         //    CL_KRNL_ARG_DOUBLE,			// Argument is a double.
         //    CL_KRNL_ARG_VECTOR,			// Argument is a vector of basic types, like int8, float4, etc.
-        //    CL_KRNL_ARG_SAMPLER,		// Argument is a sampler object
+        //    CL_KRNL_ARG_VECTOR_BY_REF,    //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
+        //    CL_KRNL_ARG_SAMPLER,          // Argument is a sampler object
         //    CL_KRNL_ARG_PTR_LOCAL,		// Argument is a pointer to array declared in local memory
         //    //	Memory object types bellow this line
         //    CL_KRNL_ARG_PTR_GLOBAL,		// Argument is a pointer to array in global memory of various types
@@ -208,6 +209,7 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
         case CL_KRNL_ARG_FLOAT:             // Argument is a float.
         case CL_KRNL_ARG_DOUBLE:            // Argument is a double.
         case CL_KRNL_ARG_VECTOR:            // Argument is a vector of basic types, like int8, float4, etc.
+        case CL_KRNL_ARG_VECTOR_BY_REF:     //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
             // ignore arguments passed by value
             ignoreList[i] = true;
             break;

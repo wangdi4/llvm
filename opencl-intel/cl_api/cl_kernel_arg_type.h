@@ -33,6 +33,7 @@ enum cl_kernel_arg_type
     CL_KRNL_ARG_FLOAT,          //!< Argument is a float.
     CL_KRNL_ARG_DOUBLE,         //!< Argument is a double.
     CL_KRNL_ARG_VECTOR,         //!< Argument is a vector of basic types, like int8, float4, etc.
+    CL_KRNL_ARG_VECTOR_BY_REF,  //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
     CL_KRNL_ARG_SAMPLER,        //!< Argument is a sampler object
     CL_KRNL_ARG_COMPOSITE,      //!< Argument is a user defined struct
     CL_KRNL_ARG_PTR_LOCAL,      //!< Argument is a pointer to array declared in local memory
