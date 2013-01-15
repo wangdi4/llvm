@@ -488,7 +488,7 @@ list (APPEND OCL_SOURCE_FILES
   masked_load_store_functions.cpp
   relational_functions.cpp
   transpose_functions.cpp
-  vload_vstore_functions.cpp
+
   )
 
 

@@ -8,6 +8,7 @@
 
 include "opencl-builtin.td"
 include "opencl-v1.2.td"
+include "helper_function.td"
 
 include "ll_intrinsics.td"
 
