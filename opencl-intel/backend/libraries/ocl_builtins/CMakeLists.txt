@@ -527,9 +527,11 @@ endforeach (FILE)
 if( INCLUDE_ATOM )
   add_subdirectory (core2)
 else( INCLUDE_ATOM )
-  if( WIN32 )
+  if( WIN32 AND NOT BUILD_X64 )
+    # no corresponding SVML for Win64; hence
+    # we aren't building core2 for Win64
     add_subdirectory (core2)
-  endif( WIN32 )
+  endif( WIN32 AND NOT BUILD_X64 )
   add_subdirectory (corei7)
   add_subdirectory (sandybridge)
   add_subdirectory (haswell)
