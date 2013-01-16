@@ -42,7 +42,7 @@ void CL_CALLBACK threadFunc(void *ppParam)
 void threadFunc(void *ppParam)
 {
     cl_uint* pParam = *(static_cast<cl_uint **>(ppParam));
-	*pParam = GET_CURRENT_THREAD_ID();
+	*pParam = ((cl_uint)syscall(SYS_gettid));
 }
 #endif
 

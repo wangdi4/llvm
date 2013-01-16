@@ -125,7 +125,7 @@ OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncN
 	}
 
 	void* func;
-	const char* error;
+	char* error;
 
 	//clear errors
 	dlerror();

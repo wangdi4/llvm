@@ -1781,9 +1781,9 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata()
 /******************************************************************
  *
  ******************************************************************/
-#if defined (USE_GPA)
 void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const
 { 
+#if defined (USE_GPA)
 	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 
     if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pWorkMetadata != NULL))
@@ -1803,8 +1803,8 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __
 		// Write Metadata to trace
 		__itt_metadata_add(pGPAData->pContextDomain, __itt_null, keyStrHandle, __itt_metadata_u64, m_uiWorkDim, metaData64);
 	}
-}
 #endif // GPA
+}
 
 /******************************************************************
  * Command: ReadBufferCommand

@@ -12,7 +12,7 @@ set(NAME_MANGLE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (NOT APPLE)
     add_subdirectory(unittests)
-endif (NOT APPLE)
+endif(NOT APPLE)
 add_subdirectory(antlruntime)
 
 add_custom_command(

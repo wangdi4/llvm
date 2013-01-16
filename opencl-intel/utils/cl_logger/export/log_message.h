@@ -26,7 +26,7 @@
  *  Original author: ulevy
  ****************************************************/
 #include <stdio.h>
-#include <cstdarg>
+
 #include "cl_logger.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {

@@ -35,7 +35,7 @@ if (NOT WIN32)
     SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 # Warning level
-set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
+set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
 
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
@@ -55,7 +55,7 @@ set (ADD_LINKER_FLAGS_DEBUG   )
 set (ADD_LINKER_FLAGS_RELEASE )
 
 include(FindThreads)
-set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}" ) 
+set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" ) 
 
 # C switches
 set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
@@ -214,7 +214,7 @@ target_link_libraries (${TARGET_NAME}
 if (WIN32)
     target_link_libraries( ${TARGET_NAME} protobuf )
 else (WIN32)
-    target_link_libraries( ${TARGET_NAME} protobuf ${PTHREAD_LIB} )
+    target_link_libraries( ${TARGET_NAME} protobuf pthread )
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
 endif (WIN32)
 

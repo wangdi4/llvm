@@ -11,15 +11,10 @@ include( cmake_utils/CMakeFuncs.txt )
 # the FindSubversion.cmake module is part of the standard distribution
 include(FindSubversion)
 
-# When cross-compiling LLVM; CONFORMANCE_LIST won't be defined!
-if( CONFORMANCE_LIST )
 string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
-endif( CONFORMANCE_LIST )
 
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
-elseif( ANDROID )
-    include( cmake_utils/CMake_android_tools.cmake )
 elseif (APPLE)
     #include( cmake_utils/CMake_apple_tools.cmake )
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
@@ -166,13 +161,11 @@ else(APPLE)
 	# Common Runime
 	option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
 	if (WIN32 AND INCLUDE_CMRT)
-    		add_subdirectory ( common_runtime )
+    	message ("Adding Common Runtime sources...")
+    	add_subdirectory ( common_runtime )
 	endif(WIN32 AND INCLUDE_CMRT)
 	#tools
-	if( NOT ANDROID )
-  		add_subdirectory ( tools )
-	endif( NOT ANDROID )
-
+	add_subdirectory ( tools )
 
 	#validation
 	add_subdirectory( tests )

@@ -158,8 +158,6 @@ CPUDetect::CPUDetect(void)
                     mov XCRInfo[0], eax
                     mov XCRInfo[1], edx
             }
-#elif defined(__ANDROID__)
-	    __asm__("xgetbv" : "=a"(XCRInfo[0]), "=d"(XCRInfo[1]));
 #else
             xgetbv( XCRInfo )
 #endif

@@ -5,15 +5,13 @@ set(LLVM_REQUIRES_EH 1)
 set(TARGET_NAME NameManglingTests)
 
 if(WIN32)
-  set (OCL_TBLGEN_EXE "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe")
+set (OCL_TBLGEN_EXE
+  "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe"
+)
 else(WIN32)
-  if( LLVM_USE_NATIVE )
-    set (OCL_TBLGEN_EXE "${CMAKE_BINARY_DIR}/backend/llvm/bin/ocl-tblgen")
-  elseif( CMAKE_CROSSCOMPILING OR ANDROID )
-    set (OCL_TBLGEN_EXE "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/ocl-tblgen")
-  else( )
-    set (OCL_TBLGEN_EXE "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen")
-  endif( LLVM_USE_NATIVE )
+set (OCL_TBLGEN_EXE
+  "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen"
+)
 endif(WIN32)
 
 set(GenCommand ${OCL_TBLGEN_EXE} -gen-ocl-biheader 
@@ -27,7 +25,7 @@ add_custom_command(
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  DEPENDS ocl-tblgen ${OCL_TBLGEN_EXE}
+  DEPENDS ocl-tblgen
   COMMENT "genereating demangled headers... ${GenCommand}"
   VERBATIM
 )

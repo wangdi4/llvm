@@ -36,12 +36,8 @@ link_directories( ${TBB_LIB_DIR} )
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-
 if (NOT WIN32)
-	if( ANDROID )
-  		target_link_libraries( ${TARGET} gnustl_shared )
-	endif( ANDROID )
-	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
+	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest pthread)
 else (NOT WIN32)
 	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest delayimp)
 	set_target_properties(${TARGET} PROPERTIES
@@ -81,7 +77,7 @@ set (MIC_OPTIONS
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
-  COMMAND ${CLANG} ${MIC_OPTIONS}
+  COMMAND clang ${MIC_OPTIONS}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang 
   COMMENT "Generate optimized ${MIC_OUTPUT_FILE}"
@@ -92,7 +88,7 @@ endif ( INCLUDE_MIC_DEVICE )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    COMMAND clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang 

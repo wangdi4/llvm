@@ -310,9 +310,6 @@ void CPUDetect::GetCPUInfo()
                     mov XCRInfo[0], eax
                     mov XCRInfo[1], edx
             }
-#elif defined(__ANDROID__)
-   	    // No support for AVX on android		
-	    XCRInfo[0] = XCRInfo[0] & ~0x00000006;
 #else
             xgetbv( XCRInfo )
 #endif
@@ -335,35 +332,26 @@ void CPUDetect::GetCPUInfo()
 
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
- 
-    if (iValidExIDs < 0x80000004)
-    {
-#if defined(__ANDROID__)
-	// Android is not supporting Brand String query
-	m_szCPUBrandString = STRDUP("Atom");
-#endif
-    }
-    else
-    {
-        for (unsigned int i=0x80000000; i <= iValidExIDs; ++i)
-        {
-            CPUID(viCPUInfo, i);
 
-            // Interpret CPU brand string.
-            if (i == 0x80000002)
-            {
-                MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), viCPUInfo, sizeof(viCPUInfo));
-            }
-            else if (i == 0x80000003)
-            {
-                MEMCPY_S(vcCPUBrandString + 16, sizeof(vcCPUBrandString) - 16, viCPUInfo, sizeof(viCPUInfo));
-            }
-            else if (i == 0x80000004)
-            {
-                MEMCPY_S(vcCPUBrandString + 32, sizeof(vcCPUBrandString) - 32, viCPUInfo, sizeof(viCPUInfo));
-            }
+    for (unsigned int i=0x80000000; i <= iValidExIDs; ++i)
+    {
+        CPUID(viCPUInfo, i);
+
+        // Interpret CPU brand string.
+        if (i == 0x80000002)
+        {
+            MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), viCPUInfo, sizeof(viCPUInfo));
         }
-        m_szCPUBrandString = STRDUP(vcCPUBrandString);
+        else if (i == 0x80000003)
+        {
+            MEMCPY_S(vcCPUBrandString + 16, sizeof(vcCPUBrandString) - 16, viCPUInfo, sizeof(viCPUInfo));
+        }
+        else if (i == 0x80000004)
+        {
+            MEMCPY_S(vcCPUBrandString + 32, sizeof(vcCPUBrandString) - 32, viCPUInfo, sizeof(viCPUInfo));
+        }
     }
+
+    m_szCPUBrandString = STRDUP(vcCPUBrandString);
 }
 
