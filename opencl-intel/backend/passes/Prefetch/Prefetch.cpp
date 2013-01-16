@@ -53,7 +53,7 @@ const int Prefetch::defaultTripCount = 16;
 
 const int Prefetch::defaultL1PFType = 1;
 const int Prefetch::defaultL2PFType = 2;
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #ifdef TUNE_PREFETCH
 STATISTIC(PFStat_SerialBB, "Accesses not considered for prefetch since their BB has no vector instructions");
@@ -1224,7 +1224,7 @@ bool Prefetch::runOnFunction(Function &F) {
   return modified;
 }
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 extern "C" {
 FunctionPass * createPrefetchPass() {

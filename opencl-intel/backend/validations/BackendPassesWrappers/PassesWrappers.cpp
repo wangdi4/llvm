@@ -112,7 +112,7 @@ OCL_INITIALIZE_PASS(LocalBuffersWrapper, "local-buffers", "Resolves the internal
 OCL_INITIALIZE_PASS(LocalBuffersWithDebugWrapper, "local-buffers-debug", "Resolves the internal local variables and map them to local buffer, in debugger mode", false, false)
 
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 
 

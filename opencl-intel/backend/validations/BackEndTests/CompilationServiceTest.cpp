@@ -19,9 +19,6 @@ File Name:  CompilationServiceTest.cpp
 #include "BackendWrapper.h"
 #include <gtest/gtest.h>
 
-
-//using namespace llvm;
-
 TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
 {
     // get Backend service factory

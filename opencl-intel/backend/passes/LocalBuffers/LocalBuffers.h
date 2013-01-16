@@ -106,6 +106,6 @@ namespace intel{
     bool m_isNativeDBG;
   };
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __LOCAL_BUFFERS_H__

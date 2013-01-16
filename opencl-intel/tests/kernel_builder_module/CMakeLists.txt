@@ -62,7 +62,11 @@ SET( iocQtgui_MOC_HDRS
 SET( iocQtgui_RCS
      ${OCL_SOURCE_DIR}/tools/OfflineCompiler/iocQtgui/iocresources.qrc
  )
-  
+
+#
+# We rely on find_package(QT4) to be called earlier in the project hierarcy
+# 
+ 
 # enable warnings
 # ADD_DEFINITIONS( -Wall )
   

@@ -168,4 +168,4 @@ namespace intel {
     return true;
   }
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel

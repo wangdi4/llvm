@@ -151,7 +151,7 @@ namespace intel{
 
   }; // Prefetch class
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 
 #endif // __PREFETCH_H_

@@ -23,17 +23,15 @@ include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api 
 )
 
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (ICC_PLATFORM ia32)
+else ()
+  set (ICC_PLATFORM intel64)
+endif ()
+
 if (WIN32)
 
-    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
-
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set (ICC_PLATFORM ia32)
-    else ()
-      set (ICC_PLATFORM intel64)
-    endif ()
-
-    link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
+    link_directories( "$ENV{ICPP_COMPILER12}/compiler/lib/${ICC_PLATFORM}" )
 
     project( ${TARGET_NAME} )
 
@@ -48,13 +46,6 @@ if (WIN32)
         LIBRARY DESTINATION bin)
     
 else (WIN32)
-    # icc executables and env scripts
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set (ICC_PLATFORM ia32)
-    else ()
-      set (ICC_PLATFORM intel64)
-    endif ()
-
      # search for the icc cpu compiler
     set (ICC_CPU_CL icpc)
     set (ICC_CPU_LD icpc)

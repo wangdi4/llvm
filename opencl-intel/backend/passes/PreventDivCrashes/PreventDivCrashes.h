@@ -71,6 +71,6 @@ namespace intel {
 
   };
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __PREVENT_DIV_CRASHES_H__

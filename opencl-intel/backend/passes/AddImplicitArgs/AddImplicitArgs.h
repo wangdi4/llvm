@@ -107,6 +107,6 @@ namespace intel {
     Function* m_pNewF;
   };
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __ADD_IMPLICIT_ARGS_H__

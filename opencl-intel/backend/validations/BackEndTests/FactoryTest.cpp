@@ -20,7 +20,6 @@ File Name:  FactoryTest.cpp
 #include "BackendWrapper.h"
 #include <gtest/gtest.h>
 
-//using namespace llvm;
 
 TEST_F(BackEndTests_FactoryMethods, FactoryInitialization)
 {

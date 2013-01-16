@@ -73,6 +73,6 @@ namespace intel{
 
   };
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __SHIFT_ZERO_UPPPER_BITS_H__

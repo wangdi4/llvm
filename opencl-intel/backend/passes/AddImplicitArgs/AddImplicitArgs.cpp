@@ -408,4 +408,4 @@ namespace intel{
   }
 
 
-} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
