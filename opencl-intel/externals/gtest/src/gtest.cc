@@ -1644,7 +1644,7 @@ bool String::CaseInsensitiveWideCStringEquals(const wchar_t* lhs,
 
 #if GTEST_OS_WINDOWS
   return _wcsicmp(lhs, rhs) == 0;
-#elif GTEST_OS_LINUX && !defined(__ANDROID__)
+#elif GTEST_OS_LINUX
   return wcscasecmp(lhs, rhs) == 0;
 #else
   // Mac OS X and Cygwin don't define wcscasecmp.  Other unknown OSes

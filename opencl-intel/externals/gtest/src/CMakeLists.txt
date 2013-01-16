@@ -10,10 +10,6 @@ set( TARGET_NAME googletest )
 include_directories( ../include 
 					 ../ )
 
-if( ANDROID )
-  add_definitions( -DGTEST_HAS_CLONE=0 )
-endif( ANDROID )
-
 add_definitions( -D_SCL_SECURE_NO_WARNINGS )
 
 FIND_SOURCES()
