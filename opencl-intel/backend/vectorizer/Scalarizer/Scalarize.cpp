@@ -718,7 +718,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::vector<Value*> newArgs[MAX_INPUT_VECTOR_WIDTH];
 
   // Iterate over all function arguments, and grab their scalarized counterparts.
-  // When grabbing the arguments from the actual CALL operands.
+  // When grabbing the arguments from the actual CALL operands, the first argument is 
+  // either the first operand, or the return value (passed
+  // by reference, if the CALL inst returns a VOID).
+  unsigned argStart = 0;
+  if (CI->getType()->isVoidTy()) ++argStart;
 
   // Collect all the arguments that are NOT scalarized (meaning kept the same for vector
   // and scalar function call). After the scalarization of the CALL, make sure they
@@ -727,12 +731,10 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   SmallPtrSet<Value*, 2> nonScalarizedVectors;
 
   unsigned numArguments = scalarFunction->getFunctionType()->getNumParams();
-  V_ASSERT (CI->getNumArgOperands() == numArguments && "CALL arguments number error");
-  // The assertion below was added after removing code which handles the following case:
-  // In older version of Clang, it would emit a function which returns large types, such as double16,
+  V_ASSERT (CI->getNumArgOperands() == numArguments + argStart && "CALL arguments number error");
+  // In some versions of Clang, it would emit a function which returns large types, such as double16,
   // as a function which returns void and takes an extra argument which is a pointer to store the return
-  // value to. This is no longer the case, and we might remove this assert eventually.
-  V_ASSERT (!CI->getType()->isVoidTy() && "Unexpectedly encounterd function which returns void");
+  // value to.
   // Iterate over function operands (using the operand index of the CALL instruction)
   for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex)
   {
@@ -740,7 +742,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     Value *operand[MAX_INPUT_VECTOR_WIDTH];
 
     // Check if arg has same type for scalar & vector functions (means it shouldn't be scalarized)
-    bool isScalarized = (CI->getArgOperand(argIndex)->getType() != 
+    bool isScalarized = (CI->getArgOperand(argStart + argIndex)->getType() != 
       scalarFunction->getFunctionType()->getParamType(argIndex));
 
     if (isScalarized)
@@ -756,11 +758,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     {
       // Place pointers to the same value in all the argument vectors
       for (unsigned dup = 0; dup < vectorWidth; ++dup)
-        newArgs[dup].push_back(CI->getArgOperand(argIndex));
+        newArgs[dup].push_back(CI->getArgOperand(argStart + argIndex));
 
       // Save vector arguments (which werent scalarized)
-      if (isa<VectorType>(CI->getArgOperand(argIndex)->getType()))
-        nonScalarizedVectors.insert(CI->getArgOperand(argIndex));
+      if (isa<VectorType>(CI->getArgOperand(argStart + argIndex)->getType()))
+        nonScalarizedVectors.insert(CI->getArgOperand(argStart + argIndex));
     }
   }
 
