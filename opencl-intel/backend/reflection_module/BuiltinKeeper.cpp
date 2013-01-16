@@ -187,59 +187,67 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //fmin/fmax
   //
   {
-  llvm::StringRef names[] = {"fmin", "fmax"};
-  StringArray arrNames (names);
-  reflection::primitives::Primitive singleFloat[] = {primitives::FLOAT};
-  reflection::primitives::Primitive singleDouble[] = {primitives::DOUBLE};
-  PrimitiveArray arrFloat(singleFloat);
-  addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
-  PrimitiveArray arrDouble(singleDouble);
-  addConversionGroup(arrNames, arrDouble, createDescriptorVP_P);
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"__cl_fmin", "__cl_fmax"};
+#else
+    llvm::StringRef names[] = {"fmin", "fmax"};
+#endif
+    StringArray arrNames (names);
+    reflection::primitives::Primitive singleFloat[] = {primitives::FLOAT};
+    reflection::primitives::Primitive singleDouble[] = {primitives::DOUBLE};
+    PrimitiveArray arrFloat(singleFloat);
+    addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
+    PrimitiveArray arrDouble(singleDouble);
+    addConversionGroup(arrNames, arrDouble, createDescriptorVP_P);
   }
   //
   //min/max
   //
   {
-  llvm::StringRef names[] = {"min", "max"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P);
+    llvm::StringRef names[] = {"min", "max"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P);
   }
   //
   //ldexp
   //
+#ifdef __APPLE__
+  StringArray arrLdexp("__cl_ldexp");
+#else
   StringArray arrLdexp("ldexp");
+#endif
   addConversionGroup(arrLdexp, arrReals, primitives::INT, createDescriptorVP_P);
   //
   //clamp
   //
   {
-  llvm::StringRef names[] = {"clamp"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P_P);
+    llvm::StringRef names[] = {"clamp"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P_P);
   }
   //
   //mix
   //
   {
-  llvm::StringRef names[] = {"mix"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorVP_VP_P);
+    llvm::StringRef names[] = {"mix"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorVP_VP_P);
   }
   //
   //step
   //
   {
-  llvm::StringRef names[] = {"step"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorP_VP);
+    llvm::StringRef names[] = {"step"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorP_VP);
   }
   //
   //smooth step
   //
   {
-  llvm::StringRef names[] = {"smoothstep"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorP_P_VP);
+    llvm::StringRef names[] = {"smoothstep"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorP_P_VP);
   }
   //
   //Scalar versions of SOA functions
@@ -256,22 +264,32 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //values
   //
   {
-  llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*", "_Z4modf*",
-  "_Z6remquo*", "_Z6sincos*" , "_Z8isfinite*"};
-  StringArray pointeredBuiltins(names);
-  VWidthArray allWidths(vwidths);
-  Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
-    allWidths);
-  do{
-    PairSW key(pairs.get());
-    m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
-  }while(pairs.next());
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"_Z5fract*", "_Z10__cl_frexp*", "_Z13__cl_lgamma_r*",
+      "_Z9__cl_modf*", "_Z11__cl_remquo*", "_Z6sincos*"};
+#else
+    llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*",
+      "_Z4modf*", "_Z6remquo*", "_Z6sincos*"};
+#endif
+    StringArray pointeredBuiltins(names);
+    VWidthArray allWidths(vwidths);
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
+      allWidths);
+    do{
+      PairSW key(pairs.get());
+      m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
+    }while(pairs.next());
   }
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-    llvm::StringRef names[] = {"_Z7signbit*",
-    "_Z8isfinite*","_Z5isinf*", "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"_Z12__cl_signbit*", "_Z13__cl_isfinite*","_Z10__cl_isinf*",
+      "_Z10__cl_isnan*","_Z13__cl_isnormal*","_Z9isordered*", "_Z16__cl_isunordered*"};
+#else
+    llvm::StringRef names[] = {"_Z7signbit*", "_Z8isfinite*","_Z5isinf*",
+      "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+#endif
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
