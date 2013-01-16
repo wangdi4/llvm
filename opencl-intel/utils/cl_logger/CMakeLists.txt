@@ -28,5 +28,5 @@ if (FILES_TO_COPY)
 			LIBRARY DESTINATION bin)
 endif(FILES_TO_COPY)
 
-target_link_libraries( ${TARGET_NAME} cl_hw_utils )
+target_link_libraries( ${TARGET_NAME} cl_hw_utils cl_sys_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

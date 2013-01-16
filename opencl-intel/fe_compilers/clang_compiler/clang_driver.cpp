@@ -363,8 +363,12 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 	list.push_back("-O0");
 #if defined(__linux__)	
 	list.push_back("-triple");
+#if defined(__ANDROID__)
+	list.push_back("i686-pc-linux");
+#else
 	list.push_back("x86_64-unknown-linux-gnu");
-#endif
+#endif // __ANDROID__
+#endif // __linux__
 }
 
 int ClangFECompilerCompileTask::Compile()

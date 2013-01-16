@@ -40,7 +40,9 @@ static void Emit_VZeroUpper(void) {
 #endif
   }
 }
-#else //_WIN32
+#elif defined(__ANDROID__)
+static void Emit_VZeroUpper(void) {}
+#else
 #error Unsupported target
 #endif
 #endif

@@ -24,6 +24,9 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma once
 
+// -----------------------------------------------------------
+// 			Windows
+// -----------------------------------------------------------
 #if defined (_WIN32)
 #include <basetsd.h>
 
@@ -78,6 +81,9 @@ typedef unsigned long long               affinityMask_t;
 #define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
 #define ALIGNED_FREE                      _aligned_free
 
+// -----------------------------------------------------------
+// 		Not Windows (Linux / Android )	
+// -----------------------------------------------------------
 #else //LINUX
 
 #define CL_MAX_INT32 INT_MAX
@@ -139,12 +145,63 @@ typedef int errno_t;
 #define VA_END(va) (va_end(va))
 
 #define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
+// aligned malloc
+
+
+#include <stdlib.h>
+#include <sys/mman.h>
+#define ALIGNED_FREE                      free
+
+
 
 #include <unistd.h>
 #include <sys/syscall.h>
 
+	// -----------------------------
+	// Android Sched Utils
+	// -----------------------------
+#if defined(__ANDROID__)
+inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
+{
+    return memalign( alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
+}
+typedef unsigned long long		affinityMask_t;
+#define GET_CURRENT_PROCESS_ID()        getpid()
+#define GET_CURRENT_THREAD_ID()		((int)gettid())
+#define CPU_ZERO(mask)			*(mask) =  0
+#define CPU_SET(cpu, mask)		*(mask) |= (1 << cpu)
+#define CPU_ISSET(cpu, mask)		*(mask) |  (1 << cpu)
+
+static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
+{
+	return syscall(__NR_sched_setaffinity, pid, len, cpusetp);
+}
+static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
+{
+	return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
+}
+
+
+#define pthread_cancel(...)		assert(0 && "pthread_cancel isn't supported for android")
+
+	// -----------------------------
+	// Linux (Not Android) Sched Utils
+	// -----------------------------
+#else
+inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
+{
+    void* t = NULL;
+    if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
+    {
+        t = NULL;
+    }
+    return t;
+}
 #define GET_CURRENT_PROCESS_ID() getpid()
 #define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
+#include <sched.h>
+typedef cpu_set_t                      affinityMask_t;
+#endif
 
 #include "cl_secure_string_linux.h"
 
@@ -155,24 +212,7 @@ typedef int errno_t;
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
-#include <sched.h>
-typedef cpu_set_t                      affinityMask_t;
 
-// aligned malloc
-#include <stdlib.h>
-#include <sys/mman.h>
-
-inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
-{
-    void* t = NULL;
-    if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
-    {
-        t = NULL;
-    }
-    return t;
-}
-
-#define ALIGNED_FREE                      free
 
 #endif
 
