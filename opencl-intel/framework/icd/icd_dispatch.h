@@ -61,7 +61,11 @@
 #include <CL/cl_d3d10.h>
 #include <CL/cl_d3d11.h>
 #endif
+#if !defined(__ANDROID__)
 #include <GL/gl.h>
+#else
+#include <GLES/gl.h>
+#endif
 #include <CL/cl_gl.h>
 #include <CL/cl_gl_ext.h>
 #include <CL/cl_ext.h>

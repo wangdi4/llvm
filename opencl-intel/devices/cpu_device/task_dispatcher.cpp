@@ -35,7 +35,9 @@
 #include <cl_synch_objects.h>
 #include <cl_sys_info.h>
 #include <cl_utils.h>
+#if defined(USE_ITT)
 #include <ocl_itt.h>
+#endif
 
 #include <stdlib.h>
 #include <assert.h>
@@ -279,7 +281,7 @@ bool TaskDispatcher::isDestributedAllocationRequried()
 
 bool TaskDispatcher::isThreadAffinityRequried()
 {
-#ifdef WIN32 //Not pinning threads for Windows
+#if ( defined(WIN32) || defined(__ANDROID__) ) //Not pinning threads for Windows or Android
 	return false;
 #else
 	return true;

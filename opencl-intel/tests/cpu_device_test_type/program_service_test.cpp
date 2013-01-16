@@ -35,7 +35,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef _WIN32
+#if ( defined(_WIN32) || defined(__ANDROID__) )
 #define SET_FPOS_T(var, val) (var) = (val)
 #define GET_FPOS_T(var) var
 #else

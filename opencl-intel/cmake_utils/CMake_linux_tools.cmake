@@ -10,6 +10,8 @@ set(IMPLIB_SUBDIR bin )
 set(IMPLIB_PREFIX lib )
 set(IMPLIB_SUFFIX .so )
 
+set(RT_LIB "-lrt")
+set(PTHREAD_LIB "-lpthread")
 # C/CXX Compiler and cross-compilation flags
 # defined by toolchain
 # Linux-Intel.cmake and Linux-GNU.cmake
