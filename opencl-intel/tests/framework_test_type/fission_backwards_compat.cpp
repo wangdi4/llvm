@@ -26,6 +26,28 @@
 
 extern cl_device_type gDeviceType;
 
+static bool isLegalPartitionEXT(cl_device_partition_property_ext prop)
+{
+    const cl_device_partition_property_ext legalProperties[] = {CL_DEVICE_PARTITION_EQUALLY_EXT, CL_DEVICE_PARTITION_BY_COUNTS_EXT, CL_DEVICE_PARTITION_BY_NAMES_INTEL, CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT};
+    const size_t numProperties = sizeof(legalProperties) / sizeof(cl_device_partition_property_ext);
+    for (size_t i = 0; i < numProperties; ++i)
+    {
+        if (legalProperties[i] == prop) return true;
+    }
+    return false;
+}
+
+static bool isLegalDomainEXT(cl_device_partition_property_ext domain)
+{
+    const cl_device_partition_property_ext legalDomains[] = {CL_AFFINITY_DOMAIN_NUMA_EXT};
+    const size_t numDomains = sizeof(legalDomains) / sizeof(cl_device_partition_property_ext);
+    for (size_t i = 0; i < numDomains; ++i)
+    {
+        if (legalDomains[i] == domain) return true;
+    }
+    return false;
+}
+
 bool fission_backwards_compatability_test()
 {
 	printf("---------------------------------------\n");
@@ -48,6 +70,33 @@ bool fission_backwards_compatability_test()
 	err = clGetDeviceIDs(platform, gDeviceType, 1, devices, NULL);
 	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
+
+    size_t szRet;
+    cl_device_partition_property_ext supportedTypes[10];
+    err = clGetDeviceInfo(devices[0], CL_DEVICE_PARTITION_TYPES_EXT, sizeof(supportedTypes), supportedTypes, &szRet);
+	bResult &= SilentCheck(L"clGetDeviceInfo(CL_DEVICE_PARTITION_TYPES_EXT)", CL_SUCCESS, err);
+	if (!bResult)	return bResult;
+    for (size_t i = 0; i < szRet / sizeof(cl_device_partition_property_ext); ++i)
+    {
+        if (!isLegalPartitionEXT(supportedTypes[i]))
+        {
+            printf("Illegal property %p detected at index %lu\n", supportedTypes[i], i);
+            return false;
+        }
+    }
+
+    cl_device_partition_property_ext supportedDomains[10];
+    err = clGetDeviceInfo(devices[0], CL_DEVICE_AFFINITY_DOMAINS_EXT, sizeof(supportedDomains), supportedDomains, &szRet);
+	bResult &= SilentCheck(L"clGetDeviceInfo(CL_DEVICE_AFFINITY_DOMAINS_EXT)", CL_SUCCESS, err);
+	if (!bResult)	return bResult;
+    for (size_t i = 0; i < szRet / sizeof(cl_device_partition_property_ext); ++i)
+    {
+        if (!isLegalDomainEXT(supportedDomains[i]))
+        {
+            printf("Illegal domain %p detected at index %lu\n", supportedDomains[i], i);
+            return false;
+        }
+    }
 
 	cl_uint num_entries = 1;
 	cl_uint num_devices = 1;
