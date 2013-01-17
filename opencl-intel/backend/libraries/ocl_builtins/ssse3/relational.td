@@ -130,24 +130,6 @@ OclBuiltinImpl uselect_expand         =  OclBuiltinImpl  <uselect,  [v8f32, v16f
                                                                    v4u64, v8u32, v16u16, v16i16, v8i32, 
                                                                    v4i64, v8i64, v16i64, v16u32, v8u64, v16u64, v16i32],                 0, Expand3>;
 
-OclBuiltinImpl isequal1         =   OclBuiltinImpl  <isequal,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName == $Arg1VarName);
-}]>;
-OclBuiltinImpl isnotequal1      =   OclBuiltinImpl  <isnotequal,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName != $Arg1VarName);
-}]>;
-OclBuiltinImpl isgreater1       =   OclBuiltinImpl  <isgreater,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName  > $Arg1VarName);
-}]>;
-OclBuiltinImpl isgreaterequal1  =   OclBuiltinImpl  <isgreaterequal,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName >= $Arg1VarName);
-}]>;
-OclBuiltinImpl isless1          =   OclBuiltinImpl  <isless,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName < $Arg1VarName);
-}]>;
-OclBuiltinImpl islessequal1     =   OclBuiltinImpl  <islessequal,  [v1f32, v1f64, v2f32, v2f64, v3f32, v3f64, v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], 0, [{
-return ($Arg0VarName <= $Arg1VarName);
-}]>;
 OclBuiltinImpl islessgreater1   =   OclBuiltinImpl  <islessgreater,  [v1f32, v1f64,  v2f64, v4f32], 0, [{
 return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
 }]>;
@@ -476,10 +458,8 @@ OclBuiltinImpl isordered_v2f64 = OclBuiltinImpl<isordered, [v2f64], 0, [{
 
 OclBuiltinImpl isunordered_v4f32 = OclBuiltinImpl<isunordered, [v4f32], 0, [{
   $Arg0Type  res = _mm_cmpunord_ps($Arg0VarName, $Arg1VarName);
-  //convert to inetegr
-  $ReturnType resi = convert_$ReturnType(res); 
-  return as_$ReturnType(_mm_srai_epi32(__builtin_astype(resi, __m128i), 35));
-}]>;
+  return as_$ReturnType(res);
+]>;
 
 OclBuiltinImpl isunordered_v2f64 = OclBuiltinImpl<isunordered, [v2f64], 0, [{
   $Arg0Type  res = _mm_cmpunord_pd($Arg0VarName, $Arg1VarName);
