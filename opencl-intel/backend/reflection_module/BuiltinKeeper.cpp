@@ -361,7 +361,13 @@ void BuiltinKeeper::addTransposGroup(const FunctionDescriptor& aosDescriptor){
   std::string strAos = mangle(aosDescriptor);
   for(size_t i=0 ; i<(sizeof(aosWidth)/sizeof(width::V)) ; ++i){
     PairSW exceptionsKey = std::make_pair(strAos, aosWidth[i]);
+    //TODO: Apple currently doesn't have builtins appropriate for the soa strategy
+    //Change this after we replace the builtins.
+#ifndef __APPLE__
     m_exceptionsMap[exceptionsKey] = &m_soaStrategy;
+#else
+    m_exceptionsMap[exceptionsKey] = &m_nullStrategy;
+#endif
   }
 }
 
