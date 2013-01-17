@@ -33,54 +33,12 @@ code select_vector_v4l = [{
 
 //======v8f32 and v4f64 implementation=============================== 
 
-OclBuiltinImpl isfinite_v8f32 = OclBuiltinImpl<isfinite, [v8f32], 0, [{
-	//calculate abs($Arg0VarName)
-	//Remove sign bit of the float
-	$Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & (($Arg0igentype)abs_inf));
-	return isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min));
-}]>;
-
-OclBuiltinImpl isfinite_v4f64 = OclBuiltinImpl<isfinite, [v4f64], 0, [{
-	$Arg0VarName =  as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_min);
-	return as_$ReturnType($Arg0VarName != ($Arg0Type)dnan_min);
-}]>;
-
-OclBuiltinImpl isinf_v8f32 = OclBuiltinImpl<isinf, [v8f32], 0, [{
-	//calculate abs($Arg0VarName)
-	//Remove sign bit of the float
-	$Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)abs_inf);
-    return (isgreaterequal($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min)));
-}]>;
-
-OclBuiltinImpl isinf_v4f64 = OclBuiltinImpl<isinf, [v4f64], 0, [{
-	//calculate abs($Arg0VarName)
-	//Remove sign bit of the float
-	$Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_max);
-	return as_$ReturnType($Arg0VarName == ($Arg0Type)dnan_min);
-}]>;
-
 OclBuiltinImpl isnan_v8f32 = OclBuiltinImpl<isnan, [v8f32], 0, [{
 	return as_$ReturnType(_mm256_cmp_ps($Arg0VarName, $Arg0VarName, _CMP_UNORD_Q));
 }]>;
 
 OclBuiltinImpl isnan_v4f64 = OclBuiltinImpl<isnan, [v4f64], 0, [{
 	return as_$ReturnType(_mm256_cmp_pd($Arg0VarName, $Arg0VarName, _CMP_UNORD_Q));
-}]>;
-
-OclBuiltinImpl isnormal_v8f32 = OclBuiltinImpl<isnormal, [v8f32], 0, [{
-	//Remove sign bit of the float
-	$Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)abs_inf);
-    $Arg0igentype res =  as_$Arg0igentype(isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min))); //$Arg0VarName<INFINITY
-    $Arg0igentype res1 = as_$Arg0igentype(isgreaterequal($Arg0VarName, ($Arg0Type)fltm)); //$Arg0VarName >= FLT_MIN 
-	return as_$ReturnType(res & res1);
-}]>;
-
-OclBuiltinImpl isnormal_v4f64 = OclBuiltinImpl<isnormal, [v4f64], 0, [{
-	$Arg0Type exp = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dexp_mask);
-	$ReturnType NaNorINF = as_$ReturnType(exp == (($Arg0Type)dexp_mask));
-	$ReturnType denom = as_$Arg0igentype(exp == ($Arg0Type)0);
-	$ReturnType res = (as_$Arg0igentype(NaNorINF) | as_$Arg0igentype(denom));
-	return as_$ReturnType(as_$Arg0igentype(res) ^ ($Arg0igentype)FF);
 }]>;
 
 OclBuiltinImpl isordered_v8f32 = OclBuiltinImpl<isordered, [v8f32], 0, [{
