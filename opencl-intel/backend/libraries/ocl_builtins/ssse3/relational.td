@@ -77,16 +77,16 @@ code v3_double_2arg = [{
 
 OclBuiltinImpl isfinite_promote       =  OclBuiltinImpl  <isfinite,  [v2f32, v3f32],                                            0, Promote1>;
 OclBuiltinImpl isfinite_double3       =  OclBuiltinImpl  <isfinite,  [v3f64],                                                   0, v3_double_1arg>;
-OclBuiltinImpl isfinite_expand        =  OclBuiltinImpl  <isfinite,  [v8f32, v16f32, v4f64, v8f64, v16f64],                     0, Expand1>;
+//OclBuiltinImpl isfinite_expand        =  OclBuiltinImpl  <isfinite,  [v8f32, v16f32, v8f64, v16f64],                     0, Expand1>;
 OclBuiltinImpl isinf_promotef2        =  OclBuiltinImpl  <isinf,  [v2f32, v3f32],                                               0, Promote1>;
 OclBuiltinImpl isinf_double3          =  OclBuiltinImpl  <isinf,  [v3f64],                                                      0, v3_double_1arg>;
-OclBuiltinImpl isinf_expand           =  OclBuiltinImpl  <isinf,  [v8f32, v16f32, v4f64, v8f64, v16f64],                        0, Expand1>;
+//OclBuiltinImpl isinf_expand           =  OclBuiltinImpl  <isinf,  [v8f32, v16f32, v8f64, v16f64],                        0, Expand1>;
 OclBuiltinImpl isnan_promote          =  OclBuiltinImpl  <isnan,  [v2f32, v3f32],                                               0, Promote1>;
 OclBuiltinImpl isnan_double3          =  OclBuiltinImpl  <isnan,  [v3f64],                                                      0, v3_double_1arg>;
 OclBuiltinImpl isnan_expand           =  OclBuiltinImpl  <isnan,  [v8f32, v16f32, v4f64, v8f64, v16f64],                        0, Expand1>;
 OclBuiltinImpl isnormal_promote       =  OclBuiltinImpl  <isnormal,  [v2f32, v3f32],                                            0, Promote1>;
 OclBuiltinImpl isnormal_double3       =  OclBuiltinImpl  <isnormal,  [v3f64],                                                   0, v3_double_1arg>;
-OclBuiltinImpl isnormal_expand        =  OclBuiltinImpl  <isnormal,  [v8f32, v16f32, v4f64, v8f64, v16f64],                     0, Expand1>;
+//OclBuiltinImpl isnormal_expand        =  OclBuiltinImpl  <isnormal,  [v8f32, v16f32, v8f64, v16f64],                     0, Expand1>;
 OclBuiltinImpl isordered_promote      =  OclBuiltinImpl  <isordered,  [v2f32, v3f32],                                           0, Promote2>;
 OclBuiltinImpl isordered_double3      =  OclBuiltinImpl  <isordered,  [v3f64],                                                  0, v3_double_2arg>;
 OclBuiltinImpl isordered_expand       =  OclBuiltinImpl  <isordered,  [v8f32, v16f32, v4f64, v8f64, v16f64],                    0, Expand2>;
@@ -418,28 +418,28 @@ OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, [v1i8, v1u8, v1i16, v1u1
 
 //======v4f32 and v2f64 implementation===============================
 
-OclBuiltinImpl isfinite_v4f32 = OclBuiltinImpl<isfinite, [v4f32], 0, [{
+OclBuiltinImpl isfinite_v4f32 = OclBuiltinImpl<isfinite, [v4f32, v8f32, v16f32], 0, [{
   //calculate abs($Arg0VarName)
   //Remove sign bit of the float
   $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)abs_inf);
     return isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min));
 }]>;
 
-OclBuiltinImpl isfinite_v2f64 = OclBuiltinImpl<isfinite, [v2f64], 0, [{
+OclBuiltinImpl isfinite_v2f64 = OclBuiltinImpl<isfinite, [v2f64, v4f64, v8f64, v16f64], 0, [{
   $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_min);
   $Arg0Type dRes = as_$Arg0Type( as_$Arg0igentype($Arg0VarName) != ($Arg0igentype)dnan_min);
   $ReturnType res = as_$ReturnType(dRes);
   return res;
 }]>;
 
-OclBuiltinImpl isinf_v4f32 = OclBuiltinImpl<isinf, [v4f32], 0, [{
+OclBuiltinImpl isinf_v4f32 = OclBuiltinImpl<isinf, [v4f32, v8f32, v16f32], 0, [{
   //calculate abs($Arg0VarName)
   //Remove sign bit of the float
   $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) &  ($Arg0igentype)abs_inf);
     return (isgreaterequal($Arg0VarName, (as_$Arg0Type(($Arg0igentype)fnan_min))));
 }]>;
 
-OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64], 0, [{
+OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64, v4f64, v8f64, v16f64], 0, [{
   //calculate abs($Arg0VarName)
   //Remove sign bit of the float
   $Arg0VarName = as_$Arg0Type( as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_max);
@@ -447,14 +447,14 @@ OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64], 0, [{
   return as_$ReturnType(dRes);
 }]>;
 
-OclBuiltinImpl isnormal_v4f32 = OclBuiltinImpl<isnormal, [v4f32], 0, [{
+OclBuiltinImpl isnormal_v4f32 = OclBuiltinImpl<isnormal, [v4f32, v8f32, v16f32], 0, [{
   $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) &  ($Arg0igentype)abs_inf);
     $Arg0igentype res =  as_$Arg0igentype(isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min))); //$Arg0VarName<INFINITY
     $Arg0igentype res1 = as_$Arg0igentype(isgreaterequal($Arg0VarName, ($Arg0Type)fltm)); //$Arg0VarName >= FLT_MIN 
   return as_$ReturnType(res & res1);
 }]>;
 
-OclBuiltinImpl isnormal_v2f64 = OclBuiltinImpl<isnormal, [v2f64], 0, [{
+OclBuiltinImpl isnormal_v2f64 = OclBuiltinImpl<isnormal, [v2f64, v4f64, v8f64, v16f64], 0, [{
   $Arg0igentype exp = (as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dexp_mask);
   $ReturnType NaNorINF = as_$ReturnType(exp == ($Arg0igentype)dexp_mask);
   $ReturnType denom = as_$ReturnType(exp == ($Arg0igentype)0);
