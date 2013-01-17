@@ -100,6 +100,12 @@ TableRow mappings[] = {
   {{"_Z8prefetchPKU3AS1Dv16_fm", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, 0, 0 },
   {{"_Z8prefetchPKU3AS1Dv16_dm", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, 0, 0 },
 
+  //TODO: This is rather suboptimal, but we don't have the v_ builtins, so just don't vectorize
+  // We don't need this for the other relationals that have the same problem, since Apple's Clang implements them
+  // as macros, so we never see them.
+  {{"_Z18__cl_islessgreaterdd" , "_Z18__cl_islessgreaterDv2_fS_", "_Z18__cl_islessgreaterDv4_fS_", "_Z18__cl_islessgreaterDv8_fS_", "_Z18__cl_islessgreaterDv16_fS_", "_Z18__cl_islessgreaterDv3_fS_"}, 0, 0 },
+  {{"_Z18__cl_islessgreaterff" , "_Z18__cl_islessgreaterDv2_dS_", "_Z18__cl_islessgreaterDv4_dS_", "_Z18__cl_islessgreaterDv8_dS_", "_Z18__cl_islessgreaterDv16_dS_", "_Z18__cl_islessgreaterDv3_dS_"}, 0, 0 },
+  
   // read / write image
   {{"_f_v._Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv4_fS1_PS1_S2_S2_S2_",
     "_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv8_fS1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY},0,1},
