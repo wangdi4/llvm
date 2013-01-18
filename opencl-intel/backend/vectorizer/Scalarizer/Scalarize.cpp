@@ -1180,7 +1180,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     // Generate a DRL: dummy values, which will be resolved after all scalarization is complete.
     V_PRINT(scalarizer, "\t\t\t*** Not found. Setting DRL. \n");
     Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
-      VectorizerUtils::convertSoaAllocaType(origType, 0) : origType->getElementType();
+      VectorizerUtils::convertSoaAllocaType(origValue->getType(), 0) : origType->getElementType();
     V_PRINT(scalarizer, "\t\tCreate Dummy Scalar value/s (of type " << *dummyType << ")\n");
     Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
     DRLEntry newDRLEntry;

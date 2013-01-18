@@ -56,7 +56,7 @@ namespace intel {
         continue;
       }
       bool isVectorBasedType = allocaType->isVectorTy();
-      int width = !isVectorBasedType ? 0 : (dyn_cast<VectorType>(allocaType))->getNumElements();
+      int width = isVectorBasedType ? (dyn_cast<VectorType>(allocaType))->getNumElements() : 0;
       // At this point the alloca type is supported for SOA-alloca
       // Need to check the all the derived usages of the alloca pointer are allowed
       std::set<const Value*> visited;
