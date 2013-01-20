@@ -37,6 +37,7 @@ include_directories( BEFORE
                             ${HW_UTILS_HEADERS}
                             ${OCL_BINARY_DIR}
                             ${COI_SDK_PATH}/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/ToolsUtils/
                             mic_native )
 
 include( ../../cmake_utils/itt.cmake )
@@ -85,7 +86,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 
-add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd cl_sys_utils)
+add_dependencies( ${TARGET_NAME} clang OclCpuBackEnd cl_sys_utils ToolsUtils)
 
 install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
@@ -94,6 +95,7 @@ install(TARGETS ${TARGET_NAME}
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
+                                      ToolsUtils
                                       cl_logger
                                       ${COI_HOST_LIB}
                                       ${LINK_LIBS} )
