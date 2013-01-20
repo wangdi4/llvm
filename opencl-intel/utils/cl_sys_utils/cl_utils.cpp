@@ -28,8 +28,10 @@
 #include "cl_utils.h"
 #include <CL/cl.h>
 #include <cassert>
+#include <boost/tokenizer.hpp>
 
 using namespace std;
+using namespace boost;
 using namespace Intel::OpenCL;
 
 #ifdef WIN32
@@ -809,70 +811,60 @@ cl_mem_object_type GetImageTypeFromString(const string& Type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // SetKernelArgument
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-cl_mem_flags GetSingleMemoryFlagFromString(const string& OneFlagStr)
-{
-    if (OneFlagStr  == "CL_MEM_ALLOC_HOST_PTR")
-    {
-        return  CL_MEM_ALLOC_HOST_PTR;
-    }
-    else if (OneFlagStr  == "CL_MEM_COPY_HOST_PTR")
-    {
-        return CL_MEM_COPY_HOST_PTR;
-    }
-    else if (OneFlagStr == "CL_MEM_HOST_NO_ACCESS")
-    {
-        return CL_MEM_HOST_NO_ACCESS;
-    }
-    else if (OneFlagStr == "CL_MEM_HOST_READ_ONLY")
-    {
-        return CL_MEM_HOST_READ_ONLY;
-    }
-    else if (OneFlagStr == "CL_MEM_HOST_WRITE_ONLY")
-    {
-        return CL_MEM_HOST_WRITE_ONLY;
-    }
-    else if (OneFlagStr == "CL_MEM_READ_ONLY")
-    {
-        return CL_MEM_READ_ONLY;
-    }
-    else if (OneFlagStr == "CL_MEM_READ_WRITE")
-    {
-        return CL_MEM_READ_WRITE;
-    }
-    else if (OneFlagStr == "CL_MEM_USE_HOST_PTR")
-    {
-        return CL_MEM_USE_HOST_PTR;
-    }
-    else if (OneFlagStr == "CL_MEM_WRITE_ONLY")
-    {
-        return CL_MEM_WRITE_ONLY;
-    }
-    else
-    {
-        string Error("Unrecognized memory flags '");
-        Error += OneFlagStr + "'";
-        throw Error;
-    }
-}
-
-cl_mem_flags GetMemFlagsFromString(const string& FlagsStr) 
+cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
 {
     cl_mem_flags Flags(0);
-    size_t Tokenizer = FlagsStr.find_first_of(" ,"), PrevToken = 0; 
-    string iToken; 
-    while (Tokenizer != string::npos) 
+    char_separator<char> Separators(", ");
+    tokenizer<char_separator<char> > tokens(FlagsStr, Separators);
+    for (tokenizer<char_separator<char> >::iterator iToken = tokens.begin();
+        iToken != tokens.end();
+        ++iToken)
     {
-        iToken = FlagsStr.substr(PrevToken, Tokenizer-PrevToken); 
-        Flags |= GetSingleMemoryFlagFromString(iToken); 
-        PrevToken = Tokenizer+1; 
-        Tokenizer = FlagsStr.find_first_of(", ", PrevToken); 
-    } 
-    iToken = FlagsStr.substr(PrevToken); 
-    // Only last value 
-    Flags |= GetSingleMemoryFlagFromString(iToken);
+        if (*iToken == "CL_MEM_ALLOC_HOST_PTR")
+        {
+            Flags |= CL_MEM_ALLOC_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_COPY_HOST_PTR")
+        {
+            Flags |= CL_MEM_COPY_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_HOST_NO_ACCESS")
+        {
+            Flags |= CL_MEM_HOST_NO_ACCESS;
+        }
+        else if (*iToken == "CL_MEM_HOST_READ_ONLY")
+        {
+            Flags |= CL_MEM_HOST_READ_ONLY;
+        }
+        else if (*iToken == "CL_MEM_HOST_WRITE_ONLY")
+        {
+            Flags |= CL_MEM_HOST_WRITE_ONLY;
+        }
+        else if (*iToken == "CL_MEM_READ_ONLY")
+        {
+            Flags |= CL_MEM_READ_ONLY;
+        }
+        else if (*iToken == "CL_MEM_READ_WRITE")
+        {
+            Flags |= CL_MEM_READ_WRITE;
+        }
+        else if (*iToken == "CL_MEM_USE_HOST_PTR")
+        {
+            Flags |= CL_MEM_USE_HOST_PTR;
+        }
+        else if (*iToken == "CL_MEM_WRITE_ONLY")
+        {
+            Flags |= CL_MEM_WRITE_ONLY;
+        }
+        else
+        {
+            string Error("Unrecognized memory flags '");
+            Error += *iToken + "'";
+            throw Error;
+        }
+    }
     return Flags;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // GetAddressQualifierFromString

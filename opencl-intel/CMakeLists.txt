@@ -29,12 +29,6 @@ endif ()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
-FIND_PACKAGE(Boost 1.52.0 REQUIRED)
-
-message("**************************************************")
-message("root:${BOOST_ROOT} inc:${Boost_INCLUDE_DIR}    lib:${Boost_LIBRARY_DIRS}")
-
-
 #PRINT_TOOLS()
 
 #

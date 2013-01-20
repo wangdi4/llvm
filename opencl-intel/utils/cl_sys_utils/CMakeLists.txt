@@ -13,6 +13,9 @@ endif( DISABLE_NUMA_SUPPORT )
 
 include_directories( AFTER
             ../cl_hw_utils/export
+			${CMAKE_CURRENT_SOURCE_DIR}/../../externals/boost_1_46_1
+			${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/ToolsUtils
             )
 
 FIND_SOURCES()
@@ -32,11 +35,15 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
-if( WIN32 OR ANDROID )
+if( WIN32 )
+  link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1/lib/win/${BOOST_LIB_DIR_SUFFIX} )
   target_link_libraries( ${TARGET_NAME} cl_hw_utils )
-else( WIN32 OR ANDROID )
+elseif( ANDROID )
+  target_link_libraries( ${TARGET_NAME} cl_hw_utils )
+else( LINUX )
+  link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX})
   target_link_libraries( ${TARGET_NAME} cl_hw_utils numa )
-endif( WIN32 OR ANDROID )
+endif( WIN32 )
  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 
