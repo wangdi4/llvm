@@ -12,7 +12,7 @@
 namespace intel {
   char WIRelatedValue::ID = 0;
 
-  OCL_INITIALIZE_PASS(WIRelatedValue, "B-WIAnalysi", "Barrier Pass - Calculate WI relation per Value", false, true)
+  OCL_INITIALIZE_PASS(WIRelatedValue, "B-WIAnalysis", "Barrier Pass - Calculate WI relation per Value", false, true)
 
   WIRelatedValue::WIRelatedValue() : ModulePass(ID) {}
 
