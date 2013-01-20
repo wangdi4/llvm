@@ -43,3 +43,5 @@ if( NOT WIN32)
     )
 endif ()
 
+install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+

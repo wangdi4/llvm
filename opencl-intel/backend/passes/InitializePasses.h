@@ -53,7 +53,6 @@ void initializeLoopWIAnalysisPass(llvm::PassRegistry&);
 void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
-
 }
 
 #endif

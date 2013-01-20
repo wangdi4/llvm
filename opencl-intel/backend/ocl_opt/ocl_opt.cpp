@@ -60,6 +60,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeAppleWIDepPrePacketizationPassPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeCLWGLoopCreatorPass(Registry);
+	intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
