@@ -129,24 +129,37 @@ threadid_t clMyThreadId()
 
 #else
 #include <unistd.h>
-#include <numa.h>
 #include <sys/syscall.h>
 
-bool clIsNumaAvailable()
-{
-	static int iNuma = -1;
-	
-	if ( -1 == iNuma )
-	{
-		iNuma = numa_available();
-	}
-	return (-1 != iNuma);
-}
+#ifndef DISABLE_NUMA_SUPPORT
 
-void clNUMASetLocalNodeAlloc()
-{
-	numa_set_localalloc();
-}
+	#include <numa.h>
+	bool clIsNumaAvailable()
+	{	
+		static int iNuma = -1;
+	
+		if ( -1 == iNuma )
+		{
+			iNuma = numa_available();
+		}
+		return (-1 != iNuma);
+	}
+
+	void clNUMASetLocalNodeAlloc()
+	{
+		numa_set_localalloc();
+	}
+#else
+	bool clIsNumaAvailable()
+	{	
+		return false;
+	}
+
+	void clNUMASetLocalNodeAlloc()
+	{
+	}
+	
+#endif //DISABLE_NUMA_SUPPORT
 
 void clSleep(int milliseconds)
 {
@@ -155,30 +168,30 @@ void clSleep(int milliseconds)
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_setaffinity(tid, sizeof(cpu_set_t), mask);
+	sched_setaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_getaffinity(tid, sizeof(cpu_set_t), mask);
+	sched_getaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
-	cpu_set_t mask;
+	affinityMask_t mask;
 	CPU_ZERO(&mask);
 	CPU_SET(core ,&mask);
-	sched_setaffinity(tid, sizeof(cpu_set_t), &mask);
+	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {
 // Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
-// cpu_set_t is a bitmask and I'm going to abuse that knowledge
+// affinityMask_t is a bitmask and I'm going to abuse that knowledge
 
 // This should be long enough
 static const unsigned long long allOnes[] = {ULLONG_MAX, ULLONG_MAX, ULLONG_MAX, ULLONG_MAX};
-static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
-sched_setaffinity(tid, sizeof(cpu_set_t), allMask);
+static const affinityMask_t* allMask = reinterpret_cast<const affinityMask_t*>(allOnes);
+sched_setaffinity(tid, sizeof(affinityMask_t), allMask);
 }
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
@@ -202,7 +215,7 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
 
 threadid_t clMyThreadId()
 {
-	return (pid_t)syscall(SYS_gettid);
+	return GET_CURRENT_THREAD_ID();
 }
 
 #endif

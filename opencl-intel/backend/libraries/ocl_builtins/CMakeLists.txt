@@ -38,10 +38,12 @@ endif ()
 
 if (WIN32)
   set (PLATFORM Win${PLATFORM})
-else ()
+elseif (ANDROID)
+  set (PLATFORM Android${PLATFORM})
+else (LINUX)
   set (PLATFORM Linux${PLATFORM})
-endif ()
-message ("OCL Builtins build: ${PLATFORM}")
+endif (WIN32)
+message (STATUS "OCL Builtins build: ${PLATFORM}")
 
 add_subdirectory (utils/TableGen)
 
@@ -51,11 +53,11 @@ add_subdirectory (utils/TableGen)
 
 # remember OCL builtins source dir
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
+message (STATUS "Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
 set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
+message (STATUS "Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
 if (DEFINED OCL_CLANG_HEADERS)
@@ -66,7 +68,7 @@ endif()
 if (NOT EXISTS ${CLANG_HEADERS})
   message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
 endif()
-message ("Clang headers are in: ${CLANG_HEADERS}")
+message (STATUS "Clang headers are in: ${CLANG_HEADERS}")
 
 if (DEFINED OCL_GLOBAL_INCLUDE)
   set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
@@ -76,7 +78,7 @@ endif ()
 if (NOT EXISTS ${IMPORT_DIR})
   message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
 endif()
-message ("Global headers are in: ${IMPORT_DIR}")
+message (STATUS "Global headers are in: ${IMPORT_DIR}")
 
 # svml directories
 if (WIN32)
@@ -93,8 +95,14 @@ if (NOT EXISTS ${SVML_DLL_DIR})
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-message ("SVML lib dir: ${SVML_LIB_DIR}")
-message ("SVML binary dir: ${SVML_DLL_DIR}")
+message (STATUS "SVML lib dir: ${SVML_LIB_DIR}")
+message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
+
+if( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
+  set(LLVM_NATIVE_BINARY_DIR "${LLVM_BINARY_DIR}")
+else( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
+  set(LLVM_NATIVE_BINARY_DIR )
+endif( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG) 
@@ -137,11 +145,11 @@ endif (WIN32)
 # external tools
 #
 
-message ("CLANG:     ${CLANG}")
-message ("LLVM_OPT:  ${LLVM_OPT}")
-message ("LLVM_LINK: ${LLVM_LINK}")
-message ("LLC:       ${LLC}")
-message ("TRIPLE:    ${TRIPLE}")
+message (STATUS "CLANG:     ${CLANG}")
+message (STATUS "LLVM_OPT:  ${LLVM_OPT}")
+message (STATUS "LLVM_LINK: ${LLVM_LINK}")
+message (STATUS "LLC:       ${LLC}")
+message (STATUS "TRIPLE:    ${TRIPLE}")
 
 # 
 # Tool environment and options
@@ -267,7 +275,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
-    message("Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
+    message(STATUS "Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
 
     # Initialize the llc parameter "-mattr" based on PROC
     SET (MATTR "-mattr=")
@@ -286,7 +294,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       VERBATIM
       )
   else (${ENABLE_PRECOMPILE})
-    message ("Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
+    message (STATUS "Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
   endif(${ENABLE_PRECOMPILE})
 
   set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
@@ -372,7 +380,7 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
     set(ADDITIONAL_SHARED_LIBRARY_SUFFIX .3.0)
   endif()
 
-  message ("Building target:   ${TARGET_NAME}")
+  message (STATUS "Building target:   ${TARGET_NAME}")
 
   # As far as only MIC support OCL builtin autogen, OCL_TABLEGEN_FILE is left
   # as an optional argument.
@@ -463,9 +471,8 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   masked_load_store_functions.cpp
-  relational_functions.cpp
   transpose_functions.cpp
-  vload_vstore_functions.cpp
+
   )
 
 
@@ -476,7 +483,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
-  cl_relational_declaration.h
   masked_load_store_functions.h
   transpose_functions.h
   )
@@ -495,12 +501,19 @@ foreach (FILE ${SAVE_HEADER_FILES})
 endforeach (FILE)
 
 # running build for all supported SIMD architectures 
+if( INCLUDE_ATOM )
+  add_subdirectory (core2)
+else( INCLUDE_ATOM )
+  if( WIN32 AND NOT BUILD_X64 )
+    # no corresponding SVML for Win64; hence
+    # we aren't building core2 for Win64
+    add_subdirectory (core2)
+  endif( WIN32 AND NOT BUILD_X64 )
 add_subdirectory (corei7)
 add_subdirectory (sandybridge)
 add_subdirectory (haswell)
-if (INCLUDE_ATOM)
-    add_subdirectory (core2)
-endif()
+endif( INCLUDE_ATOM )
+
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (knc)
 endif()

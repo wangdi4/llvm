@@ -39,8 +39,10 @@ using namespace Intel::OpenCL::Utils;
 #include <sys/resource.h> 
 #include <sys/sysinfo.h>
 
+#ifndef DISABLE_NUMA_SUPPORT
 //cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
 #include <numa.h>
+#endif //DISABLE_NUMA_SUPPORT
 
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
@@ -328,8 +330,12 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 {
+#ifndef DISABLE_NUMA_SUPPORT
     int ret = numa_max_node();
     return (unsigned long)ret;
+#else
+    return 0;
+#endif //DISABLE_NUMA_SUPPORT
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -337,6 +343,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
 {
+#ifndef DISABLE_NUMA_SUPPORT
     struct bitmask b;
     unsigned long long CPUs;
     b.size  = 8 * sizeof(unsigned long long);
@@ -358,6 +365,9 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
         ++cpu;
     }
     return true;
+#else 
+    return false;
+#endif //DISABLE_NUMA_SUPPORT
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -371,7 +381,14 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 	{
 		id = 0;
 	} else {
+#if defined(__ANDROID__)
+		if( syscall(__NR_getcpu, &id, NULL, NULL) < 0 )
+		{
+			return 0;
+		}
+#else
 		id = sched_getcpu();
+#endif
 	}
 	assert(id >= 0);
 	return (unsigned int)id;

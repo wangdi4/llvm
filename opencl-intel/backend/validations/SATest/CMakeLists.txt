@@ -211,6 +211,10 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
+#if (NOT WIN32)
+#    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} OCLBuiltins_linux_exports.txt )
+#endif (NOT WIN32)
+	
 if (INCLUDE_MIC_DEVICE)
     set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
     target_link_libraries(${TARGET_NAME} coi_host dynamic_load)

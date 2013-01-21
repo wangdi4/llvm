@@ -26,77 +26,15 @@ File Name:  BLTImages.cpp
 #include "Helpers.h"
 #include "BLTImages.h"
 
-// !!!! HACK 
-// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it generates
-// Removing annoying ‘ceil’ : attributes not present on previous declaration warning C4985
-#include "cl_types.h"
-#include "CL/cl.h"
 
 
-using namespace llvm;
+
 using std::map;
 using std::string;
 using std::vector;
 namespace Validation {
 namespace OCLBuiltins {
 
-    template<typename T>
-    llvm::GenericValue lle_X_read_image( llvm::FunctionType *FT, 
-        const std::vector<llvm::GenericValue> &Args )
-    {
-        GenericValue gv;
-        cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
-        uint32_t sampler = Args[1].IntVal.getZExtValue();
-
-        // datatype of coordinates == float or int
-        const Type::TypeID CoordTy= FT->getParamType(2)->getContainedType(0)->getTypeID();
-
-        // is image 3d
-        const bool IsImage3d = (memobj->dim_count == 3);
-
-        // coordinates
-        float u = 0.0f, v = 0.0f, w = 0.0f;
-
-        const GenericValue& CoordGV = Args[2];
-
-        if( Type::FloatTyID == CoordTy)
-        {
-            // suppose vector is 4 elements
-            // even if vector is 2 elements we don't access out of boundaries
-            u = getVal<float, 4>(CoordGV, 0);
-            v = getVal<float, 4>(CoordGV, 1);
-            if( IsImage3d ) 
-                w = getVal<float, 4>(CoordGV, 2);
-        }
-        else
-        { // int coordinates
-            u = (float) getVal<uint32_t, 4>(CoordGV, 0);
-            v = (float) getVal<uint32_t, 4>(CoordGV, 1);
-            if( IsImage3d ) 
-                w = (float) getVal<uint32_t, 4>(CoordGV, 2);
-        }
-
-        DEBUG(dbgs() << "Coordinates u=" << u <<" v=" << v << " w=" << w << "\n");
-
-        cl_image_format im_fmt;
-        Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
-        Conformance::image_sampler_data imageSampler = CreateSamplerData(sampler);
-        T Pixel[4];
-        Conformance::sample_image_pixel<T>(
-            memobj->pData, // void *imageData, 
-            &desc, // image_descriptor *imageInfo,
-            u,v,w, 
-            &imageSampler,// image_sampler_data *imageSampler, 
-            Pixel);
-
-        gv.AggregateVal.resize(4);
-        getRef<T,4>(gv, 0) = derefPointer<T>(Pixel+0);
-        getRef<T,4>(gv, 1) = derefPointer<T>(Pixel+1);
-        getRef<T,4>(gv, 2) = derefPointer<T>(Pixel+2);
-        getRef<T,4>(gv, 3) = derefPointer<T>(Pixel+3);
-
-        return gv;
-    }
 
 void ImageMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
 {

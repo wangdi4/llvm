@@ -3,6 +3,8 @@
 #
 use_eh(TRUE)
 
+set (TARGET_NAME OCLBuiltins)
+
 if (NOT WIN32)
 
 # Compiler switches that CANNOT be modified during makefile generation
@@ -26,6 +28,13 @@ set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}"
 
 endif (NOT WIN32)
 
+if(MSVC)
+    # /bigobj is required for windows builds because of the size of
+    # some object files (CastImage for instance)
+    set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj" )
+    set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj" )
+endif()
+
 add_library(OCLBuiltins
   IBLTMapFiller.h
   IWorkItemBuiltins.h
@@ -44,8 +53,11 @@ add_library(OCLBuiltins
   OCLBuiltins.cpp
   VLoadStore.cpp
   Helpers.cpp
+  Wrappers.cpp
   )
 
+  
+  
 include_directories (
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/name_mangling

@@ -595,7 +595,7 @@ def main():
             print "no file '%s' - trying '%s.actual'" % (fname, fname)
             fname += ".actual"
         if os.path.isfile(fname):
-            sys.stdout.writelines(clearValgrindLog(testName))
+            sys.stdout.writelines(clearValgrindLog(fname))
         else:
             print "Can't find file to clear log '%s'" % (fname)
         sys.exit(0)
@@ -719,6 +719,7 @@ End of memory check status report<br/>
         sys.exit(exitStatus)
 
     if (options.show_diff) or (exitStatus != 0 and options.dformat is not 'none'):
+        diff = ""
         if options.dformat is 'html':
             diff = compare(expectedFile, actualFile, "html")
         elif options.dformat is 'full_html':

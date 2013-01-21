@@ -19,7 +19,7 @@ add_custom_command(
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  DEPENDS ocl-tblgen
+  DEPENDS ocl-tblgen ${OCL_TBLGEN_EXE}
   COMMENT "Genereating demangled headers..."
   VERBATIM
 )

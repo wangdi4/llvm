@@ -55,7 +55,7 @@ else ()
     if (TMP_ICC_INSTALL_DIR)
         # if environment ICC_INSTALL_DIR is set
         set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/compilervars.sh" )
-        message("MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
+        message(STATUS "MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
     else ()
         message( FATAL_ERROR "ICC is not found! Setenv ICC_MIC_COMPILER_PATH to point to the ICC with MIC support" )
     endif (TMP_ICC_INSTALL_DIR)

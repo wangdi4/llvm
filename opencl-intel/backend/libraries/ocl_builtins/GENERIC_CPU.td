@@ -8,6 +8,7 @@
 
 include "opencl-builtin.td"
 include "opencl-v1.2.td"
+include "helper_function.td"
 
 include "ll_intrinsics.td"
 
@@ -20,4 +21,5 @@ include "GENERIC/conversion_sat.td"
 //include "GENERIC/atomic.td"
 include "GENERIC/geometric.td"
 include "GENERIC/misc.td"
+include "GENERIC/relational.td"
 }

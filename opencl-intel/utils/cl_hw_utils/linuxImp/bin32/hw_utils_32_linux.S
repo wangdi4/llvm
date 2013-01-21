@@ -43,10 +43,15 @@ M_RDX:
 #------------------------------------------------------------------------------
 .globl hw_cpuid
 hw_cpuid:
-        # store regs b, c, d
+        # store regs b, c, d, and ebp
         push   %ebx
         push   %ecx
         push   %edx
+	push   %ebp
+
+	# Load the struct base into ebp
+	mov	0x14(%esp), %ebp
+
         # fill regs for cpuid
         mov     M_RAX(%ebp), %eax
         mov     M_RBX(%ebp), %ebx
@@ -58,6 +63,7 @@ hw_cpuid:
         mov     %ecx, M_RCX (%ebp)
         mov     %edx, M_RDX (%ebp)
         # restore regs b, c, d
+	pop    %ebp
         pop    %edx
         pop    %ecx
         pop    %ebx

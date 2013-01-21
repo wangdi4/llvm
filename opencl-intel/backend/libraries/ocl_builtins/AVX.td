@@ -17,4 +17,5 @@ class AVX : SSE42 {
   include "avx/misc.td"
   include "avx/conversion.td"
   include "avx/conversion_sat.td"
+  include "avx/relational.td"
 }

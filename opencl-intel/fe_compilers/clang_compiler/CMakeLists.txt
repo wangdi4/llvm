@@ -98,7 +98,13 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       )
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
+
+if( ANDROID )
+  set( TRIPLE -triple i686-pc-linux )
+endif( ANDROID )
+
 set( COMPILER_OPTIONS -cc1
+                                          ${TRIPLE}
                       -x cl
                       -O0
                       -emit-pch 
@@ -107,6 +113,12 @@ set( COMPILER_OPTIONS -cc1
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
     
+if( CMAKE_CROSSCOMPILING )
+  set( CLANG "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/clang" )
+else( CMAKE_CROSSCOMPILING )
+  set( CLANG "clang" )
+endif( CMAKE_CROSSCOMPILING )
+
 add_custom_command( TARGET clang_compiler${BUILD_PLATFORM}
                     PRE_BUILD
                     COMMAND ${LLVM_BINARY_DIR}/clang ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}

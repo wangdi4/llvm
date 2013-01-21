@@ -791,45 +791,6 @@ void RelationalMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X__Z6selectDv8_dS_Dv8_m"]      = lle_X_select<double, uint64_t, 8>;
     funcNames["lle_X__Z6selectDv16_dS_Dv16_m"]    = lle_X_select<double, uint64_t, 16>;
 }
-    template<>
-    llvm::GenericValue localBitselect( float inA, float inB, float inC )
-    {
-        llvm::GenericValue R;
-        union {uint32_t u; float f;} a, b, c, out;
-        a.f = inA;
-        b.f = inB;
-        c.f = inC;
-        out.u = ( a.u & ~c.u ) | ( b.u & c.u );
-        getRef<float>(R) = out.f;
-        return R;
-    }
-    template<>
-    llvm::GenericValue localBitselect( double inA, double inB, double inC )
-    {
-        llvm::GenericValue R;
-        union {uint64_t u; double f;} a, b, c, out;
-        a.f = inA;
-        b.f = inB;
-        c.f = inC;
-        out.u = ( a.u & c.u ) | ( b.u & c.u );
-        getRef<double>(R) = out.f;
-        return R;
-    }
-
-    template<>
-    llvm::GenericValue selectResult( float inC )
-    {
-        llvm::GenericValue R;
-        getRef<float>(R) = inC;
-        return R;
-    }
-    template<>
-    llvm::GenericValue selectResult( double inC )
-    {
-        llvm::GenericValue R;
-        getRef<double>(R) = inC;
-        return R;
-    }
 
 }
 }

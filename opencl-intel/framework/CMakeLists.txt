@@ -42,7 +42,7 @@ if (WIN32)
 		list( APPEND LINK_LIBS d3d9_sharing )
 		endif ( DEFINED ENV{DXSDK_DIR} )
 else()
-    message( WARNING " ERROR: OpenGL Sharing is not ported to Linux!")
+    message( WARNING " Warning: OpenGL Sharing is not ported to Linux!")
 endif(WIN32)
 
 # set that name of the main output file as a target name

@@ -16,6 +16,8 @@ set(CMAKE_MODULE_PATH
 include( cmake_utils/CMakeFuncs.txt )
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
+elseif( ANDROID )
+    include( cmake_utils/CMake_android_tools.cmake )
 elseif (APPLE)
     #include( cmake_utils/CMake_apple_tools.cmake )
 else ()
@@ -119,7 +121,7 @@ project(OCL)
 # extract working copy information for all components into variables
 if (SVN_REVISIONS)
     Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
-    message("Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
+    message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
     
     # write a file with the BUILDVERSION define
     file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif")
@@ -243,11 +245,13 @@ else(APPLE)
     # Common Runime
     option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
     if (WIN32 AND INCLUDE_CMRT)
-        message ("Adding Common Runtime sources...")
         add_subdirectory ( common_runtime )
     endif(WIN32 AND INCLUDE_CMRT)
     #tools
+	if( NOT ANDROID )
     add_subdirectory ( tools )
+	endif( NOT ANDROID )
+
 
     #validation
     add_subdirectory( tests )

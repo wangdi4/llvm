@@ -179,7 +179,11 @@
 #include <OpenCL/opencl.h>
 #include <libkern/OSAtomic.h>
 #else
+#if defined(__ANDROID__)
+#include <GLES/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 #include <CL/opencl.h>
 #endif // !__APPLE__
 

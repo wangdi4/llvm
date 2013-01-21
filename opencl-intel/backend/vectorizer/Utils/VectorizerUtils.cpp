@@ -551,7 +551,7 @@ unsigned int VectorizerUtils::getLOG(uint64_t number) {
 }
 
 Type* VectorizerUtils::convertSoaAllocaType(Type *type, unsigned int width) {
-
+  V_ASSERT(type && "NULL type");
   bool isPointer = type->isPointerTy();
   if (isPointer) {
     type = cast<PointerType>(type)->getElementType();

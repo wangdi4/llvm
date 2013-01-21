@@ -4019,22 +4019,30 @@ float4 const_func __attribute__((overloadable)) fast_normalize(float4 p);
 
 // Relational functions:
 
+/* Section 6.12.6 */
+#define isless(X,Y)             ((X) <  (Y))
+#define islessequal(X,Y)        ((X) <= (Y))
+#define isgreater(X,Y)          ((X) >  (Y))
+#define isgreaterequal(X,Y)     ((X) >= (Y))
+#define isequal(X,Y)            ((X) == (Y))
+#define isnotequal(X,Y)         ((X) != (Y))
+
 /**
  * intn isequal (floatn x, floatn y)
  * Returns the component-wise compare of x == y.
  */
-int const_func __attribute__((overloadable)) isequal(float x, float y);
-int2 const_func __attribute__((overloadable)) isequal(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) isequal(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) isequal(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) isequal(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) isequal(float16 x, float16 y);
-int const_func __attribute__((overloadable)) isequal(double x, double y);
-long2 const_func __attribute__((overloadable)) isequal(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) isequal(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) isequal(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) isequal(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) isequal(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) isequal(float x, float y);
+//int2 const_func __attribute__((overloadable)) isequal(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) isequal(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) isequal(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) isequal(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) isequal(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) isequal(double x, double y);
+//long2 const_func __attribute__((overloadable)) isequal(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) isequal(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) isequal(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) isequal(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) isequal(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) isequal(half x, half y);
 //short2 const_func __attribute__((overloadable)) isequal(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) isequal(half3 x, half3 y);
@@ -4045,18 +4053,18 @@ long16 const_func __attribute__((overloadable)) isequal(double16 x, double16 y);
 /**
  * Returns the component-wise compare of x != y.
  */
-int const_func __attribute__((overloadable)) isnotequal(float x, float y);
-int2 const_func __attribute__((overloadable)) isnotequal(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) isnotequal(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) isnotequal(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) isnotequal(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) isnotequal(float16 x, float16 y);
-int const_func __attribute__((overloadable)) isnotequal(double x, double y);
-long2 const_func __attribute__((overloadable)) isnotequal(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) isnotequal(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) isnotequal(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) isnotequal(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) isnotequal(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) isnotequal(float x, float y);
+//int2 const_func __attribute__((overloadable)) isnotequal(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) isnotequal(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) isnotequal(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) isnotequal(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) isnotequal(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) isnotequal(double x, double y);
+//long2 const_func __attribute__((overloadable)) isnotequal(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) isnotequal(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) isnotequal(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) isnotequal(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) isnotequal(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) isnotequal(half x, half y);
 //short2 const_func __attribute__((overloadable)) isnotequal(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) isnotequal(half3 x, half3 y);
@@ -4067,18 +4075,18 @@ long16 const_func __attribute__((overloadable)) isnotequal(double16 x, double16 
 /**
  * Returns the component-wise compare of x > y.
  */
-int const_func __attribute__((overloadable)) isgreater(float x, float y);
-int2 const_func __attribute__((overloadable)) isgreater(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) isgreater(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) isgreater(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) isgreater(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) isgreater(float16 x, float16 y);
-int const_func __attribute__((overloadable)) isgreater(double x, double y);
-long2 const_func __attribute__((overloadable)) isgreater(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) isgreater(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) isgreater(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) isgreater(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) isgreater(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) isgreater(float x, float y);
+//int2 const_func __attribute__((overloadable)) isgreater(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) isgreater(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) isgreater(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) isgreater(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) isgreater(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) isgreater(double x, double y);
+//long2 const_func __attribute__((overloadable)) isgreater(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) isgreater(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) isgreater(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) isgreater(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) isgreater(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) isgreater(half x, half y);
 //short2 const_func __attribute__((overloadable)) isgreater(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) isgreater(half3 x, half3 y);
@@ -4089,18 +4097,18 @@ long16 const_func __attribute__((overloadable)) isgreater(double16 x, double16 y
 /**
  * Returns the component-wise compare of x >= y.
  */
-int const_func __attribute__((overloadable)) isgreaterequal(float x, float y);
-int2 const_func __attribute__((overloadable)) isgreaterequal(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) isgreaterequal(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) isgreaterequal(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) isgreaterequal(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) isgreaterequal(float16 x, float16 y);
-int const_func __attribute__((overloadable)) isgreaterequal(double x, double y);
-long2 const_func __attribute__((overloadable)) isgreaterequal(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) isgreaterequal(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) isgreaterequal(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) isgreaterequal(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) isgreaterequal(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) isgreaterequal(float x, float y);
+//int2 const_func __attribute__((overloadable)) isgreaterequal(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) isgreaterequal(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) isgreaterequal(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) isgreaterequal(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) isgreaterequal(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) isgreaterequal(double x, double y);
+//long2 const_func __attribute__((overloadable)) isgreaterequal(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) isgreaterequal(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) isgreaterequal(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) isgreaterequal(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) isgreaterequal(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) isgreaterequal(half x, half y);
 //short2 const_func __attribute__((overloadable)) isgreaterequal(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) isgreaterequal(half3 x, half3 y);
@@ -4111,18 +4119,18 @@ long16 const_func __attribute__((overloadable)) isgreaterequal(double16 x, doubl
 /**
  * Returns the component-wise compare of x < y.
  */
-int const_func __attribute__((overloadable)) isless(float x, float y);
-int2 const_func __attribute__((overloadable)) isless(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) isless(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) isless(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) isless(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) isless(float16 x, float16 y);
-int const_func __attribute__((overloadable)) isless(double x, double y);
-long2 const_func __attribute__((overloadable)) isless(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) isless(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) isless(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) isless(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) isless(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) isless(float x, float y);
+//int2 const_func __attribute__((overloadable)) isless(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) isless(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) isless(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) isless(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) isless(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) isless(double x, double y);
+//long2 const_func __attribute__((overloadable)) isless(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) isless(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) isless(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) isless(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) isless(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) isless(half x, half y);
 //short2 const_func __attribute__((overloadable)) isless(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) isless(half3 x, half3 y);
@@ -4133,18 +4141,18 @@ long16 const_func __attribute__((overloadable)) isless(double16 x, double16 y);
 /**
  * Returns the component-wise compare of x <= y.
  */
-int const_func __attribute__((overloadable)) islessequal(float x, float y);
-int2 const_func __attribute__((overloadable)) islessequal(float2 x, float2 y);
-int3 const_func __attribute__((overloadable)) islessequal(float3 x, float3 y);
-int4 const_func __attribute__((overloadable)) islessequal(float4 x, float4 y);
-int8 const_func __attribute__((overloadable)) islessequal(float8 x, float8 y);
-int16 const_func __attribute__((overloadable)) islessequal(float16 x, float16 y);
-int const_func __attribute__((overloadable)) islessequal(double x, double y);
-long2 const_func __attribute__((overloadable)) islessequal(double2 x, double2 y);
-long3 const_func __attribute__((overloadable)) islessequal(double3 x, double3 y);
-long4 const_func __attribute__((overloadable)) islessequal(double4 x, double4 y);
-long8 const_func __attribute__((overloadable)) islessequal(double8 x, double8 y);
-long16 const_func __attribute__((overloadable)) islessequal(double16 x, double16 y);
+//int const_func __attribute__((overloadable)) islessequal(float x, float y);
+//int2 const_func __attribute__((overloadable)) islessequal(float2 x, float2 y);
+//int3 const_func __attribute__((overloadable)) islessequal(float3 x, float3 y);
+//int4 const_func __attribute__((overloadable)) islessequal(float4 x, float4 y);
+//int8 const_func __attribute__((overloadable)) islessequal(float8 x, float8 y);
+//int16 const_func __attribute__((overloadable)) islessequal(float16 x, float16 y);
+//int const_func __attribute__((overloadable)) islessequal(double x, double y);
+//long2 const_func __attribute__((overloadable)) islessequal(double2 x, double2 y);
+//long3 const_func __attribute__((overloadable)) islessequal(double3 x, double3 y);
+//long4 const_func __attribute__((overloadable)) islessequal(double4 x, double4 y);
+//long8 const_func __attribute__((overloadable)) islessequal(double8 x, double8 y);
+//long16 const_func __attribute__((overloadable)) islessequal(double16 x, double16 y);
 //int const_func __attribute__((overloadable)) islessequal(half x, half y);
 //short2 const_func __attribute__((overloadable)) islessequal(half2 x, half2 y);
 //short3 const_func __attribute__((overloadable)) islessequal(half3 x, half3 y);

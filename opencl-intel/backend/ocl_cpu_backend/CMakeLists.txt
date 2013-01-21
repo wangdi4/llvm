@@ -39,19 +39,20 @@ if (NOT WIN32)
     set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
-    # Warning level
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
+set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
     # Assembler setup - use private rules
     # set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
     set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
     set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if (CVCC_ASM_PATH)
-      set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-    else(CVCC_ASM_PATH)
-      message(STATUS "Using system assembler, check that its version is 4.3.x")
-      set( CMAKE_ASM_COMPILER             as )
-    endif(CVCC_ASM_PATH)
+if( NOT ANDROID )
+  if (CVCC_ASM_PATH)
+    set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
+  else(CVCC_ASM_PATH)
+    message(STATUS "Using system assembler, check that its version is 4.3.x")
+    set( CMAKE_ASM_COMPILER             as )
+  endif(CVCC_ASM_PATH)
+endif( NOT ANDROID )
 
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
@@ -72,7 +73,7 @@ if (NOT WIN32)
     set (ADD_LINKER_FLAGS_RELEASE )
 
     include(FindThreads)
-    set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} -lrt" )
+set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}" )
 
 
     # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
@@ -394,7 +395,7 @@ if (KNC_CARD)
 endif (KNC_CARD)
 
 if (ENABLE_SDE)
-    message("-- Enabling SDE version ... ")
+    message(STATUS "-- Enabling SDE version ... ")
     add_definitions( -DENABLE_SDE )
 endif (ENABLE_SDE)
 
