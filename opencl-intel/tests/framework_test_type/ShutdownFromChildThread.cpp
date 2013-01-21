@@ -82,6 +82,8 @@ void ShutdownThread::ThreadRoutine()
     //Deliberate dangling command
 	err |= clEnqueueReadBuffer(commandQueue, mem1, CL_FALSE, 0, sizeof(int), &data2, 0, NULL, NULL);
 
+    err |= clFinish(commandQueue);  // TODO: remove this once TBB bug 1954 is fixed.
+
 	err |= clReleaseMemObject(mem1);
 	err |= clReleaseContext(context);
 	err |= clReleaseCommandQueue(commandQueue);
