@@ -1079,7 +1079,13 @@ string GetTempDir()
         TmpDir += "\\";
     }
 #else // Linux
+    char *EnvUser = getenv("USER");
     TmpDir = "/tmp/";
+    if (EnvUser)
+      {
+	TmpDir += EnvUser;
+	TmpDir += "/";
+      }
 #endif
     return TmpDir;
 }
