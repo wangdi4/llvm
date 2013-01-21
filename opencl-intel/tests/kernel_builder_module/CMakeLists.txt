@@ -96,7 +96,7 @@ include_directories(
                     ${CMAKE_BINARY_DIR}
                     ${OCL_GLOBAL_INCLUDE}
                     ${OCL_SOURCE_DIR}/cl_api
-                    ${OCL_SOURCE_DIR}/externals/boost_1_46_1 
+					${Boost_INCLUDE_DIR}
                     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                     ${OCL_SOURCE_DIR}/tools/ToolsUtils/
                     ${OCL_SOURCE_DIR}/tools/OfflineCompiler/iocQtgui

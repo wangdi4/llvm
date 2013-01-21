@@ -35,9 +35,9 @@ WorkItemInterfaceSetter * WorkItemInterfaceSetter::m_pInst = NULL;
 // it is needed since come workgroup built-ins returns size_t
 const uint32_t SizeTInBits = sizeof(size_t) * 8;
 
-GenericValue lle_X_get_work_dim(FunctionType *FT,
+GenericValue lle_X_get_work_dim_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
- 
+
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   uint32_t work_dim = pI->GetWorkDim();
   GenericValue gv;
@@ -46,13 +46,13 @@ GenericValue lle_X_get_work_dim(FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_global_size(FunctionType *FT,
+GenericValue lle_X_get_global_size_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_global_size() returns 1
   const uint64_t intval = (index < work_dim) ? pI->GetGlobalSize(index) : 1;
   // returns size_t
@@ -60,91 +60,91 @@ GenericValue lle_X_get_global_size(FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_get_global_id(FunctionType *FT,
+GenericValue lle_X_get_global_id_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
- 
+
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_global_id() returns 0
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetGlobalIdNoOffset(index) + pI->GetGlobalOffset(index) : 0;
   // returns size_t
   gv.IntVal = APInt(SizeTInBits, intval );
   return gv;
 }
 
-GenericValue lle_X_get_local_size(FunctionType *FT,
+GenericValue lle_X_get_local_size_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_local_size() returns 1
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetLocalSize(index) : 1;
   // returns size_t
   gv.IntVal = APInt( SizeTInBits, intval );
   return gv;
 }
 
-GenericValue lle_X_get_local_id(FunctionType *FT,
+GenericValue lle_X_get_local_id_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_local_id() returns 0
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetLocalId(index) : 0;
   // returns size_t
   gv.IntVal = APInt(SizeTInBits, intval );
   return gv;
 }
 
-GenericValue lle_X_get_num_groups(FunctionType *FT,
+GenericValue lle_X_get_num_groups_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
-  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_num_groups() returns 1
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetGlobalSize(index) / pI->GetLocalSize(index) : 1;
   // returns size_t
   gv.IntVal=APInt( SizeTInBits, intval );
   return gv;
 }
 
-GenericValue lle_X_get_group_id(FunctionType *FT,
+GenericValue lle_X_get_group_id_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
-  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_groups_id() returns 0
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetGlobalIdNoOffset(index) / pI->GetLocalSize(index) : 0;
   // returns size_t
   gv.IntVal = APInt(SizeTInBits, intval );
   return gv;
 }
 
-GenericValue lle_X_get_global_offset(FunctionType *FT,
+GenericValue lle_X_get_global_offset_impl(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
-  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface(); 
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
   uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
-  // Valid values of index are 0 to work_dim. 
+  // Valid values of index are 0 to work_dim.
   // For other values of index get_global_offset() returns 0
-  const uint64_t intval = (index < work_dim) ? 
+  const uint64_t intval = (index < work_dim) ?
       pI->GetGlobalOffset(index) : 0;
   // returns size_t
   gv.IntVal = APInt(SizeTInBits, intval );
@@ -154,6 +154,7 @@ GenericValue lle_X_get_global_offset(FunctionType *FT,
 
 void WorkItemMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
 {
+    /*
     funcNames["lle_X_get_work_dim"]              =     lle_X_get_work_dim;
     funcNames["lle_X_get_global_size"]           =     lle_X_get_global_size;
     funcNames["lle_X_get_global_id"]             =     lle_X_get_global_id;
@@ -162,9 +163,10 @@ void WorkItemMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
     funcNames["lle_X_get_num_groups"]            =     lle_X_get_num_groups;
     funcNames["lle_X_get_group_id"]              =     lle_X_get_group_id;
     funcNames["lle_X_get_global_offset"]         =     lle_X_get_global_offset;
+    */
 }
 
 
-} // namespace Validation 
+} // namespace Validation
 } // namespace OCLBuiltins
 

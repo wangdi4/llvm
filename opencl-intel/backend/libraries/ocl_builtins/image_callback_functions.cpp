@@ -19,9 +19,6 @@
 // problem reports or change requests be submitted to it directly
 
 #if !defined (__MIC__) && !defined(__MIC2__)
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // overload transpose with naive implementation until optimized one is ready
 #define OVERLOAD_TRANSPOSES
@@ -31,7 +28,7 @@ extern "C" {
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
-#include "ll_intrinsics.h"
+#include "GENERIC/ll_intrinsics.h"
 #include "transpose_functions.h"
 
 #define SHRT16_MIN    (-32768)
@@ -2394,9 +2391,6 @@ float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 squa
     return BorderColorNoAlphaFloat;  //return all zeros vector
 }
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif // defined (__MIC__) || defined(__MIC2__)
 

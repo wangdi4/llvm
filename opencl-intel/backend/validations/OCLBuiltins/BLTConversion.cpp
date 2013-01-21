@@ -27,7 +27,26 @@ namespace Validation {
 namespace OCLBuiltins {
 
 
+	template<>
+	float AsT(const float& R){return R;}
 
+	template<>
+	double AsT(const double& R){return R;}
+
+	#define DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(_T1, _T2) \
+		template<> Conformance::Type LLVMTypeToConformanceType<_T2>(){\
+		return _T1;}
+
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kuchar, uint8_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kchar, int8_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kushort, uint16_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kshort, int16_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kuint, uint32_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kint, int32_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kfloat, float)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kdouble, double)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(kulong, uint64_t)
+	DEF_FUNC_LLVM_TO_CONF_TYPE_IMPL(klong, int64_t)
 
 
 void ConversionMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )

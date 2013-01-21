@@ -20,10 +20,6 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // !!!IMPORTANT!!! These defines should be the same as in ImageCallbackLibrary.h
 #define NONE_FALSE_NEAREST 0x00
 #define CLAMP_FALSE_NEAREST 0x01
@@ -126,7 +122,3 @@ typedef struct _image_aux_data
 
 } image_aux_data;
 
-
-#ifdef __cplusplus
-}
-#endif

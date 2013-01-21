@@ -81,21 +81,12 @@ endif()
 message (STATUS "Global headers are in: ${IMPORT_DIR}")
 
 # svml directories
-if (WIN32)
-  set (SVML_LIB_DIR ${CL_BUILTIN_SOURCE_DIR}/lib/${PLATFORM})
-  if (NOT EXISTS ${SVML_LIB_DIR})
-    message (FATAL_ERROR "Cannot find SVML lib directory (${SVML_LIB_DIR})!")
-  endif()
-else ()
-  set (SVML_LIB_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
-endif ()
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
 if (NOT EXISTS ${SVML_DLL_DIR})
   message (FATAL_ERROR "Cannot find SVML binary directory (${SVML_DLL_DIR})!")
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-message (STATUS "SVML lib dir: ${SVML_LIB_DIR}")
 message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
 
 if( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
@@ -160,10 +151,7 @@ set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 
 set (CLANG_COMPILER_PARAMS 
-  -cc1 -triple ${TRIPLE} -emit-llvm-bc -disable-free -mdisable-fp-elim 
-  -mconstructor-aliases    -fcolor-diagnostics -O3 -opencl-builtins 
-  -mrelocation-model static -fmessage-length 200 -fms-extensions -fwrapv
-  -fgnu-runtime -fdiagnostics-show-option -fcolor-diagnostics 
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -opencl-builtins -fwrapv
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -include opencl_.h
   )
 
@@ -188,19 +176,18 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #
 # Compile single OpenCL source file
 #
-# compile_ocl( OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
+# compile_ocl( OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 #
 #   OUTPUT_FILE_VAR - output, contains full path to object file
-#   ARCH            - target SIMD arch type
 #   PROC            - target CPU
 #   INPUT_FILE      - full path to input file
 #   OUTPUT_DIR      - directory for output file
 #
 
-function( compile_ocl OUTPUT_FILE_VAR ARCH PROC INPUT_FILE OUTPUT_DIR )
+function( compile_ocl OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
-  set (OUTPUT_FILE ${NAME}_${ARCH}${OCL_OUTPUT_EXTENSION} )
+  set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
 
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
@@ -227,6 +214,7 @@ endfunction( compile_ocl )
 #   OUTPUT_FILE_VAR   - output, contains generated library (rtl file)
 #   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
 #   TARGET_NAME       - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
+#   TARGET_DIR        - directory of target-*.td file
 #   ARCH              - target SIMD arch type
 #   PROC              - target CPU
 #   USE_OPT           - Optimize output library with llvm opt tool
@@ -235,7 +223,7 @@ endfunction( compile_ocl )
 #   FILES             - input files list
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR)
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR)
 
   if (${ARGC} LESS 10)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
@@ -246,7 +234,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
-    compile_ocl( TMP_RTL ${ARCH} ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile_ocl( TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
@@ -254,8 +242,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
       COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
       )
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
@@ -267,8 +255,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   else()
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "OCL Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${ARCH}_vectorizer.ll
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
       )
   endif()
@@ -349,12 +337,12 @@ function( install_svml ARCH )
   endif()
 endfunction( install_svml )
 
-function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR IFN)
-    string(REPLACE ".td" ".cpp" OFN ${IFN})
+function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN)
+    string(REPLACE ".td" ".cl" OFN ${IFN})
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ocl-tblgen ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${IFN}
+        COMMAND ocl-tblgen ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         DEPENDS ocl-tblgen ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )
@@ -371,9 +359,10 @@ endfunction(tblgenoclblt)
 # Parameters
 #   PROC                    - target CPU
 #   ARCH                    - target SIMD arch type
+#   TARGET_DIR              - directory of target-*.td file
 #   PREBUILD_IMAGE_LIBRARY  - flag to control creation of object files for image callback library
 
-function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
+function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   set (TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
   if(ARCH STREQUAL b2)
@@ -382,51 +371,18 @@ function( create_target PROC ARCH PREBUILD_IMAGE_LIBRARY)
 
   message (STATUS "Building target:   ${TARGET_NAME}")
 
-  # As far as only MIC support OCL builtin autogen, OCL_TABLEGEN_FILE is left
-  # as an optional argument.
-  # FIXME: when OCL builtin is autogened for all targets, add
-  # OCL_TABLEGEN_FILE as the last parameter and remove the following code
-  # fragment.
-
-  unset(OCL_TABLEGEN_FILE)
-  list(LENGTH ARGN ARGN_LEN)
-  if( ARGN_LEN GREATER 0 )
-    list(GET ARGN 0 OCL_TABLEGEN_FILE)
-  endif( )
-
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
   
   # generate OCL builtin implementation
-  # following commented block is used during tblgen transition. Will be removed
-  # before finishing exporting all BI from the previous implementation to tableGen
-  # you can do it to specific arch, for example the following implementation, it will use only 
-  # on the given arch, 
-  #  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-  #    # autogen OCL builtin implementation from tablegen file
-  #    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
-  # list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-  #  else( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-  #    list (APPEND OCL_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/math_functions.cpp)
-  # list (APPEND HEADER_FILES        ${CL_BUILTIN_SOURCE_DIR}/cl_math_declaration.h     )
-  #  endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) )
-    
-  if( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) OR (ARCH STREQUAL v8))
-    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} target-${ARCH}.td -gen-ocl-bi)
+	tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${TARGET_DIR} target-${ARCH}.td -gen-ocl-bi)
     list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
- endif( (ARCH STREQUAL h8) OR (ARCH STREQUAL n8) OR (ARCH STREQUAL g9) OR (ARCH STREQUAL e9) OR (ARCH STREQUAL s9) OR (ARCH STREQUAL l9) OR (ARCH STREQUAL v8) )	
     
-  if( OCL_TABLEGEN_FILE )
-    # autogen OCL builtin implementation from tablegen file
-    tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_TABLEGEN_FILE} -gen-ocl-bi)
-    list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-  endif( OCL_TABLEGEN_FILE )
-
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
-  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )
@@ -472,7 +428,6 @@ list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   masked_load_store_functions.cpp
   transpose_functions.cpp
-
   )
 
 
@@ -506,15 +461,15 @@ if( INCLUDE_ATOM )
 else( INCLUDE_ATOM )
   if( WIN32 AND NOT BUILD_X64 )
     # no corresponding SVML for Win64; hence
-    # we aren't building core2 for Win64
-    add_subdirectory (core2)
+    # we aren't building ssse3 for Win64
+    add_subdirectory (ssse3)
   endif( WIN32 AND NOT BUILD_X64 )
-add_subdirectory (corei7)
-add_subdirectory (sandybridge)
-add_subdirectory (haswell)
+  add_subdirectory (sse42)
+  add_subdirectory (avx)
+  add_subdirectory (avx2)
 endif( INCLUDE_ATOM )
 
 if (INCLUDE_MIC_DEVICE)
-  add_subdirectory (knc)
+  add_subdirectory (KNCni)
 endif()
 

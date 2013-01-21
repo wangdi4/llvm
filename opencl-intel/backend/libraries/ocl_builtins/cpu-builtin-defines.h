@@ -5,10 +5,6 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // integers masks
 const constant char char_MSB_mask =       0x80;
 const constant int  int_MSB_mask  = 0x80000000;
@@ -156,6 +152,4 @@ const constant int conversion_ones = 1;
 const constant long dones = 1;
 const constant char16 g_vls_4x32to4x16 = {0,1, 4,5,  8,9, 12,13, 0, 0, 0, 0, 0,0,0,0};
 const constant char16 g_vls_2x64to2x16 = {0,1, 8,9,0,0, 0, 0, 0, 0, 0, 0,0,0,0,0};							
-#ifdef __cplusplus
-}
-#endif
+

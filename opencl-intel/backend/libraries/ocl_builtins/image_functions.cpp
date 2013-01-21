@@ -19,15 +19,12 @@
 // problem reports or change requests be submitted to it directly
 
 #if !defined (__MIC__) && !defined(__MIC2__)
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
-#include "ll_intrinsics.h"
+#include "GENERIC/ll_intrinsics.h"
 
 #define NORMALIZED_SAMPLER 0x08
 
@@ -1295,9 +1292,5 @@ void __attribute__((overloadable)) mask_soa8_write_imageui(int8 mask, image2d_t 
     }
 }
 
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // defined (__MIC__) || defined(__MIC2__)

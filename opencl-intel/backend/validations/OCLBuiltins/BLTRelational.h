@@ -105,132 +105,6 @@ namespace OCLBuiltins {
     }
 
     template<typename T>
-    llvm::GenericValue lle_X_isgreater(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) > getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isgreater(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-
-        for (int32_t i = 0; i < n; ++i)
-        {
-            getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) > getVal<T,n>(arg1,i), true);
-        }
-        return R;
-    }
-
-    template<typename T>
-    llvm::GenericValue lle_X_isequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) == getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        for (int32_t i = 0; i < n; ++i)
-        {
-            getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) == getVal<T,n>(arg1,i), true);
-        }
-        return R;
-    }
-
-    template<typename T>
-    llvm::GenericValue lle_X_isgreaterequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) >= getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isgreaterequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        for (int32_t i = 0; i < n; ++i)
-        {
-            getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) >= getVal<T,n>(arg1,i), true);
-        }
-        return R;
-    }
-
-    template<typename T>
-    llvm::GenericValue lle_X_isless(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) < getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isless(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        for (int32_t i = 0; i < n; ++i)
-        {
-            getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) < getVal<T,n>(arg1,i), true);
-        }
-        return R;
-    }
-
-    template<typename T>
-    llvm::GenericValue lle_X_islessequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) <= getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_islessequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        for (int32_t i = 0; i < n; ++i)
-        {
-            getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) <= getVal<T,n>(arg1,i), true);
-        }
-        return R;
-    }
-
-    template<typename T>
     llvm::GenericValue lle_X_islessgreater(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {
@@ -251,31 +125,6 @@ namespace OCLBuiltins {
         for (int32_t i = 0; i < n; ++i)
         {
             getRef<int32_t,n>(R,i) =  -llvm::APInt(32, ((getVal<T,n>(arg0, i) < getVal<T,n>(arg1,i)) || (getVal<T,n>(arg0, i) > getVal<T,n>(arg1,i))), true);
-        }
-        return R;
-    }
-
-    template<typename T>
-    llvm::GenericValue lle_X_isnotequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        getRef<int32_t>(R) = llvm::APInt(32, getVal<T>(arg0) != getVal<T>(arg1), true);
-        return R;
-    }
-    template<typename T, int32_t n>
-    llvm::GenericValue lle_X_isnotequal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        for (int32_t i = 0; i < n; ++i)
-        {
-           getRef<int32_t,n>(R,i) = -llvm::APInt(32, getVal<T,n>(arg0, i) != getVal<T,n>(arg1,i), true);
         }
         return R;
     }
@@ -383,7 +232,7 @@ namespace OCLBuiltins {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
         T sum = 0;
-        sum |= getVal<T>(arg0); 
+        sum |= getVal<T>(arg0);
         sum = (sum != 0) ? 1 : 0;
         getRef<int32_t>(R) = llvm::APInt(32, sum != 0, true);
         return R;
@@ -417,7 +266,7 @@ namespace OCLBuiltins {
         llvm::GenericValue arg0 = Args[0];
         T mask = intMin<sT>();
         T sum = mask; // we need 1 in highest bit here
-        sum &= getVal<T>(arg0); 
+        sum &= getVal<T>(arg0);
         sum = (sum != 0) ? 1 : 0;
         getRef<int32_t>(R) = llvm::APInt(32, sum != 0, true);
         return R;
@@ -564,7 +413,7 @@ namespace OCLBuiltins {
         getRef<double>(R) = inC;
         return R;
     }
-	
+
 } // namespace OCLBuiltins
 } // namespace Validation
 

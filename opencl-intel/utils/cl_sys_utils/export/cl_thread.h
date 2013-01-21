@@ -48,6 +48,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define RETURN_TYPE_ENTRY_POINT void *
 #endif
 
+#if defined(_WIN32)
+#define THREAD_LOCAL __declspec(thread)
+#else
+#define THREAD_LOCAL __thread
+#endif
+
     class OclThread
     {
     public:

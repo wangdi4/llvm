@@ -32,7 +32,7 @@ void TaskGroup::WaitForAll()
 }
 
 base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
-    m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler), m_taskGroup(devArenaHandler)
+	m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler), m_taskGroup(devArenaHandler)
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
@@ -43,7 +43,7 @@ base_command_list::~base_command_list()
 {
     if (!m_devArenaHandler.isTerminating())
     {
-        Wait();
+		WaitForIdle();
         m_devArenaHandler.RemoveCommandList(this);
     }
 }
@@ -84,7 +84,7 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
 		if ( ret > 0)
 		{
 			// Someone else started the task, need to wait
-            Wait();
+            WaitForIdle();
 		}
 	} while ( !(m_pMasterSync->IsCompleted() || ((NULL != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
 		

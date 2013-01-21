@@ -7,10 +7,10 @@
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 #  LLVM_FOUND       - True if llvm found.
 
-find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH DOC "llvm-config executable")
+find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
 
 if (LLVM_CONFIG_EXECUTABLE)
-    message(STATUS "LLVM llvm-config found at: ${LLVM_CONFIG_EXECUTABLE}")
+    message(STATUS "Using llvm-config found at: ${LLVM_CONFIG_EXECUTABLE}")
     
     execute_process(
       COMMAND ${LLVM_CONFIG_EXECUTABLE} --includedir
@@ -49,8 +49,6 @@ if (LLVM_CONFIG_EXECUTABLE)
     )
 
 else (LLVM_CONFIG_EXECUTABLE)
-    
-    message( STATUS "Could NOT find llvm-config.")
     
     if( DEFINED LLVM_PATH )
         message (STATUS "Using LLVM root location specified in LLVM_PATH variable: " ${LLVM_PATH})

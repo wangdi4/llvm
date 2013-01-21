@@ -44,6 +44,7 @@ File Name:  Wrappers.cpp
 #include "BLTMath.h"
 #include "BLTRelational.h"
 #include "VLoadStore.h"
+#include "BLTWorkItem.h"
 #include "Helpers.h"
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -51,7 +52,9 @@ File Name:  Wrappers.cpp
 using namespace Validation::OCLBuiltins;
 
 
+
 extern "C" {
+BUILTINS_API void initOCLBuiltins() {return;}
 BUILTINS_API llvm::GenericValue lle_X__Z8prefetchPKU3AS1cj ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_prefetch(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z8prefetchPKU3AS1hj ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_prefetch(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z8prefetchPKU3AS1sj ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_prefetch(FT,Args); }
@@ -9380,66 +9383,6 @@ BUILTINS_API llvm::GenericValue lle_X__Z5isnanDv3_d ( llvm::FunctionType *FT, co
 BUILTINS_API llvm::GenericValue lle_X__Z5isnanDv4_d ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnan<double, 4>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z5isnanDv8_d ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnan<double, 8>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z5isnanDv16_d ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnan<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterdd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z9isgreaterDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreater<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequaldd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z7isequalDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isequal<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequaldd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z14isgreaterequalDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isgreaterequal<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessdd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z6islessDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isless<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequaldd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z11islessequalDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessequal<double, 16>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<float>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<float, 2>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<float, 3>(FT,Args); }
@@ -9452,18 +9395,6 @@ BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv3_dS_ ( llvm::FunctionT
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<double, 4>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<double, 8>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z13islessgreaterDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_islessgreater<double, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv4_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv8_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv16_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<float, 16>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequaldd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv2_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double, 2>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv3_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double, 3>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv4_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double, 4>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv8_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double, 8>(FT,Args); }
-BUILTINS_API llvm::GenericValue lle_X__Z10isnotequalDv16_dS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isnotequal<double, 16>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z9isorderedff ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isordered<float>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z9isorderedDv2_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isordered<float, 2>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z9isorderedDv3_fS_ ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_isordered<float, 3>(FT,Args); }
@@ -11185,4 +11116,14 @@ BUILTINS_API llvm::GenericValue lle_X__Z7vstore3Dv3_dmPd ( llvm::FunctionType *F
 BUILTINS_API llvm::GenericValue lle_X__Z7vstore4Dv4_dmPd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_vstore<double,4>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z7vstore8Dv8_dmPd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_vstore<double,8>(FT,Args); }
 BUILTINS_API llvm::GenericValue lle_X__Z8vstore16Dv16_dmPd ( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_vstore<double,16>(FT,Args); }
+
+BUILTINS_API llvm::GenericValue lle_X_get_work_dim(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_get_work_dim_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_size(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_size_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_local_size(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_local_size_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_local_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_local_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_num_groups(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_num_groups_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_group_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_group_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_offset(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_offset_impl(FT,Args);}
+
 } //extern "C"

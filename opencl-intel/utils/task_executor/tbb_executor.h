@@ -94,8 +94,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		// Independent tasks will be executed by this task group
         SharedPtr<ITaskList> m_pExecutorList;
 
-		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
-
+		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;				
         ArenaHandler*                       m_pGlobalArenaHandler;
 
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
@@ -130,12 +129,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class in_order_executor_task
     {
     public:
-	    in_order_executor_task(in_order_command_list* list) : m_list(list){}
+	    in_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list){}
 	
 	    void operator()();
 
     protected:
-	    in_order_command_list* m_list;
+	    SharedPtr<base_command_list> m_list;
 
 	    void FreeCommandBatch(TaskVector* pCmdBatch);
 
@@ -144,7 +143,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class out_of_order_executor_task
     {
     public:
-	    out_of_order_executor_task(out_of_order_command_list* list) : m_list(list) {}
+		out_of_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list.DynamicCast<out_of_order_command_list>())
+		{
+			assert(m_list != NULL);
+		}
 
 	    void operator()();
 
@@ -152,7 +154,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
         SharedPtr<ITaskBase> GetTask();
 
-	    out_of_order_command_list* m_list;
+	    SharedPtr<out_of_order_command_list> m_list;
     };
 
 }}}

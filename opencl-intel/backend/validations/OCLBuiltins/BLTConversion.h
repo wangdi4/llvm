@@ -49,13 +49,18 @@ namespace OCLBuiltins {
 	// template func to convert from type T to either APInt in case of integers of
 	// convert to float and double in case of floating point
 	template<typename T>
-	typename retType<T>::type AsT(const T& R){return APInt(sizeof(T) * 8, R, isSignedType<T>());}
+	typename retType<T>::type AsT(const T& R)
+	{
+		return llvm::APInt(sizeof(T) * 8, 
+					R, 
+					isSignedType<T>());
+	}
 
 	template<>
-	float AsT(const float& R){return R;}
+	float AsT(const float& R);
 
 	template<>
-	double AsT(const double& R){return R;}
+	double AsT(const double& R);
 	
 	template<typename TDst, typename TSrc, int n, bool saturate>
 	llvm::GenericValue lle_X_convert(llvm::FunctionType *FT,
@@ -117,9 +122,7 @@ namespace OCLBuiltins {
 	template<typename T>
 	Conformance::Type LLVMTypeToConformanceType();
 
-	#define DEF_FUNC_LLVM_TO_CONF_TYPE(_T1, _T2) \
-		template<> Conformance::Type LLVMTypeToConformanceType<_T2>(){\
-		return _T1;}
+	#define DEF_FUNC_LLVM_TO_CONF_TYPE(_T1, _T2) template<> Conformance::Type LLVMTypeToConformanceType<_T2>();
 
 	DEF_FUNC_LLVM_TO_CONF_TYPE(kuchar, uint8_t)
 	DEF_FUNC_LLVM_TO_CONF_TYPE(kchar, int8_t)
