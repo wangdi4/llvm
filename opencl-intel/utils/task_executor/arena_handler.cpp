@@ -25,11 +25,13 @@
 #include "cl_sys_info.h"
 #include "cl_shared_ptr.hpp"
 
+#define SPARE_TBB_SLOTS 2
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 using namespace Intel::OpenCL::Utils;
 
-// DevArenaObserver's methods:
+// DevArenaObserver's members:
 
 void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
 {
@@ -40,6 +42,7 @@ void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
     {
         return;
     }
+
     const int iCurSlot = tbb::task_arena::current_slot();
     assert(iCurSlot >= 0);    
     WGContextBase* const pOldWgContext = m_pArenaHandler->GetWGContext(iCurSlot);
@@ -150,6 +153,8 @@ m_wgContexts(uiNumTotalComputeUnits + 1), // TODO: fix this after TBB bug #1968 
     {
         *iter = NULL;
     }
+	/* We get P slots for work threads + 1 slot for master. However, when the master joins the arena, one of the worker threads will leave and maximum concurrency of P (except for temporary
+	   oversubscription). */
     m_arena.initialize(uiNumComputeUnits);
 }
 
@@ -207,12 +212,16 @@ WGContextBase* ArenaHandler::GetWGContext()
 
 void ArenaHandler::WaitUntilEmpty()
 {
-	OclAutoReader reader(&m_cmdListsRWLock);    
-    // Calling m_arena.wait_until_empty() is dangerous, because waiting from a worker thread that belongs to the arena causes a deadlock. Instead we wait on all the task_group, which is safe.
-    for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
-    {
-        (*iter)->Wait();
-    }    
+	/* Master thread - we assume that master thread gets slot 0. This isn't expect to change as long as multiple masters capability is not added.
+	   We don't wait in worker thread, since we would deadlock waiting for our own task. */
+	if (0 == tbb::task_arena::current_slot())	
+	{
+		OclAutoReader reader(&m_cmdListsRWLock);    
+		for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
+		{
+			(*iter)->WaitForIdle();
+		}    
+	}
 }
 
 bool ArenaHandler::AreEnqueuedTasks() const

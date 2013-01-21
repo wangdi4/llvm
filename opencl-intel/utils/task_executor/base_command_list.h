@@ -184,7 +184,7 @@ public:
 	/**
      * Wait for all tasks (commands and executor tasks) to be completed
      */
-    virtual void Wait()
+    virtual void WaitForIdle()
 	{
 		m_taskGroup.WaitForAll();
 	}
@@ -232,7 +232,7 @@ protected:
 	tbb::atomic<bool>		m_bMasterRunning;
 
     ArenaHandler&           m_devArenaHandler;
-    TaskGroup               m_taskGroup;
+    TaskGroup               m_taskGroup;	
 
 private:
 	//Disallow copy constructor
@@ -292,9 +292,10 @@ public:
 
     // overriden methods:    
 
-    void Wait()
+    void WaitForIdle()
     {
-        base_command_list::Wait();
+		// we wait here for 2 things seperately: commands and execution tasks
+        base_command_list::WaitForIdle();
         m_oooTaskGroup.WaitForAll();
     }
         
