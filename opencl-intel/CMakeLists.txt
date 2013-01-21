@@ -29,6 +29,7 @@ endif ()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
+FIND_PACKAGE(Boost 1.52.0 REQUIRED)
 #PRINT_TOOLS()
 
 #
