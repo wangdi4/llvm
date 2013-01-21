@@ -18,14 +18,14 @@ endif(WIN32)
 
 set(GenCommand ${OCL_TBLGEN_EXE} -gen-ocl-biheader 
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/KNCni/target-b2.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   COMMAND ${OCL_TBLGEN_EXE} -gen-ocl-biheader 
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/KNCni/target-b2.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
   DEPENDS ocl-tblgen ${OCL_TBLGEN_EXE}
   COMMENT "genereating demangled headers... ${GenCommand}"
