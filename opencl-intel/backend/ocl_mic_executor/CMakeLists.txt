@@ -197,8 +197,6 @@ list( APPEND MIC_FLAGS
 	        -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include 	
                 )
 
-message(STATUS Elior:${CMAKE_SOURCE_DIR}/backend/plugin_manager)
-
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     # Debug
     list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
