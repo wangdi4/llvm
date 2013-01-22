@@ -32,12 +32,6 @@
 #include <common/COITypes_common.h>
 #include "cl_device_api.h"
 #include "cl_types.h"
-#include "task_executor.h"
-
-// The maximum amount of worker threads.
-#define MIC_NATIVE_MAX_CORES                64
-#define MIC_NATIVE_MAX_THREADS_PER_CORE     4
-#define MIC_NATIVE_MAX_WORKER_THREADS       (MIC_NATIVE_MAX_CORES * MIC_NATIVE_MAX_THREADS_PER_CORE)
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -358,6 +352,25 @@ struct misc_data
 
 #define MIC_CPU_ARCH_STR_SIZE 64
 
+enum mic_TBB_scheduler 
+{
+    mic_TBB_auto = 0,
+    mic_TBB_affinity,
+    mic_TBB_openmp,
+
+    mic_TBB_scheduler_LAST
+};
+
+enum mic_TBB_block_optimization
+{
+    mic_TBB_block_by_default_TBB_tile = 0,
+    mic_TBB_block_by_row,
+    mic_TBB_block_by_column,
+    mic_TBB_block_by_tile,
+
+    mic_TBB_block_by_LAST
+};
+
 struct mic_exec_env_options {
 	bool                stop_at_load;
     bool                use_affinity;
@@ -366,14 +379,16 @@ struct mic_exec_env_options {
 	bool                kernel_safe_mode;
 	bool                use_vtune;
     bool                trap_workers;
-	uint32_t            threads_per_core;
+	uint32_t            num_of_worker_threads;
 	uint32_t            num_of_cores;
     uint32_t            use_TBB_grain_size;
     uint32_t            min_work_groups_number; // recommended amount of workgroups per NDRange
+    mic_TBB_scheduler   tbb_scheduler;
+    mic_TBB_block_optimization tbb_block_optimization;
     
-    Intel::OpenCL::TaskExecutor::TE_CMD_LIST_PREFERRED_SCHEDULING   tbb_scheduler;
-    Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION              tbb_block_optimization;
-    
+    // BUGBUG: TBB slowness workaround
+    uint32_t			workers_per_queue;		// Temporary W/O for conformance slowness.
+    											// This should limit number of workers serving one queue.
 	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 

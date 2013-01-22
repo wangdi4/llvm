@@ -17,7 +17,6 @@
 #include "cl_sys_info.h"
 #include "hw_utils.h"
 #include "mic_common_macros.h"
-#include "mic_device_interface.h"
 #include "NumericListParser.h"
 
 #ifdef _DEBUG
@@ -328,20 +327,17 @@ uint32_t MICSysInfo::getEngineCount()
     return m_numEngines;
 }
 
-cl_uint MICSysInfo::getNumOfCores(uint32_t deviceId)
-{
-    if (initializedInfoStruct(deviceId))
-    {
-        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumCores;
-    }
-    return 0;
-}
-
 cl_uint MICSysInfo::getNumOfComputeUnits(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumThreads;
+        // this calculation mshould imic the calculation done at device startup in TBB init procedure 
+        // but because info may be queued yed before the device was start - we cannot use the data from real device.
+        // we also cannot calculate it here as calculation requires configuration file that is created in 
+        // device constructor on host. 
+        // In any case data end user cannot influence the real calculations as all coniguration switches are hidden.
+        // So return the default HW threads count - (real number of HW cores - 1)*4
+        return m_guardedInfoArr[deviceId].devInfoStruct->micDeviceInfoStruct.NumThreads-4;
     }
     return 0;
 }
@@ -477,13 +473,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             //if OUT paramVal is NULL it should be ignored
             if(NULL != buf)
             {
-                // this calculation should mimic the calculation done at device startup in TBB init procedure 
-                // but because info may be queued yed before the device was start - we cannot use the data from real device.
-                // we also cannot calculate it here as calculation requires configuration file that is created in 
-                // device constructor on host. 
-                // In any case data end user cannot influence the real calculations as all coniguration switches are hidden.
-                // So return the default HW threads count - (real number of HW cores - 1)*4
-                *(cl_uint*)buf = MAX((cl_uint)1, (getNumOfComputeUnits(deviceId) - MIC_NATIVE_MAX_THREADS_PER_CORE));
+                *(cl_uint*)buf = MAX((cl_uint)1, getNumOfComputeUnits(deviceId));
             }
             return CL_DEV_SUCCESS;
         }

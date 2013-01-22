@@ -23,7 +23,6 @@
 #include "cl_synch_objects.h"
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
-#include "tbb/tbb.h"
 #include "tbb/task_group.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -185,17 +184,13 @@ public:
 	/**
      * Wait for all tasks (commands and executor tasks) to be completed
      */
-    virtual void Wait()
+    virtual void WaitForIdle()
 	{
 		m_taskGroup.WaitForAll();
 	}
 
     ArenaHandler& GetDevArenaHandler() { return m_devArenaHandler; }
 
-    virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() { return TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC; }
-    
-    virtual tbb::affinity_partitioner* GetAffinityPartitioner() { return NULL; }
-   
     std::string GetTypeName() const { return "base_command_list"; }
 
     /**
@@ -208,7 +203,6 @@ public:
     {
         m_taskGroup.EnqueueFunc(func);
     }
-	friend class immediate_executor_task;
 
     bool HaveIncomingWork() const
 	{
@@ -219,10 +213,9 @@ protected:
 	friend class in_order_executor_task;
 	friend class out_of_order_executor_task;
 
-    base_command_list( TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler);	    	
+    base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler);	    	
 
-	virtual unsigned int LaunchExecutorTask(bool blocking,
-                                            const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL) = 0;
+	virtual unsigned int LaunchExecutorTask(bool blocking) = 0;
 
 	inline unsigned int InternalFlush(bool blocking);
 
@@ -239,7 +232,7 @@ protected:
 	tbb::atomic<bool>		m_bMasterRunning;
 
     ArenaHandler&           m_devArenaHandler;
-    TaskGroup               m_taskGroup;
+    TaskGroup               m_taskGroup;	
 
 private:
 	//Disallow copy constructor
@@ -253,26 +246,18 @@ public:
 
     PREPARE_SHARED_PTR(in_order_command_list)
 
-    static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
-                                                      ArenaHandler& devArenaHandler, 
-                                                      const CommandListCreationParam* param = NULL )
+    static SharedPtr<in_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
     {
-        return new in_order_command_list(pTBBExec, devArenaHandler, param);
+        return new in_order_command_list(subdevice, pTBBExec, devArenaHandler);
     }
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL );
+    virtual unsigned int LaunchExecutorTask(bool blocking);
 
 private:
-    tbb::affinity_partitioner        m_ap;
-    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
-    in_order_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, devArenaHandler) 
-    {
-        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
-    }
+    in_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler) { }
 };
 
 class out_of_order_command_list : public base_command_list
@@ -281,11 +266,9 @@ public:
 
     PREPARE_SHARED_PTR(out_of_order_command_list)
 
-    static SharedPtr<out_of_order_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
-                                                          ArenaHandler& devArenaHandler, 
-                                                          const CommandListCreationParam* param = NULL )
+    static SharedPtr<out_of_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
     {
-        return new out_of_order_command_list(pTBBExec, devArenaHandler, param);
+        return new out_of_order_command_list(subdevice, pTBBExec, devArenaHandler);
     }
 
     /**
@@ -309,61 +292,21 @@ public:
 
     // overriden methods:    
 
-    void Wait()
+    void WaitForIdle()
     {
-        base_command_list::Wait();
+		// we wait here for 2 things seperately: commands and execution tasks
+        base_command_list::WaitForIdle();
         m_oooTaskGroup.WaitForAll();
     }
         
 private:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL);
+    virtual unsigned int LaunchExecutorTask(bool blocking);
 
     TaskGroup m_oooTaskGroup;
 
-    out_of_order_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, devArenaHandler), m_oooTaskGroup(devArenaHandler) { }
-};
-
-class immediate_command_list : public base_command_list
-{
-public:
-
-    PREPARE_SHARED_PTR(immediate_command_list)
-
-    static SharedPtr<immediate_command_list> Allocate( TBBTaskExecutor* pTBBExec, 
-                                                       ArenaHandler& devArenaHandler, 
-                                                       const CommandListCreationParam* param )
-    {
-        return new immediate_command_list(pTBBExec, devArenaHandler, param);
-    }
-
-    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
-    {        
-        return LaunchExecutorTask( true, &pTask );
-    }
-
-    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait)
-    {
-        return TE_WAIT_NOT_SUPPORTED;
-    }
-
-    bool Flush() { return true; }
-
-protected:
-
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL);
-
-private:
-    tbb::affinity_partitioner m_ap;
-    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
-    
-    immediate_command_list(TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, devArenaHandler) 
-    {
-        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
-    }
+    out_of_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler),
+        m_oooTaskGroup(devArenaHandler) { }
 };
 
 }}}
-

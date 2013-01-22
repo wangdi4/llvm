@@ -54,6 +54,7 @@ extern "C" llvm::Pass *createClangCompatFixerPass();
 
 #ifndef __APPLE__
 extern "C" llvm::FunctionPass *createPrefetchPass();
+extern "C" llvm::ModulePass * createRemovePrefetchPass();
 extern "C" llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 #endif //#ifndef __APPLE__
 
@@ -226,7 +227,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
+  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+    m_modulePasses.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
+
   m_modulePasses.add(createShuffleCallToInstPass());
 
   unsigned int uiOptLevel;

@@ -26,7 +26,6 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_stopwatch.h"
-#include "hw_utils.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -34,6 +33,12 @@ using namespace Intel::OpenCL::Utils;
 #include<windows.h>
 #endif
 #include <assert.h>
+
+#ifdef WIN32
+	#define RDTSC(X) (X) = __rdtsc()
+#else
+	#define RDTSC(X) __asm__ __volatile__("rdtsc": "=A" (X))
+#endif
 
 StopWatch::StopWatch()
 {
@@ -48,13 +53,13 @@ StopWatch::~StopWatch()
 
 void StopWatch::Start()
 {
-	m_ullTime = RDTSC();
+	RDTSC(m_ullTime);
 }
 
 unsigned long long StopWatch::Stop()
 {
 	unsigned long long ullPrevTime = m_ullTime;
-	m_ullTime = RDTSC();
+	RDTSC(m_ullTime);
 	m_uiCounter++;
 	return (m_ullTime - ullPrevTime);
 }
@@ -69,6 +74,6 @@ unsigned long long StopWatch::Reset()
 unsigned long long StopWatch::GetTime() const
 {
 	unsigned long long currTime;
-	currTime = RDTSC();
+	RDTSC(currTime);
 	return currTime - m_ullTime;
 }

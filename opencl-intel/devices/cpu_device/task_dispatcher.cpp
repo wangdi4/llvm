@@ -35,7 +35,9 @@
 #include <cl_synch_objects.h>
 #include <cl_sys_info.h>
 #include <cl_utils.h>
+#if defined(USE_ITT)
 #include <ocl_itt.h>
+#endif
 
 #include <stdlib.h>
 #include <assert.h>
@@ -279,7 +281,7 @@ bool TaskDispatcher::isDestributedAllocationRequried()
 
 bool TaskDispatcher::isThreadAffinityRequried()
 {
-#ifdef WIN32 //Not pinning threads for Windows
+#if ( defined(WIN32) || defined(__ANDROID__) ) //Not pinning threads for Windows or Android
 	return false;
 #else
 	return true;
@@ -309,10 +311,12 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
     bool isInPlace   = (0 != ((int)props & (int)CL_DEV_LIST_IN_PLACE));
     if (!isInPlace)
     {
+        bool isSubdevice = (0 != ((int)props & (int)CL_DEV_LIST_SUBDEVICE));
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-	    pList = m_pTaskExecutor->CreateTaskList(
-                        isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER, 
-                        pSubdevTaskExecData);
+        CommandListCreationParam p;
+        p.isOOO       = isOOO;
+        p.isSubdevice = isSubdevice;
+	    pList = m_pTaskExecutor->CreateTaskList(&p, pSubdevTaskExecData);
     }
     else
     {
@@ -464,8 +468,11 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 	// If list id is 0, submit tasks directly to execution
 	if ( NULL == pList )
 	{
+        CommandListCreationParam p;
+        p.isOOO = false;
+        p.isSubdevice = false;
 		// Create temporary list
-		pList = m_pTaskExecutor->CreateTaskList(TE_CMD_LIST_IN_ORDER);
+		pList = m_pTaskExecutor->CreateTaskList(&p, NULL);
 	}
 
 	// Lock current list for insert operations

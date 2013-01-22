@@ -38,6 +38,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	size_t * pBinarySizes;
 	cl_int * pBinaryStatus; 
 	cl_context context;
+	cl_prog_container_header** ppContainers;
 
 	cl_platform_id platform = 0;
 
@@ -63,6 +64,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	pDevices = new cl_device_id[uiNumDevices];
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
+	ppContainers = new cl_prog_container_header*[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
@@ -71,6 +73,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
+		delete []ppContainers;
 		return bResult;
 	}
 
@@ -82,6 +85,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
+		delete []ppContainers;
 		return bResult;
 	}
 	printf("context = %p\n", context);
@@ -98,6 +102,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
+		delete []ppContainers;
 		return false;
 	}
 	fseek(pIRfile, 0, SEEK_END);
@@ -111,6 +116,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
+		delete []ppContainers;
 		return false;
 	}
 	// Construct program container
@@ -126,10 +132,14 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	fread(((unsigned char*)pCont)+sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
 	fclose(pIRfile);
 
-	pBinarySizes[0] = uiContSize;
+	for (unsigned int i = 0; i < uiNumDevices; i++)
+	{
+		pBinarySizes[i] = uiContSize;
+		ppContainers[i] = pCont;
+	}
 
 	// create program with binary
-	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes,  (const unsigned char**)(&pCont), pBinaryStatus, &iRet);
+	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes,  (const unsigned char**)(ppContainers), pBinaryStatus, &iRet);
 	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	if (!bResult)
@@ -137,6 +147,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []pDevices;
 		delete []pBinarySizes;
 		delete []pBinaryStatus;
+		delete []ppContainers;
 		free(pCont);
 		return bResult;
 	}
@@ -189,6 +200,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	delete []pDevices;
 	delete []pBinarySizes;
 	delete []pBinaryStatus;
+	delete []ppContainers;
 	free(pCont);
 	return bResult;
 }

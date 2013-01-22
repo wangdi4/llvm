@@ -211,7 +211,7 @@ int OclThread::SetAffinity(unsigned char ucAffinity)
     {
         return THREAD_RESULT_FAIL;
     }
-    cpu_set_t affinityMask;
+    affinityMask_t affinityMask;
     // CPU_ZERO initializes all the bits in the mask to zero.
     CPU_ZERO(&affinityMask);
     // CPU_SET sets only the bit corresponding to cpu.

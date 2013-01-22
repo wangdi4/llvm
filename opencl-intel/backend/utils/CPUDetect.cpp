@@ -139,6 +139,8 @@ CPUDetect::CPUDetect(void)
 #if defined(_WIN32)
 #if defined(_M_X64)
           xgetbv( XCRInfo )
+#elif defined(__ANDROID__)
+	    __asm__("xgetbv" : "=a"(XCRInfo[0]), "=d"(XCRInfo[1]));
 #else
           // Use this inline asm in Win32 only
           __asm

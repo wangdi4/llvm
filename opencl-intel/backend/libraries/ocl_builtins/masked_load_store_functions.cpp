@@ -27,19 +27,20 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
-
+#define INLINE_ATTRIBUTE __attribute__((always_inline))
+#define INTERNAL_INLINE_ATTRIBUTE inline INLINE_ATTRIBUTE
 // ****************************************************************************
 //                                 char4x4
 // ****************************************************************************
 
 #if defined(__AVX2__)
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x4_AVX2(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_char4x4_AVX2(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
   char16* tmpLoadedValues = (char16*)pLoadedValues;
   *tmpLoadedValues = (char16)_mm_maskload_epi32((int*)pLoadAdd, (__m128i)mask);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x4_AVX2(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_char4x4_AVX2(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
   _mm_maskstore_epi32((int*)pStoreAdd, (__m128i) mask,*((__m128i*) pValuesToStore)); 
 }
 
@@ -47,12 +48,12 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x4_AVX2(char4* 
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x4_AVX(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_char4x4_AVX(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
   char16* tmpLoadedValues = (char16*)pLoadedValues;
   *tmpLoadedValues = (char16)_mm_maskload_ps((float*)pLoadAdd, (__m128)mask);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x4_AVX(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_char4x4_AVX(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
   _mm_maskstore_ps((float*)pStoreAdd, (__m128) mask,*((__m128*) pValuesToStore)); 
 }
 
@@ -61,7 +62,7 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x4_AVX(char4* p
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x4(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
+void INLINE_ATTRIBUTE masked_load_char4x4(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
 #if defined(__AVX2__)
   masked_load_char4x4_AVX2(pLoadAdd, pLoadedValues, mask);
 #else // defined(__AVX__)
@@ -69,7 +70,7 @@ void __inline__ __attribute__((always_inline)) masked_load_char4x4(char4* pLoadA
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x4(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_char4x4(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
 #if defined(__AVX2__)
   masked_store_char4x4_AVX2(pStoreAdd, pValuesToStore, mask);
 #else // defined(__AVX__)
@@ -85,14 +86,14 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x4(char4* pStor
 
 #if defined(__AVX2__)
 
-typedef __v32qi char32;
+typedef __v32qi my_char32;
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x8_AVX2(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
-   char32* tmpLoadedValues = (char32*)pLoadedValues;
-   *tmpLoadedValues = (char32)_mm256_maskload_epi32((int*)pLoadAdd, (__m256i)mask);
+void INTERNAL_INLINE_ATTRIBUTE masked_load_char4x8_AVX2(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
+   my_char32* tmpLoadedValues = (my_char32*)pLoadedValues;
+   *tmpLoadedValues = (my_char32)_mm256_maskload_epi32((int*)pLoadAdd, (__m256i)mask);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x8_AVX2(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_char4x8_AVX2(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
   _mm256_maskstore_epi32((int*)pStoreAdd, (__m256i) mask,*((__m256i*) pValuesToStore)); 
 }
 
@@ -101,14 +102,14 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x8_AVX2(char4* 
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x8_AVX(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_char4x8_AVX(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
   float8 res = (float8)_mm256_maskload_ps((float*)pLoadAdd, (__m256)mask);
   char16* tmpLoadedValues = (char16*)pLoadedValues;
   tmpLoadedValues[0] = (char16) res.lo;
   tmpLoadedValues[1] = (char16) res.hi;
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x8_AVX(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_char4x8_AVX(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
   _mm256_maskstore_ps((float*)pStoreAdd, (__m256) mask,*((__m256*) pValuesToStore)); 
 }
 
@@ -117,7 +118,7 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x8_AVX(char4* p
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_char4x8(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
+void INLINE_ATTRIBUTE masked_load_char4x8(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
 #if defined(__AVX2__)
   masked_load_char4x8_AVX2(pLoadAdd, pLoadedValues, mask);
 #else // defined(__AVX__)
@@ -125,7 +126,7 @@ void __inline__ __attribute__((always_inline)) masked_load_char4x8(char4* pLoadA
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_char4x8(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_char4x8(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
 #if defined(__AVX2__)
   masked_store_char4x8_AVX2(pStoreAdd, pValuesToStore, mask);
 #else // defined(__AVX__)
@@ -141,7 +142,7 @@ void __inline__ __attribute__((always_inline)) masked_store_char4x8(char4* pStor
 
 #if defined(__AVX2__)
 
-void __inline__ __attribute__((always_inline))  masked_load_int4x4_AVX2(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_int4x4_AVX2(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
   
   int8 extendedMask = mask.s01230123;
   int8 maskLow = extendedMask.s00001111;
@@ -153,7 +154,7 @@ void __inline__ __attribute__((always_inline))  masked_load_int4x4_AVX2(int4* pL
   tmpLoadedValues[1] = (int8)_mm256_maskload_epi32((int*)&(tmpLoadAdd[1]), (__m256i)maskHigh);
 }
 
-void __inline__ __attribute__((always_inline))  masked_store_int4x4_AVX2(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_int4x4_AVX2(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
   
   int8 extendedMask = mask.s01230123;
   int8 maskLow = extendedMask.s00001111;
@@ -170,7 +171,7 @@ void __inline__ __attribute__((always_inline))  masked_store_int4x4_AVX2(int4* p
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_float4x4_common(float4* pLoadAdd, float4* pLoadedValues, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_float4x4_common(float4* pLoadAdd, float4* pLoadedValues, int4 mask) {
 
   float8 extendedMask = (float8) mask.s01230123;
   float8 maskLow = extendedMask.s00001111;
@@ -182,11 +183,11 @@ void __inline__ __attribute__((always_inline)) masked_load_float4x4_common(float
   tmpLoadedValues[1] = (float8)_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh);
 }
 
-void __inline__ __attribute__((always_inline))  masked_load_int4x4_AVX(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_load_int4x4_AVX(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
   masked_load_float4x4_common((float4*)pLoadAdd, (float4*)pLoadedValues, mask);
 }
 
-void __inline__ __attribute__((always_inline))  masked_store_int4x4_AVX(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
+void INTERNAL_INLINE_ATTRIBUTE masked_store_int4x4_AVX(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
   masked_store_float4x4((float4*)pStoreAdd, (float4*)pValuesToStore, mask);
 }
 
@@ -195,7 +196,7 @@ void __inline__ __attribute__((always_inline))  masked_store_int4x4_AVX(int4* pS
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_int4x4(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
+void INLINE_ATTRIBUTE masked_load_int4x4(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
 #if defined(__AVX2__)
   masked_load_int4x4_AVX2(pLoadAdd, pLoadedValues, mask);
 #else // defined(__AVX__)
@@ -203,7 +204,7 @@ void __inline__ __attribute__((always_inline)) masked_load_int4x4(int4* pLoadAdd
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_int4x4(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_int4x4(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
 #if defined(__AVX2__)
   masked_store_int4x4_AVX2(pStoreAdd, pValuesToStore, mask);
 #else // defined(__AVX__)
@@ -219,12 +220,12 @@ void __inline__ __attribute__((always_inline)) masked_store_int4x4(int4* pStoreA
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_int4x8(int4* pLoadAdd, int4* pLoadedValues, int8 mask) {  
+void INLINE_ATTRIBUTE masked_load_int4x8(int4* pLoadAdd, int4* pLoadedValues, int8 mask) {  
   masked_load_int4x4(&(pLoadAdd[0]), &(pLoadedValues[0]), mask.lo);
   masked_load_int4x4(&(pLoadAdd[4]), &(pLoadedValues[4]), mask.hi);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_int4x8(int4* pStoreAdd, int4* pValuesToStore, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_int4x8(int4* pStoreAdd, int4* pValuesToStore, int8 mask) {
   masked_store_int4x4(&(pStoreAdd[0]), &(pValuesToStore[0]), mask.lo);
   masked_store_int4x4(&(pStoreAdd[4]), &(pValuesToStore[4]), mask.hi);
 }
@@ -238,12 +239,12 @@ void __inline__ __attribute__((always_inline)) masked_store_int4x8(int4* pStoreA
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_float4x4(float4* pLoadAdd, float4* pLoadedValues, int4 mask) {
+void INLINE_ATTRIBUTE masked_load_float4x4(float4* pLoadAdd, float4* pLoadedValues, int4 mask) {
   *((float16*)pLoadedValues) = 0;
   masked_load_float4x4_common((float4*)pLoadAdd, (float4*)pLoadedValues, mask);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_float4x4(float4* pStoreAdd, float4* pValuesToStore, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_float4x4(float4* pStoreAdd, float4* pValuesToStore, int4 mask) {
   
   float8 extendedMask = (float8) mask.s01230123;
   float8 maskLow = extendedMask.s00001111;
@@ -263,12 +264,12 @@ void __inline__ __attribute__((always_inline)) masked_store_float4x4(float4* pSt
 
 #if defined(__AVX__)
 
-void __inline__ __attribute__((always_inline)) masked_load_float4x8(float4* pLoadAdd, float4* pLoadedValues, int8 mask) {
+void INLINE_ATTRIBUTE masked_load_float4x8(float4* pLoadAdd, float4* pLoadedValues, int8 mask) {
   masked_load_float4x4(&(pLoadAdd[0]), &(pLoadedValues[0]), mask.lo);
   masked_load_float4x4(&(pLoadAdd[4]), &(pLoadedValues[4]), mask.hi);
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_float4x8(float4* pStoreAdd, float4* pValuesToStore, int8 mask)  {
+void INLINE_ATTRIBUTE masked_store_float4x8(float4* pStoreAdd, float4* pValuesToStore, int8 mask)  {
   masked_store_float4x4(&(pStoreAdd[0]), &(pValuesToStore[0]), mask.lo);
   masked_store_float4x4(&(pStoreAdd[4]), &(pValuesToStore[4]), mask.hi);
 }
@@ -281,7 +282,7 @@ void __inline__ __attribute__((always_inline)) masked_store_float4x8(float4* pSt
 //                                 int4
 // ****************************************************************************
 
-int4 __inline__ __attribute__((always_inline)) masked_load_int4(int4* pLoadAdd, int4 mask) {
+int4 INLINE_ATTRIBUTE masked_load_int4(int4* pLoadAdd, int4 mask) {
 #if defined(__AVX2__)
   return as_int4(_mm_maskload_epi32((int const *)pLoadAdd, (__m128i) mask));
 #else
@@ -289,7 +290,7 @@ int4 __inline__ __attribute__((always_inline)) masked_load_int4(int4* pLoadAdd, 
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_int4(int4* pStoreAdd, int4 data, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_int4(int4* pStoreAdd, int4 data, int4 mask) {
 #if defined(__AVX2__)
   _mm_maskstore_epi32((int *)pStoreAdd, (__m128i) mask, *((__m128i*) &data));
 #else
@@ -301,7 +302,7 @@ void __inline__ __attribute__((always_inline)) masked_store_int4(int4* pStoreAdd
 //                                 int8
 // ****************************************************************************
 
-int8 __inline__ __attribute__((always_inline)) masked_load_int8(int8* pLoadAdd, int8 mask) {
+int8 INLINE_ATTRIBUTE masked_load_int8(int8* pLoadAdd, int8 mask) {
 #if defined(__AVX2__)
   return as_int8(_mm256_maskload_epi32((int const *)pLoadAdd, (__m256i) mask));
 #else
@@ -309,7 +310,7 @@ int8 __inline__ __attribute__((always_inline)) masked_load_int8(int8* pLoadAdd, 
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_int8(int8* pStoreAdd, int8 data, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_int8(int8* pStoreAdd, int8 data, int8 mask) {
 #if defined(__AVX2__)
   _mm256_maskstore_epi32((int *)pStoreAdd, (__m256i) mask, *((__m256i*) &data));
 #else
@@ -321,7 +322,7 @@ void __inline__ __attribute__((always_inline)) masked_store_int8(int8* pStoreAdd
 //                                 long4
 // ****************************************************************************
 
-long4 __inline__ __attribute__((always_inline)) masked_load_long4(long4* pLoadAdd, int4 mask) {
+long4 INLINE_ATTRIBUTE masked_load_long4(long4* pLoadAdd, int4 mask) {
   long4 extMask = convert_long4(mask);
 
 #if defined(__AVX2__)
@@ -331,7 +332,7 @@ long4 __inline__ __attribute__((always_inline)) masked_load_long4(long4* pLoadAd
 #endif
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_long4(long4* pStoreAdd, long4 data, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_long4(long4* pStoreAdd, long4 data, int4 mask) {
   long4 extMask = convert_long4(mask);
 
 #if defined(__AVX2__)
@@ -345,14 +346,14 @@ void __inline__ __attribute__((always_inline)) masked_store_long4(long4* pStoreA
 //                                 long8
 // ****************************************************************************
 
-long8 __inline__ __attribute__((always_inline)) masked_load_long8(long8* pLoadAdd, int8 mask) {
+long8 INLINE_ATTRIBUTE masked_load_long8(long8* pLoadAdd, int8 mask) {
   long8 res;
   res.lo = masked_load_long4((long4*) pLoadAdd, mask.lo);
   res.hi = masked_load_long4(((long4*) pLoadAdd)+1, mask.hi);
   return res;
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_long8(long8* pStoreAdd, long8 data, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_long8(long8* pStoreAdd, long8 data, int8 mask) {
   masked_store_long4((long4*) pStoreAdd, data.lo, mask.lo);
   masked_store_long4(((long4*) pStoreAdd)+1, data.hi, mask.hi);
 }
@@ -361,11 +362,11 @@ void __inline__ __attribute__((always_inline)) masked_store_long8(long8* pStoreA
 //                                 float4
 // ****************************************************************************
 
-float4 __inline__ __attribute__((always_inline)) masked_load_float4(float4* pLoadAdd, int4 mask) {
+float4 INLINE_ATTRIBUTE masked_load_float4(float4* pLoadAdd, int4 mask) {
   return as_float4(_mm_maskload_ps((float const *)pLoadAdd, (__m128) mask));
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_float4(float4* pStoreAdd, float4 data, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_float4(float4* pStoreAdd, float4 data, int4 mask) {
   _mm_maskstore_ps((float *)pStoreAdd, (__m128) mask, *((__m128*) &data));
 }
 
@@ -373,11 +374,11 @@ void __inline__ __attribute__((always_inline)) masked_store_float4(float4* pStor
 //                                 float8
 // ****************************************************************************
 
-float8 __inline__ __attribute__((always_inline)) masked_load_float8(float8* pLoadAdd, int8 mask) {
+float8 INLINE_ATTRIBUTE masked_load_float8(float8* pLoadAdd, int8 mask) {
   return as_float8(_mm256_maskload_ps((float const *)pLoadAdd, (__m256) mask)); 
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_float8(float8* pStoreAdd, float8 data, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_float8(float8* pStoreAdd, float8 data, int8 mask) {
   _mm256_maskstore_ps((float *)pStoreAdd, (__m256) mask, *((__m256*) &data));
 }
 
@@ -385,12 +386,12 @@ void __inline__ __attribute__((always_inline)) masked_store_float8(float8* pStor
 //                                 double4
 // ****************************************************************************
 
-double4 __inline__ __attribute__((always_inline)) masked_load_double4(double4* pLoadAdd, int4 mask) {
+double4 INLINE_ATTRIBUTE masked_load_double4(double4* pLoadAdd, int4 mask) {
   long4 extMask = convert_long4(mask);
   return as_double4(_mm256_maskload_pd((double *)pLoadAdd, (__m256d) extMask));
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_double4(double4* pStoreAdd, double4 data, int4 mask) {
+void INLINE_ATTRIBUTE masked_store_double4(double4* pStoreAdd, double4 data, int4 mask) {
   long4 extMask = convert_long4(mask);
   _mm256_maskstore_pd((double *)pStoreAdd, (__m256d) extMask, *((__m256d*) &data));
 }
@@ -399,14 +400,14 @@ void __inline__ __attribute__((always_inline)) masked_store_double4(double4* pSt
 //                                 double8
 // ****************************************************************************
 
-double8 __inline__ __attribute__((always_inline)) masked_load_double8(double8* pLoadAdd, int8 mask) {
+double8 INLINE_ATTRIBUTE masked_load_double8(double8* pLoadAdd, int8 mask) {
   double8 res;
   res.lo = masked_load_double4((double4*) pLoadAdd, mask.lo);
   res.hi = masked_load_double4(((double4*) pLoadAdd)+1, mask.hi);
   return res;
 }
 
-void __inline__ __attribute__((always_inline)) masked_store_double8(double8* pStoreAdd, double8 data, int8 mask) {
+void INLINE_ATTRIBUTE masked_store_double8(double8* pStoreAdd, double8 data, int8 mask) {
   masked_store_double4((double4*) pStoreAdd, data.lo, mask.lo);
   masked_store_double4(((double4*) pStoreAdd)+1, data.hi, mask.hi);
 }

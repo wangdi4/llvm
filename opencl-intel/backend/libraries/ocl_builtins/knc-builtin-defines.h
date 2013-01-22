@@ -4,10 +4,6 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 const int const_char_msb = 0x80;
 const int const_short_msb = 0x8000;
 const int const_mask_0xaaaa = 0xaaaa;
@@ -26,6 +22,12 @@ const double const_inv_pi_180 = 57.295779513082320876798154814105;
 const float const_pi_180f = 0.017453292519943295769236907684883f;
 const double const_pi_180 = 0.017453292519943295769236907684883;
 
+
+#define _MM_ROUND_NEAREST     0x0000
+#define _MM_ROUND_DOWN        0x2000
+#define _MM_ROUND_UP          0x4000
+#define _MM_ROUND_TOWARD_ZERO 0x6000
+unsigned int set_rounding_mode (unsigned int mode);
 
 #define new_cast(new_type, var) *(new_type *)(&var)
 
@@ -811,10 +813,6 @@ length4_up_convert(float4 x, float4 y, float4 z, float4 w)
 // back its origin in CPU implementation for certanity.
 //#define VATOMICS_FUNC_DECL
 
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-
-typedef int intrin_type;
-
 /**
  * Implementation NOTICE:
  *
@@ -973,6 +971,3 @@ int __inline__ __attribute__((always_inline)) signed_max(int p0, int p1)
     return (p0 > p1) ? p0 : p1;
 }
 
-#ifdef __cplusplus
-}
-#endif

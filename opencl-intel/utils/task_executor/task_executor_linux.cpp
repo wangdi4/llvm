@@ -75,7 +75,6 @@ void dll_fini(void)
 	if ( thkShedMaster )
 	{
 		pthread_key_delete(thkShedMaster);
-        thkShedMaster = 0;  
 	}
 }
 

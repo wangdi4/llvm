@@ -2,22 +2,15 @@
 
 set(TARGET KernelBuilder_module)
 
-if(NOT WIN32)
-  set(BOOST_LIB_DIR_SUFFIX x64)
-endif(NOT WIN32)
 
-if(WIN32)
-	if (${MSVC_VERSION} EQUAL 1500)
-		# Visual Studio 2008
-		link_directories( ${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/win/${BOOST_LIB_DIR_SUFFIX} )
-	else(${MSVC_VERSION} EQUAL 1500)
-		# Visual Studio 2010 (assumed if not Visual Studio 2008)
-		link_directories( ${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/win/VS2010/${BOOST_LIB_DIR_SUFFIX} )
-	endif(${MSVC_VERSION} EQUAL 1500)
-else(WIN32)
-	link_directories( ${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX})
-endif(WIN32)
+if (CMAKE_SIZEOF_VOID_P MATCHES "8")
+    set(BOOST_LIB_DIR_SUFFIX x64)
+else (CMAKE_SIZEOF_VOID_P MATCHES "8")
+    set(BOOST_LIB_DIR_SUFFIX x86)
+endif (CMAKE_SIZEOF_VOID_P MATCHES "8")
 
+
+link_directories( ${Boost_LIBRARY_DIRS}/${BOOST_LIB_DIR_SUFFIX} )
 
 # with SET() command you can change variables or define new ones
 # here we define SAMPLE_SRCS variable that contains a list of all .cpp files
@@ -113,7 +106,7 @@ include_directories(
 					${CMAKE_BINARY_DIR}
                     ${OCL_GLOBAL_INCLUDE}
                     ${OCL_SOURCE_DIR}/cl_api
-					${OCL_SOURCE_DIR}/externals/boost_1_46_1 
+					${Boost_INCLUDE_DIR}
 					${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 					${OCL_SOURCE_DIR}/tools/ToolsUtils/
 					${OCL_SOURCE_DIR}/tools/OfflineCompiler/iocQtgui
@@ -180,10 +173,7 @@ else(WIN32)
                    ${OCL_SOURCE_DIR}/externals/Qt/Linux/libQtSql.so.4.8.1
                    ${OCL_SOURCE_DIR}/externals/Qt/Linux/libQtXml.so.4
                    ${OCL_SOURCE_DIR}/externals/Qt/Linux/libQtXml.so.4.8.1 )
-	install(FILES 	${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_filesystem.so DESTINATION bin)
-	install(FILES 	${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_system.so DESTINATION bin)
-	install(FILES 	${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_filesystem.so.1.46.1 DESTINATION bin)
-	install(FILES 	${OCL_SOURCE_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_system.so.1.46.1 DESTINATION bin)
+
 	SET( QT_LIBS ${SHARED_LIBS} )
   INSTALL(FILES ${SHARED_LIBS} DESTINATION bin)
   INSTALL(FILES ${SQUISH_LIBS} DESTINATION bin)

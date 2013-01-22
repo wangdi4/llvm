@@ -51,6 +51,9 @@ CALCULATE_TARGET_SOURCES()
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 #add_dependencies( ${TARGET} cpu_device${BUILD_PLATFORM} cl_sys_utils task_executor${BUILD_PLATFORM})
+if( ANDROID )
+  target_link_libraries( ${TARGET} gnustl_shared )
+endif( ANDROID )
 target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest)
 
 set( CREATE_DIR_NAME bin/validation/cpu_device_test_type)
@@ -73,7 +76,7 @@ set( OUTPUT_FILE test.bc )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h clang

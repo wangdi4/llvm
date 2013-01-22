@@ -138,6 +138,11 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     unsigned int  cpuFeatures = CFS_SSE2;
 
     // Add standard features
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core2") )
+    {
+        cpuFeatures |= CFS_SSE3 | CFS_SSSE3;
+    }
+
     if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
     {
         cpuFeatures |= CFS_SSE41 | CFS_SSE42;

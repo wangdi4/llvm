@@ -40,7 +40,7 @@ using namespace Intel::OpenCL::Utils;
 // device setup
 #define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD				"CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"         // bool
 #define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY				"CL_CONFIG_MIC_DEVICE_USE_AFFINITY"         // bool
-#define    CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE            "CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE"     // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_NUM_WORKERS					"CL_CONFIG_MIC_DEVICE_NUM_WORKERS"          // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_NUM_CORES					"CL_CONFIG_MIC_DEVICE_NUM_CORES"	        // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0				"CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
 #define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE			"CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
@@ -51,6 +51,9 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS	        "CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS"     // bool
 #define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				"CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION" // bool
+
+// BUGBUG: TBB slowness workaroung
+#define    CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE			"CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE"	// unsigned int
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
@@ -78,10 +81,12 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		// Device performance setup
 		bool           Device_StopAtLoad()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD, false); }
 		bool           Device_UseAffinity()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_USE_AFFINITY, true); }
-		unsigned int   Device_ThreadsPerCore()  const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE, 0); }
+		unsigned int   Device_NumWorkers()      const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_WORKERS, 0); }
 		unsigned int   Device_NumCores()        const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_NUM_CORES, 0); }
 		bool           Device_IgnoreCore0()     const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, false); }
 		bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
+		// BUGBUG: TBB slowness workaround
+		unsigned int   Device_WorkerPerQueue()	const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, 0); }
 		size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 512); }
 		unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
 		string         Device_TbbScheduler()    const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, "auto"); }
@@ -118,17 +123,20 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             std::cout << std::endl;
             
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_USE_AFFINITY, Device_UseAffinity, "1 - do not allow TBB workers to switch between HW threads" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE, Device_ThreadsPerCore, "0 - create 1 TBB worker per each HW thread per core, !=0 - limit TBB workers to the given number per core" );
+            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_NUM_WORKERS, Device_NumWorkers, "0 - create 1 TBB worker per each HW thread, !=0 - limit TBB workers to the given number" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_NUM_CORES, Device_NumCores, "0 - use all MIC cores, !=0 - use specified number of cores" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, Device_IgnoreCore0, "1 - do not use 0 (system) MIC core" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, Device_IgnoreLastCore, "1 - do not use last MIC core" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, other - tbb::auto_partitioner" );
+            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, openmp - openmp simulation, other - tbb::auto_partitioner" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, Device_TbbTrapWorkers, "1 - do not allow TBB workers to leave arena. Deadlocks if more than a single queue." );
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, Device_LazyTransfer, "1 - perform host->device transfer only when really required");
-                        
+            
+            //BUGBUG: TBB slowness
+            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_WORKERS_PER_QUEUE, Device_WorkerPerQueue, "Limit number of worker therads per in-order queue, 0 = no limit");
+            
             std::cout << std::endl;
 
 			MICDeviceConfigPrintKey( OFFLOAD_DEVICES, Device_offloadDevices, "Restricts the process to use only the MIC cards specified as the value of the variable");

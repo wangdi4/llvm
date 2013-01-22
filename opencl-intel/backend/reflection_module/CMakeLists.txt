@@ -8,16 +8,21 @@ project (${TARGET_NAME})
 remove_definitions("-pedantic")
 
 if(NOT APPLE)
+
+if( NOT ANDROID )
   add_subdirectory(unittest)
+endif( NOT ANDROID )
 
 if(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe"
-)
+  set (OCL_TBLGEN_EXE "${LLVM_TOOLS_BINARY_DIR}/${CMAKE_BUILD_TYPE}/ocl-tblgen.exe")
 else(WIN32)
-set (OCL_TBLGEN_EXE
-  "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen"
-)
+  if( LLVM_USE_NATIVE )
+    set (OCL_TBLGEN_EXE "${CMAKE_BINARY_DIR}/backend/llvm/bin/ocl-tblgen")
+  elseif( CMAKE_CROSSCOMPILING OR ANDROID )
+    set (OCL_TBLGEN_EXE "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/ocl-tblgen")
+  else( )
+    set (OCL_TBLGEN_EXE "${LLVM_TOOLS_BINARY_DIR}/ocl-tblgen")
+  endif( LLVM_USE_NATIVE )
 endif(WIN32)
 
 add_custom_command(
@@ -33,13 +38,12 @@ add_custom_command(
   OUTPUT CustomMappings.gen
   COMMAND ${OCL_TBLGEN_EXE} -gen-vectorizer-map
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/target-knc.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/KNCni/target-b2.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
-  DEPENDS
-  ocl-tblgen
+  DEPENDS ${OCL_TBLGEN_EXE}
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/opencl-v1.2.td
-  COMMENT "generating custom mapping ..."
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
+  COMMENT "generating custom mapping ...${OCL_TBLGEN_EXE}"
   VERBATIM
 )
 

@@ -183,15 +183,30 @@ bool clBuildProgramMaxArgsTest()
 			continue;
 		}
 
-		size_t szSize = -1;
+		size_t* szSize = new size_t[uiNumDevices];
+		for (unsigned int j = 0; j < uiNumDevices; j++)
+		{
+			szSize[j] = -1;
+		}
 		// get the binary, we should receive 0.
-		iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &szSize, NULL);
+		iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, szSize, NULL);
 		bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
-		if (!bResult || (0!=szSize))
+		if (!bResult)
 		{
 			numberOfIntParametersToTry -= decrement;
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
+		}
+		for (unsigned int j = 0; j < uiNumDevices; j++)
+		{
+			if (0!=szSize[j])
+			{
+				numberOfIntParametersToTry -= decrement;
+				clReleaseProgram(prog);
+				delete []szSize;
+				continue;
+			}
 		}
 
 		iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
@@ -200,6 +215,7 @@ bool clBuildProgramMaxArgsTest()
 		{
 			numberOfIntParametersToTry -= decrement;
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
 		}
 
@@ -215,6 +231,7 @@ bool clBuildProgramMaxArgsTest()
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
 		}
 
@@ -231,6 +248,7 @@ bool clBuildProgramMaxArgsTest()
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
 		}
 
@@ -241,6 +259,7 @@ bool clBuildProgramMaxArgsTest()
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
 		}
 
@@ -252,6 +271,7 @@ bool clBuildProgramMaxArgsTest()
 			clReleaseMemObject(mem);
 			clReleaseKernel(kernel);
 			clReleaseProgram(prog);
+			delete []szSize;
 			continue;
 		}
 
@@ -271,6 +291,7 @@ bool clBuildProgramMaxArgsTest()
 		free(argumentLine);
 		free(codeLines);
 		free(programSrc);
+		delete []szSize;
 
 		clReleaseMemObject(mem);
 		clReleaseKernel(kernel);

@@ -15,10 +15,8 @@
 //#else
 //	#define CDECL   __attribute__((cdecl))
 //#endif
-	#if defined(USE_ITT)
-		#include <stdio.h>
-		#include <ittnotify.h>
-	#endif
+        #include <stdio.h>
+	#include <ittnotify.h>
 #endif
 
 #define GPA_SHOW_QUEUED_MARKER		0x1
@@ -89,3 +87,4 @@ struct ocl_gpa_command
 	__itt_id                m_CmdId;
     __itt_string_handle*    m_strCmdName;
 };
+

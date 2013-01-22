@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 using namespace Intel::OpenCL::Utils;
 
-// DevArenaObserver's methods:
+// DevArenaObserver's members:
 
 void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
 {
@@ -42,6 +42,7 @@ void DevArenaObserver::on_scheduler_entry(bool bIsWorker)
     {
         return;
     }
+
     const int iCurSlot = tbb::task_arena::current_slot();
     assert(iCurSlot >= 0);    
     WGContextBase* const pOldWgContext = m_pArenaHandler->GetWGContext(iCurSlot);
@@ -89,22 +90,14 @@ bool DevArenaObserver::on_scheduler_leaving()
 }
 
 // SubdevArenaObserver's methods:
+
 SubdevArenaObserver::SubdevArenaObserver(tbb::task_arena& arena, TBBTaskExecutor& taskExecutor, const unsigned int* pLegalCores, size_t szNumlegalCores, IAffinityChangeObserver& observer) :
 	DevArenaObserver(arena, taskExecutor), m_observer(observer)
 {
-    m_legalCores.reserve( szNumlegalCores );
     for (size_t i = 0; i < szNumlegalCores; i++)
     {
-        m_legalCores.push_back(pLegalCores[i]);
+        m_legalCores.insert(pLegalCores[i]);
     }	
-
-    // TBB does not allow single-slot arenas, so allocate with some spare slots
-    unsigned int nSlots = szNumlegalCores + SPARE_TBB_SLOTS;
-    m_slots2Cores.resize( nSlots );
-    for (unsigned int i = 0; i < nSlots; ++i)
-    {
-        m_slots2Cores[i] = ILLEGAL_CORE;
-    }
 }
 
 void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
@@ -118,16 +111,15 @@ void SubdevArenaObserver::on_scheduler_entry(bool bIsWorker)
     {
         const int iCurSlot = tbb::task_arena::current_slot();
         assert(iCurSlot >= 0);
-        unsigned int uiCoreId;
-        {
+		
+		unsigned int uiCoreId;
+		{
 			OclAutoMutex mutex(&m_mutex);
-            assert(m_legalCores.size() > 0);
-            uiCoreId = m_legalCores.back();
-            m_legalCores.pop_back();
-            assert(m_slots2Cores.size() > (size_t)iCurSlot);
-            assert(m_slots2Cores[iCurSlot] == ILLEGAL_CORE);
-            m_slots2Cores[iCurSlot] = uiCoreId;
-        }
+			assert(m_legalCores.size() > 0);
+			uiCoreId = *m_legalCores.begin();
+			m_legalCores.erase(uiCoreId);
+			m_slots2Cores[iCurSlot] = uiCoreId;
+		}
         m_observer.NotifyAffinity(iCurSlot, uiCoreId);
     }
 }
@@ -142,11 +134,11 @@ void SubdevArenaObserver::on_scheduler_exit(bool bIsWorker)
     if (bIsWorker)
     {
         const int iCurSlot = tbb::task_arena::current_slot();
+
         OclAutoMutex autoMutex(&m_mutex);
-        assert(m_slots2Cores.size() > (size_t)iCurSlot);
-        assert(m_slots2Cores[iCurSlot] != ILLEGAL_CORE);
-        m_legalCores.push_back(m_slots2Cores[iCurSlot]);
-        m_slots2Cores[iCurSlot] = ILLEGAL_CORE;
+        assert(m_slots2Cores.find(iCurSlot) != m_slots2Cores.end());
+        m_legalCores.insert(m_slots2Cores[iCurSlot]);
+        m_slots2Cores.erase(iCurSlot);
     }
 }
 
@@ -161,6 +153,8 @@ m_wgContexts(uiNumTotalComputeUnits + 1), // TODO: fix this after TBB bug #1968 
     {
         *iter = NULL;
     }
+	/* We get P slots for work threads + 1 slot for master. However, when the master joins the arena, one of the worker threads will leave and maximum concurrency of P (except for temporary
+	   oversubscription). */
     m_arena.initialize(uiNumComputeUnits);
 }
 
@@ -218,12 +212,16 @@ WGContextBase* ArenaHandler::GetWGContext()
 
 void ArenaHandler::WaitUntilEmpty()
 {
-	OclAutoReader reader(&m_cmdListsRWLock);    
-    // Calling m_arena.wait_until_empty() is dangerous, because waiting from a worker thread that belongs to the arena causes a deadlock. Instead we wait on all the task_group, which is safe.
-    for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
-    {
-        (*iter)->Wait();
-    }    
+	/* Master thread - we assume that master thread gets slot 0. This isn't expect to change as long as multiple masters capability is not added.
+	   We don't wait in worker thread, since we would deadlock waiting for our own task. */
+	if (0 == tbb::task_arena::current_slot())	
+	{
+		OclAutoReader reader(&m_cmdListsRWLock);    
+		for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
+		{
+			(*iter)->WaitForIdle();
+		}    
+	}
 }
 
 bool ArenaHandler::AreEnqueuedTasks() const
@@ -238,7 +236,7 @@ SubdevArenaHandler::SubdevArenaHandler(unsigned int uiNumSubdevComputeUnits, uns
     IAffinityChangeObserver& observer) :
     ArenaHandler(uiNumSubdevComputeUnits, uiNumTotalComputeUnits, taskExecutor), m_subdevArenaObserver(m_arena, taskExecutor, pLegalCores, uiNumSubdevComputeUnits, observer)
 {    
-    m_pInternalCmdList = in_order_command_list::Allocate(&taskExecutor, *this);
+    m_pInternalCmdList = in_order_command_list::Allocate(true, &taskExecutor, *this);
     Init(&m_subdevArenaObserver);
 }
 

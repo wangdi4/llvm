@@ -1881,6 +1881,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 
 cl_mem_object_type ConvertGLTargetToCLObject(GLenum glTextureTarget)
 {
+#if defined(WIN32)
 	switch(glTextureTarget)
 	{
 	case GL_TEXTURE_1D:
@@ -1905,6 +1906,9 @@ cl_mem_object_type ConvertGLTargetToCLObject(GLenum glTextureTarget)
 	}
 
 	return CL_INVALID_GL_OBJECT;
+#else // WIN32
+	return CL_INVALID_GL_OBJECT;
+#endif // WIN32
 }
 
 cl_mem ContextModule::CreateFromGLTexture(cl_context clContext, 

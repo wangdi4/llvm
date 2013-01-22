@@ -82,6 +82,15 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES_NUMA[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
+static const cl_device_partition_property_ext CPU_SUPPORTED_FISSION_MODES_NUMA_EXT[] = 
+    {
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT,
+        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
+        CL_DEVICE_PARTITION_EQUALLY_EXT,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+    };
+
+
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
     {
         CL_DEVICE_PARTITION_BY_COUNTS,
@@ -89,7 +98,15 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_affinity_domain CPU_SUPPORTED_AFFINITY_DOMAINS = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+static const cl_device_partition_property_ext CPU_SUPPORTED_FISSION_MODES_EXT[] = 
+    {
+        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
+        CL_DEVICE_PARTITION_EQUALLY_EXT,
+		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+    };
+
+static const cl_device_affinity_domain        CPU_SUPPORTED_AFFINITY_DOMAINS       = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+static const cl_device_partition_property_ext CPU_SUPPORTED_AFFINITY_DOMAINS_EXT[] = {CL_AFFINITY_DOMAIN_NUMA_EXT};
 
 typedef enum 
 {
@@ -483,7 +500,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
-    UINT32  viCPUInfo[4] = {-1};
+    int     viCPUInfo[4] = {-1};
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
@@ -1226,10 +1243,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_PARTITION_PROPERTIES:
             {
                 const cl_device_partition_property* pSupportedProperties;
-                bool bNumaSupported = false;
-#ifndef _WIN32 //Numa support disabled for windows machines
-                    bNumaSupported = (0 < GetMaxNumaNode());
-#endif
+                bool bNumaSupported = (0 < GetMaxNumaNode());
+
                 if (bNumaSupported)
                 {
                     pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA;
@@ -1267,10 +1282,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    bool bNumaSupported = false;
-#ifndef _WIN32 //Numa support disabled for windows machines
-                    bNumaSupported = (0 < GetMaxNumaNode());
-#endif
+                    bool bNumaSupported = (0 < GetMaxNumaNode());
+                    
                     if (bNumaSupported)
                     {
                        *((cl_device_affinity_domain*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS;
@@ -1282,8 +1295,57 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
-            break;
-		case CL_DEVICE_IMAGE_MAX_ARRAY_SIZE:
+
+        case CL_DEVICE_PARTITION_TYPES_EXT: //For backwards compatability with 1.1 EXT
+            {
+                const cl_device_partition_property_ext* pSupportedProperties;
+                bool bNumaSupported = (0 < GetMaxNumaNode());
+                
+                if (bNumaSupported)
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA_EXT;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_NUMA_EXT);
+                }
+                else
+                {
+                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_EXT;
+                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_EXT);
+                }
+                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                //if OUT paramVal is NULL it should be ignored
+                if(NULL != paramVal)
+                {
+                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
+                }
+                return CL_DEV_SUCCESS;
+            }
+
+        case CL_DEVICE_AFFINITY_DOMAINS_EXT: //For backwards compatability with 1.1 EXT
+            {
+                bool bNumaSupported = (0 < GetMaxNumaNode());
+                
+                *pinternalRetunedValueSize = bNumaSupported ? sizeof(CPU_SUPPORTED_AFFINITY_DOMAINS_EXT) : 0;
+                if ((NULL != paramVal) && (valSize < *pinternalRetunedValueSize))
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                if (NULL != paramValSizeRet)
+                {
+                    *paramValSizeRet = *pinternalRetunedValueSize;
+                }
+
+                //if OUT paramVal is NULL it should be ignored
+                if ((NULL != paramVal) && bNumaSupported)
+                {
+                    MEMCPY_S(paramVal, valSize, CPU_SUPPORTED_AFFINITY_DOMAINS_EXT, *pinternalRetunedValueSize);
+                }
+                return CL_DEV_SUCCESS;
+            }
+
+        case CL_DEVICE_IMAGE_MAX_ARRAY_SIZE:
 			*pinternalRetunedValueSize = sizeof(size_t);
 			if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
 			{

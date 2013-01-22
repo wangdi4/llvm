@@ -619,7 +619,7 @@ cl_context CL_API_CALL clCreateContextFromType(
 
     cl_uint numPlatforms = 0;
     cl_uint numDevices = 0;
-    cl_platform_id pId;
+    cl_platform_id pId = NULL;
 
     size_t numPlatformDevices = 0;
     numPlatformDevices = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size();
@@ -3347,17 +3347,17 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
 FINISH:
     if( CL_SUCCESS != errCode )
     {
-        if( crtData )
+        if( NULL != crtData )
         {
             delete crtData;
             crtData = NULL;
         }
-        if( crtProg )
+        if( NULL != crtProg )
         {
             crtProg->Release();
             crtProg->DecPendencyCnt();
         }
-        if( program )
+        if( NULL != program )
         {
             delete program;
             program = NULL;
@@ -3711,7 +3711,7 @@ cl_kernel CL_API_CALL clCreateKernel( cl_program       program ,
                     goto FINISH;
                 }
             }
-        }
+        }        
     }
 
     if( crtKernel->m_ContextToKernel.size() == 0 )

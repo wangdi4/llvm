@@ -5,10 +5,6 @@
 #ifndef GENERIC_BUILTIN_DEFINES_H
 #define GENERIC_BUILTIN_DEFINES_H
 
-#ifdef cplusplus
-extern "C" {
-#endif
-
 // pi/180
 const constant float generic_pi_180f = 0.017453292519943295769236907684883f;
 const constant double generic_pi_180 = 0.017453292519943295769236907684883;
@@ -196,8 +192,5 @@ void* memcpy(void*, const void*, size_t);
 
 //atomic
 typedef int intrin_type;
-#ifdef cplusplus
-}
-#endif
 
 #endif /* GENERIC_BUILTIN_DEFINES_H */

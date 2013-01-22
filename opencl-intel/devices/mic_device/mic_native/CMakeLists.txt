@@ -16,13 +16,6 @@ set( BACKEND_LIB            OclDeviceExecutor )
 set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/backend/llvm/lib )
 set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
-set( UTILS_DIR              ${OCL_SOURCE_DIR}/utils )
-set( SYS_UTILS_DIR 			${UTILS_DIR}/cl_sys_utils )
-set( HW_UTILS_DIR 			${UTILS_DIR}/cl_hw_utils )
-set( TASK_EXECUTOR_DIR 		${UTILS_DIR}/task_executor )
-
-set( BOOST_DIR              ${OCL_SOURCE_DIR}/externals/boost_1_46_1 )
-
 if (KNC_CARD)
         set( BACKEND_VTUNE_DIR 		 -L ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
         set( VTUNE_PROFILING_LIB     -ljitprofiling)  
@@ -70,13 +63,11 @@ else ()
     endif (TMP_ICC_INSTALL_DIR)
     unset( TMP_ICC_INSTALL_DIR )
 
-    set( DEVICE_DEPENDENCY_SCRIPT 	dependency.sh )
-    set( DEVICE_COMPILER_SCRIPT 	compile.sh )
-    set( DEVICE_LINKER_SCRIPT   	link.sh )
+    set( DEVICE_COMPILER_SCRIPT compile.sh )
+    set( DEVICE_LINKER_SCRIPT   link.sh )
 
-    set( DEVICE_DEPENDENCY 	${BIN_DIR}/${DEVICE_DEPENDENCY_SCRIPT} )
-    set( DEVICE_COMPILER 	${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
-    set( DEVICE_LINKER   	${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
+    set( DEVICE_COMPILER ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
+    set( DEVICE_LINKER   ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
 endif (WIN32)
 
 #
@@ -96,15 +87,6 @@ endfunction( check_file )
 function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
     get_filename_component( FILE_NAME ${FILE_FULL_PATH_NAME} NAME )
 
-	execute_process(COMMAND ${DEVICE_DEPENDENCY} ${FILE_FULL_PATH_NAME}
-					WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-					OUTPUT_VARIABLE   DEPENDENCY_DATA
-					)
-
-	string( STRIP ${DEPENDENCY_DATA} DEPENDENCY_FILES )
-	string( REGEX REPLACE " +" ";" DEPENDENCY_LIST ${DEPENDENCY_FILES} )
-	#message( FATAL_ERROR "|${DEPENDENCY_LIST}|" )				
-
     add_custom_command( OUTPUT ${OBJ_FILE}
 
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
@@ -112,7 +94,7 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
 
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME}
                         IMPLICIT_DEPENDS CXX
-                        DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} ${DEPENDENCY_LIST}
+                        DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT}
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                         COMMENT "Compiling ${FILE_NAME} for ${DEVICE}"
                         VERBATIM
@@ -178,7 +160,6 @@ endfunction ( add_device_executable )
 #################################################################################################
 
 #check_file(${DEVICE_INIT_ENV_SCRIPT})
-check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_DEPENDENCY_SCRIPT})
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_COMPILER_SCRIPT})
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_LINKER_SCRIPT})
 
@@ -189,7 +170,7 @@ endif()
 
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
-                -std=c++0x
+                # -std=c++0x
                 # next entry - support converting Linux trap signals into C++ exceptions
                 -fnon-call-exceptions
                 -fstack-security-check
@@ -200,10 +181,6 @@ set( MIC_FLAGS  -Werror
                 -mCG_lrb_workaround_vgather_vscatter_pairing=F
                 -mCG_lrb_dp_workaround=F
                 -sox
-
-				# allow exclusion of un-referenced code and data
-                -fdata-sections
-                -ffunction-sections
             )
 
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG -DDEBUG )
@@ -213,18 +190,14 @@ set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../
-                -I ${SYS_UTILS_DIR}/export
-                -I ${HW_UTILS_DIR}/export
+                -I ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${MIC_TBB_HEADERS_PATH}
                 -I ${COI_SDK_PATH}/include
-                -I ${BOOST_DIR}
                 )
 
 list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
-                -DDISABLE_NUMA_SUPPORT
-                -D__TBB_EXECUTOR__ -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
     )
 
 list( APPEND MIC_FLAGS -DKNC_CARD )
@@ -280,10 +253,6 @@ list( APPEND MIC_LINK_FLAGS
                 -l${TBB_LIB_TO_LINK}
                 ${VTUNE_PROFILING_LIB}
                 -lpthread
-                -lrt
-
-				# allow exclusion of un-referenced sections (code and data)
-                -Wl,--gc-sections
 
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic
@@ -329,42 +298,17 @@ foreach (FLAG ${MIC_LINK_FLAGS})
 endforeach( FLAG )
 
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
-configure_file(${DEVICE_DEPENDENCY_SCRIPT} 	${DEVICE_DEPENDENCY} @ONLY)
-configure_file(${DEVICE_COMPILER_SCRIPT} 	${DEVICE_COMPILER} @ONLY)
-configure_file(${DEVICE_LINKER_SCRIPT} 		${DEVICE_LINKER} @ONLY)
+configure_file(${DEVICE_COMPILER_SCRIPT} ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} @ONLY)
+configure_file(${DEVICE_LINKER_SCRIPT} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} @ONLY)
 
 set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
 
-# find main sources
-set( MAIN_EXCEPTIONS )
-FIND_SOURCES( ${MAIN_EXCEPTIONS} )
+FIND_SOURCES()
 list(APPEND SOURCE_FILES ../mic_tracer.cpp)
 list(APPEND HEADER_FILES ../mic_tracer_counters.h ../mic_tracer.h)
 CALCULATE_TARGET_SOURCES()
-set( MAIN_TARGET_SOURCES ${TARGET_SOURCES} )
 
-# add cl_hw_utils
-set( TARGET_SOURCES )
-FIND_SOURCES_EX( ${HW_UTILS_DIR}/linuxImp )
-CALCULATE_TARGET_SOURCES()
-set( HW_UTILS_TARGET_SOURCES ${TARGET_SOURCES} )
-
-# add cl_sys_utils 
-set( TARGET_SOURCES )
-set( SYS_UTILS_EXCEPTIONS NumericListParser|oclNotifier|cl_socket )
-FIND_SOURCES_EX( ${SYS_UTILS_DIR}  ${SYS_UTILS_EXCEPTIONS} )
-CALCULATE_TARGET_SOURCES()
-set( SYS_UTILS_TARGET_SOURCES ${TARGET_SOURCES} )
-
-# add task_executor
-set( TARGET_SOURCES )
-set( TASK_EXECUTOR_EXCEPTIONS thread_ )
-FIND_SOURCES_EX( ${TASK_EXECUTOR_DIR}  ${TASK_EXECUTOR_EXCEPTIONS} )
-CALCULATE_TARGET_SOURCES()
-set( TASK_EXECUTOR_TARGET_SOURCES ${TARGET_SOURCES} )
-
-
-add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} )
+add_device_executable(${TARGET_NAME} ${TARGET_SOURCES})
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} )
 

@@ -19,15 +19,12 @@
 // problem reports or change requests be submitted to it directly
 
 #if !defined (__MIC__) && !defined(__MIC2__)
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
-#include "ll_intrinsics.h"
+#include "GENERIC/ll_intrinsics.h"
 
 #define NORMALIZED_SAMPLER 0x08
 
@@ -124,11 +121,7 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
 
 int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 {
-#ifdef __SSE4_1__
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
-#else
-    int4 upper=(int4)(0,0,0,0);
-#endif
+    int4 upper = *((int4*)(&((image_aux_data*)image)->dimSub1));
     int4 lower = (int4)(0, 0, 0, 0);
 
     int4 correctCoord=min(coord, upper);
@@ -1299,9 +1292,5 @@ void __attribute__((overloadable)) mask_soa8_write_imageui(int8 mask, image2d_t 
     }
 }
 
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // defined (__MIC__) || defined(__MIC2__)

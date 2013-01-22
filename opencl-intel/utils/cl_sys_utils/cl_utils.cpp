@@ -28,10 +28,8 @@
 #include "cl_utils.h"
 #include <CL/cl.h>
 #include <cassert>
-#include <boost/tokenizer.hpp>
 
 using namespace std;
-using namespace boost;
 using namespace Intel::OpenCL;
 
 #ifdef WIN32
@@ -133,38 +131,33 @@ threadid_t clMyThreadId()
 
 #ifndef DISABLE_NUMA_SUPPORT
 
-    // need numa support
-    #include <numa.h>
+	#include <numa.h>
+	bool clIsNumaAvailable()
+	{	
+		static int iNuma = -1;
+	
+		if ( -1 == iNuma )
+		{
+			iNuma = numa_available();
+		}
+		return (-1 != iNuma);
+	}
 
-    bool clIsNumaAvailable()
-    {
-        static int iNuma = -1;
-        
-        if ( -1 == iNuma )
-        {
-            iNuma = numa_available();
-        }
-        return (-1 != iNuma);
-    }
+	void clNUMASetLocalNodeAlloc()
+	{
+		numa_set_localalloc();
+	}
+#else
+	bool clIsNumaAvailable()
+	{	
+		return false;
+	}
 
-    void clNUMASetLocalNodeAlloc()
-    {
-        numa_set_localalloc();
-    }
-
-#else 
-
-    // no numa support
-    bool clIsNumaAvailable()
-    {
-        return false;
-    }
-
-    void clNUMASetLocalNodeAlloc()
-    {
-    }
-
-#endif // DISABLE_NUMA_SUPPORT
+	void clNUMASetLocalNodeAlloc()
+	{
+	}
+	
+#endif //DISABLE_NUMA_SUPPORT
 
 void clSleep(int milliseconds)
 {
@@ -173,30 +166,30 @@ void clSleep(int milliseconds)
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_setaffinity(tid, sizeof(cpu_set_t), mask);
+	sched_setaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_getaffinity(tid, sizeof(cpu_set_t), mask);
+	sched_getaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
-	cpu_set_t mask;
+	affinityMask_t mask;
 	CPU_ZERO(&mask);
 	CPU_SET(core ,&mask);
-	sched_setaffinity(tid, sizeof(cpu_set_t), &mask);
+	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {
 // Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
-// cpu_set_t is a bitmask and I'm going to abuse that knowledge
+// affinityMask_t is a bitmask and I'm going to abuse that knowledge
 
 // This should be long enough
 static const unsigned long long allOnes[] = {ULLONG_MAX, ULLONG_MAX, ULLONG_MAX, ULLONG_MAX};
-static const cpu_set_t* allMask = reinterpret_cast<const cpu_set_t*>(allOnes);
-sched_setaffinity(tid, sizeof(cpu_set_t), allMask);
+static const affinityMask_t* allMask = reinterpret_cast<const affinityMask_t*>(allOnes);
+sched_setaffinity(tid, sizeof(affinityMask_t), allMask);
 }
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
@@ -220,7 +213,7 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
 
 threadid_t clMyThreadId()
 {
-	return (pid_t)syscall(SYS_gettid);
+	return GET_CURRENT_THREAD_ID();
 }
 
 #endif
@@ -816,60 +809,70 @@ cl_mem_object_type GetImageTypeFromString(const string& Type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // SetKernelArgument
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
+cl_mem_flags GetSingleMemoryFlagFromString(const string& OneFlagStr)
+{
+    if (OneFlagStr  == "CL_MEM_ALLOC_HOST_PTR")
+    {
+        return  CL_MEM_ALLOC_HOST_PTR;
+    }
+    else if (OneFlagStr  == "CL_MEM_COPY_HOST_PTR")
+    {
+        return CL_MEM_COPY_HOST_PTR;
+    }
+    else if (OneFlagStr == "CL_MEM_HOST_NO_ACCESS")
+    {
+        return CL_MEM_HOST_NO_ACCESS;
+    }
+    else if (OneFlagStr == "CL_MEM_HOST_READ_ONLY")
+    {
+        return CL_MEM_HOST_READ_ONLY;
+    }
+    else if (OneFlagStr == "CL_MEM_HOST_WRITE_ONLY")
+    {
+        return CL_MEM_HOST_WRITE_ONLY;
+    }
+    else if (OneFlagStr == "CL_MEM_READ_ONLY")
+    {
+        return CL_MEM_READ_ONLY;
+    }
+    else if (OneFlagStr == "CL_MEM_READ_WRITE")
+    {
+        return CL_MEM_READ_WRITE;
+    }
+    else if (OneFlagStr == "CL_MEM_USE_HOST_PTR")
+    {
+        return CL_MEM_USE_HOST_PTR;
+    }
+    else if (OneFlagStr == "CL_MEM_WRITE_ONLY")
+    {
+        return CL_MEM_WRITE_ONLY;
+    }
+    else
+    {
+        string Error("Unrecognized memory flags '");
+        Error += OneFlagStr + "'";
+        throw Error;
+    }
+}
+
+cl_mem_flags GetMemFlagsFromString(const string& FlagsStr) 
 {
     cl_mem_flags Flags(0);
-    char_separator<char> Separators(", ");
-    tokenizer<char_separator<char> > tokens(FlagsStr, Separators);
-    for (tokenizer<char_separator<char> >::iterator iToken = tokens.begin();
-        iToken != tokens.end();
-        ++iToken)
+    size_t Tokenizer = FlagsStr.find_first_of(" ,"), PrevToken = 0; 
+    string iToken; 
+    while (Tokenizer != string::npos) 
     {
-        if (*iToken == "CL_MEM_ALLOC_HOST_PTR")
-        {
-            Flags |= CL_MEM_ALLOC_HOST_PTR;
-        }
-        else if (*iToken == "CL_MEM_COPY_HOST_PTR")
-        {
-            Flags |= CL_MEM_COPY_HOST_PTR;
-        }
-        else if (*iToken == "CL_MEM_HOST_NO_ACCESS")
-        {
-            Flags |= CL_MEM_HOST_NO_ACCESS;
-        }
-        else if (*iToken == "CL_MEM_HOST_READ_ONLY")
-        {
-            Flags |= CL_MEM_HOST_READ_ONLY;
-        }
-        else if (*iToken == "CL_MEM_HOST_WRITE_ONLY")
-        {
-            Flags |= CL_MEM_HOST_WRITE_ONLY;
-        }
-        else if (*iToken == "CL_MEM_READ_ONLY")
-        {
-            Flags |= CL_MEM_READ_ONLY;
-        }
-        else if (*iToken == "CL_MEM_READ_WRITE")
-        {
-            Flags |= CL_MEM_READ_WRITE;
-        }
-        else if (*iToken == "CL_MEM_USE_HOST_PTR")
-        {
-            Flags |= CL_MEM_USE_HOST_PTR;
-        }
-        else if (*iToken == "CL_MEM_WRITE_ONLY")
-        {
-            Flags |= CL_MEM_WRITE_ONLY;
-        }
-        else
-        {
-            string Error("Unrecognized memory flags '");
-            Error += *iToken + "'";
-            throw Error;
-        }
-    }
+        iToken = FlagsStr.substr(PrevToken, Tokenizer-PrevToken); 
+        Flags |= GetSingleMemoryFlagFromString(iToken); 
+        PrevToken = Tokenizer+1; 
+        Tokenizer = FlagsStr.find_first_of(", ", PrevToken); 
+    } 
+    iToken = FlagsStr.substr(PrevToken); 
+    // Only last value 
+    Flags |= GetSingleMemoryFlagFromString(iToken);
     return Flags;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // GetAddressQualifierFromString
@@ -1084,7 +1087,13 @@ string GetTempDir()
         TmpDir += "\\";
     }
 #else // Linux
+    char *EnvUser = getenv("USER");
     TmpDir = "/tmp/";
+    if (EnvUser)
+      {
+	TmpDir += EnvUser;
+	TmpDir += "/";
+      }
 #endif
     return TmpDir;
 }

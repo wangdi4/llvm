@@ -28,6 +28,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         init();
       }
 
+      ~Prefetch();
+
       virtual const char *getPassName() const {
         return "Prefetch";
       }
@@ -52,6 +54,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ScalarEvolution * m_SE;
       SCEVExpander    * m_ADRExpander;
 
+      // Controls
+      bool m_exclusiveMPF;  // if MPF is detected don't generate prefetches at all
+      bool m_coopAPFMPF;    // if MPF is detected continue to generated APF
+      bool m_disableAPF;    // don't APF
+
       // Type pointers
       Type *m_i8;
       Type *m_i32;
@@ -59,7 +66,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       Type *m_pi8;
       Type *m_void;
 
+      static const std::string m_intrinsicName;
       static const std::string m_prefetchIntrinsicName;
+      static const std::string m_gatherPrefetchIntrinsicName;
+      static const std::string m_scatterPrefetchIntrinsicName;
+      static const std::string m_gatherIntrinsicName;
+      static const std::string m_maskGatherIntrinsicName;
+      static const std::string m_scatterIntrinsicName;
+      static const std::string m_maskScatterIntrinsicName;
 
       static const int L1MissLatency;
       static const int L2MissLatency;
