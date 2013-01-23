@@ -20,7 +20,7 @@ add_library (${TARGET_NAME} SHARED
     ${SAMPLEPLUGIN_SOURCE_FILES}
     )
     
-target_link_libraries(${TARGET_NAME} OclUtils)
+target_link_libraries(${TARGET_NAME} OclBackendUtils)
 
 install( TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin

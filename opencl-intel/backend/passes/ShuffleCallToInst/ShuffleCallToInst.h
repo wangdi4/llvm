@@ -25,7 +25,7 @@ File Name:  ShuffleCallToInst.h
 #include <vector>
 #include <utility>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
     using namespace llvm;
 
     /// @brief ShuffleCallToInst class
@@ -90,5 +90,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         std::vector< std::pair<CallInst*, ShuffleType> > m_shuffleCalls;
     };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 #endif // __SHUFFLE_CALL_TO_INST_H__

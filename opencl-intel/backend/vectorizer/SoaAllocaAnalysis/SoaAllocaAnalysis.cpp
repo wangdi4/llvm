@@ -17,6 +17,8 @@ File Name:  SoaAllocaAnalysis.cpp
 \*****************************************************************************/
 
 #include "SoaAllocaAnalysis.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Intrinsics.h"
 
@@ -26,6 +28,9 @@ File Name:  SoaAllocaAnalysis.cpp
 #include <string>
 
 namespace intel {
+
+char SoaAllocaAnalysis::ID = 0;
+OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis provides SOA alloca info regarding", false, false)
 
   bool SoaAllocaAnalysis::runOnFunction(Function &F) {
 
@@ -91,7 +96,7 @@ namespace intel {
   }
 
   unsigned int SoaAllocaAnalysis::getSoaAllocaVectorWidth(const Value* val) {
-    V_ASSERT(isSoaAllocaVectorRelated(val) && 
+    V_ASSERT(isSoaAllocaVectorRelated(val) &&
       "val is not related to supported soa alloca with vector base type");
 
     return m_allocaSOA[val];
@@ -211,8 +216,4 @@ extern "C" {
     return new intel::SoaAllocaAnalysis();
   }
 }
-
-char intel::SoaAllocaAnalysis::ID = 0;
-static RegisterPass<intel::SoaAllocaAnalysis>
-CLISoaAllocaAnalysis("SoaAllocaAnalysis", "SoaAllocaAnalysis provides SOA alloca info regarding");
 

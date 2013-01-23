@@ -89,8 +89,6 @@ if(WIN32)
 	list(APPEND LINK_LIBS delayimp.lib)
 endif(WIN32)
 
-add_dependencies( ${TARGET_NAME} clang )
-
 install( TARGETS ${TARGET_NAME}     
 			RUNTIME DESTINATION bin
 			ARCHIVE DESTINATION lib
@@ -107,7 +105,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)
-    file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
+    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
+    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008 	
         set_target_properties( ${TARGET_NAME} PROPERTIES
@@ -122,10 +121,10 @@ if (WIN32)
 	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}")
         set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
-	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     
     if (INSTALL_PDBS)    
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
     
 endif(WIN32)

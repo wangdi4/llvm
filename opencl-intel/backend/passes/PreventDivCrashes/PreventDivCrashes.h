@@ -24,12 +24,12 @@ File Name:  PreventDivCrashes.h
 
 #include <set>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   using namespace llvm;
 
   /// @brief  PreventDivCrashes class adds dynamic checks that make sure the divisor in
-  ///         div and rem instructions is not 0 and that there is no integer overflow (MIN_INT/-1). 
+  ///         div and rem instructions is not 0 and that there is no integer overflow (MIN_INT/-1).
   ///         In case the divisor is 0, PreventDivCrashes or there is integer overflow the pass
   ///         replaces the divisor with 1.
   ///         PreventDivCrashes is intendent to prevent crashes during division.
@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   public:
     /// Pass identification, replacement for typeid
     static char ID;
-    
+
     // Constructor
     PreventDivCrashes() : FunctionPass(ID) {}
 
@@ -52,25 +52,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param F  Function to transform
     /// @returns  true if changed
     virtual bool runOnFunction(Function &F);
-    
+
   private:
     /// @brief    Finds all division instructions (div and rem) in F
     /// @param F  Function in which to find division instructions
     void findDivInstructions(Function &F);
-    
-    /// @brief    Adds dynamic checks that make sure the divisor in div and rem 
-    ///           instructions is not 0 and that there is no integer overflow (MIN_INT/-1). 
+
+    /// @brief    Adds dynamic checks that make sure the divisor in div and rem
+    ///           instructions is not 0 and that there is no integer overflow (MIN_INT/-1).
     ///           In case the divisor is 0, PreventDivisionCrashes or there is integer overflow the pass
     ///           replaces the divisor with 1.
     /// @returns  true if changed
     bool handleDiv();
-  
+
   private:
     /// The division instructions (div, rem) in the function
     std::vector<BinaryOperator*> m_divInstuctions;
 
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __PREVENT_DIV_CRASHES_H__

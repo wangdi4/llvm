@@ -21,6 +21,7 @@ File Name:  BLTWorkItem.h
 #include <map>
 #include <string>
 #include "IBLTMapFiller.h"
+#include <llvm/ExecutionEngine/GenericValue.h>
 
 namespace Validation {
 namespace OCLBuiltins {
@@ -32,6 +33,29 @@ public:
     void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
 };
 
+llvm::GenericValue lle_X_get_work_dim_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_global_size_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_global_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_local_size_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_local_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_num_groups_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_group_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_global_offset_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
 
 
 } // namespace OCLBuiltins

@@ -14,26 +14,31 @@
 #include "llvm/Assembly/Writer.h"
 #include "llvm/Analysis/DominatorInternals.h"
 #include "PostDominanceFrontier.h"
-
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 /// Register pass to for opt
 // static llvm::RegisterPass<intel::PostDominanceFrontier> PostDominanceFrontierPass("postdomfrontier", "Post-Dominance Frontier Construction", true, true);
 using namespace llvm;
-using namespace intel;
-INITIALIZE_PASS_BEGIN(PostDominanceFrontier, "postdomfrontier",
-                "Post-Dominance Frontier Construction", true, true)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
-INITIALIZE_PASS_END(PostDominanceFrontier, "postdomfrontier",
-                "Post-Dominance Frontier Construction", true, true)
 
 
 namespace intel {
 
 char PostDominanceFrontier::ID = 0;
 
+OCL_INITIALIZE_PASS_BEGIN(PostDominanceFrontier, "postdomfrontier",
+                "Post-Dominance Frontier Construction", true, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_END(PostDominanceFrontier, "postdomfrontier",
+                "Post-Dominance Frontier Construction", true, true)
+
 //===----------------------------------------------------------------------===//
 //  PostDominanceFrontier Implementation
 //===----------------------------------------------------------------------===//
+PostDominanceFrontier::PostDominanceFrontier()
+    : llvm::DominanceFrontierBase(ID, true) {
+        initializePostDominanceFrontierPass(*llvm::PassRegistry::getPassRegistry());
+}
 
 const llvm::DominanceFrontier::DomSetType &
 PostDominanceFrontier::calculate(const llvm::PostDominatorTree &DT,

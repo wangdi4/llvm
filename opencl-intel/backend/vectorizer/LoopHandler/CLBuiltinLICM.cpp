@@ -6,15 +6,23 @@
  *********************************************************************************************/
 #include "CLBuiltinLICM.h"
 #include "LoopUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 namespace intel {
 
+char intel::CLBuiltinLICM::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_END(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
+
 CLBuiltinLICM::CLBuiltinLICM():
-LoopPass(ID), 
+LoopPass(ID),
 m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
 {
-  initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeCLBuiltinLICMPass(*PassRegistry::getPassRegistry());
   assert(m_rtServices && "expected to have openCL runtime");
 }
 
@@ -80,7 +88,4 @@ extern "C" {
   }
 }
 
-char intel::CLBuiltinLICM::ID = 0;
-static RegisterPass<intel::CLBuiltinLICM>
-CLBuiltinLICM("CLBuiltinLICM", "hoist known uniform openCL builtins out of loops");
 

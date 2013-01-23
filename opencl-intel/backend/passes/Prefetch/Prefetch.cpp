@@ -12,6 +12,8 @@
 #include "OCLAddressSpace.h"
 
 #include "Prefetch.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include <sstream>
 #include <string>
 #include <map>
@@ -30,7 +32,7 @@
 #include <stdio.h>
 #endif // TUNE_PREFETCH
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
 const std::string Prefetch::m_intrinsicName = "llvm.x86.mic.";
 const std::string Prefetch::m_prefetchIntrinsicName = "llvm.x86.mic.prefetch";
@@ -51,7 +53,7 @@ const int Prefetch::defaultTripCount = 16;
 
 const int Prefetch::defaultL1PFType = 1;
 const int Prefetch::defaultL2PFType = 2;
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #ifdef TUNE_PREFETCH
 STATISTIC(PFStat_SerialBB, "Accesses not considered for prefetch since their BB has no vector instructions");
@@ -110,15 +112,33 @@ static cl::opt<int>
     PFL2Distance("pfl2dist", cl::init(0), cl::Hidden,
                  cl::desc("Number of iterations ahead to prefetch to the L2"));
 static cl::opt<int>
-    PFL1Type("pfl1type", cl::init(Intel::OpenCL::DeviceBackend::Prefetch::defaultL1PFType), cl::Hidden,
+    PFL1Type("pfl1type", cl::init(intel::Prefetch::defaultL1PFType), cl::Hidden,
              cl::desc("Prefetch type (L1). See SDM for details. Negative number disables these prefetches"));
 
 static cl::opt<int>
-    PFL2Type("pfl2type", cl::init(Intel::OpenCL::DeviceBackend::Prefetch::defaultL2PFType), cl::Hidden,
+    PFL2Type("pfl2type", cl::init(intel::Prefetch::defaultL2PFType), cl::Hidden,
              cl::desc("Prefetch type (L2). See SDM for details. Negative number disables these prefetches"));
 
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::DeviceBackend;
+
+namespace intel{
+
+/// Support for dynamic loading of modules under Linux
+char Prefetch::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
+
+
+Prefetch::Prefetch() : FunctionPass(ID) {
+  initializePrefetchPass(*PassRegistry::getPassRegistry());
+  init();
+}
 
 Prefetch::~Prefetch() {
   TUNEPF (PrintStatistics());
@@ -148,7 +168,7 @@ void Prefetch::init() {
   m_disableAPF = false;
   if (getenv("DISAPF")) {
     m_disableAPF = true;
-  }
+}
 
   m_coopAPFMPF = false;
   m_exclusiveMPF = false;
@@ -195,7 +215,7 @@ static const SCEV *OffsetOfSCEV(const SCEV *S, ScalarEvolution &SE) {
   // IMPORTANT NOTE: here is the base assumption that the value of Unknown
   // operations is always aligned, or at least, all unknown values have
   // the same alignment
-  if (S->getSCEVType() == scUnknown) 
+  if (S->getSCEVType() == scUnknown)
     return SE.getConstant(IntegerType::get(SE.getContext(), 64), 0);
 
   // Travers operands of expressions of all other types and get their offset
@@ -372,7 +392,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
     if (access.S == MAV[i].S) {
       TUNEPF(PFStat_matchExact++);
       return true;
-    }
+  }
   }
 
   DEBUG (dbgs() << "Found SCEV in this BB of type " <<
@@ -424,18 +444,18 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
         // large so the code may suffer from long cache warmup at the
         // beginning and from prefetches that hit the caches later
         if (diffSteps < 1024) {
-          // prefetch for the more advanced access (step and diff are in the
-          // same direction) is better, since the back access will catch up in
-          // later iterations
+        // prefetch for the more advanced access (step and diff are in the
+        // same direction) is better, since the back access will catch up in
+        // later iterations
           if ((constDiff < 0) == (access.step < 0)) {
-            MAV[i].S = access.S;
-            MAV[i].offset = access.offset;
-          }
-          TUNEPF (PFStat_matchSameLine++);
-          return true;
+          MAV[i].S = access.S;
+          MAV[i].offset = access.offset;
         }
+          TUNEPF (PFStat_matchSameLine++);
+        return true;
       }
     }
+  }
   }
 
   return false;
@@ -550,7 +570,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
               Name.find(m_gatherPrefetchIntrinsicName) != std::string::npos ||
               Name.find(m_scatterPrefetchIntrinsicName) != std::string::npos) {
             TUNEPF (PFStat_ManualPFAbortAPF++);
-            noManualPrefetch = false;
+          noManualPrefetch = false;
           }
           else {
             TUNEPF (
@@ -686,7 +706,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         TUNEPF (PFStat_accessMatchInSameBB++);
       }
       // if access is for more than 64 bytes record references for all
-      // accessed cache lines
+      // accessedcache lines
       assert (accessSize <= 2 * CacheLineSize &&
           "Accesses larger than 128 bytes are not expected");
       if (accessSize > CacheLineSize) {
@@ -753,7 +773,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         if (!MAV[i].recurring && memAccessExists(MAV[i], iDomMAV, true)) {
           MAV[i].recurring = true;
           TUNEPF(PFStat_accessMatchInDOMBB++);
-        }
+      }
       }
 
       // maintenance:
@@ -1034,9 +1054,9 @@ void Prefetch::getPFDistance() {
       firstNumThreads = m_numThreads;
     }
     TUNEPF (
-      printf ("First Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
-              (long long int )((void *)L), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
-              info.iterLen);
+    printf ("First Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
+            (long long int )((void *)L), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
+            info.iterLen);
     );
     DEBUG (dbgs() << "First Loop " << (void *)L << " Num Refs " << info.numRefs
       << " NumThreads " << info.numThreads << " distL1 " << info.L1Distance <<
@@ -1057,9 +1077,9 @@ void Prefetch::getPFDistance() {
     if (info.numThreads > m_numThreads)
       getPFDistance(it->first, info);
     TUNEPF (
-      printf ("Final Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
-              (long long int )((void *)it->first), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
-              info.iterLen);
+    printf ("Final Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
+            (long long int )((void *)it->first), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
+            info.iterLen);
     );
     DEBUG (dbgs() << "Final Loop " << (void *)it->first <<
         " Num Refs " << info.numRefs << " NumThreads " << info.numThreads <<
@@ -1204,16 +1224,10 @@ bool Prefetch::runOnFunction(Function &F) {
   return modified;
 }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 extern "C" {
 FunctionPass * createPrefetchPass() {
-  return new Intel::OpenCL::DeviceBackend::Prefetch();
+  return new intel::Prefetch();
 }
 }
-
-/// Support for dynamic loading of modules under Linux
-char Intel::OpenCL::DeviceBackend::Prefetch::ID = 0;
-static RegisterPass<Intel::OpenCL::DeviceBackend::Prefetch>
-    CLIPrefetch("prefetch", "Auto Prefetch in Function");
-

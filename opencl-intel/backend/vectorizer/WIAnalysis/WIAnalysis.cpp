@@ -5,8 +5,18 @@
 #include <string>
 #include "llvm/Constants.h"
 #include "Functions.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 namespace intel {
+
+char WIAnalysis::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
+
+
 
 static cl::opt<bool>
 PrintWiaCheck("print-wia-check", cl::init(false), cl::Hidden,
@@ -74,6 +84,13 @@ gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
+WIAnalysis::WIAnalysis() : FunctionPass(ID) {
+    initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+    m_rtServices = RuntimeServices::get();
+    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+}
+
+
 bool WIAnalysis::runOnFunction(Function &F) {
 
   if (! m_rtServices->orderedWI()) {
@@ -99,9 +116,9 @@ bool WIAnalysis::runOnFunction(Function &F) {
     calculate_dep(&*it);
   }
 
-  // Recursively check if WI-dep changes and if so reclaculates 
+  // Recursively check if WI-dep changes and if so reclaculates
   // the WI-dep and marks the users for re-checking.
-  // This procedure is guranteed to converge since WI-dep can only 
+  // This procedure is guranteed to converge since WI-dep can only
   // become less unifrom (uniform->consecutive->ptr->stride->random).
   updateDeps();
 
@@ -119,9 +136,9 @@ void WIAnalysis::updateDeps() {
 
   // As lonst as we have values to update
   while(!m_pChangedNew->empty()) {
-    // swap between changedSet pointers - recheck the newChanged(now old) 
+    // swap between changedSet pointers - recheck the newChanged(now old)
     std::swap(m_pChangedNew, m_pChangedOld);
-    // clear the newChanged set so it will be filled with the users of 
+    // clear the newChanged set so it will be filled with the users of
     // instruction which their WI-dep canged during the current iteration
     m_pChangedNew->clear();
     // update all changed values
@@ -142,16 +159,16 @@ WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
     if(PrintWiaCheck) {
         outs()<<"whichDepend function "<< "WIA" <<"Random!!"<<"4"<< "\n";
     }
- 
+
     return WIAnalysis::RANDOM;
   }
   V_ASSERT(m_pChangedNew->empty() && "set should be empty before query");
   V_ASSERT(val && "Bad value");
   if (m_deps.find(val) == m_deps.end()) {
     // We do not expect instructions not in the map, in that case take the safe
-    // way return random on release (assert on debug). For non-instruction 
+    // way return random on release (assert on debug). For non-instruction
     // (arguments, constants) return uniform.
-    bool isInst = isa<Instruction>(val); 
+    bool isInst = isa<Instruction>(val);
     V_ASSERT(!isInst && "should not have new instruciton");
     if (isInst) return WIAnalysis::RANDOM;
     return WIAnalysis::UNIFORM;
@@ -185,7 +202,7 @@ bool WIAnalysis::isControlFlowUniform(const Function* F) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
-  
+
   if (m_deps.find(val) == m_deps.end()) {
     m_deps[val] = WIAnalysis::UNIFORM;
   }
@@ -213,7 +230,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // were already given dependency. This is good for compile time since these
   // intructions will be visited again after the operands dependency is set.
   // An exception are phi nodes since they can be the ancestor of themselvs in
-  // the def-use chain. Note that in this case we force the phi to have the 
+  // the def-use chain. Note that in this case we force the phi to have the
   // pre header value already calculated.
   if (!hasDependency(inst)) {
     unsigned int unsetOpNum = 0;
@@ -244,9 +261,9 @@ void WIAnalysis::calculate_dep(const Value* val) {
   else if (isa<ExtractElementInst>(inst))                                     dep = calculate_dep_simple(inst);
   else if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(inst))  dep = calculate_dep(GEP);
   else if (isa<InsertElementInst>(inst))                                      dep = calculate_dep_simple(inst);
-  else if (isa<InsertValueInst>(inst))                                        dep = calculate_dep_simple(inst); 
-  else if (const PHINode *Phi = dyn_cast<PHINode>(inst))                      dep = calculate_dep(Phi); 
-  else if (isa<ShuffleVectorInst>(inst))                                      dep = calculate_dep_simple(inst); 
+  else if (isa<InsertValueInst>(inst))                                        dep = calculate_dep_simple(inst);
+  else if (const PHINode *Phi = dyn_cast<PHINode>(inst))                      dep = calculate_dep(Phi);
+  else if (isa<ShuffleVectorInst>(inst))                                      dep = calculate_dep_simple(inst);
   else if (isa<StoreInst>(inst))                                              dep = calculate_dep_simple(inst);
   else if (const TerminatorInst *TI = dyn_cast<TerminatorInst>(inst))         dep = calculate_dep(TI);
   else if (const SelectInst *SI = dyn_cast<SelectInst>(inst))                 dep = calculate_dep(SI);
@@ -295,7 +312,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   if ( WIAnalysis::UNIFORM == dep0 && WIAnalysis::UNIFORM == dep1) {
     return WIAnalysis::UNIFORM;
   }
-  
+
   // FIXME:: assumes that the X value does not cross the +/- border - risky !!!
   // The pattern (and (X, C)), where C preserves the lower k bits of the value,
   // is often used for truncating of numbers in 64bit. We assume that the index
@@ -304,7 +321,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
     ConstantInt *C0 = dyn_cast<ConstantInt>(inst->getOperand(0));
     ConstantInt *C1 = dyn_cast<ConstantInt>(inst->getOperand(1));
     // Use any of the constants. Instcombine places constants on Op1
-    // so try Op1 first. 
+    // so try Op1 first.
     if (C1 || C0) {
       ConstantInt *C = C1 ? C1 : C0;
       WIAnalysis::WIDependancy dep = C1 ? dep0 : dep1;
@@ -319,11 +336,11 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
       }
     }
   }
-  
+
   // FIXME:: assumes that the X value does not cross the +/- border - risky !!!
   // The pattern (ashr (shl X, C)C) is used for truncating of numbers in 64bit
   // The constant C must leave at least 32bits of the original number
-  if (inst->getOpcode() == Instruction::AShr) { 
+  if (inst->getOpcode() == Instruction::AShr) {
     BinaryOperator* SHL = dyn_cast<BinaryOperator>(inst->getOperand(0));
     // We also allow add of uniform value between the ashr and shl instructions
     // since instcombine creates this pattern when adding a constant.
@@ -404,18 +421,18 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   // Check if the function is in the table of functions
   Function *origFunc = inst->getCalledFunction();
   std::string origFuncName = origFunc->getName();
-  
+
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
-  bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) || 
+  bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) ||
                       Mangler::isMangledStore(scalarFuncName));
-  
+
   // First remove any name-mangling (for example, masking), from the function name
   if (isMangled) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
   }
 
-  // Check with the runtime whether we can say that the ouput of the call 
+  // Check with the runtime whether we can say that the ouput of the call
   // is uniform in case all it's operands are unifrom.
   // Note that for openCL the runtime will say it is true for: get_gloabl_id,
   // get_local_id, since on dimension 0 the isTIDGenerator should answer true,
@@ -448,7 +465,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst) {
-  // running over the all indices argumets except for the last 
+  // running over the all indices argumets except for the last
   // here we assume the pointer is the first operand
   unsigned num = inst->getNumIndices();
   for (unsigned i=1; i < num; ++i) {
@@ -471,8 +488,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
   unsigned num = inst->getNumIncomingValues();
   std::vector<WIDependancy> dep;
   for (unsigned i=0; i < num; ++i) {
-    // For phi we ignore unset incoming values, so cases 
-    // like loop with consecutive variable that is increased 
+    // For phi we ignore unset incoming values, so cases
+    // like loop with consecutive variable that is increased
     // by uniform will be considered consecutive.
     Value* op = inst->getIncomingValue(i);
     if (hasDependency(op)) dep.push_back(getDependency(op));
@@ -563,7 +580,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   if (WIAnalysis::UNIFORM == dep0) return dep0;
 
   switch (inst->getOpcode())
-  {  
+  {
   case Instruction::SExt:
   case Instruction::FPTrunc:
   case Instruction::FPExt:
@@ -609,7 +626,4 @@ extern "C" {
   }
 }
 
-char intel::WIAnalysis::ID = 0;
-static RegisterPass<intel::WIAnalysis>
-CLIWIAnalysis("WIAnalysis", "WIAnalysis provides work item dependency info");
 

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <map>
 #include "llvm/Support/CommandLine.h"
+#include "OCLPassSupport.h"
 #include "Namer.h"
 using namespace llvm;
 
@@ -20,6 +21,10 @@ NameInstDepth("name-depth", cl::init(0), cl::Hidden,
   cl::desc("depth for naming according to ops"));
 
 namespace intel {
+
+char nameByInstType::ID = 0;
+
+OCL_INITIALIZE_PASS(nameByInstType, "nameByInstType", "add names for Values according to instruction and operands type", false, false)
 
 //@brief Small Pass that remove names from all values in the function.
 class nameRemove : public FunctionPass {
@@ -36,7 +41,7 @@ public:
   }
 
   virtual bool runOnFunction(Function &F) {
-    for (Function::arg_iterator argIt = F.arg_begin(), argE = F.arg_end(); 
+    for (Function::arg_iterator argIt = F.arg_begin(), argE = F.arg_end();
          argIt != argE; ++argIt) {
       argIt->setName("");
     }
@@ -91,7 +96,7 @@ bool nameByInstType::runOnFunction(Function &F) {
 }
 
 void nameByInstType::RenameValues(Function &F) {
-  // Incase name all flag is set first remove all names from the Function, 
+  // Incase name all flag is set first remove all names from the Function,
   // this will makes the following procedures rename all values.
   if (m_nameAll) {
     nameRemove remPass;
@@ -113,7 +118,7 @@ void nameByInstType::RenameValues(Function &F) {
     for (BasicBlock::iterator I = bbit->begin(), E = bbit->end(); I!=E; ++I){
       if (I->getType()->isVoidTy()) continue;
       if (I->getName() != "") continue;
-    
+
       std::string str = getInstructionName(I);
       unsigned index = 0;
       if (name_map.count(str)) {
@@ -138,11 +143,9 @@ extern "C" {
 //static RegisterPass<intel::nameRemove> nameRemove("nameRemove", "remove names from Values");
 
 
-char intel::nameByInstType::ID = 0;
 extern "C" {
   FunctionPass* createNameByInstTypePass() {
     return new intel::nameByInstType();
   }
 }
-static RegisterPass<intel::nameByInstType> nameByInstType("nameByInstType", "add names for Values according to instruction and operands type");
 

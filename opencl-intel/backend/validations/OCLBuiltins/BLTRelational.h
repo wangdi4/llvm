@@ -232,7 +232,7 @@ namespace OCLBuiltins {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
         T sum = 0;
-        sum |= getVal<T>(arg0); 
+        sum |= getVal<T>(arg0);
         sum = (sum != 0) ? 1 : 0;
         getRef<int32_t>(R) = llvm::APInt(32, sum != 0, true);
         return R;
@@ -266,7 +266,7 @@ namespace OCLBuiltins {
         llvm::GenericValue arg0 = Args[0];
         T mask = intMin<sT>();
         T sum = mask; // we need 1 in highest bit here
-        sum &= getVal<T>(arg0); 
+        sum &= getVal<T>(arg0);
         sum = (sum != 0) ? 1 : 0;
         getRef<int32_t>(R) = llvm::APInt(32, sum != 0, true);
         return R;
@@ -371,6 +371,46 @@ namespace OCLBuiltins {
             T out = cond ? getVal<T,n>(arg1, i) : getVal<T,n>(arg0, i);
             R.AggregateVal[i] = selectResult<T>(out);
         }
+        return R;
+    }
+
+    template<>
+    llvm::GenericValue localBitselect( float inA, float inB, float inC )
+    {
+        llvm::GenericValue R;
+        union {uint32_t u; float f;} a, b, c, out;
+        a.f = inA;
+        b.f = inB;
+        c.f = inC;
+        out.u = ( a.u & ~c.u ) | ( b.u & c.u );
+        getRef<float>(R) = out.f;
+        return R;
+    }
+    template<>
+    llvm::GenericValue localBitselect( double inA, double inB, double inC )
+    {
+        llvm::GenericValue R;
+        union {uint64_t u; double f;} a, b, c, out;
+        a.f = inA;
+        b.f = inB;
+        c.f = inC;
+        out.u = ( a.u & c.u ) | ( b.u & c.u );
+        getRef<double>(R) = out.f;
+        return R;
+    }
+
+    template<>
+    llvm::GenericValue selectResult( float inC )
+    {
+        llvm::GenericValue R;
+        getRef<float>(R) = inC;
+        return R;
+    }
+    template<>
+    llvm::GenericValue selectResult( double inC )
+    {
+        llvm::GenericValue R;
+        getRef<double>(R) = inC;
         return R;
     }
 

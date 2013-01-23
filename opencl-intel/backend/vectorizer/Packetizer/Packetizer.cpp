@@ -12,7 +12,8 @@
 #include "llvm/Support/IRBuilder.h"
 #endif
 #include "llvm/Intrinsics.h"
-
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "Packetizer.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
@@ -58,6 +59,14 @@ static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType*
 namespace intel {
 
 const unsigned int PacketizeFunction::MaxLogBufferSize = 31;
+
+/// Support for dynamic loading of modules under Linux
+char PacketizeFunction::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
@@ -807,7 +816,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
-    
+
     PointerType *elemType = PointerType::get(ElemTy, 0);
     MO.Base = BitCastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
   }
@@ -2679,6 +2688,3 @@ extern "C" {
   }
 }
 
-/// Support for dynamic loading of modules under Linux
-char intel::PacketizeFunction::ID = 0;
-static RegisterPass<intel::PacketizeFunction> PACKETIZER("packetize", "packetize functions");

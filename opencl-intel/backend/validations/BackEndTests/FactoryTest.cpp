@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  FactoryTest.cpp 
+File Name:  FactoryTest.cpp
 
 \*****************************************************************************/
 
@@ -20,7 +20,6 @@ File Name:  FactoryTest.cpp
 #include "BackendWrapper.h"
 #include <gtest/gtest.h>
 
-using namespace llvm;
 
 TEST_F(BackEndTests_FactoryMethods, FactoryInitialization)
 {
@@ -57,7 +56,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
 
     //-----------------------------------------------------------------
     // create another set of valid options
-    std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName(); 
+    std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName();
     options.InitFromTestConfiguration("", currCPU, "", TRANSPOSE_SIZE_1, true);
     EXPECT_TRUE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
     EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
@@ -107,7 +106,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
     // call GetCompilationService with Options invalid - should fail
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
-    
+
 
     //-----------------------------------------------------------------
     // create another invalid set of options - unsupported transpose size
@@ -131,7 +130,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
     EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED));
     // call GetCompilationService with Options invalid - should fail
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
-    EXPECT_NE(CL_DEV_SUCCESS, ret); 
+    EXPECT_NE(CL_DEV_SUCCESS, ret);
     */ // BUG CSSD100012466: GetCompilationService doesn't fail when it gets invalid cpu feature
 
 
@@ -164,7 +163,7 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceCreation)
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
 
-    
+
     //-----------------------------------------------------------------
     // create another set of valid options
     std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName();
@@ -267,7 +266,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
     // call GetSerializationService with Options invalid - should fail
     ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
-    
+
 
     //-----------------------------------------------------------------
     // create another set of invalid options - CPU mode and not MIC mode
@@ -288,7 +287,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
     pJITAllocatorTemp = NULL;
     size = 0;
     options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
-    EXPECT_EQ(NULL, pJITAllocatorTemp); 
+    EXPECT_EQ(NULL, pJITAllocatorTemp);
     //call GetSerializationService with Options invalid - should fail
     ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);

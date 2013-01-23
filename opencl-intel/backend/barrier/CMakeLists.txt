@@ -6,6 +6,7 @@ include_directories(BEFORE "include")
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api 
     ${BACKEND_ROOT_DIR}/utils
+    ${BACKEND_ROOT_DIR}/passes
     )
     
 add_library( ${TARGET_NAME}
@@ -24,5 +25,4 @@ add_library( ${TARGET_NAME}
   ${headers}
 )
 
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 

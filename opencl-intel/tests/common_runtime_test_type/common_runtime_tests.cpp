@@ -37,17 +37,5 @@ int main(int argc, char** argv)
 	}
 	::testing::AddGlobalTestEnvironment(new EnvironemntCommonRuntimeTestType());
 	::testing::InitGoogleTest(&argc, argv);
-    int rc = RUN_ALL_TESTS();
-
-    if (rc == 0) 
-	{
-        printf("\n==============\nTEST SUCCEDDED\n==============\n");
-        return 0;
-    }
-    else 
-	{
-        printf("\n==============\nTEST FAILED\n==============\n");
-        return 1;
-    }
-	return 0;
+   return RUN_ALL_TESTS();
 }

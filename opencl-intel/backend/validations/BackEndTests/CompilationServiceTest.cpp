@@ -12,15 +12,12 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  CompilationServiceTest.cpp 
+File Name:  CompilationServiceTest.cpp
 
 \*****************************************************************************/
 
 #include "BackendWrapper.h"
 #include <gtest/gtest.h>
-
-
-using namespace llvm;
 
 TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
 {
@@ -88,7 +85,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     ICLDevBackendCompilationService* pCompileService = spCompileService.get();
     ASSERT_TRUE(pCompileService);
-    
+
     //-----------------------------------------------------------------
     // call the CreateProgram with invalid parameters - NULL in pByteCodeContainer
     ICLDevBackendProgram_* pProgram = NULL;
@@ -142,7 +139,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     pCompileService->ReleaseProgram(pProgram);
 
-    
+
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with no kernels - valid options
@@ -226,4 +223,10 @@ TEST_F(BackEndTests_CompilationService, BuildProgramFailure)
     // invalid parameters - should fail with no crash
     ret = pCompileService->BuildProgram(NULL, NULL);
     EXPECT_NE(CL_DEV_SUCCESS, ret);
+}
+
+int main(int argc, char** argv)
+{
+   ::testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
 }

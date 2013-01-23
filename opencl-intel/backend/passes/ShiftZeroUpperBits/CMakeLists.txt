@@ -8,6 +8,10 @@ set(SHIFTZEROUPPERBITS_SOURCE_FILES
     ShiftZeroUpperBits.cpp
 )
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/passes
+)
+
 add_library(${TARGET_NAME}
     ${SHIFTZEROUPPERBITS_INCLUDE_FILES}
     ${SHIFTZEROUPPERBITS_SOURCE_FILES}

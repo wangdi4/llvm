@@ -41,7 +41,7 @@ add_library(
 )
 
 include_directories(
-  ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
+  ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/include
   ${CMAKE_CURRENT_SOURCE_DIR}/gen
   ${CMAKE_CURRENT_SOURCE_DIR}

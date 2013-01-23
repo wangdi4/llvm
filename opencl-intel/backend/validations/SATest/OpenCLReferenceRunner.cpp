@@ -92,6 +92,8 @@ static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
 static ManagedStatic<sys::Mutex> InterpreterLock;
 
+extern "C" void initOCLBuiltins();
+
 OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pLLVMContext(NULL),
     m_pModule(NULL),
@@ -102,6 +104,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_bUseNEAT(bUseNEAT),
     m_bUseFmaNEAT(bUseFmaNEAT)
 {
+    initOCLBuiltins();
 }
 
 OpenCLReferenceRunner::~OpenCLReferenceRunner(void)
@@ -1030,7 +1033,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         delete localEngines[i];
     }
 
-    for(NEATPlugIn::GlobalAddressMapTy::iterator I = NEATlocalMap.begin(), E=NEATlocalMap.end(); 
+    for(NEATPlugIn::GlobalAddressMapTy::iterator I = NEATlocalMap.begin(), E=NEATlocalMap.end();
         I!=E; ++I)
     {
         delete [] (int8_t*)(*I).second;

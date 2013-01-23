@@ -2,6 +2,7 @@
  * TODO: add Copyright © 2011-2012, Intel Corporation
  *********************************************************************************************/
 #include "BarrierInFunctionPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -9,6 +10,8 @@
 namespace intel {
 
   char BarrierInFunction::ID = 0;
+
+  OCL_INITIALIZE_PASS(BarrierInFunction, "B-BarrierInFunction", "Barrier Pass - Handle barrier instructions called from functions", false, true)
 
   BarrierInFunction::BarrierInFunction() : ModulePass(ID) {}
 
@@ -137,9 +140,6 @@ namespace intel {
     }
   }
 
-  // Register this pass...
-  static RegisterPass<BarrierInFunction> DPB("B-BarrierInFunction",
-    "Barrier Pass - Handle barrier instructions called from functions", false, true);
 
 } // namespace intel
 

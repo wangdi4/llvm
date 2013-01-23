@@ -16,6 +16,7 @@ File Name:  InstToFuncCall.cpp
 
 \*****************************************************************************/
 #include "InstToFuncCall.h"
+#include "OCLPassSupport.h"
 
 #include <llvm/Instructions.h>
 #include <llvm/Constants.h>
@@ -26,17 +27,16 @@ extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
     void* createInstToFuncCallPass(bool isMic) {
-        return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isMic);
+        return new intel::InstToFuncCall(isMic);
     }
 }
 
-/// Register pass to for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::InstToFuncCall> InstToFuncCallPass("inst-to-func-call", "Replaces LLVM IR instructions with calls to functions.");
 
-
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
     char InstToFuncCall::ID = 0;
+
+    OCL_INITIALIZE_PASS(InstToFuncCall, "inst-to-func-call", "Replaces LLVM IR instructions with calls to functions", false, false)
 
     InstToFuncCall::InstToFuncCall(bool isMic) : ModulePass(ID), m_I2F(isMic) {}
 
@@ -95,5 +95,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     ModulePass *createInstToFuncCallPass(bool isMic) { return new InstToFuncCall(isMic); }
 
-    }}} // namespace
+    } // namespace
 

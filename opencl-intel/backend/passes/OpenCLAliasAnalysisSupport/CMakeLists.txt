@@ -1,4 +1,4 @@
-add_llvm_library(LLVMOpenCLAliasAnalysisSupport
+add_library(LLVMOpenCLAliasAnalysisSupport
     OpenCLAliasAnalysis.cpp
   )
 

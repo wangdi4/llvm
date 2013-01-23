@@ -1,4 +1,4 @@
-@echo off
+rem @echo off
 rem Validation tests build by ICC linker
 rem All variables in the form of CMake vars will be replaced by CMake:
 rem   ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment
@@ -19,11 +19,17 @@ if "%1" == "Debug" goto debug
 
 :release
 if not "%1" == "Release" goto fail
-"@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib %5/tinyxml_STL.lib %5/gtest.lib %5/NEAT.lib %5/REFALU.lib %5/Comparator.lib %5/DataGenerator.lib %5/DataManager.lib %5/LLVMSupport.lib %5/LLVMCore.lib %5/LLVMAsmParser.lib %5/OCLBuiltins.lib %5/ImathLibd.lib %5/gtest_main.lib %5/OCLKernelDataGenerator.lib %5/PlugInNEAT.lib %5/OclPluginManager.lib %5/OCLRecorderStat.lib %5/OpenCLKernelArgumentsParser.lib %5/OCLBuilder.lib %5/dynamic_load.lib %5/name_mangle.lib %5/antlr.lib @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_RELEASE@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib OCLBuiltins.lib ImathLibd.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib name_mangle.lib antlr.lib @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+echo Running %CMDLINE%
+%CMDLINE%
+REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib name_mangle.lib antlr.lib
 goto fin
 
 :debug
-"@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib %5/tinyxml_STL.lib %5/gtest.lib %5/NEAT.lib %5/REFALU.lib %5/Comparator.lib %5/DataGenerator.lib %5/DataManager.lib %5/LLVMSupport.lib %5/LLVMCore.lib %5/LLVMAsmParser.lib %5/OpenCLKernelArgumentsParser.lib %5/OCLKernelDataGenerator.lib %5/OCLBuiltins.lib %5/ImathLibd.lib %5/gtest_main.lib %5/PlugInNEAT.lib %5/OclPluginManager.lib %5/OCLRecorderStat.lib %5/OCLBuilder.lib %5/dynamic_load.lib %5/name_mangle.lib %5/antlr.lib @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_DEBUG@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib name_mangle.lib antlr.lib  @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+echo Running %CMDLINE%
+%CMDLINE%
+REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib name_mangle.lib antlr.lib
 :fin
 exit /b 0
 

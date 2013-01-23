@@ -15,18 +15,13 @@
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
   class Prefetch : public FunctionPass {
 
     public:
       static char ID; // Pass identification, replacement for typeid
-      Prefetch() : FunctionPass(ID) {
-        initializeLoopInfoPass(*PassRegistry::getPassRegistry());
-        initializeScalarEvolutionPass(*PassRegistry::getPassRegistry());
-        initializeBranchProbabilityInfoPass(*PassRegistry::getPassRegistry());
-        init();
-      }
+      Prefetch();
 
       ~Prefetch();
 
@@ -156,7 +151,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   }; // Prefetch class
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 
 #endif // __PREFETCH_H_

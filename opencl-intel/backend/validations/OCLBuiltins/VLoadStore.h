@@ -21,6 +21,7 @@ File Name:  VLoadStore.h
 #include <vector>
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include "Conformance/reference_convert.h"
 #include "Helpers.h"
 #include "IBLTMapFiller.h"
 #include "dxfloat.h"
@@ -133,6 +134,221 @@ namespace OCLBuiltins {
     public:
         void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
     };
+	
+	#define VSTOREF_HALF_CONVERT(RMODE)                                                 \
+	template<int n, bool aligned>                                                       \
+	llvm::GenericValue lle_X_vstoref_half_ ## RMODE (llvm::FunctionType *FT,      \
+										 const std::vector<llvm::GenericValue> &Args)   \
+	{                                                                                   \
+		llvm::GenericValue arg0 = Args[0];                                              \
+		llvm::GenericValue arg1 = Args[1];                                              \
+		llvm::GenericValue arg2 = Args[2];                                              \
+		uint32_t offset  = arg1.IntVal.getZExtValue();                                  \
+		offset *= n;                                                                    \
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);                          \
+		p += offset;                                                                    \
+		for (uint32_t i = 0; i < n; ++i, ++p)                                           \
+		{                                                                               \
+			*p = Conformance::float2half_ ## RMODE(getVal<float, n>(arg0, i));          \
+		}                                                                               \
+		return llvm::GenericValue();                                                    \
+	}
+
+	VSTOREF_HALF_CONVERT(rte)
+	VSTOREF_HALF_CONVERT(rtz)
+	VSTOREF_HALF_CONVERT(rtp)
+	VSTOREF_HALF_CONVERT(rtn)
+
+	#define VSTORED_HALF_CONVERT(RMODE)                                                 \
+	template<int n, bool aligned>                                                       \
+	llvm::GenericValue lle_X_vstored_half_ ## RMODE (llvm::FunctionType *FT,      \
+										const std::vector<llvm::GenericValue> &Args)    \
+	{                                                                                   \
+		llvm::GenericValue arg0 = Args[0];                                              \
+		llvm::GenericValue arg1 = Args[1];                                              \
+		llvm::GenericValue arg2 = Args[2];                                              \
+		uint32_t offset  = arg1.IntVal.getZExtValue();                                  \
+		offset *= n;                                                                    \
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);                          \
+		p += offset;                                                                    \
+		for (uint32_t i = 0; i < n; ++i, ++p)                                           \
+		{                                                                               \
+			*p = Conformance::double2half_ ## RMODE(getVal<double, n>(arg0, i));        \
+		}                                                                               \
+		return llvm::GenericValue();                                                    \
+	}
+
+	VSTORED_HALF_CONVERT(rte)
+	VSTORED_HALF_CONVERT(rtz)
+	VSTORED_HALF_CONVERT(rtp)
+	VSTORED_HALF_CONVERT(rtn)
+	
+	#define FILL_VLOAD(vectorSize, addrSpace, elemType)             \
+	{                                                               \
+		std::string bltName("vload" #vectorSize);                   \
+		p.ptrType.AddrSpace = OCLBuiltinParser::addrSpace;          \
+		elem.basicType = getBasicType<elemType>();                  \
+		p.ptrType.ptrType[0] = elem;                                \
+		args[1] = p;                                                \
+		OCLBuiltinParser::GetOCLMangledName(bltName, args, mangledName);\
+		funcNames[interpreterPrefix+mangledName]        = lle_X_vload<elemType, vectorSize>;\
+	}
+
+	#define FILL_VLOAD_VECTOR(addrSpace, elemType)  \
+		FILL_VLOAD(2, addrSpace, elemType)          \
+		FILL_VLOAD(3, addrSpace, elemType)          \
+		FILL_VLOAD(4, addrSpace, elemType)          \
+		FILL_VLOAD(8, addrSpace, elemType)          \
+		FILL_VLOAD(16, addrSpace, elemType)
+
+	#define FILL_VLOAD_ADDR_SPACE(addrSpace)        \
+		FILL_VLOAD_VECTOR(addrSpace, int8_t)        \
+		FILL_VLOAD_VECTOR(addrSpace, uint8_t)       \
+		FILL_VLOAD_VECTOR(addrSpace, int16_t)       \
+		FILL_VLOAD_VECTOR(addrSpace, uint16_t)      \
+		FILL_VLOAD_VECTOR(addrSpace, int32_t)       \
+		FILL_VLOAD_VECTOR(addrSpace, uint32_t)      \
+		FILL_VLOAD_VECTOR(addrSpace, int64_t)       \
+		FILL_VLOAD_VECTOR(addrSpace, uint64_t)      \
+		FILL_VLOAD_VECTOR(addrSpace, float)         \
+		FILL_VLOAD_VECTOR(addrSpace, double)
+
+	#define FILL_VLOAD_ALL(SIZE_PARAM)              \
+		{                                           \
+		OCLBuiltinParser::ArgVector args(2);        \
+		OCLBuiltinParser::ARG offset;               \
+		offset.genType = OCLBuiltinParser::BASIC;   \
+		offset.basicType = OCLBuiltinParser::SIZE_PARAM;  \
+		args[0] = offset;                           \
+		OCLBuiltinParser::ARG p;                    \
+		p.genType = OCLBuiltinParser::POINTER;      \
+		p.ptrType.isAddrSpace = true;               \
+		p.ptrType.isPointsToConst = true;           \
+		p.ptrType.ptrType.resize(1);                \
+		OCLBuiltinParser::ARG elem;                 \
+		elem.genType = OCLBuiltinParser::BASIC;     \
+		FILL_VLOAD_ADDR_SPACE(GLOBAL)               \
+		FILL_VLOAD_ADDR_SPACE(LOCAL)                \
+		FILL_VLOAD_ADDR_SPACE(CONSTANT)             \
+		FILL_VLOAD_ADDR_SPACE(PRIVATE)              \
+		}
+
+	template<> llvm::GenericValue lle_X_vload_half<3, true>(
+		llvm::FunctionType *FT,
+		const std::vector<llvm::GenericValue> &Args)
+	{
+		llvm::GenericValue R;
+		llvm::GenericValue arg0 = Args[0];
+		llvm::GenericValue arg1 = Args[1];
+		uint32_t offset  = arg0.IntVal.getZExtValue();
+		offset *= 4;
+		uint16_t* p = static_cast<uint16_t*>(arg1.PointerVal);
+		p += offset;
+		R.AggregateVal.resize(3);
+		for (uint32_t i = 0; i < 3; ++i, ++p)
+		{
+			getRef<float, 3> (R, i) = float(CFloat16(*p));
+		}
+		return R;
+	}
+
+	template<>
+	uint16_t convert2half<float>(float f)
+	{
+		return Conformance::float2half_rte(f);
+	}
+
+	template<>
+	uint16_t convert2half<double>(double f)
+	{
+		return Conformance::double2half_rte(f);
+	}
+
+
+	template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
+		llvm::FunctionType *FT,
+		const std::vector<llvm::GenericValue> &Args)
+	{
+		llvm::GenericValue arg0 = Args[0];
+		llvm::GenericValue arg1 = Args[1];
+		llvm::GenericValue arg2 = Args[2];
+		uint32_t offset  = arg1.IntVal.getZExtValue();
+		offset *= 4;
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);
+		p += offset;
+		for (uint32_t i = 0; i < 3; ++i, ++p)
+		{
+			*p = CFloat16(getVal<float, 3>(arg0, i)).GetBits();
+		}
+		return llvm::GenericValue();
+	}
+
+	template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
+		llvm::FunctionType *FT,
+		const std::vector<llvm::GenericValue> &Args)
+	{
+		llvm::GenericValue arg0 = Args[0];
+		llvm::GenericValue arg1 = Args[1];
+		llvm::GenericValue arg2 = Args[2];
+		uint32_t offset  = arg1.IntVal.getZExtValue();
+		offset *= 4;
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);
+		p += offset;
+		for (uint32_t i = 0; i < 3; ++i, ++p)
+		{
+			*p = Conformance::double2half_rte(getVal<double, 3>(arg0, i));
+		}
+		return llvm::GenericValue();
+	}
+
+
+	#define VSTOREAF_HALF_CONVERT(RMODE)                                        \
+	template<> llvm::GenericValue lle_X_vstoref_half_ ## RMODE <3, true>(       \
+		llvm::FunctionType *FT,                                           \
+		const std::vector<llvm::GenericValue> &Args)                            \
+	{                                                                           \
+		llvm::GenericValue arg0 = Args[0];                                      \
+		llvm::GenericValue arg1 = Args[1];                                      \
+		llvm::GenericValue arg2 = Args[2];                                      \
+		uint32_t offset  = arg1.IntVal.getZExtValue();                          \
+		offset *= 4;                                                            \
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);                  \
+		p += offset;                                                            \
+		for (uint32_t i = 0; i < 3; ++i, ++p)                                   \
+		{                                                                       \
+			*p = Conformance::float2half_ ## RMODE(getVal<float, 3>(arg0, i));  \
+		}                                                                       \
+		return llvm::GenericValue();                                            \
+	}
+
+	VSTOREAF_HALF_CONVERT(rte)
+	VSTOREAF_HALF_CONVERT(rtz)
+	VSTOREAF_HALF_CONVERT(rtp)
+	VSTOREAF_HALF_CONVERT(rtn)
+
+	#define VSTOREAD_HALF_CONVERT(RMODE)                                            \
+	template<> llvm::GenericValue lle_X_vstored_half_ ## RMODE <3, true>(           \
+		llvm::FunctionType *FT,                                               \
+		const std::vector<llvm::GenericValue> &Args)                                \
+	{                                                                               \
+		llvm::GenericValue arg0 = Args[0];                                          \
+		llvm::GenericValue arg1 = Args[1];                                          \
+		llvm::GenericValue arg2 = Args[2];                                          \
+		uint32_t offset  = arg1.IntVal.getZExtValue();                              \
+		offset *= 4;                                                                \
+		uint16_t* p = static_cast<uint16_t*>(arg2.PointerVal);                      \
+		p += offset;                                                                \
+		for (uint32_t i = 0; i < 3; ++i, ++p)                                       \
+		{                                                                           \
+			*p = Conformance::double2half_ ## RMODE(getVal<double, 3>(arg0, i));    \
+		}                                                                           \
+		return llvm::GenericValue();                                                \
+	}
+
+	VSTOREAD_HALF_CONVERT(rte)
+	VSTOREAD_HALF_CONVERT(rtz)
+	VSTOREAD_HALF_CONVERT(rtp)
+	VSTOREAD_HALF_CONVERT(rtn)
 
 } // namespace OCLBuiltins
 } // namespace Validation

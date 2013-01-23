@@ -22,7 +22,7 @@ File Name:  ModuleCleanup.h
 #include <llvm/Pass.h>
 #include <llvm/ADT/SmallSet.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+namespace intel{
     using namespace llvm;
 
     /// @brief Cleans OpenCL module: removes functions which are not kernels (or called by kernels)
@@ -62,6 +62,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
     };
 
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+} // namespace Intel { namespace OpenCL { namespace DeviceBackend  {
 
 #endif // __MODULE_CLEANUP_H__

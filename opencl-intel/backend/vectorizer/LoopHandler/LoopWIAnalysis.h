@@ -12,15 +12,13 @@
 #include "llvm/Instructions.h"
 using namespace llvm;
 namespace intel {
-class LoopWIAnalysis : public LoopPass { 
+class LoopWIAnalysis : public LoopPass {
 public:
   ///@brief Pass identification.
   static char ID;
 
   /// @brief C'tor.
-  LoopWIAnalysis():LoopPass(ID){
-    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-  }; 
+  LoopWIAnalysis();
 
   /// @brief destructor.
   ~LoopWIAnalysis() {};
@@ -115,7 +113,7 @@ private:
   /// @brief computes the stride dependency of the loop header phi nodes.
   void getHeaderPHiStride();
 
-  /// @brief computes the stride dependency of instruction in the basic block 
+  /// @brief computes the stride dependency of instruction in the basic block
   ///        represented by the node, and recursively calls his children.
   /// @param N - dominator tree node of the current processed basic block.
   void ScanLoop(DomTreeNode *N);
@@ -123,7 +121,7 @@ private:
   /// @brief returns the dependency of the current value.
   /// @param val - value to query.
   ValDependancy getDependency(Value *val);
-  
+
   /// @brief calculates the dependency of I.
   /// @param I - instruction to query.
   void calculate_dep(Instruction *I);
@@ -143,7 +141,7 @@ private:
   /// return EEI depedency.
   ValDependancy calculate_dep(ExtractElementInst *EEI);
 
-  /// @brief Checks if I is generetion of sequential ids according to the 
+  /// @brief Checks if I is generetion of sequential ids according to the
   ///        vectorizer pattern.
   /// @param I - instruction to check
   /// @returns true if I is sequential vector.
@@ -151,7 +149,7 @@ private:
 
   /// @brief Checks is v is constant vector of the from <0, 1, 2, ...>
   /// @param v - value to query.
-  /// true if v is consant vector of the above form. 
+  /// true if v is consant vector of the above form.
   bool isConsecutiveConstVector(Value *v);
 
   /// @brief checks if SVI is a vector whose elements are the same.

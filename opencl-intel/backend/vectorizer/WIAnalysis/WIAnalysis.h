@@ -29,10 +29,7 @@ namespace intel {
 class WIAnalysis : public FunctionPass {
 public:
     static char ID; // Pass identification, replacement for typeid
-    WIAnalysis() : FunctionPass(ID) {
-      m_rtServices = RuntimeServices::get();
-      V_ASSERT(m_rtServices && "Runtime services were not initialized!");
-    }
+    WIAnalysis();
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -59,9 +56,9 @@ public:
 
     /// The WIAnalysis follows pointer arithmetic
     ///  and Index arithmetic when calculating dependency
-    ///  properties. If a part of the index is lost due to 
+    ///  properties. If a part of the index is lost due to
     ///  a transformation, it is acceptible.
-    ///  This constant decides how many bits need to be 
+    ///  This constant decides how many bits need to be
     ///  preserved before we give up on the analysis.
     static const unsigned int MinIndexBitwidthToPreserve;
 
@@ -101,7 +98,7 @@ private:
 
     /// @brief do the trivial checking WI-dep
     /// @param I instruction to check
-    /// @return Dependency type. Returns Uniform if all operands are 
+    /// @return Dependency type. Returns Uniform if all operands are
     ///         Uniform, Random othewise
     WIDependancy calculate_dep_simple(const Instruction *I);
 
@@ -114,7 +111,7 @@ private:
     /// @param val Value to examine
     /// @return true if value has dependency type, false otherwise.
     bool hasDependency(const Value *val);
-    
+
 
     /// @brief  LLVM Interface
     /// @param AU Analysis
@@ -135,7 +132,7 @@ private:
     /// the other holds the new changed values from the current iteration.
     std::set<const Value*> m_changed1;
     std::set<const Value*> m_changed2;
-    /// ptr to m_changed1, m_changed2 
+    /// ptr to m_changed1, m_changed2
     std::set<const Value*> *m_pChangedOld;
     std::set<const Value*> *m_pChangedNew;
 

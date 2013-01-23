@@ -52,73 +52,57 @@ else (WIN32)
 	)
 endif (WIN32)
 
-# LLVM libs
-set (LLVM_LIBS
-	LLVMLinker
-	LLVMX86AsmParser
-	LLVMX86AsmPrinter
-	LLVMX86CodeGen
-	LLVMX86Disassembler
-	LLVMX86Info
-	LLVMTransformUtils
-	LLVMCore
-	LLVMTarget
-	LLVMExecutionEngine
-	LLVMJIT
-	OCLInterpreter
-	LLVMCodeGen
-	LLVMBitReader
-	LLVMBitWriter
-	LLVMSupport
-	LLVMAnalysis
-	LLVMAsmPrinter
-	LLVMInstCombine
-	LLVMipa
-	LLVMipo
-	LLVMMC
-	LLVMScalarOpts
-	LLVMSelectionDAG
-	LLVMVectorizer
-	)
-	
-set (OCL_RECORDER_DEPS
-  tinyxml_STL
-  DataManager
-  OclPluginManager 
-  ${LLVM_LIBS}
-) 	
-
 # Add include directories
 include_directories(${OCL_RECORDER_IMPORT_DIR} ${OCL_RECORDER_EXPORT_DIR} )
 include_directories(${OCL_BACKEND_IMPORTS_DIR} ${OCL_BACKEND_EXPORTS_DIR} )
 include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEAT_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/backend/plugin_manager)
-if(WIN32)
-get_target_property( lib_dir NEAT_wrapper lib_dir )
 
-# Add additional lib direcories
-link_directories (${OCL_RECORDER_LIB_DIR} ${lib_dir}) 
+link_directories (
+    ${LLVM_LIBRARY_DIR}
+) 
+
+if(WIN32)
+    get_target_property( lib_dir NEAT_wrapper lib_dir )
+
+    # Add additional lib direcories
+    link_directories (
+            ${OCL_RECORDER_LIB_DIR} 
+            ${lib_dir} 
+    ) 
 endif()
+
 # Create DLL
 add_library (${TARGET_NAME} SHARED 
-	${OCL_RECORDER_INCLUDE_FILES}
-	${OCL_RECORDER_SOURCE_FILES}
-	${OCL_RECORDER_RESOURCE_FILES}
-	${ASM_ADD_TO_SOURCES_LIST}
-	)
+    ${OCL_RECORDER_INCLUDE_FILES}
+    ${OCL_RECORDER_SOURCE_FILES}
+    ${OCL_RECORDER_RESOURCE_FILES}
+    ${ASM_ADD_TO_SOURCES_LIST}
+)
 
 # Create static library for unit tests
 add_library (OCLRecorderStat STATIC
-  ${OCL_RECORDER_SOURCE_FILES}
+    ${OCL_RECORDER_SOURCE_FILES}
 )
 
 # Link with appropriate libs
-target_link_libraries (${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT) 
+target_link_libraries (${TARGET_NAME} 
+    tinyxml_STL
+    DataManager
+    OclPluginManager 
+    ${LLVM_MODULE_LIBS}
+    NEAT
+) 
+
 if(WIN32)
-# Define the dependancy projects
-add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT_wrapper)
+    # Define the dependancy projects
+    add_dependencies(${TARGET_NAME} 
+        NEAT_wrapper
+    )
 else(WIN32)
-add_dependencies(${TARGET_NAME} ${OCL_RECORDER_DEPS} NEAT)
+    add_dependencies(${TARGET_NAME} 
+        NEAT
+    )
 endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )

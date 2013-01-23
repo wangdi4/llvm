@@ -1,12 +1,15 @@
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Constants.h"
-
+#include "OCLPassSupport.h"
 #include "X86Lower.h"
 #include "Logger.h"
 #include <sstream>
 
 namespace intel {
 
+char X86Lower::ID = 0;
+
+OCL_INITIALIZE_PASS(X86Lower, "x86lower", "Lower predicates to x86 words", false, false)
 
 static void AddComperator(Module &M, std::string name, std::string intrinsic) {
 
@@ -18,11 +21,11 @@ static void AddComperator(Module &M, std::string name, std::string intrinsic) {
   T8Func.push_back(Vec8Type);
   T8Func.push_back(Vec8Type);
   FunctionType* Func8Ty_0 = FunctionType::get(Vec8Type, T8Func, false);
-  
+
   // Function Declarations
-  
+
   Function* FuncCMP = Function::Create(Func8Ty_0, GlobalValue::ExternalLinkage,
-   name.c_str(), &M); 
+   name.c_str(), &M);
 
   std::vector<Constant*> v03;
   std::vector<Constant*> v47;
@@ -39,7 +42,7 @@ static void AddComperator(Module &M, std::string name, std::string intrinsic) {
   Function::arg_iterator args = FuncCMP->arg_begin();
   Value* ArgA = args; args++;
   Value* ArgB = args;
-     
+
   Value *ALow = new ShuffleVectorInst(ArgA, UndefValue::get(ArgA->getType()), M03, "ALow",entry);
   Value *BLow = new ShuffleVectorInst(ArgB, UndefValue::get(ArgB->getType()), M03, "BLow",entry);
   Value *AHigh = new ShuffleVectorInst(ArgA, UndefValue::get(ArgA->getType()), M47, "AHigh",entry);
@@ -269,7 +272,7 @@ void X86Lower::Translate(CallInst* ci) {
 }
 
 void X86Lower::Translate(PHINode* phi) {
-  PHINode* new_phi = PHINode::Create(TranslateType(phi->getType()), 
+  PHINode* new_phi = PHINode::Create(TranslateType(phi->getType()),
     phi->getNumIncomingValues(),
     phi->getName() + "_32", phi);
   for (unsigned i=0; i <  phi->getNumIncomingValues(); ++i) {
@@ -428,13 +431,13 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
     V_PRINT("x86lower", "Trying  floating point for "<<*cmp<<" \n");
 
     /*
-    CMPEQPS  xmm1,xmm2   => CMPPS xmm1,xmm2,0 
-    CMPLTPS  xmm1,xmm2   => CMPPS xmm1,xmm2,1 
-    CMPLEPS  xmm1,xmm2   => CMPPS xmm1,xmm2,2 
-    CMPUNORDPS xmm1,xmm2 => CMPPS xmm1,xmm2,3 
-    CMPNEQPS xmm1,xmm2   => CMPPS xmm1,xmm2,4 
-    CMPNLTPS xmm1,xmm2   => CMPPS xmm1,xmm2,5 
-    CMPNLEPS xmm1,xmm2   => CMPPS xmm1,xmm2,6 
+    CMPEQPS  xmm1,xmm2   => CMPPS xmm1,xmm2,0
+    CMPLTPS  xmm1,xmm2   => CMPPS xmm1,xmm2,1
+    CMPLEPS  xmm1,xmm2   => CMPPS xmm1,xmm2,2
+    CMPUNORDPS xmm1,xmm2 => CMPPS xmm1,xmm2,3
+    CMPNEQPS xmm1,xmm2   => CMPPS xmm1,xmm2,4
+    CMPNLTPS xmm1,xmm2   => CMPPS xmm1,xmm2,5
+    CMPNLEPS xmm1,xmm2   => CMPPS xmm1,xmm2,6
     CMPORDPS xmm1,xmm2   => CMPPS xmm1,xmm2,7
     */
     bool neg = false;
@@ -443,9 +446,9 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
     if (cmp->getPredicate() == CmpInst::FCMP_OGE) {cmp->swapOperands();}
     if (cmp->getPredicate() == CmpInst::FCMP_UGE) {cmp->swapOperands();}
     if (cmp->getPredicate() == CmpInst::FCMP_UGT) {cmp->swapOperands();}
-    
+
     V_PRINT(x86,"After swaping fcmp, opcode is "<<*cmp<<"\n");
-    
+
     if (cmp->getPredicate() == CmpInst::FCMP_OEQ)  imm = 0x0;
     if (cmp->getPredicate() == CmpInst::FCMP_UEQ) {imm = 0x4; neg = true;}
     if (cmp->getPredicate() == CmpInst::FCMP_OLT)  imm = 0x1;
@@ -456,7 +459,7 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
     if (cmp->getPredicate() == CmpInst::FCMP_ONE) {imm = 0x0; neg = true;}
     if (cmp->getPredicate() == CmpInst::FCMP_ULE) {imm = 0x6; neg = true;}
     if (cmp->getPredicate() == CmpInst::FCMP_ORD)  imm = 0x7;
-    
+
     V_ASSERT(imm < 8 && "unable to find predicate");
 
     Value *A= cmp->getOperand(0);
@@ -484,7 +487,7 @@ void X86Lower::TranslateVector(FCmpInst* cmp) {
       }
       Instruction* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_cmps", cmp);
       call = new BitCastInst(call, TranslateType(cmp->getType()), "cmp_toi32", cmp);
-      
+
       if (neg) {
           std::vector<Constant*> cvect (numElem, ConstantInt::get(m_i32, -1));
         Constant *cv = ConstantVector::get(cvect);
@@ -567,20 +570,20 @@ void X86Lower::LowerInst(ZExtInst* ex) {
   Value *A = ex->getOperand(0);
   if (!needTranslate(A)) return;
 
-  // No need to handle zext instructions which are 
+  // No need to handle zext instructions which are
   // not i1 -> i32
   Type* target = ex->getType();
   if (target->isVectorTy()) {
     // Check that we extend this instruction to vector of i32
-    if (cast<VectorType>(target)->getElementType() != m_i32) return;  
+    if (cast<VectorType>(target)->getElementType() != m_i32) return;
   } else {
     // scalar test that the user is a 32bit one
-    if (target != m_i32) return; 
+    if (target != m_i32) return;
   }
-  
-  // Note: In the case of zext i1 -> i64, we may have an unoptimized because 
+
+  // Note: In the case of zext i1 -> i64, we may have an unoptimized because
   // we do not handle this case, and the original i1 code will remain.
- 
+
   A = convertToI32(A, ex);
   Value* one;
   // Implement trunc using AND 0x1
@@ -838,6 +841,4 @@ extern "C" {
   }
 }
 
-char intel::X86Lower::ID = 0;
-static RegisterPass<intel::X86Lower> CLIX86LowerX("x86lower", "Lower predicates to x86 words");
 

@@ -31,8 +31,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROP
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
 
 add_library(
-  ${TARGET_NAME}
-  STATIC
+  ${TARGET_NAME} STATIC
   MetaDataTraits.h
   MetaDataValue.h
   MetaDataObject.h

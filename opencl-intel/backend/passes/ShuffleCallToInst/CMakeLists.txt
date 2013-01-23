@@ -1,7 +1,9 @@
 set(TARGET_NAME ShuffleCallToInst)
 
-include_directories(${BACKEND_ROOT_DIR}/name_mangling)
-
+include_directories(
+    ${BACKEND_ROOT_DIR}/name_mangling
+    ${BACKEND_ROOT_DIR}/passes
+)
 set(SHUFFLECALLTOINST_INCLUDE_FILES
     ShuffleCallToInst.h
 )

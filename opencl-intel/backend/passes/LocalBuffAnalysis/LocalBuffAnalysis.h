@@ -27,11 +27,11 @@ File Name:  LocalBuffAnalysis.h
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
-  /// @brief  LocalBuffAnalysis class used to provide information about the 
+  /// @brief  LocalBuffAnalysis class used to provide information about the
   ///         local values each function uses directly.
-  ///         The analysis class goes over all local values and over all their direct 
+  ///         The analysis class goes over all local values and over all their direct
   ///         users and maps between functions and the local values they uses.
   /// @Author Marina Yatsina
   class LocalBuffAnalysis : public ModulePass {
@@ -44,7 +44,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static char ID;
 
   public:
-      
+
     /// @brief  Constructor
     LocalBuffAnalysis() : ModulePass(ID) {}
 
@@ -57,9 +57,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param M Module to transform
     /// @returns True if changed
     bool runOnModule(Module &M);
-    
+
     /// @brief Returns the set of local values used directly by the given function
-    /// @param pFunc   A function for which should return the local values that were 
+    /// @param pFunc   A function for which should return the local values that were
     ///                 used by it directly
     /// @returns The set of local values used directly by the given function
     const TUsedLocals& getDirectLocals(Function* pFunc) {
@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Analysis pass preserve all
       AU.setPreservesAll();
     }
-      
+
   protected:
 
     /// @brief  Adds the given local value to the set of used locals of all functions
@@ -109,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     size_t calculateLocalsSize(Function *pFunc);
 
   protected:
-    /// @brief A mapping between function pointer and the set of local values 
+    /// @brief A mapping between function pointer and the set of local values
     ///        the function uses directly
     typedef std::map<const llvm::Function*, TUsedLocals> TUsedLocalsMap;
 
@@ -132,6 +132,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __LOCAL_BUFF_ANALYSIS_H__

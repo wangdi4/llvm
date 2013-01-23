@@ -18,8 +18,9 @@ include_directories(BEFORE "PostDominanceFrontier")
 include_directories(../arch_headers)
 include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
+include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
 
-add_llvm_library( LLVMVectorizer
+add_library( LLVMVectorizer
   Utils/Namer.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/RuntimeServices.cpp
@@ -74,5 +75,3 @@ target_link_libraries(
   reflection_module
   name_mangle
 )
-
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
