@@ -30,6 +30,7 @@ set (TARGET_INCLUDE_FILES
   ImplicitArgument.h
   TLLVMKernelInfo.h
   TypeAlignment.h
+  TypeConversion.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -40,11 +41,13 @@ set (TARGET_SOURCE_FILES
   FunctionArgument.cpp
   ImplicitArgsUtils.cpp
   TypeAlignment.cpp
+  TypeConversion.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
+    ${BACKEND_ROOT_DIR}
 )
 
 if (APPLE)

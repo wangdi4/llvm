@@ -22,6 +22,8 @@ if( USE_VALGRIND )
     add_subdirectory( valgrind )
 endif( USE_VALGRIND )
 
+add_subdirectory(type_conversion)
+
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
 if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
