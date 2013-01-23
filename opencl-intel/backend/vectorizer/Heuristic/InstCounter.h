@@ -245,6 +245,10 @@ public:
     // cannot passed as is to the scalar function, what make it too difficult
     // to support these cases.
     static bool hasNonInlineUnsupportedFunctions(Function &F);
+    
+    // Checks if the function directly calls stream read/write image functions.
+    // We never want to vectorize that, as it doesn't make any sense.
+    static bool hasDirectStreamCalls(Function &F);
   };
 }
 

@@ -898,6 +898,11 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
     return false;
   }
 
+  if (hasDirectStreamCalls(F)) {
+    dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
+    return false;
+  }
+  
   return true;
 }
 
@@ -1031,6 +1036,37 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   // functions from the root functions set
   LoopUtils::fillFuncUsersSet(roots, unsupportedFunctions);
   return unsupportedFunctions.count(&F);
+}
+  
+bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
+  Module *pM = F.getParent();
+  std::set<Function *> streamFunctions;
+  std::set<Function *> unsupportedFunctions;
+  
+  Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream();
+  if (readStreamFunc) {
+    // This returns the read stream function *from the runtime module*.
+    // We need a function in *this* module with the same name.
+    readStreamFunc = pM->getFunction(readStreamFunc->getName());
+    if (readStreamFunc)
+      streamFunctions.insert(readStreamFunc);
+  }
+  
+  Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream();
+  if (writeStreamFunc) {
+    // This returns the write stream function *from the runtime module*.
+    // We need a function in *this* module with the same name.
+    writeStreamFunc = pM->getFunction(writeStreamFunc->getName());
+    if (writeStreamFunc)
+      streamFunctions.insert(writeStreamFunc);
+  }
+  
+  // If we have stream functions in the module, don't vectorize their users.
+  if (streamFunctions.size())
+    LoopUtils::fillFuncUsersSet(streamFunctions, unsupportedFunctions);
+  
+  return unsupportedFunctions.count(&F);
+
 }
 
 extern "C" {
