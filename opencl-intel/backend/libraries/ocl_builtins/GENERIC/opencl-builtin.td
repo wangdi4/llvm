@@ -650,6 +650,9 @@ class MapRow< list<MapCell> cl, bit is, bit ip>{
 
 // TargetImpl
 class TargetImpl {
+  string Target = "";
+
+  list<OclType> NativeTypes = [];
   // Rewrite patterns
   //
   // $Target

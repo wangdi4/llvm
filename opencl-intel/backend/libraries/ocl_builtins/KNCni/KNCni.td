@@ -220,7 +220,7 @@ def mask_all : OclBuiltin<"mask_all", (outs si32gentype:$ret), (ins masktype:$ma
 
 class KNC : Generic {
 
-  list<OclType> NativeTypes = [v16f32, v8f64, v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v8i64, v8u64];
+  let NativeTypes = [v16f32, v8f64, v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v8i64, v8u64];
 
 
   code Prolog = [{
