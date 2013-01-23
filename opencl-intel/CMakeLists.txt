@@ -29,7 +29,9 @@ endif ()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
+if (NOT APPLE)
 FIND_PACKAGE(Boost 1.52.0 REQUIRED)
+endif ()
 #PRINT_TOOLS()
 
 #
