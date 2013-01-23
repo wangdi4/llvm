@@ -18,11 +18,12 @@ extern "C" {
 */
 #define MAX_WORK_DIM        3
 // Assuming MAX_WORK_DIM == 3
-#define CPU_MAX_WI_DIM_POW_OF_2	(MAX_WORK_DIM+1)
+#define MAX_WI_DIM_POW_OF_2	(MAX_WORK_DIM+1)
 
 #define CPU_DEV_MAXIMUM_ALIGN			128
 #define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)		( ((X)+CPU_DEV_MAXIMUM_ALIGN-1) & (~(CPU_DEV_MAXIMUM_ALIGN-1)))
 
+#ifndef INTEL_BUILTIN_OPENCL
 /*! \enum cl_kernel_arg_type
  * Defines possible values for kernel argument types
  */
@@ -59,6 +60,7 @@ struct cl_kernel_argument
     unsigned int            size_in_bytes;      //!< Size of the argument in bytes
                                                 //!< for pointer types the size is 0
 };
+#endif
 
 #ifdef __cplusplus
 }

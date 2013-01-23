@@ -78,4 +78,4 @@
 // Kernel parameters size (twice to cover the hidden parameters) +
 // Local IDs buffer
 #define CPU_DEV_MAX_WG_TOTAL_SIZE		  (CPU_DEV_MAX_WG_PRIVATE_SIZE + (2*CPU_MAX_PARAMETER_SIZE) + \
-  (CPU_MAX_PARAMETER_SIZE*CPU_MAX_WI_DIM_POW_OF_2*sizeof(size_t)))
+  (CPU_MAX_PARAMETER_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))

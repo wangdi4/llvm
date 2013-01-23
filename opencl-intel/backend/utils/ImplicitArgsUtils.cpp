@@ -115,10 +115,10 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
   switch (pWorkInfo->uiWorkDim) {
   case 1:
     for ( size_t i=0, j=0;(i + packetWidth - 1)<pWorkInfo->LocalSize[0];i+=packetWidth, j++ ) {
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+0] = i;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+0] = i;
       //Must initialize dimensions y and z to zero for OOB handling
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+1] = 0;
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+2] = 0;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+1] = 0;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+2] = 0;
     }
     break;
   case 2:
@@ -126,10 +126,10 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
       size_t strideVec = pWorkInfo->LocalSize[0]/packetWidth;
       for ( size_t y=0; y<pWorkInfo->LocalSize[1]; ++y ) {
         for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
           //Must initialize dimension z to zero for OOB handling
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+2] = 0;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+2] = 0;
         }
       }
     }
@@ -141,9 +141,9 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
       for ( size_t z=0;z<pWorkInfo->LocalSize[2];++z )
         for ( size_t y=0;y<pWorkInfo->LocalSize[1];++y )
           for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;
           }
     }
     break;

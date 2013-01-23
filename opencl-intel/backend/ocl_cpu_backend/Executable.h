@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICLDevBackendBufferPrinter* m_pPrinter;
     char*           m_pParameters;
     size_t          m_stParamSize;
-    size_t          m_GlobalId[CPU_MAX_WI_DIM_POW_OF_2];
+    size_t          m_GlobalId[MAX_WI_DIM_POW_OF_2];
     
     unsigned int    m_uiMXCSRstate;   // Stores thread CSR state
     unsigned int    m_uiCSRMask;      // Mask to be applied to set the execution flags  

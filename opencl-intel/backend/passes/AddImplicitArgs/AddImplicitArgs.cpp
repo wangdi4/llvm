@@ -361,9 +361,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     */
     // Create Work Group/Work Item info structures
     std::vector<Type*> members;
-    assert(CPU_MAX_WI_DIM_POW_OF_2 == 4 && "CPU_MAX_WI_DIM_POW_OF_2 is not equal to 4!");
+    assert(MAX_WI_DIM_POW_OF_2 == 4 && "MAX_WI_DIM_POW_OF_2 is not equal to 4!");
     //use 4 instead of MAX_WORK_DIM for alignment & for better calculation of offset in Local ID buffer
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), CPU_MAX_WI_DIM_POW_OF_2)); // Local Id's
+    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WI_DIM_POW_OF_2)); // Local Id's
     StructType *PaddedDimId = StructType::get(*m_pLLVMContext, members, true);
     //m_pModule->addTypeName("struct.PaddedDimId", PaddedDimId);
     m_struct_PaddedDimId = PaddedDimId;

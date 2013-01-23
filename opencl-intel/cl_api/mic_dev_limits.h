@@ -72,7 +72,7 @@
 // Kernel parameters size (twice to cover the hidden parameters) +
 // Local IDs buffer
 #define MIC_DEV_MAX_WG_TOTAL_SIZE		  (MIC_DEV_MAX_WG_PRIVATE_SIZE + (2*MIC_MAX_PARAMETER_SIZE) + \
-  (MIC_MAX_PARAMETER_SIZE * MIC_MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
+  (MIC_MAX_PARAMETER_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
 
 //The muximum single buffer memory size (in bytes)
 #define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)

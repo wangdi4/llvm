@@ -114,7 +114,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
     
     m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
     m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN( 
-                            m_uiWGSize * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
+                            m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
 
 }
 

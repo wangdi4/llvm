@@ -234,6 +234,7 @@ class KNC : Generic {
 
     #include "generic-builtin-defines.h"
     #include "knc-builtin-defines.h"
+    #define INTEL_BUILTIN_OPENCL
     #include "mic_dev_limits.h"
   }];
 
