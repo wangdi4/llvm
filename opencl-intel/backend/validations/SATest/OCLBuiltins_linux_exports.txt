@@ -10026,7 +10026,6 @@ Base {
         mem_fence;
         read_mem_fence;
         write_mem_fence;
-        //    funcNames[interpreterPrefix+mangledName]        = lle_X_vload<elemType, vectorSize>;
         lle_X__Z7vstore2Dv2_cjPU3AS1c;
         lle_X__Z7vstore2Dv2_hjPU3AS1h;
         lle_X__Z7vstore2Dv2_sjPU3AS1s;

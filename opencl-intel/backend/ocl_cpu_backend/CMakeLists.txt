@@ -366,7 +366,8 @@ target_link_libraries (${TARGET_NAME}
     OclPluginManager
     OclOptimizer
     OclBackendUtils
-
+    LLVMMICCodeGenerationEngine
+    
     # internal passes
     ${BACKEND_PASSES}
 
