@@ -19,6 +19,7 @@ set (OCL_UTILS_INCLUDE_FILES
     TLLVMKernelInfo.h
     TypeAlignment.h
     ProcessorDetect.h
+    TypeConversion.h
 )
 
 set (OCL_UTILS_SOURCE_FILES
@@ -29,11 +30,13 @@ set (OCL_UTILS_SOURCE_FILES
     ImplicitArgsUtils.cpp
     SystemInfo.cpp
     TypeAlignment.cpp
+    TypeConversion.cpp
 )
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/arch_headers
+    ${BACKEND_ROOT_DIR}
 )
 
 # Include the ASM sources

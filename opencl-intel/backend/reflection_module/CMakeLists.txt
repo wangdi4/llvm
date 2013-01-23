@@ -22,7 +22,7 @@ add_custom_command(
   OUTPUT CustomMappings.gen
   COMMAND ocl-tblgen -gen-vectorizer-map
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/KNCni/target-b2.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
   DEPENDS
   ocl-tblgen

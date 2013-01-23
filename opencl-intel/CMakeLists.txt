@@ -25,7 +25,9 @@ else ()
 endif ()
 
 
-FIND_PACKAGE(Boost 1.52.0 REQUIRED)
+if (INCLUDE_TOOLS)
+    FIND_PACKAGE(Boost 1.52.0 REQUIRED)
+endif(INCLUDE_TOOLS)
 #PRINT_TOOLS()
 
 # Project-wise options
@@ -250,9 +252,9 @@ else(APPLE)
         add_subdirectory ( common_runtime )
     endif(WIN32 AND INCLUDE_CMRT)
     #tools
-	if( NOT ANDROID )
+	if( INCLUDE_TOOLS )
     add_subdirectory ( tools )
-	endif( NOT ANDROID )
+	endif( INCLUDE_TOOLS )
 
 
     #validation

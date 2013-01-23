@@ -3,5 +3,5 @@
 include "sse42/SSE42.td"
 // sse42 - 64 bit
 def target : SSE42 {
-  string Target = "h8";
+  let Target = "h8";
 }

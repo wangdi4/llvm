@@ -3,5 +3,5 @@
 include "avx/AVX.td"
 // avx - 64 bit
 def target : AVX {
-  string Target = "e9";
+  let Target = "e9";
 }
