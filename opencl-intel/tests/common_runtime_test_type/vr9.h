@@ -482,7 +482,7 @@ static void waitOnBothDevices(OpenCLDescriptor& ocl_descriptor)
 
 //	releaseEvent(user_event);
 	for(int i = 0 ; i< 50; i++){
-		releaseEvent(device_done_event[i]);
+		clReleaseEvent(device_done_event[i]);
 	}
 }
 

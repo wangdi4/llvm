@@ -440,7 +440,7 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 //|	the memory object is recognized in each of the devices.
 //|
 
-TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadOnly_VR127){
+TEST_F(CRT12_VR_124_127, DISABLED_SubBufferVisibilityReadOnly_VR127){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;

@@ -19,12 +19,12 @@
  * kernel_n - kernels intended for kernels' compilation, will not be enqueued
  */
  
- __kernel void kernel_0(__global int* input, int* output)
+ __kernel void kernel_0(__global int* input,__global int* output)
 {
 	if(*input == 1){
-		*output = 1
+		*output = 1;
 	}	
 	if(*input == 2){
-		*output = 2
+		*output = 2;
 	}	
 }
