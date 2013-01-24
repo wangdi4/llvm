@@ -155,6 +155,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return IE;
     }
     
+    if (isa<ConstantArray>(pCE)) {
+      // Right now, the only case in which this happens is when replacing annotations
+      // This means we can simply avoid replacing it.
+      // However, this may become relevant in the future, so leaving a special case.
+      return 0;
+    }
+    
     // No need to check for ConstantDataVector here - it is composed of data,
     // so none of the elements can ever be the replaced val.
 
