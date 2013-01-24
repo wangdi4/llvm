@@ -299,6 +299,20 @@ void BuiltinKeeper::initNullStrategyEntries(){
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     }while(pairs.next());
   }
+  //this function cluster cannot be versioned due its OpenCL definition.
+  {
+    llvm::StringRef names[] = {
+      "_Z21async_work_group_copy*", "_Z29async_work_group_strided_copy*",
+      "_Z34__async_work_group_stream_to_image*","_Z36__async_work_group_stream_from_image*",
+      "_Z41__async_work_group_stream_to_image_direct*", "_Z43__async_work_group_stream_from_image_direct*"};
+    StringArray async_work_group_builtins(names);
+    VWidthArray allWidths(vwidths);
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(async_work_group_builtins, allWidths);
+    do{
+      PairSW key(pairs.get());
+      m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
+    }while(pairs.next());
+  }
 }
 
 static void convertToRef(const char* from[width::OCL_VERSIONS],
