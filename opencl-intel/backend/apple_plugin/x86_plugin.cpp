@@ -141,8 +141,13 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecIter = vectorFunc.begin();
   std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecEnd = vectorFunc.end();
 
+  // Get Map between function name and its build path info
   std::set<std::string> noBarrierPath;
   fillNoBarrierPathSet(M, noBarrierPath);
+
+  // Get Map between function and its implicit local buffer info
+  KernelsLocalBufferInfoMap kernelsLocalBufferMap;
+  optimizer.GetKernelsLocalBufferInfo(kernelsLocalBufferMap);
 
   Intel::KernelMetaDataHandle kmd;
 
@@ -394,18 +399,29 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     const void *vwmaxptr = (const void *)&VWidthMax;
     CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
   
-    //Add also: hasBarrier, SLM size, barrier buffer stride.
+    //hasBarrier, indicator for kernel that was compiled with barrier path
     int hasBarrier = 0 == noBarrierPath.count(pWrapperFunc->getName().str());
     const void *hbarrierptr = (const void *)&hasBarrier;
     CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
 
+    //barrier buffer stride, is the size in bytes for barrier buffer stride
     unsigned int barrierBufferSTride = Intel::getBarrierBufferStrideSize(optimizer, *pWrapperFunc);
     const void *bbsptr = (const void *)&barrierBufferSTride;
     CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
 
+    //max local group size, indecator for maximum number of work-items this kernel supports
+    unsigned int maxLocalSize = 1024;
+    const void *lsmaxptr = (const void *)&maxLocalSize;
+    CFNumberRef lsmax = CFNumberCreate(NULL, kCFNumberIntType, lsmaxptr);
+
+    //implicit local buffer size, is the total size in bytes for all implicit local variables in this kernel
+    unsigned int implicitLocalBufferSize = kernelsLocalBufferMap[pFunc].stTotalImplSize;
+    const void *ilbptr = (const void *)&implicitLocalBufferSize;
+    CFNumberRef ilb = CFNumberCreate(NULL, kCFNumberIntType, ilbptr);
+
     const void *entry[] = { kfinfo, kf_argsizes, kf_argalignments, sname, vname, vwmax, hbarrier, bbs,
-      kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals };
-    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 12, &kCFTypeArrayCallBacks);
+      kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals, lsmax, ilb };
+    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 14, &kCFTypeArrayCallBacks);
   
     CFRelease(kfinfo);
     CFRelease(kf_argsizes);
@@ -419,6 +435,8 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFRelease(kf_argnames);
     CFRelease(kf_argtypes);
     CFRelease(kf_argtypequals);
+    CFRelease(lsmax);
+    CFRelease(ilb);
   
     // Create a CFString from the function name to use as the key.
     CFStringRef kfstr = CFStringCreateWithCString(NULL, pWrapperFunc->getName().str().c_str(),
