@@ -146,7 +146,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   fillNoBarrierPathSet(M, noBarrierPath);
 
   // Get Map between function and its implicit local buffer info
-  KernelsLocalBufferInfoMap kernelsLocalBufferMap;
+  Intel::OpenCL::DeviceBackend::KernelsLocalBufferInfoMap kernelsLocalBufferMap;
   optimizer.GetKernelsLocalBufferInfo(kernelsLocalBufferMap);
 
   Intel::KernelMetaDataHandle kmd;
