@@ -1,7 +1,9 @@
 #
 # Settings for Linux compilation
 #
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
+
+set (TARGET_NAME OCLBuiltins)
 
 if (NOT WIN32)
 
@@ -26,7 +28,14 @@ set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}"
 
 endif (NOT WIN32)
 
-add_llvm_library(OCLBuiltins
+if(MSVC)
+    # /bigobj is required for windows builds because of the size of
+    # some object files (CastImage for instance)
+    set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj" )
+    set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj" )
+endif()
+
+add_library(OCLBuiltins
   IBLTMapFiller.h
   IWorkItemBuiltins.h
   BLTWorkItem.cpp
@@ -44,8 +53,11 @@ add_llvm_library(OCLBuiltins
   OCLBuiltins.cpp
   VLoadStore.cpp
   Helpers.cpp
+  Wrappers.cpp
   )
 
+  
+  
 include_directories (
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/name_mangling
@@ -53,27 +65,3 @@ include_directories (
   ${VALIDATIONS_ROOT}/REFALU
   )
 
-if (WIN32)  
-get_target_property( lib_dir REFALU_wrapper lib_dir )
-link_directories( ${lib_dir} )
-endif (WIN32)
-
-target_link_libraries(OCLBuiltins
-  LLVMSupport
-  REFALU
-  name_mangle
-  )
-
-if (WIN32) 
-add_dependencies(OCLBuiltins
-  LLVMSupport
-  REFALU_wrapper
-  name_mangle
-  )
-else (WIN32)
-add_dependencies(OCLBuiltins
-  LLVMSupport
-  REFALU
-  name_mangle
-  )
-endif (WIN32)

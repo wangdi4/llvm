@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "BarrierInFunctionPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -12,6 +13,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel {
 
   char BarrierInFunction::ID = 0;
+
+  OCL_INITIALIZE_PASS(BarrierInFunction, "B-BarrierInFunction", "Barrier Pass - Handle barrier instructions called from functions", false, true)
 
   BarrierInFunction::BarrierInFunction() : ModulePass(ID) {}
 
@@ -144,9 +147,6 @@ namespace intel {
     }
   }
 
-  // Register this pass...
-  static RegisterPass<BarrierInFunction> DPB("B-BarrierInFunction",
-    "Barrier Pass - Handle barrier instructions called from functions", false, true);
 
 } // namespace intel
 

@@ -25,55 +25,56 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
 
-extern "C" void* createInstToFuncCallPass(bool);
+extern "C"{
 
-extern "C" llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
+void* createInstToFuncCallPass(bool);
+
+llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
                                             const intel::OptimizerConfig* pConfig,
                                             llvm::SmallVectorImpl<llvm::Function*> &optimizerFunctions,
                                             llvm::SmallVectorImpl<int> &optimizerWidths);
-extern "C" llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
-extern "C" void getBarrierStrideSize(llvm::Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
+llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
+void getBarrierStrideSize(llvm::Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 
-extern "C" llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<llvm::Function*> *optimizerFunctions,
-                                                       llvm::SmallVectorImpl<int> *optimizerWidths);
-extern "C" llvm::ModulePass* createCLWGLoopBoundariesPass();
-extern "C" llvm::Pass* createCLBuiltinLICMPass();
-extern "C" llvm::Pass* createLoopStridedCodeMotionPass();
-extern "C" llvm::Pass* createCLStreamSamplerPass();
+llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<llvm::Function*> *optimizerFunctions,
+                                            llvm::SmallVectorImpl<int> *optimizerWidths);
+llvm::ModulePass* createCLWGLoopBoundariesPass();
+llvm::Pass* createCLBuiltinLICMPass();
+llvm::Pass* createLoopStridedCodeMotionPass();
+llvm::Pass* createCLStreamSamplerPass();
+llvm::Pass *createPreventDivisionCrashesPass();
+llvm::Pass *createShiftZeroUpperBitsPass();
+llvm::Pass *createShuffleCallToInstPass();
+llvm::Pass *createRelaxedPass();
+llvm::ModulePass *createKernelAnalysisPass();
+llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
+llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
+llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 
-extern "C" void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
-extern "C" void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
-extern "C" void* destroyOpenclRuntimeSupport();
-extern "C" llvm::Pass *createPreventDivisionCrashesPass();
-extern "C" llvm::Pass *createShiftZeroUpperBitsPass();
-extern "C" llvm::Pass *createShuffleCallToInstPass();
-extern "C" llvm::Pass *createRelaxedPass();
-extern "C" llvm::ModulePass *createKernelAnalysisPass();
-extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
-extern "C" llvm::Pass *createClangCompatFixerPass();
-
-#ifndef __APPLE__
-extern "C" llvm::FunctionPass *createPrefetchPass();
-extern "C" llvm::ModulePass * createRemovePrefetchPass();
-extern "C" llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
-#endif //#ifndef __APPLE__
+void* destroyOpenclRuntimeSupport();
+#ifdef __APPLE__
+void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+llvm::Pass *createClangCompatFixerPass();
+#else
+void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+llvm::FunctionPass *createPrefetchPass();
+llvm::ModulePass * createRemovePrefetchPass();
+llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
+llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+#endif
+}
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #ifndef __APPLE__
-llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass* createProfilingInfoPass();
 #endif //#ifndef __APPLE__
-llvm::ModulePass* createImplicitGlobalIdPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
-llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
 llvm::ModulePass *createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
                                               llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
-llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
-
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelInfo>& infoMap);
 
 
@@ -364,12 +365,12 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createResolveWICallPass());
     m_localBuffersPass = createLocalBuffersPass(m_kernelsLocalBufferMap, debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
-    // clang converts OCL's local to global. 
+    // clang converts OCL's local to global.
     // createLocalBuffersPass changes the local allocation from global to a kernel argument.
-    // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure 
+    // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure
     // we will not allocate redundant space on the jit
     if (debugType != Native)
-      m_modulePasses.add(llvm::createGlobalOptimizerPass());  
+      m_modulePasses.add(llvm::createGlobalOptimizerPass());
   }
 
 #ifdef _DEBUG

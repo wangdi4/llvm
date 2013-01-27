@@ -9,6 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "LoopUtils.h"
 #include "OpenclRuntime.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -22,11 +24,27 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace intel {
 
+char WeightedInstCounter::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
+OCL_INITIALIZE_PASS_END(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
+
+char VectorizationPossibilityPass::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
+
+
 const float WeightedInstCounter::RATIO_MULTIPLIER = 1;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
-void initializePostDominanceFrontierPass(PassRegistry&);
 
 // Costs for transpose functions
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
@@ -72,10 +90,7 @@ WeightedInstCounter::WeightedInstCounter(bool preVec = true,
                               Intel::CPUId cpuId = Intel::CPUId()):
                               FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),
                               m_desiredWidth(1), m_totalWeight(0) {
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
-  initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-  initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
-  llvm::initializePostDominanceFrontierPass(*PassRegistry::getPassRegistry());
+  initializeWeightedInstCounterPass(*PassRegistry::getPassRegistry());
 
   int i = 0;
   while (CostDB[i].name) {
@@ -547,7 +562,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
     BasicBlock* Latch = L->getLoopLatch();
     if (Latch)
       Count = SI->getSmallConstantTripCount(L, Latch);
-      
+
     // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.
     if (Count == 0)
@@ -1076,13 +1091,6 @@ extern "C" {
   }
 }
 
-char intel::VectorizationPossibilityPass::ID = 0;
-static RegisterPass<intel::VectorizationPossibilityPass>
-CLIVectorPossibility("vectorpossible", "Check whether vectorization is possible");
-
-char intel::WeightedInstCounter::ID = 0;
-static RegisterPass<intel::WeightedInstCounter>
-CLIInstCount("winstcounter", "Weighted Instruction Counter");
 
 } // namespace intel
 

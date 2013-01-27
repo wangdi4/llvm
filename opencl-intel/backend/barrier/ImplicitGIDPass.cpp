@@ -6,12 +6,22 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "ImplicitGIDPass.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 namespace intel {
 
 char ImplicitGlobalIdPass::ID = 0;
 
-ImplicitGlobalIdPass::ImplicitGlobalIdPass() : ModulePass(ID) {}
+OCL_INITIALIZE_PASS_BEGIN(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
+OCL_INITIALIZE_PASS_END(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true)
+
+ImplicitGlobalIdPass::ImplicitGlobalIdPass()
+    : ModulePass(ID)
+{
+    initializeImplicitGlobalIdPassPass(*llvm::PassRegistry::getPassRegistry());
+}
 
 bool ImplicitGlobalIdPass::runOnModule(Module& M)
 {
@@ -145,9 +155,6 @@ DIType ImplicitGlobalIdPass::getOrCreateUlongDIType()
     return m_pDIB->createBasicType("long unsigned int", 64, 64, dwarf::DW_ATE_unsigned);
 }
 
-  // Register this pass...
-  static RegisterPass<ImplicitGlobalIdPass> IDIP("B-ImplicitGlobalIdPass",
-    "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true);
 
 }
 

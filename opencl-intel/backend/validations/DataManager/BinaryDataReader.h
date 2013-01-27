@@ -182,7 +182,7 @@ namespace Validation
                         read_value(versionLow);
                         read_value(imageType2Read);
                         imageType = (ImageTypeVal)imageType2Read;
-                        read_value(sizes); 
+                        read_value(sizes);
                     } else {
                         // OpenCl 1.1 read
                         ImageSizeDesc_1_1 oldSizes;
@@ -195,12 +195,12 @@ namespace Validation
                         sizes.depth = oldSizes.depth;
                         sizes.row = oldSizes.row;
                         sizes.slice = oldSizes.slice;
-                    }                   
+                    }
                     read_value(imageOrder);
                     read_value(imageDataType);
                     read_value(pixelSize);
                     read_value(isNEAT);
-                    
+
                     ImageDesc imd(imageType, sizes, imageDataType, imageOrder, isNEAT);
                     assert((size_t)pixelSize == imd.GetElementSize() );
 

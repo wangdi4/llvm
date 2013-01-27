@@ -9,9 +9,14 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend
 )
 
+link_directories( 
+    ${LLVM_LIBRARY_DIR}
+)
+
+
 add_definitions(-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS)
 
-add_llvm_executable(${TARGET_NAME}
+add_executable(${TARGET_NAME}
   TestTypeConversion.cpp
 )
 
@@ -19,10 +24,15 @@ target_link_libraries(
   ${TARGET_NAME}
   antlr
   name_mangle
-  LLVMSupport
-  LLVMCore
-  OclUtils
+  OclBackendUtils
   googletest
+  ${LLVM_MODULE_LIBS} 
 )
+
+if (NOT WIN32)
+    target_link_libraries(${TARGET_NAME}
+        pthread
+    )
+endif(NOT WIN32)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

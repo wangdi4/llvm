@@ -19,32 +19,32 @@ option(OCL_BACKEND_STAND_ALONE "CBackend Enabled" ON)
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-#
-# Usage
-#     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
-# This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols
-# externally (except functions which are explicitely listed in version script
+    #
+    # Usage
+    #     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
+    # This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols
+    # externally (except functions which are explicitely listed in version script
 
-function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
-        get_target_property( SOURCE_FILES ${TARGET_NAME} SOURCES )
-        list( GET SOURCE_FILES 0 FIRST_SOURCE )
-        set_source_files_properties( ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME} )
-        set_property( TARGET ${TARGET_NAME} APPEND PROPERTY
-                        LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
-endfunction ( SET_LINUX_EXPORTS_FILE )
+    function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
+            get_target_property( SOURCE_FILES ${TARGET_NAME} SOURCES )
+            list( GET SOURCE_FILES 0 FIRST_SOURCE )
+            set_source_files_properties( ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME} )
+            set_property( TARGET ${TARGET_NAME} APPEND PROPERTY
+                            LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
+    endfunction ( SET_LINUX_EXPORTS_FILE )
 
-# configure immediate dependencies search path at run time for non-standard libs
-set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+    # configure immediate dependencies search path at run time for non-standard libs
+    set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
+    set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
 set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
-# Assembler setup - use private rules
-# set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
-set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
+    # Assembler setup - use private rules
+    # set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
+    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
+    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
 if( NOT ANDROID )
   if (CVCC_ASM_PATH)
     set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
@@ -54,73 +54,73 @@ if( NOT ANDROID )
   endif(CVCC_ASM_PATH)
 endif( NOT ANDROID )
 
-# Compiler switches that CANNOT be modified during makefile generation
-set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
+    # Compiler switches that CANNOT be modified during makefile generation
+    set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
-set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
-set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
+    set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
+    set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
 
-set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
-set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
+    set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
+    set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
 
 
-# Compiler switches that CAN be modified during makefile generation and configuration-independent
-add_definitions( ${WARNING_LEVEL} )
+    # Compiler switches that CAN be modified during makefile generation and configuration-independent
+    add_definitions( ${WARNING_LEVEL} )
 
-# Linker switches
-set (INIT_LINKER_FLAGS        "-pie -Wl,--enable-new-dtags") # --enable-new-dtags sets RUNPATH to the same value as RPATH
-set (ADD_LINKER_FLAGS_DEBUG   )
-set (ADD_LINKER_FLAGS_RELEASE )
+    # Linker switches
+    set (INIT_LINKER_FLAGS        "-pie -Wl,--enable-new-dtags") # --enable-new-dtags sets RUNPATH to the same value as RPATH
+    set (ADD_LINKER_FLAGS_DEBUG   )
+    set (ADD_LINKER_FLAGS_RELEASE )
 
-include(FindThreads)
+    include(FindThreads)
 set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}" )
 
 
-# embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
-#
-# Description:
-#   RPATH is used to locate dynamically load shared libraries/objects (DLLs) for the non-standard OS
-#   locations without need of relinking DLLs during installation. The algorithm is the following:
-#
-#     1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
-#     2. If LD_LIBRARY_PATH env variable is present, search through it
-#     3. If RUNPATH is present in the EXE/DLL, search through it
-#     4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
-#     5. Search through /lib and /usr/lib
-#
-#   RUNPATH influences only the immediate dependencies, while RPATH influences the whole subtree of dependencies
-#   RPATH is concidered deprecated in favor of RUNPATH, but RUNPATH does not supported by some Linux systems.
-#   If RUNPATH is not supported, system loader may report error - remove "-Wl,--enable-new-dtags" above to
-#   disable RUNPATH generation.
-#
-#   If RPATH or RUNPATH contains string $ORIGIN it is substituted by the full path to the containing EXE/DLL.
-#   Security issue 1: if EXE/DLL is marked as set-uid or set-gid, $ORIGIN is ignored.
-#   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
-#
-set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+    # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
+    #
+    # Description:
+    #   RPATH is used to locate dynamically load shared libraries/objects (DLLs) for the non-standard OS
+    #   locations without need of relinking DLLs during installation. The algorithm is the following:
+    #
+    #     1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
+    #     2. If LD_LIBRARY_PATH env variable is present, search through it
+    #     3. If RUNPATH is present in the EXE/DLL, search through it
+    #     4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
+    #     5. Search through /lib and /usr/lib
+    #
+    #   RUNPATH influences only the immediate dependencies, while RPATH influences the whole subtree of dependencies
+    #   RPATH is concidered deprecated in favor of RUNPATH, but RUNPATH does not supported by some Linux systems.
+    #   If RUNPATH is not supported, system loader may report error - remove "-Wl,--enable-new-dtags" above to
+    #   disable RUNPATH generation.
+    #
+    #   If RPATH or RUNPATH contains string $ORIGIN it is substituted by the full path to the containing EXE/DLL.
+    #   Security issue 1: if EXE/DLL is marked as set-uid or set-gid, $ORIGIN is ignored.
+    #   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
+    #
+    set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
+    set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
-# C switches
-set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
-set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
+    # C switches
+    set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
+    set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
+    set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
 
-# C++ switches
-set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
-set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
+    # C++ switches
+    set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
+    set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
+    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
 
-# Linker switches - EXE
-set( CMAKE_EXE_LINKER_FLAGS           ${INIT_LINKER_FLAGS})
-set( CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
+    # Linker switches - EXE
+    set( CMAKE_EXE_LINKER_FLAGS           ${INIT_LINKER_FLAGS})
+    set( CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
+    set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
-# Linker switches - Shared Lib
-set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
-set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
+    # Linker switches - Shared Lib
+    set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
+    set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
+    set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
 endif (NOT WIN32)
 
@@ -129,15 +129,15 @@ endif (NOT WIN32)
 #
 if (WIN32)
 
-# Assember and its flags
-set( CMAKE_ASM_FLAGS /c /nologo /W3 /Zi /errorReport:prompt)
-set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
-set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
-set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
-set( CMAKE_ASM_LINK_FLAG "/nologo")
+    # Assember and its flags
+    set( CMAKE_ASM_FLAGS /c /nologo /W3 /Zi /errorReport:prompt)
+    set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
+    set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
+    set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
+    set( CMAKE_ASM_LINK_FLAG "/nologo")
 
-# Linker flags
-set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
+    # Linker flags
+    set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 
 endif (WIN32)
 
@@ -305,7 +305,11 @@ include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api/gen
 )
 
-# Add additional lib directories
+link_directories( 
+            ${LLVM_LIBRARY_DIR}
+            )
+
+# Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
     link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
 endif( LLVM_USE_INTEL_JITEVENTS )
@@ -313,6 +317,13 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
+
+if ( INCLUDE_MIC_DEVICE )
+    link_directories( 
+        ${BACKEND_ROOT_DIR}/external/pcg 
+        ${BACKEND_ROOT_DIR}/external/pcg/${CMAKE_BUILD_TYPE}
+    )
+endif(INCLUDE_MIC_DEVICE)
 
 # Create DLL
 add_library (${TARGET_NAME} SHARED
@@ -326,86 +337,10 @@ if (NOT WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
 endif (NOT WIN32)
 
-#For OCL SDK - Shared libraries should be in the same location as executables
-if ((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    set_target_properties(${TARGET_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${RT_OUTPUT_DIRECTORY})
-endif((NOT WIN32) AND (DEFINED RUNTIME_OUTPUT_DIRECTORY))
-
-set (LLVM_LIBS
-    # LLVM libs
-    LLVMVectorizer
-    LLVMBarrier
-    LLVMLinker
-    LLVMX86AsmParser
-    LLVMX86AsmPrinter
-    LLVMX86CodeGen
-    LLVMX86Disassembler
-    LLVMX86Info
-    LLVMTransformUtils
-    LLVMAnalysis
-    LLVMCore
-    LLVMTarget
-    LLVMExecutionEngine
-    LLVMJIT
-    LLVMMCJIT
-    LLVMCodeGen
-    LLVMBitReader
-    LLVMBitWriter
-    LLVMSupport
-    LLVMAsmPrinter
-    LLVMInstCombine
-    LLVMipo
-    LLVMMC
-    LLVMScalarOpts
-    LLVMSelectionDAG
-    LLVMipa
-    LLVMX86AsmPrinter
-    LLVMMC
-    LLVMMICCodeGenerationEngine
-    LLVMOpenCLAliasAnalysisSupport
-    LLVMAsmParser
-    )
-if (INCLUDE_MIC_DEVICE)
-  list(APPEND LLVM_LIBS
-        LLVMY86AsmParser
-        LLVMY86AsmPrinter
-        LLVMY86CodeGen
-        LLVMY86Disassembler
-        LLVMY86Info
-        LLVMY86AsmPrinter
-       )
-endif (INCLUDE_MIC_DEVICE)
-
-# Add additional profiling libraries
-if( LLVM_USE_OPROFILE )
-  list(APPEND LLVM_LIBS
-        LLVMOProfileJIT
-      )
-endif( LLVM_USE_OPROFILE )
-
-if( LLVM_USE_INTEL_JITEVENTS )
-    list(APPEND LLVM_LIBS
-          LLVMIntelJITEvents
-        )
-endif( LLVM_USE_INTEL_JITEVENTS )
-
-# the following targets are necessary for successful build of OCL Back-End shared library outside of OCL SDK framework
-# they are about C/C++ backends for LLVM (not to be confused with OCL backend)
-if ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
-  list(APPEND LLVM_LIBS
-        LLVMCBackend
-        LLVMCBackendInfo
-        LLVMCppBackend
-        LLVMCppBackendInfo
-      )
-endif ((NOT WIN32) AND (OCL_BACKEND_STAND_ALONE))
-
-if( NOT ANDROID )
-set( JITPROFLIB jitprofiling)
-endif( NOT ANDROID )
 
 set( BACKEND_PASSES
+    LLVMVectorizer
+    LLVMBarrier
     AddImplicitArgs
     BuiltInFuncImport
     DebugInfoPass
@@ -430,8 +365,9 @@ target_link_libraries (${TARGET_NAME}
     # Utils lib
     OclPluginManager
     OclOptimizer
-    OclUtils
-
+    OclBackendUtils
+    LLVMMICCodeGenerationEngine
+    
     # internal passes
     ${BACKEND_PASSES}
 
@@ -439,34 +375,20 @@ target_link_libraries (${TARGET_NAME}
     dynamic_load
     cl_sys_utils
     metadataapi
-    
-    # Internal libs
-    ${JITPROFLIB}
 
     # LLVM LIBS
-    ${LLVM_LIBS}
-
+    ${LLVM_MODULE_LIBS}
     )
 
-add_dependencies(${TARGET_NAME}
-    # Utils lib
-    OclPluginManager
-    OclOptimizer
-    OclUtils
-
-    # internal passes
-    ${BACKEND_PASSES}
-
-    name_mangle    
-    dynamic_load
+if ( INCLUDE_MIC_DEVICE )
+    target_link_libraries (${TARGET_NAME}
+        pcg
+        irc
+        svml
+    )
+endif(INCLUDE_MIC_DEVICE)
     
-    # Internal libs
-    ${JITPROFLIB}
-
-    # LLVM LIBS
-    ${LLVM_LIBS}
-)
-
+    
 add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
 add_definitions( -DOclCpuBackEnd_EXPORTS )
 if (KNC_CARD) 
@@ -474,30 +396,32 @@ if (KNC_CARD)
 endif (KNC_CARD)
 
 if (ENABLE_SDE)
-    message("-- Enabling SDE version ... ")
+    message(STATUS "-- Enabling SDE version ... ")
     add_definitions( -DENABLE_SDE )
 endif (ENABLE_SDE)
 
 if (WIN32)
+    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
+    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${PDB_NAME}"
+                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
                              )
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.
         set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb"
+                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
+                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
                                 )
     endif (${MSVC_VERSION} EQUAL 1500)
     if (INSTALL_PDBS)
-        install(FILES ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+        install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
-    install(FILES ${LLVM_TOOLS_BINARY_DIR}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+    install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

@@ -12,12 +12,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <set>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
   using namespace llvm;
 
-  /// @brief  ShiftZeroUpperBits class dynamically adds before shl, arsh of vector types an "and" instruction 
-  ///         that will zero the upper bits of each element in the shift value, 
+  /// @brief  ShiftZeroUpperBits class dynamically adds before shl, arsh of vector types an "and" instruction
+  ///         that will zero the upper bits of each element in the shift value,
   ///         based on the size of the vector element.
   ///         This is done in order to be compatiblke with OpenCL spec:
   ///         OpenCL defines behavior for oversized shift values. Shift operations that shift greater
@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   public:
     /// Pass identification, replacement for typeid
     static char ID;
-    
+
     // Constructor
     ShiftZeroUpperBits() : FunctionPass(ID) {}
 
@@ -44,23 +44,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param F  Function to transform
     /// @returns  true if changed
     virtual bool runOnFunction(Function &F);
-    
+
   private:
     /// @brief    Finds all possible vector shifts instructions (vector shl and ashr) in F
     /// @param F  Function in which to find possible vector shifts
     void findmVecShitInstructions(Function &F);
-    
-    /// @brief    Adds dynamic "and" that will zero the upper bits of each element 
+
+    /// @brief    Adds dynamic "and" that will zero the upper bits of each element
     ///           in the second operator, based on the size of the vector element.
     /// @returns  true if changed
     bool handleVecShift();
-  
+
   private:
     /// The possible vector shift instructions (vector shl, ashr) in the function
     std::vector<BinaryOperator*> m_vecShift;
 
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __SHIFT_ZERO_UPPPER_BITS_H__

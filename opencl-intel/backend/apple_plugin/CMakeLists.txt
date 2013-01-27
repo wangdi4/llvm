@@ -66,7 +66,7 @@ target_link_libraries(${TARGET_NAME}
     OclOptimizer
     name_mangle
     metadataapi
-    OclUtils
+    OclBackendUtils
     "-framework Foundation"
     "-framework CoreFoundation"
     cl2module

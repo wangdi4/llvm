@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "DataPerBarrierPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -13,6 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace intel {
   char DataPerBarrier::ID = 0;
+
+  OCL_INITIALIZE_PASS(DataPerBarrier, "B-BarrierAnalysis", "Barrier Pass - Collect Data per Barrier", false, true)
 
   DataPerBarrier::DataPerBarrier() : ModulePass(ID) {}
 
@@ -246,10 +249,6 @@ namespace intel {
 
     OS << "DONE";
   }
-
-  //Register this pass...
-  static RegisterPass<DataPerBarrier> DPB("B-BarrierAnalysis",
-    "Barrier Pass - Collect Data per Barrier", false, true);
 
 
 } // namespace intel

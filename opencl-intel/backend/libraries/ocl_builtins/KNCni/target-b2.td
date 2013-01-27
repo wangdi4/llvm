@@ -3,5 +3,5 @@
 include "KNCni/KNCni.td"
 
 def target : KNC {
-  string Target = "b2";
+  let Target = "b2";
 }

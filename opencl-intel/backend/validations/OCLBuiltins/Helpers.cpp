@@ -23,61 +23,6 @@ using namespace llvm;
 namespace Validation {
 namespace OCLBuiltins {
 
-    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
-    {
-        throw Exception::NotImplemented("Some OCL built-in function.");
-    }
-
-    template<> bool isSignedType<int8_t>() {return true;}
-    template<> bool isSignedType<int16_t>() {return true;}
-    template<> bool isSignedType<int32_t>() {return true;}
-    template<> bool isSignedType<int64_t>() {return true;}
-    template<> bool isSignedType<uint8_t>() {return false;}
-    template<> bool isSignedType<uint16_t>() {return false;}
-    template<> bool isSignedType<uint32_t>() {return false;}
-    template<> bool isSignedType<uint64_t>() {return false;}
-
-    template<> float& getRef<float>(llvm::GenericValue& R){return R.FloatVal;}
-    template<> double& getRef<double>(llvm::GenericValue& R){return R.DoubleVal;}
-
-    template<> bool predLess<int8_t> (const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
-    template<> bool predLess<int16_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
-    template<> bool predLess<int32_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
-    template<> bool predLess<int64_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
-    template<> bool predLess<uint8_t> (const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
-    template<> bool predLess<uint16_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
-    template<> bool predLess<uint32_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
-    template<> bool predLess<uint64_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
-
-    template<> llvm::APInt& getRef<int8_t,1>(llvm::GenericValue &R, int i){return getRef<int8_t>(R);}
-    template<> llvm::APInt& getRef<uint8_t,1>(llvm::GenericValue &R, int i){return getRef<uint8_t>(R);}
-    template<> llvm::APInt& getRef<int16_t,1>(llvm::GenericValue &R, int i){return getRef<int16_t>(R);}
-    template<> llvm::APInt& getRef<uint16_t,1>(llvm::GenericValue &R, int i){return getRef<uint16_t>(R);}
-    template<> llvm::APInt& getRef<int32_t,1>(llvm::GenericValue &R, int i){return getRef<int32_t>(R);}
-    template<> llvm::APInt& getRef<uint32_t,1>(llvm::GenericValue &R, int i){return getRef<uint32_t>(R);}
-    template<> llvm::APInt& getRef<int64_t,1>(llvm::GenericValue &R, int i){return getRef<int64_t>(R);}
-    template<> llvm::APInt& getRef<uint64_t,1>(llvm::GenericValue &R, int i){return getRef<uint64_t>(R);}
-
-    template<> float& getRef<float,1>(llvm::GenericValue &R, int i) { return getRef<float>(R);}
-    template<> double& getRef<double,1>(llvm::GenericValue &R, int i) { return getRef<double>(R);}
-
-    template<> float derefPointer<float>(float* p) {return *p;}
-    template<> double derefPointer<double>(double* p) {return *p;}
-
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int8_t>(){return llvm::OCLBuiltinParser::CHAR;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint8_t>(){return llvm::OCLBuiltinParser::UCHAR;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int16_t>(){return llvm::OCLBuiltinParser::SHORT;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint16_t>(){return llvm::OCLBuiltinParser::USHORT;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int32_t>(){return llvm::OCLBuiltinParser::INT;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint32_t>(){return llvm::OCLBuiltinParser::UINT;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int64_t>(){return llvm::OCLBuiltinParser::LONG;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint64_t>(){return llvm::OCLBuiltinParser::ULONG;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<float>(){return llvm::OCLBuiltinParser::FLOAT;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<double>(){return llvm::OCLBuiltinParser::DOUBLE;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<long double>(){return llvm::OCLBuiltinParser::LONGDOUBLE;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<void>(){return llvm::OCLBuiltinParser::VOID;}
-    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<bool>(){return llvm::OCLBuiltinParser::BOOL;}
-
     template<> float getVal<float>(const llvm::GenericValue& R){return R.FloatVal;}
     template<> double getVal<double>(const llvm::GenericValue& R){return R.DoubleVal;}
 
@@ -122,6 +67,64 @@ namespace OCLBuiltins {
         one.AddUlps(-1);
         return one.val();
     }
+
+    template<> bool isSignedType<int8_t>() {return true;}
+    template<> bool isSignedType<int16_t>() {return true;}
+    template<> bool isSignedType<int32_t>() {return true;}
+    template<> bool isSignedType<int64_t>() {return true;}
+    template<> bool isSignedType<uint8_t>() {return false;}
+    template<> bool isSignedType<uint16_t>() {return false;}
+    template<> bool isSignedType<uint32_t>() {return false;}
+    template<> bool isSignedType<uint64_t>() {return false;}
+
+    template<> bool predLess<int8_t> (const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
+    template<> bool predLess<int16_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
+    template<> bool predLess<int32_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
+    template<> bool predLess<int64_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.slt(b); }
+    template<> bool predLess<uint8_t> (const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
+    template<> bool predLess<uint16_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
+    template<> bool predLess<uint32_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
+    template<> bool predLess<uint64_t>(const llvm::APInt& a, const llvm::APInt& b) { return a.ult(b); }
+
+    template<> float& getRef<float>(llvm::GenericValue& R){return R.FloatVal;}
+    template<> double& getRef<double>(llvm::GenericValue& R){return R.DoubleVal;}
+
+
+    template<> llvm::APInt& getRef<int8_t,1>(llvm::GenericValue &R, int i){return getRef<int8_t>(R);}
+    template<> llvm::APInt& getRef<uint8_t,1>(llvm::GenericValue &R, int i){return getRef<uint8_t>(R);}
+    template<> llvm::APInt& getRef<int16_t,1>(llvm::GenericValue &R, int i){return getRef<int16_t>(R);}
+    template<> llvm::APInt& getRef<uint16_t,1>(llvm::GenericValue &R, int i){return getRef<uint16_t>(R);}
+    template<> llvm::APInt& getRef<int32_t,1>(llvm::GenericValue &R, int i){return getRef<int32_t>(R);}
+    template<> llvm::APInt& getRef<uint32_t,1>(llvm::GenericValue &R, int i){return getRef<uint32_t>(R);}
+    template<> llvm::APInt& getRef<int64_t,1>(llvm::GenericValue &R, int i){return getRef<int64_t>(R);}
+    template<> llvm::APInt& getRef<uint64_t,1>(llvm::GenericValue &R, int i){return getRef<uint64_t>(R);}
+
+    template<> float& getRef<float,1>(llvm::GenericValue &R, int i) { return getRef<float>(R);}
+    template<> double& getRef<double,1>(llvm::GenericValue &R, int i) { return getRef<double>(R);}
+
+    template<> float derefPointer<float>(float* p) {return *p;}
+    template<> double derefPointer<double>(double* p) {return *p;}
+
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int8_t>(){return llvm::OCLBuiltinParser::CHAR;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint8_t>(){return llvm::OCLBuiltinParser::UCHAR;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int16_t>(){return llvm::OCLBuiltinParser::SHORT;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint16_t>(){return llvm::OCLBuiltinParser::USHORT;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int32_t>(){return llvm::OCLBuiltinParser::INT;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint32_t>(){return llvm::OCLBuiltinParser::UINT;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<int64_t>(){return llvm::OCLBuiltinParser::LONG;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<uint64_t>(){return llvm::OCLBuiltinParser::ULONG;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<float>(){return llvm::OCLBuiltinParser::FLOAT;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<double>(){return llvm::OCLBuiltinParser::DOUBLE;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<long double>(){return llvm::OCLBuiltinParser::LONGDOUBLE;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<void>(){return llvm::OCLBuiltinParser::VOID;}
+    template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<bool>(){return llvm::OCLBuiltinParser::BOOL;}
+
+
+    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+    {
+        throw Exception::NotImplemented("Some OCL built-in function.");
+    }
+
 
     llvm::GenericValue lle_X_memcpy(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)

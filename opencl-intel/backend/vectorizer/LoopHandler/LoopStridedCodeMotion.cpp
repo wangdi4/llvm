@@ -6,11 +6,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "LoopStridedCodeMotion.h"
 #include "LoopUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
 #include "llvm/Version.h"
 
-char intel::LoopStridedCodeMotion::ID = 0;
 
 //unsigned counter = 0;
 //int getIntEnvVarVal (const char *varName){
@@ -21,6 +22,18 @@ char intel::LoopStridedCodeMotion::ID = 0;
 
 namespace intel {
 
+
+char LoopStridedCodeMotion::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
+OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
+
+LoopStridedCodeMotion::LoopStridedCodeMotion() : LoopPass(ID) {
+  initializeLoopStridedCodeMotionPass(*PassRegistry::getPassRegistry());
+}
+
 // this pass assumes LICM ran before it, moved loop invariant values
 // outside of the loop.
 bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
@@ -28,8 +41,8 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
   //errs() << "\n\nLoopStridedCodeMotion on " << L->getHeader()->getNameStr() << "\n";
   //errs() << "input: " << *(L->getHeader()->getParent());
   if (!L->isLoopSimplifyForm()) return false;
-  
-  
+
+
   m_DT = &getAnalysis<DominatorTree>();
   m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
   m_curLoop = L;
@@ -61,7 +74,7 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
   // from the hoisted instructions set.
   screenNonProfitableValues();
 
-  // Move the marked instructions outside the loop, create Phi node to replace 
+  // Move the marked instructions outside the loop, create Phi node to replace
   // them if needed.
   HoistMarkedInstructions();
 
@@ -177,12 +190,12 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
   if (!usersToFix.size()) {
     //errs() << "  all users were moved, no need for phi\n";
     return;
-  } 
+  }
   //errs() << "  will make phi node\n";
   // Create phi node in the loop header.
-  PHINode *PN = 
+  PHINode *PN =
       PHINode::Create(I->getType(), 2, "", m_header->getFirstNonPHI());
-  PN->addIncoming(I, m_preHeader); 
+  PN->addIncoming(I, m_preHeader);
 
   // Create increment for the phi node.
   Value *stride = getStrideForInst(I);
@@ -191,11 +204,11 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
   Instruction::BinaryOps addOp = isFP ? Instruction::FAdd : Instruction::Add;
   BinaryOperator *incremenedVal = BinaryOperator::Create(addOp, PN,
                        strideToAdd, "Strided.add", m_latch->getTerminator());
-  
+
   // Set nsw, nuw on the incremented phi incase the hoisted value has these
   // flags.
   // The reason for checking the instruction type is that some of the binary
-  // operations does not support wrap and assert in debug mode. 
+  // operations does not support wrap and assert in debug mode.
   // TODO:: check if we covered all supported instructions.
   unsigned opcode  = I->getOpcode();
   if (opcode == Instruction::Add || opcode == Instruction::Sub ||
@@ -204,7 +217,7 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
     if (BO->hasNoSignedWrap()) incremenedVal->setHasNoSignedWrap();
     if (BO->hasNoUnsignedWrap()) incremenedVal->setHasNoUnsignedWrap();
   }
-  
+
   PN->addIncoming(incremenedVal, m_latch);
 
   // Replace the users with the phi.
@@ -219,9 +232,9 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
 Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
   Constant *constStride = m_WIAnalysis->getConstStride(I);
   if (constStride) return constStride;
-  assert(m_WIAnalysis->isStrided(I) && 
+  assert(m_WIAnalysis->isStrided(I) &&
          "strided intermediate must have constant stride");
-  
+
   // Non constant strides must be vectors.
   VectorType *vTy = dyn_cast<VectorType>(I->getType());
   assert(vTy && "input should be a vector");
@@ -234,7 +247,7 @@ Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
   Value *Elt1 = ExtractElementInst::Create(I, m_one, "extract.0", loc);
   Instruction::BinaryOps subOp = Instruction::Sub;
   Instruction::BinaryOps mulOp = Instruction::Mul;
-  Value *width; 
+  Value *width;
   if (baseType->isFloatingPointTy()) {
     subOp = Instruction::FSub;
     mulOp = Instruction::FMul;
@@ -288,24 +301,24 @@ void LoopStridedCodeMotion::ObtainNonHoistedUsers(Value *v,
 }
 
 
-// When hoisting an instruction if all it's users are also hoisted than 
-// the instruction can be just hoisted amnd this is a clear gain. However 
+// When hoisting an instruction if all it's users are also hoisted than
+// the instruction can be just hoisted amnd this is a clear gain. However
 // when if some users are not we need to make phi that is incremented at
-// each iteration. This is not a clear gain since the phi is alive 
-// throughout the entire loop. Thus, we screen some hoisted values that 
-// which are not creating at least some values to be hoisted with clear 
-// gain. Also we aviod using phi for scalars, and shl instruction 
+// each iteration. This is not a clear gain since the phi is alive
+// throughout the entire loop. Thus, we screen some hoisted values that
+// which are not creating at least some values to be hoisted with clear
+// gain. Also we aviod using phi for scalars, and shl instruction
 // (this was tested empirically).
 void LoopStridedCodeMotion::screenNonProfitableValues() {
-  // Scan the instruction marked to move in reverse order meaning use 
+  // Scan the instruction marked to move in reverse order meaning use
   // before def.
   for (int i=m_orderedCandidates.size()-1; i>=0; --i) {
     Instruction *I = m_orderedCandidates[i];
-    // If a user of this intruction was marked to be hoisted than we must hoist 
+    // If a user of this intruction was marked to be hoisted than we must hoist
     // this instruction also.
     if (hasUserInSet(I, m_instToMoveSet)) continue;
 
-    
+
     // We avoid hoisting an instruction if none of it's operands will be
     // hoisted freely (with no phi generated)
     bool isProfitable = false;
@@ -314,7 +327,7 @@ void LoopStridedCodeMotion::screenNonProfitableValues() {
       // Obtain the non hoisted users of the current operand.
       SmallVector<User *, 4> NonHoistedUSers;
       ObtainNonHoistedUsers(op, NonHoistedUSers);
-      // If op is marked for moving and all it's users (including I) are also marked 
+      // If op is marked for moving and all it's users (including I) are also marked
       // then I makes op hoisted with no need for phi node.
       isProfitable |= (NonHoistedUSers.size() == 0 && m_instToMoveSet.count(op) );
       // Also if op is a header phi node whose only non hoisted user is it's increment,
@@ -324,7 +337,7 @@ void LoopStridedCodeMotion::screenNonProfitableValues() {
     }
 
     // Can not have strided intermediate as pivot strided value.
-    // Empirically, creating phi nodes for scalar values is non profitable. 
+    // Empirically, creating phi nodes for scalar values is non profitable.
     bool isScalar = !I->getType()->isVectorTy();
     if (!isProfitable || m_WIAnalysis->isStridedIntermediate(I) || isScalar) {
       m_instToMoveSet.erase(I);
@@ -340,5 +353,3 @@ extern "C" {
     return new intel::LoopStridedCodeMotion();
   }
 }
-static RegisterPass<intel::LoopStridedCodeMotion> LoopStridedCodeMotion
-                        ("cl-loop-stride", "move strided values out of loops");

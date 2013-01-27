@@ -11,6 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Linearizer.h"
 #include "Mangler.h"
 #include "Logger.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
@@ -37,6 +39,28 @@ EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
 STATISTIC(PredicatorCounter, "Counts number of functions visited");
 
 namespace intel {
+
+/// Support for dynamic loading of modules under Linux
+char Predicator::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(RegionInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
+
+Predicator::Predicator() :
+  FunctionPass(ID),
+  m_rtServices(RuntimeServices::get()),
+  m_maskedLoadCtr(0),
+  m_maskedStoreCtr(0),
+  m_maskedCallCtr(0){
+  initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+}
 
 void Predicator::createAllOne(Module &M) {
   // Create function arguments
@@ -1209,9 +1233,3 @@ extern "C" {
     return new intel::Predicator();
   }
 }
-
-/// Support for dynamic loading of modules under Linux
-char intel::Predicator::ID = 0;
-static RegisterPass<intel::Predicator>
-CLIPredicate("predicate", "Predicate Function");
-

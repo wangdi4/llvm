@@ -8,6 +8,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Constants.h"
 
+#include "OCLPassSupport.h"
 #include <vector>
 #include <sstream>
 
@@ -22,6 +23,10 @@ static bool isGatherScatterType(VectorType *VecTy) {
 }
 
 namespace intel {
+
+char MICResolver::ID = 0;
+
+OCL_INITIALIZE_PASS(MICResolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
 
 
 static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
@@ -62,7 +67,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
       "mismatch between mask and data num elements");
     PointerType *PtrTy = cast<PointerType>(Ptr->getType());
     assert(PtrTy->getElementType() == RetTy && "mismatch between ptr and retval");
-  
+
     if (!isGatherScatterType(RetTy)) {
       V_PRINT(DEBUG_TYPE, "Type unsupported for gather "<<calledName<<"\n");
       V_PRINT(gather_scatter_stat, "RESOLVER: UNSUPPORTED TYPE FOR GATHER " << *caller << "\n");
@@ -107,9 +112,9 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     assert(MaskTy->getNumElements() == DataTy->getNumElements() &&
       "mismatch between mask and data num elements");
     PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
-    assert(PtrTy->getElementType() == DataTy && 
+    assert(PtrTy->getElementType() == DataTy &&
       "mismatch between ptr and retval");
-    
+
     if (!isGatherScatterType(DataTy)) {
       V_PRINT(DEBUG_TYPE, "Type unsupported for scatter "<<calledName<<"\n");
       V_PRINT(gather_scatter_stat, "RESOLVER: UNSUPPORTED TYPE FOR SCATTER " << *caller << "\n");
@@ -163,7 +168,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     Value *Index     = caller->getArgOperand(2);
     Value *ValidBits = caller->getArgOperand(3);
     Value *IsSigned  = caller->getArgOperand(4);
-   
+
     FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
     CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::GatherPrefetch);
     return true;
@@ -177,7 +182,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   Module *pModule = caller->getParent()->getParent()->getParent();
   V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
 
-  VectorType *dataTy = NULL; 
+  VectorType *dataTy = NULL;
 
   switch (type) {
   case Mangler::GatherPrefetch: {
@@ -242,7 +247,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
   Type *i32Vec = VectorType::get(i32Ty, IndexType->getNumElements());
 
   // Calculate the safe valid bits in index that allows using gather/scatter without modifications
-  // This number is refferring to signed index, for unsigned the safe index is one bit less. 
+  // This number is refferring to signed index, for unsigned the safe index is one bit less.
   const unsigned int dataSizeInBytes = cast<PointerType>(Ptr->getType())->getElementType()->getPrimitiveSizeInBits() / 8;
   V_ASSERT(dataSizeInBytes != 0 && "dataSizeInBytes should not be zero!");
   const unsigned int safeValidBits = 32 - VectorizerUtils::getLOG(dataSizeInBytes);
@@ -272,7 +277,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
   // The following code will chose a valide index (such one with mask bit 1), and will perform the following
   //   newBase = Base + validIndex
   //   newVecIndex = VecIndex - brodcast(validIndex)
-  // As a result we can assure that newIndex is limited to 32bit 
+  // As a result we can assure that newIndex is limited to 32bit
   // ***Since buffer size is <= 2^31***, and all work items that access the memory
   // has distance of +-2^31 at most.
 
@@ -339,6 +344,3 @@ extern "C" {
     return new intel::MICResolver();
   }
 }
-char intel::MICResolver::ID = 0;
-static RegisterPass<intel::MICResolver>
-CLIMICResolver("micresolve", "Resolves masked and vectorized function calls on MIC");

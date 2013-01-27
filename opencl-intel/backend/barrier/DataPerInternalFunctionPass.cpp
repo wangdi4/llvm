@@ -6,7 +6,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "DataPerInternalFunctionPass.h"
-
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
@@ -16,7 +17,15 @@ namespace intel {
   char DataPerInternalFunction::ID = 0;
   unsigned int DataPerInternalFunction::m_badOffset = (unsigned int)(-1);
 
-  DataPerInternalFunction::DataPerInternalFunction() : ModulePass(ID) {}
+  OCL_INITIALIZE_PASS_BEGIN(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
+  OCL_INITIALIZE_PASS_END(DataPerInternalFunction, "B-FunctionAnalysis", "Barrier Pass - Collect Data per Internal Function", false, true)
+
+  DataPerInternalFunction::DataPerInternalFunction()
+    : ModulePass(ID)
+  {
+      initializeDataPerInternalFunctionPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool DataPerInternalFunction::runOnModule(Module &M) {
     //Initialize barrier utils class with current module
@@ -191,9 +200,6 @@ namespace intel {
     OS << "DONE\n";
   }
 
-  //Register this pass...
-  static RegisterPass<DataPerInternalFunction> DPV("B-FunctionAnalysis",
-    "Barrier Pass - Collect Data per Internal Function", false, true);
 
 
 } // namespace intel

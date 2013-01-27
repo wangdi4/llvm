@@ -6,7 +6,7 @@ class AVX : SSE42 {
   
   // copy paste from SSE42 plus AVX native types
   // TODO: how to use Native types from parent class SSE42 w/o copy-paste
-  list<OclType> NativeTypes = [
+  let NativeTypes = [
       // SSE42
       v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64,
       // AVX

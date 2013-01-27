@@ -27,3 +27,17 @@ else(APPLE)
   add_subdirectory(PrintIRPass)
 endif(APPLE)
 
+if(APPLE)
+  set(TARGET_INCLUDE_FILES
+      InitializePasses.h
+      OCLPassSupport.h
+  )
+
+  set(TARGET_SOURCE_FILES
+  )
+
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

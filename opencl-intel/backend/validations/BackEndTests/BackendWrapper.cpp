@@ -30,7 +30,7 @@ BackendWrapper::~BackendWrapper(void)
 {}
 
 void BackendWrapper::SetUp()
-{   
+{
     if( !(BackendWrapper::Initiate()) )
     {
         FAIL() << "Error initiating BackendWrapper.\n";
@@ -89,13 +89,13 @@ BackendWrapper& BackendWrapper::GetInstance()
 bool BackendWrapper::LoadDll()
 {
     // load the dll and get the exported functions
-    try 
+    try
     {
         m_dll.Load(CPUBACKEND_DLL_NAME);
 
-    }catch(Exceptions::DynamicLibException& )
+    }catch(Exceptions::DynamicLibException& err)
     {
-        std::cerr << "Cannot load the backend DLL.\n";
+        std::cerr << "Cannot load the backend DLL." << err.what() << "\n";
         return false;
     }
 
@@ -146,7 +146,7 @@ ICLDevBackendServiceFactory* BackendWrapper::GetBackendServiceFactory()
 
 cl_prog_container_header* BackendWrapper::CreateProgramContainer(const std::string& programFile)
 {
-    const char* szFileName = programFile.c_str(); 
+    const char* szFileName = programFile.c_str();
     // minimum container size
     containerSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
 
@@ -192,7 +192,7 @@ cl_prog_container_header* BackendWrapper::CreateProgramContainer(const std::stri
 }
 
 
-void BackEndTests_Plugins::SetUp() 
+void BackEndTests_Plugins::SetUp()
 {
     // IMPORTANT! dont init the backend here
     // need to set the environment variable in the test first

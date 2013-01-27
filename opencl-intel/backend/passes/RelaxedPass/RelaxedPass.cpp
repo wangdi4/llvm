@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 // This pass is used for relaxed functions substitution
 
 #include "RelaxedPass.h"
+#include "OCLPassSupport.h"
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
 #include <llvm/DerivedTypes.h>
@@ -26,13 +27,9 @@ extern "C" {
     /// @brief Returns an instance of the RelaxedPass pass,
     ///        which will be added to a PassManager and run on a Module.
     void* createRelaxedPass() {
-        return new Intel::OpenCL::DeviceBackend::RelaxedPass();
+        return new intel::RelaxedPass();
     }
 }
-
-/// Register pass for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::RelaxedPass> RelaxedFunctionsPass("relaxed-funcs", "This pass is used for relaxed functions substitution");
-
 
 #define INSERT_MAP_TO_NATIVE(map, func, type, length, native_length)        \
     map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
@@ -92,7 +89,9 @@ static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::RelaxedPass> RelaxedFunc
     INSERT_MAP_TO_NATIVE(map, func, "Dv16_fPS_", length, native_length)
 
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
+
+    OCL_INITIALIZE_PASS(RelaxedPass, "relaxed-funcs", "This pass is used for relaxed functions substitution", false, false)
 
     /// @brief Constructor, add mapping for relaxed functions
     RelaxedPass::RelaxedPass() : ModulePass(ID)
@@ -236,4 +235,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel

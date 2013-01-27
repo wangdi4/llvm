@@ -154,7 +154,7 @@ TEST(VectorizerReference, OldTable){
         ASSERT_EQ(0==tableProperties[rowindex][0], isNullPair(scalarVersion)) <<
         "in built-in " << biName;
       //Do the two versions agree on the packetizer property?
-      //We arbitrary picked four as the destination vector width. 
+      //We arbitrary picked four as the destination vector width.
       bool isNull = isNullPair(pKeeper->getVersion(biName, width::FOUR));
       //the scalar versions of some builtin functions have ambiguity on that
       //property, and was solved by the vectorizer with hard-coded ifs.
@@ -195,7 +195,7 @@ TEST(VectorizerReference, syntesizedFunctions){
   ASSERT_EQ("allOne_v16", allonev.first);
   allonev = pKepper->getVersion("allOne", width::THREE);
   ASSERT_TRUE(isNullPair(allonev));
-  
+
   PairSW allzerov = pKepper->getVersion("allZero", width::TWO);
   ASSERT_EQ("allZero_v2", allzerov.first);
   allzerov = pKepper->getVersion("allZero", width::FOUR);
@@ -243,7 +243,7 @@ TEST(FDTranspose, scalarReturnTyFunctionality){
   retMap[dot] = &doubleTy;
   SoaDescriptorStrategy soaStrategy;
   soaStrategy.setTypeMap(&retMap);
-  
+
   PairSW pair(std::make_pair("_Z3dotdd", width::FOUR));
   pair = soaStrategy(pair);
   ASSERT_STREQ("_Z8soa_dot1Dv4_dS_", pair.first.c_str());
@@ -379,3 +379,10 @@ TEST(GenTest, soaGenTest){
 }
 
 }}
+
+int main(int argc, char** argv)
+{
+   ::testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
+}
+

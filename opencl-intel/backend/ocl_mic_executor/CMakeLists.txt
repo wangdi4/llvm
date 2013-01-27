@@ -7,12 +7,12 @@ endif ()
 
 
 set( TARGET_NAME OclDeviceExecutor )
+set( TARGET_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
 
 set( LIB_FILE_EXTENSION .a )
-set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
 set( OBJ_FILE_EXTENSION .o )
 
-set( DEVICE   MIC )
+set( DEVICE MIC )
 
 if (WIN32)
     # Windows
@@ -22,8 +22,8 @@ else ()
     set( DEVICE_COMPILER_SCRIPT compile_linux_mic.sh )
     set( DEVICE_ARCHIVER_SCRIPT archive_linux_mic.sh )
 
-    set( DEVICE_COMPILER ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
-    set( DEVICE_ARCHIVER ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT} )
+    set( DEVICE_COMPILER ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${DEVICE_COMPILER_SCRIPT} )
+    set( DEVICE_ARCHIVER ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${DEVICE_ARCHIVER_SCRIPT} )
 endif (WIN32)
 
 #
@@ -49,14 +49,14 @@ else (WIN32)
 	endif (KNC_CARD)
     if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
       set( ICC_MIC_COMPILER ${SUITABLE_ICC_INSTALL_DIR} )
-	  message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
+	  message (STATUS "ICC MIC Compiler: ${ICC_MIC_COMPILER}")
 	  set(MIC_TARGET "ON")
     else()
       message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
       set(MIC_TARGET "OFF")
 	endif()
   else()
-    message ("ICC MIC Compiler: ${ICC_MIC_COMPILER}")
+    message (STATUS "ICC MIC Compiler: ${ICC_MIC_COMPILER}")
 	set(MIC_TARGET "ON")
   endif()
   
@@ -70,7 +70,7 @@ else (WIN32)
     else()
       set(ICC_MIC_ENV_SCRIPT ${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT})
     endif()
-	message("ICC MIC Compiler Script: ${ICC_MIC_ENV_SCRIPT}")
+	message(STATUS "ICC MIC Compiler Script: ${ICC_MIC_ENV_SCRIPT}")
   endif()
 endif (WIN32)
 
@@ -92,13 +92,10 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
     get_filename_component( FILE_NAME ${FILE_FULL_PATH_NAME} NAME )
 
     add_custom_command( OUTPUT ${OBJ_FILE}
-
-                        COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                         COMMAND ${DEVICE_COMPILER} ${FILE_FULL_PATH_NAME} ${OBJ_FILE}
-
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME}
                         IMPLICIT_DEPENDS CXX
-                        DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT}
+                        DEPENDS ${DEVICE_COMPILER}
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                         COMMENT "Compiling ${FILE_NAME} for ${DEVICE}"
                         VERBATIM
@@ -117,12 +114,9 @@ function ( ARCHIVE_DEVICE_LIB TARGET_LIB )
         set( OBJ_FILES ${ARGN})
 
         add_custom_command( OUTPUT ${TARGET_LIB}
-
-                            COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                             COMMAND ${DEVICE_ARCHIVER} ${TARGET_LIB} ${OBJ_FILES}
-
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT}
-                            WORKING_DIRECTORY ${BIN_DIR}
+                            DEPENDS  ${OBJ_FILES} ${DEVICE_ARCHIVER}
+                            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
                             COMMENT "Archiving ${FILE_NAME} for ${DEVICE}"
                             VERBATIM
                             )
@@ -137,7 +131,7 @@ endfunction ( ARCHIVE_DEVICE_LIB )
 #
 function ( add_device_library TARGET_NAME )
 
-    set( LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/../lib/lib${TARGET_NAME}${LIB_FILE_EXTENSION} )
+    set( LIB_FILE ${TARGET_LIB_DIR}/lib${TARGET_NAME}${LIB_FILE_EXTENSION} )
     set( OBJ_LIST )
 
     if (${ARGC} GREATER  1)
@@ -145,7 +139,7 @@ function ( add_device_library TARGET_NAME )
             set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
 
             get_filename_component( FILE_NAME ${FILE} NAME_WE )
-            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
+            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
 
             COMPILE_DEVICE_CXX_FILE( ${SRC_FILE} ${OBJ_FILE} )
             list( APPEND OBJ_LIST ${OBJ_FILE} )
@@ -165,10 +159,6 @@ endfunction ( add_device_library )
 
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_COMPILER_SCRIPT})
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_ARCHIVER_SCRIPT})
-
-if (NOT EXISTS ${BIN_DIR})
-        file(MAKE_DIRECTORY "${BIN_DIR}")
-endif()
 
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
@@ -193,8 +183,8 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend
                 -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
                 -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-                -I ${CMAKE_SOURCE_DIR}/backend/llvm/include
-	        -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include 	
+                -I ${LLVM_INCLUDE_DIR}
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include 	
                 )
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
@@ -213,8 +203,8 @@ endforeach( FLAG )
 
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
 if(MIC_TARGET)
-configure_file(${DEVICE_COMPILER_SCRIPT} ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} @ONLY)
-configure_file(${DEVICE_ARCHIVER_SCRIPT} ${BIN_DIR}/${DEVICE_ARCHIVER_SCRIPT} @ONLY) 
+configure_file(${DEVICE_COMPILER_SCRIPT} ${DEVICE_COMPILER} @ONLY)
+configure_file(${DEVICE_ARCHIVER_SCRIPT} ${DEVICE_ARCHIVER} @ONLY) 
 endif()
 
 set(TARGET_SOURCES

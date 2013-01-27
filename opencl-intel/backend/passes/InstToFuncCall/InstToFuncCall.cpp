@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "InstToFuncCall.h"
+#include "OCLPassSupport.h"
 
 #include <llvm/Instructions.h>
 #include <llvm/Constants.h>
@@ -15,17 +16,16 @@ extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
     void* createInstToFuncCallPass(bool isV16Supported) {
-        return new Intel::OpenCL::DeviceBackend::InstToFuncCall(isV16Supported);
+        return new intel::InstToFuncCall(isV16Supported);
     }
 }
 
-/// Register pass to for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::InstToFuncCall> InstToFuncCallPass("inst-to-func-call", "Replaces LLVM IR instructions with calls to functions.");
 
-
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
     char InstToFuncCall::ID = 0;
+
+    OCL_INITIALIZE_PASS(InstToFuncCall, "inst-to-func-call", "Replaces LLVM IR instructions with calls to functions", false, false)
 
     InstToFuncCall::InstToFuncCall(bool isV16Supported) : ModulePass(ID), m_I2F(isV16Supported) {}
 
@@ -84,5 +84,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     ModulePass *createInstToFuncCallPass(bool isV16Supported) { return new InstToFuncCall(isV16Supported); }
 
-    }}} // namespace
+    } // namespace
 

@@ -1,3 +1,4 @@
-add_llvm_library(LLVMInterpreterPluggable
+use_rtti(FALSE)
+add_library(LLVMInterpreterPluggable
   InterpreterPluggable.cpp
   )

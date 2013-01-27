@@ -740,5 +740,5 @@ int main(int argc, char* argv[])
 		printf("\n==============\nTEST FAILED\n==============\n");		
 	}
 
-	return rc == 0;
+	return rc;
 }

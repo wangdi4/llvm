@@ -3,13 +3,13 @@
 
 #
 #  Variables which override defaults (used only by OCL SDK build)
-#	  OCL_INSTALL_DIR			   overrides output directory. The default is where the rest of OCL CPU BE resides.
-#	  OCL_CLANG_HEADERS			 overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
-#     OCL_GLOBAL_INCLUDE		 overrides directory name for global headers. The default is 'cl_api' in Volcano root
-#     OCL_SOURCE_DIR				 TRUE when invoked by OCL SDK build
+#      OCL_INSTALL_DIR               overrides output directory. The default is where the rest of OCL CPU BE resides.
+#      OCL_CLANG_HEADERS             overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
+#     OCL_GLOBAL_INCLUDE         overrides directory name for global headers. The default is 'cl_api' in Volcano root
+#     OCL_SOURCE_DIR                 TRUE when invoked by OCL SDK build
 #     OCL_HOST_CLANG         overrides 'clang' tool selection. The default is to use 'clang' tool from the same build
-#     OCL_HOST_OPT					 overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
-#     OCL_HOST_LLVM_LINK		 overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
+#     OCL_HOST_OPT                     overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
+#     OCL_HOST_LLVM_LINK         overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
 #
 
 #
@@ -45,24 +45,7 @@ elseif (ANDROID)
 else (LINUX)
   set (PLATFORM Linux${PLATFORM})
 endif (WIN32)
-message ("OCL Builtins build: ${PLATFORM}")
-
-# Build type selection (Debug or Release) follows Visual Studio (in Windows case) or LLVM build type (for Linux)
-# IMPORTANT: once we will switch to Visual Studio 10, the ${CMAKE_CFG_INTDIR} comparison must be done vs. $(Configuration) rather than $(OutDir)!
-if (WIN32)
-  if (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))
-    set (CL_BUILD_TYPE ${CMAKE_CFG_INTDIR})
-  endif()	
-  if (MSVC_VERSION EQUAL 1500 AND ${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
-    set (CL_BUILD_TYPE ${CMAKE_CFG_INTDIR})
-  endif()
-else ()
-  set (CL_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-endif ()
-
-#
-# Project directories
-#
+message (STATUS "OCL Builtins build: ${PLATFORM}")
 
 add_subdirectory (utils/TableGen)
 
@@ -72,14 +55,11 @@ add_subdirectory (utils/TableGen)
 
 # remember OCL builtins source dir
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message ("Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
-
-# separate subdirs for each build type (Debug or Release)
-set (INSTALL_SUBDIR ${CL_BUILD_TYPE})
+message (STATUS "Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
-set (BUILTINS_INSTALL_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-message ("Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
+set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+message (STATUS "Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
 if (DEFINED OCL_CLANG_HEADERS)
@@ -90,7 +70,7 @@ endif()
 if (NOT EXISTS ${CLANG_HEADERS})
   message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
 endif()
-message ("Clang headers are in: ${CLANG_HEADERS}")
+message (STATUS "Clang headers are in: ${CLANG_HEADERS}")
 
 if (DEFINED OCL_GLOBAL_INCLUDE)
   set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
@@ -100,7 +80,7 @@ endif ()
 if (NOT EXISTS ${IMPORT_DIR})
   message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
 endif()
-message ("Global headers are in: ${IMPORT_DIR}")
+message (STATUS "Global headers are in: ${IMPORT_DIR}")
 
 # svml directories
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
@@ -109,51 +89,50 @@ if (NOT EXISTS ${SVML_DLL_DIR})
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-message ("SVML binary dir: ${SVML_DLL_DIR}")
+message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
 
 if(APPLE)
 	set(OCL_HOST_CLANG /System/Library/Frameworks/OpenCL.framework/Libraries/openclc)
 endif()
 
 if( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
-  set(LLVM_NATIVE_BINARY_DIR "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/")
+  set(LLVM_NATIVE_BINARY_DIR "${LLVM_BINARY_DIR}")
 else( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
   set(LLVM_NATIVE_BINARY_DIR )
 endif( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG) 
-  set (CLANG ${LLVM_NATIVE_BINARY_DIR}clang)
+  set (CLANG "${LLVM_BINARY_DIR}/clang")
 else()
   set (CLANG ${OCL_HOST_CLANG})
 endif()
 if (NOT DEFINED OCL_HOST_OPT) 
-  set (LLVM_OPT ${LLVM_NATIVE_BINARY_DIR}opt)
+  set (LLVM_OPT "${LLVM_BINARY_DIR}/opt")
 else ()
   set (LLVM_OPT OCL_HOST_OPT)
 endif()
 if (NOT DEFINED OCL_HOST_LLVM_LINK) 
-  set (LLVM_LINK ${LLVM_NATIVE_BINARY_DIR}llvm-link)
+  set (LLVM_LINK "${LLVM_BINARY_DIR}/llvm-link")
 else()
   set (LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
 if (NOT DEFINED OCL_HOST_LLC) 
-  set (LLC ${LLVM_NATIVE_BINARY_DIR}llc)
+  set (LLC "${LLVM_BINARY_DIR}/llc")
 else()
   set (LLC OCL_HOST_LLC)
 endif()
 
-
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
-if (WIN32)	
+if (WIN32)    
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set (TRIPLE i686-pc-win32-elf)
   else ()
     set (TRIPLE x86_64-pc-win32-elf) 
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)	
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)    
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set	(TRIPLE i686-pc-Linux)
+    set    (TRIPLE i686-pc-Linux)
   else ()
     set (TRIPLE amd64)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4) 
@@ -163,11 +142,11 @@ endif (WIN32)
 # external tools
 #
 
-message ("CLANG:     ${CLANG}")
-message ("LLVM_OPT:  ${LLVM_OPT}")
-message ("LLVM_LINK: ${LLVM_LINK}")
-message ("LLC:       ${LLC}")
-message ("TRIPLE:    ${TRIPLE}")
+message (STATUS "CLANG:     ${CLANG}")
+message (STATUS "LLVM_OPT:  ${LLVM_OPT}")
+message (STATUS "LLVM_LINK: ${LLVM_LINK}")
+message (STATUS "LLC:       ${LLC}")
+message (STATUS "TRIPLE:    ${TRIPLE}")
 
 # 
 # Tool environment and options
@@ -216,17 +195,16 @@ function( compile_ocl OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
 
-  # -- BUGBUG -- ${LLVM_OPT} ${CLANG} dependency is removed as it is changed most frequently during LLVM development and 
-  #              in the context of BI Clang compilation these changes have least impact on generated IR
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
-    COMMAND ${LLVM_OPT} ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
+    COMMAND oclopt  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
     DEPENDS ${HEADER_FILES}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
-    COMMENT "OCL Compiling ${INPUT_FILE}"
+    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
+    COMMENT "OCL Optimize  ${OUTPUT_FILE}: oclopt  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
     VERBATIM
     )
 
@@ -276,8 +254,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       )
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${LLVM_OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      DEPENDS ${LLVM_OPT} ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      COMMAND oclopt ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      DEPENDS oclopt ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
       VERBATIM
       )
   else()
@@ -291,7 +269,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
-    message("Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
+    message(STATUS "Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
 
     # Initialize the llc parameter "-mattr" based on PROC
     SET (MATTR "-mattr=")
@@ -310,7 +288,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       VERBATIM
       )
   else (${ENABLE_PRECOMPILE})
-    message ("Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
+    message (STATUS "Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
   endif(${ENABLE_PRECOMPILE})
 
   set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
@@ -370,8 +348,8 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ${cl_builtins_TABLEGEN_EXE} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ${cl_builtins_TABLEGEN_EXE} ${depend_tds}
+        COMMAND ocl-tblgen ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
+        DEPENDS ocl-tblgen ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
@@ -397,16 +375,15 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     set(ADDITIONAL_SHARED_LIBRARY_SUFFIX .3.0)
   endif()
 
-  message ("Building target:   ${TARGET_NAME}")
+  message (STATUS "Building target:   ${TARGET_NAME}")
 
   # intermediate directory for OpenCL compilation/link
-  # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
-  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR})
+  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
   
-	# generate OCL builtin implementation
+  # generate OCL builtin implementation
 	tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${TARGET_DIR} target-${ARCH}.td -gen-ocl-bi)
-	list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-	
+    list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+    
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
@@ -430,20 +407,20 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
-    )
+  )
 
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
   if (WIN32)
-    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB})
     if( PREBUILD_IMAGE_LIBRARY)
-      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+      set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
     endif( PREBUILD_IMAGE_LIBRARY)
     install( FILES ${INSTALL_LIST} DESTINATION bin)
   else(WIN32)
-    set (INSTALL_LIST ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_LIB} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} )
     if( PREBUILD_IMAGE_LIBRARY)
-      set (INSTALL_LIST ${INSTALL_LIST} ${LLVM_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+      set (INSTALL_LIST ${INSTALL_LIST} ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
     endif( PREBUILD_IMAGE_LIBRARY)
     install( FILES ${INSTALL_LIST} DESTINATION bin)
   endif(WIN32)

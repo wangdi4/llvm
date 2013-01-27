@@ -5,7 +5,7 @@ get_filename_component( TARGET_NAME ${SATEST_NATIVE_NAME} NAME_WE )
 
 get_filename_component( EXE_FILE_EXTENSION ${SATEST_NATIVE_NAME} EXT )
 set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
-set( OUTPUT_DIR ${LLVM_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR} )
+set( OUTPUT_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR} )
 set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE MIC )
@@ -21,7 +21,7 @@ else ()
         set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
         if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
           set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
-          message ("ICC MIC Compiler: ${TMP_ICC_INSTALL_DIR}")
+          message (STATUS "ICC MIC Compiler: ${TMP_ICC_INSTALL_DIR}")
           set(MIC_TARGET "ON")
         else()
           message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
@@ -32,7 +32,7 @@ else ()
     if (TMP_ICC_INSTALL_DIR)
         # if environment ICC_INSTALL_DIR is set
         set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/compilervars.sh" )
-        message("MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
+        message(STATUS "MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
     else ()
         message( FATAL_ERROR "ICC is not found! Set ICC_MIC_COMPILER_PATH environment variable to point to the ICC with MIC support" )
     endif (TMP_ICC_INSTALL_DIR)
@@ -92,7 +92,7 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                             COMMAND ${DEVICE_LINKER} ${TARGET_EXE} ${OBJ_FILES}
 
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${OCL_BINARY_DIR}/backend/llvm/lib/libOclDeviceExecutor.a
+                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT}
 
                             WORKING_DIRECTORY ${BIN_DIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
@@ -177,7 +177,7 @@ list( APPEND MIC_LINK_FLAGS
                 # library search path at link
                 -L ${COI_DIR}/device-linux-release/lib
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-                -L ${OCL_BINARY_DIR}/backend/llvm/lib
+                -L ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
                 -L ${BACKEND_ROOT_DIR}/external/vtune/libknc
 
                 # libs to link

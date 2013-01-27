@@ -8,7 +8,7 @@ def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins cl_mem_fence_fl
 
 class SSSE3 : Generic {
 // Native types for SSSE3. Used in "Promote" calls
-list<OclType> NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];
+let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];
 
 code Prolog = [{
     #define ALIGN16 __attribute__((aligned(16)))

@@ -7,12 +7,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "WIRelatedValuePass.h"
 #include "BarrierUtils.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace intel {
   char WIRelatedValue::ID = 0;
+
+  OCL_INITIALIZE_PASS(WIRelatedValue, "B-WIAnalysis", "Barrier Pass - Calculate WI relation per Value", false, true)
 
   WIRelatedValue::WIRelatedValue() : ModulePass(ID) {}
 
@@ -344,9 +347,6 @@ namespace intel {
     }
   }
 
-  //Register this pass...
-  static RegisterPass<WIRelatedValue> WIRV("B-WIAnalysis",
-    "Barrier Pass - Calculate WI relation per Value", false, true);
 
 
 } // namespace intel

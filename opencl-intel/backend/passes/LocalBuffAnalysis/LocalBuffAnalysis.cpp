@@ -7,6 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "cl_kernel_arg_type.h"
 
@@ -15,20 +17,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Constant.h"
 #include "llvm/Target/TargetData.h"
 
+using namespace Intel::OpenCL::DeviceBackend;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  
+namespace intel{
+
   /// @brief Creates new LocalBuffAnalysis module pass
   /// @returns new LocalBuffAnalysis module pass
   ModulePass* createLocalBuffersAnalysisPass() {
     return new LocalBuffAnalysis();
   }
-    
-  // Need to register analysis pass, otherwise, the passes that use this analysis cannot get this pass' info 
-  static RegisterPass<LocalBuffAnalysis>
-    LocalBuffersAnalysisPass("LocalBuffAnalysis", "LocalBuffAnalysis provides local values analysis info");
 
   char LocalBuffAnalysis::ID = 0;
+
+  OCL_INITIALIZE_PASS(LocalBuffAnalysis, "LocalBuffAnalysis", "LocalBuffAnalysis provides local values analysis info", false, false)
 
   bool LocalBuffAnalysis::runOnModule(Module &M) {
 
@@ -71,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void LocalBuffAnalysis::updateDirectLocals(Module &M) {
     // Get a list of all the global values in the module
     Module::GlobalListType& lstGlobals = M.getGlobalList();
-    
+
     // Find globals that appear in the origin kernel as local variables and add update mapping accordingly
     for ( Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it ) {
       GlobalValue* pVal = it;
@@ -82,7 +83,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         continue;
       }
 
-      // If we reached here, then pVal is a global value that was originally a local value 
+      // If we reached here, then pVal is a global value that was originally a local value
       for ( GlobalValue::use_iterator ui = pVal->use_begin(), ue = pVal->use_end(); ui != ue; ++ui ) {
         updateLocalsMap(pVal, *ui);
       }
@@ -109,7 +110,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
         GlobalValue *pLclBuff = dyn_cast<GlobalValue>(*li);
         assert( pLclBuff && "locals container contains something other than GlobalValue!" );
-          
+
         // Calculate required buffer size
         size_t uiArraySize = TD.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
         assert ( 0 != uiArraySize && "local buffer size is zero!" );
@@ -139,12 +140,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
     localBufferSize += extraLocalBufferSize;
- 
+
     // Update the local size of this function
     m_localSizeMap[pFunc] = localBufferSize;
     return localBufferSize;
   }
 
 
-}}}
+}
 

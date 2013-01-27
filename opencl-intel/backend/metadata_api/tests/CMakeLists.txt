@@ -4,26 +4,30 @@ set(TARGET_NAME test_metadataapi)
 
 project (${TARGET_NAME})
 
+include_directories(
+  ${BACKEND_ROOT_DIR}/../externals/gtest/include
+  ${BACKEND_ROOT_DIR}/metadata_api
+)
+
+link_directories(
+    ${LLVM_LIBRARY_DIR}
+)
+
 add_executable(
   ${TARGET_NAME}
   MetaDataApiTest.cpp
 )
 
-include_directories(
-  ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
-  ${BACKEND_ROOT_DIR}/metadata_api
-)
-
 target_link_libraries(
   ${TARGET_NAME}
-  gtest
-  gtest_main
+  googletest
   metadataapi
-  LLVMSupport
-  LLVMCore
-  LLVMBitReader
-  LLVMAsmParser
+  ${LLVM_MODULE_LIBS}
 )
+
+if (NOT WIN32)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 

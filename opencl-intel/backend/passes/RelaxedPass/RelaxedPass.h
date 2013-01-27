@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <map>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
     using namespace llvm;
 
     /// @brief This pass is used for relaxed functions substitution
@@ -35,5 +35,5 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         std::map<std::string, std::string> m_relaxedFunctions;
     };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+}// namespace intel
 #endif // __RELAXEDPASS_H__

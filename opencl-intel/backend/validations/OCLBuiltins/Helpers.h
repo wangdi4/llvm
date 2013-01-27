@@ -26,6 +26,10 @@ File Name:  Helpers.h
 #include "OCLBuiltinParser.h"
 #include "FloatOperations.h"
 
+#ifdef VOID
+#undef VOID
+#endif
+
 namespace Validation {
 namespace OCLBuiltins {
 
@@ -371,10 +375,11 @@ namespace OCLBuiltins {
     template<typename T>
     T getOneMinus1ULP();
 
+    template<> float getOneMinus1ULP<float>();
+    template<> double getOneMinus1ULP<double>();
+
     llvm::GenericValue lle_X_memcpy(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args);
-
-
 } // namespace OCLBuiltins
 } // namespace Validation
 

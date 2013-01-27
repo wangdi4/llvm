@@ -4,12 +4,24 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+
 #include "PhiCanon.h"
 #include "Logger.h"
-
+#include "OCLPassSupport.h"
 #include "llvm/Analysis/Verifier.h"
 
 namespace intel {
+
+char intel::PhiCanon::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_END(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
+
+PhiCanon::PhiCanon() : FunctionPass(ID) {
+    initializePhiCanonPass(*PassRegistry::getPassRegistry());
+}
 
 bool PhiCanon::runOnFunction(Function &F) {
   std::vector<BasicBlock*> bb_to_fix;
@@ -119,12 +131,12 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
   // Ok, that failed. Relax our criteria, and try to find pairs of BBs
   // that are either both dominated, or both not dominated by the block
   // to be fixed, merging them first.
-  // The idea is that we don't want the fallback merge below to merge an edge going 
+  // The idea is that we don't want the fallback merge below to merge an edge going
   // entering a loop header from the outside with a backedge. Such merges can cause
   // irreducible control flow to be formed.
-  // For example, consider a CFG with the basic blocks: A, B, C, D, 
+  // For example, consider a CFG with the basic blocks: A, B, C, D,
   // and the edges are: A => C, B => C, C => C, C => D
-  // If the B => C edge is merge with the C => C self-loop, the result CFG 
+  // If the B => C edge is merge with the C => C self-loop, the result CFG
   // (after adding the new block N) is:
   // A => C, B => N, C => N, N => C, C => D
   // The loop now has blocks (C and N), and both of them have external incoming
@@ -181,7 +193,7 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
 }
 
 BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
-                                   BasicBlock* prev0, 
+                                   BasicBlock* prev0,
                                    BasicBlock* prev1) {
   // Below we create new BB with corresponding PHI instructions for
   // BBs of prev0 and prev1.
@@ -254,7 +266,7 @@ void PhiCanon::fixBasicBlockSucessor(BasicBlock* to_fix,
     for (unsigned int i=0; i<sw->getNumSuccessors() ; ++i) {
       if (old_target == sw->getSuccessor(i)) {
         sw->setSuccessor(i, new_target);
-        // Must stop after finding first match, as in switch there might be 
+        // Must stop after finding first match, as in switch there might be
         // more than one match that we want to keep for next phiCanon iter
         break;
       }
@@ -279,7 +291,6 @@ extern "C" {
     return new intel::PhiCanon();
   }
 }
-char intel::PhiCanon::ID = 0;
-static RegisterPass<intel::PhiCanon>
-CLIPhiCannon("phicanon", "Phi Canonicalizer path (Two-based Phi)");
+
+
 

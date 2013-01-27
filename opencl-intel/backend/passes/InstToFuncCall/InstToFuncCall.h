@@ -19,7 +19,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //
 //===----------------------------------------------------------------------===//
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel{
 
     using namespace llvm;
     class Inst2FunctionLookup
@@ -238,6 +238,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /// which will be added to a PassManager and run on a Module.
     llvm::ModulePass *createInstToFuncCallPass(bool isV16Supported);
 
-}}}
+}
 
 #endif

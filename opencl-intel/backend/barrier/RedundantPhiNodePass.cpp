@@ -6,12 +6,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "RedundantPhiNodePass.h"
 #include "BarrierUtils.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 
 namespace intel {
 
   char RedundantPhiNode::ID = 0;
+
+  OCL_INITIALIZE_PASS(RedundantPhiNode, "B-RedundantPhiNode", "Barrier Pass - Handle barier instructions called from functions", false, true)
+
 
   RedundantPhiNode::RedundantPhiNode() : FunctionPass(ID) {}
 
@@ -51,9 +55,6 @@ namespace intel {
     return !toRemoveInstructions.empty();
   }
 
-  // Register this pass...
-  static RegisterPass<RedundantPhiNode> DPB("B-RedundantPhiNode",
-    "Barrier Pass - Handle barier instructions called from functions", false, true);
 
 } // namespace intel
 

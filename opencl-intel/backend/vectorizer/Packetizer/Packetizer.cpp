@@ -9,6 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VectorizerUtils.h"
 #include "FunctionDescriptor.h"
 #include "FakeInsert.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
@@ -63,6 +65,14 @@ static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType*
 namespace intel {
 
 const unsigned int PacketizeFunction::MaxLogBufferSize = 31;
+
+/// Support for dynamic loading of modules under Linux
+char PacketizeFunction::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
 {
@@ -2706,6 +2716,3 @@ extern "C" {
   }
 }
 
-/// Support for dynamic loading of modules under Linux
-char intel::PacketizeFunction::ID = 0;
-static RegisterPass<intel::PacketizeFunction> PACKETIZER("packetize", "packetize functions");

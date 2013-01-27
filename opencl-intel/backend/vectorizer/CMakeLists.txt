@@ -12,6 +12,7 @@ include_directories(BEFORE "WIAnalysis")
 include_directories(../arch_headers)
 include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
+include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
 
 
 if(APPLE)

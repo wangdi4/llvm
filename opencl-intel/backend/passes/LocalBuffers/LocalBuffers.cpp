@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "llvm/Version.h"
 
 #if LLVM_VERSION >= 3425
@@ -16,12 +17,20 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #endif
 #include "llvm/Target/TargetData.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+extern "C"
+{
+  ModulePass* createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) {
+    return new intel::LocalBuffers(kernelsLocalBufferMap, isNativeDBG);
+  }
+}
+
+namespace intel{
 
   char LocalBuffers::ID = 0;
 
-  ModulePass* createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) {
-    return new LocalBuffers(kernelsLocalBufferMap, isNativeDBG);
+  LocalBuffers::LocalBuffers(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) :
+    ModulePass(ID), m_pMapKernelInfo(&kernelsLocalBufferMap), m_isNativeDBG(isNativeDBG) {
+      initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool LocalBuffers::runOnModule(Module &M) {
@@ -315,7 +324,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Getting the implicit arguments
     Argument *pLocalMem = 0;
 
-    CompilationUtils::getImplicitArgs(pFunc, &pLocalMem, NULL, NULL,
+    Intel::OpenCL::DeviceBackend::CompilationUtils::getImplicitArgs(pFunc, &pLocalMem, NULL, NULL,
       NULL, NULL, NULL, NULL, NULL, NULL);
 
     // Apple LLVM-IR workaround
@@ -366,4 +375,4 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel

@@ -34,6 +34,7 @@ File Name:  DebugInfoPass.cpp
 using namespace llvm;
 using namespace std;
 
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend  {
 
 
@@ -156,11 +157,6 @@ const char* DebugInfoPass::BUILTIN_DBG_EXIT_FUNCTION_NAME = "__opencl_dbg_exit_f
 const char* DebugInfoPass::BUILTIN_DBG_STOPPOINT_NAME = "__opencl_dbg_stoppoint";
 
 
-ModulePass* createDebugInfoPass(LLVMContext* llvm_context,
-                                const Module* pRTModule)
-{
-    return new DebugInfoPass(llvm_context, pRTModule);
-}
 
 
 bool DebugInfoPass::runOnModule(Module& M)
@@ -562,3 +558,13 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
 
 
 }}}
+
+extern "C"
+{
+    ModulePass* createDebugInfoPass(LLVMContext* llvm_context,
+                                    const Module* pRTModule)
+    {
+        return new Intel::OpenCL::DeviceBackend::DebugInfoPass(llvm_context, pRTModule);
+    }
+}
+

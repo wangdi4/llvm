@@ -7,6 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLStreamSampler.h"
 #include "LoopUtils.h"
 #include "CLWGBoundDecoder.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/Support/raw_ostream.h"
@@ -30,16 +32,21 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //#endif
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16
-char intel::CLStreamSampler::ID = 0;
 
 namespace intel {
 
+char intel::CLStreamSampler::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
 CLStreamSampler::CLStreamSampler():
 LoopPass(ID),
 m_rtServices((OpenclRuntime*)RuntimeServices::get())
 {
-  initializeDominatorTreePass(*PassRegistry::getPassRegistry());
+  initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
   assert(m_rtServices && "runtime services does not exist");
 }
 
@@ -724,5 +731,3 @@ extern "C" {
     return new intel::CLStreamSampler();
   }
 }
-static RegisterPass<intel::CLStreamSampler> CLStreamSampler("cl-stream-sampler",
-"replace read,write image built-ins in loops with stream samplers if possible");

@@ -7,15 +7,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLBuiltinPreVectorizationPass.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
-
+#include "OCLPassSupport.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 
-char intel::OCLBuiltinPreVectorizationPass::ID = 0;
 namespace intel{
+
+char OCLBuiltinPreVectorizationPass::ID = 0;
+
+OCL_INITIALIZE_PASS(OCLBuiltinPreVectorizationPass, "CLBltnPreVec", "prepare ocl builtin for vectoriation", false, false)
 
 OCLBuiltinPreVectorizationPass::OCLBuiltinPreVectorizationPass():
 FunctionPass(ID) {
@@ -70,26 +73,26 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
 }
 
 void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string &funcName) {
-  // write image is special case since we need to break the input coordinates 
+  // write image is special case since we need to break the input coordinates
   // since they are not passed
   Function *fakeFunc = getOrInsertFakeDeclarationToModule(funcName);
   if (!fakeFunc) return;
-  
+
   const FunctionType *fakeFuncType = fakeFunc->getFunctionType();
-  
+
   // some sanity checks
   V_ASSERT (fakeFuncType->getNumParams() == 4 && "unexpected num params in fake write image");
   V_ASSERT (CI->getCalledFunction()->getFunctionType()->getNumParams() == 3 &&
       "unexpected num params in orig write image");
   V_ASSERT(CI->getType()->isVoidTy() && "write image should return void");
-  
+
   SmallVector<Value *,4> fakeFuncArgs(4);
   // putting image pointer
   Value *origImg = CI->getArgOperand(0);
   Type *targetImgType = fakeFuncType->getParamType(0);
   fakeFuncArgs[0] = VectorizerUtils::RootInputArgument(origImg, targetImgType, CI);
- 
-  // handling image coords fake function contains x,y coords separate since they are not 
+
+  // handling image coords fake function contains x,y coords separate since they are not
   // packetized but transfered as multi-scalar value (assuming x consequtive y uniform)
   Type *i32Ty = Type::getInt32Ty(CI->getContext());
   Type *coordType = VectorType::get(i32Ty, 2);
@@ -102,7 +105,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   fakeFuncArgs[1] = ExtractElementInst::Create(rootCoords, constZero, "extract.x", CI);
   fakeFuncArgs[2] = ExtractElementInst::Create(rootCoords, constOne, "extract.y", CI);
 
-  // handling colors just root to 4xfloat 
+  // handling colors just root to 4xfloat
   Type *colorType = VectorType::get(Type::getFloatTy(CI->getContext()), 4);
   Value *origColors = CI->getArgOperand(2);
   Value *rootColors = VectorizerUtils::RootInputArgument(origColors, colorType, CI);
@@ -121,10 +124,10 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
 // so in case the scalar kernel containing scalar select built-in we need to make sure
 // the mask has the MSB set, so we replace Zext with Sext.
 // if we can not be sure than we replace the scalar select builtin fake builtin
-// so it won't be vectorized but duplicated and then resolved 
+// so it won't be vectorized but duplicated and then resolved
 void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::string &funcName) {
   Value *inputMaskVal = CI->getArgOperand(2);
-  
+
   // Check if the root of the mask is a sext or zext instruction for i1 origin value
   Instruction * maskInst = dyn_cast<Instruction>(inputMaskVal);
   if (!maskInst ||
@@ -156,14 +159,14 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   // Find (or create) declaration for newly called function
   Function *fakeFunc = getOrInsertFakeDeclarationToModule(funcName);
   if (!fakeFunc) return;
-  
+
   V_PRINT(prevectorization, "\nreplacing:    " << *CI << "\nwith:   " << *fakeFunc << "\n");
   const FunctionType *fakeFuncType = fakeFunc->getFunctionType();
   unsigned fakeNumArgs = fakeFuncType->getNumParams();
   unsigned origNumArgs = CI->getNumArgOperands();
   V_ASSERT(fakeNumArgs == origNumArgs && "fake function have different number of arguments");
   if (fakeNumArgs != origNumArgs) return;
-  
+
   std::vector<Value *> fakeFuncArgs(fakeNumArgs , 0);
   for (unsigned i=0; i<fakeNumArgs; ++i) {
     Value *origArg = CI->getArgOperand(i);
@@ -179,12 +182,12 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   Value *rootRet = VectorizerUtils::RootReturnValue(CI, fakeFuncType->getReturnType(), CI);
   V_ASSERT(rootRet && "failed rooting return in pre vectorization");
   if (!rootRet) return;
-  
+
   // Create call to fake read sampler
   CallInst *fakeCall = CallInst::Create(fakeFunc, ArrayRef<Value*>(fakeFuncArgs), "fake.func", CI);
 
   rootRet->replaceAllUsesWith(fakeCall);
- 
+
   m_removedInsts.push_back(CI);
 }
 
@@ -207,7 +210,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   //TODO: remove this #ifndef after fixing the optimization.
 #ifndef __APPLE__
   //%sinval = <4 x float> sincos(<4 x float> %arg, <4 x float>* %cos)
-  // --> 
+  // -->
   //%sincos = [2 x <4 x float>] sincos_retbyarray(<4 x float> %arg)
   //%sinval = <4 x float> extractvalue %sincos, 0
   //%extractval1 = <4 x float> extractvalue %sincos, 1
@@ -224,7 +227,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   //by a call to a 'real' function.
   std::string newFuncName = Mangler::getRetByArrayBuiltinName(funcName);
   SmallVector<Value *, 1> args(1, Op0);
-  Type* retType = isOriginalFuncRetVector ? 
+  Type* retType = isOriginalFuncRetVector ?
     static_cast<Type*>(ArrayType::get(originalFunc->getReturnType(), 2)) :
     static_cast<Type*>(VectorType::get(originalFunc->getReturnType(), 2));
   SmallVector<Attributes, 4> attrs;
@@ -256,7 +259,7 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   // TODO : why it fails build?
   //V_ASSERT(CI->getType()->isFloatingPointTy() && "expect float\double return");
   if (!CI->getType()->isFloatingPointTy()) return;
-  
+
   Type *opDesiredType = CI->getType();
   if(opWidth > 1) opDesiredType = VectorType::get(CI->getType(), opWidth);
   Value *A =  VectorizerUtils::RootInputArgument(CI->getArgOperand(0), opDesiredType, CI);
@@ -272,11 +275,11 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   } else {
     for (unsigned i=0; i<opWidth; ++i) {
       Constant *constInd = ConstantInt::get( Type::getInt32Ty(CI->getContext()), i);
-      ExtractElementInst *extractA = 
+      ExtractElementInst *extractA =
         ExtractElementInst::Create(A, constInd, "extract.dot", CI);
       VectorizerUtils::SetDebugLocBy(extractA, CI);
       scalarsA.push_back(extractA);
-      ExtractElementInst *extractB = 
+      ExtractElementInst *extractB =
         ExtractElementInst::Create(B, constInd, "extract.dot", CI);
       VectorizerUtils::SetDebugLocBy(extractB, CI);
       scalarsB.push_back(extractB);
@@ -312,9 +315,6 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
 } // namespace intel
 
 extern "C"
-FunctionPass *createOCLBuiltinPreVectorizationPass() { 
+FunctionPass *createOCLBuiltinPreVectorizationPass() {
   return new intel::OCLBuiltinPreVectorizationPass();
 }
-
-static RegisterPass<intel::OCLBuiltinPreVectorizationPass>
-CLBltnPreVec("CLBltnPreVec", "prepare ocl builtin for vectoriation");

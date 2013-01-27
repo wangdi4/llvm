@@ -20,9 +20,7 @@ public:
   static char ID;
 
   /// @brief C'tor.
-  LoopStridedCodeMotion() : LoopPass(ID) {
-    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-  };
+  LoopStridedCodeMotion();
 
   /// @brief destructor.
   ~LoopStridedCodeMotion() {};
@@ -123,7 +121,7 @@ private:
   /// @returns the vector stride for I if I is a vector, stride if I is scalar.
   Value *getVectorStrideIfNeeded(Instruction *I, Value *stride);
 
-  /// @brief screens from m_instToMoveSet values that are likely to cauese 
+  /// @brief screens from m_instToMoveSet values that are likely to cauese
   ///        performance degradation.
   void screenNonProfitableValues();
 

@@ -33,10 +33,8 @@ namespace intel {
 class PhiCanon : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  PhiCanon() : FunctionPass(ID) {
-    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-    initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
-  }
+
+  PhiCanon();
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
@@ -67,7 +65,7 @@ public:
                              BasicBlock* old_target,
                              BasicBlock* new_target);
   // Need Dominator Tree and PostDominator tree prior to Phi Canonization
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.addRequired<DominatorTree>();
         AU.addRequired<PostDominatorTree>();
   }

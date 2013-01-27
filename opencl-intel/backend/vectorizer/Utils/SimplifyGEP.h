@@ -26,7 +26,7 @@ namespace intel {
   class SimplifyGEP : public FunctionPass {
   public:
     static char ID; // Pass identification, replacement for typeid
-    SimplifyGEP() : FunctionPass(ID) {}
+    SimplifyGEP();
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

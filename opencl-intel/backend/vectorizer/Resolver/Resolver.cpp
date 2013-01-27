@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "Logger.h"
 #include "VectorizerUtils.h"
+#include "OCLPassSupport.h"
 #include "FakeInsert.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -20,6 +21,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <vector>
 
 namespace intel {
+
+char X86Resolver::ID = 0;
+
+OCL_INITIALIZE_PASS(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
 
 bool FuncResolver::runOnFunction(Function &F) {
 
@@ -71,7 +76,7 @@ bool FuncResolver::runOnFunction(Function &F) {
   V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t\t"<<m_unresolvedStoreCtr <<"\t\t\tCouldn't vectorize store instructions\n");
   V_PRINT(vectorizer_stat_excel, "\t\t\t\t\t\t\t\t\t\t\t\t"<<m_unresolvedCallCtr <<"\t\tCouldn't vectorize call instructions\n");
   )
-  
+
   V_PRINT(resolver, "Found "<<m_toCF.size()<<" instructions to hide behind CCF\n");
 
   for (std::map<Value*, std::vector<Instruction*> >::iterator it = m_toCF.begin(),
@@ -96,7 +101,7 @@ void FuncResolver::packPredicatedLoads(BasicBlock* BB) {
   bin_t curr_bin;
   std::vector<bin_t> bins;
 
-  // this loop gathers masked-loads which appear sequentially and consqutively 
+  // this loop gathers masked-loads which appear sequentially and consqutively
   // in the code, into a bin
   for (BasicBlock::iterator it=BB->begin(), e=BB->end(); it != e; ++it) {
 
@@ -156,12 +161,12 @@ void FuncResolver::resolvePredicate(Value* pred, std::vector<Instruction*>& elem
       to_predicate.push_back(curr);
       elements.erase(std::find(elements.begin(), elements.end(), curr));
       //adding assert to prevent Klocwork warning
-      V_ASSERT(curr && "Node must not be null"); 
+      V_ASSERT(curr && "Node must not be null");
       curr = curr->getNextNode();
     } else {
       if  (!to_predicate.empty()) {
         V_STAT(m_unresolvedInstrCtr++;)
-        CFInstruction(to_predicate, pred); 
+        CFInstruction(to_predicate, pred);
       }
       to_predicate.clear();
       curr = *(elements.begin());
@@ -206,7 +211,7 @@ void FuncResolver::resolve(CallInst* caller) {
   }
   if (Mangler::isFakeInsert(calledName)) {
     return resolveFakeInsert(caller);
-  }
+}
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -270,7 +275,7 @@ void FuncResolver::resolveLoad(CallInst* caller) {
   std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
-  if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
+  if (isa<VectorType>(caller->getArgOperand(0)->getType()))
     return resolveLoadVector(caller, align);
   return resolveLoadScalar(caller, align);
 }
@@ -335,7 +340,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);    
+    Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
     VectorizerUtils::SetDebugLocBy(GEP, caller);
@@ -386,7 +391,7 @@ void FuncResolver::resolveStore(CallInst* caller) {
   unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
 
-  if (isa<VectorType>(caller->getArgOperand(0)->getType())) 
+  if (isa<VectorType>(caller->getArgOperand(0)->getType()))
     return resolveStoreVector(caller, align);
   return resolveStoreScalar(caller, align);
 }
@@ -424,7 +429,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   unsigned NumElem = VT->getNumElements();
   Type *Elem = VT->getElementType();
 
-  
+
   // Uniform mask for vector store.
   // Perform a single wide store and a single IF.
   if (!Mask->getType()->isVectorTy()) {
@@ -564,7 +569,4 @@ extern "C" {
     return new intel::X86Resolver();
   }
 }
-char intel::X86Resolver::ID = 0;
-static RegisterPass<intel::X86Resolver>
-CLIX86Resolver("resolve", "Resolves masked and vectorized function calls on x86");
 

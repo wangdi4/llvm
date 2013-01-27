@@ -3,5 +3,5 @@
 include "ssse3/SSSE3.td"
 // atom - 64 bit
 def target : SSSE3 {
-  string Target = "u8";
+  let Target = "u8";
 }

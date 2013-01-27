@@ -17,14 +17,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 
+#include "OCLPassSupport.h"
 #include <set>
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 
-char intel::CLWGLoopBoundaries::ID = 0;
 namespace intel {
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() : 
+char CLWGLoopBoundaries::ID = 0;
+
+OCL_INITIALIZE_PASS(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+
+CLWGLoopBoundaries::CLWGLoopBoundaries() :
 ModulePass(ID),
 m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
 {
@@ -62,10 +66,10 @@ bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
      if (!isUniform(I->getOperand(i))) return false;
    }
    return true;
-} 
+}
 
 void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
-  // run over all instructions in the block (excluding the terminator) 
+  // run over all instructions in the block (excluding the terminator)
   for (BasicBlock::iterator I=BB->begin(), E= --(BB->end()); I!=E ; ++I) {
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
       Function *F = CI->getCalledFunction();
@@ -80,7 +84,7 @@ void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
       m_Uni[I] = isUniformByOps(I);
     } else if (isa<AllocaInst>(I)){
       m_Uni[I] = false;
-    } else { 
+    } else {
       m_Uni[I] = isUniformByOps(I);
     }
   }
@@ -174,17 +178,17 @@ Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
-  
+
   // Check if argTypes was already initalized, if not create it.
   std::vector<Type *> argTypes;
-  for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end(); 
+  for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
       argIt != argE; ++argIt) {
     argTypes.push_back(argIt->getType());
   }
- 
-  FunctionType *fType = 
+
+  FunctionType *fType =
     FunctionType::get(retTy, argTypes, false);
-  Function *condFunc = 
+  Function *condFunc =
     Function::Create(fType, m_F->getLinkage(), EEFuncName, m_M);
   return condFunc;
 }
@@ -196,7 +200,7 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
       newArgIt = newF->arg_begin(); argIt != argE; ++argIt, ++newArgIt) {
     valueMap[argIt] = newArgIt;
   }
-    
+
   // Adding all Instructions leading to the boundry to reconstruct set.
   // Creating a clone for each instruction on the path.
   VVec toAdd = roots; //hard copy of roots
@@ -218,21 +222,21 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
 
     assert(I->getParent() == entry && "Instruction not in the entry block");
     valueMap[I] = I->clone();
-    for (User::op_iterator op=I->op_begin(), opE=I->op_end(); 
+    for (User::op_iterator op=I->op_begin(), opE=I->op_end();
          op!=opE; ++op) {
       toAdd.push_back(*op);
     }
   }
 
   // Running according to the order of the original entry block, and connecting
-  // each instruction to the operands in the new function. The order of the 
-  // original function ensures the corretness of the order of the inserted 
+  // each instruction to the operands in the new function. The order of the
+  // original function ensures the corretness of the order of the inserted
   // Instructions.
   for (BasicBlock::iterator I=entry->begin(), E=entry->end(); I!=E ; ++I) {
     if (valueMap.count(I)) {
       Instruction *clone = cast<Instruction>(valueMap[I]);
       BB->getInstList().push_back(clone);
-      for (User::op_iterator op=clone->op_begin(), opE=clone->op_end(); 
+      for (User::op_iterator op=clone->op_begin(), opE=clone->op_end();
            op!=opE; ++op) {
         Value *&VMSlot = valueMap[*op];
         assert(VMSlot && "all operands should be mapped");
@@ -431,7 +435,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
       EEremove = trueSuc;
       EEsucc = falseSuc;
     }
-  } 
+  }
   // Checks early exit on false side.
   else if (isEarlyExitSucc(falseSuc)) {
     if (isEarlyExitBranch(Br, false)) {
@@ -439,20 +443,20 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
       EEsucc = trueSuc;
     }
   }
-  
+
   // An early exit was found, remove the branch at the entry block, and merge
   // it with the non exit successor if possible.
   if (EEremove) {
     EEremove->removePredecessor(entry);
     m_toRemove.insert(Br);
     BranchInst::Create(EEsucc, entry);
-    // If the successor has the entry as unique predecessor than we might find 
+    // If the successor has the entry as unique predecessor than we might find
     // the succsessor is not in a loop and it is safe to scan it for new early
     // exit opportunities.
     if (EEsucc->getUniquePredecessor()) {
       // Collect TID info for the code successor block.
       // Since the entry is the only pred the successor is not part of a loop.
-      CollcectBlockData(EEsucc); 
+      CollcectBlockData(EEsucc);
       // Try to Merge the block into it's pred.
       // If the blocks were merged we might have another early exit oppurunity.
       if (MergeBlockIntoPredecessor(EEsucc)) return true;
@@ -495,7 +499,7 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
 bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                         Instruction *loc, Value *&bound, Value *&tid){
   // The input values should be tid dependebt value compared with uniform one.
-  // First We find which is uniform and which is tid-dependent and abort otherwise.                                          
+  // First We find which is uniform and which is tid-dependent and abort otherwise.
   bool isV1Uniform = isUniform(v1);
   bool isV2Uniform = isUniform(v2);
   if (isV1Uniform == isV2Uniform) return false;
@@ -503,13 +507,13 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   tid = isV1Uniform ? v2 : v1;
 
   // The pattern of boundary condition is: comparison between TID , Uniform.
-  // But more genral pattern is comparison between f(TID), Uniform. 
+  // But more genral pattern is comparison between f(TID), Uniform.
   // In that case the bound will be f_inverse(Unifrom). currently we support
   // only truncation but this can be extended to more complex forms of f.
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
-    switch (tidInst->getOpcode()) {  
+    switch (tidInst->getOpcode()) {
       case Instruction::Trunc: {
-        // If candidate is trunc instruction than we can safely extend the 
+        // If candidate is trunc instruction than we can safely extend the
         // bound to have equivalent condition according to sign of comaprison.
         tid = tidInst->getOperand(0);
         if (isCmpSigned) {
@@ -519,7 +523,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
         }
         break;
       }
-      case Instruction::Call: 
+      case Instruction::Call:
         // Only Supported candidate is tid generator itself
         return m_TIDs.count(tid);
       default:
@@ -556,7 +560,7 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
     ConstantInt *dimConst = cast<ConstantInt>(tidCall->getArgOperand(0));
     unsigned dimArg = dimConst->getZExtValue();
     if (dim == dimArg) {
-      // We remove all calls at the end to avoid invalidating internal 
+      // We remove all calls at the end to avoid invalidating internal
       // data structures that keep information about tid calls.
       tidCall->replaceAllUsesWith(toRep);
       m_toRemove.insert(tidCall);
@@ -595,19 +599,19 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
 
   CmpInst::Predicate pred = cmp->getPredicate();
   if(!cmp->isRelational()) {
-    assert ((pred == CmpInst::ICMP_EQ || pred == CmpInst::ICMP_NE) && 
+    assert ((pred == CmpInst::ICMP_EQ || pred == CmpInst::ICMP_NE) &&
            "unexpected non relational cmp predicate");
     if ((pred == CmpInst::ICMP_EQ) ^ EETrueSide) {
       // Here is support for cases where bound is the only value for the tid,
       // meaning the branch is one of the two options:
       // a. if (tid == bound) { kernel_code}
       // b. if (tid != bound) exit
-    
+
       // Since bound is the only valid value for the TID we can replace all
       // the calls with it.
       replaceTidWithBound(isGID, dim, bound);
-      
-      // The bound is the only option for tid so we will fill it as both 
+
+      // The bound is the only option for tid so we will fill it as both
       // upper bound and lower bound, both inclusive. sign of the comparison
       // is not important, since it is equality.
       // Note that we must still update the eeVec with the bounds since
@@ -644,18 +648,18 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
   // Here is the support for relational compare {<, <= , >, >=}
   assert (isSupportedRelationalComparePredicate(pred) &&
             "unexpected relational cmp predicate");
-  //Collect attributes of the compare instruction. 
+  //Collect attributes of the compare instruction.
   bool isPredLower = isComparePredicateLower(pred); // is pred <, <=
   bool isInclusive = isComparePredicateInclusive(pred); // is pred <=, >=`
   bool isSigned = cmp->isSigned();
 
-  // When decidng whether the uniform value is an upper bound, and whether it 
+  // When decidng whether the uniform value is an upper bound, and whether it
   // is inclusive we need to take into consideration the index of unifrom value
   // and the whether we exit if the condition is met.
   // for example assuming the compre is pattern is:
   //    %cond = icmp ult %tid, %uni (tid is get***id uni is uniform)
   //    br %cond label %BB1, label %BB2
-  // If BB2 is return uni is an upper bound, and exclusive 
+  // If BB2 is return uni is an upper bound, and exclusive
   // if BB1 is return uni is lower bound and inclusive
   bool isUpper = isPredLower ^ (TIDInd == 1) ^ EETrueSide;
   bool containsVal = isInclusive ^ EETrueSide;
@@ -667,7 +671,7 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
 }
 
 bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
-  assert(Br->getParent() == &(m_F->getEntryBlock()) && 
+  assert(Br->getParent() == &(m_F->getEntryBlock()) &&
       "expected entry block branch");
   Value *cond = Br->getCondition();
   Instruction *condInst = dyn_cast<Instruction> (cond);
@@ -688,14 +692,14 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   } else if (ICmpInst *cmp = dyn_cast<ICmpInst>(condInst) ) {
     compares.push_back(cmp);
   } else if (EETrueSide && condInst->getOpcode() == Instruction::Or) {
-    if (!collectCond(compares, uniformConds, condInst)) return false; 
+    if (!collectCond(compares, uniformConds, condInst)) return false;
   } else if (!EETrueSide && condInst->getOpcode() == Instruction::And) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
   }
 
   //Check that compares have supported pattern.
   TIDDescVec eeVec;
-  for(SmallVector<ICmpInst *, 4>::iterator cmpIt = compares.begin(), 
+  for(SmallVector<ICmpInst *, 4>::iterator cmpIt = compares.begin(),
        cmpE = compares.end(); cmpIt != cmpE; ++cmpIt) {
     // We need to be able to track the original tid call and the bound.
     Value *bound, *tid;
@@ -721,7 +725,7 @@ bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
     if (hasSideEffectInst(BB)) return false;
     // If terminator is ret instruction we got to return with no side effect.
     if (isa<ReturnInst>(TI)) return true;
-    
+
     // Terminator is not return so for being early exit successor
     // it must be unconditional branch.
     BranchInst *Br = dyn_cast<BranchInst>(BB->getTerminator());
@@ -741,14 +745,14 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
         return true;
       // For calls ask the runtime object.
       case Instruction::Call :
-      {    
+      {
         std::string name = (cast<CallInst>(it))->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(name)) return true;
         break;
       }
       default:
         break;
-    }    
+    }
   }
   return false;
 }
@@ -773,7 +777,7 @@ Value *CLWGLoopBoundaries::correctBound(TIDDesc &td, BasicBlock *BB,
   // Lower bound are expexted to inclusive, upper bound are expected to
   // be exclusive. If this is not the case add 1.
   if (!(td.m_containsVal ^ td.m_isUpperBound)) {
-    newBound = 
+    newBound =
         BinaryOperator::Create(Instruction::Add, newBound, m_constOne, "", BB);
   }
 
@@ -783,7 +787,7 @@ Value *CLWGLoopBoundaries::correctBound(TIDDesc &td, BasicBlock *BB,
         Instruction::Add, newBound, m_baseGIDs[td.m_dim], "", BB);
   }
 
-  // Incase the bound is changed we make sure that the additions did not 
+  // Incase the bound is changed we make sure that the additions did not
   // invaidate the result by crossing the +/-  \  maxint\0 border.
   // Thus in case border is crossed we take the original bound instead. We will
   // avoid using it since it is compared after to the origianl boundaries.
@@ -824,24 +828,24 @@ void CLWGLoopBoundaries::recoverBoundInstructions(VMap &valueMap, BasicBlock *BB
 
 void CLWGLoopBoundaries::obtainEEBoundaries(BasicBlock *BB, VMap &valueMap) {
   // Entry i will be true if there is early exit on dimension i.
-  std::vector<bool> hasEE(m_numDim, false); 
-  // Temporary vector to hold computation of upper bounds, to be used 
+  std::vector<bool> hasEE(m_numDim, false);
+  // Temporary vector to hold computation of upper bounds, to be used
   // later for loop size computation in case of early exit.
   std::vector<Value *> upperBounds (m_numDim, NULL);
-  
+
   // Run through all descriptions, and obtain upperBounds, lowerBounds
   // according to the boundary description.
   for (unsigned i = 0, e = m_TIDDesc.size(); i < e; ++i) {
     TIDDesc &td = m_TIDDesc[i];
     hasEE[td.m_dim] = true; //encountered early exit in dimension i.
     assert(valueMap.count(td.m_bound) && "boundary not in value map");
-    // Correct the boundaries if needed. 
+    // Correct the boundaries if needed.
     Value *bound = valueMap[td.m_bound];
     Value *EEVal = correctBound(td, BB, bound);
-    // Incase no upper bound was set yet first init the buffer with the 
+    // Incase no upper bound was set yet first init the buffer with the
     // trivial one (local_size + base_gid).
     if (!upperBounds[td.m_dim]) {
-      upperBounds[td.m_dim] = BinaryOperator::Create(Instruction::Add, 
+      upperBounds[td.m_dim] = BinaryOperator::Create(Instruction::Add,
                     m_localSizes[td.m_dim], m_baseGIDs[td.m_dim], "", BB);
     }
     // Create min\max between the bound and previous upper\lower bound.
@@ -849,17 +853,17 @@ void CLWGLoopBoundaries::obtainEEBoundaries(BasicBlock *BB, VMap &valueMap) {
       upperBounds[td.m_dim] = getMin(td.m_isSigned, upperBounds[td.m_dim],
                                      EEVal, BB);
     } else {
-      m_lowerBounds[td.m_dim] = 
+      m_lowerBounds[td.m_dim] =
           getMax(td.m_isSigned, m_lowerBounds[td.m_dim], EEVal, BB);
     }
   }
 
-  // If there is early exit on dimension i set the loop size as the substraction 
-  // of the upper and lower bounds. Note that this may be zero or negative and 
+  // If there is early exit on dimension i set the loop size as the substraction
+  // of the upper and lower bounds. Note that this may be zero or negative and
   // this is taken care when computing the uniform early exit.
   for (unsigned dim=0; dim < m_numDim; ++dim) {
     if (hasEE[dim]) {
-      m_loopSizes[dim] = BinaryOperator::Create(Instruction::Sub, 
+      m_loopSizes[dim] = BinaryOperator::Create(Instruction::Sub,
                           upperBounds[dim], m_lowerBounds[dim], "", BB);
     }
   }
@@ -876,7 +880,7 @@ Value *CLWGLoopBoundaries::obtainUniformCond(BasicBlock *BB, VMap &valueMap) {
       assert(valueMap.count(ud.m_cond));
       Value *cur = valueMap[ud.m_cond];
       assert(cur->getType() == ret->getType() && "expected i1 type");
-      if (ud.m_exitOnTrue) 
+      if (ud.m_exitOnTrue)
           cur = BinaryOperator::CreateNot(cur, "", BB);
       ret = BinaryOperator::Create(Instruction::And, ret, cur, "", BB);
     }
@@ -914,15 +918,15 @@ void CLWGLoopBoundaries::createWGLoopBoundariesFunction() {
     // Update uniform condition according to uniform early exit descriptions.
     uniformCond = obtainUniformCond(BB, valueMap);
   }
-  
+
   // Insert Boundaries into the array return value.
   Value *retVal = UndefValue::get(BoundFunc->getReturnType());
   for (unsigned dim = 0; dim < m_numDim; ++dim) {
     unsigned loopSizeInd = CLWGBoundDecoder::getIndexOfSizeAtDim(dim);
-    retVal = 
+    retVal =
         InsertValueInst::Create(retVal, m_loopSizes[dim], loopSizeInd, "", BB);
     unsigned lowerInd = CLWGBoundDecoder::getIndexOfInitGIDAtDim(dim);
-    retVal = 
+    retVal =
         InsertValueInst::Create(retVal, m_lowerBounds[dim], lowerInd, "", BB);
   }
   // Insert the uniform early exit value to the array retrun value, and return.
@@ -940,11 +944,11 @@ void CLWGLoopBoundaries::print(raw_ostream &OS, const Module *M) const {
   if ( !M ) return;
 
   OS << "\nCLWGLoopBoundaries\n";
-  
+
   OS << "found " << m_TIDDesc.size() << " early exit boundaries\n";
   for (unsigned i = 0, e = m_TIDDesc.size(); i < e; ++i) {
     TIDDesc td = m_TIDDesc[i];
-    OS << "dim=" <<td.m_dim << ", " 
+    OS << "dim=" <<td.m_dim << ", "
        << "contains=" << toChar(td.m_containsVal) << ", "
        << "isGID=" << toChar(td.m_isGID) << ", "
        << "isSigned=" << toChar(td.m_isSigned) << ", "
@@ -968,5 +972,3 @@ extern "C" {
     return new intel::CLWGLoopBoundaries();
   }
 }
-static RegisterPass<intel::CLWGLoopBoundaries> CLWGLOOPBOUNDARIES
-                    ("cl-loop-bound", "create loop boundaries array function");

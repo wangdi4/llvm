@@ -5,6 +5,8 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "BarrierPass.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -25,7 +27,16 @@ namespace intel {
 
   char Barrier::ID = 0;
 
-  Barrier::Barrier(bool isNativeDebug = false) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {}
+  OCL_INITIALIZE_PASS_BEGIN(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerInternalFunction);
+  OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
+
+  Barrier::Barrier(bool isNativeDebug = false) : ModulePass(ID), m_isNativeDBG(isNativeDebug)
+  {
+      initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool Barrier::runOnModule(Module &M) {
     //Get Analysis data
@@ -1033,10 +1044,6 @@ namespace intel {
     }
   }
 
-  //Register this pass...
-  static RegisterPass<Barrier> BP("B-Barrier",
-    "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs",
-    false, true);
 
 } // namespace intel
 

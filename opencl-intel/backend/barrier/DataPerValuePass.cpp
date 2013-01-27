@@ -7,7 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "DataPerValuePass.h"
 #include "BarrierUtils.h"
-
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
@@ -16,7 +17,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel {
   char DataPerValue::ID = 0;
 
-  DataPerValue::DataPerValue() : ModulePass(ID), m_pTD(0) {}
+  OCL_INITIALIZE_PASS_BEGIN(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
+  OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValue)
+  OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
+
+  DataPerValue::DataPerValue()
+    : ModulePass(ID), m_pTD(0)
+  {
+    initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   bool DataPerValue::runOnModule(Module &M) {
     //Get Analysis data
@@ -117,7 +127,7 @@ namespace intel {
 
     //Value that is not dependent on WI-Id and initialized outside a loop
     //can not be in Group-B.1. If it cross a barrier it will be in Group-B.2
-    bool isNotGroupB1Type = !isWIRelated && 
+    bool isNotGroupB1Type = !isWIRelated &&
       !m_pDataPerBarrier->getPredecessors(pValBB).count(pValBB);
 
     //By default we assume value is not special till prove otherwise
@@ -137,7 +147,7 @@ namespace intel {
       }
 
       if ( isa<ReturnInst>(pInstUsage) ) {
-        //Return value is saved on special buffer by 
+        //Return value is saved on special buffer by
         //BarrierPass::fixNonInlinedInternalFunction
         //should not consider it special value at this point!
         continue;
@@ -277,7 +287,7 @@ namespace intel {
       //We will extend i1 to i32 before storing to special buffer.
       sizeFactor = 32; // In bits
       alignmentFactor = 4; // In bytes
-      assert(m_pTD->getPrefTypeAlignment(pType) == 
+      assert(m_pTD->getPrefTypeAlignment(pType) ==
         (pVecType ? pVecType->getNumElements() : 1) &&
         "assumes alignment of vector of i1 type equals to vector length");
     }
@@ -324,7 +334,7 @@ namespace intel {
         continue;
       }
       if ( m_functionToEntryMap.count(pFunc) ) {
-        //pFunc already has an entry number, 
+        //pFunc already has an entry number,
         //replace all appears of it with the current entry number.
         FixEntryMap(m_functionToEntryMap[pFunc], currEntry);
       } else {
@@ -341,7 +351,7 @@ namespace intel {
           }
           Function *pCallerFunc = pCallInst->getParent()->getParent();
           if ( m_functionToEntryMap.count(pCallerFunc) ) {
-            //pCallerFunc already has an entry number, 
+            //pCallerFunc already has an entry number,
             //replace all appears of it with the current entry number.
             FixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
           } else {
@@ -452,10 +462,6 @@ namespace intel {
 
     OS << "DONE\n";
   }
-
-  //Register this pass...
-  static RegisterPass<DataPerValue> DPV("B-ValueAnalysis",
-    "Barrier Pass - Collect Data per Value", false, true);
 
 
 } // namespace intel

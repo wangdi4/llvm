@@ -941,13 +941,13 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
 
   // OclBuiltinImpl
   {
-    std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions("Generic");
-
+    const char*const GENERIC = "Generic";
+    std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions(GENERIC);
+    const Record* Rec = m_Record = (Rs.size() > 0) ? Rs.front() :
+      m_Records.getClass(GENERIC);
+    
     // One and only one single instance of OclBuiltins is defined.
-    assert(Rs.size() > 0 && "No Generic is defined!");
     assert(Rs.size() < 2 && "More than 1 Generic are defined!");
-
-    const Record* Rec = m_Record = Rs.front();
 
     // Target
     m_Target = Rec->getValueAsString("Target");

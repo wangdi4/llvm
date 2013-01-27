@@ -405,6 +405,11 @@ namespace OCLBuiltins {
         }
         return ret;
     }
+	
+    template <> llvm::APInt ExtAPInt<int8_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int16_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int32_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int64_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
 
 } // namespace OCLBuiltins
 } // namespace Validation

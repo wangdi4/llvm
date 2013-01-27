@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "SpecialCaseBuiltinResolver.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
-
+#include "OCLPassSupport.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -19,8 +19,11 @@ namespace llvm {
 }
 
 
-char intel::SpecialCaseBuiltinResolver::ID = 0;
 namespace intel {
+
+char SpecialCaseBuiltinResolver::ID = 0;
+
+OCL_INITIALIZE_PASS(SpecialCaseBuiltinResolver, "CLBltnResolve", "resolve ocl special case builtins", false, false)
 
 SpecialCaseBuiltinResolver::SpecialCaseBuiltinResolver():
 ModulePass(ID) {
@@ -36,7 +39,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
   m_runtimeServices = (OpenclRuntime *)RuntimeServices::get();
   bool changed = false;
   SmallVector<Function *, 8> fakeFunctions;
-  
+
   for (Module::iterator it = M.begin(), e = M.end(); it!=e; ++it) {
     std::string curFuncName = it->getName().str();
     if (m_runtimeServices->needSpecialCaseResolving(curFuncName)) {
@@ -46,7 +49,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
     }
   }
   V_PRINT(SpecialCaseBuiltinResolver, "finished filling wrappers\n");
-  
+
   if (changed){
     PassManager mpm1;
     // Register inliner
@@ -61,11 +64,11 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
       Function *curFakeFunc = *it;
       if (curFakeFunc->getNumUses() == 0)
         curFakeFunc->eraseFromParent();
-      else 
+      else
         V_ASSERT(0 && "fake function still has uses after inlining");
     }
   }
-  
+
   // running instcombine on affected kernels
   if (changed) {
     FunctionPassManager fpm(&M);
@@ -87,13 +90,13 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
   for ( ;argIt != argE; ++argIt ) {
     ArrayType *arrType = dyn_cast<ArrayType>(argIt->getType());
     if (arrType) {
-      // incase wrapper argument is array of vectors than we extract the vectors 
+      // incase wrapper argument is array of vectors than we extract the vectors
       // and pass each one separately to the true builtin
       unsigned nElts = arrType->getNumElements();
       for (unsigned i=0; i<nElts; ++i) {
         ExtractValueInst *EVI = ExtractValueInst::Create(argIt, i, "extract_param", loc);
         Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
-        Value *curArg = VectorizerUtils::getCastedArgIfNeeded(EVI, desiredType, loc); 
+        Value *curArg = VectorizerUtils::getCastedArgIfNeeded(EVI, desiredType, loc);
         resolvedArgs.push_back(curArg);
         resolvedFuncArgInd++;
       }
@@ -110,7 +113,7 @@ void SpecialCaseBuiltinResolver::addRetPtrToArgsVec(ArgsVector &resolvedArgs, In
   for (unsigned i=0; i<m_wrraperRetAttr.nVals; ++i) {
     AllocaInst *AI = new AllocaInst(m_wrraperRetAttr.elType, 0, "retPtr", loc);
     resolvedArgs.push_back(AI);
-  }    
+  }
 }
 
 Value *SpecialCaseBuiltinResolver::obtainReturnValueArgsPtr(ArgsVector &resolvedArgs, Instruction *loc) {
@@ -120,7 +123,7 @@ Value *SpecialCaseBuiltinResolver::obtainReturnValueArgsPtr(ArgsVector &resolved
     // assembled to the output into array of vectors and set retVal
     retVal = UndefValue::get(m_wrraperRetAttr.arrType);
     for (unsigned i=0; i<m_wrraperRetAttr.nVals; ++i) {
-      LoadInst *LI = new LoadInst(resolvedArgs[retPointerInd + i] , "load_ret" , loc );  
+      LoadInst *LI = new LoadInst(resolvedArgs[retPointerInd + i] , "load_ret" , loc );
       retVal = InsertValueInst::Create(retVal , LI, i, "ret_agg" , loc);
     }
   } else  {
@@ -135,7 +138,7 @@ Value *SpecialCaseBuiltinResolver::obtainReturnValueGatheredVector(CallInst *CI,
   //some sanity checks
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector return from builtin");
   V_ASSERT(m_wrraperRetAttr.isArrayOfVec && "expected array of vectors return by wrraper");
-  
+
   Value *retVal = UndefValue::get(m_wrraperRetAttr.arrType);
   Value *undefVect = UndefValue::get(CI->getType());
   unsigned ind=0; // element to obtain from shuffle
@@ -146,7 +149,7 @@ Value *SpecialCaseBuiltinResolver::obtainReturnValueGatheredVector(CallInst *CI,
       maskVec.push_back(ConstantInt::get(IntegerType::get(CI->getContext(), 32), ind++));
     Constant *mask = ConstantVector::get(maskVec);
     ShuffleVectorInst *SVI = new ShuffleVectorInst(CI, undefVect, mask, "vector.ret.breakdown", loc);
-    retVal = InsertValueInst::Create(retVal , SVI, i, "ret_agg" , loc);  
+    retVal = InsertValueInst::Create(retVal , SVI, i, "ret_agg" , loc);
   }
   return retVal;
 }
@@ -157,11 +160,11 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   V_PRINT(SpecialCaseBuiltinResolver, "filling " << funcName << "\n");
   // not need to implement wrapper with no uses
   if (F->getNumUses() == 0) return;
-  
+
   std::string resolvedName = Mangler::demangle_fake_builtin(funcName);
   BasicBlock *entry = BasicBlock::Create(F->getContext(), "entry" , F);
   // first check if function already found in module
-  // this is important incase function contains opaque pointers 
+  // this is important incase function contains opaque pointers
   Function *resolvedFunc = m_curModule->getFunction(resolvedName);
   if (!resolvedFunc)  {
     Function *LibFunc = m_runtimeServices->findInRuntimeModule(resolvedName);
@@ -174,7 +177,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   // creating ret in the just to be used as insrtion point for argumnet casting
   Type *wrapperRetType = F->getReturnType();
   ReturnInst *fakeRet = ReturnInst::Create(F->getContext(), UndefValue::get(wrapperRetType), entry);
-  
+
   // obtain input arguments into the builtin actual type
   ArgsVector resolvedArgs;
   obtainArguments(F, resolvedFuncType, fakeRet, resolvedArgs);
@@ -183,24 +186,24 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   obtainRetAttrs(wrapperRetType);
   Type *resolvedFuncRetType = resolvedFunc->getReturnType();
   bool retByPtr = resolvedFuncRetType->isVoidTy() && !m_wrraperRetAttr.isVoid;
-  bool retByGatheredVec = resolvedFuncRetType->isVectorTy() && m_wrraperRetAttr.isArrayOfVec; 
-  
+  bool retByGatheredVec = resolvedFuncRetType->isVectorTy() && m_wrraperRetAttr.isArrayOfVec;
+
   // if resolved buitin return with pointer allocate pointer and add them as arguments
   if (retByPtr)
     addRetPtrToArgsVec(resolvedArgs, entry->getFirstNonPHI());
-  
-  // sanity check that all argument have the correct type 
+
+  // sanity check that all argument have the correct type
   V_ASSERT(resolvedFuncType->getNumParams() == resolvedArgs.size() &&
       "mismatch with between fake function and true function parameters");
   for (unsigned i=0; i<resolvedArgs.size(); ++i)
     V_ASSERT(resolvedArgs[i]->getType() == resolvedFuncType->getParamType(i) &&
         "resolved argument type mismatch");
-  
+
   // creating call to resolved function
   CallInst *newCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(resolvedArgs), "" , fakeRet);
 
   // obtaining return value
-  Value *retVal = NULL; // this capture case of void return 
+  Value *retVal = NULL; // this capture case of void return
   if (retByPtr) // incase return is by pointer load from them
     retVal = obtainReturnValueArgsPtr(resolvedArgs, fakeRet);
   else if (retByGatheredVec) // incase return is by big gatherd break it to the actual transposed values
@@ -208,7 +211,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   else if (!m_wrraperRetAttr.isVoid) // getting here we just need to cast the resolved builtin return
     retVal = VectorizerUtils::getCastedRetIfNeeded(newCall, wrapperRetType);
 
-  // no need for fake ret any more 
+  // no need for fake ret any more
   fakeRet->eraseFromParent();
 
   //creating return
@@ -232,7 +235,7 @@ void SpecialCaseBuiltinResolver::obtainRetAttrs(Type *theType) {
     return;
   }
   m_wrraperRetAttr.isVoid = false;
-  
+
   // check if multiple return (array of vectors)
   ArrayType *arrType = dyn_cast<ArrayType>(theType);
   VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : NULL;
@@ -254,9 +257,7 @@ void SpecialCaseBuiltinResolver::obtainRetAttrs(Type *theType) {
 }// namespace
 
 extern "C"
-Pass *createSpecialCaseBuiltinResolverPass() { 
+Pass *createSpecialCaseBuiltinResolverPass() {
   return new intel::SpecialCaseBuiltinResolver();
 }
 
-static RegisterPass<intel::SpecialCaseBuiltinResolver>
-CLBltnResolve("CLBltnResolve", "resolve ocl special case builtins");

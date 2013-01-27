@@ -110,7 +110,7 @@ TEST_F(CRT12_VR274_280, LinkProgram_vr274){
 //|	1.	Compile a two kernels
 //|	2.	Run  clLinkProgram()
 //|	3.	run kernel on CPU
-//|	4. run a kernel on GPU expect fail
+//|	4. run a kernel on GPU ecxpect fail
 //|	
 //|	Pass criteria
 //|	-------------
@@ -142,7 +142,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForCPU_vr280){
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"read_write_image1D_int4"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));
@@ -203,7 +203,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPU_vr281){
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"read_write_image1D_int4"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));
@@ -262,7 +262,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPUCPU_vr282){
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"read_write_image1D_int4"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));

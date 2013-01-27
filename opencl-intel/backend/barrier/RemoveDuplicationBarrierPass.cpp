@@ -6,12 +6,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "RemoveDuplicationBarrierPass.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Instructions.h"
 
 namespace intel {
 
   char RemoveDuplicationBarrier::ID = 0;
+
+  OCL_INITIALIZE_PASS(RemoveDuplicationBarrier, "B-RemoveDuplication", "Barrier Pass - Remove duplication Barrier instructions", false, true)
 
   RemoveDuplicationBarrier::RemoveDuplicationBarrier() : ModulePass(ID) {}
 
@@ -117,10 +120,6 @@ namespace intel {
     }
     return true;
   }
-
-  //Register this pass...
-  static RegisterPass<RemoveDuplicationBarrier> SBBB("B-RemoveDuplication",
-        "Barrier Pass - Remove duplication Barrier instructions", false, true);
 
 } // namespace intel
 

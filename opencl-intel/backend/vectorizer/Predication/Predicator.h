@@ -38,18 +38,7 @@ class Predicator : public FunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  Predicator() : FunctionPass(ID) {
-    initializeLoopInfoPass(*PassRegistry::getPassRegistry());
-    initializeDominanceFrontierPass(*PassRegistry::getPassRegistry());
-    initializeDominatorTreePass(*PassRegistry::getPassRegistry());
-    initializePostDominatorTreePass(*PassRegistry::getPassRegistry());
-    initializeRegionInfoPass(*PassRegistry::getPassRegistry());
-    m_rtServices = RuntimeServices::get();
-    m_maskedLoadCtr = 0;
-    m_maskedStoreCtr = 0;
-    m_maskedCallCtr = 0;
-    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
-  }
+  Predicator();
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {

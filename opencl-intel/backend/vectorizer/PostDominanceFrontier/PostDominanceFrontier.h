@@ -12,11 +12,6 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 
-namespace llvm  {
-    void initializePostDominanceFrontierPass(PassRegistry&);
-}
-
-
 namespace intel {
 
 
@@ -25,10 +20,7 @@ namespace intel {
 ///
 struct PostDominanceFrontier : public llvm::DominanceFrontierBase {
   static char ID;
-  PostDominanceFrontier()
-    : llvm::DominanceFrontierBase(ID, true) {
-        llvm::initializePostDominatorTreePass(*llvm::PassRegistry::getPassRegistry());
-    }
+  PostDominanceFrontier();
 
   virtual bool runOnFunction(llvm::Function &) {
     Frontiers.clear();

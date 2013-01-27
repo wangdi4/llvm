@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGLoopCreator.h"
 #include "LoopUtils.h"
 #include "CLWGBoundDecoder.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
@@ -21,11 +22,15 @@ static unsigned MAX_OCL_NUM_DIM = 3;
 
 extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 
-char intel::CLWGLoopCreator::ID = 0;
 namespace intel {
 
-CLWGLoopCreator::CLWGLoopCreator(SmallVectorImpl<Function*> *vectFunctions, 
-                                 SmallVectorImpl<int> *vectWidths) : 
+char CLWGLoopCreator::ID = 0;
+
+OCL_INITIALIZE_PASS(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
+
+
+CLWGLoopCreator::CLWGLoopCreator(SmallVectorImpl<Function*> *vectFunctions,
+                                 SmallVectorImpl<int> *vectWidths) :
 ModulePass(ID),
 m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get())),
 m_vectFunctions(vectFunctions),
@@ -43,11 +48,11 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   SmallVector<Function *, 8> kernels;
 
   LoopUtils::GetOCLKernel(M, kernels);
-  
-  // Obtain vector kernel and widths from input buffer. 
+
+  // Obtain vector kernel and widths from input buffer.
   SmallVector<int, 8> vectWidths;
   SmallVector<Function *, 8> vectKernels;
-  
+
   if (m_vectFunctions && m_vectFunctions->size()) {
     // vectorized functions exist and non empty so use it.
     assert(m_vectWidths && "null width vector");
@@ -72,7 +77,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
     if (!F) continue;
     std::string funcName = F->getName().str();
     if (!NoBarrier.count(funcName)) continue;
-    
+
     // We can create loops for this kernel - runOnFunction on it!!
     changed |= runOnFunction(*F, vectKernels[i], vectWidths[i]);
     // The pass inlined and erased the vector Function.
@@ -85,7 +90,7 @@ unsigned CLWGLoopCreator::computeNumDim() {
   unsigned maxNumDim = m_rtServices->getNumJitDimensions();
 
   // In case no atomics are called by  the kernel than it is guranteed that
-  // even if the user calls NDrange with more the dimension than the ones 
+  // even if the user calls NDrange with more the dimension than the ones
   // used by the kernel, it is legal to loop only over the used ones.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
@@ -103,11 +108,11 @@ unsigned CLWGLoopCreator::computeNumDim() {
   // that the kernel does not call a function that uses get_global_id or
   // get_local_id , so we can just scan the calls inside the kernel.
   unsigned maxUsedNumDim = 0;
-  assert (m_gidCallsSc.size() == MAX_OCL_NUM_DIM && 
+  assert (m_gidCallsSc.size() == MAX_OCL_NUM_DIM &&
           m_lidCallsSc.size() == MAX_OCL_NUM_DIM &&
           "tid containers uninitialized");
   for (unsigned dim=0; dim< MAX_OCL_NUM_DIM; ++dim) {
-    // if either get_local_id or get_global_id is used for this 
+    // if either get_local_id or get_global_id is used for this
     // dimension update maxUsedNumDim.
     if (m_gidCallsSc[dim].size() || m_lidCallsSc[dim].size()) {
       maxUsedNumDim = dim + 1;
@@ -129,7 +134,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
   // Collect get**id and return instructions from the kernels.
   m_scalarRet = getFunctionData(m_F, m_gidCallsSc, m_lidCallsSc);
-    
+
   // Get the number of the for which we need to create work group loops.
   m_numDim = computeNumDim();
 
@@ -141,7 +146,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
   // Create early exit call to obtain boundaries from.
   m_EECall = createEECall();
-  
+
   // Obtain loops boundaries from early exit call.
   getLoopsBoundaries();
 
@@ -149,20 +154,20 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // If no work group loop are created (no calls to get***id) avoid
   // inlining the vector jit into the scalar since only one work item
   // need to be executed.
-  loopRegion WGLoopRegion = m_vectorFunc && m_numDim ? 
-      createVectorAndRemainderLoops() : 
+  loopRegion WGLoopRegion = m_vectorFunc && m_numDim ?
+      createVectorAndRemainderLoops() :
       AddWGLoops(m_scalarEntry, false, m_scalarRet, m_gidCallsSc, m_lidCallsSc,
                   m_initGIDs, m_loopSizes);
-  
+
   assert(WGLoopRegion.m_preHeader && WGLoopRegion.m_exit &&
       "loops entry,exit not initialized");
-  
+
   // Connect the new entry block with the WG loops.
   BranchInst::Create(WGLoopRegion.m_preHeader, m_newEntry);
 
   // Create return block and connect it to WG loops exit.
   // We must create separate block for the return since the it might be
-  // that there are no WG loops (m_numDim=0) and WGLoopRegion.m_exit 
+  // that there are no WG loops (m_numDim=0) and WGLoopRegion.m_exit
   // is not empty.
   BasicBlock *newRet = BasicBlock::Create(*m_context, "", m_F);
   BranchInst::Create(newRet, WGLoopRegion.m_exit);
@@ -175,13 +180,13 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
 
 // if the vector kernel exists than we create the following code:
-// 
-// max_vector = 
+//
+// max_vector =
 // if(vectorLoopSize != 0)
 //   vector loops
 // if (scalarLoopSize != 0)
 //   scalar loops
-// retrun 
+// retrun
 CLWGLoopCreator::loopRegion CLWGLoopCreator::createVectorAndRemainderLoops(){
   // Collect get**id and return instructions in the vector kernel.
   m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
@@ -190,7 +195,7 @@ CLWGLoopCreator::loopRegion CLWGLoopCreator::createVectorAndRemainderLoops(){
   BasicBlock *vecEntry = inlineVectorFunction(m_scalarEntry);
 
   // Obtain boundaries for the vector loops and scalar remainder loops.
-  loopBoundaries dim0Boundaries = 
+  loopBoundaries dim0Boundaries =
       getVectorLoopBoundaries(m_initGIDs[0], m_loopSizes[0]);
   VVec initGIDs = m_initGIDs; // hard copy.
   VVec loopSizes = m_loopSizes; // hard copy.
@@ -205,11 +210,11 @@ CLWGLoopCreator::loopRegion CLWGLoopCreator::createVectorAndRemainderLoops(){
   loopSizes[0] = dim0Boundaries.m_scalarLoopSize;
   loopRegion scalarBlocks = AddWGLoops(m_scalarEntry, false, m_scalarRet,
                             m_gidCallsSc, m_lidCallsSc, initGIDs, loopSizes);
-  
+
   // Create blocks to jump over the loops.
-  BasicBlock *loopsEntry = 
+  BasicBlock *loopsEntry =
       BasicBlock::Create(*m_context, "vect_if", m_F, vectorBlocks.m_preHeader);
-  BasicBlock *scalarIf = 
+  BasicBlock *scalarIf =
       BasicBlock::Create(*m_context, "scalarIf", m_F, scalarBlocks.m_preHeader);
   BasicBlock *retBlock = BasicBlock::Create(*m_context, "ret", m_F);
 
@@ -219,7 +224,7 @@ CLWGLoopCreator::loopRegion CLWGLoopCreator::createVectorAndRemainderLoops(){
   BranchInst::Create(vectorBlocks.m_preHeader, scalarIf, vectcmp, loopsEntry);
   BranchInst::Create(scalarIf, vectorBlocks.m_exit);
 
-  // execute the scalar loops if(scalarLoopSize != 0)   
+  // execute the scalar loops if(scalarLoopSize != 0)
   Instruction *scalarCmp = new ICmpInst(*scalarIf, CmpInst::ICMP_NE,
       dim0Boundaries.m_scalarLoopSize, m_constZero, "");
   BranchInst::Create(scalarBlocks.m_preHeader, retBlock, scalarCmp, scalarIf);
@@ -247,7 +252,7 @@ CallInst *CLWGLoopCreator::createEECall() {
   for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
       argIt != argE; ++argIt, ++i) {
     // Sanity: checks that early exit function has the same argument types.
-    assert(argIt->getType() == m_F->getFunctionType()->getParamType(i) && 
+    assert(argIt->getType() == m_F->getFunctionType()->getParamType(i) &&
         "mismatch types between function and Eearly exit");
     args.push_back(argIt);
   }
@@ -263,9 +268,9 @@ void CLWGLoopCreator::handleUniformEE(BasicBlock *retBlock) {
   Instruction *loc = ++BasicBlock::iterator(m_EECall);
   unsigned uniInd = CLWGBoundDecoder::getUniformIndex();
   Instruction *uniEECond = ExtractValueInst::Create(m_EECall, uniInd, "", loc);
-  Value *truncCond = 
+  Value *truncCond =
       new TruncInst(uniEECond, IntegerType::get(*m_context, 1), "", loc);
-  // Split the basic block after obtain the uniform early exit condition, 
+  // Split the basic block after obtain the uniform early exit condition,
   // and conditionally jump to the WG loops.
   BasicBlock *WGLoopsEntry = m_newEntry->splitBasicBlock(loc, "WGLoopsEntry");
   m_newEntry->getTerminator()->eraseFromParent();
@@ -285,7 +290,7 @@ void CLWGLoopCreator::collectTIDCallInst(const char *name, IVecVec &tidCalls,
   tidCalls.assign(MAX_OCL_NUM_DIM, emptyVec);
   SmallVector<CallInst *, 4> allDimTIDCalls;
   LoopUtils::getAllCallInFunc(name, F, allDimTIDCalls);
-  
+
   for (unsigned i=0, e=allDimTIDCalls.size(); i<e; ++i) {
     CallInst *CI = allDimTIDCalls[i];
     ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
@@ -299,7 +304,7 @@ void CLWGLoopCreator::collectTIDCallInst(const char *name, IVecVec &tidCalls,
 
 ReturnInst * CLWGLoopCreator::getSingleRet(Function *F) {
   assert(F && "null Function argument");
-  
+
   // Get all return instructions in the kernel.
   typedef SmallVector<ReturnInst *, 2> RetVec;
   RetVec rets;
@@ -314,7 +319,7 @@ ReturnInst * CLWGLoopCreator::getSingleRet(Function *F) {
   assert(rets.size() && "kernel with no return instructions");
   assert(F->getReturnType()->isVoidTy() && "return should be void");
   if (rets.size() == 1) return rets[0];
-  
+
   // More than single ret merge them all into a single basic block
   BasicBlock *mergeRet = BasicBlock::Create(*m_context, "merge_ret", F );
   for(RetVec::iterator retI = rets.begin(), retE = rets.end();
@@ -341,7 +346,7 @@ Instruction *CLWGLoopCreator::obtainBaseGID(unsigned dim) {
  // If it is already been cachced return the cached value.
  assert(m_baseGids.size() > dim && "base gid vec uninitialized");
  if (m_baseGids[dim]) return m_baseGids[dim];
- 
+
  // Calculate the value.
  const char *baseGID = m_rtServices->getBaseGIDName();
  m_baseGids[dim] = LoopUtils::getWICall(m_M, baseGID, m_indTy, dim, m_newEntry,
@@ -365,15 +370,15 @@ void CLWGLoopCreator::getLoopsBoundaries() {
     Value *initGID =
         ExtractValueInst::Create(m_EECall, lowerInd, "", m_newEntry);
     unsigned loopSizeInd = CLWGBoundDecoder::getIndexOfSizeAtDim(dim);
-    Value *loopSize =  
+    Value *loopSize =
         ExtractValueInst::Create(m_EECall, loopSizeInd, "", m_newEntry);
     m_initGIDs.push_back(initGID);
     m_loopSizes.push_back(loopSize);
   }
 }
 
-CLWGLoopCreator::loopRegion 
-CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector, 
+CLWGLoopCreator::loopRegion
+CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
       ReturnInst *ret, IVecVec &GIDs, IVecVec &LIDs, VVec &initGIDs,
       VVec &loopSizes) {
   assert(kernelEntry && ret && "uninitialized parameters");
@@ -387,13 +392,13 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
   // Erase original return instruction.
   ret->eraseFromParent();
 
-  // Incase of vector kernel the tid generators are incremented by the packet 
+  // Incase of vector kernel the tid generators are incremented by the packet
   // width. Incase of scalar loop increment by 1.
   Value *dim0IncBy = isVector ? m_constPacket : m_constOne;
   for (unsigned dim =0; dim < m_numDim; ++dim) {
     compute_dimStr(dim, isVector);
     Value *incBy = dim == 0 ? dim0IncBy : m_constOne;
-    //Create the loop. 
+    //Create the loop.
     loopRegion blocks = createLoop(head, latch, loopSizes[dim]);
 
     // Modify get***id accordingly.
@@ -411,12 +416,12 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
                          latch);
     }
 
-    // head, latch for the next loop are the pre header and exit 
+    // head, latch for the next loop are the pre header and exit
     // block respectively.
     head = blocks.m_preHeader;
     latch = blocks.m_exit;
   }
-   
+
   return loopRegion(head, latch);
 }
 
@@ -433,26 +438,26 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
 //     x = Icmp eq incIndVar ,loopSize
 //     br x, exit, oldEntry
 // exit:
-//     
+//
 //  all get_local_id \ get_global_id are replaced with indVar
-CLWGLoopCreator::loopRegion 
+CLWGLoopCreator::loopRegion
 CLWGLoopCreator::createLoop(BasicBlock *head, BasicBlock *latch,
-                            Value *loopSize) {  
+                            Value *loopSize) {
   // Creating Blocks to wrap the code as described above.
-  BasicBlock *preHead = 
+  BasicBlock *preHead =
       BasicBlock::Create(*m_context, m_dimStr+"pre_head", m_F, head);
-  BasicBlock *exit = 
+  BasicBlock *exit =
       BasicBlock::Create(*m_context, m_dimStr+"exit", m_F);
   exit->moveAfter(latch);
   BranchInst::Create(head, preHead);
-  
+
   // Insert induction variable phi in the head entry.
   PHINode *indVar = head->empty() ?
       PHINode::Create(m_indTy, 2, m_dimStr+"ind_var", head) :
       PHINode::Create(m_indTy, 2, m_dimStr+"ind_var", head->begin());
-  
+
   // Increment induction variable.
-  BinaryOperator *incIndVar = BinaryOperator::Create(Instruction::Add, indVar, 
+  BinaryOperator *incIndVar = BinaryOperator::Create(Instruction::Add, indVar,
                                     m_constOne, m_dimStr+"inc_ind_var", latch);
   incIndVar->setHasNoSignedWrap();
   incIndVar->setHasNoUnsignedWrap();
@@ -461,10 +466,10 @@ CLWGLoopCreator::createLoop(BasicBlock *head, BasicBlock *latch,
   Instruction *compare = new ICmpInst(*latch, CmpInst::ICMP_EQ, incIndVar,
                                   loopSize, m_dimStr+"cmp.to.max");
   BranchInst::Create(exit, head, compare, latch);
-  
+
   // Upadte induction variable phi with the incoming values.
-  indVar->addIncoming(m_constZero, preHead);  
-  indVar->addIncoming(incIndVar, latch);  
+  indVar->addIncoming(m_constZero, preHead);
+  indVar->addIncoming(incIndVar, latch);
   return loopRegion(preHead, exit);
 }
 
@@ -472,13 +477,13 @@ CLWGLoopCreator::createLoop(BasicBlock *head, BasicBlock *latch,
 void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
      Value *incBy,BasicBlock *head, BasicBlock *preHead, BasicBlock *latch) {
   assert(TIDs.size() && "unexpected emty tid vector");
-  PHINode *dimTID = 
+  PHINode *dimTID =
       PHINode::Create(m_indTy, 2, m_dimStr+"tid", head->getFirstNonPHI());
-  BinaryOperator *incTID = BinaryOperator::Create(Instruction::Add, dimTID, incBy, 
+  BinaryOperator *incTID = BinaryOperator::Create(Instruction::Add, dimTID, incBy,
                                   m_dimStr+"inc_tid", latch->getTerminator());
   incTID->setHasNoSignedWrap();
   incTID->setHasNoUnsignedWrap();
-  dimTID->addIncoming(initVal, preHead);  
+  dimTID->addIncoming(initVal, preHead);
   dimTID->addIncoming(incTID, latch);
   for (IVec::iterator tidIt = TIDs.begin(), tidE = TIDs.end();
        tidIt != tidE; ++tidIt) {
@@ -492,11 +497,11 @@ void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // this is a fast way for inlining by just moving the block list
   // of the vector kernel into scalar kernel.
-  assert(m_vectorFunc && "should not be called on null"); 
+  assert(m_vectorFunc && "should not be called on null");
   assert(m_F->getFunctionType() == m_vectorFunc->getFunctionType() &&
-      "vector and scalar functtion type mismatch"); 
+      "vector and scalar functtion type mismatch");
   assert(BB && "uninitialized parameters");
-  
+
   BasicBlock * vectorEntryBlock = &m_vectorFunc->getEntryBlock();
   vectorEntryBlock->setName("vector_kernel_entry");
     // insert block of func into m_F just before callBlock
@@ -519,7 +524,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // Create denseMap of function arguments
   ValueToValueMapTy valueMap;
   assert(m_F->getFunctionType() == m_vectorFunc->getFunctionType() &&
-      "vector and scalar functtion type mismatch"); 
+      "vector and scalar functtion type mismatch");
   Function::const_arg_iterator VArgIt = m_vectorFunc->arg_begin();
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
@@ -550,7 +555,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
     }
   }
   m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
-  BasicBlock *vectorEntryBlock = 
+  BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[m_vectorFunc->begin()]);
   // Get hold of the entry to the scalar section in the vectorized function...
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
@@ -562,7 +567,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 
 //*/
 
-CLWGLoopCreator::loopBoundaries 
+CLWGLoopCreator::loopBoundaries
 CLWGLoopCreator::getVectorLoopBoundaries(Value *initVal, Value *dimSize) {
   // computes constant log packetWidth
   assert( m_packetWidth && ((m_packetWidth & (m_packetWidth-1)) == 0) &&
@@ -570,7 +575,7 @@ CLWGLoopCreator::getVectorLoopBoundaries(Value *initVal, Value *dimSize) {
   unsigned logPacket = 0;
   for ( unsigned i=1; i < m_packetWidth; i*=2) ++logPacket;
   Constant *logPacketConst = ConstantInt::get(m_indTy, logPacket);
-  
+
   // vector loops size can be derived by shifting size with log packet bits.
   Value *vectorLoopSize = BinaryOperator::Create(Instruction::AShr, dimSize,
                                      logPacketConst, "vector.size", m_newEntry);
@@ -596,4 +601,4 @@ extern "C" {
     return new intel::CLWGLoopCreator(vectFunctions, vectWidths);
   }
 }
-static RegisterPass<intel::CLWGLoopCreator> CLWGLoopCreator("cl-loop-creator", "create loops opencl kernels");
+

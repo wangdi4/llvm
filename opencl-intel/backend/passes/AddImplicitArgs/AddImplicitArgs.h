@@ -16,15 +16,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <set>
 #include <map>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   using namespace llvm;
 
-  /// @brief  AddImplicitArgs class adds the implicit arguments to signature 
+  /// @brief  AddImplicitArgs class adds the implicit arguments to signature
   ///         of all function of the module (that are defined inside the module)
   /// @Author Marina Yatsina
   class AddImplicitArgs : public ModulePass {
-     
+
   public:
     /// Pass identification, replacement for typeid
     static char ID;
@@ -95,6 +95,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Function* m_pNewF;
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __ADD_IMPLICIT_ARGS_H__
