@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "ClangCompatFixer.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
@@ -22,13 +23,11 @@ extern "C" {
   }
 }
 
-/// Register pass to for opt
-static llvm::RegisterPass<Intel::OpenCL::DeviceBackend::ClangCompatFixer> ClangCompatFixerPass("clang-compat-fixer", "Fix clang output incompatabilities");
-
-
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
 char ClangCompatFixer::ID = 0;
+
+OCL_INITIALIZE_PASS(ClangCompatFixer, "clang-compat-fixer", "Fix clang output incompatabilities", false, false)
 
 bool ClangCompatFixer::runOnModule(llvm::Module &M) {
   bool bChanged = false;
@@ -69,4 +68,4 @@ bool ClangCompatFixer::handleFMAIntrinsics(Function &F) {
   return (toDelete.size() > 0);
 }
   
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+}}} // namespace intel {

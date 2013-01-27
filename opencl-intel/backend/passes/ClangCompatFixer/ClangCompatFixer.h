@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/InstrTypes.h"
 
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   using namespace llvm;
 
@@ -52,6 +52,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     bool handleFMAIntrinsics(Function &F);
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+}}} // namespace intel {
 
 #endif // __CLANG_COMPAT_FIXER_H__
