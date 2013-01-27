@@ -689,7 +689,7 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
   } else if (!EETrueSide && condInst->getOpcode() == Instruction::And) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
-  }
+  } else return false;
 
   //Check that compares have supported pattern.
   TIDDescVec eeVec;
