@@ -75,7 +75,7 @@ private:
 
     llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
     llvm::SmallVector<int, 16> m_vectWidths;
-    std::map<const llvm::Function*, TLLVMKernelInfo> m_kernelsLocalBufferMap;
+    std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> m_kernelsLocalBufferMap;
     std::vector<std::string> m_undefinedExternalFunctions;
 };
 

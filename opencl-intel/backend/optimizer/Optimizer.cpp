@@ -48,7 +48,7 @@ llvm::Pass *createShuffleCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
-llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
+llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 
