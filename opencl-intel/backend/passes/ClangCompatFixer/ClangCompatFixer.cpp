@@ -19,7 +19,7 @@ extern "C" {
   /// @brief Creates new PreventDivCrashes module pass
   /// @returns new PreventDivCrashes module pass  
   void* createClangCompatFixerPass() {
-    return new Intel::OpenCL::DeviceBackend::ClangCompatFixer();
+    return new intel::ClangCompatFixer();
   }
 }
 
