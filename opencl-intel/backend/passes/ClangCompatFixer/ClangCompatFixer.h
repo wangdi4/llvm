@@ -52,6 +52,6 @@ namespace intel {
     bool handleFMAIntrinsics(Function &F);
   };
 
-}}} // namespace intel {
+} // namespace intel {
 
 #endif // __CLANG_COMPAT_FIXER_H__

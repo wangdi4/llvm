@@ -68,4 +68,4 @@ bool ClangCompatFixer::handleFMAIntrinsics(Function &F) {
   return (toDelete.size() > 0);
 }
   
-}}} // namespace intel {
+} // namespace intel {
