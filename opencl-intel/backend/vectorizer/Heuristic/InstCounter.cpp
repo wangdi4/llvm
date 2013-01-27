@@ -86,8 +86,7 @@ bool WeightedInstCounter::hasAVX2() const {
 }
 
 
-WeightedInstCounter::WeightedInstCounter(bool preVec = true,
-                              Intel::CPUId cpuId = Intel::CPUId()):
+WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
                               FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),
                               m_desiredWidth(1), m_totalWeight(0) {
   initializeWeightedInstCounterPass(*PassRegistry::getPassRegistry());

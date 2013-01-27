@@ -28,7 +28,7 @@ namespace intel {
   class WeightedInstCounter : public FunctionPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-      WeightedInstCounter(bool preVec, Intel::CPUId cpuId);
+      WeightedInstCounter(bool preVec = true, Intel::CPUId cpuId = Intel::CPUId());
 
     // Provides name of pass
     virtual const char *getPassName() const {
