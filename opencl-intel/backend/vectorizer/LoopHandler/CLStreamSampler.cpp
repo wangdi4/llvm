@@ -430,9 +430,17 @@ void CLStreamSampler::sinkWriteImgCalls() {
 
 Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   assert(LibFunc && "null argument");
-  // Find function in the runtime module and insert it's declaration.
-  Constant *funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
-      LibFunc->getFunctionType(), LibFunc->getAttributes());
+  
+  // We do not use getOrInsertFunction() here because we may already
+  // have the function, but with a slightly wrong prototype, because
+  // images are opaque types. So, first check if we have the function,
+  // and only if we don't, insert it.
+  Constant* funcConst = m_M->getFunction(LibFunc->getName());
+  if (!funcConst) {
+    funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
+                                         LibFunc->getFunctionType(), LibFunc->getAttributes());
+  }
+    
   Function *F = dyn_cast<Function>(funcConst);
   assert(F && "failed to insert declaration");
   return F;
