@@ -199,6 +199,8 @@ public:
 
   bool needForwardDecl() const { return m_NeedForwardDecl; }
 
+  bool needPrefix() const { return m_NeedPrefix; }
+
   const std::string& getAS() const { return m_AS; }
 
   bool hasConst() const { return m_HasConst; }
@@ -212,6 +214,7 @@ protected:
   std::string m_CFunc;
   bool m_IsDeclOnly;
   bool m_NeedForwardDecl;
+  bool m_NeedPrefix;
   std::string m_AS;
   bool m_HasConst;
   bool m_HasVolatile;
