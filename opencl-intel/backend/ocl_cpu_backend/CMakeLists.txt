@@ -136,8 +136,6 @@ if (WIN32)
     set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
     set( CMAKE_ASM_LINK_FLAG "/nologo")
 
-    # Linker flags
-    set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
 
 endif (WIN32)
 

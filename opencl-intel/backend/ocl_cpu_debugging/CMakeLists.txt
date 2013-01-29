@@ -109,10 +109,6 @@ endif (NOT WIN32)
 #
 # Settings for Windows compilation
 #
-if (WIN32)
-    # Linker flags
-    set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
-endif (WIN32)
 
 
 # Create target project

@@ -12,6 +12,50 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
 
+if (WIN32)
+  # Add definitions that make MSVC much less annoying.
+   add_definitions(
+    # For some reason MS wants to deprecate a bunch of standard functions...
+    -D_CRT_SECURE_NO_DEPRECATE
+    -D_CRT_SECURE_NO_WARNINGS
+    -D_CRT_NONSTDC_NO_DEPRECATE
+    -D_CRT_NONSTDC_NO_WARNINGS
+    -D_SCL_SECURE_NO_DEPRECATE
+    -D_SCL_SECURE_NO_WARNINGS
+
+    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+    -wd4090 # Suppress 'function : different 'const' qualifiers'
+    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
+    -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
+    -wd4190 # Suppress 'function has C linkage is specified, but returns type which is incompatible with C'
+    -wd4224 # Suppress 'nonstandard extension used : formal parameter 'identifier' was previously defined as a type'
+    -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
+    -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
+    -wd4275 # Suppress 'An exported class was derived from a class that was not exported.'
+    -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
+    -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
+    -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
+    -wd4355 # Suppress ''this' : used in base member initializer list'
+    -wd4503 # Suppress ''identifier' : decorated name length exceeded, name was truncated'
+    -wd4551 # Suppress 'function call missing argument list'
+    -wd4624 # Suppress ''derived class' : destructor could not be generated because a base class destructor is inaccessible'
+    -wd4715 # Suppress ''function' : not all control paths return a value'
+    -wd4800 # Suppress ''type' : forcing value to bool 'true' or 'false' (performance warning)'
+    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+    -wd4181 # Suppress 'qualifier applied to reference type; ignored'
+    -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
+	  -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'    
+  )
+  
+	#C flags
+	set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MTd")
+	set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
+
+	# C++ flags
+	set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MTd")
+	set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")    
+endif (WIN32)
+
 include( cmake_utils/CMakeFuncs.txt )
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
