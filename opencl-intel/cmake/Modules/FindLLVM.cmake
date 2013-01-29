@@ -71,7 +71,6 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMObject
             LLVMMCDisassembler
             LLVMLinker
-            LLVMInterpreterPluggable
             LLVMInterpreter
             LLVMIntelJITEvents
             LLVMInstrumentation
@@ -145,7 +144,6 @@ endif( INCLUDE_MIC_DEVICE)
             LLVMObject
             LLVMMCDisassembler
             LLVMLinker
-            LLVMInterpreterPluggable
             LLVMInterpreter
             LLVMIntelJITEvents
             LLVMInstrumentation
