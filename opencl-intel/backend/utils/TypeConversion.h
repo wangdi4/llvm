@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __TYPE_CONVERSION_H__
 #define __TYPE_CONVERSION_H__
 
-#include "name_mangling/Type.h"
+#include "Type.h"
 #include "llvm/Type.h"
 #include "llvm/LLVMContext.h"
 

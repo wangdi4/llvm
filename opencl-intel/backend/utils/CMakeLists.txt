@@ -31,6 +31,7 @@ set (TARGET_INCLUDE_FILES
   TLLVMKernelInfo.h
   TypeAlignment.h
   TypeConversion.h
+  VectorizerUtils.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -42,12 +43,13 @@ set (TARGET_SOURCE_FILES
   ImplicitArgsUtils.cpp
   TypeAlignment.cpp
   TypeConversion.cpp
+  VectorizerUtils.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
-    ${BACKEND_ROOT_DIR}
+    ${BACKEND_ROOT_DIR}/name_mangling
 )
 
 if (APPLE)

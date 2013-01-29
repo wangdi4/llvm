@@ -9,11 +9,11 @@ include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
 
-include_directories(../arch_headers)
+include_directories(${CMAKE_SOURCE_DIR}/backend/arch_headers)
 include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
 include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
+include_directories(${CMAKE_SOURCE_DIR}/backend/utils)
 include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
-
 
 if(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
@@ -89,7 +89,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
   Utils/VectorizerFunction.h
-  Utils/VectorizerUtils.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
   ${TARGET_EXTRA_INCLUDE_FILES}
@@ -126,7 +125,6 @@ set(TARGET_SOURCE_FILES
   Utils/SimplifyGEP.cpp
   Utils/SpecialCaseFuncs.cpp
   Utils/VectorizerCore.cpp
-  Utils/VectorizerUtils.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   ${TARGET_EXTRA_SOURCE_FILES}

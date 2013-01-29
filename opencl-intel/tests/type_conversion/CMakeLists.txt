@@ -6,7 +6,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/externals/gtest/include
   ${CMAKE_SOURCE_DIR}/backend/utils
   ${CMAKE_SOURCE_DIR}/backend/llvm/include
-  ${CMAKE_SOURCE_DIR}/backend
+  ${CMAKE_SOURCE_DIR}/backend/name_mangling
 )
 
 link_directories( 

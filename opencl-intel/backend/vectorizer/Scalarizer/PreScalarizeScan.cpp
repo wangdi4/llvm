@@ -152,7 +152,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // Second, obtain the input arguments, and fill the rootVals vector
   for (unsigned i = 0; i < numInputParams; ++i)
   {
-    Value *rootInputArg =  VectorizerUtils::RootInputArgument(
+    Value *rootInputArg = VectorizerUtils::RootInputArgument(
       CI->getArgOperand(callArgumentIndex), desiredArgsTypes[i], CI);
     // If root value was not found, give up on the scanning
     if (!rootInputArg) return false;
