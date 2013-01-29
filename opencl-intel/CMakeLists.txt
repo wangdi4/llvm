@@ -46,7 +46,7 @@ find_package(LLVM REQUIRED)
 # QTGUI
 if (BUILD_QTGUI)
     set( QT_VERSION "4.8.1" )
-    if(DEFINED QT_REVISION)
+    if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.
        set( QT_VERSION ${QT_REVISION})
     endif()
 
@@ -93,22 +93,25 @@ if (BUILD_QTGUI)
         INSTALL(FILES ${SHARED_DEBUG_LIBS} DESTINATION bin CONFIGURATIONS Debug)
         INSTALL(FILES ${SHARED_RELEASE_LIBS} DESTINATION bin CONFIGURATIONS Release)
     else(WIN32)
-        SET( SHARED_LIBS 
+        SET(QT_VERSION ${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}.${QT_VERSION_PATCH} )
+        SET( SHARED_LIBS
             ${QT_LIBRARY_DIR}/libQtCore.so.4
             ${QT_LIBRARY_DIR}/libQtGui.so.4
+            ${QT_LIBRARY_DIR}/libQtCore.so.${QT_VERSION}
+            ${QT_LIBRARY_DIR}/libQtGui.so.${QT_VERSION}
         )
         SET( SQUISH_LIBS 
             ${QT_LIBRARY_DIR}/libQt3Support.so.4
             ${QT_LIBRARY_DIR}/libQtNetwork.so.4
             ${QT_LIBRARY_DIR}/libQtSql.so.4
             ${QT_LIBRARY_DIR}/libQtXml.so.4
+            ${QT_LIBRARY_DIR}/libQt3Support.so.${QT_VERSION}
+            ${QT_LIBRARY_DIR}/libQtNetwork.so.${QT_VERSION}
+            ${QT_LIBRARY_DIR}/libQtSql.so.${QT_VERSION}
+            ${QT_LIBRARY_DIR}/libQtXml.so.${QT_VERSION}
         )
         INSTALL(FILES ${SHARED_LIBS} DESTINATION bin)
         INSTALL(FILES ${SQUISH_LIBS} DESTINATION bin)
-        #install(FILES  ${QT_LIBRARY_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_filesystem.so DESTINATION bin)
-        #install(FILES  ${QT_LIBRARY_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_system.so DESTINATION bin)
-        #install(FILES  ${QT_LIBRARY_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_filesystem.so.1.46.1 DESTINATION bin)
-        #install(FILES  ${QT_LIBRARY_DIR}/externals/boost_1_46_1/lib/linux/${BOOST_LIB_DIR_SUFFIX}/libboost_system.so.1.46.1 DESTINATION bin)
     endif(WIN32)
 endif ()
 
