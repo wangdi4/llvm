@@ -11,7 +11,7 @@
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "FakeInsert.h"
+#include "FakeExtractInsert.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
@@ -1106,24 +1106,12 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
   {
     // Creating fake extract call that mimics extract element instruction.
     // The packetizrt will match each of these to the appropriate vector returns.
-    Constant* constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-    ResultingInsts.push_back(createFakeExtractElt(clone, constIndex, nextInst));
+    ConstantInt* constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
+    ResultingInsts.push_back(FakeExtract::create(clone, constIndex, nextInst));
   }
 
   // Erase "original" instruction
   m_removedInsts.insert(callerInst);
-}
-
-Value *ScalarizeFunction::createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc) {
-  VectorType *vTy = dyn_cast<VectorType>(vec->getType());
-  V_ASSERT(vTy && "vec must be a vector");
-  SmallVector<Value *, 2> args;
-  args.push_back(vec);
-  args.push_back(indConst);
-  SmallVector<Attributes, 4> attrs;
-  attrs.push_back(Attribute::ReadNone);
-  attrs.push_back(Attribute::NoUnwind);
-  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), Mangler::getFakeExtractName(), vTy->getElementType(), args, attrs, loc);
 }
 
 void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsConstant,

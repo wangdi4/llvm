@@ -408,17 +408,6 @@ private:
   /// @param CI - scalar call which has fake extract usages.
   /// @returnedVals - returned values.
   void mapFakeExtractUsagesTo (CallInst* CI, SmallVectorImpl<Instruction *>& returnedVals);
-
-  /// @brief maps any fake extracts to newly created extractlelement instructions.
-  /// @param CI - scalar call.
-  void mapAnyFakeUsages(CallInst* CI);
-
-  /// Maps a scalar intruction to an other sclar value which is broadcasted as a multi-scalar.
-  void createVCMEntryWithSingleScalarValue(Instruction * origInst,
-  Instruction * ScalarValue);
-
-  /// Obtains the index operand of a fake exrtract call
-  static ConstantInt *getFakeExtractIndex(const CallInst* FE);
   
   /// @brief Checks whether packetized loads from the address are scatter-gather
   /// @param Address Address to check.

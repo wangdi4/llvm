@@ -9,7 +9,7 @@
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
 #include "OCLPassSupport.h"
-#include "FakeInsert.h"
+#include "FakeExtractInsert.h"
 
 #include <vector>
 
@@ -204,7 +204,10 @@ void FuncResolver::resolve(CallInst* caller) {
   }
   if (Mangler::isFakeInsert(calledName)) {
     return resolveFakeInsert(caller);
-}
+  }
+  if (Mangler::isFakeExtract(calledName)) {
+    return resolveFakeExtract(caller);
+  }
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -568,6 +571,13 @@ void FuncResolver::resolveFakeInsert(CallInst* caller) {
   InsertElementInst *IEI = InsertElementInst::Create(FI.getVectorArg(), FI.getNewEltArg(), FI.getIndexArg(), "insertelt", caller);
   caller->replaceAllUsesWith(IEI);
   VectorizerUtils::SetDebugLocBy(IEI, caller);
+  caller->eraseFromParent();
+}
+
+void FuncResolver::resolveFakeExtract(CallInst* caller) {
+  ExtractElementInst *EEI = ExtractElementInst::Create(caller->getOperand(0), caller->getOperand(1), "extractelt", caller);
+  caller->replaceAllUsesWith(EEI);
+  VectorizerUtils::SetDebugLocBy(EEI, caller);
   caller->eraseFromParent();
 }
 
