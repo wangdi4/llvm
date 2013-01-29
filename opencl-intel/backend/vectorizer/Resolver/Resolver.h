@@ -148,6 +148,12 @@ private:
   /// @return BitCast which is generated for the extension
   Instruction* extendMaskAsBIParameter(Function* maskLoadStoreBI, Value* Mask);
 
+  /// @brief convert memory pointer to address space which is used by masked load/store BI (in its FIRST argument)
+  /// @param maskLoadStoreBI function with memory pointer of concern.
+  /// @param Ptr             memory pointer to be converted
+  /// @return BitCast which is generated for the conversion
+  Instruction* adjustPtrAddressSpace(Function* maskLoadStoreBI, Value* Ptr);
+
   /// Instructions to protect using CF guard
   //(predicator - controlled instructions)
   std::map<Value*, std::vector<Instruction*> > m_toCF;
