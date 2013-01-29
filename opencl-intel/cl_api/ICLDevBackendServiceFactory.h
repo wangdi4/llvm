@@ -102,6 +102,7 @@ public:
 extern "C" 
 {
 #endif
+    using namespace Intel::OpenCL::DeviceBackend;
     /**
      * Initialize the backend for use
      *
@@ -114,12 +115,12 @@ extern "C"
      */
     //extern "C" cl_dev_err_code InitBackend(
     //	const ICLDevBackendOptions* pBackendOptions);
-    LLVM_BACKEND_API cl_dev_err_code InitDeviceBackend(const Intel::OpenCL::DeviceBackend::ICLDevBackendOptions* pBackendOptions);
+    LLVM_BACKEND_API cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions* pBackendOptions);
     /**
      * @returns the backend manager factory instance in success, NULL otherwise
      *  NOTICE: that the factory is singelton
      */
-    LLVM_BACKEND_API Intel::OpenCL::DeviceBackend::ICLDevBackendServiceFactory* GetDeviceBackendFactory();
+    LLVM_BACKEND_API ICLDevBackendServiceFactory* GetDeviceBackendFactory();
 
     /**
      * Terminates the backend. Frees internal structures
@@ -129,9 +130,9 @@ extern "C"
     /*
      * Function pointer types
      */
-    typedef cl_dev_err_code (*BACKEND_INIT_FUNCPTR)(const Intel::OpenCL::DeviceBackend::ICLDevBackendOptions* pBackendOptions);
+    typedef cl_dev_err_code (*BACKEND_INIT_FUNCPTR)(const ICLDevBackendOptions* pBackendOptions);
     typedef void (*BACKEND_TERMINATE_FUNCPTR)();
-    typedef Intel::OpenCL::DeviceBackend::ICLDevBackendServiceFactory*  (*BACKEND_GETFACTORY_FUNCPTR)();
+    typedef ICLDevBackendServiceFactory*  (*BACKEND_GETFACTORY_FUNCPTR)();
 
 #ifdef __cplusplus
 }

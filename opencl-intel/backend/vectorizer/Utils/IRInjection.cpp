@@ -34,6 +34,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Version.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 #include <sstream>

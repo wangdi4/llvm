@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __LOGGER__H__
 #define __LOGGER__H__
 
-# include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #ifdef WIN_DEBUG
 

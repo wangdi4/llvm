@@ -1492,7 +1492,6 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     Value *curScalarArg = CI->getArgOperand(argIndex);
     Type *curScalarArgType = curScalarArg->getType();
 
-    // Incase current argument is a vector and runtime says we always
     // In case current argument is a vector and runtime says we always
     // spread vector operands, then try to do it.
     if (m_rtServices->alwaysSpreadVectorParams() && curScalarArgType->isVectorTy()) {
@@ -1528,7 +1527,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   }
 
   // In case the scalar built-in returns a vector and the vector built-in
-  // returns void, than the return values are expected to be returned by
+  // returns void, then the return values are expected to be returned by
   // pointer arguments. here we create alloca in the entry block and add them
   // to the argument list. when handling return we will create load from these
   // pointers.
@@ -1736,7 +1735,7 @@ bool PacketizeFunction::spreadVectorParam(CallInst* CI, Value *scalarParam,
   /// Here we handle vector argument to a scalar built-in by adding the
   /// corresponding vectors of the it's elements to the argumnet list. the
   /// scalar elements are obtained by fake insert calls added by the scalarizer.
-  /// foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  /// foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expexted vector type");
   VectorType *vTy = cast<VectorType>(scalarParam->getType());
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
@@ -2361,11 +2360,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   // The number of arguments used for input depends on whether this is a load
   // or a gather. Loads only get one base pointer, gathers receive N pointers
   // one for each gathered value.
-  int numInputPointers;
-  if (isScatterGather)
-    numInputPointers = m_packetWidth;
-  else
-    numInputPointers = 1;
+  int numInputPointers = (isScatterGather) ? m_packetWidth : 1;
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numInputPointers; ++i) {
@@ -2376,7 +2371,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   Builder.SetInsertPoint(m_currFunc->getEntryBlock().begin());
   for (unsigned int i = 0; i < numDestVectors; ++i) {
     // Create the destination vectors that will contain the transposed matrix
-    AllocaInst*  alloca = Builder.CreateAlloca(destVecType);
+    AllocaInst* alloca = Builder.CreateAlloca(destVecType);
     // Set alignment of funtion arguments, size in bytes of the destination vector
     alloca->setAlignment((destVecType->getScalarSizeInBits() / 8) * numDestVectElems);
     funcArgs.push_back(alloca);
@@ -2435,7 +2430,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   Value *inAddr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(inAddr, storePtrVal, I);
 
-  // Obtain the vctorized version of the values need to be transposed and stored
+  // Obtain the vectorized version of the values need to be transposed and stored
   SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
   SmallVector<Value *, MAX_PACKET_WIDTH> vectorizedInputs;
   vectorizedInputs.assign(numOrigVectors, NULL);
@@ -2445,8 +2440,8 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
 
   // Creates:
   // bitcasr pStoreAddr
-  // call load_transpose(pStoreAddr, xIn, yIn,...)
-  // xIn, yIn, ... - source vectors of matrixto be transposed, vectorized values of the inserts
+  // call transpose_store(pStoreAddr, xIn, yIn,...)
+  // xIn, yIn, ... - source vectors of matrix to be transposed, vectorized values of the inserts
 
   IRBuilder<> Builder(I);
 
@@ -2456,11 +2451,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   // The number of arguments used for output depends on whether this is a store
   // or a scatter. Stores only get one base pointer, scatters receive N pointers
   // one for each scattered value.
-  int numOutputPointers;
-  if (isScatterGather)
-    numOutputPointers = m_packetWidth;
-  else
-    numOutputPointers = 1;
+  int numOutputPointers = (isScatterGather) ? m_packetWidth : 1;
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numOutputPointers; ++i) {
@@ -2468,15 +2459,18 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
     funcArgs.push_back(pStoreAddr);
   }
 
-  for (unsigned int i = 0; i < numOrigVectors; ++i) {
-    funcArgs.push_back(vectorizedInputs[i]);
-  }
-
   // Create function call with prepared arguments
   Function* transposeFunc = getTransposeFunc(false, origVecType, isScatterGather, isMasked);
+  FunctionType* pFuncType = transposeFunc->getFunctionType();
 
-  if (isMasked)
-  {
+  for (unsigned int i = 0; i < numOrigVectors; ++i) {
+    Value* pInputArg = VectorizerUtils::getCastedArgIfNeeded(
+      vectorizedInputs[i], pFuncType->getParamType(numOutputPointers + i), I);
+    V_ASSERT(pInputArg && "Mismatch between input argument & transpose param");
+    funcArgs.push_back(pInputArg);
+  }
+
+  if (isMasked) {
     // Get a vectorized mask to pass to the transpose function
     Value* VectorMask;
     obtainVectorizedValue(&VectorMask, Mask, I);

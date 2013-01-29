@@ -74,8 +74,8 @@ public:
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 
-  ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
-  virtual bool alwaysSpreadVectorParams() const {return false;};
+  ///        foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
+  virtual bool alwaysSpreadVectorParams() const {return false;}
 
 private:
   DXRuntime(); // Do not implement
