@@ -30,9 +30,11 @@ target_link_libraries(
 )
 
 if (NOT WIN32)
+  if(NOT ANDROID)
     target_link_libraries(${TARGET_NAME}
         pthread
     )
+  endif()
 endif(NOT WIN32)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

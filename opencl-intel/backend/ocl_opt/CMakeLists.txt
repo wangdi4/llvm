@@ -43,5 +43,14 @@ if( NOT WIN32)
     )
 endif ()
 
+if( CMAKE_CROSSCOMPILING )
+    add_custom_target( oclopt_native ALL
+      COMMAND make oclopt
+      DEPENDS ConfigureNativeTargets
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/native
+      COMMENT "Cross-Compile: Building Native ocl_opt tool"
+    )
+endif( CMAKE_CROSSCOMPILING )
+
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 

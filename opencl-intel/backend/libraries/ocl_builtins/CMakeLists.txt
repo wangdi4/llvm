@@ -28,21 +28,21 @@ option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
 # target name prefix to be used for generated binaries 
 set (TARGET_NAME_PREFIX clbltfn)
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+if (BUILD_X64)
   # 32 bit
-  set (PLATFORM 32)
+  set (PLATFORM 64)
 else ()
   # 64 bit
-  set (PLATFORM 64)
+  set (PLATFORM 32)
 endif ()
 
 if (WIN32)
   set (PLATFORM Win${PLATFORM})
-elseif (ANDROID)
+elseif(ANDROID)
   set (PLATFORM Android${PLATFORM})
-else (LINUX)
+else ()
   set (PLATFORM Linux${PLATFORM})
-endif (WIN32)
+endif()
 message (STATUS "OCL Builtins build: ${PLATFORM}")
 
 add_subdirectory (utils/TableGen)
@@ -89,30 +89,40 @@ set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
 message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
 
-if( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
-  set(LLVM_NATIVE_BINARY_DIR "${LLVM_BINARY_DIR}")
-else( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
-  set(LLVM_NATIVE_BINARY_DIR )
-endif( CMAKE_CROSSCOMPILIGN OR LLVM_USE_NATIVE OR ANDROID )
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+else()
+  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
+endif()
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG) 
-  set (CLANG "${LLVM_BINARY_DIR}/clang")
+  set (CLANG "${TOOL_BINARY_DIR}/clang")
 else()
   set (CLANG OCL_HOST_CLANG)
 endif()
-if (NOT DEFINED OCL_HOST_OPT) 
-  set (LLVM_OPT "${LLVM_BINARY_DIR}/opt")
+if (NOT DEFINED OCL_HOST_OPT)
+  if(CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID) 
+    set (OPT ${CMAKE_BINARY_DIR}/native/bin/oclopt)
+    set (OPT_DEP oclopt_native)
+    set (OCL-TBLGEN ${CMAKE_BINARY_DIR}/native/bin/ocl-tblgen)
+    set (OCL-TBLGEN-DEP ocl-tblgen-native)
+  else()
+    set (OPT oclopt)
+    set (OPT_DEP oclopt)
+    set (OCL-TBLGEN ocl-tblgen)
+    set (OCL-TBLGEN-DEP ocl-tblgen)
+  endif()
 else ()
   set (LLVM_OPT OCL_HOST_OPT)
 endif()
 if (NOT DEFINED OCL_HOST_LLVM_LINK) 
-  set (LLVM_LINK "${LLVM_BINARY_DIR}/llvm-link")
+  set (LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")
 else()
   set (LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
 if (NOT DEFINED OCL_HOST_LLC) 
-  set (LLC "${LLVM_BINARY_DIR}/llc")
+  set (LLC "${TOOL_BINARY_DIR}/llc")
 else()
   set (LLC OCL_HOST_LLC)
 endif()
@@ -192,13 +202,13 @@ function( compile_ocl OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
-    COMMAND oclopt  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
+    COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES}
+    DEPENDS ${HEADER_FILES} ${OPT_DEP}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
-    COMMENT "OCL Optimize  ${OUTPUT_FILE}: oclopt  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
+    COMMENT "OCL Optimize  ${OUTPUT_FILE}: ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
     VERBATIM
     )
 
@@ -248,8 +258,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       )
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND oclopt ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      DEPENDS oclopt ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
       VERBATIM
       )
   else()
@@ -342,8 +352,8 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND ocl-tblgen ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ocl-tblgen ${depend_tds}
+        COMMAND ${OCL-TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
+        DEPENDS ${OCL-TBLGEN-DEP} ${depend_tds}
         COMMENT "Generating ${OFN}..."
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)

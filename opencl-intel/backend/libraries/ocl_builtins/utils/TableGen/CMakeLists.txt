@@ -39,5 +39,17 @@ target_link_libraries(ocl-tblgen
 )
 
 if (NOT WIN32)
+  if( NOT ANDROID)
   target_link_libraries(ocl-tblgen pthread)
+  endif()
 endif (NOT WIN32)
+
+if( CMAKE_CROSSCOMPILING )
+  add_custom_target( ocl-tblgen-native ALL
+    COMMAND make ocl-tblgen
+    DEPENDS ConfigureNativeTargets
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/native
+    COMMENT "LLVM Cross-Compile: Building Native ocl-tblgen tool"
+  )
+endif( CMAKE_CROSSCOMPILING )
+

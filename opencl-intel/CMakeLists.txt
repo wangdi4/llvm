@@ -1,7 +1,6 @@
 #
 # Global setup file for OpenCL CMake
 #
-
 cmake_minimum_required(VERSION 2.8.4)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
@@ -16,14 +15,37 @@ set(CMAKE_MODULE_PATH
 include( cmake_utils/CMakeFuncs.txt )
 if (WIN32)
     include( cmake_utils/CMake_windows_tools.cmake )
-elseif( ANDROID )
-    include( cmake_utils/CMake_android_tools.cmake )
-elseif (APPLE)
+elseif(APPLE)
     #include( cmake_utils/CMake_apple_tools.cmake )
-else ()
+elseif( ANDROID)
+    include( CMake_android_tools )
+else()
     include( cmake_utils/CMake_linux_tools.cmake )
 endif ()
 
+if(CMAKE_CROSSCOMPILING)
+  set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
+
+  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
+    COMMENT "Creating ${CX_NATIVE_TG_DIR}...")
+
+  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+    COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
+                             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                              // We are cross compiling when building for android, hence we are
+                              // dropping off all non required build components, such tests/verification                            
+                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
+                             -DLLVM_PATH=${LLVM_PATH}/native
+                             -DBUILD_X64=True
+                             ${CMAKE_SOURCE_DIR} 
+    WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+    DEPENDS ${CX_NATIVE_TG_DIR}
+    COMMENT "Configuring native targets...")
+
+  add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
+  set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
+endif()
 
 if (INCLUDE_TOOLS)
     FIND_PACKAGE(Boost 1.52.0 REQUIRED)
@@ -141,7 +163,10 @@ if (SVN_REVISIONS)
 endif (SVN_REVISIONS)
 
 # vars
+
+if(CONFORMANCE_LIST)
 string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
+endif()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
@@ -255,10 +280,9 @@ else(APPLE)
         add_subdirectory ( common_runtime )
     endif(WIN32 AND INCLUDE_CMRT)
     #tools
-	if( INCLUDE_TOOLS )
-    add_subdirectory ( tools )
-	endif( INCLUDE_TOOLS )
-
+    if( INCLUDE_TOOLS )
+        add_subdirectory ( tools )
+    endif( INCLUDE_TOOLS )
 
     #validation
     add_subdirectory( tests )
@@ -628,4 +652,3 @@ else (WIN32)
 	install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
 endif (WIN32)
-
