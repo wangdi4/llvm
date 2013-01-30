@@ -69,6 +69,10 @@ static cl::opt<bool>
 GenOCLBuiltinWerror("gen-ocl-werror", cl::Hidden,
                    cl::desc("Make all warnings into errors."), cl::init(false));
 
+static cl::opt<std::string, false, cl::parser<std::string> >
+  GenOCLBuiltinPrefix("gen-ocl-Prefix", cl::NotHidden,
+  cl::desc("Add prefix for pre-defined subset of built-ins"), cl::init(""));
+
 
 #define GENOCL_WARNING(X)                                                         \
   do { errs() << (GenOCLBuiltinWerror ? "ERROR: " : "WARNING: ") << X;            \
@@ -301,6 +305,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 , m_CFunc(R->getValueAsString("Name"))
 , m_IsDeclOnly(R->getValueAsBit("IsDeclOnly"))
 , m_NeedForwardDecl(R->getValueAsBit("NeedForwardDecl"))
+, m_NeedPrefix(R->getValueAsBit("Prefix"))
 , m_HasConst(0)
 , m_HasVolatile(0)
 {
@@ -636,6 +641,10 @@ OclBuiltin::getCProto(const std::string& TyName, bool isDecl) const
 
     // Name
     prototype += " ";
+
+    if(needPrefix()){
+      prototype += GenOCLBuiltinPrefix.getValue();
+    }
     prototype += getCFunc(TyName);
 
     // Arguments

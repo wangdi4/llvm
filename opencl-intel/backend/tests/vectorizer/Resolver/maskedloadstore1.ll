@@ -3,8 +3,14 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @testldst
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: @masked_load_int4
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: @masked_store_int4
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: @masked_store_int4
 ; CHECK: ret
 

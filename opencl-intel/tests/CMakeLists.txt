@@ -1,8 +1,10 @@
-if( ANDROID )
-  set( CLANG "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/clang" )
-else( ANDROID )
-  set( CLANG "clang" )
-endif( ANDROID )
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+else()
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
+endif()
+
+set( CLANG "${TOOLS_BINARY_DIR}/clang" )
 
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )

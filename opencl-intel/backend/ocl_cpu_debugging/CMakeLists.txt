@@ -109,10 +109,6 @@ endif (NOT WIN32)
 #
 # Settings for Windows compilation
 #
-if (WIN32)
-    # Linker flags
-    set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
-endif (WIN32)
 
 
 # Create target project
@@ -186,7 +182,9 @@ target_link_libraries (${TARGET_NAME}
 ) 
 
 if (NOT WIN32)
+    if(NOT ANDROID)
     target_link_libraries( ${TARGET_NAME} pthread )
+    endif()
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
 endif (NOT WIN32)
 

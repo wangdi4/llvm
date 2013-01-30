@@ -24,6 +24,7 @@ else(APPLE)
   add_subdirectory(OpenCLAliasAnalysisSupport)
   add_subdirectory(DebugInfoPass)
   add_subdirectory(Prefetch)
+  add_subdirectory(BackendPassesWrappers)
   add_subdirectory(PrintIRPass)
 endif(APPLE)
 

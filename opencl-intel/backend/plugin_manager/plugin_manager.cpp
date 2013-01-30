@@ -25,6 +25,10 @@ File Name:  plugin_manager.cpp
 #include "plugin_manager.h"
 #include "plugin_interface.h"
 
+#ifdef WIN32
+#include <Windows.h>
+#endif
+
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 namespace Intel { namespace OpenCL {
@@ -61,7 +65,16 @@ PluginManager::~PluginManager()
 void PluginManager::LoadPlugins()
 {
     typedef llvm::SmallVector<llvm::StringRef, 10> DllNamesVector;
+#ifdef WIN32
+    char buffer[MAX_PATH];
+    const char *dlls = buffer;
+    int len = GetEnvironmentVariable("OCLBACKEND_PLUGINS", buffer, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) {
+        dlls = NULL;
+    }
+#else
     const char *dlls = getenv("OCLBACKEND_PLUGINS");
+#endif
     if (NULL == dlls || (std::string)dlls == "")
         return;
     DllNamesVector namesVector;

@@ -81,7 +81,7 @@ set (MIC_OPTIONS
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
-  COMMAND ${LLVM_BINARY_DIR}/clang ${MIC_OPTIONS}
+  COMMAND ${CLANG} ${MIC_OPTIONS}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h  
   COMMENT "Generate optimized ${MIC_OUTPUT_FILE}"
@@ -92,7 +92,7 @@ endif ( INCLUDE_MIC_DEVICE )
 
 add_custom_command( TARGET ${TARGET}
 					POST_BUILD
-                    COMMAND ${LLVM_BINARY_DIR}/clang -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h

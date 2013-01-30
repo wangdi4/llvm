@@ -3,8 +3,6 @@
 # note - the search is done only when the CMake cache is built
 find_program( IWHICH_FOUND iwhich NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH )
 
-option(OCL_BUILD32 "Are we building for 32bit? Default is no, i.e. 64 bit (or native)." OFF)
-
 set(OS Mac )
 set(IMPLIB_SUBDIR bin )
 set(IMPLIB_PREFIX lib )
@@ -29,7 +27,6 @@ if (BUILD_X64)
     set(ASM_BIT  -arch x86_64 )
 else()
     set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}32" )
-    add_definitions(-D OCL_BUILD32)
 	# need to force a more modern architecture than the degault m32 (i386).
 	set(ARCH_BIT "-m32 -march=core2" )
 	set(ASM_BIT  -arch i386 )

@@ -37,13 +37,13 @@ execute_process(COMMAND find ${INTEL_COMPILER_ROOT} -regex ".*/[0-9]*/include" -
     OUTPUT_VARIABLE INTEL_INCLUDE_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
 include_directories(SYSTEM "${INTEL_INCLUDE_PATH}")
 
-if (OCL_BUILD32)
-    execute_process(COMMAND find ${INTEL_COMPILER_ROOT} -wholename "*/bin/ia32" -type d
-        OUTPUT_VARIABLE INTEL_BIN_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-else()
+if (BUILD_X64)
     execute_process(COMMAND find ${INTEL_COMPILER_ROOT} -wholename "*/bin/intel64" -type d
         OUTPUT_VARIABLE INTEL_BIN_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif (OCL_BUILD32)
+else()
+    execute_process(COMMAND find ${INTEL_COMPILER_ROOT} -wholename "*/bin/ia32" -type d
+        OUTPUT_VARIABLE INTEL_BIN_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
 
 if (NOT IS_DIRECTORY ${INTEL_BIN_PATH})
     message(FATAL_ERROR "Can't find Intel compiler at ${INTEL_COMPILER_ROOT}")

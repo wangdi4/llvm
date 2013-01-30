@@ -355,6 +355,9 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
        Name.startswith("_Z3max") || Name.startswith("max"))
       return CALL_MINMAX_WEIGHT;
 
+    if (Name.startswith("fake.insert") || Name.startswith("fake.extract"))
+      return CALL_FAKE_INSERT_EXTRACT_WEIGHT;
+
 
     // allZero and allOne calls are cheap, it's basically a xor/ptest
     if ((Name.startswith(Mangler::name_allZero)) ||

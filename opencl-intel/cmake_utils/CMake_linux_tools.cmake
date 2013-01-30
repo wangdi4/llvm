@@ -3,7 +3,6 @@
 # note - the search is done only when the CMake cache is built
 find_program( IWHICH_FOUND iwhich NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH )
 
-option(OCL_BUILD32 "Are we building for 32bit? Default is no, i.e. 64 bit (or native)." OFF)
 
 set(OS Lin )
 set(IMPLIB_SUBDIR bin )
@@ -45,9 +44,12 @@ else()
 endif(OCL_MEEGO)
 
 
-if (OCL_BUILD32)
+if(BUILD_X64)
+    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}64" )
+    set(ARCH_BIT -m64 )
+    set(ASM_BIT  --64 )
+else()
     set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}32" )
-    add_definitions(-D OCL_BUILD32)
     if (TARGET_CPU STREQUAL "Atom")
         # architecture will be according to ATOM
         set(ARCH_BIT -m32 )
@@ -57,11 +59,7 @@ if (OCL_BUILD32)
         set(ARCH_BIT "-m32 -march=core2" )
         set(ASM_BIT  --32 -march=core2 )
     endif (TARGET_CPU STREQUAL "Atom")
-else()
-    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}64" )
-    set(ARCH_BIT -m64 )
-    set(ASM_BIT  --64 )
-endif (OCL_BUILD32)
+endif()
 
 # set CMAKE SVN client to be first SVN client in the PATH
 execute_process(COMMAND which svn OUTPUT_VARIABLE Subversion_SVN_EXECUTABLE OUTPUT_STRIP_TRAILING_WHITESPACE )

@@ -78,7 +78,7 @@ set(TARGET_INCLUDE_FILES
   Resolver/SpecialCaseBuiltinResolver.h
   Scalarizer/Scalarize.h
   SoaAllocaAnalysis/SoaAllocaAnalysis.h
-  Utils/FakeInsert.h
+  Utils/FakeExtractInsert.h
   Utils/Logger.h
   Utils/LoopUtils.h
   Utils/Mangler.h

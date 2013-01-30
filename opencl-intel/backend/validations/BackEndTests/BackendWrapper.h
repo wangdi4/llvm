@@ -160,7 +160,7 @@ class BackEndTests_Plugins : public BackendWrapper
 public:
     /// @brief creating the event for testing the plugin flag (see SamplePlugin)
     ///        in our case the event is CreateProgram
-    void CreateEvent();
+    void CreateTestEvent();
 
 protected:
     virtual void SetUp();

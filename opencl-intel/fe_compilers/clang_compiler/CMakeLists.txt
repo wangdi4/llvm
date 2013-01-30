@@ -112,16 +112,18 @@ set( COMPILER_OPTIONS -cc1
                       )
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
+
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+   set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+else()
+   set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
+endif()
     
-if( CMAKE_CROSSCOMPILING )
-  set( CLANG "${CMAKE_BINARY_DIR}/native/backend/llvm/bin/clang" )
-else( CMAKE_CROSSCOMPILING )
-  set( CLANG "clang" )
-endif( CMAKE_CROSSCOMPILING )
+set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET clang_compiler${BUILD_PLATFORM}
                     PRE_BUILD
-                    COMMAND ${LLVM_BINARY_DIR}/clang ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
                    )

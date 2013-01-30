@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
-#include "FakeInsert.h"
+#include "FakeExtractInsert.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
@@ -211,7 +211,10 @@ void FuncResolver::resolve(CallInst* caller) {
   }
   if (Mangler::isFakeInsert(calledName)) {
     return resolveFakeInsert(caller);
-}
+  }
+  if (Mangler::isFakeExtract(calledName)) {
+    return resolveFakeExtract(caller);
+  }
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -373,7 +376,11 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     Instruction* extMask = extendMaskAsBIParameter(loadFuncRT, Mask); 
     VectorizerUtils::SetDebugLocBy(extMask, caller);
     extMask->insertBefore(caller);
-    args.push_back(Ptr); 
+    // then, convert data pointer to target address space
+    Instruction* memPtr = adjustPtrAddressSpace(loadFuncRT, Ptr);
+    VectorizerUtils::SetDebugLocBy(memPtr, caller);
+    memPtr->insertBefore(caller);
+    args.push_back(memPtr); 
     args.push_back(extMask);
     CallInst* newCall = VectorizerUtils::createFunctionCall(
             caller->getParent()->getParent()->getParent(), funcName, 
@@ -487,7 +494,11 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     Instruction* extMask = extendMaskAsBIParameter(storeFuncRT, Mask); 
     VectorizerUtils::SetDebugLocBy(extMask, caller);
     extMask->insertBefore(caller);
-    args.push_back(Ptr);
+    // then, convert data pointer to target address space
+    Instruction* memPtr = adjustPtrAddressSpace(storeFuncRT, Ptr);
+    VectorizerUtils::SetDebugLocBy(memPtr, caller);
+    memPtr->insertBefore(caller);
+    args.push_back(memPtr);
     args.push_back(Data);
     args.push_back(extMask);
     (void) VectorizerUtils::createFunctionCall(
@@ -552,11 +563,28 @@ Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Va
   return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
 }
 
+Instruction* FuncResolver::adjustPtrAddressSpace(Function* maskLoadStoreBI, Value* Ptr) {
+  // Retrieve memory pointer argument type (assumed to be the FIRST parameter in masked load/store BI)
+  FunctionType* funcType = maskLoadStoreBI->getFunctionType();
+  PointerType* memPtrType = dyn_cast<PointerType>(funcType->getParamType(0));
+  V_ASSERT(memPtrType && dyn_cast<VectorType>(memPtrType->getElementType()) && "First parameter should be a pointer of vector type");
+  // Convert the pointer to argument type
+  return CastInst::CreatePointerCast(Ptr, memPtrType, "PtrCast");
+}
+
+
 void FuncResolver::resolveFakeInsert(CallInst* caller) {
   FakeInsert FI(*caller);
   InsertElementInst *IEI = InsertElementInst::Create(FI.getVectorArg(), FI.getNewEltArg(), FI.getIndexArg(), "insertelt", caller);
   caller->replaceAllUsesWith(IEI);
   VectorizerUtils::SetDebugLocBy(IEI, caller);
+  caller->eraseFromParent();
+}
+
+void FuncResolver::resolveFakeExtract(CallInst* caller) {
+  ExtractElementInst *EEI = ExtractElementInst::Create(caller->getOperand(0), caller->getOperand(1), "extractelt", caller);
+  caller->replaceAllUsesWith(EEI);
+  VectorizerUtils::SetDebugLocBy(EEI, caller);
   caller->eraseFromParent();
 }
 

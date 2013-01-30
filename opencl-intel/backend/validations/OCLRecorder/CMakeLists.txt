@@ -118,7 +118,3 @@ install(TARGETS OCLRecorderStat
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-if(WIN32)
-# Define the additional link flags
-set(CMAKE_SHARED_LINKER_FLAGS  /NODEFAULTLIB:LIBCMTD)
-endif(WIN32)

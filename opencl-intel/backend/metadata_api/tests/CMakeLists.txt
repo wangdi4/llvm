@@ -26,7 +26,9 @@ target_link_libraries(
 )
 
 if (NOT WIN32)
+  if (NOT ANDROID)
   target_link_libraries(${TARGET_NAME} pthread)
+  endif()
 endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )

@@ -3,9 +3,14 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @testldst
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: @masked_load_double8
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: @masked_store_double8
-; CHECK: @masked_store_double8
+; CHECK: sext
+; CHECK: bitcast
 ; CHECK: ret
 
 declare i32 @get_global_id(i32) nounwind

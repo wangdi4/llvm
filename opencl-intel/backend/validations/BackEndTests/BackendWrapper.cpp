@@ -210,7 +210,7 @@ void BackEndTests_Plugins::SetUp()
  *        in our case the event is CreateProgram
  *        this method is called in the plugins test body
  */
-void BackEndTests_Plugins::CreateEvent()
+void BackEndTests_Plugins::CreateTestEvent()
 {
     ASSERT_TRUE(s_instance);
     // get Backend service factory

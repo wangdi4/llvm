@@ -248,14 +248,6 @@ private:
   /// @return True if found function to scalarize (and filled rootVals)
   bool scanFunctionCall(CallInst *CI, funcRootsVect &rootVals);
 
-  /// @brief creates fake call that mimics extract element that is used 
-  ///        when a vectorizable built-in return a vector.
-  /// @param vec - the returned vector value.
-  /// @param indConst - the constant index to mimic extract for.
-  /// @param loc - location of the new call.
-  /// @returns fake extract call.
-  Value *createFakeExtractElt(Value *vec, Constant *indConst, Instruction *loc);
-
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
 

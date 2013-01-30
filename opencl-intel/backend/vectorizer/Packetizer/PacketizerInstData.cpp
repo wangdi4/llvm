@@ -228,14 +228,6 @@ void PacketizeFunction::createVCMEntryWithVectorValue(Instruction *origInst,
   m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
 }
 
-
-void PacketizeFunction::createVCMEntryWithSingleScalarValue(Instruction * origInst,
-    Instruction * ScalarValue) {
-  //Broadcast the scalar value and handle like multi-scalar
-  SmallVector<Instruction*, MAX_PACKET_WIDTH> Broadcast(m_packetWidth, ScalarValue);
-  createVCMEntryWithMultiScalarValues(origInst, &Broadcast[0]);
-}
-
 void PacketizeFunction::createVCMEntryWithMultiScalarValues(Instruction * origInst,
                                                             Instruction * multiScalarValues[])
 {

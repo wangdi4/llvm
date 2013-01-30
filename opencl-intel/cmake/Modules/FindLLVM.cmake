@@ -12,7 +12,11 @@ if (APPLE)
   set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
 else (APPLE)
 
-find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
+if(CMAKE_CROSSCOMPILING)
+    find_host_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
+else()
+    find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
+endif()
 
 if (LLVM_CONFIG_EXECUTABLE)
     message(STATUS "Using llvm-config found at: ${LLVM_CONFIG_EXECUTABLE}")
@@ -76,7 +80,6 @@ else (LLVM_CONFIG_EXECUTABLE)
             LLVMObject
             LLVMMCDisassembler
             LLVMLinker
-            LLVMInterpreterPluggable
             LLVMInterpreter
             LLVMIntelJITEvents
             LLVMInstrumentation
@@ -150,7 +153,6 @@ endif( INCLUDE_MIC_DEVICE)
             LLVMObject
             LLVMMCDisassembler
             LLVMLinker
-            LLVMInterpreterPluggable
             LLVMInterpreter
             LLVMIntelJITEvents
             LLVMInstrumentation

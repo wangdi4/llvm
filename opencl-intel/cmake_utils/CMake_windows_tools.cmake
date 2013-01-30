@@ -29,8 +29,8 @@ set( CMAKE_ASM_INCLUDE_DIR_FLAG    /I )
 
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
-set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MDd")  #/MTd /Gm
-set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MD")# /Ob0") #/GL") #MT
+set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MTd")  #/MTd /Gm
+set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MT")# /Ob0") #/GL") #MT
 
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( -DWIN32 )
@@ -42,8 +42,8 @@ else (BUILD_X64)
     set (INIT_LINKER_FLAGS        "/MACHINE:X86 /OPT:REF /INCREMENTAL:NO /NXCOMPAT /SAFESEH")
 endif (BUILD_X64)
 
-set (ADD_LINKER_FLAGS_DEBUG "/DEBUG")
-set (ADD_LINKER_FLAGS_RELEASE "/OPT:REF /OPT:ICF ") #/LTCG")
+set (ADD_LINKER_FLAGS_DEBUG "/DEBUG /NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCPMT")
+set (ADD_LINKER_FLAGS_RELEASE "/OPT:REF /OPT:ICF /NODEFAULTLIB:LIBCMTD /NODEFAULTLIB:LIBCPMTD") #/LTCG")
 
 
 # setup

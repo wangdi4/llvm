@@ -188,6 +188,7 @@ namespace intel {
     static const int CALL_CLAMP_WEIGHT = 2;
     static const int CALL_MINMAX_WEIGHT = 1;
     static const int CALL_FLOOR_WEIGHT = 2;
+    static const int CALL_FAKE_INSERT_EXTRACT_WEIGHT = 2;
 public:
     // Ratio multiplier
     static const float RATIO_MULTIPLIER;

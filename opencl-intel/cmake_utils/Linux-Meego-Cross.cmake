@@ -4,11 +4,11 @@ if(__LINUX_MEEGO_CROSS)
 endif()
 set(__LINUX_MEEGO_CROSS 1)
 
-if (OCL_BUILD32)
-    set(SYSROOT_NAME "linux-i686")
-else ()
+if (BUILD_X64)
     set(SYSROOT_NAME "linux-x86_64")
-endif (OCL_BUILD32)
+else()
+    set(SYSROOT_NAME "linux-i686")
+endif()
 
 # Not setting to Meego, since it causes problems with many libraries
 set(CMAKE_SYSTEM_NAME Linux)

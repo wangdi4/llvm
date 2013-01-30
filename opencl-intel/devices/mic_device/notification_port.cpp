@@ -273,9 +273,12 @@ NotificationPort::ERROR_CODE NotificationPort::release()
 
 	// wait for the termination of worker thread (If the calling thread is the worker thread)
 	size_t currPoc = m_poc;
-	while ((m_workerState != FINISHED) && (currPoc == m_poc) && (0 == pthread_equal(m_workerThread, pthread_self())))
+	while ((m_workerState != FINISHED) && (currPoc == m_poc) && (0 == pthread_equal(m_workerThread, pthread_self())) && (ESRCH != pthread_kill(m_workerThread, 0)))
 	{
-	    pthread_cond_wait(&m_clientCond, &m_mutex);
+		timespec waitTime;
+		clock_gettime(CLOCK_REALTIME, &waitTime);
+		waitTime.tv_sec += 1;
+	    pthread_cond_timedwait(&m_clientCond, &m_mutex, &waitTime);
 	}
 
 	pthread_mutex_unlock(&m_mutex);
