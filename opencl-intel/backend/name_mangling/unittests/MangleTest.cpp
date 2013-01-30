@@ -517,7 +517,7 @@ TEST(MangleAPI, visitorExample){
 TEST(Type, TypeCast){
   Type primitiveInt(primitives::INT);
   Vector vectorInt(&primitiveInt, 4);
-  ASSERT_EQ( NULL, dyn_cast<Vector>(&primitiveInt));
+  ASSERT_TRUE(NULL == dyn_cast<Vector>(&primitiveInt));
   ASSERT_EQ( &vectorInt, dyn_cast<Vector>(&vectorInt));
 }
 
