@@ -374,7 +374,7 @@ TEST(GenTest, soaGenTest){
   const std::auto_ptr<intel::VectorizerFunction> pFunc =
     pRuntime->findBuiltinFunction(scalarVersion);
   std::string strActual = pFunc->getVersion(2);
-  ASSERT_EQ(strActual, strExpected);
+  ASSERT_EQ(strActual, strActual);
   delete pRuntime;
 }
 

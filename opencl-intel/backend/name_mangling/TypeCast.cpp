@@ -3,12 +3,12 @@
 namespace reflection{
 
 template <>
-Type* cast(Type* pType){
+Type* dyn_cast(Type* pType){
   return pType;
 }
 
 template <>
-const Type* cast(const Type* pType){
+const Type* dyn_cast(const Type* pType){
   return pType;
 }
 

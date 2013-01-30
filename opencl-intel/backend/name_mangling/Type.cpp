@@ -144,7 +144,7 @@ void Pointer::accept(TypeVisitor* v)const{
 }
 
 bool Pointer::eq(const Type* t)const{
-  const Pointer* p = reflection::cast<Pointer>((Type*)t);
+  const Pointer* p = reflection::dyn_cast<Pointer>((Type*)t);
   return p && (m_primitive == p->m_primitive);
 }
 
@@ -193,7 +193,7 @@ void Vector::accept(TypeVisitor* v)const{
 }
 
 bool Vector::eq(const Type* t)const{
-  const Vector* pVec = reflection::cast<Vector>((Type*)t);
+  const Vector* pVec = reflection::dyn_cast<Vector>((Type*)t);
   return pVec && (m_len == pVec->m_len) && (m_primitive == pVec->m_primitive);
 }
 
@@ -225,7 +225,7 @@ primitives::Primitive UserDefinedTy::getPrimitive()const{
 }
 
 bool UserDefinedTy::eq(const Type* t)const{
-  const UserDefinedTy* pTy = reflection::cast<UserDefinedTy>((Type*)t);
+  const UserDefinedTy* pTy = reflection::dyn_cast<UserDefinedTy>((Type*)t);
   return pTy && (m_name == pTy->m_name);
 }
 
