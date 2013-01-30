@@ -571,6 +571,8 @@ class OclBuiltinAttr<string attr> {
 def SVMLCC : OclBuiltinAttr<"__attribute__((svmlcc))">;
 def CONSTFUNC : OclBuiltinAttr<"__attribute__((const))">;
 def OVERLOADABLE : OclBuiltinAttr<"__attribute__((overloadable))">;
+def INLINE : OclBuiltinAttr<"__attribute__((always_inline))">;
+def INTERNAL_INLINE : OclBuiltinAttr<"inline __attribute__((always_inline))">;
 
 // OclBuiltin
 class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit prefix = 0> {

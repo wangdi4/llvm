@@ -135,7 +135,7 @@ OclBuiltinImpl promote_convert_f64_rtn     = OclBuiltinImpl< convert_f64_rtn ,  
 OclBuiltinImpl sse42_fp2int_i8_f32f64  = OclBuiltinImpl<convert_i8,
                                                conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
         convert_$Arg0i32gentype($Arg0VarName)));
 }]>;
 /*****************************************************************\
@@ -147,7 +147,7 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64  = OclBuiltinImpl<convert_i8,
 OclBuiltinImpl sse42_fp2int_i8_f32f64_rte  = OclBuiltinImpl<convert_i8_rte,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
         convert_$Arg0i32gentype_rte($Arg0VarName)));
 }]>;
 /*****************************************************************\
@@ -159,7 +159,7 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rte  = OclBuiltinImpl<convert_i8_rte,
 OclBuiltinImpl sse42_fp2int_i8_f32f64_rtz  = OclBuiltinImpl<convert_i8_rtz,
                                                    conversion_fp_types, 0, [{
      return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
         convert_$Arg0i32gentype_rtz($Arg0VarName)));
 }]>;
 /*****************************************************************\
@@ -170,7 +170,7 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtz  = OclBuiltinImpl<convert_i8_rtz,
 OclBuiltinImpl sse42_fp2int_i8_f32f64_rtp  = OclBuiltinImpl<convert_i8_rtp,
                                                  conversion_fp_types, 0, [{
      return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
         convert_$Arg0i32gentype_rtp($Arg0VarName)));
 }]>;
 
@@ -183,7 +183,7 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtp  = OclBuiltinImpl<convert_i8_rtp,
 OclBuiltinImpl sse42_fp2int_i8_f32f64_rtn  = OclBuiltinImpl<convert_i8_rtn,
                                                    conversion_fp_types, 0, [{
      return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
         convert_$Arg0i32gentype_rtn($Arg0VarName)));
 }]>;
   
@@ -197,7 +197,7 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtn  = OclBuiltinImpl<convert_i8_rtn,
 OclBuiltinImpl sse42_fp2int_u8_f32f64  = OclBuiltinImpl<convert_u8,
                                                 conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0u32gentype($Arg0VarName))));
 }]>;
@@ -210,7 +210,7 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64  = OclBuiltinImpl<convert_u8,
 OclBuiltinImpl sse42_fp2int_u8_f32f64_rte  = OclBuiltinImpl<convert_u8_rte,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0u32gentype_rte($Arg0VarName))));
 }]>;
@@ -223,7 +223,7 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rte  = OclBuiltinImpl<convert_u8_rte,
 OclBuiltinImpl sse42_fp2int_u8_f32f64_rtz  = OclBuiltinImpl<convert_u8_rtz,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0u32gentype_rtz($Arg0VarName))));
 }]>;
@@ -236,7 +236,7 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtz  = OclBuiltinImpl<convert_u8_rtz,
 OclBuiltinImpl sse42_fp2int_u8_f32f64_rtp  = OclBuiltinImpl<convert_u8_rtp,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0u32gentype_rtp($Arg0VarName))));
 }]>;
@@ -249,7 +249,7 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtp  = OclBuiltinImpl<convert_u8_rtp,
 OclBuiltinImpl sse42_fp2int_u8_f32f64_rtn  = OclBuiltinImpl<convert_u8_rtn,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0u32gentype_rtn($Arg0VarName))));
 }]>;
@@ -264,7 +264,7 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtn  = OclBuiltinImpl<convert_u8_rtn,
 OclBuiltinImpl sse42_fp2int_i16_f32f64 = OclBuiltinImpl<convert_i16,
                           conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
                 convert_$Arg0i32gentype($Arg0VarName)));
 }]>;
   
@@ -277,7 +277,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64 = OclBuiltinImpl<convert_i16,
 OclBuiltinImpl sse42_fp2int_i16_f32f64_rte = OclBuiltinImpl<convert_i16_rte,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rte($Arg0VarName)));
 }]>;
   
@@ -290,7 +290,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rte = OclBuiltinImpl<convert_i16_rte,
 OclBuiltinImpl sse42_fp2int_i16_f32f64_rtz = OclBuiltinImpl<convert_i16_rtz,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtz($Arg0VarName)));
 }]>;
   
@@ -303,7 +303,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtz = OclBuiltinImpl<convert_i16_rtz,
 OclBuiltinImpl sse42_fp2int_i16_f32f64_rtp = OclBuiltinImpl<convert_i16_rtp,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtp($Arg0VarName)));
 }]>;
   
@@ -316,7 +316,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtp = OclBuiltinImpl<convert_i16_rtp,
 OclBuiltinImpl sse42_fp2int_i16_f32f64_rtn = OclBuiltinImpl<convert_i16_rtn,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtn($Arg0VarName)));
 }]>;
 
@@ -330,7 +330,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtn = OclBuiltinImpl<convert_i16_rtn,
 OclBuiltinImpl sse42_fp2int_u16_f32f64 = OclBuiltinImpl<convert_u16,
                                                     conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0i32gentype($Arg0VarName))));
 }]>;
@@ -344,7 +344,7 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64 = OclBuiltinImpl<convert_u16,
 OclBuiltinImpl sse42_fp2int_u16_f32f64_rte = OclBuiltinImpl<convert_u16_rte,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0i32gentype_rte($Arg0VarName))));
 }]>;
@@ -358,7 +358,7 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rte = OclBuiltinImpl<convert_u16_rte,
 OclBuiltinImpl sse42_fp2int_u16_f32f64_rtz = OclBuiltinImpl<convert_u16_rtz,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0i32gentype_rtz($Arg0VarName))));
 }]>;
@@ -372,7 +372,7 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtz = OclBuiltinImpl<convert_u16_rtz,
 OclBuiltinImpl sse42_fp2int_u16_f32f64_rtp = OclBuiltinImpl<convert_u16_rtp,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0i32gentype_rtp($Arg0VarName))));
 }]>;
@@ -386,7 +386,7 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtp = OclBuiltinImpl<convert_u16_rtp,
 OclBuiltinImpl sse42_fp2int_u16_f32f64_rtn = OclBuiltinImpl<convert_u16_rtn,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
               convert_$Arg0i32gentype_rtn($Arg0VarName))));
 }]>;

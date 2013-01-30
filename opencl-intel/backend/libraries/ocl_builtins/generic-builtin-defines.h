@@ -79,11 +79,16 @@ const constant double d4const_minusZeroStorage[4] = {-0.0, -0.0, -0.0, -0.0};
 const constant double d4const_minusOneStorage[4]  = {-1.0, -1.0, -1.0, -1.0};
 const constant double d4const_nanStorage[4] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
 
+#ifndef INLINE_ATTRIBUTE
+#define INLINE_ATTRIBUTE __attribute__((always_inline))
+#endif
 
-#define FORCEINLINE __attribute__((__always_inline__, __nodebug__))
+#ifndef INTERNAL_INLINE_ATTRIBUTE 
+#define INTERNAL_INLINE_ATTRIBUTE inline INLINE_ATTRIBUTE
+#endif
 
 //Functions copied from the conformance tests
-FORCEINLINE void multiply_unsigned_64_by_64( ulong sourceA, ulong sourceB, ulong *destLow, ulong *destHi )
+void INTERNAL_INLINE_ATTRIBUTE multiply_unsigned_64_by_64( ulong sourceA, ulong sourceB, ulong *destLow, ulong *destHi )
 {
     ulong lowA, lowB;
     ulong highA, highB;
@@ -158,7 +163,7 @@ FORCEINLINE void multiply_unsigned_64_by_64( ulong sourceA, ulong sourceB, ulong
     (*destLow) = (aHibLo << 32) | ( aLobLo & 0xFFFFFFFFUL );
 }
 
-FORCEINLINE void multiply_signed_64_by_64( long sourceA, long sourceB, ulong * destLow, ulong * destHi )
+void INTERNAL_INLINE_ATTRIBUTE multiply_signed_64_by_64( long sourceA, long sourceB, ulong * destLow, ulong * destHi )
 {
     // Find sign of result
     long aSign = sourceA >> 63;

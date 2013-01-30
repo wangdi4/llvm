@@ -20,8 +20,8 @@ const std::string Mangler::prefix_scatter       = "internal.scatter";
 const std::string Mangler::prefix_gather_prefetch = "internal.prefetch.gather";
 const std::string Mangler::prefix_scatter_prefetch = "internal.prefetch.scatter";
 const std::string Mangler::prefetch             = "prefetch";
-const std::string Mangler::name_allOne          = "allOne";
-const std::string Mangler::name_allZero         = "allZero";
+const std::string Mangler::name_allOne          = "__ocl_allOne";
+const std::string Mangler::name_allZero         = "__ocl_allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
 const std::string Mangler::retbyarray_builtin_prefix  = "_retbyarray_";
 const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
@@ -343,7 +343,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   }
 
   std::stringstream funcName;
-  funcName << maskedName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
+  funcName << "__ocl_" << maskedName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
 
   return funcName.str();
 }
@@ -375,7 +375,7 @@ std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vec
   }
 
   std::stringstream funcName;
-  funcName << "masked_" << baseFuncName << typeName << vecType->getNumElements();
+  funcName << "__ocl_masked_" << baseFuncName << typeName << vecType->getNumElements();
 
   return funcName.str();
 }

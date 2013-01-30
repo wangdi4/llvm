@@ -1,4 +1,4 @@
-OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<HalfToFloat, [v1f16], 0, [{
+OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1f16], 0, [{
 	unsigned short expHalf16 = as_short($Arg0VarName) & 0x7C00;
 	int exp1 = (int)expHalf16;
 	unsigned short mantissa16 = as_short($Arg0VarName) & 0x03FF;
@@ -39,7 +39,7 @@ OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<HalfToFloat, [v1f16], 0, [{
 	
 	return res;	
 }]>;  
-OclBuiltinImpl Half4ToFloat42 = OclBuiltinImpl<Half4ToFloat4, [v8i16], 0, [{
+OclBuiltinImpl Half4ToFloat42 = OclBuiltinImpl<__ocl_Half4ToFloat4, [v8i16], 0, [{
 	int4 xmm7 = (int4)0;
 	int4 xmm1 = as_int4($Arg0VarName & ((short8)Fvec8Float16ExponentMask));  
 	xmm1 = as_int4( _mm_unpacklo_epi16(__builtin_astype(xmm1, __m128i), __builtin_astype(xmm7, __m128i))); // xmm1 = exponents as DWORDS
@@ -84,15 +84,15 @@ OclBuiltinImpl Half4ToFloat42 = OclBuiltinImpl<Half4ToFloat4, [v8i16], 0, [{
 	xmm5 = as_float4(as_short8(xmm5) | $Arg0VarName);// If the original number was NaN or INF, then xmm6 has all '1' for exp. $Arg0VarName will hold a float32 that is NaN or INF 
 	return xmm5;
 }]>; 
-OclBuiltinImpl Half8ToFloat82 = OclBuiltinImpl<Half8ToFloat8, [v8i16], 0, [{
+OclBuiltinImpl Half8ToFloat82 = OclBuiltinImpl<__ocl_Half8ToFloat8, [v8i16], 0, [{
 	float8 res;
 	short8 inp1;
 	inp1.s0123 = $Arg0VarName.s4567;
-	res.lo = Half4ToFloat4($Arg0VarName);
-	res.hi = Half4ToFloat4(inp1);
+	res.lo = __ocl_Half4ToFloat4($Arg0VarName);
+	res.hi = __ocl_Half4ToFloat4(inp1);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_float2half_rte2 = OclBuiltinImpl<_ocl_float2half_rte, [v4f32], 0, [{
+OclBuiltinImpl __ocl_float2half_rte2 = OclBuiltinImpl<__ocl_float2half_rte, [v4f32], 0, [{
    //cl_uint sign = (u.u >> 16) & 0x8000;
     short8 temp = as_short8(_mm_srli_epi32(__builtin_astype($Arg0VarName, __m128i), 0x10));
     short8 signs = (temp & as_short8((int4)x8000));
@@ -175,7 +175,7 @@ OclBuiltinImpl _ocl_float2half_rte2 = OclBuiltinImpl<_ocl_float2half_rte, [v4f32
 
     return eq1;
 }]>;
-OclBuiltinImpl _ocl_float2half_rtz2 = OclBuiltinImpl<_ocl_float2half_rtz, [v4f32], 0, [{
+OclBuiltinImpl __ocl_float2half_rtz2 = OclBuiltinImpl<__ocl_float2half_rtz, [v4f32], 0, [{
   //cl_uint sign = (u.u >> 16) & 0x8000;
     int4 temp = as_int4(_mm_srli_epi32(__builtin_astype($Arg0VarName, __m128i), 0x10));
     int4 signs = temp & (int4)x8000;
@@ -261,7 +261,7 @@ OclBuiltinImpl _ocl_float2half_rtz2 = OclBuiltinImpl<_ocl_float2half_rtz, [v4f32
     eq1 = as_int4(_mm_shuffle_epi8(__builtin_astype(eq, __m128i), __builtin_astype( g_vls_4x32to4x16,__m128i)));
     return as_float4(eq1);
 }]>;
-OclBuiltinImpl _ocl_float2half_rtp2 = OclBuiltinImpl<_ocl_float2half_rtp, [v4f32], 0, [{
+OclBuiltinImpl __ocl_float2half_rtp2 = OclBuiltinImpl<__ocl_float2half_rtp, [v4f32], 0, [{
     int4 zeros = (int4)0;
 
     //cl_uint sign = (u.u >> 16) & 0x8000;
@@ -372,7 +372,7 @@ OclBuiltinImpl _ocl_float2half_rtp2 = OclBuiltinImpl<_ocl_float2half_rtp, [v4f32
 
     return as_float4(eq1);
 }]>;
-OclBuiltinImpl _ocl_float2half_rtn2 = OclBuiltinImpl<_ocl_float2half_rtn, [v4f32], 0, [{
+OclBuiltinImpl __ocl_float2half_rtn2 = OclBuiltinImpl<__ocl_float2half_rtn, [v4f32], 0, [{
     int4 zeros = (int4)0;
 
     //cl_uint sign = (u.u >> 16) & 0x8000;
@@ -484,37 +484,37 @@ OclBuiltinImpl _ocl_float2half_rtn2 = OclBuiltinImpl<_ocl_float2half_rtn, [v4f32
 
     return as_float4(eq1);
 }]>;
-OclBuiltinImpl _ocl_float2half8_rte2 = OclBuiltinImpl<_ocl_float2half8_rte, [v8f32], 0, [{
+OclBuiltinImpl __ocl_float2half8_rte2 = OclBuiltinImpl<__ocl_float2half8_rte, [v8f32], 0, [{
 	float4 res;
-	res.lo = _ocl_float2half_rte(param.lo).lo;
-	res.hi = _ocl_float2half_rte(param.hi).lo;
+	res.lo = __ocl_float2half_rte(param.lo).lo;
+	res.hi = __ocl_float2half_rte(param.hi).lo;
 	return res;
 }]>;
-OclBuiltinImpl _ocl_float2half8_rtz2 = OclBuiltinImpl<_ocl_float2half8_rtz, [v8f32], 0, [{
+OclBuiltinImpl __ocl_float2half8_rtz2 = OclBuiltinImpl<__ocl_float2half8_rtz, [v8f32], 0, [{
 	float4 res;
-	res.lo = _ocl_float2half_rtz(param.lo).lo;
-	res.hi = _ocl_float2half_rtz(param.hi).lo;
+	res.lo = __ocl_float2half_rtz(param.lo).lo;
+	res.hi = __ocl_float2half_rtz(param.hi).lo;
 	return res;
 }]>;
-OclBuiltinImpl _ocl_float2half8_rtn2 = OclBuiltinImpl<_ocl_float2half8_rtn, [v8f32], 0, [{
+OclBuiltinImpl __ocl_float2half8_rtn2 = OclBuiltinImpl<__ocl_float2half8_rtn, [v8f32], 0, [{
 	float4 res;
-	res.lo = _ocl_float2half_rtn(param.lo).lo;
-	res.hi = _ocl_float2half_rtn(param.hi).lo;
+	res.lo = __ocl_float2half_rtn(param.lo).lo;
+	res.hi = __ocl_float2half_rtn(param.hi).lo;
 	return res;
 }]>;
-OclBuiltinImpl _ocl_float2half8_rtp2 = OclBuiltinImpl<_ocl_float2half8_rtp, [v8f32], 0, [{
+OclBuiltinImpl __ocl_float2half8_rtp2 = OclBuiltinImpl<__ocl_float2half8_rtp, [v8f32], 0, [{
 	float4 res;
-	res.lo = _ocl_float2half_rtp(param.lo).lo;
-	res.hi = _ocl_float2half_rtp(param.hi).lo;
+	res.lo = __ocl_float2half_rtp(param.lo).lo;
+	res.hi = __ocl_float2half_rtp(param.hi).lo;
 	return res;
 }]>;
-OclBuiltinImpl _ocl_float2half2 = OclBuiltinImpl<_ocl_float2half, [v4f32], 0, [{
-    return _ocl_float2half_rte($Arg0VarName);
+OclBuiltinImpl __ocl_float2half2 = OclBuiltinImpl<__ocl_float2half, [v4f32], 0, [{
+    return __ocl_float2half_rte($Arg0VarName);
 }]>;
-OclBuiltinImpl _ocl_float2half82 = OclBuiltinImpl<_ocl_float2half8, [v8f32], 0, [{
-	return _ocl_float2half8_rte($Arg0VarName);
+OclBuiltinImpl __ocl_float2half82 = OclBuiltinImpl<__ocl_float2half8, [v8f32], 0, [{
+	return __ocl_float2half8_rte($Arg0VarName);
 }]>;
-OclBuiltinImpl _ocl_double2ToHalf2_rtp2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtp, [v2f64], 0, [{
+OclBuiltinImpl __ocl_double2ToHalf2_rtp2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtp, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtp($Arg0VarName);
 	float4 res;
 	half2 t;
@@ -522,7 +522,7 @@ OclBuiltinImpl _ocl_double2ToHalf2_rtp2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtp
 	res.s0 = as_float(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double2ToHalf2_rtn2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtn, [v2f64], 0, [{
+OclBuiltinImpl __ocl_double2ToHalf2_rtn2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtn, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtn($Arg0VarName);
 	float4 res;
 	half2 t;
@@ -530,7 +530,7 @@ OclBuiltinImpl _ocl_double2ToHalf2_rtn2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtn
 	res.s0 = as_float(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double2ToHalf2_rtz2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtz, [v2f64], 0, [{
+OclBuiltinImpl __ocl_double2ToHalf2_rtz2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtz, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtz($Arg0VarName);
 	float4 res;
 	half2 t;
@@ -538,7 +538,7 @@ OclBuiltinImpl _ocl_double2ToHalf2_rtz2 = OclBuiltinImpl<_ocl_double2ToHalf2_rtz
 	res.s0 = as_float(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double2ToHalf2_rte2 = OclBuiltinImpl<_ocl_double2ToHalf2_rte, [v2f64], 0, [{
+OclBuiltinImpl __ocl_double2ToHalf2_rte2 = OclBuiltinImpl<__ocl_double2ToHalf2_rte, [v2f64], 0, [{
    //cl_ulong sign = (u.u >> 48) & 0x8000;
     //double x = fabs(f);
     double2 temp = as_double2(_mm_srli_epi64(__builtin_astype($Arg0VarName,__m128i), 48));
@@ -629,13 +629,13 @@ OclBuiltinImpl _ocl_double2ToHalf2_rte2 = OclBuiltinImpl<_ocl_double2ToHalf2_rte
     return as_$ReturnType(_mm_shuffle_epi8( __builtin_astype(eq, __m128i), __builtin_astype( g_vls_2x64to2x16, __m128i)));
 
 }]>;
-OclBuiltinImpl _ocl_double4ToHalf4_rte2 = OclBuiltinImpl<_ocl_double4ToHalf4_rte, [v4f64], 0, [{
+OclBuiltinImpl __ocl_double4ToHalf4_rte2 = OclBuiltinImpl<__ocl_double4ToHalf4_rte, [v4f64], 0, [{
 		float4 res;
-		res.s0 = _ocl_double2ToHalf2_rte($Arg0VarName.lo).s0;
-		res.s1 = _ocl_double2ToHalf2_rte($Arg0VarName.hi).s0;
+		res.s0 = __ocl_double2ToHalf2_rte($Arg0VarName.lo).s0;
+		res.s1 = __ocl_double2ToHalf2_rte($Arg0VarName.hi).s0;
 		return res;
 }]>;
-OclBuiltinImpl _ocl_double4ToHalf4_rtp2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtp, [v4f64], 0, [{
+OclBuiltinImpl __ocl_double4ToHalf4_rtp2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtp, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtp($Arg0VarName);
 	float4 res;
 	half4 t;
@@ -643,7 +643,7 @@ OclBuiltinImpl _ocl_double4ToHalf4_rtp2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtp
 	res.s01 = as_float2(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double4ToHalf4_rtn2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtn, [v4f64], 0, [{
+OclBuiltinImpl __ocl_double4ToHalf4_rtn2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtn, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtn($Arg0VarName);
 	float4 res;
 	half4 t;
@@ -651,7 +651,7 @@ OclBuiltinImpl _ocl_double4ToHalf4_rtn2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtn
 	res.s01 = as_float2(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double4ToHalf4_rtz2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtz, [v4f64], 0, [{
+OclBuiltinImpl __ocl_double4ToHalf4_rtz2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtz, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtz($Arg0VarName);
 	float4 res;
 	half4 t;
@@ -659,11 +659,11 @@ OclBuiltinImpl _ocl_double4ToHalf4_rtz2 = OclBuiltinImpl<_ocl_double4ToHalf4_rtz
 	res.s01 = as_float2(t);
 	return res;
 }]>;
-OclBuiltinImpl _ocl_double2ToHalf22 = OclBuiltinImpl<_ocl_double2ToHalf2, [v2f64], 0, [{
-	return _ocl_double2ToHalf2_rte($Arg0VarName);
+OclBuiltinImpl __ocl_double2ToHalf22 = OclBuiltinImpl<__ocl_double2ToHalf2, [v2f64], 0, [{
+	return __ocl_double2ToHalf2_rte($Arg0VarName);
 }]>;
-OclBuiltinImpl _ocl_double4ToHalf42 = OclBuiltinImpl<_ocl_double4ToHalf4, [v4f64], 0, [{
-	return _ocl_double4ToHalf4_rte($Arg0VarName);
+OclBuiltinImpl __ocl_double4ToHalf42 = OclBuiltinImpl<__ocl_double4ToHalf4, [v4f64], 0, [{
+	return __ocl_double4ToHalf4_rte($Arg0VarName);
 }]>;
 //===========load===================
 code Load = [{
@@ -679,39 +679,39 @@ code LoadC = [{
     return res;
 }];
 code Load_half = [{
-   return HalfToFloat($Arg1VarName[$Arg0VarName]);
+   return __ocl_HalfToFloat($Arg1VarName[$Arg0VarName]);
 }];
 code Load_half2 = [{
 	short8 tmp;
 	tmp.s01= *((short2 *)($Arg1VarName + 2*$Arg0VarName));
-	float4 res = Half4ToFloat4(tmp);
+	float4 res = __ocl_Half4ToFloat4(tmp);
 	return res.lo;
 }];
 code Load_half3 = [{
 	short8 tmp;
 	tmp.s012 = *((short3 *)($Arg1VarName + 3*$Arg0VarName));
-	float4 temp = Half4ToFloat4(tmp);
+	float4 temp = __ocl_Half4ToFloat4(tmp);
 	return temp.s012;
 }];
 code Load_half4 = [{
 	short8 tmp;
 	tmp.lo = *((short4 *)($Arg1VarName + 4*$Arg0VarName));
-	return Half4ToFloat4(tmp);
+	return __ocl_Half4ToFloat4(tmp);
  }];
 code Load_half8 = [{
 	float8 res;
 	const short8 inp = vload8($Arg0VarName, (short*)$Arg1VarName);
-	return Half8ToFloat8(inp);
+	return __ocl_Half8ToFloat8(inp);
 }];
 code Load_half16 = [{
 	float16 res;
 	const short16 inp = vload16($Arg0VarName, (short*)$Arg1VarName);
-	res.lo = Half8ToFloat8(inp.lo);
-    res.hi = Half8ToFloat8(inp.hi);
+	res.lo = __ocl_Half8ToFloat8(inp.lo);
+    res.hi = __ocl_Half8ToFloat8(inp.hi);
 	return res;
 }];
 code Loada_half3 = [{
-	float4 temp = Half4ToFloat4(as_short8(_mm_lddqu_si128((__m128i *)($Arg1VarName + 4*$Arg0VarName))));
+	float4 temp = __ocl_Half4ToFloat4(as_short8(_mm_lddqu_si128((__m128i *)($Arg1VarName + 4*$Arg0VarName))));
     return temp.s012;
 }];
 //==============store==================
@@ -722,18 +722,18 @@ code Store = [{
 code Stored_half = [{
 	double2 d2 = (double2)(0.0);
 	d2.x = $Arg0VarName;
-	float4 f4 = _ocl_double2ToHalf2(d2);
+	float4 f4 = __ocl_double2ToHalf2(d2);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Stored_half2 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	float4 f4 = _ocl_double2ToHalf2($Arg0VarName);
+	float4 f4 = __ocl_double2ToHalf2($Arg0VarName);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Stored_half3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
@@ -743,15 +743,15 @@ code Stored_half3 = [{
 code Stored_half4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	float4 t1, t2, f4;
-	t1 = _ocl_double4ToHalf4($Arg0VarName);
+	t1 = __ocl_double4ToHalf4($Arg0VarName);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
 }];
 code Stored_half8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_storeu_ps((float*)$Arg2VarName, f8.lo);
@@ -760,14 +760,14 @@ code Stored_half16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -782,8 +782,8 @@ code Stored_half16 = [{
 }];
 code Storead_half3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
@@ -793,8 +793,8 @@ code Storead_half8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_store_ps((float*)$Arg2VarName, f8.lo);
@@ -803,14 +803,14 @@ code Storead_half16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -826,42 +826,42 @@ code Storead_half16 = [{
 code Storef_half = [{
 	float4 f4;
 	f4.s0 = $Arg0VarName;
-	f4 = _ocl_float2half(f4);
+	f4 = __ocl_float2half(f4);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Storef_half2 = [{
 	float4 f4;
 	f4.lo = $Arg0VarName;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	f4 = _ocl_float2half(f4);
+	f4 = __ocl_float2half(f4);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storeaf_half3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half(f4);
+	f4 = __ocl_float2half(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(f4,__m128i));
 }];
 code Storef_half4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-	$Arg0VarName = _ocl_float2half($Arg0VarName);
+	$Arg0VarName = __ocl_float2half($Arg0VarName);
 	*((float2 *)$Arg2VarName) = $Arg0VarName.lo;
 }];
 code Storef_half8 = [{
-	float4 res = _ocl_float2half8($Arg0VarName);
+	float4 res = __ocl_float2half8($Arg0VarName);
 	vstore8(*(short8*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half16 = [{
 	float8 res;
-	res.lo = _ocl_float2half8($Arg0VarName.lo);
-	res.hi = _ocl_float2half8($Arg0VarName.hi);
+	res.lo = __ocl_float2half8($Arg0VarName.lo);
+	res.hi = __ocl_float2half8($Arg0VarName.hi);
 	vstore16(*(short16*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half(f4);
+	f4 = __ocl_float2half(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
 	*((float*)$Arg2VarName) = f4.s0;
 	((short*)$Arg2VarName)[2] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 2);
@@ -870,44 +870,44 @@ code Storef_half3 = [{
 code Storef_half_rte = [{
 	float4 f4;
 	f4.s0 = $Arg0VarName;
-	f4 = _ocl_float2half_rte(f4);
+	f4 = __ocl_float2half_rte(f4);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Storef_half_rte2 = [{
 	float4 f4;
 	f4.lo = $Arg0VarName;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	f4 = _ocl_float2half_rte(f4);
+	f4 = __ocl_float2half_rte(f4);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storeaf_half_rte3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rte(f4);
+	f4 = __ocl_float2half_rte(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(f4,__m128i));
 }];
 code Storef_half_rte3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rte(f4);
+	f4 = __ocl_float2half_rte(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
 	*((float*)$Arg2VarName) = f4.s0;
 	((short*)$Arg2VarName)[2] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 2);
 }];
 code Storef_half_rte4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-	$Arg0VarName = _ocl_float2half_rte($Arg0VarName);
+	$Arg0VarName = __ocl_float2half_rte($Arg0VarName);
 	*((float2 *)$Arg2VarName) = $Arg0VarName.lo;
 }];
 code Storef_half_rte8 = [{
-	float4 res = _ocl_float2half8_rte($Arg0VarName);
+	float4 res = __ocl_float2half8_rte($Arg0VarName);
 	vstore8(*(short8*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half_rte16 = [{
 	float8 res;
-	res.lo = _ocl_float2half8_rte($Arg0VarName.lo);
-	res.hi = _ocl_float2half8_rte($Arg0VarName.hi);
+	res.lo = __ocl_float2half8_rte($Arg0VarName.lo);
+	res.hi = __ocl_float2half8_rte($Arg0VarName.hi);
 	vstore16(*(short16*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 
@@ -916,18 +916,18 @@ code Storef_half_rte16 = [{
 code Stored_half_rte = [{
 	double2 d2 = (double2)(0.0);
 	d2.x = $Arg0VarName;
-	float4 f4 = _ocl_double2ToHalf2_rte(d2);
+	float4 f4 = __ocl_double2ToHalf2_rte(d2);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Stored_half_rte2 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	float4 f4 = _ocl_double2ToHalf2_rte($Arg0VarName);
+	float4 f4 = __ocl_double2ToHalf2_rte($Arg0VarName);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storead_half_rte3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rte($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rte($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rte($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rte($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
@@ -935,8 +935,8 @@ code Storead_half_rte3 = [{
 }];
 code Stored_half_rte3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rte($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rte($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rte($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rte($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
@@ -946,15 +946,15 @@ code Stored_half_rte3 = [{
 code Stored_half_rte4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	float4 t1, t2, f4;
-	t1 = _ocl_double4ToHalf4_rte($Arg0VarName);
+	t1 = __ocl_double4ToHalf4_rte($Arg0VarName);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
 }];
 code Storead_half_rte8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rte($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rte($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rte($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rte($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_store_ps((float*)$Arg2VarName, f8.lo);
@@ -963,8 +963,8 @@ code Stored_half_rte8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rte($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rte($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rte($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rte($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_storeu_ps((float*)$Arg2VarName, f8.lo);
@@ -973,14 +973,14 @@ code Storead_half_rte16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rte($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rte($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rte($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rte($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rte($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rte($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rte($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rte($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rte($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rte($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rte($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rte($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rte($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rte($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rte($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rte($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -997,14 +997,14 @@ code Stored_half_rte16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rte($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rte($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rte($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rte($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rte($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rte($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rte($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rte($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rte($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rte($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rte($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rte($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rte($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rte($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rte($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rte($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1025,44 +1025,44 @@ code Stored_half_rte16 = [{
 code Storef_half_rtn = [{
 	float4 f4;
 	f4.s0 = $Arg0VarName;
-	f4 = _ocl_float2half_rtn(f4);
+	f4 = __ocl_float2half_rtn(f4);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Storef_half_rtn2 = [{
 	float4 f4;
 	f4.lo = $Arg0VarName;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	f4 = _ocl_float2half_rtn(f4);
+	f4 = __ocl_float2half_rtn(f4);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storeaf_half_rtn3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtn(f4);
+	f4 = __ocl_float2half_rtn(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(f4,__m128i));
 }];
 code Storef_half_rtn3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtn(f4);
+	f4 = __ocl_float2half_rtn(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
 	*((float*)$Arg2VarName) = f4.s0;
 	((short*)$Arg2VarName)[2] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 2);
 }];
 code Storef_half_rtn4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-	$Arg0VarName = _ocl_float2half_rtn($Arg0VarName);
+	$Arg0VarName = __ocl_float2half_rtn($Arg0VarName);
 	*((float2 *)$Arg2VarName) = $Arg0VarName.lo;
 }];
 code Storef_half_rtn8 = [{
-	float4 res = _ocl_float2half8_rtn($Arg0VarName);
+	float4 res = __ocl_float2half8_rtn($Arg0VarName);
 	vstore8(*(short8*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half_rtn16 = [{
 	float8 res;
-	res.lo = _ocl_float2half8_rtn($Arg0VarName.lo);
-	res.hi = _ocl_float2half8_rtn($Arg0VarName.hi);
+	res.lo = __ocl_float2half8_rtn($Arg0VarName.lo);
+	res.hi = __ocl_float2half8_rtn($Arg0VarName.hi);
 	vstore16(*(short16*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 
@@ -1071,18 +1071,18 @@ code Storef_half_rtn16 = [{
 code Stored_half_rtn = [{
 	double2 d2 = (double2)(0.0);
 	d2.x = $Arg0VarName;
-	float4 f4 = _ocl_double2ToHalf2_rtn(d2);
+	float4 f4 = __ocl_double2ToHalf2_rtn(d2);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Stored_half_rtn2 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	float4 f4 = _ocl_double2ToHalf2_rtn($Arg0VarName);
+	float4 f4 = __ocl_double2ToHalf2_rtn($Arg0VarName);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storead_half_rtn3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtn($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtn($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtn($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtn($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
@@ -1090,8 +1090,8 @@ code Storead_half_rtn3 = [{
 }];
 code Stored_half_rtn3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtn($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtn($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtn($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtn($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
@@ -1101,15 +1101,15 @@ code Stored_half_rtn3 = [{
 code Stored_half_rtn4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	float4 t1, t2, f4;
-	t1 = _ocl_double4ToHalf4_rtn($Arg0VarName);
+	t1 = __ocl_double4ToHalf4_rtn($Arg0VarName);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
 }];
 code Storead_half_rtn8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtn($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtn($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtn($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtn($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_store_ps((float*)$Arg2VarName, f8.lo);
@@ -1118,8 +1118,8 @@ code Stored_half_rtn8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtn($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtn($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtn($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtn($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_storeu_ps((float*)$Arg2VarName, f8.lo);
@@ -1128,14 +1128,14 @@ code Storead_half_rtn16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtn($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtn($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtn($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtn($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtn($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtn($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtn($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtn($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtn($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtn($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtn($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtn($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtn($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtn($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtn($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtn($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1152,14 +1152,14 @@ code Stored_half_rtn16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtn($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtn($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtn($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtn($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtn($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtn($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtn($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtn($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtn($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtn($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtn($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtn($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtn($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtn($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtn($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtn($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1177,44 +1177,44 @@ code Stored_half_rtn16 = [{
 code Storef_half_rtp = [{
 	float4 f4;
 	f4.s0 = $Arg0VarName;
-	f4 = _ocl_float2half_rtp(f4);
+	f4 = __ocl_float2half_rtp(f4);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Storef_half_rtp2 = [{
 	float4 f4;
 	f4.lo = $Arg0VarName;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	f4 = _ocl_float2half_rtp(f4);
+	f4 = __ocl_float2half_rtp(f4);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storeaf_half_rtp3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtp(f4);
+	f4 = __ocl_float2half_rtp(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(f4,__m128i));
 }];
 code Storef_half_rtp3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtp(f4);
+	f4 = __ocl_float2half_rtp(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
 	*((float*)$Arg2VarName) = f4.s0;
 	((short*)$Arg2VarName)[2] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 2);
 }];
 code Storef_half_rtp4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-	$Arg0VarName = _ocl_float2half_rtp($Arg0VarName);
+	$Arg0VarName = __ocl_float2half_rtp($Arg0VarName);
 	*((float2 *)$Arg2VarName) = $Arg0VarName.lo;
 }];
 code Storef_half_rtp8 = [{
-	float4 res = _ocl_float2half8_rtp($Arg0VarName);
+	float4 res = __ocl_float2half8_rtp($Arg0VarName);
 	vstore8(*(short8*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half_rtp16 = [{
 	float8 res;
-	res.lo = _ocl_float2half8_rtp($Arg0VarName.lo);
-	res.hi = _ocl_float2half8_rtp($Arg0VarName.hi);
+	res.lo = __ocl_float2half8_rtp($Arg0VarName.lo);
+	res.hi = __ocl_float2half8_rtp($Arg0VarName.hi);
 	vstore16(*(short16*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 
@@ -1223,18 +1223,18 @@ code Storef_half_rtp16 = [{
 code Stored_half_rtp = [{
 	double2 d2 = (double2)(0.0);
 	d2.x = $Arg0VarName;
-	float4 f4 = _ocl_double2ToHalf2_rtp(d2);
+	float4 f4 = __ocl_double2ToHalf2_rtp(d2);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Stored_half_rtp2 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	float4 f4 = _ocl_double2ToHalf2_rtp($Arg0VarName);
+	float4 f4 = __ocl_double2ToHalf2_rtp($Arg0VarName);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storead_half_rtp3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtp($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtp($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtp($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtp($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
@@ -1242,8 +1242,8 @@ code Storead_half_rtp3 = [{
 }];
 code Stored_half_rtp3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtp($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtp($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtp($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtp($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
@@ -1253,15 +1253,15 @@ code Stored_half_rtp3 = [{
 code Stored_half_rtp4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	float4 t1, t2, f4;
-	t1 = _ocl_double4ToHalf4_rtp($Arg0VarName);
+	t1 = __ocl_double4ToHalf4_rtp($Arg0VarName);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
 }];
 code Storead_half_rtp8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtp($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtp($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtp($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtp($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_store_ps((float*)$Arg2VarName, f8.lo);
@@ -1270,8 +1270,8 @@ code Stored_half_rtp8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtp($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtp($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtp($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtp($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_storeu_ps((float*)$Arg2VarName, f8.lo);
@@ -1280,14 +1280,14 @@ code Storead_half_rtp16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtp($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtp($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtp($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtp($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtp($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtp($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtp($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtp($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtp($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtp($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtp($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtp($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtp($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtp($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtp($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtp($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1304,14 +1304,14 @@ code Stored_half_rtp16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtp($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtp($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtp($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtp($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtp($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtp($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtp($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtp($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtp($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtp($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtp($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtp($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtp($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtp($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtp($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtp($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1332,44 +1332,44 @@ code Stored_half_rtp16 = [{
 code Storef_half_rtz = [{
 	float4 f4;
 	f4.s0 = $Arg0VarName;
-	f4 = _ocl_float2half_rtz(f4);
+	f4 = __ocl_float2half_rtz(f4);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Storef_half_rtz2 = [{
 	float4 f4;
 	f4.lo = $Arg0VarName;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	f4 = _ocl_float2half_rtz(f4);
+	f4 = __ocl_float2half_rtz(f4);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storeaf_half_rtz3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtz(f4);
+	f4 = __ocl_float2half_rtz(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(f4,__m128i));
 }];
 code Storef_half_rtz3 = [{
 	float4 f4;
 	f4.s012 = $Arg0VarName;
-	f4 = _ocl_float2half_rtz(f4);
+	f4 = __ocl_float2half_rtz(f4);
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
 	*((float*)$Arg2VarName) = f4.s0;
 	((short*)$Arg2VarName)[2] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 2);
 }];
 code Storef_half_rtz4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-	$Arg0VarName = _ocl_float2half_rtz($Arg0VarName);
+	$Arg0VarName = __ocl_float2half_rtz($Arg0VarName);
 	*((float2 *)$Arg2VarName) = $Arg0VarName.lo;
 }];
 code Storef_half_rtz8 = [{
-	float4 res = _ocl_float2half8_rtz($Arg0VarName);
+	float4 res = __ocl_float2half8_rtz($Arg0VarName);
 	vstore8(*(short8*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 code Storef_half_rtz16 = [{
 	float8 res;
-	res.lo = _ocl_float2half8_rtz($Arg0VarName.lo);
-	res.hi = _ocl_float2half8_rtz($Arg0VarName.hi);
+	res.lo = __ocl_float2half8_rtz($Arg0VarName.lo);
+	res.hi = __ocl_float2half8_rtz($Arg0VarName.hi);
 	vstore16(*(short16*)&res, $Arg1VarName, (short*)$Arg2VarName);
 }];
 
@@ -1378,18 +1378,18 @@ code Storef_half_rtz16 = [{
 code Stored_half_rtz = [{
 	double2 d2 = (double2)(0.0);
 	d2.x = $Arg0VarName;
-	float4 f4 = _ocl_double2ToHalf2_rtz(d2);
+	float4 f4 = __ocl_double2ToHalf2_rtz(d2);
 	((short *)$Arg2VarName)[$Arg1VarName] = (short)_mm_extract_epi16( __builtin_astype(f4,__m128i), 0);
 }];
 code Stored_half_rtz2 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*2);
-	float4 f4 = _ocl_double2ToHalf2_rtz($Arg0VarName);
+	float4 f4 = __ocl_double2ToHalf2_rtz($Arg0VarName);
 	*((float*)$Arg2VarName) = f4.s0;
 }];
 code Storead_half_rtz3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtz($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtz($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtz($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtz($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
@@ -1397,8 +1397,8 @@ code Storead_half_rtz3 = [{
 }];
 code Stored_half_rtz3 = [{
 	float4 t1, t2, f4;
-	t1 = _ocl_double2ToHalf2_rtz($Arg0VarName.xy);
-	t2 = _ocl_double2ToHalf2_rtz($Arg0VarName.zz);
+	t1 = __ocl_double2ToHalf2_rtz($Arg0VarName.xy);
+	t2 = __ocl_double2ToHalf2_rtz($Arg0VarName.zz);
 	f4.x = t1.x;
 	f4.y = t2.x;
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*3);
@@ -1408,15 +1408,15 @@ code Stored_half_rtz3 = [{
 code Stored_half_rtz4 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
 	float4 t1, t2, f4;
-	t1 = _ocl_double4ToHalf4_rtz($Arg0VarName);
+	t1 = __ocl_double4ToHalf4_rtz($Arg0VarName);
 	_mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
 }];
 code Storead_half_rtz8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtz($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtz($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtz($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtz($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_store_ps((float*)$Arg2VarName, f8.lo);
@@ -1425,8 +1425,8 @@ code Stored_half_rtz8 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
 	float8 f8;
 	float4 t1, t2;
-	t1 = _ocl_double4ToHalf4_rtz($Arg0VarName.s0123);
-	t2 = _ocl_double4ToHalf4_rtz($Arg0VarName.s4567);
+	t1 = __ocl_double4ToHalf4_rtz($Arg0VarName.s0123);
+	t2 = __ocl_double4ToHalf4_rtz($Arg0VarName.s4567);
 	f8.xy = t1.lo;
 	f8.zw = t2.lo;
 	_mm_storeu_ps((float*)$Arg2VarName, f8.lo);
@@ -1435,14 +1435,14 @@ code Storead_half_rtz16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtz($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtz($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtz($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtz($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtz($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtz($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtz($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtz($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtz($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtz($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtz($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtz($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtz($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtz($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtz($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtz($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
@@ -1459,14 +1459,14 @@ code Stored_half_rtz16 = [{
 	$Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
 	float16 f16;
 	float4 t1, t2, t3, t4, t5, t6, t7, t8;
-	t1 = _ocl_double2ToHalf2_rtz($Arg0VarName.s01);
-	t2 = _ocl_double2ToHalf2_rtz($Arg0VarName.s23);
-	t3 = _ocl_double2ToHalf2_rtz($Arg0VarName.s45);
-	t4 = _ocl_double2ToHalf2_rtz($Arg0VarName.s67);
-	t5 = _ocl_double2ToHalf2_rtz($Arg0VarName.s89);
-	t6 = _ocl_double2ToHalf2_rtz($Arg0VarName.sAB);
-	t7 = _ocl_double2ToHalf2_rtz($Arg0VarName.sCD);
-	t8 = _ocl_double2ToHalf2_rtz($Arg0VarName.sEF);
+	t1 = __ocl_double2ToHalf2_rtz($Arg0VarName.s01);
+	t2 = __ocl_double2ToHalf2_rtz($Arg0VarName.s23);
+	t3 = __ocl_double2ToHalf2_rtz($Arg0VarName.s45);
+	t4 = __ocl_double2ToHalf2_rtz($Arg0VarName.s67);
+	t5 = __ocl_double2ToHalf2_rtz($Arg0VarName.s89);
+	t6 = __ocl_double2ToHalf2_rtz($Arg0VarName.sAB);
+	t7 = __ocl_double2ToHalf2_rtz($Arg0VarName.sCD);
+	t8 = __ocl_double2ToHalf2_rtz($Arg0VarName.sEF);
 	f16.s0 = t1.x;
 	f16.s1 = t2.x;
 	f16.s2 = t3.x;
