@@ -134,7 +134,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
     // First validate that all ids in the event list exists
 	std::vector<SharedPtr<OclEvent> > vOclEvents, vExplicitWaitEvents;
 
-	if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
+	if(!GetEventsFromList(uiNumEvents, eventList, &vOclEvents))
 	{
         return CL_INVALID_EVENT_WAIT_LIST;
 	}
@@ -220,7 +220,24 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 
 	return err;
 }
-
+/******************************************************************
+ * This function gets an event list and returns true if it is valid
+ * 
+ ******************************************************************/
+bool EventsManager::IsValidEventList(cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents)
+{
+	if ( 
+		( (NULL == eventList) && (0 != uiNumEvents) ) ||
+		( (NULL != eventList) && ( 0 == uiNumEvents) ) 
+		)
+		return false;
+	if (0 != uiNumEvents)
+	{
+		if(!GetEventsFromList(uiNumEvents, eventList, pvOclEvents))
+			return false;
+	}
+	return true;
+}
 /******************************************************************
  * This function gets an handle to event that represents command
  * that is dependent on the command that are attached with the list
@@ -232,23 +249,16 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
 {
 	cl_start;
-    // Check input parameters
-    if ( ( NULL == pEvent) ||
-         ( (NULL == eventList) && ( 0 != uiNumEvents ) ) ||
-         ( (NULL != eventList) && ( 0 == uiNumEvents ) )
-         )
-         return CL_INVALID_EVENT_WAIT_LIST;
+    // Check input parameters and validate that all ids in the event list exists
+    std::vector<SharedPtr<OclEvent> > vOclEvents;
+	if (NULL == pEvent || !IsValidEventList(uiNumEvents, eventList, &vOclEvents))
+	{
+		return CL_INVALID_EVENT_WAIT_LIST;
+	}
 
     // If 0, no event list
     if (0 != uiNumEvents)
     {
-        // First validate that all ids in the event list exists
-		std::vector<SharedPtr<OclEvent> > vOclEvents;
-		if(!GetEventsFromList(uiNumEvents, eventList, vOclEvents))
-		{
-			return CL_INVALID_EVENT_WAIT_LIST;
-		}
-
         cl_uint ui;
         // Next, check that events has the same context as the queued context
         cl_context queueContext = pEvent->GetParentHandle();
@@ -295,7 +305,7 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
  * On success a list is returned that need to be free by the caller.
  * 
  ******************************************************************/
-bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >& vOclEvents)
+bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents)
 {
 	if(0 == uiNumEvents)
 	{
@@ -309,7 +319,8 @@ bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* even
             // Not valid, return
 			return false;
         }
-		vOclEvents.push_back(pEvent);
+		if (NULL != pvOclEvents)
+			pvOclEvents->push_back(pEvent);
     } 
     return true;    
 }
