@@ -44,7 +44,10 @@
 #include "hw_utils.h"
 #endif
 
-#define __DOUBLE_ENABLED__
+#if !defined(__ANDROID__)
+  #define __DOUBLE_ENABLED__
+#endif
+
 using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
@@ -500,7 +503,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
-    int     viCPUInfo[4] = {-1};
+    unsigned int viCPUInfo[4] = {(unsigned)-1};
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
