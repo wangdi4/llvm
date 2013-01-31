@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -809,6 +809,8 @@ public:
 
     //! Returns true if the context has received cancellation request.
     bool is_cancelled () const { return prefix().context->is_group_execution_cancelled(); }
+#else
+    bool is_cancelled () const { return false; }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #if __TBB_TASK_PRIORITY
