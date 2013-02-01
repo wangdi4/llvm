@@ -5,10 +5,10 @@
 ; CHECK: @testldst
 ; CHECK: sext
 ; CHECK: bitcast
-; CHECK: @masked_load_double8
+; CHECK: @__ocl_masked_load_double8
 ; CHECK: sext
 ; CHECK: bitcast
-; CHECK: @masked_store_double8
+; CHECK: @__ocl_masked_store_double8
 ; CHECK: sext
 ; CHECK: bitcast
 ; CHECK: ret

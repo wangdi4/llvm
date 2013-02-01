@@ -5,18 +5,6 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 include_directories( ${VALIDATIONS_ROOT}/DataManager )
 include_directories( ${VALIDATIONS_ROOT}/NEAT )
 
-if (WIN32)
-    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
-
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set (ICC_PLATFORM ia32)
-    else ()
-      set (ICC_PLATFORM intel64)
-    endif ()
-
-    link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
-endif()
-
 link_directories (
     ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
     ${LLVM_LIBRARY_DIR}

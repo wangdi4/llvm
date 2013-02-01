@@ -27,14 +27,14 @@ private:
 };
 
 template <typename T>
-T* cast(Type* pType){
+T* dyn_cast(Type* pType){
   TypeCastVisitor typeCast;
   pType->accept(&typeCast);
   return typeCast.nullOrCast<T>(pType);
 }
 
 template <typename T>
-const T* cast(const Type* pType){
+const T* dyn_cast(const Type* pType){
   TypeCastVisitor typeCast;
   pType->accept(&typeCast);
   return typeCast.nullOrCast<T>(pType);

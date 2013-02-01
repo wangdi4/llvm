@@ -253,4 +253,52 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 
     iRet = clEnqueueNDRangeKernel(queue, clKernelShouldFailLocalMem, 1, NULL, globalSize, NULL, 1, &bufferReadyEvent, kernelReadyEvent);
     ASSERT_EQ(CL_OUT_OF_RESOURCES, iRet) << "Enqueueing NDRange for a bigger than allowed (HUGE) local mem erronously succeeded.";
+
+	//Release resources
+	clReleaseEvent(bufferReadyEvent);
+	clReleaseEvent(kernelReadyEvent[0]);
+	if (srcBuffer)
+	{
+		delete srcBuffer;
+	}
+	if (inputBuffer)
+	{
+		clReleaseMemObject(inputBuffer);
+	}
+	if (outputBuffer)
+	{
+		clReleaseMemObject(outputBuffer);
+	}
+	if (clKernel)
+	{
+		clReleaseKernel(clKernel);
+	}
+	if (clKernelShouldFailPrivateMem)
+	{
+		clReleaseKernel(clKernelShouldFailPrivateMem);
+	}
+	if (clKernelShouldFailLocalMem)
+	{
+		clReleaseKernel(clKernelShouldFailLocalMem);
+	}
+	if (clProgram)
+	{
+		clReleaseProgram(clProgram);
+	}
+	if (clProgramThatShouldFailPrivateMem)
+	{
+		clReleaseProgram(clProgramThatShouldFailPrivateMem);
+	}
+	if (clProgramThatShouldFailLocalMem)
+	{
+		clReleaseProgram(clProgramThatShouldFailLocalMem);
+	}
+	if (queue)
+	{
+		clReleaseCommandQueue(queue);
+	}
+	if (context)
+	{
+		clReleaseContext(context);
+	}
 }

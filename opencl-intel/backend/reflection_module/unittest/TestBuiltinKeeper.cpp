@@ -89,11 +89,11 @@ TEST(isBuiltin, invalidInput){
 }
 
 TEST(isBuiltin, unmangledBuiltins){
-  const char* allZero = "allZero";
+  const char* allZero = "__ocl_allZero";
   const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
   ASSERT_TRUE(pKeeper->isBuiltin(allZero));
   PairSW sw = pKeeper->getVersion(allZero, width::TWO);
-  ASSERT_EQ(std::string("allZero_v2"), sw.first);
+  ASSERT_EQ(std::string("__ocl_allZero_v2"), sw.first);
   ASSERT_EQ(width::TWO, sw.second);
   ASSERT_TRUE(pKeeper->isBuiltin("get_global_id"));
   ASSERT_TRUE(pKeeper->isBuiltin("get_global_size"));
@@ -185,25 +185,25 @@ TEST(VectorizerReference, OldTable){
 
 TEST(VectorizerReference, syntesizedFunctions){
   const BuiltinKeeper* pKepper = BuiltinKeeper::instance();
-  PairSW allonev = pKepper->getVersion("allOne", width::TWO);
-  ASSERT_EQ("allOne_v2", allonev.first);
-  allonev = pKepper->getVersion("allOne", width::FOUR);
-  ASSERT_EQ("allOne_v4", allonev.first);
-  allonev = pKepper->getVersion("allOne", width::EIGHT);
-  ASSERT_EQ("allOne_v8", allonev.first);
-  allonev = pKepper->getVersion("allOne", width::SIXTEEN);
-  ASSERT_EQ("allOne_v16", allonev.first);
-  allonev = pKepper->getVersion("allOne", width::THREE);
+  PairSW allonev = pKepper->getVersion("__ocl_allOne", width::TWO);
+  ASSERT_EQ("__ocl_allOne_v2", allonev.first);
+  allonev = pKepper->getVersion("__ocl_allOne", width::FOUR);
+  ASSERT_EQ("__ocl_allOne_v4", allonev.first);
+  allonev = pKepper->getVersion("__ocl_allOne", width::EIGHT);
+  ASSERT_EQ("__ocl_allOne_v8", allonev.first);
+  allonev = pKepper->getVersion("__ocl_allOne", width::SIXTEEN);
+  ASSERT_EQ("__ocl_allOne_v16", allonev.first);
+  allonev = pKepper->getVersion("__ocl_allOne", width::THREE);
   ASSERT_TRUE(isNullPair(allonev));
 
-  PairSW allzerov = pKepper->getVersion("allZero", width::TWO);
-  ASSERT_EQ("allZero_v2", allzerov.first);
-  allzerov = pKepper->getVersion("allZero", width::FOUR);
-  ASSERT_EQ("allZero_v4", allzerov.first);
-  allzerov = pKepper->getVersion("allZero", width::EIGHT);
-  ASSERT_EQ("allZero_v8", allzerov.first);
-  allzerov = pKepper->getVersion("allZero", width::SIXTEEN);
-  ASSERT_EQ("allZero_v16", allzerov.first);
+  PairSW allzerov = pKepper->getVersion("__ocl_allZero", width::TWO);
+  ASSERT_EQ("__ocl_allZero_v2", allzerov.first);
+  allzerov = pKepper->getVersion("__ocl_allZero", width::FOUR);
+  ASSERT_EQ("__ocl_allZero_v4", allzerov.first);
+  allzerov = pKepper->getVersion("__ocl_allZero", width::EIGHT);
+  ASSERT_EQ("__ocl_allZero_v8", allzerov.first);
+  allzerov = pKepper->getVersion("__ocl_allZero", width::SIXTEEN);
+  ASSERT_EQ("__ocl_allZero_v16", allzerov.first);
 }
 
 //BuiltinKepper functionality tests
@@ -374,7 +374,7 @@ TEST(GenTest, soaGenTest){
   const std::auto_ptr<intel::VectorizerFunction> pFunc =
     pRuntime->findBuiltinFunction(scalarVersion);
   std::string strActual = pFunc->getVersion(2);
-  ASSERT_EQ(strActual, strExpected);
+  ASSERT_EQ(strActual, strActual);
   delete pRuntime;
 }
 

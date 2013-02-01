@@ -126,8 +126,8 @@ TableRow mappings[] = {
 #else
 TableRow mappings[] = {
   // {{scalar_version, width2_version, ..., width16_version, width3_version}, isScalarizable, isPacketizable}
-  { {"allOne","allOne_v2","allOne_v4","allOne_v8","allOne_v16",INVALID_ENTRY}, false, true},
-  { {"allZero","allZero_v2","allZero_v4","allZero_v8","allZero_v16",INVALID_ENTRY}, false, true},
+  { {"__ocl_allOne","__ocl_allOne_v2","__ocl_allOne_v4","__ocl_allOne_v8","__ocl_allOne_v16",INVALID_ENTRY}, false, true},
+  { {"__ocl_allZero","__ocl_allZero_v2","__ocl_allZero_v4","__ocl_allZero_v8","__ocl_allZero_v16",INVALID_ENTRY}, false, true},
   { {"get_global_id", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
   { {"get_global_size", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},
   { {"_Z17mask_read_imageuii9image2d_tjDv2_i", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false},

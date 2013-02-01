@@ -93,7 +93,7 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;
-	int cpuInfo[4] = {-1};
+	unsigned int cpuInfo[4] = {-1};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
 
@@ -322,7 +322,7 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-        return sysconf(_SC_NPROCESSORS_CONF);
+        return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

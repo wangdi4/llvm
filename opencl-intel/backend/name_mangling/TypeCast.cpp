@@ -9,12 +9,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace reflection{
 
 template <>
-Type* cast(Type* pType){
+Type* dyn_cast(Type* pType){
   return pType;
 }
 
 template <>
-const Type* cast(const Type* pType){
+const Type* dyn_cast(const Type* pType){
   return pType;
 }
 

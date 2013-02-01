@@ -194,17 +194,20 @@ project(OCL)
 # extract working copy information for all components into variables
 if (SVN_REVISIONS)
     Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
-    message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
-    
-    # write a file with the BUILDVERSION define
-    file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif")
-    file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${BUILDVER_WC_REVISION}")
-    #copy the version file to install folder
-    install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
-    # copy the file to the final header only if the version changes
-    # reduces needless rebuilds
-    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
+else ()
+    set( BUILDVER_WC_LAST_CHANGED_REV 0)
+    set( BUILDVER_WC_REVISION 0)
 endif (SVN_REVISIONS)
+message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
+
+# write a file with the BUILDVERSION define
+file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${BUILDVER_WC_REVISION}")
+#copy the version file to install folder
+install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
+# copy the file to the final header only if the version changes
+# reduces needless rebuilds
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
 
 # vars
 

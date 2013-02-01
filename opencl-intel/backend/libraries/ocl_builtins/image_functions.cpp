@@ -24,7 +24,7 @@
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
-#include "GENERIC/ll_intrinsics.h"
+
 
 #define NORMALIZED_SAMPLER 0x08
 

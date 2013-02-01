@@ -3,6 +3,7 @@ header "pre_include_hpp" {
 #include <cstdlib>
 #include <stack>
 #include "Type.h"
+#include "TypeCast.h"
 #include "antlr/ParserSharedInputState.hpp"
 #include "antlr/TokenBuffer.hpp"
 #include "DemangleLexer.hpp"
@@ -24,6 +25,40 @@ options {
     using namespace reflection;
     using namespace reflection::primitives;
     return new Type(static_cast<Primitive>( t->getType()) );
+  }
+
+  static int getNestingLevel(const reflection::Type *T){
+    assert(T && "null type?");
+    int ret = 0;
+    while (const reflection::Pointer *P = reflection::dyn_cast<reflection::Pointer>(T)){
+      T = P->getPointee();
+      if (!T->isPrimiteTy())
+        ++ret;
+    }
+    return ret;
+  }
+
+  static const reflection::Type* getNestedType(const reflection::Type *T, int n){
+    int Diff = getNestingLevel(T) - n;
+    assert(Diff >= 0 && "precondition violation: wrong type frame!");
+    while(Diff--){
+      assert(T && "reached null type");
+      const reflection::Pointer *P = reflection::dyn_cast<reflection::Pointer>(T) ;
+      assert(P && "should only happen for pointer types!");
+      T = P->getPointee();
+    }
+    return T;
+  }
+
+  static const reflection::Type* getNestedType(TypeStack TS, int depth){
+    assert(!TS.empty() && "empty type stack?");
+    int nestingLevel = getNestingLevel(TS.top());
+    while(depth > nestingLevel){
+      depth -= nestingLevel;
+      TS.pop();
+      nestingLevel = getNestingLevel(TS.top());
+    }
+    return getNestedType(TS.top(), depth);
   }
 }
 
@@ -114,9 +149,12 @@ pointer_type returns [reflection::Pointer* ret = NULL;]
 
 dup_type returns [reflection::Type* ret = NULL;]
   :
-  PARAM_DUP_PREFIX (NUMBER)? UNDERSCORE {
+  PARAM_DUP_PREFIX (n:NUMBER)? UNDERSCORE {
+    int stackDepth =  (!n || n->getText().empty()) ?
+      0 :
+      atoi(n->getText().c_str()) + 1;
     assert(!m_stack.empty() && "stack should not be empty!");
-    ret = m_stack.top()->clone();
+    ret = getNestedType(m_stack, stackDepth)->clone();
   }
 ;
 

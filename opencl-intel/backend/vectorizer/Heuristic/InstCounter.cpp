@@ -48,18 +48,18 @@ const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
 // Costs for transpose functions
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
-   { "load_transpose_char4x4", 8 },
-   { "transpose_store_char4x4", 8 },
-   { "masked_load_transpose_char4x4", 12 },
-   { "masked_transpose_store_char4x4", 12 },
-   { "load_transpose_float4x8", 70 },
-   { "transpose_store_float4x8", 70 },
-   { "gather_transpose_float4x8", 75 },
-   { "transpose_scatter_float4x8", 75 },
-   { "masked_load_transpose_float4x8", 80},
-   { "masked_transpose_store_float4x8", 80},
-   { "masked_gather_transpose_float4x8", 90},
-   { "masked_transpose_scatter_float4x8", 90},
+   { "__ocl_load_transpose_char4x4", 8 },
+   { "__ocl_transpose_store_char4x4", 8 },
+   { "__ocl_masked_load_transpose_char4x4", 12 },
+   { "__ocl_masked_transpose_store_char4x4", 12 },
+   { "__ocl_load_transpose_float4x8", 70 },
+   { "__ocl_transpose_store_float4x8", 70 },
+   { "__ocl_gather_transpose_float4x8", 75 },
+   { "__ocl_transpose_scatter_float4x8", 75 },
+   { "__ocl_masked_load_transpose_float4x8", 80},
+   { "__ocl_masked_transpose_store_float4x8", 80},
+   { "__ocl_masked_gather_transpose_float4x8", 90},
+   { "__ocl_masked_transpose_scatter_float4x8", 90},
 
 
    // The line below must be the last line in the DB,

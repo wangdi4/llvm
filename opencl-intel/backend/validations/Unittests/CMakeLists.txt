@@ -60,18 +60,6 @@ link_directories(
     ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
 )
 
-if (WIN32)
-    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
-
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set (ICC_PLATFORM ia32)
-    else ()
-      set (ICC_PLATFORM intel64)
-    endif ()
-
-    link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
-endif()
-
 add_executable(${TARGET_NAME}
   ${TARGET_SOURCE_FILES}
 )

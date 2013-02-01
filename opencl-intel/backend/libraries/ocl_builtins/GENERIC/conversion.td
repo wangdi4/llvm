@@ -8,26 +8,26 @@ code BitCast = [{
   }];
 
 code BitSExt = [{
-    return as_$ReturnType(sext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
+    return as_$ReturnType(__ocl_sext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
 code BitZExt = [{
-    return as_$ReturnType(zext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
+    return as_$ReturnType(__ocl_zext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
 code BitTrunc = [{
-    return as_$ReturnType(trunc_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
+    return as_$ReturnType(__ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
 code PromoteI32 = [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype$Round($Arg0VarName)));
   }];
   
 code PromoteU32 = [{
     return as_$ReturnType(
-            trunc_$Arg0Symi32gentype_$ReturnSymigentype(
+            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
                 convert_$Arg0u32gentype$Round($Arg0VarName))));
   }];
@@ -354,7 +354,7 @@ OclBuiltinImpl cvt_f32_i8i16 = OclBuiltinImpl<convert_f32,
                                                v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtn$SVMLSuffix(
             as_$Arg0i32gentype(
-              sext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -363,7 +363,7 @@ OclBuiltinImpl cvt_f32_u8u16 = OclBuiltinImpl<convert_f32,
                                                v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtn$SVMLSuffix(
             as_$Arg0u32gentype(
-              zext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -403,7 +403,7 @@ OclBuiltinImpl rte_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rte,
                                                    v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtn$SVMLSuffix(
             as_$Arg0i32gentype(
-              sext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -412,7 +412,7 @@ OclBuiltinImpl rte_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32_rte,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtn$SVMLSuffix(
             as_$Arg0u32gentype(
-              zext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -452,7 +452,7 @@ OclBuiltinImpl rtz_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rtz,
                                                    v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtz$SVMLSuffix(
             as_$Arg0i32gentype(
-              sext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -461,7 +461,7 @@ OclBuiltinImpl rtz_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32_rtz,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtz$SVMLSuffix(
             as_$Arg0u32gentype(
-              zext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -501,7 +501,7 @@ OclBuiltinImpl rtp_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rtp,
                                                    v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return __ocl_svml_$Target_cvti32tofp$up$SVMLSuffix(
             as_$Arg0i32gentype(
-              sext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -510,7 +510,7 @@ OclBuiltinImpl rtp_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32_rtp,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$up$SVMLSuffix(
             as_$Arg0u32gentype(
-              zext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -550,7 +550,7 @@ OclBuiltinImpl rtn_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rtn,
                                                    v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return __ocl_svml_$Target_cvti32tofp$down$SVMLSuffix(
             as_$Arg0i32gentype(
-              sext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -559,7 +559,7 @@ OclBuiltinImpl rtn_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32_rtn,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$down$SVMLSuffix(
             as_$Arg0u32gentype(
-              zext_$Arg0Symigentype_$Arg0Symi32gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi32gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -607,7 +607,7 @@ OclBuiltinImpl cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64,
                                                   v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return __ocl_svml_$Target_cvti64tofp$rtn$VecLength(
             as_$Arg0i64gentype(
-              sext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -617,7 +617,7 @@ OclBuiltinImpl cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64,
                                                   v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$rtn$VecLength(
             as_$Arg0u64gentype(
-              zext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -643,7 +643,7 @@ OclBuiltinImpl rte_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rte,
                                                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return __ocl_svml_$Target_cvti64tofp$rtn$VecLength(
             as_$Arg0i64gentype(
-              sext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -653,7 +653,7 @@ OclBuiltinImpl rte_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rte,
                                                       v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$rtn$VecLength(
             as_$Arg0u64gentype(
-              zext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -679,7 +679,7 @@ OclBuiltinImpl rtz_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtz,
                                                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return __ocl_svml_$Target_cvti64tofp$rtz$VecLength(
             as_$Arg0i64gentype(
-              sext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -689,7 +689,7 @@ OclBuiltinImpl rtz_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtz,
                                                       v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$rtz$VecLength(
             as_$Arg0u64gentype(
-              zext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -715,7 +715,7 @@ OclBuiltinImpl rtp_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtp,
                                                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return __ocl_svml_$Target_cvti64tofp$up$VecLength(
             as_$Arg0i64gentype(
-              sext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -725,7 +725,7 @@ OclBuiltinImpl rtp_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtp,
                                                       v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$up$VecLength(
             as_$Arg0u64gentype(
-              zext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -751,7 +751,7 @@ OclBuiltinImpl rtn_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtn,
                                                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32], 0, [{
     return __ocl_svml_$Target_cvti64tofp$down$VecLength(
             as_$Arg0i64gentype(
-              sext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_sext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
@@ -761,7 +761,7 @@ OclBuiltinImpl rtn_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtn,
                                                       v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$down$VecLength(
             as_$Arg0u64gentype(
-              zext_$Arg0Symigentype_$Arg0Symi64gentype(
+              __ocl_zext_$Arg0Symigentype_$Arg0Symi64gentype(
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 

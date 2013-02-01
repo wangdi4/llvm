@@ -168,7 +168,7 @@ int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
 // TODO : move this to transpose_functions.cpp
 // CSSD100015383
 #if !defined(__SSE4_2__) 
-void transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
+void __ocl_transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
  (*xOut).s0 = xyzw0.s0;
  (*xOut).s1 = xyzw1.s0;
@@ -191,7 +191,7 @@ void transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
  (*wOut).s3 = xyzw3.s3;
 }
 
-void __inline__ __attribute__((always_inline)) transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
+void __inline__ __attribute__((always_inline)) __ocl_transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
                               char4 xyzw4, char4 xyzw5, char4 xyzw6, char4 xyzw7,
                               char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
  char4 xLow;
@@ -199,7 +199,7 @@ void __inline__ __attribute__((always_inline)) transpose_char4x8(char4 xyzw0, ch
  char4 zLow;
  char4 wLow;
 
- transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+ __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
                               &xLow, &yLow, &zLow, &wLow);
 
  char4 xHigh;
@@ -207,7 +207,7 @@ void __inline__ __attribute__((always_inline)) transpose_char4x8(char4 xyzw0, ch
  char4 zHigh;
  char4 wHigh;
 
- transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+ __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
                               &xHigh, &yHigh, &zHigh, &wHigh);
 
  (*xOut).lo = xLow;
@@ -220,7 +220,7 @@ void __inline__ __attribute__((always_inline)) transpose_char4x8(char4 xyzw0, ch
  (*wOut).hi = wHigh;
 }
 
-void __inline__ __attribute__((always_inline)) transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
+void __inline__ __attribute__((always_inline)) __ocl_transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
                               char4* xyzw0, char4* xyzw1, char4* xyzw2, char4* xyzw3,
                               char4* xyzw4, char4* xyzw5, char4* xyzw6, char4* xyzw7) {
  char4 xLow = xIn.lo;
@@ -228,7 +228,7 @@ void __inline__ __attribute__((always_inline)) transpose_char8x4( char8 xIn, cha
  char4 zLow = zIn.lo;
  char4 wLow = wIn.lo;
 
- transpose_char4x4(xLow, yLow, zLow, wLow,
+ __ocl_transpose_char4x4(xLow, yLow, zLow, wLow,
                             xyzw0, xyzw1, xyzw2, xyzw3);
 
  char4 xHigh = xIn.hi;
@@ -236,29 +236,29 @@ void __inline__ __attribute__((always_inline)) transpose_char8x4( char8 xIn, cha
  char4 zHigh = zIn.hi;
  char4 wHigh = wIn.hi;
 
- transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
+ __ocl_transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
                             xyzw4, xyzw5, xyzw6, xyzw7);
 }
 
 
-void __inline__ __attribute__((always_inline)) gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
  char4 xyzw0 = *pLoadAdd0;
  char4 xyzw1 = *pLoadAdd1;
  char4 xyzw2 = *pLoadAdd2;
  char4 xyzw3 = *pLoadAdd3;
 
- transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
+ __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
                               xOut, yOut, zOut, wOut);
 }
 
-void __inline__ __attribute__((always_inline)) transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __inline__ __attribute__((always_inline)) __ocl_transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
-  transpose_char4x4(xIn, yIn, zIn, wIn,
+  __ocl_transpose_char4x4(xIn, yIn, zIn, wIn,
                               pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
 }
 
-void __inline__ __attribute__((always_inline)) gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
                               char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
  char4 xyzw0 = *pLoadAdd0;
@@ -270,15 +270,15 @@ void __inline__ __attribute__((always_inline)) gather_transpose_char4x8(char4* p
  char4 xyzw6 = *pLoadAdd6;
  char4 xyzw7 = *pLoadAdd7;
 
- transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
+ __ocl_transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
                     xyzw4, xyzw5, xyzw6, xyzw7,
                     xOut, yOut, zOut, wOut);
 }
 
-void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
+void __ocl_transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
                                char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
                                char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
-  transpose_char8x4(xIn, yIn, zIn, wIn,
+  __ocl_transpose_char8x4(xIn, yIn, zIn, wIn,
                               pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
                               pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
 }
@@ -286,14 +286,14 @@ void transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pSto
 #endif
 
 // simulate masked transposes. they are not implemented in transpose_functions.cpp
-void masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __ocl_masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask)
 {
   // get mask as bits in int
   const int rescmp = intel_movemask(mask);
   // ALL 4 elements in mask are -1
   if(rescmp == 0xF){
-    gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+    __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
                               xOut, yOut, zOut, wOut);
     return;
   }
@@ -308,11 +308,11 @@ void masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* 
   pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
   pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
 
-  gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
+  __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
                               xOut, yOut, zOut, wOut);
 }
 
-void masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
+void __ocl_masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
                               char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
                               char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask)
 {
@@ -321,7 +321,7 @@ void masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* 
   
   // ALL 8 elements in mask are -1
   if(rescmp == 0xFF){
-       gather_transpose_char4x8(
+       __ocl_gather_transpose_char4x8(
            pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
            pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
            xOut, yOut, zOut, wOut);	
@@ -342,7 +342,7 @@ void masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* 
   pLoadAdd6 = mask.s6 ? pLoadAdd2 : &stub;
   pLoadAdd7 = mask.s7 ? pLoadAdd3 : &stub;
 
-  gather_transpose_char4x8(
+  __ocl_gather_transpose_char4x8(
        pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
        pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
        xOut, yOut, zOut, wOut);
@@ -422,7 +422,7 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,v
                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
+    __ocl_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
         (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w);
     *res_x = convert_uint8(color_x);
     *res_y = convert_uint8(color_y);
@@ -434,7 +434,7 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 i
                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    masked_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
+    __ocl_masked_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
         (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w, isNotOOB);
 
     *res_x = isNotOOB ? convert_uint8(color_x) : (uint8)BorderColorNoAlphaUint.x ;
@@ -494,7 +494,7 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPix
                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
+    __ocl_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
         (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w);
     *res_x = convert_uint4(color_x);
     *res_y = convert_uint4(color_y);
@@ -506,7 +506,7 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    masked_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
+    __ocl_masked_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
         (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w, isNotOOB);
     *res_x = isNotOOB ? convert_uint4(color_x) : (uint4)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint4(color_y) : (uint4)BorderColorNoAlphaUint.y ;
@@ -915,7 +915,7 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 void write_sample_RGBA_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     color = min(color, (uint4)(UCHAR_MAX));
-    *(char4*)pixel = trunc_v4i32_v4i8(*((int4*)&color));
+    *(char4*)pixel = __ocl_trunc_v4i32_v4i8(*((int4*)&color));
 }
 
 void write_sample_RG_UNSIGNED_INT8(void* pixel, uint4 color)
@@ -1939,7 +1939,7 @@ float4 load_pixel_RG_HALF_FLOAT(void* pPixel)
 uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel)
 {
     char4 color = *(char4*)pPixel; // nevermind signed/unsigned.
-    int4 converted = zext_v4i8_v4i32(color);
+    int4 converted = __ocl_zext_v4i8_v4i32(color);
     return *(uint4*)&converted;
 }
 
@@ -2305,7 +2305,7 @@ void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar8 clr_z = convert_uchar8_sat(val_z);
     uchar8 clr_w = convert_uchar8_sat(val_w);
 
-    transpose_scatter_char4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    __ocl_transpose_scatter_char4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
                               (char4*)p4, (char4*)p5, (char4*)p6, (char4*)p7,
                               as_char8(clr_x), as_char8(clr_y), as_char8(clr_z), as_char8(clr_w));
 }
@@ -2319,7 +2319,7 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar4 clr_z = convert_uchar4_sat(val_z);
     uchar4 clr_w = convert_uchar4_sat(val_w);
 
-    transpose_scatter_char4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    __ocl_transpose_scatter_char4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
                               as_char4(clr_x), as_char4(clr_y), as_char4(clr_z), as_char4(clr_w));
 }
 

@@ -1461,8 +1461,8 @@ const char* functionEntries[][width::OCL_VERSIONS] = {
   {"_Z3allDv4_l",NULL,"_Z7soa_allDv4_lS_S_S_","_Z7soa_allDv8_lS_S_S_","_Z7soa_allDv16_lS_S_S_",NULL},
   {"_Z3allDv8_l",NULL,"_Z7soa_allDv4_lS_S_S_S_S_S_S_","_Z7soa_allDv8_lS_S_S_S_S_S_S_","_Z7soa_allDv16_lS_S_S_S_S_S_S_",NULL},
   {"_Z3allDv16_l",NULL,"_Z7soa_allDv4_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_","_Z7soa_allDv8_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_","_Z7soa_allDv16_lS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_",NULL},
-  {"allOne","allOne_v2","allOne_v4","allOne_v8","allOne_v16",NULL},
-  {"allZero","allZero_v2","allZero_v4","allZero_v8","allZero_v16",NULL}
+  {"__ocl_allOne","__ocl_allOne_v2","__ocl_allOne_v4","__ocl_allOne_v8","__ocl_allOne_v16",NULL},
+  {"__ocl_allZero","__ocl_allZero_v2","__ocl_allZero_v4","__ocl_allZero_v8","__ocl_allZero_v16",NULL}
 };
 const size_t NUM_PROPERTIES = 2;
 //

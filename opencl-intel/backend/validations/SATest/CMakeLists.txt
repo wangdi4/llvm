@@ -65,10 +65,6 @@ link_directories(
     ${LLVM_LIBRARY_DIR}
 )
 
-set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
-set( intel_lib_dir "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")
-link_directories( ${intel_lib_dir} )
-
 if( NOT WIN32 )
     link_directories(${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
 endif( NOT WIN32)

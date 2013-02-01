@@ -59,6 +59,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetEventInfo (cl_event event , cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
         cl_err_code GetEventProfilingInfo (cl_event event, cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		cl_err_code WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList );
+		bool IsValidEventList(cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents = NULL);
 
         // Event handling functions
 		template<class EventClass>
@@ -89,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_event_int> m_mapEvents;     // Holds the set of clEvents that exist.
 
         // Private handling functions
-		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >& vOclEvents );
+		bool GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents );
 
         // An EventManger object cannot be copied
         EventsManager(const EventsManager&);           // copy constructor

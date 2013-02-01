@@ -1645,7 +1645,12 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
          *pErrcodeRet =  CL_INVALID_VALUE;
          return NULL;
     }
-    
+	if (false == pCommandQueue->GetEventsManager()->IsValidEventList(uNumEventsInWaitList, cpEeventWaitList))
+	{
+		*pErrcodeRet = CL_INVALID_EVENT_WAIT_LIST;
+		return NULL;
+	}
+
     MapBufferCommand* pMapBufferCommand = new MapBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb);
     // Must set device Id before init for buffer resource allocation.
 	if (NULL == pMapBufferCommand)
@@ -2768,7 +2773,12 @@ void * ExecutionModule::EnqueueMapImage(
     if (CL_SUCCESS != (*pErrcodeRet = CheckImageFormatSupportedByDevice(*pCommandQueue->GetDefaultDevice(), *pImage)))
     {
         return NULL;
-    } 
+    }
+	if (false == pCommandQueue->GetEventsManager()->IsValidEventList(uNumEventsInWaitList, cpEeventWaitList))
+	{
+		*pErrcodeRet = CL_INVALID_EVENT_WAIT_LIST;
+		return NULL;
+	}
     MapImageCommand* pMapImageCmd = new MapImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, clMapFlags, szOrigin, szRegion, pszImageRowPitch, pszImageSlicePitch);
 
 	// Must set device Id before init for image resource allocation.

@@ -144,6 +144,10 @@ bool clMapBufferTest()
 								//
 								// Execute commands - Write buffers using map/unmap
 								//
+								clEnqueueMapBuffer(queue1, buffer_srcA, CL_TRUE, CL_MAP_WRITE, 0, size* BUFFERS_LENGTH, 1, NULL, NULL, &iRet);
+								bResult &= Check(L"clEnqueueMapBuffer - invalid waiting list", CL_INVALID_EVENT_WAIT_LIST, iRet);
+								if (!bResult) goto release_queue;
+
 								srcA = (cl_float*) clEnqueueMapBuffer(queue1, buffer_srcA, CL_TRUE, CL_MAP_WRITE, 0, size* BUFFERS_LENGTH, 0, NULL, NULL, &iRet);
 								bResult &= Check(L"clEnqueueMapBuffer - srcA", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;

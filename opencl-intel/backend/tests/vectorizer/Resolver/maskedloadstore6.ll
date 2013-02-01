@@ -5,13 +5,13 @@
 ; CHECK: @testldst
 ; CHECK: sext
 ; CHECK: bitcast
-; CHECK: @masked_load_float8
+; CHECK: @__ocl_masked_load_float8
 ; CHECK: sext
 ; CHECK: bitcast
-; CHECK: @masked_store_float8
+; CHECK: @__ocl_masked_store_float8
 ; CHECK: sext
 ; CHECK: bitcast
-; CHECK: @masked_store_float8
+; CHECK: @__ocl_masked_store_float8
 ; CHECK: ret
 
 declare i32 @get_global_id(i32) nounwind
