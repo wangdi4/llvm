@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		// Load TBB library explicitly
 		bool LoadTBBLibrary();
 
-		mutable OclMutex m_mutex;
+		mutable OclMutex m_mutex;		
 
 		long								m_lActivateCount;
 
@@ -100,8 +100,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
-        tbb::task_scheduler_init*           m_pScheduler;
-        IWGContextPool* m_pWgContextPool;
+        tbb::task_scheduler_init*           m_pScheduler;		
+        IWGContextPool* volatile m_pWgContextPool;
+		OclMutex m_contextPoolMutex;
 
 	private:
 		TBBTaskExecutor(const TBBTaskExecutor&);

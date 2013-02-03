@@ -147,3 +147,13 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
         return 0;
     }
 }
+
+out_of_order_command_list::~out_of_order_command_list()
+{
+	/* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
+	   ~base_command_list */
+	if (!m_devArenaHandler.isTerminating())
+    {
+		WaitForIdle();
+	}
+}
