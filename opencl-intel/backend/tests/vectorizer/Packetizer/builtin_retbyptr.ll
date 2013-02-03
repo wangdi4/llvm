@@ -33,16 +33,16 @@ entry:
   %scalar3 = extractelement <4 x double> %0, i32 2
   %scalar4 = extractelement <4 x double> %0, i32 3
   %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
-  %_clone = call <2 x double> @_Z17sincos_scalarizedd(double %scalar) nounwind readnone
+  %_clone = call <2 x double> @_Z20__retbyvector_sincosd(double %scalar) nounwind readnone
   %fake_extract = call double @fake.extract.element0(<2 x double> %_clone, i32 0) nounwind readnone
   %fake_extract5 = call double @fake.extract.element1(<2 x double> %_clone, i32 1) nounwind readnone
-  %_clone6 = call <2 x double> @_Z17sincos_scalarizedd(double %scalar2) nounwind readnone
+  %_clone6 = call <2 x double> @_Z20__retbyvector_sincosd(double %scalar2) nounwind readnone
   %fake_extract7 = call double @fake.extract.element2(<2 x double> %_clone6, i32 0) nounwind readnone
   %fake_extract8 = call double @fake.extract.element3(<2 x double> %_clone6, i32 1) nounwind readnone
-  %_clone9 = call <2 x double> @_Z17sincos_scalarizedd(double %scalar3) nounwind readnone
+  %_clone9 = call <2 x double> @_Z20__retbyvector_sincosd(double %scalar3) nounwind readnone
   %fake_extract10 = call double @fake.extract.element4(<2 x double> %_clone9, i32 0) nounwind readnone
   %fake_extract11 = call double @fake.extract.element5(<2 x double> %_clone9, i32 1) nounwind readnone
-  %_clone12 = call <2 x double> @_Z17sincos_scalarizedd(double %scalar4) nounwind readnone
+  %_clone12 = call <2 x double> @_Z20__retbyvector_sincosd(double %scalar4) nounwind readnone
   %fake_extract13 = call double @fake.extract.element6(<2 x double> %_clone12, i32 0) nounwind readnone
   %fake_extract14 = call double @fake.extract.element7(<2 x double> %_clone12, i32 1) nounwind readnone
   %assembled.vect18 = insertelement <4 x double> undef, double %fake_extract, i32 0
@@ -58,7 +58,7 @@ entry:
   store <4 x double> %assembled.vect21, <4 x double> addrspace(1)* %arrayidx3, align 32
   ret void
 }
-declare <2 x double> @_Z17sincos_scalarizedd(double) nounwind readnone
+declare <2 x double> @_Z20__retbyvector_sincosd(double) nounwind readnone
 
 define void @__Vectorized_.native_sincos(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
 ; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
@@ -85,16 +85,16 @@ entry:
   %scalar3 = extractelement <4 x double> %0, i32 2
   %scalar4 = extractelement <4 x double> %0, i32 3
   %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
-  %_clone = call <2 x double> @_Z24native_sincos_scalarizedd(double %scalar) nounwind readnone
+  %_clone = call <2 x double> @_Z27__retbyvector_native_sincosd(double %scalar) nounwind readnone
   %fake_extract = call double @fake.extract.element0(<2 x double> %_clone, i32 0) nounwind readnone
   %fake_extract5 = call double @fake.extract.element1(<2 x double> %_clone, i32 1) nounwind readnone
-  %_clone6 = call <2 x double> @_Z24native_sincos_scalarizedd(double %scalar2) nounwind readnone
+  %_clone6 = call <2 x double> @_Z27__retbyvector_native_sincosd(double %scalar2) nounwind readnone
   %fake_extract7 = call double @fake.extract.element2(<2 x double> %_clone6, i32 0) nounwind readnone
   %fake_extract8 = call double @fake.extract.element3(<2 x double> %_clone6, i32 1) nounwind readnone
-  %_clone9 = call <2 x double> @_Z24native_sincos_scalarizedd(double %scalar3) nounwind readnone
+  %_clone9 = call <2 x double> @_Z27__retbyvector_native_sincosd(double %scalar3) nounwind readnone
   %fake_extract10 = call double @fake.extract.element4(<2 x double> %_clone9, i32 0) nounwind readnone
   %fake_extract11 = call double @fake.extract.element5(<2 x double> %_clone9, i32 1) nounwind readnone
-  %_clone12 = call <2 x double> @_Z24native_sincos_scalarizedd(double %scalar4) nounwind readnone
+  %_clone12 = call <2 x double> @_Z27__retbyvector_native_sincosd(double %scalar4) nounwind readnone
   %fake_extract13 = call double @fake.extract.element6(<2 x double> %_clone12, i32 0) nounwind readnone
   %fake_extract14 = call double @fake.extract.element7(<2 x double> %_clone12, i32 1) nounwind readnone
   %assembled.vect18 = insertelement <4 x double> undef, double %fake_extract, i32 0
@@ -110,7 +110,7 @@ entry:
   store <4 x double> %assembled.vect21, <4 x double> addrspace(1)* %arrayidx3, align 32
   ret void
 }
-declare <2 x double> @_Z24native_sincos_scalarizedd(double) nounwind readnone
+declare <2 x double> @_Z27__retbyvector_native_sincosd(double) nounwind readnone
 
 declare double @fake.extract.element0(<2 x double>, i32) nounwind readnone
 

@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @sincos_kernel1(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[V2:%[0-9a-zA-Z._]+]] = call <2 x double> @_Z17sincos_scalarizedd(double %0)
+; CHECK: [[V2:%[0-9a-zA-Z._]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double %0)
 ; CHECK: = extractelement <2 x double> [[V2]], i32 0
 ; CHECK: [[C2:%[0-9a-zA-Z._]+]] = extractelement <2 x double> [[V2]], i32 1
 ; CHECK: store double [[C2]], double addrspace(1)* %add.ptr
@@ -25,7 +25,7 @@ entry:
 }
 
 define void @sincos_kernel16(<16 x double> addrspace(1)* nocapture %out, <16 x double> addrspace(1)* %out2, <16 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[V1:%[0-9]+]] = call [2 x <16 x double>] @_Z18_retbyarray_sincosDv16_d(<16 x double> %0)
+; CHECK: [[V1:%[0-9]+]] = call [2 x <16 x double>] @_Z19__retbyarray_sincosDv16_d(<16 x double> %0)
 ; CHECK: = extractvalue [2 x <16 x double>] [[V1]], 0
 ; CHECK: [[C1:%[0-9a-zA-Z._]+]] = extractvalue [2 x <16 x double>] [[V1]], 1
 ; CHECK: store <16 x double> [[C1]], <16 x double> addrspace(1)* %add.ptr
@@ -44,7 +44,7 @@ entry:
 }
 
 define void @native_sincos_kernel1(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[V2:%[0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double %0)
+; CHECK: [[V2:%[0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double %0)
 ; CHECK: = extractelement <2 x double> [[V2]], i32 0
 ; CHECK: [[C2:%[0-9a-zA-Z._]+]] = extractelement <2 x double> [[V2]], i32 1
 ; CHECK: store double [[C2]], double addrspace(1)* %add.ptr
@@ -63,7 +63,7 @@ entry:
 }
 
 define void @native_sincos_kernel16(<16 x double> addrspace(1)* nocapture %out, <16 x double> addrspace(1)* %out2, <16 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[V1:%[0-9]+]] = call [2 x <16 x double>] @_Z25_retbyarray_native_sincosDv16_d(<16 x double> %0)
+; CHECK: [[V1:%[0-9]+]] = call [2 x <16 x double>] @_Z26__retbyarray_native_sincosDv16_d(<16 x double> %0)
 ; CHECK: = extractvalue [2 x <16 x double>] [[V1]], 0
 ; CHECK: [[C1:%[0-9a-zA-Z._]+]] = extractvalue [2 x <16 x double>] [[V1]], 1
 ; CHECK: store <16 x double> [[C1]], <16 x double> addrspace(1)* %add.ptr

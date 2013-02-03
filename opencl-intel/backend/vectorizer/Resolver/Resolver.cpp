@@ -215,6 +215,9 @@ void FuncResolver::resolve(CallInst* caller) {
   if (Mangler::isFakeExtract(calledName)) {
     return resolveFakeExtract(caller);
   }
+  if (Mangler::isRetByVectorBuiltin(calledName)) {
+    return resolveRetByVectorBuiltin(caller);
+  }
 }
 
 Constant *FuncResolver::getDefaultValForType(Type *ty) {
@@ -585,6 +588,57 @@ void FuncResolver::resolveFakeExtract(CallInst* caller) {
   ExtractElementInst *EEI = ExtractElementInst::Create(caller->getOperand(0), caller->getOperand(1), "extractelt", caller);
   caller->replaceAllUsesWith(EEI);
   VectorizerUtils::SetDebugLocBy(EEI, caller);
+  caller->eraseFromParent();
+}
+
+void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
+  Function* currFunc = caller->getParent()->getParent();
+
+  Function *origFunc = caller->getCalledFunction();
+  std::string fakeFuncName = origFunc->getName().str();
+  std::string origFuncName = Mangler::get_original_scalar_name_from_retbyvector_builtin(fakeFuncName);
+  const Function *LibFunc = m_rtServices->findInRuntimeModule(origFuncName);
+  V_ASSERT(LibFunc && "Function does not exists in runtime module");
+
+  // Find (or create) declaration for newly called function
+  Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
+  if (!newFunction) {
+    Constant *newFunctionConst = currFunc->getParent()->getOrInsertFunction(
+        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    V_ASSERT(newFunctionConst && "failed generating function in current module");
+    newFunction = dyn_cast<Function>(newFunctionConst);
+    V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");
+  }
+
+  std::vector<Value *> newArgs;
+  //Prepare first parameter
+  newArgs.push_back(caller->getOperand(0));
+
+  //Prepare second parameter
+  FunctionType *LibFuncTy = LibFunc->getFunctionType();
+  Instruction *loc = currFunc->getEntryBlock().begin();
+  PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(1));
+  V_ASSERT(ptrTy && "bad signature");
+  Type *elTy = ptrTy->getElementType();
+  AllocaInst *AI = new AllocaInst(elTy, "ret2", loc);
+  newArgs.push_back(AI);
+
+  //Create new function call
+  CallInst *newCall = CallInst::Create(newFunction, ArrayRef<Value*>(newArgs), "", caller);
+
+  //Update return value
+  Type *i32Ty = Type::getInt32Ty(caller->getContext());
+  Constant *constZero = ConstantInt::get(i32Ty, 0);
+  Constant *constOne = ConstantInt::get(i32Ty, 1);
+  Value *undefVal = UndefValue::get(caller->getType());
+  Value *vectorRetVal = InsertElementInst::Create(undefVal, newCall, constZero, "insert.ret1", caller);
+  Instruction* secondRetVal = new LoadInst(AI, "load.ret2", caller);
+  vectorRetVal = InsertElementInst::Create(vectorRetVal, secondRetVal, constOne, "insert.ret2", caller);
+
+  caller->replaceAllUsesWith(vectorRetVal);
+
+  //update new call instruction location and delete old call instruction
+  VectorizerUtils::SetDebugLocBy(newCall, caller);
   caller->eraseFromParent();
 }
 

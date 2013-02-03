@@ -132,13 +132,17 @@ private:
 
   /*! \Fake Function Resolver
    * \{ */
-  /// @brief Resolve a fake extract function call
-  /// @param caller Instruction to resolve
-  void resolveFakeExtract(CallInst* caller);  
   /// @brief Resolve a fake insert function call
   /// @param caller Instruction to resolve
   void resolveFakeInsert(CallInst* caller);
+  /// @brief Resolve a fake extract function call
+  /// @param caller Instruction to resolve
+  void resolveFakeExtract(CallInst* caller);  
   /*! \} */
+
+  /// @brief Resolve a ret-by-vector function call
+  /// @param caller Instruction to resolve
+  void resolveRetByVectorBuiltin(CallInst* caller);
 
   /// load storage
   typedef std::vector<CallInst*> bin_t;

@@ -155,6 +155,15 @@ private:
 
   /*! \} */
 
+  ///@brief this function gets the function type and attributes of giving scalar function name.
+  /// If it is a ret-by-vector functionm then it calculates the function type and attributes,
+  /// otherwise it check the function in the runtime module.
+  /// It returns true upon success and false otherwise.
+  ///@param strScalarFuncName - scalar function name
+  ///@param funcType - [output] place to return function type
+  ///@param funcAttr - [output] place to return function attribute
+  ///@return true if succeeded and false otherwise.
+  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr);
 
   /// @brief Pointer to current function's context
   LLVMContext *m_moduleContext;

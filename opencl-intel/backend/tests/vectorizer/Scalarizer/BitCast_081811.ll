@@ -1,7 +1,9 @@
 ; CSSD100006905
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 %t.bc
+; RUN: opt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 -S %t.bc -o - \
+; RUN: | FileCheck %s
 
+; CHECK: @__Vectorized_.intel_median_bitonic_vector
 
 declare i32 @_Z3minDv4_hS_(i32, i32)
 declare i32 @_Z3maxDv4_hS_(i32, i32)

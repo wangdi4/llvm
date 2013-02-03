@@ -29,7 +29,8 @@ const std::string Mangler::prefetch             = "prefetch";
 const std::string Mangler::name_allOne          = "__ocl_allOne";
 const std::string Mangler::name_allZero         = "__ocl_allZero";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
-const std::string Mangler::retbyarray_builtin_prefix  = "_retbyarray_";
+const std::string Mangler::retbyarray_builtin_prefix  = "__retbyarray_";
+const std::string Mangler::retbyvector_builtin_prefix  = "__retbyvector_";
 const std::string Mangler::fake_prefix_extract  = "fake.extract.element";
 const std::string Mangler::fake_prefix_insert   = "fake.insert.element";
 
@@ -282,6 +283,12 @@ std::string Mangler::getFakeBuiltinName(const std::string& name) {
   return fake_builtin_prefix+name;
 }
 
+bool Mangler::isRetByVectorBuiltin(const std::string& name) {
+  reflection::FunctionDescriptor desc = ::demangle(name.c_str());
+  if(desc.isNull()) return false;
+  return desc.name.find(retbyvector_builtin_prefix) != std::string::npos;
+}
+
 std::string Mangler::getRetByArrayBuiltinName(const std::string& name) {
   reflection::FunctionDescriptor ret = ::demangle(name.c_str());
   V_ASSERT(ret.parameters.size() == 2 && "Expected exactly two arguments");
@@ -291,8 +298,8 @@ std::string Mangler::getRetByArrayBuiltinName(const std::string& name) {
   // If the orginal function was scalar, use the same function that will
   // planted by the Scalarizer
   ret.name = reflection::dyn_cast<reflection::Vector>(ret.parameters[0]) ?
-    retbyarray_builtin_prefix+ret.name :
-    ret.name + "_scalarized";
+    retbyarray_builtin_prefix + ret.name :
+    retbyvector_builtin_prefix + ret.name;
   return ::mangle(ret);
 }
 
@@ -321,6 +328,22 @@ std::string Mangler::demangle_fake_builtin(const std::string& name) {
   V_ASSERT(start == 0);
   start += fake_builtin_prefix.length();
   return name.substr(start);
+}
+
+std::string Mangler::get_original_scalar_name_from_retbyvector_builtin(const std::string& name) {
+  V_ASSERT(isRetByVectorBuiltin(name) && "not a mangled ret-by-vector builtin function");
+  reflection::FunctionDescriptor desc = ::demangle(name.c_str());
+  //Add second operand that is pointer of first operand type
+  //It is always pointer to address space 0 (should not really matter)!
+  desc.parameters.push_back(new reflection::Pointer(desc.parameters[0]));
+  //Fix the name
+  size_t start = desc.name.find(retbyvector_builtin_prefix);
+  // when get_original_scalar_name_from_retbyvector_builtin
+  // is called retbyvector_builtin_prefix should be at start
+  V_ASSERT(start == 0);
+  start += retbyvector_builtin_prefix.length();
+  desc.name = desc.name.substr(start);
+  return ::mangle(desc);
 }
 
 std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,

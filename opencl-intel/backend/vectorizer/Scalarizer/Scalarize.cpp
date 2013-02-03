@@ -10,6 +10,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "FakeExtractInsert.h"
+#include "TypeConversion.h"
+#include "FunctionDescriptor.h"
+#include "NameMangleAPI.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Constants.h"
@@ -713,12 +716,18 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   // Find scalar function, using hash entry
   std::string strScalarFuncName = foundFunction->getVersion(0);
   const char *scalarFuncName = strScalarFuncName.c_str();
-  const Function *LibScalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
-  V_ASSERT(NULL != LibScalarFunc && "function hash error");
+  FunctionType * funcType;
+  AttrListPtr funcAttr;
+  if(!getScalarizedFunctionType(strScalarFuncName, funcType, funcAttr)) {
+    V_ASSERT(false && "function hash error");
+    // In release mode - fail scalarizing function call "gracefully"
+    recoverNonScalarizableInst(CI);
+    return;
+  }
 
   // Declare function in current module (if not declared already)
   Constant *scalarFunctionConstant = m_currFunc->getParent()->getOrInsertFunction(
-      scalarFuncName, LibScalarFunc->getFunctionType(), LibScalarFunc->getAttributes());
+      scalarFuncName, funcType, funcAttr);
   V_ASSERT(scalarFunctionConstant && "Failed finding or generating function");
   Function *scalarFunction = dyn_cast<Function>(scalarFunctionConstant);
   V_ASSERT(scalarFunction && "Function type mismatch, caused a constant expression cast!");
@@ -1318,6 +1327,28 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   return assembledVector;
 }
 
+bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr) {
+
+  if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
+    reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
+    V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
+    reflection::Type* refType = fdesc.parameters[0];
+    Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), refType);
+    SmallVector<Type *, 1> types(1, scalarType);
+    Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
+    funcType = FunctionType::get(retType, types, false);
+    funcAttr.addAttr(~0, Attribute::ReadNone);
+    funcAttr.addAttr(~0, Attribute::NoUnwind);
+    return true;
+  }
+
+  const Function *LibScalarFunc = m_rtServices->findInRuntimeModule(strScalarFuncName.c_str());
+  if (!LibScalarFunc) return false;
+
+  funcType = LibScalarFunc->getFunctionType();
+  funcAttr = LibScalarFunc->getAttributes();
+  return true;
+}
 
 ScalarizeFunction::SCMEntry *ScalarizeFunction::getSCMEntry(Value *origValue)
 {
