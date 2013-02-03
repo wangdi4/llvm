@@ -29,7 +29,8 @@
 #include <assert.h>
 #include <cl_sys_defines.h>
 
-using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::BuiltInKernels;
+using namespace Intel::OpenCL::Utils;
 
 cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelList)
 {
@@ -42,21 +43,21 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 	const char* pNameListEnd = szBuiltInKernelList + strlen(szBuiltInKernelList);
 	while ( pCurrFuncName < pNameListEnd )
 	{
-		char* pFuncName = NULL;
 		const char* pNextNameSeparator = strchr(pCurrFuncName, ';');
-		if ( NULL != pNextNameSeparator )
+		if ( NULL == pNextNameSeparator )
 		{
-			size_t stNameSize = (size_t)(pNextNameSeparator-pCurrFuncName);
-			pFuncName = (char*)alloca(stNameSize+1);
-			assert(NULL!=pFuncName && "alloca() always MUST success");
-			MEMCPY_S(pFuncName, stNameSize, pCurrFuncName, stNameSize);
-			pFuncName[stNameSize]='\0';
+			pNextNameSeparator = pCurrFuncName+strlen(pCurrFuncName);
 		}
-		else
+
+		size_t stNameSize = (size_t)(pNextNameSeparator-pCurrFuncName);
+		char* pFuncName = (char*)STACK_ALLOC(stNameSize+1);
+		assert(NULL!=pFuncName && "alloca() always MUST success");
+		if ( NULL == pFuncName )
 		{
-			pFuncName = (char*)pCurrFuncName;
-			pNextNameSeparator = pFuncName+strlen(pCurrFuncName);
+			return CL_DEV_OUT_OF_MEMORY;
 		}
+		MEMCPY_S(pFuncName, stNameSize, pCurrFuncName, stNameSize);
+		pFuncName[stNameSize]='\0';
 
 		if ( m_mapKernels.find(pFuncName) == m_mapKernels.end() )
 		{
@@ -69,13 +70,18 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 			m_mapKernels[pFuncName] = pBIKernel;
 			m_listKernels.push_back(pBIKernel);
 		}
+		// Nothing to do on else. If kernel is not supported by the device, just don't add it to the list.
+		// Other devices might support it
+
+		STACK_FREE(pFuncName);
+
 		pCurrFuncName = pNextNameSeparator+1;
 	}
 
 	return m_mapKernels.size() > 0 ? CL_DEV_SUCCESS : CL_DEV_INVALID_KERNEL_NAME;
 }
 
-cl_dev_err_code BuiltInProgram::GetKernelByName( const char* pKernelName, const ICLDevBackendKernel_** ppKernel) const
+cl_dev_err_code BuiltInProgram::GetKernelByName( const char* pKernelName, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const
 {
 	if ( NULL == ppKernel )
 	{
@@ -93,7 +99,7 @@ cl_dev_err_code BuiltInProgram::GetKernelByName( const char* pKernelName, const 
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code	BuiltInProgram::GetKernel( int kernelIndex, const ICLDevBackendKernel_** ppKernel) const
+cl_dev_err_code	BuiltInProgram::GetKernel( int kernelIndex, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const
 {
 	if ( kernelIndex >= (int)m_listKernels.size() )
 	{
@@ -134,6 +140,11 @@ void BuiltInKernelRegistry::RegisterBuiltInKernel(const char* szBIKernelName, fn
 
 void BuiltInKernelRegistry::GetBuiltInKernelList(char* szBIKernelList, size_t stSize) const
 {
+	assert(0 != stSize && "Input string can't be empty");
+	if ( 0 == stSize )
+	{
+		return;
+	}
 	KernelCreatorMap_t::const_iterator it;
 	size_t stTotalSize = 0;
 	szBIKernelList[0] = '\0';
@@ -143,10 +154,10 @@ void BuiltInKernelRegistry::GetBuiltInKernelList(char* szBIKernelList, size_t st
 			break;
 		if ( '\0' != szBIKernelList[0] )
 		{
-			STRCAT_S(&szBIKernelList[stTotalSize], stSize-stTotalSize, ";");
+			STRCPY_S(&szBIKernelList[stTotalSize], stSize-stTotalSize, ";");
 			++stTotalSize;
 		}
-		STRCAT_S(&szBIKernelList[stTotalSize], stSize, &(it->first.at(0)));
+		STRNCPY_S(&szBIKernelList[stTotalSize], stSize-stTotalSize, it->first.c_str(), it->first.length());
 		stTotalSize += it->first.length();
 	}
 }
@@ -164,7 +175,7 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInKernel(const char* szMKLFunc
 	return err;
 }
 
-cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernelList, ICLDevBackendProgram_* *ppProgram)
+cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernelList, Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_* *ppProgram)
 {
 	BuiltInProgram* pNewProgram = new BuiltInProgram;
 
@@ -184,4 +195,122 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernel
 	*ppProgram = pNewProgram;
 
 	return CL_DEV_SUCCESS;
+}
+
+cl_kernel_arg_address_qualifier Intel::OpenCL::BuiltInKernels::ArgType2AddrQual(cl_kernel_arg_type type)
+{
+	switch(type)
+	{
+	case CL_KRNL_ARG_INT: case CL_KRNL_ARG_UINT: case CL_KRNL_ARG_FLOAT: case CL_KRNL_ARG_DOUBLE:
+	case CL_KRNL_ARG_VECTOR: case CL_KRNL_ARG_SAMPLER: case CL_KRNL_ARG_COMPOSITE:
+		return CL_KERNEL_ARG_ADDRESS_PRIVATE;
+
+	case CL_KRNL_ARG_PTR_LOCAL:
+		return CL_KERNEL_ARG_ADDRESS_LOCAL;
+
+	case CL_KRNL_ARG_PTR_CONST:
+		return CL_KERNEL_ARG_ADDRESS_CONSTANT;
+
+	case CL_KRNL_ARG_PTR_GLOBAL:
+	default:
+		return CL_KERNEL_ARG_ADDRESS_GLOBAL;
+
+	}
+}
+
+#define INIT_NUM_OF_EVENTS 10
+
+OMPExecutorThread::OMPExecutorThread(unsigned int uiNumOfThreads) :
+	OclThread("MKLExecutor")
+{
+	m_StartEvent.Init(true); // Auto-reset event
+
+	// Pre-allocate the pool of OS events
+	for(int i=0;i<INIT_NUM_OF_EVENTS;++i)
+	{
+		OclOsDependentEvent* pEvent = new OclOsDependentEvent();
+		if ( NULL != pEvent )
+		{
+			pEvent->Init(true);
+			m_OSEventPool.PushBack(pEvent);
+		}
+	}
+}
+
+OMPExecutorThread::~OMPExecutorThread()
+{
+	OclOsDependentEvent* pEvent;
+	while ( m_OSEventPool.TryPop(pEvent) )
+	{
+			delete pEvent;
+	}
+}
+
+int OMPExecutorThread::Join()
+{
+	if(m_running)
+	{
+		if (0 != m_join.test_and_set(0, 1))
+		{
+			return THREAD_RESULT_FAIL;
+		}
+		m_StartEvent.Signal();
+		return WaitForCompletion();
+	}
+	
+	return THREAD_RESULT_SUCCESS;
+}
+
+RETURN_TYPE_ENTRY_POINT OMPExecutorThread::Run()
+{
+	while (!m_join)
+	{
+		ExecutionRecord mklTask;
+		bool exists = m_ExecutionQueue.TryPop(mklTask);
+		if ( exists )
+		{
+			mklTask.first->Execute();
+			mklTask.second->Signal();
+			continue;
+		}
+		m_StartEvent.Wait();
+	}
+
+	return 0;
+}
+
+cl_dev_err_code OMPExecutorThread::Execute(Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor& kernelToExecute)
+{
+	// Check if we have allocted OS event
+	OclOsDependentEvent* pEvent = NULL;
+
+	bool exists = m_OSEventPool.TryPop(pEvent);
+	if ( !exists )
+	{
+		pEvent = new OclOsDependentEvent();
+		if ( NULL != pEvent )
+		{
+			pEvent->Init(true);
+		}
+	}
+	if ( NULL == pEvent )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	m_ExecutionQueue.PushBack(ExecutionRecord(&kernelToExecute, pEvent));
+	m_StartEvent.Signal();
+
+	// Wait for execition
+	pEvent->Wait();
+
+	// Return event to the pool
+	m_OSEventPool.PushBack(pEvent);
+	return CL_DEV_SUCCESS;
+}
+
+Intel::OpenCL::BuiltInKernels::OMPExecutorThread* Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(unsigned int uiNumOfWorkers)
+{
+	Intel::OpenCL::BuiltInKernels::OMPExecutorThread* pNewThread = new OMPExecutorThread(uiNumOfWorkers);
+	return pNewThread;
 }

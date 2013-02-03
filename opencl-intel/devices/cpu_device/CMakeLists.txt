@@ -15,6 +15,7 @@ include_directories( BEFORE ../../backend/ocl_cpu_backend/export
                             ../../fe_compilers/clang_compiler
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR}
+							../common/builtin_kernels
 					)
 							
 include( ../../cmake_utils/itt.cmake )
@@ -52,31 +53,22 @@ else ()
 	add_definitions( -D_LINUX )
  	message( WARNING " Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
-				
+
+#Support for builtin kernels
+add_subdirectory(../common/builtin_kernels ${CMAKE_CURRENT_BINARY_DIR}/builtin_kernels)
+list (APPEND LINK_LIBS builtin_kernels)
+
 # Add MKL library integration	
 if (INCLUDE_MKL)
 	message( "Including MKL library" )
 	add_definitions( -D__INCLUDE_MKL__ )
-	
-	if (WIN32)
-		set( MKL_DIR $ENV{ICPP_COMPILER12}/mkl )
-	else(WIN32)
-		set( MKL_DIR "/opt/intel/composerxe" )
-	endif(WIN32)
-		
-	include_directories( AFTER
-		${MKL_DIR}/include
-	)
-	if (ADDR EQUAL 64)
-		add_definitions(-DMKL_ILP64 )
-		set( MKL_LIB_DIR ${MKL_DIR}/lib/intel64 )
-		list(APPEND LINK_LIBS ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_intel_ilp64${IMPLIB_STATIC_SUFFIX})
-	else(ADDR EQUAL 64)
-		set( MKL_LIB_DIR ${MKL_DIR}/lib/ia32 )
-	endif(ADDR EQUAL 64)
 
-	#Required for both 32 and 64 bit
-	list(APPEND LINK_LIBS ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_core${IMPLIB_STATIC_SUFFIX} ${MKL_LIB_DIR}/${IMPLIB_PREFIX}mkl_sequential${IMPLIB_STATIC_SUFFIX})
+	add_subdirectory(../common/mkl_kernels ${CMAKE_CURRENT_BINARY_DIR}/mkl_kernels)
+	include_directories( BEFORE
+		../common/mkl_kernels/export
+		)
+	
+	list (APPEND LINK_LIBS mkl_kernels)
 endif(INCLUDE_MKL)
 
 FIND_SOURCES()
@@ -99,8 +91,8 @@ install( TARGETS ${TARGET_NAME}
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
-                                      task_executor${BUILD_PLATFORM} 
-                                      ${LINK_LIBS} )
+                                      task_executor${BUILD_PLATFORM}
+									  ${LINK_LIBS} )
 									  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
@@ -110,16 +102,16 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008 	
         set_target_properties( ${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
 	    )
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
     else(${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.	
-	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbb_preview_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+		set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}")
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     

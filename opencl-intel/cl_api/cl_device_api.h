@@ -657,6 +657,14 @@ typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
                         size_t*   OUT deviceIdsListSizeRet
                         );
 
+
+//! This function initializes device agent internal data. This function should be called prior to any device agent calls.
+/*!
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
+
 /*!
  \interface IOCLFrameworkCallbacks
  \brief Device Callback interface prototype.

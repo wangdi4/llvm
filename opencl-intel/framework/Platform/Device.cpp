@@ -25,13 +25,13 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "Device.h"
-#include "observer.h"
-#include "cl_sys_defines.h"
+#include <cl_sys_defines.h>
 #include <CL/cl_gl.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <malloc.h>
+
+#include "Device.h"
+#include "observer.h"
 #include "enqueue_commands.h"
 #include "command_queue.h"
 #include "cl_shared_ptr.hpp"
@@ -166,6 +166,12 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
+	fn_clDevInitDeviceAgent* pFnClDevInitDeviceAgent = (fn_clDevInitDeviceAgent*)dlModule.GetFunctionPtrByName("clDevInitDeviceAgent");
+	if ( NULL == pFnClDevInitDeviceAgent )
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
 	// Get pointer to the GetInfo function
 	fn_clDevGetDeviceInfo*	pFnClDevGetDeviceInfo = (fn_clDevGetDeviceInfo*)dlModule.GetFunctionPtrByName("clDevGetDeviceInfo");
 	if (NULL == pFnClDevGetDeviceInfo)
@@ -179,6 +185,12 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
+
+	if ( CL_DEV_FAILED(pFnClDevInitDeviceAgent()) )
+	{
+		return CL_ERR_DEVICE_INIT_FAIL;
+	}
+
 	size_t numDevicesInDeviceType = 0;
 	cl_dev_err_code dev_err = pFnClDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
 
@@ -187,7 +199,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 
-	unsigned int* deviceIdsList = (unsigned int*)alloca(sizeof(unsigned int) * numDevicesInDeviceType);
+	unsigned int* deviceIdsList = (unsigned int*)STACK_ALLOC(sizeof(unsigned int) * numDevicesInDeviceType);
 	if (NULL == deviceIdsList)
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;
@@ -197,6 +209,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 	dev_err = pFnClDevGetAvailableDeviceList(numDevicesInDeviceType, deviceIdsList, &numDevicesInDeviceTypeRet);
 	if ((CL_DEV_FAILED(dev_err)) || (numDevicesInDeviceTypeRet != numDevicesInDeviceType))
 	{
+		STACK_FREE(deviceIdsList);
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
 	assert(numDevicesInDeviceType == numDevicesInDeviceTypeRet);
@@ -225,6 +238,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 		pOutDevices->push_back(pDevice);
 	}
 
+	STACK_FREE(deviceIdsList);
 	return clErrRet;
 }
 

@@ -811,3 +811,19 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
         delete this;
     }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Static functions
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//! This function initializes device agent internal data. This function should be called prior to any device agent calls.
+/*!
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
+{
+#ifdef __INCLUDE_MKL__
+	Intel::OpenCL::MKLKernels::InitLibrary();
+#endif
+	return CL_DEV_SUCCESS;
+}

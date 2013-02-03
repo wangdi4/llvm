@@ -32,8 +32,6 @@
 
 using namespace Intel::OpenCL::Utils;
 
-const int THREAD_RESULT_FAIL = -1;
-const int THREAD_RESULT_SUCCESS = 0;
 const unsigned int MAX_UINT = 0xffffffff;
 
 /************************************************************************
