@@ -208,7 +208,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // A list of root-level devices only. This list is static throughout the module's existence
 		SharedPtr<Device>*		m_ppRootDevices;
-        unsigned int	m_uiRootDevicesCount;
+        size_t	m_uiRootDevicesCount;
 
 		// default device
 		SharedPtr<Device> m_pDefaultDevice;

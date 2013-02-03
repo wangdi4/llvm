@@ -71,6 +71,10 @@ ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(SharedPtr<Context> pContext
 		delete[] m_ppDevicePrograms;
 		m_ppDevicePrograms = NULL;
 	}
+	else
+	{
+		SetContextDevicesToProgramMappingInternal();
+	}
 
     if (piRet)
 	{

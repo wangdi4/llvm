@@ -150,7 +150,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 		return CL_OUT_OF_HOST_MEMORY;
 	}
 
-	for(unsigned int ui = 0; ui < m_uiRootDevicesCount; ++ui)
+	for(size_t ui = 0; ui < m_uiRootDevicesCount; ++ui)
 	{
 		m_ppRootDevices[ui] = devicesList[ui];
 		// assign device in the objects map
@@ -351,7 +351,7 @@ cl_int	PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 		while (pch != NULL)
 		{
 			bRes = true;
-			for (unsigned int ui=1; ui<m_uiRootDevicesCount; ++ui)
+			for (size_t ui=1; ui<m_uiRootDevicesCount; ++ui)
 			{
 				clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, NULL);
 				if (CL_FAILED(clErr))
@@ -429,7 +429,7 @@ cl_int	PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 		return CL_INVALID_VALUE;
 	}
 
-	cl_uint uiNumDevices = m_uiRootDevicesCount;
+	size_t uiNumDevices = m_uiRootDevicesCount;
 	cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
 	SharedPtr<Device>* ppDevices = NULL;
 	cl_device_id * pDeviceIds = NULL;
@@ -625,7 +625,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
 		return CL_INVALID_VALUE;
 	}
 
-	cl_context_properties hGL, hDC, hDevGL, hDevDC;
+	cl_context_properties hGL, hDC;
 	cl_int ret;
 	SharedPtr<FissionableDevice> pDevice = NULL;
 	cl_device_id	devId = NULL;

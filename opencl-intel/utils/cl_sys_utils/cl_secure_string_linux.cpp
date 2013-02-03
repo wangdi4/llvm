@@ -46,6 +46,23 @@ errno_t Intel::OpenCL::Utils::safeStrCpy(char* dst, size_t len, const char* src 
 	return 0;
 }
 
+errno_t Intel::OpenCL::Utils::safeStrNCpy(char* dst, size_t len, const char* src, size_t src_len )
+{
+	errno = 0;
+	if ((src == NULL) || (dst == NULL))
+	{
+		errno = EINVAL;
+		return errno;
+	}
+	if ((len <= 0) || (strnlen(src, src_len) >= len))
+	{
+		errno = ERANGE;
+		return errno;
+	}
+	strncpy(dst, src, src_len );
+	return 0;
+}
+
 errno_t Intel::OpenCL::Utils::safeStrCat(char* dst, size_t len, const char* src )
 {
 	errno = 0;

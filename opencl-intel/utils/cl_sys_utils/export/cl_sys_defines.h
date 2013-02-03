@@ -69,6 +69,7 @@
 
 #define MEMCPY_S                          memcpy_s
 #define STRCPY_S                          strcpy_s
+#define STRNCPY_S                         strncpy_s
 #define STRCAT_S                          strcat_s
 #define STRTOK_S                          strtok_s
 #define SPRINTF_S                         sprintf_s
@@ -80,6 +81,11 @@ typedef unsigned long long               affinityMask_t;
 #include <malloc.h>
 #define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
 #define ALIGNED_FREE                      _aligned_free
+
+// Windows require more sequre function _malloca. When in certain case may allocate on heap and not on stack.
+// For that reason _freea should be called
+#define STACK_ALLOC( size ) 				_malloca(size)
+#define STACK_FREE( ptr )					_freea(ptr)
 
 // -----------------------------------------------------------
 // 		Not Windows (Linux / Android )	
@@ -207,6 +213,7 @@ typedef cpu_set_t                      affinityMask_t;
 
 #define MEMCPY_S                        Intel::OpenCL::Utils::safeMemCpy
 #define STRCPY_S                        Intel::OpenCL::Utils::safeStrCpy
+#define STRNCPY_S                       Intel::OpenCL::Utils::safeStrNCpy
 #define STRCAT_S                        Intel::OpenCL::Utils::safeStrCat
 #define STRTOK_S                        Intel::OpenCL::Utils::safe_strtok
 #define SPRINTF_S                       snprintf
@@ -214,6 +221,8 @@ typedef cpu_set_t                      affinityMask_t;
 
 
 
+#define STACK_ALLOC( size ) 				alloca(size)
+#define STACK_FREE( ptr )					
 #endif
 
 // Define compiler static assert

@@ -19,44 +19,13 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  mkl_kernels.cpp
+//  mkl_kernels.inc
 ///////////////////////////////////////////////////////////
 
 
-#include "stdafx.h"
-
-#ifdef __INCLUDE_MKL__
-
-#include<tbb/tbb.h>
-#include "mkl_kernels.h"
-
-using namespace Intel::OpenCL::CPUDevice;
-
 /////////////////////////////////////////////////////////////////////////////////////////
+// Declare MKL exposed functions
 /////////////////////////////////////////////////////////////////////////////////////////
 
 REGISTER_MKL_FUNCTION(cblas_sgemm, GEMM, float)
 REGISTER_MKL_FUNCTION(cblas_dgemm, GEMM, double)
-
-cl_kernel_arg_address_qualifier Intel::OpenCL::CPUDevice::ArgType2AddrQual(cl_kernel_arg_type type)
-{
-	switch(type)
-	{
-	case CL_KRNL_ARG_INT: case CL_KRNL_ARG_UINT: case CL_KRNL_ARG_FLOAT: case CL_KRNL_ARG_DOUBLE:
-	case CL_KRNL_ARG_VECTOR: case CL_KRNL_ARG_SAMPLER: case CL_KRNL_ARG_COMPOSITE:
-		return CL_KERNEL_ARG_ADDRESS_PRIVATE;
-
-	case CL_KRNL_ARG_PTR_LOCAL:
-		return CL_KERNEL_ARG_ADDRESS_LOCAL;
-
-	case CL_KRNL_ARG_PTR_CONST:
-		return CL_KERNEL_ARG_ADDRESS_CONSTANT;
-
-	case CL_KRNL_ARG_PTR_GLOBAL:
-	default:
-		return CL_KERNEL_ARG_ADDRESS_GLOBAL;
-
-	}
-}
-
-#endif // __INCLUDE_MKL__

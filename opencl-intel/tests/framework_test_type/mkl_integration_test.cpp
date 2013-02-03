@@ -14,13 +14,13 @@
 //|
 //| Return true in case of SUCCESS.
 
-#ifdef __IMPORT_MKL__
+#ifdef __INCLUDE_MKL__
 #include <CL/cl.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <assert.h>
-#include <mkl_types.h>
-#include <mkl_cblas.h>
+//#include <mkl_types.h>
+//#include <mkl_cblas.h>
 
 #include <cl_types.h>
 #include "FrameworkTest.h"
@@ -200,6 +200,8 @@ bool mkl_test(){
 	bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
 
 	float* pResult = (float*)clEnqueueMapBuffer(cmd_queue, buffC, CL_TRUE, CL_MAP_READ, 0, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), 0, NULL, NULL, &err);
+
+	bResult = (pResult[0] == 256.0f);
 
 	clEnqueueUnmapMemObject(cmd_queue, buffC, pResult, 0, NULL, NULL);
 	clFinish(cmd_queue);

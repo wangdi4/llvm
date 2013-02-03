@@ -19,26 +19,33 @@
 // problem reports or change requests be submitted to it directly
 #pragma once
 
-#include <map>
-#include <string>
-#include <tbb/tbb.h>
+//#include <map>
+//#include <string>
 
-#include "dispatcher_commands.h"
-#include "builtin_kernels.h"
-#include "mkl_types.h"
-#include "mkl_cblas.h"
+#include <builtin_kernels.h>
 
-using namespace Intel::OpenCL::DeviceBackend;
+#include <mkl_types.h>
+#include <mkl_cblas.h>
 
-namespace Intel { namespace OpenCL { namespace CPUDevice {
+namespace Intel { namespace OpenCL { namespace MKLKernels {
 
-class MKLExecutor
-{
-public:
-	virtual void	Execute() = 0;
-};
+template<typename>
+	struct type_string
+	{
+        static std::string type() { return "undefined"; }
+		static std::string ptr() { return "undefined";}
+		static std::string const_ptr() {return "undefined";}
+	};
 
-cl_kernel_arg_address_qualifier ArgType2AddrQual(cl_kernel_arg_type type);
+#define DEFINE_TYPE_STRING(T) \
+    template<> struct type_string<T> { \
+        static std::string type() { return #T; } \
+		static std::string ptr() { return type()+"*";}\
+		static std::string const_ptr() {return string("const ")+type()+"*";}\
+    };
+
+DEFINE_TYPE_STRING(float)
+DEFINE_TYPE_STRING(double)
 
 class MKLParamDescriptor
 {
@@ -82,7 +89,7 @@ public:
 			cl_kernel_arg_type_qualifier	typeQual,
 			cl_kernel_arg_type argType,
 			MKLParamDescriptor* parent) :
-			MKLParamBase(szArgName, szArgTypeName, ArgType2AddrQual(argType), accsQual, typeQual), m_pParent(parent)
+			MKLParamBase(szArgName, szArgTypeName, OpenCL::BuiltInKernels::ArgType2AddrQual(argType), accsQual, typeQual), m_pParent(parent)
 		{
 			m_stLocalOffset = parent->m_Offset;
 			parent->m_Offset += sizeof(paramType);
@@ -125,9 +132,9 @@ protected:
 	{
 	public:
 		MKL_GEMM_Parameters():
-			pABuffer("pA", "const void*", CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-			pBBuffer("pB", "const void*",CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-			pCBuffer("pC", "void*", CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, CL_KRNL_ARG_PTR_GLOBAL,this),
+			pABuffer("pA", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
+			pBBuffer("pB", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
+			pCBuffer("pC", type_string<datatype>::ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, CL_KRNL_ARG_PTR_GLOBAL,this),
 			pArgDescriptor(NULL), pArgInfoDescriptor(NULL)
 			{
 				size_t paramCount = GetParamCount();
@@ -171,7 +178,7 @@ protected:
 		cl_kernel_argument_info*	pArgInfoDescriptor;
 	};
 
-template<typename datatype > class MKL_GEMM_Executor : public MKLExecutor
+template<typename datatype > class MKL_GEMM_Executor : public Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor
 {
 public:
 	typedef void (*MKL_FuncType)(const  CBLAS_ORDER Order, const  CBLAS_TRANSPOSE TransA,
@@ -188,27 +195,27 @@ public:
 			m_iK = (int)pWorkSize[2];
 		}
 
-	void	Execute()
-	{
-		int grain_size = 1;
-		tbb::parallel_for(tbb::blocked_range2d<int>(0, m_iRowsA_M, grain_size,
-											   0, m_iColsB_N, grain_size),
-												*this,
-												tbb::auto_partitioner());
-	}
-
-	void operator() ( const tbb::blocked_range2d<int>& range ) const
+	cl_dev_err_code	Execute() const
 	{
 		cl_mem_obj_descriptor* pObjA = (cl_mem_obj_descriptor*)m_sParams.pABuffer.GetValue(m_pParamBuffer);
 		cl_mem_obj_descriptor* pObjB = (cl_mem_obj_descriptor*)m_sParams.pBBuffer.GetValue(m_pParamBuffer);
 		cl_mem_obj_descriptor* pObjC = (cl_mem_obj_descriptor*)m_sParams.pCBuffer.GetValue(m_pParamBuffer);
 
-		const datatype* pA = (const datatype*)pObjA->pData +range.rows().begin()*m_iK;
-		const datatype* pB = (const datatype*)pObjB->pData+range.cols().begin();
-		datatype* pC = (datatype*)pObjC->pData+range.rows().begin()*m_iColsB_N+range.cols().begin();
+		const datatype* pA = (const datatype*)pObjA->pData;
+		const datatype* pB = (const datatype*)pObjB->pData;
+		datatype* pC = (datatype*)pObjC->pData;
 
-		m_FuncPtr(CblasRowMajor, CblasNoTrans, CblasNoTrans, range.rows().size(), range.cols().size(), m_iK, 1.0,
+		// Execute parallel(OpenMP) MKL function
+		m_FuncPtr(CblasRowMajor, CblasNoTrans, CblasNoTrans, m_iRowsA_M, m_iColsB_N, m_iK, 1.0,
 			pA, m_iK, pB, m_iColsB_N, 0.0, pC, m_iColsB_N);
+
+		
+		return CL_DEV_SUCCESS;
+	}
+
+	cl_dev_err_code GetLastError() const
+	{
+		return m_lastError;
 	}
 
 	static size_t GetParamCount() {return m_sParams.GetParamCount();}
@@ -226,90 +233,44 @@ protected:
 	MKL_FuncType	m_FuncPtr;
 	const void*		m_pParamBuffer;
 
+	cl_dev_err_code m_lastError;
+
 	static const MKL_GEMM_Parameters<datatype>	m_sParams;
 };
 
-template<class MKL_EXECUTOR_CLASS > class MKLKernelTask : public CommandBaseClass<ITask>
+template<class MKL_EXECUTOR_CLASS > class MKLKernel : public Intel::OpenCL::BuiltInKernels::IBuiltInKernel
 {
 public:
-	MKLKernelTask(typename MKL_EXECUTOR_CLASS::MKL_FuncType pFuncPtr, TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd)
-		: CommandBaseClass<ITask>(pTD, pCmd), m_pFuncPtr(pFuncPtr)
+	MKLKernel(const char* szName, void* pFuncPtr) :
+		m_szFuncName(szName), m_pMKLFuncPtr((typename MKL_EXECUTOR_CLASS::MKL_FuncType)pFuncPtr)
 	{
 	}
 
-	bool Execute()
+	cl_dev_err_code	Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, Intel::OpenCL::BuiltInKernels::OMPExecutorThread* pThread) const
 	{
-		NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-		void* pParamBuffer = alloca(MKL_EXECUTOR_CLASS::GetParamSize());
-		if ( NULL == pParamBuffer )
-		{
-			assert(0 && "alloca always success");
-			NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (int)CL_DEV_OUT_OF_MEMORY);
-			return false;
-		}
-
-		cl_dev_err_code err = ExtractNDRangeParams(pParamBuffer);
-		if ( CL_DEV_FAILED(err) )
-		{
-			NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
-			return false;
-		}
-
-		{	// Create new stack frame
-			cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-			MKL_EXECUTOR_CLASS executor(m_pFuncPtr, cmdParams->glb_wrk_size, pParamBuffer);
-			executor.Execute();
-		}
-
-		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-
-		return true;
+		MKL_EXECUTOR_CLASS executor(m_pMKLFuncPtr, pCmdParams->glb_wrk_size, pParamBuffer);
+		return pThread->Execute(executor);
 	}
 
-	protected:
-		typename MKL_EXECUTOR_CLASS::MKL_FuncType m_pFuncPtr;
-};
+	size_t GetParamSize() const {return MKL_EXECUTOR_CLASS::GetParamSize();}
 
-template<class MKL_EXECUTOR_CLASS > class MKLKernel : public IBuiltInKernel
-{
-public:
-	MKLKernel(const char* szName, typename MKL_EXECUTOR_CLASS::MKL_FuncType pFuncPtr) :
-		m_szFuncName(szName), m_pMKLFuncPtr(pFuncPtr)
-	{
-	}
 
-	cl_dev_err_code CreateBIKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskBase* *pTask)
-	{
-		if ( NULL == pTask )
-		{
-			return CL_DEV_INVALID_OPERATION;
-		}
-
-		*pTask = new MKLKernelTask<MKL_EXECUTOR_CLASS>(m_pMKLFuncPtr, pTD, pCmd);
-		if ( NULL == *pTask )
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
-
-		return CL_DEV_SUCCESS;
-	}
-	
 	//ICLDevBackendKernel
 	unsigned long long int GetKernelID() const { return (unsigned long long int)this;}
 	const char*	GetKernelName() const {return m_szFuncName.c_str();}
 	int GetKernelParamsCount() const {return (int)MKL_EXECUTOR_CLASS::GetParamCount();}
 	const cl_kernel_argument* GetKernelParams() const { return MKL_EXECUTOR_CLASS::GetKernelParams();}
 	const cl_kernel_argument_info* GetKernelArgInfo() const { return MKL_EXECUTOR_CLASS::GetKernelArgInfo();}
-	const ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
+	const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
 
 protected:
-	class MKLKernelProperties : public ICLDevBackendKernelProporties
+	class MKLKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties
 	{
 		unsigned int GetKernelPackCount() const {return 1;}
 		const size_t* GetRequiredWorkGroupSize() const {return NULL;}
 		size_t GetPrivateMemorySize() const {return 1;}
 		size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
+		size_t GetKernelExecutionLength() const {return 0;}
 		bool HasPrintOperation() const {return false;}
 		bool HasBarrierOperation() const {return false;}
 		bool HasKernelCallOperation() const {return false;}
@@ -319,14 +280,5 @@ protected:
 	typename MKL_EXECUTOR_CLASS::MKL_FuncType	m_pMKLFuncPtr;
 	MKLKernelProperties 						m_mklProperties;
 };
-
-#define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
-	cl_dev_err_code MKL_FUNCTION_NAME##Creator(IBuiltInKernel* *ppBIKernel)\
-	{\
-		*ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, MKL_FUNCTION_NAME);\
-		return CL_DEV_SUCCESS;\
-	}\
-	template<> const MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE> MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE>::m_sParams = MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE>();\
-	REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##Creator)
 
 }}}

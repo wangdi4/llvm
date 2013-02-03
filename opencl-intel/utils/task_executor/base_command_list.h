@@ -271,6 +271,11 @@ public:
         return new out_of_order_command_list(subdevice, pTBBExec, devArenaHandler);
     }
 
+	/**
+	 * Destructor
+	 */
+	~out_of_order_command_list();
+
     /**
      * Enqueue a task to execute a functor for OOO execution
      * @param F the functor's type

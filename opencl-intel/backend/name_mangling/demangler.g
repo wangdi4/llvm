@@ -2,6 +2,7 @@ header "pre_include_hpp" {
 #include <cstdio>
 #include <cstdlib>
 #include <stack>
+#include <vector>
 #include "Type.h"
 #include "TypeCast.h"
 #include "antlr/ParserSharedInputState.hpp"
@@ -11,6 +12,7 @@ header "pre_include_hpp" {
 
 header "post_include_hpp"{
 typedef std::stack<reflection::Type*> TypeStack;
+typedef std::vector<reflection::Type*> TypeVector;
 namespace namemangling{class DemangleLexer;}
 }
 
@@ -26,40 +28,6 @@ options {
     using namespace reflection::primitives;
     return new Type(static_cast<Primitive>( t->getType()) );
   }
-
-  static int getNestingLevel(const reflection::Type *T){
-    assert(T && "null type?");
-    int ret = 0;
-    while (const reflection::Pointer *P = reflection::dyn_cast<reflection::Pointer>(T)){
-      T = P->getPointee();
-      if (!T->isPrimiteTy())
-        ++ret;
-    }
-    return ret;
-  }
-
-  static const reflection::Type* getNestedType(const reflection::Type *T, int n){
-    int Diff = getNestingLevel(T) - n;
-    assert(Diff >= 0 && "precondition violation: wrong type frame!");
-    while(Diff--){
-      assert(T && "reached null type");
-      const reflection::Pointer *P = reflection::dyn_cast<reflection::Pointer>(T) ;
-      assert(P && "should only happen for pointer types!");
-      T = P->getPointee();
-    }
-    return T;
-  }
-
-  static const reflection::Type* getNestedType(TypeStack TS, int depth){
-    assert(!TS.empty() && "empty type stack?");
-    int nestingLevel = getNestingLevel(TS.top());
-    while(depth > nestingLevel){
-      depth -= nestingLevel;
-      TS.pop();
-      nestingLevel = getNestingLevel(TS.top());
-    }
-    return getNestedType(TS.top(), depth);
-  }
 }
 
 class DemangleParser extends Parser;
@@ -70,6 +38,7 @@ options {
 {
 private:
 TypeStack m_stack;
+TypeVector m_signList;
 reflection::TypeCallback* m_cb;
 DemangleLexer* m_pLexer;
 
@@ -86,14 +55,19 @@ demangle
       (*m_cb)(t);
       delete t;
     }
+    while (!m_signList.empty()){
+      reflection::Type* t = m_signList.back();
+      m_signList.pop_back();
+      delete t;
+    }
   }
 ;
 
 type
 {reflection::Type* pType = NULL;}
   : pType = primitive_type {m_stack.push(pType);}
-  | pType = vector_type    {m_stack.push(pType);}
-  | pType = pointer_type   {m_stack.push(pType);}
+  | pType = vector_type    {m_stack.push(pType); m_signList.push_back(pType->clone());}
+  | pType = pointer_type   {m_stack.push(pType); m_signList.push_back(pType->clone());}
   | pType = dup_type       {m_stack.push(pType);}
   | pType = user_defined_type {m_stack.push(pType);}
 ;
@@ -150,11 +124,11 @@ pointer_type returns [reflection::Pointer* ret = NULL;]
 dup_type returns [reflection::Type* ret = NULL;]
   :
   PARAM_DUP_PREFIX (n:NUMBER)? UNDERSCORE {
-    int stackDepth =  (!n || n->getText().empty()) ?
+    unsigned int index =  (!n || n->getText().empty()) ?
       0 :
       atoi(n->getText().c_str()) + 1;
-    assert(!m_stack.empty() && "stack should not be empty!");
-    ret = getNestedType(m_stack, stackDepth)->clone();
+    assert(m_signList.size() > index && "indexing to sign list is out-of-range!");
+    ret =  m_signList[index]->clone();
   }
 ;
 

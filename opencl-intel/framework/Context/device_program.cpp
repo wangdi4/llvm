@@ -243,7 +243,6 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 
 	case DEVICE_PROGRAM_SOURCE:
 	case DEVICE_PROGRAM_LOADED_IR:
-	case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		return CL_BUILD_NONE;
 
 	case DEVICE_PROGRAM_FE_COMPILING:
@@ -254,6 +253,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 	case DEVICE_PROGRAM_COMPILED:
     case DEVICE_PROGRAM_LINKED:
     case DEVICE_PROGRAM_BUILD_DONE:
+	case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		return CL_BUILD_SUCCESS;
 	}
 

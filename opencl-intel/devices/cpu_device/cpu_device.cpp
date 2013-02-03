@@ -39,15 +39,14 @@
 #include <cpu_dev_limits.h>
 #include <cl_sys_defines.h>
 #include <cl_cpu_detect.h>
-
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
 #endif
 
-#if !defined(__ANDROID__)
-  #define __DOUBLE_ENABLED__
-#endif
-
+#define __DOUBLE_ENABLED__
 using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
@@ -62,6 +61,7 @@ char clCPUDEVICE_CFG_PATH[MAX_PATH];
 #define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
 
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::BuiltInKernels;
 
 const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
@@ -503,7 +503,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
-    unsigned int viCPUInfo[4] = {(unsigned)-1};
+    unsigned int viCPUInfo[4] = {(unsigned int)-1};
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
@@ -1388,7 +1388,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
 }
 
-//! This function return IDs list for all devices in the same device type.
+//! This function return IDs list for all devices supported by the device agent.
 /*!
     \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
 	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
@@ -1417,7 +1417,7 @@ cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize
 	return CL_DEV_SUCCESS;
 }
 
-
+// CPUDevice class methods implementation
 // Device Fission support
 
 static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, cl_uint num_successfully_allocated)
@@ -2266,4 +2266,46 @@ const void* CPUDevice::clDevFEDeviceInfo() const
 size_t CPUDevice::clDevFEDeviceInfoSize() const
 {
 	return sizeof(CPUDevInfo);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Static extern functions
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/************************************************************************************************************************
+   clDevGetDeviceInfo
+**************************************************************************************************************************/
+extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN	dev_id,
+							cl_device_info  param, 
+                            size_t          valSize, 
+                            void*           paramVal,
+				            size_t*         paramValSizeRet
+                            )
+{
+    return CPUDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
+}
+
+/************************************************************************************************************************
+	clDevGetAvailableDeviceList
+*************************************************************************************************************************/
+extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListSize,
+                        unsigned int*   OUT deviceIdsList,
+                        size_t*   OUT deviceIdsListSizeRet)
+{
+	return CPUDevice::clDevGetAvailableDeviceList(deviceListSize, deviceIdsList, deviceIdsListSizeRet);
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// clDevInitDeviceAgent
+//! This function initializes device agent internal data. This function should be called prior to any device agent calls.
+/*!
+    \retval     CL_DEV_SUCCESS          If function is executed successfully.
+    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+*/
+extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
+{
+#ifdef __INCLUDE_MKL__
+	Intel::OpenCL::MKLKernels::InitLibrary();
+#endif
+	return CL_DEV_SUCCESS;
 }

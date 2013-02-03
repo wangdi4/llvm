@@ -39,6 +39,9 @@
 #include <ocl_itt.h>
 #endif
 
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
 #include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
@@ -171,6 +174,9 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
 		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver), m_pAffinityPermutation(NULL)
+#ifdef __INCLUDE_MKL__
+		,m_pOMPExecutionThread(NULL)
+#endif
 {
 	// Set Callbacks into the framework: Logger + Info
 	if ( NULL != logDesc )
@@ -197,7 +203,13 @@ TaskDispatcher::~TaskDispatcher()
 	{
 		delete []m_pWGContexts;
 		m_pWGContexts = NULL;
-	}    
+	}
+
+#ifdef __INCLUDE_MKL__
+	m_pOMPExecutionThread->Join();
+	delete m_pOMPExecutionThread;
+#endif
+
 	if (m_bTEActivated)
 	{	
 		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "TaskExecutor::GetTaskExecutor()->Deactivate();");
@@ -242,6 +254,15 @@ cl_dev_err_code TaskDispatcher::init()
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
+
+#ifdef __INCLUDE_MKL__
+	m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
+	if ( NULL == m_pOMPExecutionThread )
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+	m_pOMPExecutionThread->Start();
+#endif
 
 	bool bInitTasksRequired = isDestributedAllocationRequried() || isThreadAffinityRequried();
 	

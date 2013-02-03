@@ -193,13 +193,13 @@ public:
      * Add a base_command_list that uses this ArenaHandler
      * @param pCmdList the base_command_list to add
      */
-    void AddCommandList(const SharedPtr<base_command_list>& pCmdList);
+    void AddCommandList(base_command_list* pCmdList);
 
     /**
      * Remove a base_command_list that uses this ArenaHandler
      * @param pCmdList the base_command_list to remove
      */
-    void RemoveCommandList(const base_command_list* pCmdList);
+    void RemoveCommandList(base_command_list* pCmdList);
 
     /**
      * Whether this ArenaHandler is inside its destructor
@@ -241,7 +241,8 @@ private:
     DevArenaObserver* m_pArenaObserver;    
     const unsigned int m_uiNumSubdevComputeUnits;
     mutable Intel::OpenCL::Utils::OclReaderWriterLock m_cmdListsRWLock;
-    std::set<SharedPtr<base_command_list> > m_cmdLists;
+	// Since base_command_list remove themselves from this list upon their destruction, we don't hold SharedPtrs to them - otherwise they would never be destroyed.
+    std::set<base_command_list*> m_cmdLists;
     bool m_isTerminating;
 
     // do not implement:

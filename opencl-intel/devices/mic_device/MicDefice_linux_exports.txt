@@ -4,7 +4,8 @@ Base {
         clDevGetDeviceInfo;
         clDevErr2Txt;
 		clDevGetAvailableDeviceList;
-
+		clDevInitDeviceAgent;
+		
     local:
         *;
 };

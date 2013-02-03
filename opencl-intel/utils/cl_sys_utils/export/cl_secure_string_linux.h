@@ -48,6 +48,18 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	*/
 	errno_t safeStrCpy(char* dst, size_t len, const char* src );
 
+	/* Safe copy of source string into destination string.
+	   dst - location of destination string.
+	   src - location of source string.
+	   len - size of destination string buffer.
+	   If src or dst are NULL pointer than EINVAL return.
+	   If len is less or equal to 0 than ERANGE return.
+	   If src size is greater than or equal to len, than dst doesn't modify and ERANGE return.
+	   If src size is smaller than len, this function pads the remainder of dst with null bytes ("\0").
+	   On success 0 is returned.
+	*/
+	errno_t safeStrNCpy(char* dst, size_t len, const char* src, size_t src_len );
+
 	/* Safe append of source string into destination string.
 	   dst - location of destination string.
 	   src - location of source string.

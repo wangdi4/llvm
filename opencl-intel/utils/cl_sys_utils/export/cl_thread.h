@@ -69,6 +69,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
         unsigned int        GetThreadId() const             {return m_threadId;}
         void                Clean();
 
+		enum eThreadResult
+		{
+			THREAD_RESULT_SUCCESS = 0,
+			THREAD_RESULT_FAIL = -1
+		};
+
     protected:
         virtual RETURN_TYPE_ENTRY_POINT    Run()=0;          // The actual thread running loop.
         void                Exit(RETURN_TYPE_ENTRY_POINT exitCode);

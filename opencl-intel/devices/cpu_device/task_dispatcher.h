@@ -36,12 +36,14 @@
 #include "wg_context_pool.h"
 #include <cl_synch_objects.h>
 #include <cl_thread.h>
+#include <builtin_kernels.h>
 
 //should be hash_map but cant compile #include <hash_map>
 #include <map>
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
+using Intel::OpenCL::BuiltInKernels::OMPExecutorThread;
 using Intel::OpenCL::Utils::ObjectPool;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
@@ -82,6 +84,10 @@ public:
     void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pTaskExecutor->SetWGContextPool(pWgContextPool); }
 
     ITaskExecutor*          getTaskExecutor() { return m_pTaskExecutor; }
+
+#ifdef __INCLUDE_MKL__
+	OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
+#endif
 
 protected:
 	cl_int						m_iDevId;
@@ -138,6 +144,10 @@ protected:
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
 	};
 	cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+
+#ifdef __INCLUDE_MKL__
+	OMPExecutorThread*	m_pOMPExecutionThread;
+#endif
 
 private:
 	TaskDispatcher(const TaskDispatcher&);

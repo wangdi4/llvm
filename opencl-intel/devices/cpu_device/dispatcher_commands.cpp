@@ -30,7 +30,7 @@
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
 #include "wg_context.h"
-#include "builtin_kernels.h"
+#include <builtin_kernels.h>
 #include <cl_dev_backend_api.h>
 #include <cl_sys_defines.h>
 #include <ocl_itt.h>
@@ -64,6 +64,8 @@ unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
 	COLOR(204,204,204),	COLOR(153,153,153),	COLOR(102,102,102),	COLOR(51,51,51)};
 
 AtomicCounter NDRange::RGBTableCounter;
+
+using namespace Intel::OpenCL::BuiltInKernels;
 
 /**
  * Debug prints flag. Required for (weird) platforms like Linux, where our logger does not work.
@@ -761,7 +763,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
     IBuiltInKernel* pBIKernel;
 	if ( NULL != (pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel)) )
 	{
-		return pBIKernel->CreateBIKernelTask(pTD, pCmd, pTask);
+		return NativeKernelTask::Create(pTD, pCmd, pTask);
 	}
 #endif
 	NDRange* pCommand = new NDRange(pTD, pCmd);
@@ -1472,3 +1474,106 @@ bool MigrateMemObject::Execute()
 	return true;
 }
 
+#ifdef __INCLUDE_MKL__
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+{
+	NativeKernelTask* pCommand = new NativeKernelTask(pTD, pCmd);
+	if (NULL == pCommand)
+	{
+		return CL_DEV_OUT_OF_MEMORY;
+	}
+#ifdef _DEBUG
+	cl_dev_err_code rc;
+	rc = pCommand->CheckCommandParams(pCmd);
+	if( CL_DEV_FAILED(rc))
+	{
+		delete pCommand;
+		return rc;
+	}
+#endif
+
+	assert(pTask);
+	*pTask = static_cast<ITaskBase*>(pCommand);
+
+#if defined (USE_ITT)
+    if ((NULL != pCommand->m_pGPAData) && (pCommand->m_pGPAData->bUseGPA))
+    {
+	    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCommand->m_pCmd->params;
+	    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
+
+	    char  strTaskName[ITT_TASK_NAME_LEN];
+	    SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s %lu", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
+	    pCommand->m_pTaskNameHandle = __itt_string_handle_create(strTaskName);
+    }
+#endif
+
+	return CL_DEV_SUCCESS;
+}
+
+NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	CommandBaseClass<ITask>(pTD, pCmd)
+{
+	// First to check if the requried NDRange is one of the built-in kernels
+	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+	
+	m_pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel);
+}
+
+cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+	return CL_DEV_SUCCESS;
+}
+
+bool NativeKernelTask::Execute()
+{
+	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+#if defined(USE_ITT)
+	// Start execution task
+	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	{
+		#if defined(USE_GPA)
+		__itt_set_track(NULL);
+		#endif
+
+		__itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pTaskNameHandle);
+	}
+#endif
+
+	void* pParamBuffer = STACK_ALLOC(m_pBIKernel->GetParamSize());
+	if ( NULL == pParamBuffer )
+	{
+		assert(0 && "alloca always success");
+		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (int)CL_DEV_OUT_OF_MEMORY);
+		return false;
+	}
+
+	cl_dev_err_code err = ExtractNDRangeParams(pParamBuffer);
+	if ( CL_DEV_FAILED(err) )
+	{
+		STACK_FREE(pParamBuffer);
+		NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
+		return false;
+	}
+
+	cl_dev_err_code res = m_pBIKernel->Execute((cl_dev_cmd_param_kernel*)m_pCmd->params, pParamBuffer, m_pTaskDispatcher->getOmpExecutionThread());
+
+#if defined(USE_ITT)
+	if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+	{
+#if defined(USE_GPA)
+		__itt_set_track(NULL);
+#endif
+		__itt_task_end(m_pGPAData->pDeviceDomain);
+	}
+#endif // ITT
+
+	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, res);
+	STACK_FREE(pParamBuffer);
+
+	// Return success even if BuiltIn kernel execution failed
+	return true;
+}
+#endif

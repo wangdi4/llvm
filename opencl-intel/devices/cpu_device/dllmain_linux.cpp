@@ -62,26 +62,3 @@ void dll_fini(void)
 		pthread_key_delete(thkMasterContext);
 	}
 }
-
-/************************************************************************************************************************
-   clDevGetDeviceInfo
-**************************************************************************************************************************/
-extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN	dev_id,
-							cl_device_info  param, 
-                            size_t          valSize, 
-                            void*           paramVal,
-				            size_t*         paramValSizeRet
-                            )
-{
-    return CPUDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
-}
-
-/************************************************************************************************************************
-	clDevGetAvailableDeviceList
-*************************************************************************************************************************/
-extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListSize,
-                        unsigned int*   OUT deviceIdsList,
-                        size_t*   OUT deviceIdsListSizeRet)
-{
-	return CPUDevice::clDevGetAvailableDeviceList(deviceListSize, deviceIdsList, deviceIdsListSizeRet);
-}

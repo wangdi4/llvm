@@ -39,6 +39,10 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+namespace Intel { namespace OpenCL  { namespace BuiltInKernels {
+	class IBuiltInKernel;
+}}}
+
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 class TaskDispatcher;
@@ -94,6 +98,12 @@ public:
 
 protected:
 	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
+
+#if defined (USE_ITT)
+	// name string for ITT tasks
+	__itt_string_handle*                        m_pTaskNameHandle;
+#endif
+
 };
 
 // OCL Read/Write buffer execution
@@ -216,11 +226,6 @@ protected:
 	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
 	long										m_lNDRangeId;
 
-#if defined (USE_ITT)
-	// name string for ITT tasks
-	__itt_string_handle*                        m_pTaskNameHandle;
-#endif
-
 #ifdef _DEBUG
     // For debug
     AtomicCounter m_lExecuting;
@@ -257,5 +262,25 @@ protected:
     MigrateMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
+
+#ifdef __INCLUDE_MKL__
+// OCL Native function execution
+class NativeKernelTask : public CommandBaseClass<ITask>
+{
+public:
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+
+    // DispatcherCommand interface
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
+
+    // ITask interface
+    bool    Execute();
+
+protected:
+    NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
+
+	Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
+};
+#endif
 
 }}}

@@ -7,6 +7,10 @@ if (INCLUDE_MIC_DEVICE)
   add_definitions( -DINCLUDE_MIC_DEVICE )
 endif (INCLUDE_MIC_DEVICE)
 
+if (INCLUDE_MKL)
+	add_definitions( -D__INCLUDE_MKL__ )
+endif(INCLUDE_MKL)
+
 #include helping functions of cmake.
 include (../../cmake_utils/CMakeFuncs.txt)
 

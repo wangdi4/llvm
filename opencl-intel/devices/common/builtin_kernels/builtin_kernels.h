@@ -27,14 +27,14 @@
 #include <cl_device_api.h>
 #include <task_executor.h>
 
+#include <cl_thread.h>
+#include <cl_synch_objects.h>
+#include <cl_thread.h>
 
-using namespace Intel::OpenCL::DeviceBackend;
+namespace Intel { namespace OpenCL { namespace BuiltInKernels {
 
-namespace Intel { namespace OpenCL { namespace CPUDevice {
-
-class TaskDispatcher;
-
-class BuiltInProgram : public ICLDevBackendProgram_
+class OMPExecutorThread;
+class BuiltInProgram : public Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_
 {
 public:	
 	BuiltInProgram() {};
@@ -43,32 +43,39 @@ public:
 
 	unsigned long long int GetProgramID() const {return (unsigned long long int)this;}
 	const char* GetBuildLog() const	{return NULL;}
-    const ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return NULL;}
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return NULL;}
 
 	cl_dev_err_code GetKernelByName(
         const char* pKernelName, 
-        const ICLDevBackendKernel_** ppKernel) const;
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const;
 
     int GetKernelsCount() const { return (int)m_mapKernels.size(); }
 
 	virtual cl_dev_err_code	GetKernel(
         int kernelIndex, 
-        const ICLDevBackendKernel_** pKernel) const;
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** pKernel) const;
 
-    virtual const ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return NULL;}
+    virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return NULL;}
 
 protected:
 	// Stores a list of MKL kernels perticipated in the Built-In kernel program
-	typedef std::map<std::string, ICLDevBackendKernel_*> BIKernelsMap_t;
+	typedef std::map<std::string, Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*> BIKernelsMap_t;
 	BIKernelsMap_t	m_mapKernels;
-	std::vector<ICLDevBackendKernel_*>	m_listKernels;
+	std::vector<Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*>	m_listKernels;
 };
 
-class IBuiltInKernel : public ICLDevBackendKernel_
+class IBuiltInKernelExecutor
 {
 public:
+	virtual cl_dev_err_code	Execute() const = 0;
+	virtual cl_dev_err_code GetLastError() const = 0;
+};
 
-	virtual cl_dev_err_code CreateBIKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Intel::OpenCL::TaskExecutor::ITaskBase* *pTask) = 0;
+class IBuiltInKernel : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_
+{
+public:
+	virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, OMPExecutorThread* pThread) const = 0;
+	virtual size_t			GetParamSize() const = 0;
 };
 
 typedef cl_dev_err_code fn_BuiltInFunctionCreate(IBuiltInKernel* *ppBIKernel);
@@ -82,9 +89,9 @@ public:
 	void	RegisterBuiltInKernel(const char* szBIKernelName, fn_BuiltInFunctionCreate* pCreator);
 
 	void	GetBuiltInKernelList(char* szBIKernelList, size_t stSize) const;
-	size_t	GetBuiltInKernelListSize() const {return m_stKernelNameStrLength+1;}
+	size_t	GetBuiltInKernelListSize() const {return m_stKernelNameStrLength;}
 
-	cl_dev_err_code CreateBuiltInProgram(const char* szKernelList, ICLDevBackendProgram_* *ppProgram);
+	cl_dev_err_code CreateBuiltInProgram(const char* szKernelList, Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_* *ppProgram);
 
 protected:
 	friend class BuiltInProgram;
@@ -98,14 +105,50 @@ protected:
 	static BuiltInKernelRegistry*	g_pMKLRegistery;
 };
 
+cl_kernel_arg_address_qualifier ArgType2AddrQual(cl_kernel_arg_type type);
+
 #define REGISTER_BUILTIN_KERNEL(BI_KENREL_NAME,BI_CREATOR_FUNCTION) \
 	struct BI_KENREL_NAME##CreatorClassRegister\
 	{\
 		BI_KENREL_NAME##CreatorClassRegister()\
 		{\
-			BuiltInKernelRegistry::GetInstance()->RegisterBuiltInKernel(#BI_KENREL_NAME, BI_CREATOR_FUNCTION);\
+			Intel::OpenCL::BuiltInKernels::BuiltInKernelRegistry::GetInstance()->RegisterBuiltInKernel(#BI_KENREL_NAME, BI_CREATOR_FUNCTION);\
 		}\
 	};\
 	BI_KENREL_NAME##CreatorClassRegister class##BI_KENREL_NAME##CreatorClassRegister;
+
+// Invoke OMP based function from a separate thread
+// Better managment of the OpenMP threading layer
+class OMPExecutorThread : public Intel::OpenCL::Utils::OclThread
+{
+public:
+	virtual ~OMPExecutorThread();
+
+	cl_dev_err_code Execute(Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor& kernelToExecute);
+
+	// OclThread overides
+	int         Join();
+
+	static OMPExecutorThread*  Create(unsigned int uiNumOfWorkers);
+protected:
+	OMPExecutorThread(unsigned int uiNumOfThreads);
+
+	typedef pair<Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor*, Intel::OpenCL::Utils::OclOsDependentEvent*> ExecutionRecord;
+
+	// Queue of execution requests for the MKL library
+	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<ExecutionRecord>		m_ExecutionQueue;
+	// Pool of OS events to be used for sincronization between threads
+	Intel::OpenCL::Utils::OclNaiveConcurrentQueue<
+		Intel::OpenCL::Utils::OclOsDependentEvent*>				m_OSEventPool;
+	// Event to start execution
+	Intel::OpenCL::Utils::OclOsDependentEvent					m_StartEvent;
+
+	// OclThread overides
+	RETURN_TYPE_ENTRY_POINT    Run();
+};
+
+
+
+
 
 }}}

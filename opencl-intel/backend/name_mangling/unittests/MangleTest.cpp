@@ -448,6 +448,26 @@ TEST(DemangleTest, doubleDup5){
   ASSERT_TRUE(isVector(P->getPointee()));
 }
 
+TEST(DemangleTest, doubleDup6){
+  FunctionDescriptor fd =
+    demangle("_Z3fooDv2_iDv2_jDv2_cDv2_hDv4_fDv8_dS_S0_S1_S2_S3_S4_");
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(
+    std::string("foo(int2, uint2, char2, uchar2, float4, double8, int2, uint2, char2, uchar2, float4, double8)")
+    , fd.toString()
+  );
+}
+
+TEST(DemangleTest, doubleDup7){
+  FunctionDescriptor fd =
+    demangle("_Z3fooPDv4_fS_S0_");
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(
+    std::string("foo(float4 *, float4, float4 *)")
+    , fd.toString()
+  );
+}
+
 TEST(MangleBasic, scalarfloat){
   Type* primitiveFloat = new Type(primitives::FLOAT);
   FunctionDescriptor fd;

@@ -739,13 +739,13 @@ void TBBTaskExecutor::WaitUntilEmpty(void* pSubdevData)
 
 void TBBTaskExecutor::SetWGContextPool(IWGContextPool* pWgContextPool)
 {
-    OclAutoMutex mu(&m_mutex);
+    OclAutoMutex mu(&m_contextPoolMutex);
     m_pWgContextPool = pWgContextPool;
 }
 
 WGContextBase* TBBTaskExecutor::GetWGContext(bool bBelongsToMasterThread)
 {
-    OclAutoMutex mu(&m_mutex);
+    OclAutoMutex mu(&m_contextPoolMutex);
     if (NULL != m_pWgContextPool)
     {
         return m_pWgContextPool->GetWGContext(bBelongsToMasterThread);
@@ -758,7 +758,7 @@ WGContextBase* TBBTaskExecutor::GetWGContext(bool bBelongsToMasterThread)
 
 void TBBTaskExecutor::ReleaseWorkerWGContext(WGContextBase* wgContext)
 {
-    OclAutoMutex mu(&m_mutex);
+    OclAutoMutex mu(&m_contextPoolMutex);
     if (NULL != m_pWgContextPool)
     {
         m_pWgContextPool->ReleaseWorkerWGContext(wgContext);

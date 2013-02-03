@@ -45,6 +45,7 @@
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::BuiltInKernels;
 
 // Static members
 static cl_prog_binary_desc gSupportedBinTypes[] =

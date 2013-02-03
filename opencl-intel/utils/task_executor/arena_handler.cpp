@@ -173,21 +173,23 @@ ArenaHandler::~ArenaHandler()
     m_cmdLists.clear();
 }
 
-void ArenaHandler::AddCommandList(const SharedPtr<base_command_list>& pCmdList)
+void ArenaHandler::AddCommandList(base_command_list* pCmdList)
 {
+	assert(pCmdList != NULL);
 	OclAutoWriter autoWriter(&m_cmdListsRWLock);
-    const std::pair<std::set<SharedPtr<base_command_list> >::iterator, bool> res = m_cmdLists.insert(pCmdList);
+    const std::pair<std::set<base_command_list*>::iterator, bool> res = m_cmdLists.insert(pCmdList);
     assert(res.second);
 }
 
-void ArenaHandler::RemoveCommandList(const base_command_list* pCmdList)
+void ArenaHandler::RemoveCommandList(base_command_list* pCmdList)
 {
+	assert(pCmdList != NULL);
 	OclAutoWriter writer(&m_cmdListsRWLock);    
     /* We can get here in from ~ArenaHandler(). In this case pCmdList won't find itself in the set anymore, so erase will return 0, but that's OK. We use a regular pointer rather than SharedPtr to prevent an infinite
        recursion of ~base_commad_list(). Try it and see what happens :) */
-    for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
+    for (std::set<base_command_list*>::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
     {
-        if (iter->GetPtr() == pCmdList)
+        if (*iter == pCmdList)
         {
             m_cmdLists.erase(iter);
             break;
@@ -217,7 +219,7 @@ void ArenaHandler::WaitUntilEmpty()
 	if (0 == tbb::task_arena::current_slot())	
 	{
 		OclAutoReader reader(&m_cmdListsRWLock);    
-		for (std::set<SharedPtr<base_command_list> >::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
+		for (std::set<base_command_list*>::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
 		{
 			(*iter)->WaitForIdle();
 		}    
