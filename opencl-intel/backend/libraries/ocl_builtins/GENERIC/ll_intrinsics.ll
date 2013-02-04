@@ -540,33 +540,33 @@ define <16 x i32> @__ocl_trunc_v16i64_v16i32(<16 x i64> %x) {
   ret <16 x i32> %1
 }
 
-define <1 x float> @__ocl_trunc_double_float(<1 x double> %x) {
-  %1 = fptrunc <1 x double> %x to <1 x float>
-  ret <1 x float> %1
-}
+;define float @__ocl_trunc_double_float(double %x) {
+;  %1 = fptrunc double %x to float
+;  ret float %1
+;}
 
-define <2 x float> @__ocl_trunc_double2_float2(<2 x double> %x) {
-  %1 = fptrunc <2 x double> %x to <2 x float>
-  ret <2 x float> %1
-}
+;define <2 x float> @__ocl_trunc_double2_float2(<2 x double> %x) {
+;  %1 = fptrunc <2 x double> %x to <2 x float>
+;  ret <2 x float> %1
+;}
 
-define <3 x float> @__ocl_trunc_double3_float3(<3 x double> %x) {
-  %1 = fptrunc <3 x double> %x to <3 x float>
-  ret <3 x float> %1
-}
+;define <3 x float> @__ocl_trunc_double3_float3(<3 x double> %x) {
+;  %1 = fptrunc <3 x double> %x to <3 x float>
+;  ret <3 x float> %1
+;}
 
-define <4 x float> @__ocl_trunc_double4_float4(<4 x double> %x) {
-  %1 = fptrunc <4 x double> %x to <4 x float>
-  ret <4 x float> %1
-}
+;define <4 x float> @__ocl_trunc_double4_float4(<4 x double> %x) {
+;  %1 = fptrunc <4 x double> %x to <4 x float>
+;  ret <4 x float> %1
+;}
 
-define <8 x float> @__ocl_trunc_double8_float8(<8 x double> %x) {
-  %1 = fptrunc <8 x double> %x to <8 x float>
-  ret <8 x float> %1
-}
+;define <8 x float> @__ocl_trunc_double8_float8(<8 x double> %x) {
+;  %1 = fptrunc <8 x double> %x to <8 x float>
+;  ret <8 x float> %1
+;}
 
-define <16 x float> @__ocl_trunc_double16_float16(<16 x double> %x) {
-  %1 = fptrunc <16 x double> %x to <16 x float>
-  ret <16 x float> %1
-}
+;define <16 x float> @__ocl_trunc_double16_float16(<16 x double> %x) {
+;  %1 = fptrunc <16 x double> %x to <16 x float>
+;  ret <16 x float> %1
+;}
 
