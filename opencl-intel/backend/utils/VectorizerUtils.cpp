@@ -77,8 +77,7 @@ bool VectorizerUtils::isOpaquePtrPair(Type *x, Type *y)
   return false;
 }
   
-Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI)
-{
+Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI) {
   assert(paramNum <= CI->getNumOperands() && "Requested type of parameter that does not exist");
   if (paramNum > CI->getNumOperands())
     return NULL;
@@ -91,38 +90,37 @@ Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int pa
 }
   
 
-Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *CI)
-{
+Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *CI) {
   LLVMContext &context = CI->getContext();
   // Is the argument already in the correct type?
   Type *argType = arg->getType();
   if (argType == rootType) return arg;
 
-  if (isOpaquePtrPair(argType, rootType))
-  {
+  if (isOpaquePtrPair(argType, rootType)) {
     //incase of pointer to opaque type bitcast 
     return new BitCastInst(arg, rootType, "bitcast.opaque.ptr", CI);
   }
 
-  if (isa<PointerType>(argType))
-  {
-    //If the function argument is in Pointer type, we expect to find the origin of the pointer
-    // as an alloca instruction with 2 users: a store (of the original value) and the CALL inst
-    // Any other formation will fail the rooting effort
+  if (isa<PointerType>(argType)) {
+    // If the function argument is in Pointer type, we expect to find the origin of the pointer
+    // as an alloca instruction with 2 users: a store (of the original value) and the CALL inst.
+    // Any other formation will fail the rooting effort.
+    // This has one exception (a hack). If the desired type is a vector of width 3,
+    // Apple's clang jumps through all sorts of hoops, and creates a shuffle-bitcast-store pattern.
     AllocaInst *allocator = dyn_cast<AllocaInst>(arg);
     if (!allocator || allocator->getAllocatedType() != rootType ||
-      allocator->isArrayAllocation() || !allocator->hasNUses(2))
-    {
+      allocator->isArrayAllocation() || !allocator->hasNUses(2)) {
         return NULL;
     }
 
+    const bool is3Vector = (rootType->isVectorTy() &&
+      cast<VectorType>(rootType)->getNumElements() == 3);
+
     // Check the 2 users are really a store and the function call.
     Value *retVal = NULL;
-    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i)
-    {
+    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i) {
       // Check for store instruction
-      if (StoreInst *storeInst = dyn_cast<StoreInst>(*i))
-      {
+      if (StoreInst *storeInst = dyn_cast<StoreInst>(*i)) {
         // Only a single store is expected...
         if (retVal) return NULL;
         // Keep the value which is being stored.
@@ -130,14 +128,31 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
         // the stored value should be of the expected type
         if (retVal->getType() != rootType) return NULL;
       }
+      // Support the bitcast-shuffle-store pattern (for width-3 vectors)
+      else if (is3Vector && isa<BitCastInst>(*i)) {
+        // Only a single store is expected...
+        if (retVal) return NULL;
+
+        BitCastInst* bitCastInst = cast<BitCastInst>(*i);
+        // The bitcast must have one user, which is a store
+        if (!bitCastInst->hasOneUse()) return NULL;
+        StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->use_back());
+        if (!storeInst) return NULL;
+
+        // The store value must be the result of a shuffle
+        ShuffleVectorInst* shuffle = dyn_cast<ShuffleVectorInst>(storeInst->getOperand(0));
+        if (!shuffle) return NULL;
+
+        // Check that shuffle is extending operand of desired (root) type
+        retVal = isExtendedByShuffle(shuffle, rootType);
+        if (!retVal || retVal->getType() != rootType) return NULL;
+      }
       // Else check for the call instruction
-      else if (CallInst *callInst = dyn_cast<CallInst>(*i))
-      {
+      else if (CallInst *callInst = dyn_cast<CallInst>(*i)) {
         // check that the call inst is the one we started with
         if (CI != callInst) return NULL;
       }
-      else
-      {
+      else {
         // Unexpected consumer of Alloca.
         return NULL;
       }
@@ -180,8 +195,8 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(currVal)) 
     {
       currVal = isInsertEltExtend(IE, rootType);
-	  if (!currVal) 
-	    return canRootInputByShuffle(valInChain, rootType, CI);
+	    if (!currVal)
+	      return canRootInputByShuffle(valInChain, rootType, CI);
     }
     else
     {

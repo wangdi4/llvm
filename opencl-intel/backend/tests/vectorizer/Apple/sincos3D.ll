@@ -1,7 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -CLBltnPreVec -scalarize -packetize -packet-size=4 -resolve -verify %s -S -o - \
 ; RUN: | FileCheck %s
-; XFAIL: *
 
 ;;; Currently vectorizer does not supports double3 calling convention, thus this test should fail!
 ;; This test:
