@@ -18,6 +18,8 @@ File Name:  BuiltInFuncImport.cpp
 
 // This pass imports built-in functions from builtins module to destination module.
 
+#include "OCLPassSupport.h"
+
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
 #include <llvm/DerivedTypes.h>
@@ -28,6 +30,9 @@ File Name:  BuiltInFuncImport.cpp
 #include <llvm/Instruction.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/Version.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/IRReader.h>
 
 #include <list>
 #include <map>
@@ -38,7 +43,12 @@ File Name:  BuiltInFuncImport.cpp
 using namespace llvm;
 using namespace std;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+static cl::opt<std::string>
+BIModuleName("builtins-module",
+                  cl::desc("Builtins module name. If set, built-in import pass is executed using given module name"),
+                  cl::value_desc("filename"), cl::init(""));
+
+namespace intel {
 
 class BIImport : public ModulePass
 {
@@ -56,11 +66,16 @@ protected:
   typedef std::map<const llvm::Function*, TGlobalsLst>   TGlobalUsageMap;
 
 public:
-  BIImport(Module* pRTModule) : ModulePass(ID), m_pRTModule(pRTModule) {
-    BuildRTModuleFunc2Funcs();
-    BuildRTModuleFunc2Globals();
+  static char ID; // Pass identification, replacement for typeid.
+
+  BIImport(Module* pRTModule = NULL) : ModulePass(ID), m_pRTModule(pRTModule), m_ownerOFRTModule(false) {
   }
 
+  ~BIImport() {
+     if(m_ownerOFRTModule) {
+       delete m_pRTModule;
+     }
+  }
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
     return "BIImport";
@@ -84,9 +99,9 @@ protected:
 
 protected:
 
-  static char ID; // Pass identification, replacement for typeid.
-
   Module* m_pRTModule;
+
+  bool m_ownerOFRTModule;
 
   TFunctionUsageMap  m_mapFunc2Fnc;
 
@@ -95,6 +110,7 @@ protected:
 
 char BIImport::ID = 0;
 
+OCL_INITIALIZE_PASS(BIImport, "builtin-import", "Built-in function pass", false, true)
 
 /// \brief First find all "root" functions that are only declared in destination module and defined in builtins module,
 ///        excluding those whose name starts with "get_". Then scan all the functions which they call, iteratively.
@@ -356,7 +372,24 @@ void BIImport::ImportFunctionArrays(Module* pModule, TFunctionsVec& allFuncs2Imp
 /// \param M The destination module.
 bool BIImport::runOnModule(Module &M)
 {
+  //This handle is needed for running built-in import pass from opt
+  if (m_pRTModule == NULL && BIModuleName != "") {
+      llvm::SMDiagnostic Err;
+      std::auto_ptr<llvm::Module> BIModule;
+      // Load the built-in module...
+      BIModule.reset(llvm::ParseIRFile(BIModuleName, Err, M.getContext()));
+
+      if (BIModule.get() == 0) {
+        llvm::errs() << "BIModule loading error:" << (const std::string&)BIModuleName << "\n";
+      } else {
+        m_pRTModule = BIModule.release();
+        m_ownerOFRTModule = true;
+      }
+  }
   if (m_pRTModule == NULL) return false;
+
+  BuildRTModuleFunc2Funcs();
+  BuildRTModuleFunc2Globals();
 
   ValueToValueMapTy valueMap;
 
@@ -455,8 +488,8 @@ void BIImport::BuildRTModuleFunc2Funcs()
     }
   }
 }
-}}}
+}
 
 extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule) {
-  return new Intel::OpenCL::DeviceBackend::BIImport(pRTModule);
+  return new intel::BIImport(pRTModule);
 }

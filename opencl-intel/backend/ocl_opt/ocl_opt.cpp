@@ -20,11 +20,6 @@ VectorizerRuntimeLib("runtimelib",
                   cl::value_desc("filename"), cl::init(""));
 
 static cl::opt<std::string>
-BIModuleName("builtins-module",
-                  cl::desc("Builtins module name. If set, built-in import pass is executed using given module name"),
-                  cl::value_desc("filename"), cl::init(""));
-
-static cl::opt<std::string>
 VectorizerServices("runtime",
                   cl::desc("Runtime services type (ocl/dx)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
@@ -83,6 +78,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeRelaxedPassPass(Registry);
     intel::initializeShiftZeroUpperBitsPass(Registry);
     intel::initializePrefetchPass(Registry);
+    intel::initializeBIImportPass(Registry);
 }
 
 
@@ -123,20 +119,6 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
     createAppleOpenclRuntimeSupport(runtimeModule.release(), 4);
   } else {
     errs()<<"Unknown runtime services \""<<VectorizerServices<<"\"\n";
-  }
-
-  //---=== Custom passes initialization ===---
-
-  // Load the built-in module...
-  std::auto_ptr<llvm::Module> BIModule;
-  if(BIModuleName != "") {
-    BIModule.reset(llvm::ParseIRFile(BIModuleName, Err, context));
-
-    if (BIModule.get() == 0) {
-      errs() << "BIModule loading error:" << (const std::string&)BIModuleName << "\n";
-    }
-
-    passMgr.add((llvm::ModulePass*)createBuiltInImportPass(BIModule.release()));
   }
 
 }

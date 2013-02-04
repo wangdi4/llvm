@@ -1,5 +1,9 @@
 set(TARGET_NAME BuiltInFuncImport)
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/passes
+    )
+
 set(BUILTINFUNCIMPORT_SOURCE_FILES
     BuiltInFuncImport.cpp
 )
