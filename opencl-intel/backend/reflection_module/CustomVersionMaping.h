@@ -105,6 +105,32 @@ TableRow mappings[] = {
   // as macros, so we never see them.
   {{"_Z18__cl_islessgreaterdd" , "_Z18__cl_islessgreaterDv2_fS_", "_Z18__cl_islessgreaterDv4_fS_", "_Z18__cl_islessgreaterDv8_fS_", "_Z18__cl_islessgreaterDv16_fS_", "_Z18__cl_islessgreaterDv3_fS_"}, 0, 0 },
   {{"_Z18__cl_islessgreaterff" , "_Z18__cl_islessgreaterDv2_dS_", "_Z18__cl_islessgreaterDv4_dS_", "_Z18__cl_islessgreaterDv8_dS_", "_Z18__cl_islessgreaterDv16_dS_", "_Z18__cl_islessgreaterDv3_dS_"}, 0, 0 },
+
+  // fract, native_fract, modf, native_modf, sincos, native_sincos
+  {{"_Z19__retbyvector_fractd" , INVALID_ENTRY, "_Z13fract_ret2ptrDv4_dPS_S0_" , "_Z13fract_ret2ptrDv8_dPS_S0_" , "_Z13fract_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z19__retbyvector_fractf" , INVALID_ENTRY, "_Z13fract_ret2ptrDv4_fPS_S0_" , "_Z13fract_ret2ptrDv8_fPS_S0_" , "_Z13fract_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z19__retbyvector_fractd" , "_Z18__retbyarray_fractDv2_d" , "_Z18__retbyarray_fractDv4_d" , "_Z18__retbyarray_fractDv8_d" , "_Z18__retbyarray_fractDv16_d" , "_Z18__retbyarray_fractDv3_d" },1, 0},
+  {{"_Z19__retbyvector_fractf" , "_Z18__retbyarray_fractDv2_f" , "_Z18__retbyarray_fractDv4_f" , "_Z18__retbyarray_fractDv8_f" , "_Z18__retbyarray_fractDv16_f" , "_Z18__retbyarray_fractDv3_f" },1, 0},
+  {{"_Z18__retbyvector_modfd" , INVALID_ENTRY, "_Z12modf_ret2ptrDv4_dPS_S0_" , "_Z12modf_ret2ptrDv8_dPS_S0_" , "_Z12modf_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z18__retbyvector_modff" , INVALID_ENTRY, "_Z12modf_ret2ptrDv4_fPS_S0_" , "_Z12modf_ret2ptrDv8_fPS_S0_" , "_Z12modf_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z18__retbyvector_modfd" , "_Z17__retbyarray_modfDv2_d" , "_Z17__retbyarray_modfDv4_d" , "_Z17__retbyarray_modfDv8_d" , "_Z17__retbyarray_modfDv16_d" , "_Z17__retbyarray_modfDv3_d" },1, 0},
+  {{"_Z18__retbyvector_modff" , "_Z17__retbyarray_modfDv2_f" , "_Z17__retbyarray_modfDv4_f" , "_Z17__retbyarray_modfDv8_f" , "_Z17__retbyarray_modfDv16_f" , "_Z17__retbyarray_modfDv3_f" },1, 0},
+  {{"_Z26__retbyvector_native_fractd" , INVALID_ENTRY, "_Z20native_fract_ret2ptrDv4_dPS_S0_" , "_Z20native_fract_ret2ptrDv8_dPS_S0_" , "_Z20native_fract_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z26__retbyvector_native_fractf" , INVALID_ENTRY, "_Z20native_fract_ret2ptrDv4_fPS_S0_" , "_Z20native_fract_ret2ptrDv8_fPS_S0_" , "_Z20native_fract_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z26__retbyvector_native_fractd" , "_Z25__retbyarray_native_fractDv2_d" , "_Z25__retbyarray_native_fractDv4_d" , "_Z25__retbyarray_native_fractDv8_d" , "_Z25__retbyarray_native_fractDv16_d" , "_Z25__retbyarray_native_fractDv3_d" },1, 0},
+  {{"_Z26__retbyvector_native_fractf" , "_Z25__retbyarray_native_fractDv2_f" , "_Z25__retbyarray_native_fractDv4_f" , "_Z25__retbyarray_native_fractDv8_f" , "_Z25__retbyarray_native_fractDv16_f" , "_Z25__retbyarray_native_fractDv3_f" },1, 0},
+  {{"_Z25__retbyvector_native_modfd" , INVALID_ENTRY, "_Z19native_modf_ret2ptrDv4_dPS_S0_" , "_Z19native_modf_ret2ptrDv8_dPS_S0_" , "_Z19native_modf_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z25__retbyvector_native_modff" , INVALID_ENTRY, "_Z19native_modf_ret2ptrDv4_fPS_S0_" , "_Z19native_modf_ret2ptrDv8_fPS_S0_" , "_Z19native_modf_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z25__retbyvector_native_modfd" , "_Z24__retbyarray_native_modfDv2_d" , "_Z24__retbyarray_native_modfDv4_d" , "_Z24__retbyarray_native_modfDv8_d" , "_Z24__retbyarray_native_modfDv16_d" , "_Z24__retbyarray_native_modfDv3_d" },1, 0},
+  {{"_Z25__retbyvector_native_modff" , "_Z24__retbyarray_native_modfDv2_f" , "_Z24__retbyarray_native_modfDv4_f" , "_Z24__retbyarray_native_modfDv8_f" , "_Z24__retbyarray_native_modfDv16_f" , "_Z24__retbyarray_native_modfDv3_f" },1, 0},
+  {{"_Z27__retbyvector_native_sincosd" , INVALID_ENTRY, "_Z21native_sincos_ret2ptrDv4_dPS_S0_" , "_Z21native_sincos_ret2ptrDv8_dPS_S0_" , "_Z21native_sincos_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z27__retbyvector_native_sincosf" , INVALID_ENTRY, "_Z21native_sincos_ret2ptrDv4_fPS_S0_" , "_Z21native_sincos_ret2ptrDv8_fPS_S0_" , "_Z21native_sincos_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z27__retbyvector_native_sincosd" , "_Z26__retbyarray_native_sincosDv2_d" , "_Z26__retbyarray_native_sincosDv4_d" , "_Z26__retbyarray_native_sincosDv8_d" , "_Z26__retbyarray_native_sincosDv16_d" , "_Z26__retbyarray_native_sincosDv3_d" },1, 0},
+  {{"_Z27__retbyvector_native_sincosf" , "_Z26__retbyarray_native_sincosDv2_f" , "_Z26__retbyarray_native_sincosDv4_f" , "_Z26__retbyarray_native_sincosDv8_f" , "_Z26__retbyarray_native_sincosDv16_f" , "_Z26__retbyarray_native_sincosDv3_f" },1, 0},
+  {{"_Z20__retbyvector_sincosd" , INVALID_ENTRY, "_Z14sincos_ret2ptrDv4_dPS_S0_" , "_Z14sincos_ret2ptrDv8_dPS_S0_" , "_Z14sincos_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z20__retbyvector_sincosf" , INVALID_ENTRY, "_Z14sincos_ret2ptrDv4_fPS_S0_" , "_Z14sincos_ret2ptrDv8_fPS_S0_" , "_Z14sincos_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY},0, 1},
+  {{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" },1, 0},
+  {{"_Z20__retbyvector_sincosf" , "_Z19__retbyarray_sincosDv2_f" , "_Z19__retbyarray_sincosDv4_f" , "_Z19__retbyarray_sincosDv8_f" , "_Z19__retbyarray_sincosDv16_f" , "_Z19__retbyarray_sincosDv3_f" },1, 0},
   
   // read / write image
   {{"_f_v._Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv4_fS1_PS1_S2_S2_S2_",
