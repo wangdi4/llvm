@@ -23,6 +23,7 @@
 //#include <string>
 
 #include <builtin_kernels.h>
+#include <cl_dynamic_lib.h>
 
 #include <mkl_types.h>
 #include <mkl_cblas.h>
@@ -241,7 +242,7 @@ protected:
 template<class MKL_EXECUTOR_CLASS > class MKLKernel : public Intel::OpenCL::BuiltInKernels::IBuiltInKernel
 {
 public:
-	MKLKernel(const char* szName, void* pFuncPtr) :
+	MKLKernel(const char* szName, Intel::OpenCL::Utils::OclDynamicLib::func_t pFuncPtr) :
 		m_szFuncName(szName), m_pMKLFuncPtr((typename MKL_EXECUTOR_CLASS::MKL_FuncType)pFuncPtr)
 	{
 	}
