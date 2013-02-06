@@ -540,9 +540,9 @@ define <16 x i32> @__ocl_trunc_v16i64_v16i32(<16 x i64> %x) {
   ret <16 x i32> %1
 }
 
-define <1 x float> @__ocl_trunc_double_float(<1 x double> %x) {
-  %1 = fptrunc <1 x double> %x to <1 x float>
-  ret <1 x float> %1
+define float @__ocl_trunc_double_float(double %x) {
+  %1 = fptrunc double %x to float
+  ret float %1
 }
 
 define <2 x float> @__ocl_trunc_double2_float2(<2 x double> %x) {

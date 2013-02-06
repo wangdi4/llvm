@@ -507,6 +507,9 @@ void TestFloatBoundsReference(DataTypeVal valType)
     EXPECT_EQ(PASSED, CompareSingleValueRef<T>(T(-0.0), T(-0.0), valType));
     EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(-0.0), T(+0.0), valType));
     EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(+0.0), T(-0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0), T(0.000001), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0), T(-0.00015128261), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0000001), T(0.0), valType));
 }
 
 void TestCFloat16BoundsReference()
@@ -552,6 +555,9 @@ void TestFloatBoundsNeatAccurate(DataTypeVal valType)
     EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(T(-0.0), T(-0.0), valType));
     EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(T(-0.0), T(+0.0), valType));
     EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(T(+0.0), T(-0.0), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0), T(0.000001), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0), T(-0.00015128261), valType));
+    EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(T(0.0000001), T(0.0), valType));
 }
 
 void TestCFloat16BoundsNeatAccurate()
@@ -578,7 +584,7 @@ void TestCFloat16BoundsNeatAccurate()
 /// NEAT data pointer is NULL in this case
 /// Test covers:
 /// Floating point types: F16, F32, F64
-TEST(Comparator, BoundaryCasesPrecise)
+TEST(Comparator, BoundaryCasesPreciseRegression)
 {
     TestFloatBoundsReference<float>(F32);
     TestFloatBoundsReference<double>(F64);

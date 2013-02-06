@@ -172,10 +172,12 @@ set (CLANG_COMPILER_PARAMS
   )
 
 # llvm-opt
-set (LLVM_OPT_PARAMS -shuffle-call-to-inst -scalarrepl -functionattrs)
+# Currently target_* built-ins are not compiled using -O3
+# If decided to run -O3 optimization need to run -shuffle-call-to-inst first!
+set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -O3)
+set (LLVM_IMAGES_OPT_PARAMS -builtin-import -shuffle-call-to-inst -O3)
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -f)
@@ -255,11 +257,11 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   endforeach (FILE)
 
   if(${USE_OPT})
-  # link OpenCL library (adding also BI IR for vectorizer)
+    # link OpenCL inage callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
       COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
       )
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
@@ -269,10 +271,11 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       VERBATIM
       )
   else()
+    # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "OCL Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
       )
   endif()

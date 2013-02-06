@@ -17,7 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   /// This pass imports built-in functions from source module to destination module.
   class BIImport : public ModulePass {
@@ -32,8 +32,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     typedef std::set<llvm::Function*>          TFunctionsSet;
 
   public:
+    // Pass identification, replacement for typeid.
+    static char ID;
+
     /// @brief Constructor
-    BIImport(Module* pSourceModule) : ModulePass(ID), m_pSourceModule(pSourceModule) {}
+    BIImport(Module* pSourceModule = NULL) : ModulePass(ID),
+      m_pSourceModule(pSourceModule), m_ownerOfSourceModule(false) {}
+
+    /// @brief Destructor
+    ~BIImport();
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -115,11 +122,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     bool IsSrcValUsedInModule(Value *pVal);
 
   protected:
-    // Pass identification, replacement for typeid.
-    static char ID;
 
     /// Source module - conatians the source function definition to import
     Module* m_pSourceModule;
+    /// Indecates if source module is owned by this Built-in import pass or not
+    /// If it is owned by it, then it should be deleted at destructor
+    bool m_ownerOfSourceModule;
     /// Destination module - contains function declarations to resolve from RT module
     Module* m_pModule;
 
@@ -132,6 +140,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     TGlobalsVec        m_globalsToImport;
   };
 
-}}} //namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} //namespace Intel {
 
 #endif // __BUILT_IN_FUNCTION_IMPORT_H__

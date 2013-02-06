@@ -28,6 +28,7 @@
 #include "cl_utils.h"
 #include <CL/cl.h>
 #include <cassert>
+#include <sys/stat.h>
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -1094,6 +1095,8 @@ string GetTempDir()
 	TmpDir += EnvUser;
 	TmpDir += "/";
       }
+    // Just to make sure the directory exists
+    mkdir(TmpDir.c_str(), S_IRWXU);
 #endif
     return TmpDir;
 }

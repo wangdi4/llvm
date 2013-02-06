@@ -51,7 +51,7 @@ Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
 	{\
 		static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
 		{\
-			void* pFunc = g_mklRT.GetFunctionPtrByName(#MKL_FUNCTION_NAME);\
+			Intel::OpenCL::Utils::OclDynamicLib::func_t pFunc = g_mklRT.GetFunctionPtrByName(#MKL_FUNCTION_NAME);\
 			if ( NULL==pFunc ) return CL_DEV_NOT_SUPPORTED;\
 		    *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, pFunc);\
 			return CL_DEV_SUCCESS;\

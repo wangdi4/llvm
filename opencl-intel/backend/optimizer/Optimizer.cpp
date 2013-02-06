@@ -384,8 +384,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if(pRtlModule != NULL) runtimeModules.push_back(pRtlModule);
   m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions, runtimeModules));
 
-  if(pRtlModule != NULL)
+  if(pRtlModule != NULL) {
     m_modulePasses.add((llvm::ModulePass*)createBuiltInImportPass(pRtlModule)); // Inline BI function
+    //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
+    m_modulePasses.add(createShuffleCallToInstPass());
+  }
 
   //funcPassMgr->add(new intel::SelectLower());
 
