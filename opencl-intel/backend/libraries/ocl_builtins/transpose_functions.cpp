@@ -242,6 +242,10 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_load_transpose_char4x8_AVX(char4* pLoadAdd,
 #if defined(__AVX__)
 typedef __v32qi my_char32;
 
+my_char32 INLINE_ATTRIBUTE as_my_char32(int8 x) {
+  return __builtin_astype(x, my_char32);
+}
+
 void INLINE_ATTRIBUTE __ocl_masked_load_transpose_char4x8(char4* pLoadAdd, char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask) {
   my_char32 xyzw;
   __ocl_masked_load_char4x8(pLoadAdd, (char4*)&xyzw, mask);
@@ -414,24 +418,28 @@ void INLINE_ATTRIBUTE __ocl_masked_transpose_scatter_char4x8(char4* pStoreAdd0, 
 /// @param wOut   - Row 3 of the transposed matrix
 void INTERNAL_INLINE_ATTRIBUTE __ocl_load_transpose_char4x8_common_AVX2(my_char32 xyzwIn, char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
 
-  my_char32 xyzw = xyzwIn;                                                     // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  my_char32 xyzw = xyzwIn;                                                  // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
   my_char32 dummy;
+  // The reason we use here __builtin_shufflevector and not shuffle(), shuffle2() OpenCL functions
+  // is because the input typeses here are "char32", which are not legal OpenCL built-in types.
+  // We do not want to sue "__builtin_shufflevector" everywhere because it's not a legal OpenCL function,
+  // it's kind of a hack that makes Clang create LLVM shufflevector instructions.
   xyzw = __builtin_shufflevector (xyzw, dummy,                              // x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 w0 w1 w2 w3 | x4 x5 x6 x7 y4 y5 y6 y7 z4 z5 z6 z7 w4 w5 w6 w7
           0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15,
           16, 20, 24, 28, 17, 21, 25, 29, 18, 22, 26, 30, 19, 23, 27, 31);
-  xyzw = (my_char32)(((int8)xyzw).s04152637);                                  // x0 x1 x2 x3 x4 x5 x6 x7 y0 y1 y2 y3 y4 y5 y6 y7 | z0 z1 z2 z3 z4 z5 z6 z7 w0 w1 w2 w3 w4 w5 w6 w7
+  xyzw = as_my_char32((as_int8(xyzw)).s04152637);                           // x0 x1 x2 x3 x4 x5 x6 x7 y0 y1 y2 y3 y4 y5 y6 y7 | z0 z1 z2 z3 z4 z5 z6 z7 w0 w1 w2 w3 w4 w5 w6 w7
 
-  my_char32 xz = __builtin_shufflevector (xyzw, dummy,                         // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
+  my_char32 xz = __builtin_shufflevector (xyzw, dummy,                      // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
           0, 32, 1, 33, 2, 34, 3, 35, 4, 36, 5, 37, 6, 38, 7, 39,
           16, 48, 17, 49, 18, 50, 19, 51, 20, 52, 21, 53, 22, 54, 23, 55);
-  my_char32 yw = __builtin_shufflevector (xyzw, dummy,                         // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
+  my_char32 yw = __builtin_shufflevector (xyzw, dummy,                      // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
          8, 40, 9, 41, 10, 42, 11, 43, 12, 44, 13, 45, 14, 46, 15, 47,
          24, 56, 25, 57, 26, 58, 27, 59, 28, 60, 29, 61, 30, 62, 31, 63);
   
-  char16 x = as_char16(((int8)(xz)).lo);                                    // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
-  char16 y = as_char16(((int8)(yw)).lo);                                    // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
-  char16 z = as_char16(((int8)(xz)).hi);                                    // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
-  char16 w = as_char16(((int8)(yw)).hi);                                    // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
+  char16 x = as_char16((as_int8(xz)).lo);                                   // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D
+  char16 y = as_char16((as_int8(yw)).lo);                                   // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D
+  char16 z = as_char16((as_int8(xz)).hi);                                   // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
+  char16 w = as_char16((as_int8(yw)).hi);                                   // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
 
   *xOut = x.s02468ACE;
   *yOut = y.s02468ACE;
@@ -444,7 +452,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_load_transpose_char4x8_AVX2(char4* pLoadAdd
 
   // We load "int8", meaning we load the full matrix in a single load
   int* tmpLoadAdd = (int*)pLoadAdd;
-  my_char32 xyzw = (my_char32) vload8(0, tmpLoadAdd);                             // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  my_char32 xyzw = (my_char32) vload8(0, tmpLoadAdd);                       // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
 
   __ocl_load_transpose_char4x8_common_AVX2(xyzw, xOut, yOut, zOut, wOut);
 }
@@ -472,24 +480,28 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_store_char4x8_common_AVX2(my_char
   my_char32 xz;
   my_char32 yw;
 
-  (*(int8*)&xz).lo = (int4)x;                                               // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  (*(int8*)&yw).lo = (int4)y;                                               // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
-  (*(int8*)&xz).hi = (int4)z;                                               // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
-  (*(int8*)&yw).hi = (int4)w;                                               // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
+  (*(int8*)&xz).lo = as_int4(x);                                            // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  (*(int8*)&yw).lo = as_int4(y);                                            // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+  (*(int8*)&xz).hi = as_int4(z);                                            // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D
+  (*(int8*)&yw).hi = as_int4(w);                                            // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D
 
+  // The reason we use here __builtin_shufflevector and not shuffle(), shuffle2() OpenCL functions
+  // is because the input typeses here are "char32", which are not legal OpenCL built-in types.
+  // We do not want to sue "__builtin_shufflevector" everywhere because it's not a legal OpenCL function,
+  // it's kind of a hack that makes Clang create LLVM shufflevector instructions.
   my_char32 dummy;
-  xz = __builtin_shufflevector (xz, dummy,                                 // x0 x1 x2 x3 x4 x5 x6 x7  D  D  D  D  D  D  D  D | z0 z1 z2 z3 z4 z5 z6 z7  D  D  D  D  D  D  D  D
+  xz = __builtin_shufflevector (xz, dummy,                                  // x0 x1 x2 x3 x4 x5 x6 x7  D  D  D  D  D  D  D  D | z0 z1 z2 z3 z4 z5 z6 z7  D  D  D  D  D  D  D  D
           0, 2, 4, 6, 8, 10, 12, 14, 0, 0, 0, 0, 0, 0, 0, 0, 
           16, 18, 20, 22, 24, 26, 28, 30, 0, 0, 0, 0, 0, 0, 0, 0);
-  yw = __builtin_shufflevector (yw, dummy,                                 // y0 y1 y2 y3 y4 y5 y6 y7  D  D  D  D  D  D  D  D | w0 w1 w2 w3 w4 w5 w6 w7  D  D  D  D  D  D  D  D
+  yw = __builtin_shufflevector (yw, dummy,                                  // y0 y1 y2 y3 y4 y5 y6 y7  D  D  D  D  D  D  D  D | w0 w1 w2 w3 w4 w5 w6 w7  D  D  D  D  D  D  D  D
           0, 2, 4, 6, 8, 10, 12, 14, 0, 0, 0, 0, 0, 0, 0, 0, 
           16, 18, 20, 22, 24, 26, 28, 30, 0, 0, 0, 0, 0, 0, 0, 0);
 
 
-  my_char32 xyzw = __builtin_shufflevector (xz, yw,                            // x0 y0 x1 y1 x2 y2 x3 y3 x4 y4 x5 y5 x6 y6 x7 y7 | z0 w0 z1 w1 z2 w2 z3 w3 z4 w4 z5 w5 z6 w6 z7 w7
+  my_char32 xyzw = __builtin_shufflevector (xz, yw,                         // x0 y0 x1 y1 x2 y2 x3 y3 x4 y4 x5 y5 x6 y6 x7 y7 | z0 w0 z1 w1 z2 w2 z3 w3 z4 w4 z5 w5 z6 w6 z7 w7
           0, 32, 1, 33, 2, 34, 3, 35, 4, 36, 5, 37, 6, 38, 7, 39,
           16, 48, 17, 49, 18, 50, 19, 51, 20, 52, 21, 53, 22, 54, 23, 55);
-  xyzw = (my_char32)(((int8)xyzw).s01452367);                                   // x0 y0 x1 y1 x2 y2 x3 y3 z0 w0 z1 w1 z2 w2 z3 w3 | x4 y4 x5 y5 x6 y6 x7 y7 z4 w4 z5 w5 z6 w6 z7 w7
+  xyzw = as_my_char32((as_int8(xyzw)).s01452367);                           // x0 y0 x1 y1 x2 y2 x3 y3 z0 w0 z1 w1 z2 w2 z3 w3 | x4 y4 x5 y5 x6 y6 x7 y7 z4 w4 z5 w5 z6 w6 z7 w7
 
 
   xyzw =  __builtin_shufflevector (xyzw, dummy,                             // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
@@ -935,14 +947,11 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_load_transpose_int4x8_AVX(int4* pLoadAdd, i
                                                                             // w4 w5 w6 w7
 
   // TODO : Replace these shuffle builtins with *xOut = {x0, x1} when clang bug will be fixed
-  *xOut = __builtin_shufflevector (x0, x1,                                  // x0 x1 x2 x3 x4 x5 x6 x7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *yOut = __builtin_shufflevector (y0, y1,                                  // y0 y1 y2 y3 y4 y5 y6 y7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *zOut = __builtin_shufflevector (z0, z1,                                  // z0 z1 z2 z3 z4 z5 z6 z7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *wOut = __builtin_shufflevector (w0, w1,                                  // w0 w1 w2 w3 w4 w5 w6 w7
-          0, 1, 2, 3, 4, 5, 6, 7);
+  uint8 concatVectors4 = {0, 1, 2, 3, 4, 5, 6, 7};
+  *xOut = shuffle2(x0, x1, concatVectors4);                                 // x0 x1 x2 x3 x4 x5 x6 x7
+  *yOut = shuffle2(y0, y1, concatVectors4);                                 // y0 y1 y2 y3 y4 y5 y6 y7
+  *zOut = shuffle2(z0, z1, concatVectors4);                                 // z0 z1 z2 z3 z4 z5 z6 z7
+  *wOut = shuffle2(w0, w1, concatVectors4);                                 // w0 w1 w2 w3 w4 w5 w6 w7
 }
 
 void INLINE_ATTRIBUTE __ocl_masked_load_transpose_int4x8(int4* pLoadAdd, int8* xOut, int8* yOut, int8* zOut, int8* wOut, int8 mask) {
@@ -1007,14 +1016,11 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_gather_transpose_int4x8_AVX(int4* pLoadAdd0
                                                                             // w4 w5 w6 w7
 
   // TODO : Replace these shuffle builtins with *xOut = {x0, x1} when clang bug will be fixed
-  *xOut = __builtin_shufflevector (x0, x1,                                  // x0 x1 x2 x3 x4 x5 x6 x7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *yOut = __builtin_shufflevector (y0, y1,                                  // y0 y1 y2 y3 y4 y5 y6 y7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *zOut = __builtin_shufflevector (z0, z1,                                  // z0 z1 z2 z3 z4 z5 z6 z7
-          0, 1, 2, 3, 4, 5, 6, 7);
-  *wOut = __builtin_shufflevector (w0, w1,                                  // w0 w1 w2 w3 w4 w5 w6 w7
-          0, 1, 2, 3, 4, 5, 6, 7);
+  uint8 concatVectors4 = {0, 1, 2, 3, 4, 5, 6, 7};
+  *xOut = shuffle2(x0, x1, concatVectors4);                                 // x0 x1 x2 x3 x4 x5 x6 x7
+  *yOut = shuffle2(y0, y1, concatVectors4);                                 // y0 y1 y2 y3 y4 y5 y6 y7
+  *zOut = shuffle2(z0, z1, concatVectors4);                                 // z0 z1 z2 z3 z4 z5 z6 z7
+  *wOut = shuffle2(w0, w1, concatVectors4);                                 // w0 w1 w2 w3 w4 w5 w6 w7
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_scatter_int4x8_AVX(int4* pStoreAdd0, int4* pStoreAdd1, int4* pStoreAdd2, int4* pStoreAdd3,
@@ -1139,14 +1145,11 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_gather_transpose_int4x8_AVX2(int4* pLoadAdd
 
   // TODO : Replace this shuffle with { pLoadAdd0,  pLoadAdd4} instead of shuffle builtin
   // when clang bug will be fixed
-  int8 xyzw04 = __builtin_shufflevector (*pLoadAdd0, *pLoadAdd4,            // x0 y0 z0 w0 x4 y4 z4 w4
-            0, 1, 2, 3, 4, 5, 6, 7);
-  int8 xyzw15 = __builtin_shufflevector (*pLoadAdd1, *pLoadAdd5,            // x1 y1 z1 w1 x5 y5 z5 w5
-            0, 1, 2, 3, 4, 5, 6, 7); 
-  int8 xyzw26 = __builtin_shufflevector (*pLoadAdd2, *pLoadAdd6,            // x2 y2 z2 w2 x6 y6 z6 w6
-            0, 1, 2, 3, 4, 5, 6, 7);
-  int8 xyzw37 = __builtin_shufflevector (*pLoadAdd3, *pLoadAdd7,            // x3 y3 z3 w3 x7 y7 z7 w7
-            0, 1, 2, 3, 4, 5, 6, 7);
+  uint8 concatVectors4 = {0, 1, 2, 3, 4, 5, 6, 7};
+  int8 xyzw04 = shuffle2(*pLoadAdd0, *pLoadAdd4, concatVectors4);           // x0 y0 z0 w0 x4 y4 z4 w4
+  int8 xyzw15 = shuffle2(*pLoadAdd1, *pLoadAdd5, concatVectors4);           // x1 y1 z1 w1 x5 y5 z5 w5
+  int8 xyzw26 = shuffle2(*pLoadAdd2, *pLoadAdd6, concatVectors4);           // x2 y2 z2 w2 x6 y6 z6 w6
+  int8 xyzw37 = shuffle2(*pLoadAdd3, *pLoadAdd7, concatVectors4);           // x3 y3 z3 w3 x7 y7 z7 w7
 
   __ocl_transpose_int4x8_common_AVX2(xyzw04, xyzw15, xyzw26, xyzw37,
             xOut, yOut, zOut, wOut);
@@ -1569,14 +1572,11 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_float4x8(float4 xyzw0, float4 xyz
   
   // TODO : Replace this shuffle with { xyzw0,  xyzw4} instead of shuffle builtin
   // when clang bug will be fixed
-  float8 xyzw04 = __builtin_shufflevector ((__v4sf)xyzw0, (__v4sf)xyzw4,          // x0 y0 z0 w0 x4 y4 z4 w4
-            0, 1, 2, 3, 4, 5, 6, 7);
-  float8 xyzw15 = __builtin_shufflevector ((__v4sf)xyzw1, (__v4sf)xyzw5,          // x1 y1 z1 w1 x5 y5 z5 w5
-            0, 1, 2, 3, 4, 5, 6, 7);
-  float8 xyzw26 = __builtin_shufflevector ((__v4sf)xyzw2, (__v4sf)xyzw6,          // x2 y2 z2 w2 x6 y6 z6 w6
-            0, 1, 2, 3, 4, 5, 6, 7);
-  float8 xyzw37 = __builtin_shufflevector ((__v4sf)xyzw3, (__v4sf)xyzw7,          // x3 y3 z3 w3 x7 y7 z7 w7
-            0, 1, 2, 3, 4, 5, 6, 7);
+  uint8 concatVectors4 = {0, 1, 2, 3, 4, 5, 6, 7};
+  float8 xyzw04 = shuffle2(xyzw0, xyzw4, concatVectors4);                   // x0 y0 z0 w0 x4 y4 z4 w4
+  float8 xyzw15 = shuffle2(xyzw1, xyzw5, concatVectors4);                   // x1 y1 z1 w1 x5 y5 z5 w5
+  float8 xyzw26 = shuffle2(xyzw2, xyzw6, concatVectors4);                   // x2 y2 z2 w2 x6 y6 z6 w6
+  float8 xyzw37 = shuffle2(xyzw3, xyzw7, concatVectors4);                   // x3 y3 z3 w3 x7 y7 z7 w7
 
   uint8 lowLane8 = {0, 8, 1, 9, 4, 12, 5, 13};
   uint8 highLane8 = {2, 10, 3, 11, 6, 14, 7, 15};
