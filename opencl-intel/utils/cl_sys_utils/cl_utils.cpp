@@ -28,6 +28,7 @@
 #include "cl_utils.h"
 #include <CL/cl.h>
 #include <cassert>
+#include <stdint.h>
 #include <sys/stat.h>
 
 using namespace std;
@@ -1101,6 +1102,9 @@ string GetTempDir()
     return TmpDir;
 }
 
+/////////////////////////////////////////////////////////////////////////
+// GetDeviceTypeString
+/////////////////////////////////////////////////////////////////////////
 string GetDeviceTypeString(const cl_device_type& Type)
 {
     string DevType;
@@ -1131,3 +1135,116 @@ string GetDeviceTypeString(const cl_device_type& Type)
     return DevType.substr(0, DevType.length()-1); // Remove the last comma
 }
 
+cl_ushort float2half_rte( float f )
+    {
+        union{ float f; cl_uint u; } u = {f};
+        cl_uint sign = (u.u >> 16) & 0x8000;
+        float x = fabsf(f);
+    
+        //Nan
+        if( x != x )
+        {
+            u.u >>= (24-11);
+            u.u &= 0x7fff;
+            u.u |= 0x0200;      //silence the NaN
+            return u.u | sign;
+        }
+    
+        // overflow
+        if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
+            return 0x7c00 | sign;
+    
+        // underflow
+        if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
+            return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
+    
+        // very small
+        if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
+            return sign | 1;
+    
+        // half denormal
+        if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
+        {
+            u.f = x * MAKE_HEX_FLOAT(0, 0x1L, -125);
+            return sign | u.u;
+        }
+    
+        u.f *= MAKE_HEX_FLOAT(0, 0x1L, 13);
+        u.u &= 0x7f800000;
+        x += u.f;
+        u.f = x - u.f;
+        u.f *= MAKE_HEX_FLOAT(0, 0x1L, -112);
+    
+        return (u.u >> (24-11)) | sign;
+    }
+
+    float half2float( cl_ushort us )
+    {
+        uint32_t u = us;                   
+        uint32_t sign = (u << 16) & 0x80000000;
+        int32_t exponent = (u & 0x7c00) >> 10;     
+        uint32_t mantissa = (u & 0x03ff) << 13;
+        union{ unsigned int u; float f;}uu;
+    
+        if( exponent == 0 )
+        {
+            if( mantissa == 0 )
+                return sign ? -0.0f : 0.0f;
+        
+            int shift = __builtin_clz( mantissa ) - 8;
+            exponent -= shift-1;
+            mantissa <<= shift;
+            mantissa &= 0x007fffff;
+        }
+        else
+            if( exponent == 31)
+            {
+                uu.u = mantissa | sign;
+                if( mantissa )
+                    uu.u |= 0x7fc00000;
+                else
+                    uu.u |= 0x7f800000;
+            
+                return uu.f;
+            }
+    
+        exponent += 127 - 15;
+        exponent <<= 23;
+    
+        exponent |= mantissa;
+        uu.u = exponent | sign;
+    
+        return uu.f;
+    }
+
+#if defined(_MSC_VER) && !defined(_WIN64)
+//  Returns the number of leading 0-bits in x, 
+//  starting at the most significant bit position. 
+//  If x is 0, the result is undefined.
+// 
+int __builtin_clz(unsigned int pattern)
+{
+    unsigned long index;
+    unsigned char res = _BitScanReverse( &index, pattern);
+    if (res) {
+        return 8*sizeof(int) - 1 - index;
+    } else {
+        return 8*sizeof(int);
+    }
+}
+#else
+int __builtin_clz(unsigned int pattern)
+{
+   int count;
+   if (pattern == 0u) {
+       return 32;
+   }
+   count = 31;
+   if (pattern >= 1u<<16) { pattern >>= 16; count -= 16; }
+   if (pattern >=  1u<<8) { pattern >>=  8; count -=  8; }
+   if (pattern >=  1u<<4) { pattern >>=  4; count -=  4; }
+   if (pattern >=  1u<<2) { pattern >>=  2; count -=  2; }
+   if (pattern >=  1u<<1) {                 count -=  1; }
+   return count;
+}
+#endif //defined(_MSC_VER) && !defined(_WIN64)

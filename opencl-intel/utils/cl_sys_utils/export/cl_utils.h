@@ -36,6 +36,13 @@
 #include <iostream>
 #include <sstream>
 #include <limits>
+#include <math.h>
+
+#if defined(_WIN32) && defined (_MSC_VER)
+    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+#else
+    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+#endif
 
 #ifdef WIN32
 typedef int threadid_t;
@@ -303,3 +310,29 @@ std::string GetTempDir();
 //
 /////////////////////////////////////////////////////////////////////////
 std::string GetDeviceTypeString(const cl_device_type& Type);
+
+/////////////////////////////////////////////////////////////////////////
+// float2half_rte
+// Parameters: float
+// Output: half
+// Author: Arik Zur - From conformance12
+// Date:   February 2013
+//
+/////////////////////////////////////////////////////////////////////////
+cl_ushort float2half_rte( float f );
+
+/////////////////////////////////////////////////////////////////////////
+// half2float
+// Parameters: half
+// Output: float
+// Author: Arik Zur - From conformance12
+// Date:   February 2013
+//
+/////////////////////////////////////////////////////////////////////////
+float half2float( cl_ushort us );
+
+// Returns the number of leading 0-bits in x, 
+// starting at the most significant bit position. 
+// If x is 0, the result is undefined.
+// 
+int __builtin_clz(unsigned int pattern);
