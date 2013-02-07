@@ -6,6 +6,14 @@ use_eh(TRUE)
 set (TARGET_NAME "ValidationTests")
 set (TARGET_LIB_NAME "ValidationTestsBase")
 
+# to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
+# we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
+# we dont need to set such options
+if (WIN32)
+set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
+endif(WIN32)
+
 set(TARGET_LIB_SOURCE_FILES
   DMTest.cpp
   DMImageTest.cpp

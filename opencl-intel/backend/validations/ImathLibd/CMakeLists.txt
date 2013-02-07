@@ -29,6 +29,16 @@ else ()
   set (ICC_PLATFORM intel64)
 endif ()
 
+# to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
+# we have to set proper compiler options:
+if (WIN32)
+set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
+else ()
+set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp-model extended -pc80 -prec-div" )
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fp-model extended -pc80 -prec-div" )
+endif()
+
 if (WIN32)
 
     link_directories( "$ENV{ICPP_COMPILER12}/compiler/lib/${ICC_PLATFORM}" )
