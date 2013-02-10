@@ -669,6 +669,20 @@ void CL_CALLBACK buildCompleteFn( cl_program program, void *userData );
 void CL_CALLBACK CrtEventCallBack( cl_event e, cl_int status, void* user_data );
 
 
+// callback data use db
+struct CrtSetEventCallBackData
+{
+	// crt event 
+    cl_event    m_crtEvent;
+	// user provided data at the call to clSetEventCallback
+    void*       m_userData;
+	// user provided notify callback
+	pfn_notify  m_userPfnNotify;
+};
+
+void CL_CALLBACK CrtSetEventCallBack( cl_event e, cl_int status, void* user_data );
+
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------

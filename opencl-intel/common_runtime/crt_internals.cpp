@@ -175,6 +175,19 @@ void __stdcall CrtEventCallBack(cl_event e, cl_int status, void* user_data)
     }
 }
 
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+void CL_CALLBACK CrtSetEventCallBack(cl_event e, cl_int status, void* crtUserData)
+{
+    CrtSetEventCallBackData* evData = ( CrtSetEventCallBackData* )crtUserData;
+    evData->m_userPfnNotify( evData->m_crtEvent, status, evData->m_userData );
+	delete evData;
+}
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData)
 {
     CrtMemDtorCallBackData *memData = (CrtMemDtorCallBackData*)userData;
@@ -188,7 +201,6 @@ void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData)
         memObj->DecPendencyCnt();
         memData->m_clMemHandle = NULL;
         delete memData;
-
     }
 }
 

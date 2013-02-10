@@ -4783,34 +4783,55 @@ cl_int CL_API_CALL clSetEventCallback(
     void *          user_data)
 {
     cl_int errCode = CL_SUCCESS;
+	CrtSetEventCallBackData* crtEvCBackData = NULL;
+
     CrtEvent* crtEvent = reinterpret_cast<CrtEvent*>(((_cl_event_crt*)event)->object);
     if (!crtEvent)
     {
-        return CL_INVALID_EVENT;
+        errCode = CL_INVALID_EVENT;
+		goto FINISH;
     }
     else
     {
+		cl_event tgtEvent = NULL;
         if (false == crtEvent->m_isUserEvent)
-        {
-            errCode = crtEvent->m_eventDEV->dispatch->clSetEventCallback(
-                crtEvent->m_eventDEV,
-                command_exec_callback_type,
-                notify_callback,
-                user_data);
+        {			
+            tgtEvent = crtEvent->m_eventDEV;
         }
         else
         {
-            CrtUserEvent* crtUserEVent = (CrtUserEvent*)crtEvent;
-            std::map<cl_context, cl_event>::iterator itr = crtUserEVent->m_ContextToEvent.begin();
-            // No point on registering the callback notification on all
-            // underlying platforms, so we pick randomly the first one.
-            errCode = itr->second->dispatch->clSetEventCallback(
-                itr->second,
-                command_exec_callback_type,
-                notify_callback,
-                user_data);
+            CrtUserEvent* crtUserEvent = (CrtUserEvent*)crtEvent;
+			// No point on registering the callback notification on all
+            // underlying platforms, so we pick randomly the first one. 
+            tgtEvent = crtUserEvent->m_ContextToEvent.begin()->second;
         }
+		
+		crtEvCBackData = new CrtSetEventCallBackData;
+		if( NULL == crtEvCBackData )
+		{
+			errCode = CL_OUT_OF_HOST_MEMORY;
+			goto FINISH;
+		}
+
+		crtEvCBackData->m_userData = user_data;
+		crtEvCBackData->m_crtEvent = event;
+		crtEvCBackData->m_userPfnNotify = notify_callback;
+
+		errCode = tgtEvent->dispatch->clSetEventCallback(
+                tgtEvent,
+                command_exec_callback_type,
+                CrtSetEventCallBack,
+                crtEvCBackData);				
     }
+FINISH:
+	if( CL_SUCCESS != errCode )
+	{
+		if( crtEvCBackData )
+		{
+			delete crtEvCBackData;
+			crtEvCBackData = NULL;
+		}
+	}
     return errCode;
 }
 
