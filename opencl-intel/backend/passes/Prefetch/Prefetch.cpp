@@ -1121,7 +1121,14 @@ void Prefetch::InsertPF (Instruction *I, Loop *L, int PFType,
   Constant *new_f = addr->getParent()->getParent()->getParent()->
       getOrInsertFunction(m_prefetchIntrinsicName, intr);
 
-  CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
+  CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
+
+  // set debug info
+  if (!I->getDebugLoc().isUnknown()) {
+    addr->setDebugLoc(I->getDebugLoc());
+    callInst->setDebugLoc(I->getDebugLoc());
+  }
+
   DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
       " type " << PFType << " distance " << count << "\n");
 }
