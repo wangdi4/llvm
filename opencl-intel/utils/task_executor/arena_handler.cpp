@@ -217,9 +217,16 @@ void ArenaHandler::WaitUntilEmpty()
 	/* Master thread - we assume that master thread gets slot 0. This isn't expect to change as long as multiple masters capability is not added.
 	   We don't wait in worker thread, since we would deadlock waiting for our own task. */
 	if (0 == tbb::task_arena::current_slot())	
-	{
-		OclAutoReader reader(&m_cmdListsRWLock);    
-		for (std::set<base_command_list*>::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
+	{		
+		/* We put the base_command_lists in a SharedPtr vector to temporarily increase their reference count. Otherwise they might be deleted while the lock is reader-locked and then they would try
+		   to write-lock it in order to remove themselves from the list in their destructor. */
+		std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.size());
+		{
+			OclAutoReader reader(&m_cmdListsRWLock);	// protect against base_command_lists adding themselves to the list during the copy
+			std::copy(m_cmdLists.begin(), m_cmdLists.end(), cmdLists.begin());
+		}
+		// we're iterating over a local list, so no lock is needed
+		for (std::vector<SharedPtr<base_command_list> >::iterator iter = cmdLists.begin(); iter != cmdLists.end(); iter++)
 		{
 			(*iter)->WaitForIdle();
 		}    
