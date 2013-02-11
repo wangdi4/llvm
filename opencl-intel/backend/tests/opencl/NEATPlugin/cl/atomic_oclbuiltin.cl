@@ -16,7 +16,6 @@ File Name:  atomics_builtin.cl
 
 
 \*****************************************************************************/
-// RUN: SATest -OCL -VAL --force_ref -neat=1 -config=%s.cfg
 
 #define KERNEL_ATOMIC_ONEARG(_func, _type, _attrib) __kernel void _func##_attrib##_type (__global uint* buf_in, __global uint* buf_out0, __global uint* buf_out1)\
 {\

@@ -32,3 +32,5 @@ if( NOT WIN32)
         ImathLibd_wrapper
     )
 endif ()
+
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

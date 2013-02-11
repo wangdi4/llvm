@@ -1,5 +1,3 @@
-//RUN: SATest -OCL -VAL -config=%s.cfg -neat=1 --force_ref > %t
-// RUN: FileCheck %s <%t
 #pragma OPENCL EXTENSION cl_khr_fp64: enable
 #define VALTYPE double
 
@@ -29,21 +27,12 @@ testGEP_2D( __global VALTYPE* data,
 	newData[7] = sh[3][lidCol+1];
 
         printf("%f\n", newData[0]);
-//CHECK: 11.000000
         printf("%f\n", newData[1]);
-//CHECK: 22.000000
         printf("%f\n", newData[2]);
-//CHECK: 33.000000
         printf("%f\n", newData[3]);
-//CHECK: 44.000000
         printf("%f\n", newData[4]);
-//CHECK: 55.000000
         printf("%f\n", newData[5]);
-//CHECK: 66.000000
         printf("%f\n", newData[6]);
-//CHECK: 77.000000
         printf("%f\n", newData[7]);
-//CHECK: 88.000000
-
 }
 

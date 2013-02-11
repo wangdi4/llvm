@@ -1,6 +1,3 @@
-// RUN: SATest -OCL -VAL -config=%s.cfg -neat=1 --force_ref | FileCheck %s
-// CHECK: Test Passed.
-
 __kernel void test_shuffle_4( __global float4* aIn,
                               __global uint4* bIn,
                               __global float4* newData)

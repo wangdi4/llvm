@@ -1,9 +1,6 @@
 // Test for local memory in SATest OpenCL Reference
 // Computes sum of array using local memory
 // CL source code taken from Conformance test_conformance\basic\test_local.c
-// RUN: SATest -OCL -REF -config=%s.cfg -neat=0 >%t
-// RUN: FileCheck %s <%t
-
 __kernel void compute_sum_with_localmem(__global int *a, int n, __global int *sum)
 {
 	 __local int tmp_sum[8];
@@ -39,6 +36,5 @@ __kernel void compute_sum_with_localmem(__global int *a, int n, __global int *su
 	{
        *sum = tmp_sum[0];
 	   printf("%d\n", *sum);
-// CHECK: 36
 	}
 } 

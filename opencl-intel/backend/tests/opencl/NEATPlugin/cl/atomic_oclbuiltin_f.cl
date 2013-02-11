@@ -16,7 +16,6 @@ File Name:  atomics_builtin_f.cl
 
 
 \*****************************************************************************/
-// RUN: SATest -OCL -VAL --force_ref -neat=1 -config=%s.cfg
 
 __kernel void atomic_xchg__globalfloat(__global float* buf_in, __global float* buf_out0, __global float* buf_out1) {
     float val = buf_in[0];

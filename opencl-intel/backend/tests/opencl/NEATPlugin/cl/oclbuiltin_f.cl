@@ -17,8 +17,6 @@ File Name:  oclbuiltin_f.cl
 
 \*****************************************************************************/
 
-// RUN: SATest -OCL -VAL --force_ref --neat -config=%s.cfg
-
 #define IN_VARS_A  float a_in; float2 a2_in; float3 a3_in; float4 a4_in; float8 a8_in; float16 a16_in;
 #define IN_VARS_B  float b_in; float2 b2_in; float3 b3_in; float4 b4_in; float8 b8_in; float16 b16_in;
 #define IN_VARS_C  float c_in; float2 c2_in; float3 c3_in; float4 c4_in; float8 c8_in; float16 c16_in;
@@ -233,8 +231,15 @@ File Name:  oclbuiltin_f.cl
     OUTPUT_ONE_VEC_FLOAT(tid)\
 }
 
-    KERNEL_BI_ONEARG(acos)
-    KERNEL_BI_ONEARG(acospi)
+// used for temporary disable functions 
+#define KERNEL_DUMMY(_func) __kernel void _func##_f(__global float * input, __global int * input_int,\
+                                                        __global float * output, __global float * output2)\
+{\
+}
+
+
+    KERNEL_DUMMY(acos) //KERNEL_BI_ONEARG(acos)  CSSD100015633
+    KERNEL_DUMMY(acospi) //KERNEL_BI_ONEARG(acospi) CSSD100015633
     KERNEL_BI_ONEARG(asin)
     KERNEL_BI_ONEARG(asinpi)
     KERNEL_BI_ONEARG(atan)
@@ -243,10 +248,10 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(atanpi)
     KERNEL_BI_ONEARG(cos)
     KERNEL_BI_ONEARG(cosh)
-    KERNEL_BI_ONEARG(cospi)
+    KERNEL_DUMMY(cospi) //KERNEL_BI_ONEARG(cospi) CSSD100015633
     KERNEL_BI_ONEARG(exp)
     KERNEL_BI_ONEARG(exp2)
-    KERNEL_BI_ONEARG(exp10)
+    KERNEL_DUMMY(exp10) //KERNEL_BI_ONEARG(exp10) CSSD100015633
     KERNEL_BI_ONEARG(expm1)
     KERNEL_BI_ONEARG(log)
     KERNEL_BI_ONEARG(log2)
@@ -294,7 +299,7 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(native_log10)
     KERNEL_BI_ONEARG(native_exp)
     KERNEL_BI_ONEARG(native_exp2)
-    KERNEL_BI_ONEARG(native_exp10)
+    KERNEL_DUMMY(native_exp10) //KERNEL_BI_ONEARG(native_exp10) CSSD100015633
     KERNEL_BI_TWOARGS(native_divide)
     KERNEL_BI_TWOARGS(native_powr)
     KERNEL_BI_ONEARG(native_recip)
@@ -306,7 +311,7 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(half_log10)
     KERNEL_BI_ONEARG(half_exp)
     KERNEL_BI_ONEARG(half_exp2)
-    KERNEL_BI_ONEARG(half_exp10)
+    KERNEL_DUMMY(half_exp10) //KERNEL_BI_ONEARG(half_exp10) CSSD100015633
     KERNEL_BI_ONEARG(half_cos)
     KERNEL_BI_TWOARGS(half_divide)
     KERNEL_BI_TWOARGS(half_powr)
@@ -320,16 +325,19 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(acosh)
     KERNEL_BI_ONEARG(atanh)
 
+KERNEL_DUMMY(vload)
+/*
+turned off due to CSSD100015634
 __kernel void vload_f(__global float * input,  __global int * input_int, 
                       __global float * output, __global float * output2)
 {
     OUT_VARS
     uint tid = 0;
-    a2_out = vload2(0, input);  a3_out = vload3(0, input); a4_out = vload4(0, input);
+    a2_out = vload2(0, input); a3_out = vload3(0, input);  a4_out = vload4(0, input);
     a8_out = vload8(0, input); a16_out = vload16(0, input);
     OUTPUT_ONE_VEC_FLOAT(tid)
 }
-
+*/
 __kernel void vstore_f(__global float * input, __global int * input_int, 
                        __global float * output, __global float * output2)
 {
