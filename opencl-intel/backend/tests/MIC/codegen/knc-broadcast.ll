@@ -1,15 +1,14 @@
 ; XFAIL: win32
 ; RUN: llc < %s -mtriple=x86_64-pc-linux \
 ; RUN:       -march=y86-64 -mcpu=knc \
-; RUN:     | FileCheck %s -check-prefix=KNC
-;
-;
-;
+; RUN:     | FileCheck %s
 
 target datalayout = "e-p:64:64"
 
 define <16 x float> @broadcastf32(float %e) nounwind readnone ssp {
-; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
+; CHECK: broadcastf32
+; CHECK: vpxord
+; CHECK: vpermd %zmm0, {{%zmm[0-9]+}}, %zmm0
   %1 = insertelement <16 x float> undef, float %e, i32 0
   %2 = insertelement <16 x float> %1, float %e, i32 1
   %3 = insertelement <16 x float> %2, float %e, i32 2
@@ -30,8 +29,8 @@ define <16 x float> @broadcastf32(float %e) nounwind readnone ssp {
 }
 
 define <8 x double> @broadcastf64(double %e) nounwind readnone ssp {
-; KNC: broadcastf64:
-; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
+; CHECK: broadcastf64:
+; CHECK: vpermd %zmm0, {{%zmm[0-9]+}}, %zmm0
   %1 = insertelement <8 x double> undef, double %e, i32 0
   %2 = insertelement <8 x double> %1, double %e, i32 1
   %3 = insertelement <8 x double> %2, double %e, i32 2
@@ -43,15 +42,12 @@ define <8 x double> @broadcastf64(double %e) nounwind readnone ssp {
   ret <8 x double> %8
 }
 
+; Make sure no vperd is generated here
 define <16 x i32> @broadcasti32(i32 %i) nounwind readnone ssp {
-; KNF: broadcasti32:
-; KNF: movl {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
-; KNF: vloadd [[M1]]{1to16}, {{%v[0-9]+}}
-;
-; KNC: broadcasti32:
-; KNC: movl {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
-; KNC: vbroadcastss [[M1]], %zmm0
-
+; CHECK: broadcasti32:
+; CHECK: movl {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
+; CHECK-NEXT: vbroadcastss [[M1]], %zmm0
+; CHECK-NEXT: ret
   %1 = insertelement <16 x i32> undef, i32 %i, i32 0
   %2 = insertelement <16 x i32> %1, i32 %i, i32 1
   %3 = insertelement <16 x i32> %2, i32 %i, i32 2
@@ -72,14 +68,10 @@ define <16 x i32> @broadcasti32(i32 %i) nounwind readnone ssp {
 }
 
 define <8 x i64> @broadcasti64(i64 %e) nounwind readnone ssp {
-; KNF: broadcasti64:
-; KNF: movq {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
-; KNF: vloadq [[M1]]{1to8}, {{%v[0-9]+}}
-;
-; KNC: broadcasti64:
-; KNC: movq {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
-; KNC: vbroadcastsd [[M1]], %zmm0
-
+; CHECK: broadcasti64:
+; CHECK: movq {{%[a-z]+}}, [[M1:(-[0-9]+)?\(%[a-z]+\)]]
+; CHECK-NEXT: vbroadcastsd [[M1]], %zmm0
+; CHECK-NEXT: ret
   %1 = insertelement <8 x i64> undef, i64 %e, i32 0
   %2 = insertelement <8 x i64> %1, i64 %e, i32 1
   %3 = insertelement <8 x i64> %2, i64 %e, i32 2
@@ -92,7 +84,9 @@ define <8 x i64> @broadcasti64(i64 %e) nounwind readnone ssp {
 }
 
 define <16 x i32> @broadcastv16i32(<16 x i32> %v) nounwind readnone ssp {
-; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
+; CHECK: broadcastv16i32
+; CHECK: vbroadcastss
+; CHECK: vpermd %zmm0, {{%zmm[0-9]+}}, %zmm0
   %t = extractelement <16 x i32> %v, i32 6
   %1 = insertelement <16 x i32> undef, i32 %t, i32 0
   %2 = insertelement <16 x i32> %1, i32 %t, i32 1
@@ -114,9 +108,9 @@ define <16 x i32> @broadcastv16i32(<16 x i32> %v) nounwind readnone ssp {
 }
 
 define <16 x i32> @broadcastv16i32_0(<16 x i32> %v) nounwind readnone ssp {
-
-; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
-
+; CHECK: broadcastv16i32_0
+; CHECK: vpxord
+; CHECK: vpermd %zmm0, {{%zmm[0-9]+}}, %zmm0
   %t = extractelement <16 x i32> %v, i32 0
   %1 = insertelement <16 x i32> undef, i32 %t, i32 0
   %2 = insertelement <16 x i32> %1, i32 %t, i32 1
@@ -138,8 +132,8 @@ define <16 x i32> @broadcastv16i32_0(<16 x i32> %v) nounwind readnone ssp {
 }
 
 define <8 x i64> @broadcastv8i64(<8 x i64> %v) nounwind readnone ssp {
-; KNC: vpermd %zmm0, {{%zmm[0-9]}}, %zmm0
-
+; CHECK: broadcastv8i64
+; CHECK: vpermd %zmm0, {{%zmm[0-9]+}}, %zmm0
   %e = extractelement <8 x i64> %v, i32 6
   %1 = insertelement <8 x i64> undef, i64 %e, i32 0
   %2 = insertelement <8 x i64> %1, i64 %e, i32 1
@@ -151,5 +145,3 @@ define <8 x i64> @broadcastv8i64(<8 x i64> %v) nounwind readnone ssp {
   %8 = insertelement <8 x i64> %7, i64 %e, i32 7
   ret <8 x i64> %8
 }
-
-
