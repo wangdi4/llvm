@@ -105,8 +105,15 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
       PrintFilename += ".s";
     }
 
-    if (getenv("DUMPIR"))
-      mod.dump();
+    if (getenv("DUMPIR")) {
+      // Create the output file.
+      std::string IRFileName (mod.getModuleIdentifier());
+      IRFileName += ".ll";
+      std::string ErrorInfo;
+      raw_fd_ostream IRFD(IRFileName.c_str(), ErrorInfo,
+                  raw_fd_ostream::F_Binary);
+      mod.print(IRFD, 0);
+    }
   }
 
   // if the user asked to inject an IR file parse it and pass the new
