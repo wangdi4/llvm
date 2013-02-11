@@ -216,8 +216,11 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //
   //ldexp
   //
-  StringArray arrLdexp("ldexp");
+  {
+  llvm::StringRef names[] = {"ldexp"};
+  StringArray arrLdexp(names);
   addConversionGroup(arrLdexp, arrReals, primitives::INT, createDescriptorVP_P);
+  }
   //
   //clamp
   //
