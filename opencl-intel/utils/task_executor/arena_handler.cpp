@@ -220,11 +220,10 @@ void ArenaHandler::WaitUntilEmpty()
 	{		
 		/* We put the base_command_lists in a SharedPtr vector to temporarily increase their reference count. Otherwise they might be deleted while the lock is reader-locked and then they would try
 		   to write-lock it in order to remove themselves from the list in their destructor. */
-		std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.size());
-		{
-			OclAutoReader reader(&m_cmdListsRWLock);	// protect against base_command_lists adding themselves to the list during the copy
-			std::copy(m_cmdLists.begin(), m_cmdLists.end(), cmdLists.begin());
-		}
+		m_cmdListsRWLock.EnterRead();	// protect against base_command_lists adding themselves to the list during the copy
+		std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.begin(), m_cmdLists.end());
+		m_cmdListsRWLock.LeaveRead();
+
 		// we're iterating over a local list, so no lock is needed
 		for (std::vector<SharedPtr<base_command_list> >::iterator iter = cmdLists.begin(); iter != cmdLists.end(); iter++)
 		{
