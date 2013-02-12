@@ -18,6 +18,7 @@ entry:
 ; CHECK-NOT: .long
 ; CHECK: test1
 ; CHECK: vbroadcasts{{[ds]}} _const_0(%rip), %zmm0
+; CHECK-NEXT: ret
   ret <16 x i32> <i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42>
 }
 
@@ -28,6 +29,7 @@ entry:
 ; CHECK-NOT: .long
 ; CHECK: test2
 ; CHECK: vbroadcasts{{[ds]}} _const_1(%rip), %zmm0
+; CHECK-NEXT: ret
   ret <16 x float> <float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0, float 42.0>
 
 }
@@ -39,5 +41,6 @@ entry:
 ; CHECK-NOT: .long
 ; CHECK: test3
 ; CHECK: vbroadcastss _const_2(%rip), %zmm0
+; CHECK-NEXT: ret
   ret <1 x float> <float 42.0>
 }
