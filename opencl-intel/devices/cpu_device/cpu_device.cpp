@@ -46,7 +46,10 @@
 #include "hw_utils.h"
 #endif
 
-#define __DOUBLE_ENABLED__
+#if !defined(__ANDROID__)
+  #define __DOUBLE_ENABLED__
+#endif
+
 using namespace Intel::OpenCL::CPUDevice;
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
