@@ -1,18 +1,21 @@
-/*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
-#include <sstream>
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Constants.h"
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "CLWGLoopCreator.h"
 #include "LoopUtils.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
+
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Constants.h"
+#include "llvm/Module.h"
+
+#include <sstream>
 #include <set>
 
 static unsigned MAX_OCL_NUM_DIM = 3;
@@ -72,7 +75,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   for (unsigned i=0, e=kernels.size(); i<e; ++i) {
     Function *F = kernels[i];
     if (!F) continue;
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     if (!NoBarrier.count(funcName)) continue;
 
     // We can create loops for this kernel - runOnFunction on it!!
@@ -91,7 +94,7 @@ unsigned CLWGLoopCreator::computeNumDim() {
   // used by the kernel, it is legal to loop only over the used ones.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getName();
+    std::string name = fit->getName().str();
     if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
   }
   if (atomicFuncs.size()) {
@@ -240,7 +243,7 @@ void CLWGLoopCreator::moveAllocaToEntry(BasicBlock *BB) {
 CallInst *CLWGLoopCreator::createEECall() {
   // Obtain early exit function. Function should have the same arguments
   // as the kernel.
-  std::string funcName = m_F->getName();
+  std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Function *EEFunc = m_M->getFunction(EEFuncName);
   assert("early exit function must exist!!!");

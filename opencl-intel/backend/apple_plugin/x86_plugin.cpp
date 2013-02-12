@@ -67,7 +67,10 @@
 #include "CPUDetect.h"
 #include "Optimizer.h"
 #include "MetaDataApi.h"
-#include "VolcanoWrapper/VecConfig.h"
+#include "VecConfig.h"
+#include "cl_kernel_arg_type.h"
+#include "CompilationUtils.h"
+#include "TypeAlignment.h"
 
 #ifdef CLD_ASSERT
 #include <sys/types.h>
@@ -80,16 +83,18 @@ using namespace llvm;
 
 __BEGIN_DECLS
 
-int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
-         std::vector<unsigned char> &dylib, std::string &log)
-{
-  return 1;
+namespace Intel {
+  unsigned int getBarrierBufferStrideSize(OpenCL::DeviceBackend::Optimizer& optimizer, const Function& func) {
+    std::map<std::string, unsigned int> bufferStrideMap;
+    optimizer.getPrivateMemorySize(bufferStrideMap);
+    return bufferStrideMap[func.getName().str()];
+  }
 }
 
-int cld_link(Module *M, Module *Runtime)
-{
-  return 1;
-}
+int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
+         std::vector<unsigned char> &dylib, std::string &log);
+
+int cld_link(Module *M, Module *Runtime);
 
 __END_DECLS
 
@@ -102,71 +107,141 @@ struct CPUPluginPrivateData
   Intel::CPUId cpuId;
 };
 
+extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
+
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
 static
-int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
-                      Function *kf, std::string &args_desc,
-                      StringRef wf, int VWidthMax) {
-  // Create and fill in the kernel args description structure.
-  CFMutableArrayRef kfinfo = CFArrayCreateMutable(NULL, kf->arg_size(),
-                                                  &kCFTypeArrayCallBacks);
-  CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL, kf->arg_size(),
-                                                       &kCFTypeArrayCallBacks);
-
-  CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL,
-                                                       kf->arg_size(),
-                                                       &kCFTypeArrayCallBacks);
-
-  CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL,
-                                                        kf->arg_size(),
-                                                        &kCFTypeArrayCallBacks);
+int alloc_kernels_info(CFMutableDictionaryRef *info,
+                       ConstantArray *init,
+                       Module *M, Intel::OpenCL::DeviceBackend::Optimizer &optimizer) {
 
   // Aquire named metadata node for kernel arg info. Right now only type info
   // is recorded.
-  Module *M = kf->getParent();
   Intel::MetaDataUtils mdUtils(M);
+  unsigned numKernels = mdUtils.size_Kernels();
+  // Create the info dictionary which will store CFString program names as
+  // the keys, and CFArrays of CFNumbers for the size|flags fields.
+  CFMutableDictionaryRef d;
+  d = CFDictionaryCreateMutable(NULL, numKernels,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks);
+  if (!d)
+    return -1;
+  
+  *info = d;
+  if (!numKernels) {
+    return 0;
+  }
+  // Create the TargetData structure from the Module's arch info.
+  TargetData TD(M);
+
+  Intel::OpenCL::DeviceBackend::FunctionWidthVector vectorFunc;
+  optimizer.GetVectorizedFunctions(vectorFunc);
+  std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecIter = vectorFunc.begin();
+  std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecEnd = vectorFunc.end();
+
+  // Get Map between function name and its build path info
+  std::set<std::string> noBarrierPath;
+  fillNoBarrierPathSet(M, noBarrierPath);
+
+  // Get Map between function and its implicit local buffer info
+  Intel::OpenCL::DeviceBackend::KernelsLocalBufferInfoMap kernelsLocalBufferMap;
+  optimizer.GetKernelsLocalBufferInfo(kernelsLocalBufferMap);
+
   Intel::KernelMetaDataHandle kmd;
 
-  for(Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i)
-  {
-    if( kf == (*i)->getFunction() ) //TODO stripPointerCasts()
-    {
-        kmd = *i;
-        break;
-    }
-  }
+  //TODO: Should use metadata utils to run over wrapper kernels
+  NamedMDNode *OpenCLKernelWrapperMD = M->getNamedMetadata("opencl.wrappers");
+  Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
+  for(unsigned int i=0; iter != end; ++iter, ++i) {
+    Intel::KernelMetaDataHandle kmd = (*iter);
+    // In case the cast is wrong an assertion failure will be thrown
+    llvm::Function *pFunc = (*iter)->getFunction();
+    // The wrapper function that receives a single buffer as argument is the last node in the metadata
+    MDNode *wrapperN = OpenCLKernelWrapperMD->getOperand(i);
+    llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(wrapperN->getOperand(0)->stripPointerCasts());
 
-/*  NamedMDNode *OpenCLKernelMD =
-  M->getNamedMetadata("opencl.kernels");
-  MDNode *KernelArgTy = 0; // MDNode with kernel arg type information.
-  MDNode *KernelArgTyQual = 0; // MDNode with kernel arg type qual info.
-  MDNode *KernelArgName = 0; // MDNode with kernel arg names.
-  if (OpenCLKernelMD) {
-    for (unsigned i = 0; i < OpenCLKernelMD->getNumOperands(); ++i) {
-      MDNode *N = OpenCLKernelMD->getOperand(i);
-      // Check first arg for our kernel function.
-      if (N->getOperand(0) == kf) {
-        // Search the rest of the operands to find the MDNode we are interested in.
-        for (unsigned j = 1; j < N->getNumOperands(); ++j) {
-          MDNode *data = dyn_cast<MDNode>(N->getOperand(j));
-          if (data) {
-            MDString *key =  cast<MDString>(data->getOperand(0));
-            if (key->getString() == "kernel_arg_type")
-              KernelArgTy = data;
-            else if (key->getString() == "kernel_arg_type_qual")
-              KernelArgTyQual = data;
-            else if (key->getString() == "kernel_arg_name")
-              KernelArgName = data;
-          }
-        }
+#ifdef REQD_WORK_GROUP_SIZE
+    // TODO: enable this code when required work group size will be passed by metadata
+    //       instead of in "llvm.global.annotations", which will be deprecated
+    MDNode *KernelRWGsize = 0; // MDNode with kernel required work group size.
+    // Search the rest of the operands to find the MDNode we are interested in.
+    for (unsigned j = 1; j < kernelN->getNumOperands(); ++j) {
+      MDNode *data = dyn_cast<MDNode>(kernelN->getOperand(j));
+      if (data) {
+        else if (key->getString() == "reqd_work_group_size")
+          KernelRWGsize = data;
       }
     }
-  }
-*/
-  unsigned j = 0;
-  for (Function::arg_iterator ai = kf->arg_begin(), ae = kf->arg_end();
-       ai != ae; ++ai, ++j) {
+#endif
+
+    // Get the kernel arguments info
+    std::vector<cl_kernel_argument> arguments;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments);
+
+    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
+        arguments.size(), &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(NULL,
+        arguments.size(), &kCFTypeArrayCallBacks);
+
+    //Calculate the size and alignment of each argument from the arguments info
+    for(unsigned int j=0; j<arguments.size(); ++j) {
+        cl_kernel_argument arg = arguments[j];
+    
+        // Create a CFNumber to hold the size value.
+        int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
+        const void *vptrsize = (const void *)&size;
+        CFNumberRef valsizeref = CFNumberCreate(NULL, kCFNumberIntType, vptrsize);
+
+        // Append size value to the function arg sizes array.
+        CFArrayAppendValue(kf_argsizes, valsizeref);
+        CFRelease(valsizeref);
+
+        // Create a CFNumber to hold the alignment value.
+        int alignment = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getAlignment(arg));
+        const void *vptralignment = (const void *)&alignment;
+        CFNumberRef valalignmentref = CFNumberCreate(NULL, kCFNumberIntType, vptralignment);
+
+        // Append size value to the function arg sizes array.
+        CFArrayAppendValue(kf_argalignments, valalignmentref);
+        CFRelease(valalignmentref);
+    }
+
+    ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
+    Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
+    //assert(kf->getName().str() == pWrapperFunc->getName().str() && "annotcation has differemt kernel order than metadata!");
+
+    // This is a function, pull out the arg info string.
+    Value *field1 = elt->getOperand(1)->stripPointerCasts();
+    GlobalVariable *sgv = cast<GlobalVariable>(field1);
+
+    // Get the description of the arguments that the front end generated, so
+    // that we can put the read and write information for images in the arg
+    // description structure.
+    std::string args_desc;
+    if (ConstantDataArray *f1arr = dyn_cast<ConstantDataArray>(sgv->getInitializer()))
+    if (f1arr->isString())
+      args_desc = f1arr->getAsString();
+
+    // Create and fill in the kernel args description structure.
+    CFMutableArrayRef kfinfo = CFArrayCreateMutable(NULL, kf->arg_size(),
+                                                    &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL, kf->arg_size(),
+                                                         &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL,
+                                                         kf->arg_size(),
+                                                         &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL,
+                                                          kf->arg_size(),
+                                                          &kCFTypeArrayCallBacks);
+
+    unsigned j = 0;
+    for (Function::arg_iterator ai = kf->arg_begin(), ae = kf->arg_end(); ai != ae; ++ai, ++j) {
     Type *Ty = ai->getType();
 
     // If this is a byval argument, it is always a pointer type.  We actually
@@ -253,65 +328,131 @@ int alloc_kernel_info(CFMutableDictionaryRef info, TargetData &TD,
   const unsigned max_wg_dim = 3;
   CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(NULL, max_wg_dim,
                                                       &kCFTypeArrayCallBacks);
-  if (!args_desc.empty() && args_desc[j] == 'R') {
-    // Get Required work group size.
-    assert(args_desc[j+1] == 'W' && args_desc[j+2] == 'G' &&
-           "Expected required work group size");
 
-    char* ValStart = &args_desc[j+3];
-    char* ValEnd;
-    for (unsigned k = 0; k < max_wg_dim; ++k) {
-      assert(*ValStart != '\0');
-      uint64_t val = strtol(ValStart, &ValEnd, 10);
+
+#ifdef REQD_WORK_GROUP_SIZE
+  // TODO: enable this code when required work group size will be passed by metadata
+  //       instead of in "llvm.global.annotations", which will be deprecated
+  if (KernelRWGsize) {
+      // Get Required work group size.
+      for (unsigned k = 0; k < max_wg_dim; ++k) {
+        // With this MDNode, there is a key followed by max_wg_dim number of type WG sizes 
+        // The first element is the key, so offset arg index by one.
+        uint64_t val = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(i+1))->getValue().getZExtValue();
+        const void *vptr = (const void *)&val;
+        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        // Append to info value to the function arg info array.
+        CFArrayAppendValue(kf_wg_dims, valref);
+        CFRelease(valref);
+      }
+    } else {
+      uint64_t val = 0;
       const void *vptr = (const void *)&val;
-      CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-
-      // Append to info value to the function arg info array.
-      CFArrayAppendValue(kf_wg_dims, valref);
-      CFRelease(valref);
-
-      ValStart = *ValEnd == '\0' ? ValEnd : ValEnd+1;
+      for (unsigned k = 0; k < max_wg_dim; ++k) {
+        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        // Append to info value to the function arg info array.
+        CFArrayAppendValue(kf_wg_dims, valref);
+        CFRelease(valref);
+      }
     }
-  } else {
-    uint64_t val = 0;
-    const void *vptr = (const void *)&val;
-    for (unsigned k = 0; k < max_wg_dim; ++k) {
-      CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-      // Append to info value to the function arg info array.
-      CFArrayAppendValue(kf_wg_dims, valref);
-      CFRelease(valref);
+#else
+    // TODO: Remove this code when "llvm.global.annotations" is deprecated
+    if (!args_desc.empty() && args_desc[j] == 'R') {
+      // Get Required work group size.
+      assert(args_desc[j+1] == 'W' && args_desc[j+2] == 'G' &&
+             "Expected required work group size");
+    
+      char* ValStart = &args_desc[j+3];
+      char* ValEnd;
+      for (unsigned k = 0; k < max_wg_dim; ++k) {
+        assert(*ValStart != '\0');
+        uint64_t val = strtol(ValStart, &ValEnd, 10);
+        const void *vptr = (const void *)&val;
+        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+      
+        // Append to info value to the function arg info array.
+        CFArrayAppendValue(kf_wg_dims, valref);
+        CFRelease(valref);
+      
+        ValStart = *ValEnd == '\0' ? ValEnd : ValEnd+1;
+      }
+    } else {
+      uint64_t val = 0;
+      const void *vptr = (const void *)&val;
+      for (unsigned k = 0; k < max_wg_dim; ++k) {
+        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        // Append to info value to the function arg info array.
+        CFArrayAppendValue(kf_wg_dims, valref);
+        CFRelease(valref);
+      }
     }
+#endif
+    // Scalar name, which we will use to dlsym the wrapper out of the object.
+    CFStringRef sname = CFStringCreateWithCString(NULL,
+                                                  pWrapperFunc->getName().str().c_str(),
+                                                  kCFStringEncodingUTF8);
+
+    // Vector name, which we will use to dlsym the vector wrapper out of the object.
+    std::string VKernelName = "";
+    int VWidthMax = 0;
+    if (vecIter != vecEnd && vecIter->first != NULL) {
+      VKernelName = vecIter->first->getName().str();
+      VWidthMax = vecIter->second;
+      
+    }
+    CFStringRef vname = CFStringCreateWithCString(NULL, VKernelName.c_str(),
+                                                  kCFStringEncodingUTF8);
+    const void *vwmaxptr = (const void *)&VWidthMax;
+    CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
+  
+    //hasBarrier, indicator for kernel that was compiled with barrier path
+    int hasBarrier = 0 == noBarrierPath.count(pWrapperFunc->getName().str());
+    const void *hbarrierptr = (const void *)&hasBarrier;
+    CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
+
+    //barrier buffer stride, is the size in bytes for barrier buffer stride
+    unsigned int barrierBufferSTride = Intel::getBarrierBufferStrideSize(optimizer, *pWrapperFunc);
+    const void *bbsptr = (const void *)&barrierBufferSTride;
+    CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
+
+    //max local group size, indecator for maximum number of work-items this kernel supports
+    unsigned int maxLocalSize = 1024;
+    const void *lsmaxptr = (const void *)&maxLocalSize;
+    CFNumberRef lsmax = CFNumberCreate(NULL, kCFNumberIntType, lsmaxptr);
+
+    //implicit local buffer size, is the total size in bytes for all implicit local variables in this kernel
+    unsigned int implicitLocalBufferSize = kernelsLocalBufferMap[pFunc].stTotalImplSize;
+    const void *ilbptr = (const void *)&implicitLocalBufferSize;
+    CFNumberRef ilb = CFNumberCreate(NULL, kCFNumberIntType, ilbptr);
+
+    const void *entry[] = { kfinfo, kf_argsizes, kf_argalignments, sname, vname, vwmax, hbarrier, bbs,
+      kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals, lsmax, ilb };
+    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 14, &kCFTypeArrayCallBacks);
+  
+    CFRelease(kfinfo);
+    CFRelease(kf_argsizes);
+    CFRelease(kf_argalignments);
+    CFRelease(sname);
+    CFRelease(vname);
+    CFRelease(vwmax);
+    CFRelease(hbarrier);
+    CFRelease(bbs);
+    CFRelease(kf_wg_dims);
+    CFRelease(kf_argnames);
+    CFRelease(kf_argtypes);
+    CFRelease(kf_argtypequals);
+    CFRelease(lsmax);
+    CFRelease(ilb);
+  
+    // Create a CFString from the function name to use as the key.
+    CFStringRef kfstr = CFStringCreateWithCString(NULL, pWrapperFunc->getName().str().c_str(),
+                                                  kCFStringEncodingUTF8);
+  
+    // Insert the info array into the dictionary.
+    CFDictionaryAddValue(*info, kfstr, arrayref);
+    CFRelease(kfstr);
+    CFRelease(arrayref);
   }
-
-  // Scalar name, which we will use to dlsym the wrapper out of the object.
-  CFStringRef sname = CFStringCreateWithCString(NULL, wf.str().c_str(),
-                                                kCFStringEncodingUTF8);
-
-  // Vector name, which we will use to dlsym the vector wrapper out of the
-  // object.
-  const void *vwmaxptr = (const void *)&VWidthMax;
-  CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
-
-  const void *entry[] = { kfinfo, sname, vwmax, kf_wg_dims,
-    kf_argnames, kf_argtypes, kf_argtypequals };
-  CFArrayRef arrayref = CFArrayCreate(NULL, entry, 7, &kCFTypeArrayCallBacks);
-
-  CFRelease(kfinfo);
-  CFRelease(sname);
-  CFRelease(vwmax);
-  CFRelease(kf_wg_dims);
-  CFRelease(kf_argnames);
-  CFRelease(kf_argtypes);
-  CFRelease(kf_argtypequals);
-
-  // Create a CFString from the function name to use as the key.
-  CFStringRef kfstr = CFStringCreateWithCString(NULL, kf->getName().str().c_str(),
-                                                kCFStringEncodingUTF8);
-
-  // Insert the info array into the dictionary.
-  CFDictionaryAddValue(info, kfstr, arrayref);
-  CFRelease(kfstr);
-  CFRelease(arrayref);
   return 0;
 }
 
@@ -689,16 +830,16 @@ static int compileProgram(
     return -3;
   }
 
+  ConstantArray *init = 0;
   if (has_kernel_annotation) {
     // Make sure that llvm.global.annotations has a constant initializer.
-    ConstantArray *init = dyn_cast<ConstantArray>(annotation->getInitializer());
+    init = dyn_cast<ConstantArray>(annotation->getInitializer());
     if (!init)
       return -4;
 
     // We have at least one kernel.
-
     has_kernel = true;
-    annotation->eraseFromParent();
+    //annotation->eraseFromParent();
   } else {
     // We have no kernels so we must be linking multiple files.  Create an
     // empty kernel data dictionary.
@@ -745,6 +886,10 @@ static int compileProgram(
   Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);
   optimizer.Optimize();
   
+  if (has_kernel_annotation) {
+    alloc_kernels_info((CFMutableDictionaryRef*)info, init, SM, optimizer);
+    annotation->eraseFromParent();
+  }
   // Create the target machine for this module, and add passes to emit an object
   // file of this module's architecture. We can't get it from SM since we
   // may be loading a portable binary.
@@ -1059,6 +1204,11 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
   unsigned int  cpuFeatures = Intel::CFS_SSE2;
 
   // Add standard features
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("core2") )
+  {
+    cpuFeatures |= Intel::CFS_SSE3 | Intel::CFS_SSSE3;
+  }
+
   if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7") )
   {
     cpuFeatures |= Intel::CFS_SSE41 | Intel::CFS_SSE42;
@@ -1179,7 +1329,6 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
   // setup the fake device/program for the call to cld_createkernels
   cvmsKeys *keys = (cvmsKeys *) llvm_func->source_addrs[cvmsSrcIdxKeys];
-
   // If we are building a library, build it and return.
   if (keys->opt & CLD_COMP_LINK_CREATE_LIBRARY) {
     return buildArchive(llvm_func);

@@ -1,47 +1,43 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  ImplicitArgsUtils.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "ImplicitArgsUtils.h"
+
+#ifndef __APPLE__
 #include "ExecutionContext.h"
-#include "cpu_dev_limits.h"
+#endif
 
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+
 // Initialize the implicit arguments properties
 ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs] = {
-  {"pLocalMem",       sizeof(void*),  sizeof(void*)},
-  {"pWorkDim",        sizeof(void*),  sizeof(void*)},
-  {"pWGId",           sizeof(void*),  sizeof(void*)},
-  {"BaseGlbId",       sizeof(void*),  sizeof(void*)},
-  {"contextpointer",  sizeof(void*),  sizeof(void*)},
-  {"pLocalIds",       sizeof(void*),  sizeof(void*)},
-  {"iterCount",       sizeof(size_t), sizeof(size_t)},
-  {"pSpecialBuf",     sizeof(void*),  sizeof(void*)},
-  {"pCurrWI",         sizeof(void*),  sizeof(void*)}
+//{m_name,            m_size,         m_alignment,    m_bInitializedByWrapper}
+  {"pLocalMem",       sizeof(void*),  sizeof(void*),  true },
+  {"pWorkDim",        sizeof(void*),  sizeof(void*),  false},
+  {"pWGId",           sizeof(void*),  sizeof(void*),  false},
+  {"BaseGlbId",       sizeof(void*),  sizeof(void*),  false},
+  {"contextpointer",  sizeof(void*),  sizeof(void*),  false},
+  {"pLocalIds",       sizeof(void*),  sizeof(void*),  false},
+  {"iterCount",       sizeof(size_t), sizeof(size_t), false},
+  {"pSpecialBuf",     sizeof(void*),  sizeof(void*),  false},
+  {"pCurrWI",         sizeof(void*),  sizeof(void*),  true }
 };
 
 const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int arg) {
   assert(arg < m_numberOfImplicitArgs && "arg is bigger than implicit args number");
+  assert(!m_implicitArgProps[arg].m_bInitializedByWrapper &&
+    "arg is initialized by wrapper no need for Props!");
   return m_implicitArgProps[arg]; 
 }
 
+#ifndef __APPLE__
 void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // Start from the beginning of the given dest buffer
@@ -49,16 +45,19 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // go over all implicit arguments' properties
   for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
-    // Create implicit argument pointing at the right place in the dest buffer
-    ImplicitArgument arg(pArgValueDest, m_implicitArgProps[i]);
-    m_implicitArgs[i] = arg;
-    // Advance the dest buffer according to argument's size and alignment
-    pArgValueDest += arg.getAlignedSize();
+    // Only implicit arguments that are not initialized by the wrapper
+    // Should be loaded from the parameter structutre.
+    if(!m_implicitArgProps[i].m_bInitializedByWrapper) {
+      // Create implicit argument pointing at the right place in the dest buffer
+      ImplicitArgument arg(pArgValueDest, m_implicitArgProps[i]);
+      m_implicitArgs[i] = arg;
+      // Advance the dest buffer according to argument's size and alignment
+      pArgValueDest += arg.getAlignedSize();
+    }
   }
 }
 
 void ImplicitArgsUtils::setImplicitArgsPerExecutable(
-                         void* pLocalMemoryBuffer,
                          const sWorkInfo* pWorkInfo,
                          const size_t* pGlobalBaseId,
                          const CallbackContext* pCallBackContext, 
@@ -66,12 +65,8 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer,
-                         size_t* pCurrWI) {
+                         char* pBarrierBuffer) {
   
-  // Set implicit local buffer pointer
-  m_implicitArgs[IA_SLM_BUFFER].setValue(reinterpret_cast<const char *>(&pLocalMemoryBuffer));
-
   // Set Work Dimension Info pointer
   m_implicitArgs[IA_WORK_GROUP_INFO].setValue(reinterpret_cast<const char *>(&pWorkInfo));
 
@@ -96,9 +91,6 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
 
     // Setup pPrivateBuffer 
     m_implicitArgs[IA_BARRIER_BUFFER].setValue(reinterpret_cast<const char *>(&pBarrierBuffer)) ; /*set pSB*/;
-
-    // Setup pCurrWI
-    m_implicitArgs[IA_CURRENT_WORK_ITEM].setValue(reinterpret_cast<const char *>(&pCurrWI)) /*set pCurrWI*/;
   }
 }
 
@@ -124,10 +116,10 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
   switch (pWorkInfo->uiWorkDim) {
   case 1:
     for ( size_t i=0, j=0;(i + packetWidth - 1)<pWorkInfo->LocalSize[0];i+=packetWidth, j++ ) {
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+0] = i;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+0] = i;
       //Must initialize dimensions y and z to zero for OOB handling
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+1] = 0;
-      pWIids[CPU_MAX_WI_DIM_POW_OF_2*j+2] = 0;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+1] = 0;
+      pWIids[MAX_WI_DIM_POW_OF_2*j+2] = 0;
     }
     break;
   case 2:
@@ -135,10 +127,10 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
       size_t strideVec = pWorkInfo->LocalSize[0]/packetWidth;
       for ( size_t y=0; y<pWorkInfo->LocalSize[1]; ++y ) {
         for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
           //Must initialize dimension z to zero for OOB handling
-          pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+2] = 0;
+          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+2] = 0;
         }
       }
     }
@@ -150,9 +142,9 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
       for ( size_t z=0;z<pWorkInfo->LocalSize[2];++z )
         for ( size_t y=0;y<pWorkInfo->LocalSize[1];++y )
           for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
-            pWIids[CPU_MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
+            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;
           }
     }
     break;
@@ -160,6 +152,6 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
     assert(false);
   }
 }
-
+#endif
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

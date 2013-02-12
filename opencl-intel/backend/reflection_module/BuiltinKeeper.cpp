@@ -1,18 +1,9 @@
-/****************************************************************************
-  Copyright (c) Intel Corporation (2012,2013).
-
-  INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-  LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-  ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-  PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-  DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-  PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-  including liability for infringement of any proprietary rights, relating to
-  use of the code. No license, express or implied, by estoppels or otherwise,
-  to any intellectual property rights is granted herein.
-
-  File Name: BuiltinKeeper.cpp
-\****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
@@ -196,62 +187,70 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //fmin/fmax
   //
   {
-  llvm::StringRef names[] = {"fmin", "fmax"};
-  StringArray arrNames (names);
-  reflection::primitives::Primitive singleFloat[] = {primitives::FLOAT};
-  reflection::primitives::Primitive singleDouble[] = {primitives::DOUBLE};
-  PrimitiveArray arrFloat(singleFloat);
-  addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
-  PrimitiveArray arrDouble(singleDouble);
-  addConversionGroup(arrNames, arrDouble, createDescriptorVP_P);
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"__cl_fmin", "__cl_fmax"};
+#else
+    llvm::StringRef names[] = {"fmin", "fmax"};
+#endif
+    StringArray arrNames (names);
+    reflection::primitives::Primitive singleFloat[] = {primitives::FLOAT};
+    reflection::primitives::Primitive singleDouble[] = {primitives::DOUBLE};
+    PrimitiveArray arrFloat(singleFloat);
+    addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
+    PrimitiveArray arrDouble(singleDouble);
+    addConversionGroup(arrNames, arrDouble, createDescriptorVP_P);
   }
   //
   //min/max
   //
   {
-  llvm::StringRef names[] = {"min", "max"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P);
+    llvm::StringRef names[] = {"min", "max"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P);
   }
   //
   //ldexp
   //
   {
-  llvm::StringRef names[] = {"ldexp"};
-  StringArray arrLdexp(names);
-  addConversionGroup(arrLdexp, arrReals, primitives::INT, createDescriptorVP_P);
+#ifdef __APPLE__
+    llvm::StringRef names[] = ("__cl_ldexp");
+#else
+    llvm::StringRef names[] = {"ldexp"};
+#endif
+    StringArray arrLdexp(names);
+    addConversionGroup(arrLdexp, arrReals, primitives::INT, createDescriptorVP_P);
   }
   //
   //clamp
   //
   {
-  llvm::StringRef names[] = {"clamp"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P_P);
+    llvm::StringRef names[] = {"clamp"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrPrimitives, createDescriptorVP_P_P);
   }
   //
   //mix
   //
   {
-  llvm::StringRef names[] = {"mix"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorVP_VP_P);
+    llvm::StringRef names[] = {"mix"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorVP_VP_P);
   }
   //
   //step
   //
   {
-  llvm::StringRef names[] = {"step"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorP_VP);
+    llvm::StringRef names[] = {"step"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorP_VP);
   }
   //
   //smooth step
   //
   {
-  llvm::StringRef names[] = {"smoothstep"};
-  StringArray arrNames (names);
-  addConversionGroup(arrNames, arrReals, createDescriptorP_P_VP);
+    llvm::StringRef names[] = {"smoothstep"};
+    StringArray arrNames (names);
+    addConversionGroup(arrNames, arrReals, createDescriptorP_P_VP);
   }
   //
   //Scalar versions of SOA functions
@@ -268,26 +267,50 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //values
   //
   {
-  llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*", "_Z4modf*",
-  "_Z6remquo*", "_Z6sincos*" , "_Z8isfinite*"};
-  StringArray pointeredBuiltins(names);
-  VWidthArray allWidths(vwidths);
-  Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
-    allWidths);
-  do{
-    PairSW key(pairs.get());
-    m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
-  }while(pairs.next());
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"_Z5fract*", "_Z10__cl_frexp*", "_Z13__cl_lgamma_r*",
+      "_Z9__cl_modf*", "_Z11__cl_remquo*", "_Z6sincos*"};
+#else
+    llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*",
+      "_Z4modf*", "_Z6remquo*", "_Z6sincos*"};
+#endif
+    StringArray pointeredBuiltins(names);
+    VWidthArray allWidths(vwidths);
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
+      allWidths);
+    do{
+      PairSW key(pairs.get());
+      m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
+    }while(pairs.next());
   }
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-    llvm::StringRef names[] = {"_Z7signbit*",
-    "_Z8isfinite*","_Z5isinf*", "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+#ifdef __APPLE__
+    llvm::StringRef names[] = {"_Z12__cl_signbit*", "_Z13__cl_isfinite*","_Z10__cl_isinf*",
+      "_Z10__cl_isnan*","_Z13__cl_isnormal*","_Z9isordered*", "_Z16__cl_isunordered*"};
+#else
+    llvm::StringRef names[] = {"_Z7signbit*", "_Z8isfinite*","_Z5isinf*",
+      "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+#endif
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
       allWidths);
+    do{
+      PairSW key(pairs.get());
+      m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
+    }while(pairs.next());
+  }
+  //this function cluster cannot be versioned due its OpenCL definition.
+  {
+    llvm::StringRef names[] = {
+      "_Z21async_work_group_copy*", "_Z29async_work_group_strided_copy*",
+      "_Z34__async_work_group_stream_to_image*","_Z36__async_work_group_stream_from_image*",
+      "_Z41__async_work_group_stream_to_image_direct*", "_Z43__async_work_group_stream_from_image_direct*"};
+    StringArray async_work_group_builtins(names);
+    VWidthArray allWidths(vwidths);
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(async_work_group_builtins, allWidths);
     do{
       PairSW key(pairs.get());
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
@@ -355,7 +378,13 @@ void BuiltinKeeper::addTransposGroup(const FunctionDescriptor& aosDescriptor){
   std::string strAos = mangle(aosDescriptor);
   for(size_t i=0 ; i<(sizeof(aosWidth)/sizeof(width::V)) ; ++i){
     PairSW exceptionsKey = std::make_pair(strAos, aosWidth[i]);
+    //TODO: Apple currently doesn't have builtins appropriate for the soa strategy
+    //Change this after we replace the builtins.
+#ifndef __APPLE__
     m_exceptionsMap[exceptionsKey] = &m_soaStrategy;
+#else
+    m_exceptionsMap[exceptionsKey] = &m_nullStrategy;
+#endif
   }
 }
 

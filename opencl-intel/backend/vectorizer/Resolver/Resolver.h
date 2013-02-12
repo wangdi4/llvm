@@ -1,5 +1,12 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __RESOLVER_H_
 #define __RESOLVER_H_
+#include "RuntimeServices.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -8,8 +15,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Module.h"
-
-#include "RuntimeServices.h"
 
 using namespace llvm;
 
@@ -127,13 +132,17 @@ private:
 
   /*! \Fake Function Resolver
    * \{ */
-  /// @brief Resolve a fake extract function call
-  /// @param caller Instruction to resolve
-  void resolveFakeExtract(CallInst* caller);  
   /// @brief Resolve a fake insert function call
   /// @param caller Instruction to resolve
   void resolveFakeInsert(CallInst* caller);
+  /// @brief Resolve a fake extract function call
+  /// @param caller Instruction to resolve
+  void resolveFakeExtract(CallInst* caller);  
   /*! \} */
+
+  /// @brief Resolve a ret-by-vector function call
+  /// @param caller Instruction to resolve
+  void resolveRetByVectorBuiltin(CallInst* caller);
 
   /// load storage
   typedef std::vector<CallInst*> bin_t;

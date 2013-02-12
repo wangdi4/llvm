@@ -6,6 +6,8 @@ link_directories(${LLVM_LIBRARY_DIR})
 
 add_executable(${TARGET_NAME}
     ocl_opt.cpp
+    ${CMAKE_SOURCE_DIR}/backend/passes/InitializePasses.h
+    ${CMAKE_SOURCE_DIR}/backend/passes/OCLPassSupport.h
 )
 
 # Backend passes

@@ -142,12 +142,6 @@ std::string ImageCallbackLibrary::getLibraryBasename()
     //Klocwork warning - false alarm the Id is always in correct bounds
     const char* pCPUPrefix = m_CpuId.GetCPUPrefix();
 
-    if( Intel::CPU_SANDYBRIDGE == m_CpuId.GetCPU() && !m_CpuId.HasAVX1())
-    {
-        // Use SSE4 if AVX1 is not supported
-        pCPUPrefix = Intel::CPUId::GetCPUPrefix(Intel::CPU_COREI7,
-                                                m_CpuId.Is64BitOS());
-    }
     std::string ret = std::string(szModuleName)
                     + "clbltfn"
                     + std::string(pCPUPrefix)

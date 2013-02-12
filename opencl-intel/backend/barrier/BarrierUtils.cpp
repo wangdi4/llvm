@@ -1,6 +1,9 @@
-/*********************************************************************************************
- * TODO: add Copyright � 2011, Intel Corporation
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "BarrierUtils.h"
 
 #include "llvm/Module.h"
@@ -193,7 +196,7 @@ namespace intel {
       MDNode *elt = pOpenCLMetadata->getOperand(i);
       Value *field0 = elt->getOperand(0)->stripPointerCasts();
       if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
-        std::string kernelName = pKernelFunc->getName();
+        std::string kernelName = pKernelFunc->getName().str();
         if (NoBarrier.count(kernelName)) continue;
 
         //Add kernel to the list
@@ -202,7 +205,7 @@ namespace intel {
 
         //Check if there is a vectorized version of this kernel
         std::string vectorizedKernelName =
-          std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().data();
+          std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().str();
         Function *pVectorizedKernelFunc = m_pModule->getFunction(vectorizedKernelName);
         if ( pVectorizedKernelFunc ) {
           //Add vectorized kernel function to list
@@ -224,15 +227,15 @@ namespace intel {
       //Create one
       Type *pResult = Type::getVoidTy(m_pModule->getContext());
       std::vector<Type*> funcTyArgs;
-      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), m_uiSizeT));
+      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
         createFunctionDeclaration(BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
       //Create one
-      m_localMemFenceValue = ConstantInt::get(
-        m_pModule->getContext(), APInt(m_uiSizeT, CLK_LOCAL_MEM_FENCE));
+      Type *memFenceType = m_barrierFunc->getFunctionType()->getParamType(0);
+      m_localMemFenceValue = ConstantInt::get(memFenceType, CLK_LOCAL_MEM_FENCE);
     }
     return CallInst::Create(m_barrierFunc, m_localMemFenceValue, "", pInsertBefore);
   }
@@ -259,8 +262,6 @@ namespace intel {
     FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
     Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
     return CallInst::Create(pNewFunc, "", pAtEnd);*/
-
-    // CPU and MIC don't need memfence.
     return NULL;
   }
 
@@ -427,7 +428,11 @@ namespace intel {
           for ( Value::use_iterator ui = pCalledFunc->use_begin(),
             ue = pCalledFunc->use_end(); ui != ue; ++ui ) {
               CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-              assert( pCallInst && "Something other than CallInst is using a function!" );
+              // usage of pFunc can be a global variable!
+              if( !pCallInst ) {
+                // usage of pFunc is not a CallInst
+                continue;
+              }
               Function *pCallingFunc = pCallInst->getParent()->getParent();
               if ( !m_functionsWithNonInlinedCalls.count(pCallingFunc) ) {
                 m_functionsWithNonInlinedCalls.insert(pCallingFunc);

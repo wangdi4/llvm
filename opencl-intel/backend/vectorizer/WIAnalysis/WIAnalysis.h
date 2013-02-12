@@ -1,18 +1,19 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __WIANALYSIS_H_
 #define __WIANALYSIS_H_
-#include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Module.h"
-#include "llvm/Value.h"
-#include "llvm/Support/InstIterator.h"
-
 #include "RuntimeServices.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include <set>
 

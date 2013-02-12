@@ -1,16 +1,22 @@
-/*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
+#include "CLWGLoopBoundaries.h"
+#include "CLWGBoundDecoder.h"
+#include "LoopUtils.h"
+
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "CLWGLoopBoundaries.h"
 #include "llvm/Constants.h"
-#include "LoopUtils.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
 #include "OCLPassSupport.h"
 #include <set>
 
@@ -41,7 +47,7 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   fillNoBarrierPathSet(&M, NoBarrier);
   for (unsigned i = 0, e = kernels.size(); i < e; ++i) {
     Function *F = kernels[i];
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     if (!F || !NoBarrier.count(funcName)) continue;
     changed |= runOnFunction(*F);
   }
@@ -169,7 +175,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
 
 Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   unsigned numEntries = CLWGBoundDecoder::getNumWGBoundArrayEntries(m_numDim);
-  std::string funcName = m_F->getName();
+  std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
 
@@ -395,7 +401,7 @@ bool CLWGLoopBoundaries::currentFunctionHasAtomicCalls() {
   // First obtain all the atomic functions in the module.
   std::set<Function *> atomicFuncs;
   for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getNameStr();
+    std::string name = fit->getName().str();
     if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
   }
   // No atomic functions means there is no atomic call in the current function.
@@ -740,7 +746,7 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
       // For calls ask the runtime object.
       case Instruction::Call :
       {
-        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName();
+        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(name)) return true;
         break;
       }

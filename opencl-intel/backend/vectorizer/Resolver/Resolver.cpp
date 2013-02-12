@@ -1,15 +1,22 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #define DEBUG_TYPE "resolver"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "Resolver.h"
 #include "Mangler.h"
 #include "Logger.h"
 #include "VectorizerUtils.h"
-#include "llvm/Constants.h"
 #include "OCLPassSupport.h"
 #include "FakeExtractInsert.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Constants.h"
 
 #include <vector>
 
@@ -102,7 +109,7 @@ void FuncResolver::packPredicatedLoads(BasicBlock* BB) {
     bool load = false;
     if (CallInst* caller = dyn_cast<CallInst>(it)) {
       Function* called = caller->getCalledFunction();
-      std::string calledName = called->getName();
+      std::string calledName = called->getName().str();
       V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
       if (Mangler::isMangledLoad(calledName)) {
         curr_bin.push_back(caller);
@@ -185,7 +192,7 @@ void FuncResolver::toPredicate(Instruction* inst, Value* pred) {
 
 void FuncResolver::resolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
 
   if (TargetSpecificResolve(caller)) return;
@@ -207,6 +214,9 @@ void FuncResolver::resolve(CallInst* caller) {
   }
   if (Mangler::isFakeExtract(calledName)) {
     return resolveFakeExtract(caller);
+  }
+  if (Mangler::isRetByVectorBuiltin(calledName)) {
+    return resolveRetByVectorBuiltin(caller);
   }
 }
 
@@ -268,7 +278,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
 void FuncResolver::resolveLoad(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
   if (isa<VectorType>(caller->getArgOperand(0)->getType()))
@@ -387,7 +397,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
 
 void FuncResolver::resolveStore(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
 
@@ -519,7 +529,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   FunctionType* funcType = FunctionType::get(caller->getType(), args, false);
 
   Function* called = caller->getCalledFunction();
-  std::string name = called->getName();
+  std::string name = called->getName().str();
 
   // Obtain function
   Module * currModule = caller->getParent()->getParent()->getParent();
@@ -578,6 +588,57 @@ void FuncResolver::resolveFakeExtract(CallInst* caller) {
   ExtractElementInst *EEI = ExtractElementInst::Create(caller->getOperand(0), caller->getOperand(1), "extractelt", caller);
   caller->replaceAllUsesWith(EEI);
   VectorizerUtils::SetDebugLocBy(EEI, caller);
+  caller->eraseFromParent();
+}
+
+void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
+  Function* currFunc = caller->getParent()->getParent();
+
+  Function *origFunc = caller->getCalledFunction();
+  std::string fakeFuncName = origFunc->getName().str();
+  std::string origFuncName = Mangler::get_original_scalar_name_from_retbyvector_builtin(fakeFuncName);
+  const Function *LibFunc = m_rtServices->findInRuntimeModule(origFuncName);
+  V_ASSERT(LibFunc && "Function does not exists in runtime module");
+
+  // Find (or create) declaration for newly called function
+  Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
+  if (!newFunction) {
+    Constant *newFunctionConst = currFunc->getParent()->getOrInsertFunction(
+        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
+    V_ASSERT(newFunctionConst && "failed generating function in current module");
+    newFunction = dyn_cast<Function>(newFunctionConst);
+    V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");
+  }
+
+  std::vector<Value *> newArgs;
+  //Prepare first parameter
+  newArgs.push_back(caller->getOperand(0));
+
+  //Prepare second parameter
+  FunctionType *LibFuncTy = LibFunc->getFunctionType();
+  Instruction *loc = currFunc->getEntryBlock().begin();
+  PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(1));
+  V_ASSERT(ptrTy && "bad signature");
+  Type *elTy = ptrTy->getElementType();
+  AllocaInst *AI = new AllocaInst(elTy, "ret2", loc);
+  newArgs.push_back(AI);
+
+  //Create new function call
+  CallInst *newCall = CallInst::Create(newFunction, ArrayRef<Value*>(newArgs), "", caller);
+
+  //Update return value
+  Type *i32Ty = Type::getInt32Ty(caller->getContext());
+  Constant *constZero = ConstantInt::get(i32Ty, 0);
+  Constant *constOne = ConstantInt::get(i32Ty, 1);
+  Value *undefVal = UndefValue::get(caller->getType());
+  Value *vectorRetVal = InsertElementInst::Create(undefVal, newCall, constZero, "insert.ret1", caller);
+  Instruction* secondRetVal = new LoadInst(AI, "load.ret2", caller);
+  vectorRetVal = InsertElementInst::Create(vectorRetVal, secondRetVal, constOne, "insert.ret2", caller);
+
+  caller->replaceAllUsesWith(vectorRetVal);
+
+  //update new call instruction location and delete old call instruction
+  VectorizerUtils::SetDebugLocBy(newCall, caller);
   caller->eraseFromParent();
 }
 

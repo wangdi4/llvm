@@ -1,3 +1,10 @@
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 #ifndef POST_DOMINANANCE_FRONTIER_H
 #define POST_DOMINANANCE_FRONTIER_H
 

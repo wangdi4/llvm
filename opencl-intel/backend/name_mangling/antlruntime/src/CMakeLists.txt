@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.4)
 
 include_directories(${ANTLR_INCLUDE_DIR})
 
-set (ANTLR_SRC
+set (TARGET_SOURCE_FILES
   ANTLRUtil.cpp
   BaseAST.cpp
   CommonToken.cpp
@@ -36,11 +36,18 @@ set (ANTLR_SRC
 )
 
 if (WIN32)
-  set( ANTLR_SRC ${ANTLR_SRC} dll.cpp)
+  set( TARGET_SOURCE_FILES ${TARGET_SOURCE_FILES} dll.cpp)
 endif(WIN32)
 
 add_library(${TARGET_NAME} STATIC
-  ${ANTLR_SRC}
+  ${TARGET_SOURCE_FILES}
 )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

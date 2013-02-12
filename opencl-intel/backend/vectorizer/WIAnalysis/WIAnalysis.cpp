@@ -1,12 +1,20 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "WIAnalysis.h"
-#include "llvm/Support/CommandLine.h"
 #include "Mangler.h"
-#include "llvm/Support/Debug.h"
-#include <string>
-#include "llvm/Constants.h"
-#include "Functions.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
+#include "llvm/Value.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Constants.h"
+#include "llvm/Support/InstIterator.h"
+#include <string>
 
 namespace intel {
 
@@ -123,7 +131,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   updateDeps();
 
   if(PrintWiaCheck) {
-    outs() << F.getName() << "\n";
+    outs() << F.getName().str() << "\n";
     for (it = inst_begin(F); it != e; ++it) {
       Instruction *I = &*it;
       outs()<<"WI-RunOnFunction " <<m_deps[I] <<" "<<*I <<" " << "\n";
@@ -155,7 +163,7 @@ void WIAnalysis::updateDeps() {
 WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
   V_PRINT("WIA","Asking about "<<*val<<"\n");
   if (! m_rtServices->orderedWI()) {
-  V_PRINT("WIA","Random!!\n");
+    V_PRINT("WIA","Random!!\n");
     if(PrintWiaCheck) {
         outs()<<"whichDepend function "<< "WIA" <<"Random!!"<<"4"<< "\n";
     }
@@ -420,7 +428,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Check if the function is in the table of functions
   Function *origFunc = inst->getCalledFunction();
-  std::string origFuncName = origFunc->getName();
+  std::string origFuncName = origFunc->getName().str();
 
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);

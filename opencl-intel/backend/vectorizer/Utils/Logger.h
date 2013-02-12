@@ -1,18 +1,19 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __LOGGER__H__
 #define __LOGGER__H__
 
-
-extern FILE * prtFile;
-extern FILE * moduleDmp;
-# include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #ifdef WIN_DEBUG
+
+#include <stdlib.h>
+extern FILE * prtFile;
+extern FILE * moduleDmp;
 
 #define V_INIT_PRINT                                    \
 {                                                       \
@@ -64,7 +65,11 @@ extern FILE * moduleDmp;
 #include "llvm/Support/Debug.h"
 #define V_INIT_PRINT
 #define V_DESTROY_PRINT
-#define V_PRINT(type, x)    DEBUG_WITH_TYPE( #type , errs() << x )
+#ifndef NDEBUG
+    #define V_PRINT(type, x)    DEBUG_WITH_TYPE( #type , errs() << x )
+#else
+    #define V_PRINT(type, x)    do { } while (0)
+#endif
 #define V_DUMP(ptr)
 #define V_DUMP_MODULE(ptr)
 #define V_ASSERT(x)         assert( x )

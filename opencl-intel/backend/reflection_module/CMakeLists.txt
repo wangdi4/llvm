@@ -7,6 +7,7 @@ project (${TARGET_NAME})
 #enables compound initialization literals
 remove_definitions("-pedantic")
 
+if(NOT APPLE)
 if( NOT ANDROID )
     add_subdirectory(unittest)
 endif()
@@ -47,28 +48,61 @@ add_custom_command(
   VERBATIM
 )
 
+endif(NOT APPLE)
+
+if(NOT APPLE)
+set(BUILT_IN_LIST_H
+  BuiltinList.h
+)
+set(CUSTOM_MAPPINGS_GEN
+  CustomMappings.gen
+)
+else(NOT APPLE)
+set(BUILT_IN_LIST_H
+  apple_include/BuiltinList.h
+)
+endif(NOT APPLE)
+
+set(TARGET_SOURCE_FILES
+  BuiltinKeeper.cpp
+  VersionStrategy.cpp
+  BuiltinMap.cpp
+  ${CUSTOM_MAPPINGS_GEN}
+)
+
+set(TARGET_INCLUDE_FILES
+  BuiltinKeeper.h
+  CustomVersionMaping.h
+  VersionStrategy.h
+  ${BUILT_IN_LIST_H}
+  BuiltinMap.h
+  utils.h
+)
+
 add_library(
   ${TARGET_NAME}
   STATIC
-  BuiltinKeeper.h
-  BuiltinKeeper.cpp
-  VersionStrategy.h
-  VersionStrategy.cpp
-  BuiltinList.h
-  BuiltinMap.cpp
-  CustomMappings.gen
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
 )
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
+)
+
+if(NOT APPLE)
+include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+else(NOT APPLE)
+include_directories(
+  apple_include
+)
+endif(NOT APPLE)
 
 target_link_libraries(
   ${TARGET_NAME}
   name_mangle
-  LLVMSupport
 )
 
 if (NOT WIN32)
@@ -78,3 +112,10 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

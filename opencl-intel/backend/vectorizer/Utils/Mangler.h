@@ -1,3 +1,9 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __MANGLER_H_
 #define __MANGLER_H_
 
@@ -108,7 +114,11 @@ public:
   /// @return the builtin name with a fake builtin name
   static std::string getFakeBuiltinName(const std::string& name);
 
+  /// @brief returns ret-by-array or ret-by-vector builtin name for a given builtin name
+  /// @param name - original builtin name
+  /// @return the builtin name with a ret-by-array or ret-by-vector builtin name
   static std::string getRetByArrayBuiltinName(const std::string& name);
+
   /// @brief returns the alignment of mangled store function by it's name
   /// @param name Name of function
   /// @return the alignment of the store
@@ -124,10 +134,20 @@ public:
   /// @return the original builtin name
   static std::string demangle_fake_builtin(const std::string& name);
 
+  /// @brief recovers origianl builtin name from the mangled ret-by-vector builtin name
+  /// @param name - ret-by-vector builtin name
+  /// @return the original builtin name
+  static std::string get_original_scalar_name_from_retbyvector_builtin(const std::string& name);
+
   /// @brief checks whether builtin name is mangled fake builtin name
   /// @param name - name of the function
   /// @return true if has fake builtin prefix
   static bool isFakeBuiltin(const std::string& name);
+
+  /// @brief checks whether builtin name is mangled ret-by-vector builtin name
+  /// @param name - name of the function
+  /// @return true if has ret-by-vector builtin prefix
+  static bool isRetByVectorBuiltin(const std::string& name);
 
   /// @brief Get mangled name for load instruction
   /// @return new name
@@ -165,7 +185,12 @@ private:
   static const std::string prefetch;
   /// @brief mangling of fake built-ins used for vectorization
   static const std::string fake_builtin_prefix;
+  /// @brief mangling of fake built-ins used for vectorization
+  ///        returns two values by array
   static const std::string retbyarray_builtin_prefix;
+  /// @brief mangling of fake built-ins used for vectorization
+  ///        returns two values by vector
+  static const std::string retbyvector_builtin_prefix;
   /// @brief mangling fake extract calls used for vectorization of
   ///        scalar built-ins that return a vector
   static const std::string fake_prefix_extract;

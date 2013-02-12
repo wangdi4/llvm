@@ -1,14 +1,12 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __SCALARIZE_H__
 #define __SCALARIZE_H__
 
-#include <string>
-#include <sstream>
 #include "llvm/Pass.h"
 #include "llvm/Type.h"
 #include "llvm/ADT/DenseMap.h"
@@ -24,6 +22,9 @@
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
+
+#include <string>
+#include <sstream>
 
 namespace intel {
 
@@ -154,6 +155,15 @@ private:
 
   /*! \} */
 
+  ///@brief this function gets the function type and attributes of giving scalar function name.
+  /// If it is a ret-by-vector functionm then it calculates the function type and attributes,
+  /// otherwise it check the function in the runtime module.
+  /// It returns true upon success and false otherwise.
+  ///@param strScalarFuncName - scalar function name
+  ///@param funcType - [output] place to return function type
+  ///@param funcAttr - [output] place to return function attribute
+  ///@return true if succeeded and false otherwise.
+  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr);
 
   /// @brief Pointer to current function's context
   LLVMContext *m_moduleContext;

@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  KernelInfoPass.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "KernelInfoPass.h"
 #include "llvm/Support/InstIterator.h"
@@ -25,21 +14,7 @@ File Name:  KernelInfoPass.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-
   char KernelInfo::ID = 0;
-
-  FunctionPass* createKernelInfoPass() {
-    return new KernelInfo();
-  }
-
-  void getKernelInfoMap(FunctionPass *pPass, std::map<std::string, TKernelInfo>& infoMap) {
-    KernelInfo *pKU = dynamic_cast<KernelInfo*>(pPass);
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
-    }
-  }
 
   bool KernelInfo::runOnFunction(Function &Func) {
     m_mapKernelInfo[Func.getName().str()].kernelExecutionLength = getExecutionLength(&Func);
@@ -53,7 +28,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( !pCall ) {
         continue;
       }
-      std::string calledFuncName = pCall->getCalledFunction()->getNameStr();
+      std::string calledFuncName = pCall->getCalledFunction()->getName().str();
       if (calledFuncName.find("barrier") != std::string::npos) {
         return true;
       }
@@ -83,22 +58,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
   bool KernelInfoWrapper::runOnModule(Module& Mod) {
     llvm::FunctionPassManager FPM(&Mod);
-    FunctionPass* pPass = createKernelInfoPass();
-    FPM.add(pPass);
+    KernelInfo* pKernelInfoPass = new KernelInfo();
+    FPM.add(pKernelInfoPass);
     
     for (llvm::Module::iterator i = Mod.begin(), e = Mod.end(); i != e; ++i) {
         FPM.run(*i);
     }
-    getKernelInfoMap(pPass, m_mapKernelInfo);
+    m_mapKernelInfo.clear();
+    m_mapKernelInfo.insert(pKernelInfoPass->getKernelInfoMap().begin(), pKernelInfoPass->getKernelInfoMap().end());
     return false;
   }
 
   void getKernelInfoMap(ModulePass *pPass, std::map<std::string, TKernelInfo>& infoMap) {
-    KernelInfoWrapper *pKU = dynamic_cast<KernelInfoWrapper*>(pPass);
+    KernelInfoWrapper *pKU = (KernelInfoWrapper*)pPass;
 
     infoMap.clear();
     if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
+      infoMap.insert(pKU->getKernelInfoMap().begin(), pKU->getKernelInfoMap().end());
     }
   }
 

@@ -1,22 +1,19 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU VectorizerCore for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __VECTORIZER_CORE_H__
 #define __VECTORIZER_CORE_H__
 
-#include "llvm/Pass.h"
 #include "RuntimeServices.h"
 #include "Logger.h"
 #include "VecConfig.h"
 
-// Maximum supported value for vector width
-#define MAX_SUPPORTED_VECTOR_WIDTH 16
+#include "llvm/Pass.h"
+#include "llvm/Analysis/LoopInfo.h"
 
-// incase m_packetWidth = AUTO_PACKET_WIDTH decide on vectorization width automatically
-#define AUTO_PACKET_WIDTH 0
 
 using namespace llvm;
 
@@ -31,7 +28,7 @@ public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    VectorizerCore(const OptimizerConfig* pConfig=0, bool isApple = false);
+    VectorizerCore(const OptimizerConfig* pConfig=0);
     /// @brief D'tor
     ~VectorizerCore();
     /// @brief Provides name of pass
@@ -45,7 +42,12 @@ public:
     virtual bool runOnFunction(Function &F);
     
     /// @brief Inform about usage/mofication/dependency of this pass
-	virtual void getAnalysisUsage(AnalysisUsage &AU) const { AU.addRequired<LoopInfo>(); }
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<LoopInfo>();
+#if LLVM_VERSION >= 3425
+      AU.addRequired<TargetLibraryInfo>();
+#endif
+  }
 
     /// @brief Function for querying the vectorization result width
     /// @returns vectorization width (if vectorization succesfull)
@@ -66,9 +68,6 @@ private:
 
     /// Configuration options
     const OptimizerConfig* m_pConfig;
-
-    /// True if we are in Apple environment.
-    bool m_isApple;
 
     /// Weight if the pre vectorized kernel.
     float m_preWeight;

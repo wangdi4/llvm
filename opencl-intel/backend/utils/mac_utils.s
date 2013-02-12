@@ -1,27 +1,15 @@
-.file "mac_utils.s"
+#/*=================================================================================
+#Copyright (c) 2012, Intel Corporation
+#Subject to the terms and conditions of the Master Development License
+#Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+#OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+#==================================================================================*/
 
-#*****************************************************************************
-#*
-#*   Copyright (c)  1999 - 2007 Intel Corporation. All rights reserved
-#*   This software and associated documentation (if any) is furnished
-#*   under a license and monly be used or copied in accordance
-#*   with the terms of the license. Except as permitted by such
-#*   license, no part of this software or documentation may be
-#*   reproduced, stored in a retrieval system, or transmitted in any
-#*   form or by any means without the express written consent of
-#*   Intel Corporation.
-#*
-#*
-#*   Module Name:
-#*
-#*     linux64_utils.s
-#*
-#*   Abstract:
-#*
-#*****************************************************************************
+.file "mac_utils.s"
 
 #================= CallKernel implementation (with and without barriers) ===================
 .text
+#ifdef __LP64__
 #-------------------------------------------------------------------------------
 # Calling convention for X86-64 Linux cdecl:
 # RDI := params_size (param#1)
@@ -109,4 +97,73 @@ _hw_xgetbv:
         mov     %rdx, MEM_RDX (%rdi)
         ret
 	
+#else
 
+## structure definition for hw_cpuid()
+.set M_EAX, 0
+.set M_EBX, M_EAX + 8
+.set M_ECX, M_EBX + 8
+.set M_EDX, M_ECX + 8
+
+.text
+#------------------------------------------------------------------------------
+#  void cdecl
+#  hw_cpuid (
+#       CPUID_PARAMS * %edi
+#  )
+#
+#  Execute cpuid instruction
+#
+#------------------------------------------------------------------------------
+.globl _hw_cpuid
+_hw_cpuid:
+        # store regs edi, ebx
+        push   %ebx
+        push   %edi
+        mov    12(%esp), %edi
+        # fill regs for cpuid
+        mov     M_EAX(%edi), %eax
+        mov     M_EBX(%edi), %ebx
+        mov     M_ECX(%edi), %ecx
+        mov     M_EDX(%edi), %edx
+        cpuid
+        mov     %eax, M_EAX (%edi)
+        mov     %ebx, M_EBX (%edi)
+        mov     %ecx, M_ECX (%edi)
+        mov     %edx, M_EDX (%edi)
+        # restore regs edi, ebx
+        pop    %edi
+        pop    %ebx
+        ret
+# end of hw_cpuid()
+   
+
+## structure definition for hw_xgetbv()
+.set MEM_EAX, 0
+.set MEM_EDX, MEM_EAX + 4
+
+.text
+#------------------------------------------------------------------------------
+#  hw_xgetbv (
+#       XGETBV_PARAMS * %edi
+#  )
+#
+#  Execute xgetbv instruction
+#
+#------------------------------------------------------------------------------
+.globl _hw_xgetbv
+_hw_xgetbv:
+        # store regs edi
+        push   %edi
+        mov    8(%esp), %edi
+        mov		$0, %ecx
+        # XGETBV return result in EDX:EAX
+        .byte 15
+        .byte 1
+        .byte 208
+        mov     %eax, MEM_EAX (%edi)
+        mov     %edx, MEM_EDX (%edi)
+        # restore regs edi
+        pop   %edi
+        ret
+#endif

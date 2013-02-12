@@ -5,6 +5,7 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+#include "PostDominanceFrontier.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
@@ -13,9 +14,9 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/Analysis/DominatorInternals.h"
-#include "PostDominanceFrontier.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
 
 /// Register pass to for opt
 // static llvm::RegisterPass<intel::PostDominanceFrontier> PostDominanceFrontierPass("postdomfrontier", "Post-Dominance Frontier Construction", true, true);

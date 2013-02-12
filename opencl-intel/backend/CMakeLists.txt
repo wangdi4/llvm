@@ -35,7 +35,6 @@ if (NOT WIN32)
         set ( WARNING_LEVEL  "-Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
     else (APPLE)
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    endif( APPLE )
     if( ANDROID OR CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )   
 	set( WARNING_LEVEL "${WARNING_LEVEL} -w" )
     else( )
@@ -56,8 +55,8 @@ if (NOT WIN32)
         endif(CVCC_ASM_PATH)    
     endif( NOT ANDROID )
 
-    set(ADD_CXX_FLAGS   "-D  __STDC_LIMIT_MACROS  -D __STDC_CONSTANT_MACROS")
-    
+    endif (APPLE)
+
 endif (NOT WIN32)
 
 
@@ -164,26 +163,51 @@ option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 project(Backend)
 
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
-use_rtti(FALSE)
-
 message( STATUS "LLVM include directory: ${LLVM_INCLUDE_DIR}")
+set(ADD_CXX_FLAGS "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
+use_rtti(FALSE)
 
 if (LLVM_BUILD_APPLE_BACKEND)
     
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS} -fno-rtti")
+    find_package(OpenCL REQUIRED)
     
     add_subdirectory(utils)
+    #add_subdirectory(libraries/ocl_builtins)
     add_subdirectory(metadata_api)
     add_subdirectory(passes)
     add_subdirectory(name_mangling)
+    add_subdirectory(reflection_module)
     add_subdirectory(optimizer)
     add_subdirectory(barrier)
     add_subdirectory(vectorizer)
     add_subdirectory(apple_plugin)
     
-else(LLVM_BUILD_APPLE_BACKEND)
+    set(BACKEND_INCLUDE_FILES 
+      ${BACKEND_ROOT_DIR}/arch_headers/Apple/TargetArch.h
+    )
+  
+    set(CL_API_INCLUDE_FILES 
+      ${BACKEND_ROOT_DIR}/../cl_api/cl_kernel_arg_type.h
+      ${BACKEND_ROOT_DIR}/../cl_api/common_dev_limits.h
+    )
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
+    file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+
+    install( FILES ${BACKEND_INCLUDE_FILES} 
+             DESTINATION src/${SOURCE_RELATIVE_DIR}/arch_headers
+           )
+
+    install( FILES ${CL_API_INCLUDE_FILES} 
+             DESTINATION src/${SOURCE_RELATIVE_DIR}/cl_api
+           )
+
+    install( DIRECTORY ../CLVMCPUPlugin.xcodeproj
+             DESTINATION src
+           )
+
+    
+else(LLVM_BUILD_APPLE_BACKEND)
 
     if (INCLUDE_MIC_DEVICE)
         add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")

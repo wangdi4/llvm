@@ -1,14 +1,16 @@
-/*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/#include "LoopWIAnalysis.h"
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
+#include "LoopWIAnalysis.h"
 #include "LoopUtils.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Constants.h"
+#include "llvm/Version.h"
 
 namespace intel {
 
@@ -60,7 +62,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   // We dont assume anything on values computed in sub-loops.
   if (!isInvariant) return LoopWIAnalysis::RANDOM;
 
-  // Non - vectors invariant are considered uniform.
+  // Non - vector invariants are considered uniform.
   if (!val->getType()->isVectorTy()) {
     m_deps[val] = LoopWIAnalysis::UNIFORM;
     return LoopWIAnalysis::UNIFORM;
@@ -70,9 +72,16 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   ValDependancy res = LoopWIAnalysis::RANDOM;
   if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(val)) {
     if (isBroadcast(SVI)) res = LoopWIAnalysis::UNIFORM;
+#if LLVM_VERSION >= 3425
+  } else if (ConstantVector *CV = dyn_cast<ConstantVector>(val)) {
+    if (CV->getSplatValue()) res = LoopWIAnalysis::UNIFORM;
+  } else if (ConstantDataVector *CDV = dyn_cast<ConstantDataVector>(val)) {
+    if (CDV->getSplatValue()) res = LoopWIAnalysis::UNIFORM;
+#else
   } else if (ConstantVector *CV = dyn_cast<ConstantVector>(val)) {
     bool allTheSame = CV->getSplatValue() != NULL;
     if (allTheSame) res = LoopWIAnalysis::UNIFORM;
+#endif
   } else if (isa<ConstantAggregateZero>(val)) {
     // all the elements of zeroinitializer are the same.
     res = LoopWIAnalysis::UNIFORM;
@@ -124,9 +133,6 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     // be updated in the following lines of code.
     m_deps[PN] = LoopWIAnalysis::RANDOM;
 
-    // Currently support only scalar phi in the header block.
-    if (PN->getType()->isVectorTy()) continue;
-
     // The latch entry is and addition.
     Value *latchVal = PN->getIncomingValueForBlock(m_latch);
     Instruction *Inc = dyn_cast<Instruction>(latchVal);
@@ -149,9 +155,27 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     if (!stride) continue;
 
     // PN is incremented with invariant values so it is strided.
-    Constant *constStride = dyn_cast<Constant>(stride);
-    if (constStride) m_constStrides[PN] = constStride;
     m_deps[PN] = LoopWIAnalysis::STRIDED;
+    
+    // Try to update the constant stride
+    Constant *constStride = dyn_cast<Constant>(stride);
+    if (!constStride)
+      continue;
+    
+    // For vector values, this works only if the stride is a splat
+#if LLVM_VERSION >= 3425
+    ConstantDataVector* vectorStride = dyn_cast<ConstantDataVector>(constStride);
+#else
+    ConstantVector* vectorStride = dyn_cast<ConstantVector>(constStride);
+#endif
+
+    if (vectorStride) {
+      constStride = vectorStride->getSplatValue();
+      if (!constStride)
+        continue;
+    }
+    
+    m_constStrides[PN] = constStride;
   }
 }
 
@@ -174,6 +198,7 @@ void LoopWIAnalysis::calculate_dep(Instruction* I) {
 }
 
 // Checks if the shuffle is broadcast (all masks are the same).
+// We do not count undef masks as different.
 bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
   assert(SVI && "null argument");
 
@@ -182,7 +207,9 @@ bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
   unsigned nElts = vTy->getNumElements();
   int ind = SVI->getMaskValue(0);
   for (unsigned i=1; i<nElts; ++i) {
-    if (SVI->getMaskValue(i) != ind) return false;
+    // For undef, getMaskValue() returns -1
+    int maskI = SVI->getMaskValue(i);
+    if ((maskI != ind) && (maskI != -1)) return false;
   }
 
   // Getting here all mask values are 0 so it is a broadcast!!
@@ -190,6 +217,30 @@ bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
 }
 
 // Checks is v is constant vector of the from <0, 1, 2, ...>
+// LLVM 3.2 migration node - vectors of sane integer types will
+// always be ConstantDataVectors, there is no need to check for
+// ConstantVector
+#if LLVM_VERSION >= 3425
+bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
+  assert(v && "bad argument");
+  const ConstantDataVector *CV = dyn_cast<ConstantDataVector>(v);
+  if (!CV) return false;
+  
+  assert(isa<VectorType>(CV->getType()) &&
+         "constant vector should have vector type");
+  VectorType *vTy = cast<VectorType>(CV->getType());
+  // Case not vector int type return false.
+  if (!vTy->isIntOrIntVectorTy()) return false;
+  
+  for (unsigned i=0, nElts = vTy->getNumElements(); i<nElts; ++i) {
+    ConstantInt *C = cast<ConstantInt>(CV->getAggregateElement(i));
+    // If this is not sequnce 0,1,2,... return false
+    if (!C->equalsInt(i)) return false;
+  }
+  // All values are sequential.
+  return true;
+}
+#else
 bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
   assert(v && "bad argument");
   const ConstantVector *CV = dyn_cast<ConstantVector>(v);
@@ -209,6 +260,7 @@ bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
   // All values are sequential.
   return true;
 }
+#endif
 
 // Checks if I is generetion of sequential ids.
 // Only supports the pattern generated by the vectorizer:

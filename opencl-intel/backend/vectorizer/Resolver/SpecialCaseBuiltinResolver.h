@@ -1,16 +1,16 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 #define __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 
-#include "llvm/Pass.h"
-#include "Logger.h"
-#include "llvm/Type.h"
 #include "OpenclRuntime.h"
+#include "Logger.h"
+#include "llvm/Pass.h"
+#include "llvm/Type.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Scalar.h"

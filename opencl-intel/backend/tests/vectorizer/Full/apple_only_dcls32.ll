@@ -392,3 +392,177 @@ declare void @__ci_gamma_SPI_8(<8 x float> %r, <8 x float> %g, <8 x float> %b, <
 declare <3 x float> @_f_v.__ci_gamma_scalar_SPI(<3 x float>, float %y) nounwind
 declare [3 x <4 x float>] @_f_v.__ci_gamma_SPI([3 x <4 x float>], <4 x float>) nounwind
 declare [3 x <8 x float>] @_f_v.__ci_gamma_SPI_8([3 x <8 x float>], <8 x float> %y) nounwind 
+
+
+;-------------------------------------------------------------------------------------------------------
+;  sincos: native, regular, return-by-pointer
+;-------------------------------------------------------------------------------------------------------
+
+declare float @_Z13native_sincosfPU3AS1f(float %x, float addrspace(1)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv2_fPU3AS1S_(double %x.coerce, <2 x float> addrspace(1)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv3_fPU3AS1S_(<2 x double> %x.coerce, <3 x float> addrspace(1)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv4_fPU3AS1S_(<4 x float> %x, <4 x float> addrspace(1)* %cosval) nounwind
+
+declare <8 x float> @_Z13native_sincosDv8_fPU3AS1S_(<8 x float> %x, <8 x float> addrspace(1)* %cosval) nounwind
+
+declare <16 x float> @_Z13native_sincosDv16_fPU3AS1S_(<16 x float>* nocapture byval align 64, <16 x float> addrspace(1)* %cosval) nounwind
+
+declare double @_Z13native_sincosdPU3AS1d(double %x, double addrspace(1)* %cosval) nounwind
+
+declare <2 x double> @_Z13native_sincosDv2_dPU3AS1S_(<2 x double> %x, <2 x double> addrspace(1)* %cosval) nounwind
+
+declare <3 x double> @_Z13native_sincosDv3_dPU3AS1S_(<3 x double> %x, <3 x double> addrspace(1)* nocapture %cosval) nounwind
+
+declare <4 x double> @_Z13native_sincosDv4_dPS_(<4 x double> %x, <4 x double>* %cosval) nounwind
+
+declare <4 x double> @_Z13native_sincosDv4_dPU3AS1S_(<4 x double> %x, <4 x double> addrspace(1)* %cosval) nounwind
+
+declare <8 x double> @_Z13native_sincosDv8_dPU3AS1S_(<8 x double>* nocapture byval align 64, <8 x double> addrspace(1)* %cosval) nounwind
+
+declare void @_Z13native_sincosDv16_dPU3AS1S_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double> addrspace(1)* nocapture %cosval) nounwind
+
+declare <8 x double> @_Z13native_sincosDv8_dPS_(<8 x double>* nocapture byval align 64, <8 x double>* %cosval) nounwind
+
+declare float @_Z13native_sincosfPU3AS3f(float %x, float addrspace(3)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv2_fPU3AS3S_(double %x.coerce, <2 x float> addrspace(3)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv3_fPU3AS3S_(<2 x double> %x.coerce, <3 x float> addrspace(3)* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv4_fPU3AS3S_(<4 x float> %x, <4 x float> addrspace(3)* %cosval) nounwind
+
+declare <8 x float> @_Z13native_sincosDv8_fPU3AS3S_(<8 x float> %x, <8 x float> addrspace(3)* %cosval) nounwind
+
+declare <16 x float> @_Z13native_sincosDv16_fPU3AS3S_(<16 x float>* nocapture byval align 64, <16 x float> addrspace(3)* %cosval) nounwind
+
+declare double @_Z13native_sincosdPU3AS3d(double %x, double addrspace(3)* %cosval) nounwind
+
+declare <2 x double> @_Z13native_sincosDv2_dPU3AS3S_(<2 x double> %x, <2 x double> addrspace(3)* %cosval) nounwind
+
+declare <3 x double> @_Z13native_sincosDv3_dPU3AS3S_(<3 x double> %x, <3 x double> addrspace(3)* nocapture %cosval) nounwind
+
+declare <4 x double> @_Z13native_sincosDv4_dPU3AS3S_(<4 x double> %x, <4 x double> addrspace(3)* %cosval) nounwind
+
+declare <8 x double> @_Z13native_sincosDv8_dPU3AS3S_(<8 x double>* nocapture byval align 64, <8 x double> addrspace(3)* %cosval) nounwind
+
+declare void @_Z13native_sincosDv16_dPU3AS3S_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double> addrspace(3)* nocapture %cosval) nounwind
+
+declare float @_Z13native_sincosfPf(float %x, float* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv2_fPS_(double %x.coerce, <2 x float>* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv3_fPS_(<2 x double> %x.coerce, <3 x float>* %cosval) nounwind
+
+declare <4 x float> @_Z13native_sincosDv4_fPS_(<4 x float> %x, <4 x float>* %cosval) nounwind
+
+declare <8 x float> @_Z13native_sincosDv8_fPS_(<8 x float> %x, <8 x float>* %cosval) nounwind
+
+declare <16 x float> @_Z13native_sincosDv16_fPS_(<16 x float>* nocapture byval align 64, <16 x float>* %cosval) nounwind
+
+declare double @_Z13native_sincosdPd(double %x, double* %cosval) nounwind
+
+declare <2 x double> @_Z13native_sincosDv2_dPS_(<2 x double> %x, <2 x double>* %cosval) nounwind
+
+declare <3 x double> @_Z13native_sincosDv3_dPS_(<3 x double> %x, <3 x double>* nocapture %cosval) nounwind
+
+declare void @_Z13native_sincosDv16_dPS_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double>* nocapture %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv4_fPS_S0_(<4 x float> %x, <4 x float>* nocapture %sinval, <4 x float>* %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv8_fPS_S0_(<8 x float> %x, <8 x float>* nocapture %sinval, <8 x float>* %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv16_fPS_S0_(<16 x float>* nocapture byval align 64, <16 x float>* nocapture %sinval, <16 x float>* %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> %x, <4 x double>* nocapture %sinval, <4 x double>* %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv8_dPS_S0_(<8 x double>* nocapture byval align 64, <8 x double>* nocapture %sinval, <8 x double>* %cosval) nounwind
+
+declare void @_Z21native_sincos_ret2ptrDv16_dPS_S0_(<16 x double>* nocapture byval align 128, <16 x double>* nocapture %sinval, <16 x double>* nocapture %cosval) nounwind
+
+declare float @_Z6sincosfPU3AS1f(float %x, float addrspace(1)* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv2_fPU3AS1S_(double %x.coerce, <2 x float> addrspace(1)* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv3_fPU3AS1S_(<2 x double> %x.coerce, <3 x float> addrspace(1)* nocapture %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv4_fPS_(<4 x float> %x, <4 x float>* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv4_fPU3AS1S_(<4 x float> %x, <4 x float> addrspace(1)* %cosval) nounwind
+
+declare <8 x float> @_Z6sincosDv8_fPU3AS1S_(<8 x float> %x, <8 x float> addrspace(1)* %cosval) nounwind
+
+declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>* nocapture byval align 64, <16 x float> addrspace(1)* %cosval) nounwind
+
+declare double @_Z6sincosdPU3AS1d(double %x, double addrspace(1)* %cosval) nounwind
+
+declare <2 x double> @_Z6sincosDv2_dPU3AS1S_(<2 x double> %x, <2 x double> addrspace(1)* %cosval) nounwind
+
+declare <3 x double> @_Z6sincosDv3_dPU3AS1S_(<3 x double> %x, <3 x double> addrspace(1)* nocapture %cosval) nounwind
+
+declare <4 x double> @_Z6sincosDv4_dPS_(<4 x double> %x, <4 x double>* %cosval) nounwind
+
+declare <4 x double> @_Z6sincosDv4_dPU3AS1S_(<4 x double> %x, <4 x double> addrspace(1)* %cosval) nounwind
+
+declare <8 x double> @_Z6sincosDv8_dPU3AS1S_(<8 x double>* nocapture byval align 64, <8 x double> addrspace(1)* nocapture %cosval) nounwind
+
+declare void @_Z6sincosDv16_dPU3AS1S_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double> addrspace(1)* nocapture %cosval) nounwind
+
+declare <8 x double> @_Z6sincosDv8_dPS_(<8 x double>* nocapture byval align 64, <8 x double>* nocapture %cosval) nounwind
+
+declare float @_Z6sincosfPU3AS3f(float %x, float addrspace(3)* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv2_fPU3AS3S_(double %x.coerce, <2 x float> addrspace(3)* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv3_fPU3AS3S_(<2 x double> %x.coerce, <3 x float> addrspace(3)* nocapture %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv4_fPU3AS3S_(<4 x float> %x, <4 x float> addrspace(3)* %cosval) nounwind
+
+declare <8 x float> @_Z6sincosDv8_fPU3AS3S_(<8 x float> %x, <8 x float> addrspace(3)* %cosval) nounwind
+
+declare <16 x float> @_Z6sincosDv16_fPU3AS3S_(<16 x float>* nocapture byval align 64, <16 x float> addrspace(3)* %cosval) nounwind
+
+declare double @_Z6sincosdPU3AS3d(double %x, double addrspace(3)* %cosval) nounwind
+
+declare <2 x double> @_Z6sincosDv2_dPU3AS3S_(<2 x double> %x, <2 x double> addrspace(3)* %cosval) nounwind
+
+declare <3 x double> @_Z6sincosDv3_dPU3AS3S_(<3 x double> %x, <3 x double> addrspace(3)* nocapture %cosval) nounwind
+
+declare <4 x double> @_Z6sincosDv4_dPU3AS3S_(<4 x double> %x, <4 x double> addrspace(3)* %cosval) nounwind
+
+declare <8 x double> @_Z6sincosDv8_dPU3AS3S_(<8 x double>* nocapture byval align 64, <8 x double> addrspace(3)* nocapture %cosval) nounwind
+
+declare void @_Z6sincosDv16_dPU3AS3S_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double> addrspace(3)* nocapture %cosval) nounwind
+
+declare float @_Z6sincosfPf(float %x, float* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv2_fPS_(double %x.coerce, <2 x float>* %cosval) nounwind
+
+declare <4 x float> @_Z6sincosDv3_fPS_(<2 x double> %x.coerce, <3 x float>* nocapture %cosval) nounwind
+
+declare <8 x float> @_Z6sincosDv8_fPS_(<8 x float> %x, <8 x float>* %cosval) nounwind
+
+declare <16 x float> @_Z6sincosDv16_fPS_(<16 x float>* nocapture byval align 64, <16 x float>* %cosval) nounwind
+
+declare double @_Z6sincosdPd(double %x, double* %cosval) nounwind
+
+declare <2 x double> @_Z6sincosDv2_dPS_(<2 x double> %x, <2 x double>* %cosval) nounwind
+
+declare <3 x double> @_Z6sincosDv3_dPS_(<3 x double> %x, <3 x double>* nocapture %cosval) nounwind
+
+declare void @_Z6sincosDv16_dPS_(<16 x double>* noalias nocapture sret %agg.result, <16 x double>* nocapture byval align 128, <16 x double>* nocapture %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv4_fPS_S0_(<4 x float> %x, <4 x float>* nocapture %sinval, <4 x float>* %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv8_fPS_S0_(<8 x float> %x, <8 x float>* nocapture %sinval, <8 x float>* %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv16_fPS_S0_(<16 x float>* nocapture byval align 64, <16 x float>* nocapture %sinval, <16 x float>* %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> %x, <4 x double>* nocapture %sinval, <4 x double>* %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv8_dPS_S0_(<8 x double>* nocapture byval align 64, <8 x double>* nocapture %sinval, <8 x double>* nocapture %cosval) nounwind
+
+declare void @_Z14sincos_ret2ptrDv16_dPS_S0_(<16 x double>* nocapture byval align 128, <16 x double>* nocapture %sinval, <16 x double>* nocapture %cosval) nounwind
+

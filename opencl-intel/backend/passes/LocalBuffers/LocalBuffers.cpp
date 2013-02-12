@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  LocalBuffers.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
@@ -30,21 +19,19 @@ File Name:  LocalBuffers.cpp
 
 extern "C"
 {
-  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
-    return new intel::LocalBuffers(isNativeDBG);
+  ModulePass* createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) {
+    return new intel::LocalBuffers(kernelsLocalBufferMap, isNativeDBG);
   }
-
 }
 
 namespace intel{
 
   char LocalBuffers::ID = 0;
 
-
-  LocalBuffers::LocalBuffers(bool isNativeDBG) : ModulePass(ID), m_isNativeDBG(isNativeDBG) {
+  LocalBuffers::LocalBuffers(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) :
+    ModulePass(ID), m_pMapKernelInfo(&kernelsLocalBufferMap), m_isNativeDBG(isNativeDBG) {
       initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
-
 
   bool LocalBuffers::runOnModule(Module &M) {
 
@@ -52,8 +39,7 @@ namespace intel{
     m_pLLVMContext = &M.getContext();
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
-    m_mapKernelInfo.clear();
-
+    m_pMapKernelInfo->clear();
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -177,6 +163,16 @@ namespace intel{
       assert(IE  && "Unable to find source constant");
       return IE;
     }
+    
+    if (isa<ConstantArray>(pCE)) {
+      // Right now, the only case in which this happens is when replacing annotations
+      // This means we can simply avoid replacing it.
+      // However, this may become relevant in the future, so leaving a special case.
+      return 0;
+    }
+    
+    // No need to check for ConstantDataVector here - it is composed of data,
+    // so none of the elements can ever be the replaced val.
 
     assert(0  && "Unknown constant type");
     return 0;
@@ -345,7 +341,7 @@ namespace intel{
 
     parseLocalBuffers(pFunc, pLocalMem);
 
-    m_mapKernelInfo[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
+    (*m_pMapKernelInfo)[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
   }
 
   void LocalBuffers::updateUsageBlocks(Function *pFunc) {
@@ -379,12 +375,4 @@ namespace intel{
     }
   }
 
-  void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>& infoMap) {
-    intel::LocalBuffers *pKU = static_cast<intel::LocalBuffers*>(pPass);
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->m_mapKernelInfo.begin(), pKU->m_mapKernelInfo.end());
-    }
-  }
 } // namespace intel

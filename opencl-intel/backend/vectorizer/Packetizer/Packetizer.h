@@ -1,17 +1,11 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __PACKETIZER_H__
 #define __PACKETIZER_H__
-
-#include <string>
-#include <sstream>
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "RuntimeServices.h"
 #include "WIAnalysis.h"
@@ -19,8 +13,12 @@
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
-static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
-#define LOG_(x) __logs_vals[x]
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include <string>
+#include <sstream>
 
 namespace intel {
 
@@ -274,7 +272,7 @@ private:
   /// @brief Generate a constant vector of values, to be used as ShuffleVector inputs
   /// @param width size of vector
   /// @param values values for the vector
-  /// @return ConstantVector with the provided indices
+  /// @return ConstantVector/ConstantDataVector with the provided indices
   Constant * createIndicesForShuffles(unsigned width, int * values);
 
   /// @brief generate instructions for creating vectored indices (x, x+1, x+2, x+3)

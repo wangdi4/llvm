@@ -31,13 +31,13 @@ class CLArchive : public llvm::Archive {
 public:
   static void createArchive(std::vector<struct SrcLenStruct> &BCVec,
                             char **log,
-                            llvm::formatted_raw_ostream &os){}
+                            llvm::formatted_raw_ostream &os);
 
   static int readArchive(unsigned char *BufPtr, unsigned char *BufEnd,
                          char **log,
-                         std::vector<struct SrcLenStruct> &BCVec){return 1;}
+                         std::vector<struct SrcLenStruct> &BCVec);
 
-  static bool isArchive(unsigned char *BufPtr, unsigned char *BufEnd){ return false; }
+  static bool isArchive(unsigned char *BufPtr, unsigned char *BufEnd);
 };
 
 

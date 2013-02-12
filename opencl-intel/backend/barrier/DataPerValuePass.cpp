@@ -1,6 +1,9 @@
-/*********************************************************************************************
- * TODO: add Copyright � 2011, Intel Corporation
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "DataPerValuePass.h"
 #include "BarrierUtils.h"
@@ -341,7 +344,7 @@ namespace intel {
       for ( Value::use_iterator ui = pFunc->use_begin(),
         ue = pFunc->use_end(); ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-          assert( pCallInst && "usage of pFunc is not a CallInst!" );
+          // usage of pFunc can be a global variable!
           if( !pCallInst ) {
             // usage of pFunc is not a CallInst
             continue;

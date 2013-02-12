@@ -9,6 +9,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/OpenCL
+  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/Volcano
   ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
   ../
 )

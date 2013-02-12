@@ -1,9 +1,9 @@
-#include <iomanip>
-#include <sstream>
-
-#include "llvm/PassManager.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/DominanceFrontier.h"
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Mangler.h"
@@ -11,6 +11,16 @@
 #include "OpenclRuntime.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
+#include "llvm/PassManager.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
+#include <iomanip>
+#include <sstream>
 
 namespace intel {
 
@@ -63,8 +73,8 @@ static raw_ostream &dbgPrint() {
     return enableDebugPrints ? errs() : devNull;
 }
 
-bool WeightedInstCounter::isMic() const {
-  return m_cpuid.IsMIC();
+bool WeightedInstCounter::hasV16Support() const {
+  return m_cpuid.HasGatherScatter();
 }
 
 bool WeightedInstCounter::hasAVX() const {
@@ -76,8 +86,7 @@ bool WeightedInstCounter::hasAVX2() const {
 }
 
 
-WeightedInstCounter::WeightedInstCounter(bool preVec = true,
-                              Intel::CPUId cpuId = Intel::CPUId()):
+WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
                               FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),
                               m_desiredWidth(1), m_totalWeight(0) {
   initializeWeightedInstCounterPass(*PassRegistry::getPassRegistry());
@@ -96,10 +105,10 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   m_totalWeight = 1;
 
   // If the request was only to check sanity, only set the desired
-  // with for MIC to 16, and finish.
+  // with for 16 if supported, and finish.
   // This used to also contain a "are we allowed to vectorize" check
   // but that was moved elsewhere.
-  if (isMic()) {
+  if (hasV16Support()) {
     m_desiredWidth = 16;
     return false;
   }
@@ -108,8 +117,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // If it is, compute things that are relevant only here.
   DenseMap<Instruction*, int> MemOpCostMap;
   if (m_preVec) {
-    // MIC always has vectorization width 16.
-    if (isMic()) {
+    // if v16 is supported always has vectorization width 16.
+    if (hasV16Support()) {
       m_desiredWidth = 16;
       return false;
     }
@@ -118,8 +127,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     // done pre-vectorization. See function for extended explanation.
     estimateMemOpCosts(F, MemOpCostMap);
   }
-  else if (isMic()) {
-    //Do nothing for MIC in the post stage.
+  else if (hasV16Support()) {
+    //Do nothing for v16 in the post stage.
     return false;
   }
 
@@ -156,8 +165,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   }
 
   // If we are pre-vectorization, decide what the vectorization width should be.
-  // Noe that MIC was already decided earlier. The reason the code is split
-  // is that for the MIC we don't need to compute the various maps,
+  // Note that v16 support was already decided earlier. The reason the code is split
+  // is that for the v16 we don't need to compute the various maps,
   // while in this part of the code we want to use them.
   if (m_preVec)
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
@@ -168,7 +177,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Loop*, int> &IterMap,
       DenseMap<BasicBlock*, float> &ProbMap)
 {
-  assert(!isMic() && "Should not reach this for MIC");
+  assert(!hasV16Support() && "Should not reach this for v16");
 
   // For SSE, this is always 4.
   if (!hasAVX())
@@ -906,6 +915,11 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
     return false;
   }
 
+  if (hasDirectStreamCalls(F)) {
+    dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
+    return false;
+  }
+  
   return true;
 }
 
@@ -1039,6 +1053,37 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   // functions from the root functions set
   LoopUtils::fillFuncUsersSet(roots, unsupportedFunctions);
   return unsupportedFunctions.count(&F);
+}
+  
+bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
+  Module *pM = F.getParent();
+  std::set<Function *> streamFunctions;
+  std::set<Function *> unsupportedFunctions;
+  
+  Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream();
+  if (readStreamFunc) {
+    // This returns the read stream function *from the runtime module*.
+    // We need a function in *this* module with the same name.
+    readStreamFunc = pM->getFunction(readStreamFunc->getName());
+    if (readStreamFunc)
+      streamFunctions.insert(readStreamFunc);
+  }
+  
+  Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream();
+  if (writeStreamFunc) {
+    // This returns the write stream function *from the runtime module*.
+    // We need a function in *this* module with the same name.
+    writeStreamFunc = pM->getFunction(writeStreamFunc->getName());
+    if (writeStreamFunc)
+      streamFunctions.insert(writeStreamFunc);
+  }
+  
+  // If we have stream functions in the module, don't vectorize their users.
+  if (streamFunctions.size())
+    LoopUtils::fillFuncUsersSet(streamFunctions, unsupportedFunctions);
+  
+  return unsupportedFunctions.count(&F);
+
 }
 
 extern "C" {

@@ -1,16 +1,15 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __VECTORIZER_UTILS_H__
 #define __VECTORIZER_UTILS_H__
 
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
 #include <vector>
-#include "Logger.h"
 
 
 using namespace llvm;
@@ -40,6 +39,13 @@ public:
   /// @return The root value if found, or NULL otherwise
   static Value *RootInputArgument(Value *arg, Type *rootType, CallInst *CI);
 
+  /// @brief Same as above, but derive the type from the mangled call name
+  /// @param arg The actual argument of the call inst
+  /// @param paramNum The argument number in the call
+  /// @param CI The CALL instruction
+  /// @return The root value if found, or NULL otherwise
+  static Value *RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI);
+  
   /// @brief Follow thru a function return argument, until its type matches the "expected" type
   /// @param retVal The actual returned value of the CALL inst
   /// @param rootType The desired (or "real") type to find
@@ -103,14 +109,6 @@ public:
   ///        otherwise packetize original type according to width.
   static Type* convertSoaAllocaType(Type *type, unsigned int width);
 
-private:
-
-  /// @brief Generate type-conversion and place in given location
-  /// @param orig Source value
-  /// @param targetType Target type to convert to
-  /// @param insertPoint instruction to insert before
-  static Instruction *BitCastValToType(Value *orig, Type *targetType, Instruction *insertPoint);
-
   /// @brief Generate type-conversion and place in given location 
   ///  but on debug accpets only cases size(orig) >= size(target)
   /// @param orig Source value
@@ -124,6 +122,14 @@ private:
   /// @param targetType Target type to convert to
   /// @param insertPoint instruction to insert before
   static Instruction *TruncValToType(Value *orig, Type *targetType, Instruction *insertPoint);
+
+private:
+
+  /// @brief Generate type-conversion and place in given location
+  /// @param orig Source value
+  /// @param targetType Target type to convert to
+  /// @param insertPoint instruction to insert before
+  static Instruction *BitCastValToType(Value *orig, Type *targetType, Instruction *insertPoint);
 
   /// @brief in case target Type is a pointer for orig allocates memory and store orig
   /// @param orig Source value

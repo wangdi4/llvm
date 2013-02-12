@@ -1,28 +1,17 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010).
-
-INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-including liability for infringement of any proprietary rights, relating to
-use of the code. No license, express or implied, by estoppels or otherwise,
-to any intellectual property rights is granted herein.
-
-File Name:  Optimizer.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "Optimizer.h"
 #include "VecConfig.h"
-#include "exceptions.h"
-#include "cl_device_api.h"
-#include "cl_types.h"
 #include "CPUDetect.h"
-//#include "InstToFuncCall.h"
+#include "debuggingservicetype.h"
+#ifndef __APPLE__
+#include "PrintIRPass.h"
+#endif //#ifndef __APPLE__
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
@@ -35,13 +24,10 @@ File Name:  Optimizer.cpp
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-#include "PrintIRPass.h"
-#include "debuggingservicetype.h"
 
 extern "C"{
 
 void* createInstToFuncCallPass(bool);
-llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 
 llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
                                             const intel::OptimizerConfig* pConfig,
@@ -55,41 +41,40 @@ llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<llvm::Function
 llvm::ModulePass* createCLWGLoopBoundariesPass();
 llvm::Pass* createCLBuiltinLICMPass();
 llvm::Pass* createLoopStridedCodeMotionPass();
-
-void* createOpenclRuntimeSupport(const llvm::Module *runtimeModule);
-void* destroyOpenclRuntimeSupport();
+llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createShuffleCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
-llvm::FunctionPass *createPrefetchPass();
-
-llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
+llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
-extern "C" llvm::ModulePass * createRemovePrefetchPass();
-
-llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 
-}
-
-namespace intel {
-    void getKernelLocalBufferInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>& infoMap);
+void* destroyOpenclRuntimeSupport();
+#ifdef __APPLE__
+void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+llvm::Pass *createClangCompatFixerPass();
+#else
+void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
+llvm::FunctionPass *createPrefetchPass();
+llvm::ModulePass * createRemovePrefetchPass();
+llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
+llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+#endif
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
+#ifndef __APPLE__
 llvm::ModulePass* createProfilingInfoPass();
+#endif //#ifndef __APPLE__
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createPrepareKernelArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
+                                              llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
-
-void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<const llvm::Function*, TLLVMKernelInfo>& infoMap);
-
 void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelInfo>& infoMap);
 
 
@@ -212,11 +197,17 @@ Optimizer::Optimizer( llvm::Module* pModule,
 {
   using namespace intel;
 
-  createOpenclRuntimeSupport(pRtlModule);
-  bool UnitAtATime LLVM_BACKEND_UNUSED = true;
+#ifndef __APPLE__
+  createVolcanoOpenclRuntimeSupport(pRtlModule);
+#else
+  createAppleOpenclRuntimeSupport(pRtlModule);
+#endif
+  bool UnitAtATime = true;
   bool DisableSimplifyLibCalls = true;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   bool isProfiling = pConfig->GetProfilingFlag();
+
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
@@ -224,19 +215,22 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
-
+#endif //#ifndef __APPLE__
   // Add an appropriate TargetData instance for this module...
   m_modulePasses.add(new llvm::TargetData(pModule));
+#ifdef __APPLE__
+  m_modulePasses.add(createClangCompatFixerPass());
+#endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
   m_funcPasses.add(new llvm::TargetData(pModule));
-
+#ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
-
   if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
     m_modulePasses.add(createRemovePrefetchPass());
+#endif //#ifndef __APPLE__
 
   m_modulePasses.add(createShuffleCallToInstPass());
 
@@ -254,7 +248,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     has_bar = hasBarriers(pModule);
 
   bool allowAllocaModificationOpt = true;
-  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().IsMIC()) {
+  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
     allowAllocaModificationOpt = false;
   }
   // When running the standard optimization passes, do not change the loop-unswitch
@@ -263,7 +257,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       &m_modulePasses,
       uiOptLevel,
       has_bar, // This parameter controls the unswitch pass
-      true,
+      UnitAtATime,
       true,
       false,
       allowAllocaModificationOpt,
@@ -272,7 +266,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
 
   // Should be called before vectorizer!
-  m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().IsMIC()));
+  m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
   if ( debugType == None && !pConfig->GetLibraryModule()) {
     m_modulePasses.add(createKernelAnalysisPass());
@@ -282,29 +276,34 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   }
 
-  if( pConfig->GetTransposeSize() != TRANSPOSE_SIZE_1
+  // In Apple build TRANSPOSE_SIZE_1 is not declared
+  if( pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
     && debugType == None
     && uiOptLevel != 0)
   {
+#ifndef __APPLE__
     // In profiling mode remove llvm.dbg.value calls
     // before vectorizer.
     if (isProfiling) {
       m_modulePasses.add(createProfilingInfoPass());
     }
-
+ 
     if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
+#endif //#ifndef __APPLE__
     if(pRtlModule != NULL) {
         m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig,
                                                 m_vectFunctions, m_vectWidths);
         m_modulePasses.add(m_vectorizerPass);
     }
+#ifndef __APPLE__
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
     }
+#endif //#ifndef __APPLE__
   }
 #ifdef _DEBUG
   m_modulePasses.add(llvm::createVerifierPass());
@@ -321,7 +320,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
-
+#ifndef __APPLE__
   // The debugType enum and isProfiling flag are mutually exclusive, with precedence
   // given to debugType.
   //
@@ -331,7 +330,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
-
+#endif
    // Get Some info about the kernel
    // should be called before BarrierPass and createPrepareKernelArgsPass
    if(pRtlModule != NULL) {
@@ -350,6 +349,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(createCLBuiltinLICMPass());
       m_modulePasses.add(llvm::createLICMPass());
       m_modulePasses.add(createLoopStridedCodeMotionPass());
+      m_modulePasses.add(createCLStreamSamplerPass());
     }
   }
 
@@ -363,7 +363,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   {
     m_modulePasses.add(createAddImplicitArgsPass(m_vectFunctions));
     m_modulePasses.add(createResolveWICallPass());
-    m_localBuffersPass = createLocalBuffersPass(debugType == Native);
+    m_localBuffersPass = createLocalBuffersPass(m_kernelsLocalBufferMap, debugType == Native);
     m_modulePasses.add(m_localBuffersPass);
     // clang converts OCL's local to global.
     // createLocalBuffersPass changes the local allocation from global to a kernel argument.
@@ -416,7 +416,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // PrepareKernelArgsPass must run in debugging mode as well
   if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createPrepareKernelArgsPass(m_vectFunctions));
+    m_modulePasses.add(createPrepareKernelArgsPass(m_kernelsLocalBufferMap, m_vectFunctions));
 
   if ( debugType == None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
@@ -438,10 +438,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
     if (!pConfig->GetLibraryModule())
       m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 
-    // Add prefetches only for MIC, if not in debug mode, and don't change the
+#ifndef __APPLE__
+    // Add prefetches only for V16, if not in debug mode, and don't change the
     // library
-    if (debugType == None && !pConfig->GetLibraryModule() &&
-        pConfig->GetCpuId().GetCPU() == Intel::MIC_KNC) {
+    if (debugType == None && !pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
       m_modulePasses.add(createPrefetchPass());
 
       m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
@@ -451,6 +451,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(llvm::createVerifierPass());
 #endif
     }
+#endif
 }
 
 void Optimizer::Optimize()
@@ -510,7 +511,8 @@ void Optimizer::GetKernelsInfo(KernelsInfoMap& map)
 
 void Optimizer::GetKernelsLocalBufferInfo(KernelsLocalBufferInfoMap& map)
 {
-    intel::getKernelLocalBufferInfoMap(m_localBuffersPass, map);
+    map.clear();
+    map.insert(m_kernelsLocalBufferMap.begin(), m_kernelsLocalBufferMap.end());
 }
 
 }}}

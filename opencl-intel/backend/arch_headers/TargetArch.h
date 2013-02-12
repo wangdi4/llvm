@@ -89,7 +89,12 @@ public:
         }
     }
     const char*         GetCPUPrefix() const {
+      if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
+        // Use SSE4 if AVX1 is not supported
+        return GetCPUPrefix(Intel::CPU_COREI7, m_is64BitOS);
+      } else {
         return GetCPUPrefix(m_CPU, m_is64BitOS);
+      }
     }
     static const char*  GetCPUPrefix(ECPU CPU, bool is64BitOS) {
         if (!is64BitOS) {
@@ -148,10 +153,10 @@ public:
     bool IsFeatureOn(unsigned int Feature) const {
         return (m_CPUFeatures & Feature) != 0;
     }
-    bool IsMIC() const {
-        return IsMIC(m_CPU);
+    bool HasGatherScatter() const {
+        return HasGatherScatter(m_CPU);
     };
-    static bool IsMIC(ECPU CPU) {
+    static bool HasGatherScatter(ECPU CPU) {
         return CPU >= MIC_FIRST && CPU < DEVICE_INVALID;
     };
     static bool IsValidCPUName(const char* pCPUName) {

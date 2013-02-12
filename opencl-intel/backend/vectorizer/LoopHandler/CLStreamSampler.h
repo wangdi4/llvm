@@ -1,9 +1,9 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 // This pass is unique to apple since in volcano we currently do not have stream built-ins.
 // The pass identifies transposed read image call with strided coordinates inside
@@ -18,11 +18,15 @@
 #ifndef __CL_STREAM_SAMPLER_H_
 #define __CL_STREAM_SAMPLER_H_
 
-#include "llvm/Analysis/LoopPass.h"
-#include "llvm/ADT/DenseMap.h"
-#include "AppleOCLRuntime.h"
+#include "OpenclRuntime.h"
 #include "LoopWIAnalysis.h"
+
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Instructions.h"
+#include "llvm/Version.h"
+
 using namespace llvm;
 namespace intel {
 
@@ -48,6 +52,9 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopWIAnalysis>();
       AU.addRequired<DominatorTree>();
+#if LLVM_VERSION >= 3425
+      AU.addRequired<ScalarEvolution>();
+#endif
       AU.setPreservesCFG();
   };
 
@@ -116,7 +123,7 @@ private:
   Constant *m_zero;
 
   /// @brief induction variable.
-  Value *m_indVar;
+  PHINode *m_indVar;
 
   /// @brief upper bound on loop trip count.
   unsigned m_tripCountUpperBound;
@@ -128,7 +135,7 @@ private:
   SmallVector<TranspWriteImgAttr, 2> m_writeImageAttributes;
 
   /// @brief apple runtime services object.
-  const AppleOpenclRuntime *m_rtServices;
+  const OpenclRuntime *m_rtServices;
 
   DenseMap<Value *, Value *> m_firstIterVal;
 
@@ -140,6 +147,12 @@ private:
   /// @brief collect attributes from read image call in the current loop.
   void getReadImgAttributes();
 
+  /// @brief Return a Value* that represents the trip count.
+  ///        Imported from LLVM 3.0 LoopInfo
+  /// @param L - Loop to return the count for
+  /// @return The Value representing the trip count (compared to the induction var)
+  Value* getTripCountValue(Loop* L, PHINode* IV) const;
+  
   /// @brief returns constant upper bound for the loop.
   /// @param tripCount - trip count of the loop.
   /// @retruns upper bound if poosible, 0 otherwise.

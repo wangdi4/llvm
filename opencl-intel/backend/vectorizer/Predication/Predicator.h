@@ -1,5 +1,16 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __PREDICATOR_H_
 #define __PREDICATOR_H_
+#include "WIAnalysis.h"
+#include "PhiCanon.h"
+#include "Linearizer.h"
+#include "Specializer.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -11,11 +22,6 @@
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Transforms/Scalar.h"
-
-#include "WIAnalysis.h"
-#include "PhiCanon.h"
-#include "Linearizer.h"
-#include "Specializer.h"
 
 using namespace llvm;
 

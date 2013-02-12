@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  ImplicitArgsUtils.h
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #ifndef __IMPLICIT_ARGS_UTILS_H__
 #define __IMPLICIT_ARGS_UTILS_H__
@@ -61,19 +50,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Destructor
     ~ImplicitArgsUtils() {}
 
+#ifndef __APPLE__
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
     void createImplicitArgs(char* pDest);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per executable
-    /// @param implicitArgument     The implicit arguments arguments
-    /// @param pExecutable          The executable
-    /// @param pLocalMemoryBuffers  The local memory buffers, will be used to set the pLocalMem arg
-    /// @param pWGStackFrame        The work group stack frame, used to set the local IDs and the special buffer
-    /// @param uiWICount            The work item count, uset to set the number of iterations
+    /// @param pWorkInfo        The work group information parameter
+    /// @param pGlobalBaseId    The global base id parameter
+    /// @param pCallBackContext The callback context parameter
+    /// @param bJitCreateWIids  The indiectaor for JIT creating WI ids parameter
+    /// @param packetWidth      The packet width for vectorized JIT parameter
+    /// @param pWIids           The work item ids buffer parameter
+    /// @param iterCounter      The number of iterations parameter
+    /// @param pBarrierBuffer   The barrier buffer parameter
     void setImplicitArgsPerExecutable(
-                         void* pLocalMemoryBuffer,
                          const sWorkInfo* pWorkInfo,
                          const size_t* pGlobalBaseId,
                          const CallbackContext* pCallBackContext, 
@@ -81,8 +73,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer,
-                         size_t* pCurrWI);
+                         char* pBarrierBuffer);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per work group
@@ -93,11 +84,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Initialized the work item local IDs
     /// @param implicitArgument     The implicit arguments arguments
     void initWILocalIds(const sWorkInfo* pWorkInfo, const unsigned int packetWidth, size_t* pWIids);
-  
+#endif //#ifndef __APPLE__
 
+  private:
     /// static list of implicit argument properties 
     static ImplicitArgProperties m_implicitArgProps[m_numberOfImplicitArgs];
-
+  
     /// list of implicit arguments
     ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
   };

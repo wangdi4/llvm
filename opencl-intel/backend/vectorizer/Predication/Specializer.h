@@ -1,5 +1,12 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef SPECIALIZER_H
 #define SPECIALIZER_H
+#include "Linearizer.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -10,8 +17,6 @@
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
-
-#include "Linearizer.h"
 
 using namespace llvm;
 

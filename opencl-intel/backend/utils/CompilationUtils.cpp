@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  CompilationUtils.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "CompilationUtils.h"
 
@@ -168,7 +157,9 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
   if( NULL == MDArgInfo )
   {
-      throw Exceptions::CompilerException("Intenal error: opencl.kernels metadata is missing");
+      assert(false && "Internal Error: opencl.kernels metadata is missing");
+      // workaround to overcome klockwork issue
+      return;
   }
 
   // TODO: this hack is ugly, need to find the right way to get arg info
@@ -189,7 +180,9 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
   if( NULL == FuncInfo )
   {
-      throw Exceptions::CompilerException("Intenal error: can't find the function info for the scalarized function");
+      assert(false && "Intenal error: can't find the function info for the scalarized function");
+      // workaround to overcome klockwork issue
+      return;
   }
 
   assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
@@ -199,18 +192,17 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
     MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
     MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-
+#ifdef __APPLE__
+    if (tag->getString() == "apple.cl.arg_metadata") {
+#else
     if (tag->getString() == "image_access_qualifier") {
+#endif
       MDImgAccess = tmpMD;
       break;
     }
   }
 
   size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
-
-  // This check is wrong - CPU_KERNEL_MAX_ARG_COUNT is meaningless.
-  //if (CPU_KERNEL_MAX_ARG_COUNT < argsCount)
-  //  throw Exceptions::CompilerException(std::string("Too many arguments in kernel<") + pFunc->getName().str() + ">" , CL_DEV_BUILD_ERROR);
 
   unsigned int localMemCount = 0;
 
@@ -245,13 +237,12 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
           unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
           unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
-          if ( (uiElemSize*uiNumElem) > 4*16 )
-          {
-            curArg.type = CL_KRNL_ARG_VECTOR;
-            curArg.size_in_bytes = uiNumElem & 0xFFFF;
-            curArg.size_in_bytes |= (uiElemSize << 16);
-            break;
-          }
+          //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
+          //  "We have byval pointer for legal vector type larger than 64bit");
+          curArg.type = CL_KRNL_ARG_VECTOR_BY_REF;
+          curArg.size_in_bytes = uiNumElem & 0xFFFF;
+          curArg.size_in_bytes |= (uiElemSize << 16);
+          break;
         }
         curArg.size_in_bytes = 0;
         // Detect pointer qualifier
@@ -259,7 +250,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
         StructType *ST = dyn_cast<StructType>(PTy->getElementType());
         if(ST) {
-          const std::string &imgArg = ST->getName();
+          const std::string &imgArg = ST->getName().str();
           if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
           {
             curArg.type = CL_KRNL_ARG_INT;
@@ -280,9 +271,18 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
             // Setup image pointer
             if(curArg.type != CL_KRNL_ARG_INT) {
+#ifdef __APPLE__
+              MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+              assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
+              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+              assert(tag->getString() == "image" && "image MD arg type is not 'image'");
+              tag = dyn_cast<MDString>(tmpMD->getOperand(1));
+              curArg.size_in_bytes = (tag->getString() == "read") ? 0 : 1;    // Set RW/WR flag
+#else
               ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
 
               curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
+#endif
               break;
             }
           }
@@ -317,13 +317,25 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
         default:
           assert(0);
-        }}
-        break;
+        }
+      }
+      break;
 
     case llvm::Type::IntegerTyID:
         {
+#ifdef __APPLE__
+          MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+          bool isSampler = false;
+          if(tmpMD->getNumOperands() > 0) {
+            MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+            if(tag->getString() == "sampler") //sampler_t
+                isSampler = true;
+          }
+          if(isSampler)
+#else
           ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
           if (access->getValue().getSExtValue() == -1) //sampler_t
+#endif
           {
             curArg.type = CL_KRNL_ARG_SAMPLER;
             curArg.size_in_bytes = 0;
@@ -357,11 +369,6 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
     arguments.push_back(curArg);
     ++arg_it;
   }
-
-  if ( localMemCount > CPU_MAX_LOCAL_ARGS )
-  {
-      throw Exceptions::CompilerException("Too much local arguments count", CL_DEV_BUILD_ERROR);
-  }
 }
 
 void CompilationUtils::getKernelsMetadata( Module* pModule,
@@ -372,7 +379,9 @@ void CompilationUtils::getKernelsMetadata( Module* pModule,
 
   if( NULL == pModuleMetadata )
   {
-      throw Exceptions::CompilerException("Internal Error: opencl.kernels metadata is missing", CL_DEV_BUILD_ERROR);
+      assert(false && "Internal Error: opencl.kernels metadata is missing");
+      // workaround to overcome klockwork issue
+      return;
   }
 
   unsigned int vecIndex = 0;

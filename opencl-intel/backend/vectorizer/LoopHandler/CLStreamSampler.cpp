@@ -1,29 +1,35 @@
-/*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "CLStreamSampler.h"
 #include "LoopUtils.h"
-#include "EnvAdapt.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "VectorizerUtils.h"
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Version.h"
-
 #if LLVM_VERSION >= 3425
 #include "llvm/Analysis/ScalarEvolution.h"
 #endif
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
 
 // On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
-#if VOLCANO_ENV
+//#if defined(__APPLE__)
+//  #if !defined(MAX_LOOP_SIZE)
+//    Error! Target max loop size not defined!
+//  #endif
+//#else
   #define MAX_LOOP_SIZE 128
-#endif
+//#endif
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16
 
@@ -38,7 +44,7 @@ OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,writ
 
 CLStreamSampler::CLStreamSampler():
 LoopPass(ID),
-m_rtServices(static_cast<AppleOpenclRuntime *>(RuntimeServices::get()))
+m_rtServices((OpenclRuntime*)RuntimeServices::get())
 {
   initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
   assert(m_rtServices && "runtime services does not exist");
@@ -73,16 +79,10 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Work group loops are generated in a way that these should be obtained by
   // standard LLVM api.
   m_indVar = L->getCanonicalInductionVariable();
+  if (!m_indVar)
+    return false;
 #if LLVM_VERSION >= 3425
-  BasicBlock *LatchBlock = L->getLoopLatch();
-  if (LatchBlock) {
-    ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
-    unsigned tripCount = SE->getSmallConstantTripCount(L, LatchBlock);
-  	// FIXME: We create the constant to minimize the amount of changes we need
-    // to do but we should use m_tripCountUpperBound instead.
-    m_tripCount = tripCount == 0 ? NULL
-                  :ConstantInt::get(Type::getInt32Ty(*m_context), tripCount);
-  }
+  m_tripCount = getTripCountValue(L, m_indVar);
 #else
   m_tripCount = L->getTripCount();
 #endif
@@ -106,6 +106,36 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Currently We do not keep the data whether anything changed so for safety
   // return always true.
   return true;
+}
+  
+/// Ripped out of 3.0 LLVM LoopInfo, as a workaround for it not being available in 3.2
+/// getTripCount - Return a loop-invariant LLVM value indicating the number of
+/// times the loop will be executed.
+Value *CLStreamSampler::getTripCountValue(Loop* L, PHINode *IV) const {
+  assert(L && IV && "Must pass initialized loop and induction variable");
+  // Canonical loops will end with a 'cmp ne I, V', where I is the incremented
+  // canonical induction variable and V is the trip count of the loop.
+  if (IV->getNumIncomingValues() != 2) return 0;
+  
+  bool P0InLoop = L->contains(IV->getIncomingBlock(0));
+  Value *Inc = IV->getIncomingValue(!P0InLoop);
+  BasicBlock *BackedgeBlock = IV->getIncomingBlock(!P0InLoop);
+  
+  if (BranchInst *BI = dyn_cast<BranchInst>(BackedgeBlock->getTerminator()))
+    if (BI->isConditional()) {
+      if (ICmpInst *ICI = dyn_cast<ICmpInst>(BI->getCondition())) {
+        if (ICI->getOperand(0) == Inc) {
+          if (BI->getSuccessor(0) == L->getHeader()) {
+            if (ICI->getPredicate() == ICmpInst::ICMP_NE)
+              return ICI->getOperand(1);
+          } else if (ICI->getPredicate() == ICmpInst::ICMP_EQ) {
+            return ICI->getOperand(1);
+          }
+        }
+      }
+    }
+  
+  return 0;
 }
 
 unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
@@ -134,7 +164,7 @@ unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
     if (EVI->getNumIndices() == 1 &&
         *(EVI->idx_begin()) == CLWGBoundDecoder::getIndexOfSizeAtDim(0)) {
       if (CallInst *eeCall = dyn_cast<CallInst>(EVI->getAggregateOperand())) {
-        std::string funcName = eeCall->getCalledFunction()->getName();
+        std::string funcName = eeCall->getCalledFunction()->getName().str();
         if (CLWGBoundDecoder::isWGBoundFunction(funcName)) {
           // Trip is get_local_size(0) return known bound.
           return MAX_LOOP_SIZE / divideBy;
@@ -174,7 +204,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (!readImgCall) return;
   Function *calledFunc = readImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getName();
+  std::string funcName = calledFunc->getName().str();
   if (!m_rtServices->isTransposedReadImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
@@ -256,6 +286,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 void CLStreamSampler::hoistReadImgCalls() {
   // Obtain the stream read from the runtime module.
   Function *LibReadSteamFunc = m_rtServices->getReadStream();
+  if (!LibReadSteamFunc) return;
   Function * readStreamFunc = getLibraryFunc(LibReadSteamFunc);
   assert(readStreamFunc && "failed to get read stream func");
   if (!readStreamFunc) return;
@@ -383,6 +414,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
 void CLStreamSampler::sinkWriteImgCalls() {
   // Obtain the stream write from the runtime module.
   Function *LibWriteStreamFunc = m_rtServices->getWriteStream();
+  if (!LibWriteStreamFunc) return;
   Function * writeStreamFunc = getLibraryFunc(LibWriteStreamFunc);
   assert(writeStreamFunc && "failed to get write stream func");
   if (!writeStreamFunc) return;
@@ -398,9 +430,17 @@ void CLStreamSampler::sinkWriteImgCalls() {
 
 Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   assert(LibFunc && "null argument");
-  // Find function in the runtime module and insert it's declaration.
-  Constant *funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
-      LibFunc->getFunctionType(), LibFunc->getAttributes());
+  
+  // We do not use getOrInsertFunction() here because we may already
+  // have the function, but with a slightly wrong prototype, because
+  // images are opaque types. So, first check if we have the function,
+  // and only if we don't, insert it.
+  Constant* funcConst = m_M->getFunction(LibFunc->getName());
+  if (!funcConst) {
+    funcConst = m_M->getOrInsertFunction(LibFunc->getName(),
+                                         LibFunc->getFunctionType(), LibFunc->getAttributes());
+  }
+    
   Function *F = dyn_cast<Function>(funcConst);
   assert(F && "failed to insert declaration");
   return F;
@@ -423,7 +463,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   if (!writeImgCall) return;
   Function *calledFunc = writeImgCall->getCalledFunction();
   if (!calledFunc) return;
-  std::string funcName = calledFunc->getName();
+  std::string funcName = calledFunc->getName().str();
   if (!m_rtServices->isTransposedWriteImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
@@ -432,7 +472,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   assert(!foundFunction->isNull() && "should have hash entry");
   assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");
   // Currently supports only transposed write.
-  if (!foundFunction->isNull() || foundFunction->getWidth() <= 1) return;
+  if (foundFunction->isNull() || foundFunction->getWidth() <= 1) return;
 
   TranspWriteImgAttr attrs;
   attrs.m_call = writeImgCall;

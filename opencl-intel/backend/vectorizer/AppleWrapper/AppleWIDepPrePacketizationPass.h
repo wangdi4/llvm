@@ -1,18 +1,19 @@
-/*********************************************************************************************
- * Copyright © 2010-2012, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __APPLE_WI_DEP_PRE_PACKETIZATION_PASS_H__
 #define __APPLE_WI_DEP_PRE_PACKETIZATION_PASS_H__
 
-#include "llvm/Pass.h"
 #include "Logger.h"
-#include "llvm/Type.h"
-#include "AppleOCLRuntime.h"
-#include "llvm/PassManager.h"
+#include "OpenclRuntime.h"
 #include "WIAnalysis.h"
+
+#include "llvm/Pass.h"
+#include "llvm/Type.h"
+#include "llvm/PassManager.h"
 #include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
@@ -60,9 +61,8 @@ private:
   Value *getWriteImgCoordsVector(Value *xCoord, Value *yCoord, CallInst *CI);
 
   ///@brief - appleOCLRuntime interface for getting builtins attributes.
-  const AppleOpenclRuntime *m_appleRuntimeServices;
+  const OpenclRuntime *m_appleRuntimeServices;
 
-  
   ///@brief  holds the module of the processed function
   Module *m_curModule;
 

@@ -1,10 +1,10 @@
 set(TARGET_NAME LocalBuffAnalysis)
 
-set(LOCALBUFFANALYSIS_INCLUDE_FILES
+set(TARGET_INCLUDE_FILES
     LocalBuffAnalysis.h
 )
 
-set(LOCALBUFFANALYSIS_SOURCE_FILES
+set(TARGET_SOURCE_FILES
     LocalBuffAnalysis.cpp
 )
 
@@ -15,8 +15,8 @@ include_directories(
 )
 
 add_library(${TARGET_NAME}
-    ${LOCALBUFFANALYSIS_INCLUDE_FILES}
-    ${LOCALBUFFANALYSIS_SOURCE_FILES}
+    ${TARGET_INCLUDE_FILES}
+    ${TARGET_SOURCE_FILES}
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -24,3 +24,9 @@ target_link_libraries(${TARGET_NAME}
 )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

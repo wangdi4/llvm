@@ -1,17 +1,20 @@
-/*********************************************************************************************
- * Copyright ? 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "KernelAnalysis.h"
-#include "llvm/Instructions.h"
 #include "OpenclRuntime.h"
-#include "llvm/Support/raw_ostream.h"
-#include <string.h>
-#include "llvm/Constants.h"
 #include "LoopUtils.h"
 #include "OCLPassSupport.h"
+
+#include "llvm/Instructions.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Constants.h"
+
+#include <string.h>
+
 
 extern "C" {
   void fillNoBarrierPathSet(const Module *M, std::set<std::string>& noBarrierPath)
@@ -129,7 +132,7 @@ bool KernelAnalysis::runOnModule(Module& M) {
     Function *F = *fit;
     if (!F || m_unsupportedFunc.count(F)) continue;
 
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     Operands.push_back(MDString::get(F->getContext(), funcName));
   }
   noBarrier->addOperand(MDNode::get(M.getContext(), Operands));
@@ -146,7 +149,7 @@ void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
     Function *F = m_kernels[i];
     if (!F) continue;
 
-    std::string funcName = F->getName();
+    std::string funcName = F->getName().str();
     if (noBarrierPath.count(funcName)) {
       OS << funcName << " yes\n";
     } else {

@@ -1,22 +1,16 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  TypeAlignment.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "TypeAlignment.h"
+#if defined(__APPLE__)
+  #include "OpenCL/cl.h"
+#else
+  #include "CL/cl.h"
+#endif
 
 #include <assert.h>
 
@@ -39,6 +33,7 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
     return arg.size_in_bytes;
 
   case CL_KRNL_ARG_VECTOR:
+  case CL_KRNL_ARG_VECTOR_BY_REF:
     {
       // Extract the vector element size and the number of vector elements
       unsigned int elemSize = arg.size_in_bytes >> 16;
@@ -92,6 +87,7 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
   switch(arg.type)
   {
   case CL_KRNL_ARG_VECTOR:
+  case CL_KRNL_ARG_VECTOR_BY_REF:
     {
       size_t vectorAlignment = getSize(arg);
     
@@ -105,10 +101,6 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
       }
     
       alignment = vectorAlignment;
-      // Adding assert to check we are following the OpenCL spec:
-      // A built-in data type that is not a power of two bytes in size must be
-      // aligned to the next larger power of two
-      assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
       // Adding assert to check we are following the OpenCL spec:
       // A built-in data type that is not a power of two bytes in size must be
       // aligned to the next larger power of two

@@ -1,46 +1,69 @@
 set(TARGET_NAME OclBackendUtils)
 
-set (OCL_UTILS_INCLUDE_FILES
-    CompilationUtils.h
-    CPUDetect.h
-    debuggingservicetype.h
-    exceptions.h
-    ExecutionContext.h
-    ExplicitArgument.h
-    ExecutionContext.h
-    ExplicitLocalMemArgument.h
-    ExplicitGlobalMemArgument.h
-    FunctionArgument.h
-    IArgument.h
-    ImplicitArgProperties.h
-    ImplicitArgsUtils.h
-    ImplicitArgument.h
-    SystemInfo.h
-    TLLVMKernelInfo.h
-    TypeAlignment.h
-    ProcessorDetect.h
-    TypeConversion.h
+if(APPLE)
+set(TARGET_EXTRA_SOURCE_FILES 
+)
+set(TARGET_EXTRA_INCLUDE_FILES 
+)
+else(APPLE)
+set(TARGET_EXTRA_SOURCE_FILES 
+  SystemInfo.cpp
+)
+set(TARGET_EXTRA_INCLUDE_FILES
+  exceptions.h
+  ExecutionContext.h 
+  ExplicitArgument.h
+  ExplicitLocalMemArgument.h
+  ExplicitGlobalMemArgument.h
+  SystemInfo.h
+)
+endif(APPLE)
+
+set (TARGET_INCLUDE_FILES
+  CompilationUtils.h
+  CPUDetect.h
+  debuggingservicetype.h
+  FunctionArgument.h
+  IArgument.h
+  ImplicitArgProperties.h
+  ImplicitArgsUtils.h
+  ImplicitArgument.h
+  TLLVMKernelInfo.h
+  TypeAlignment.h
+  TypeConversion.h
+  VectorizerUtils.h
+  ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
-set (OCL_UTILS_SOURCE_FILES
-    CompilationUtils.cpp
-    CPUDetect.cpp
-    debuggingservicetype.cpp
-    FunctionArgument.cpp
-    ImplicitArgsUtils.cpp
-    SystemInfo.cpp
-    TypeAlignment.cpp
-    TypeConversion.cpp
+set (TARGET_SOURCE_FILES
+  CompilationUtils.cpp
+  CPUDetect.cpp
+  debuggingservicetype.cpp
+  FunctionArgument.cpp
+  ImplicitArgsUtils.cpp
+  TypeAlignment.cpp
+  TypeConversion.cpp
+  VectorizerUtils.cpp
+  ${TARGET_EXTRA_SOURCE_FILES}
 )
 
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
-    ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}
+    ${BACKEND_ROOT_DIR}/name_mangling
 )
 
+if (APPLE)
+include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers/Apple
+)
+else (APPLE)
+include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers
+)
+endif (APPLE)
+
 # Include the ASM sources
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(BUILD_X64)
     if (WIN32)
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/kernel_execute_64.asm)
     elseif (APPLE)
@@ -48,13 +71,30 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     else ()
         set (UTILS_ASM_SOURCES ../ocl_cpu_backend/linux64_utils.s)
     endif ()
+else(BUILD_X64)
+    if (APPLE)
+        set (UTILS_ASM_SOURCES mac_utils.s)
+    endif (APPLE)
+endif(BUILD_X64)
+
+if(APPLE)
+    set( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
+else(APPLE)
     CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
-endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif(APPLE)
 
 add_library(${TARGET_NAME} STATIC
-    ${OCL_UTILS_INCLUDE_FILES}
-    ${OCL_UTILS_SOURCE_FILES}
+    ${TARGET_INCLUDE_FILES}
+    ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  message("Utils relative dir:" ${SOURCE_RELATIVE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

@@ -233,7 +233,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 
             // Values are assigned in CreateExecutableContext
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
@@ -316,7 +316,7 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
 
             // TODO : do we need to delete this?
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
@@ -423,7 +423,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             offset += sizeof(void*);
             // TODO : assign value
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
@@ -476,7 +476,7 @@ size_t OpenCLArgsBuffer::CalcArgsBufferSize()
             // Need to pass pointer to somewhere in local memory buffer
             bufferSize += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type)
+        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
         {
             // Kernel argument is a vector
             // Need to pass all the vector in the argument buffer

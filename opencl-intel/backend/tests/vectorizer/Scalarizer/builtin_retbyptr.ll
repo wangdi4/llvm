@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @sincos_kernel(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z17sincos_scalarizedd(double {{%[_a-z0-9]+}}) nounwind readnone
+; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double {{%[_a-z0-9]+}}) nounwind readnone
 ; CHECK: [[E0:%[_a-z0-9]+]] = call double @fake.extract.element0(<2 x double> [[C1]], i32 0)
 ; CHECK: [[E1:%[_a-z0-9]+]] = call double @fake.extract.element1(<2 x double> [[C1]], i32 1)
 ; CHECK: store double [[E1]], double addrspace(1)*
@@ -19,26 +19,26 @@ entry:
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
   %0 = load double addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds double addrspace(1)* %out2, i64 %idxprom
-  %1 = call <2 x double> @_Z17sincos_scalarizedd(double %0) nounwind readnone
-  %_Z17sincos_scalarizedd_extract. = extractelement <2 x double> %1, i32 0
-  %_Z17sincos_scalarizedd_extract.1 = extractelement <2 x double> %1, i32 1
-  store double %_Z17sincos_scalarizedd_extract.1, double addrspace(1)* %add.ptr
+  %1 = call <2 x double> @_Z20__retbyvector_sincosd(double %0) nounwind readnone
+  %_Z20__retbyvector_sincosd_extract. = extractelement <2 x double> %1, i32 0
+  %_Z20__retbyvector_sincosd_extract.1 = extractelement <2 x double> %1, i32 1
+  store double %_Z20__retbyvector_sincosd_extract.1, double addrspace(1)* %add.ptr
   %arrayidx3 = getelementptr inbounds double addrspace(1)* %out, i64 %idxprom
-  store double %_Z17sincos_scalarizedd_extract., double addrspace(1)* %arrayidx3, align 128
+  store double %_Z20__retbyvector_sincosd_extract., double addrspace(1)* %arrayidx3, align 128
   ret void
 }
 
 define void @sincos4_kernel(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[D2:%[_a-z0-9]+]] = call <2 x double> @_Z17sincos_scalarizedd(double
+; CHECK: [[D2:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double
 ; CHECK: [[F0:%[_a-z0-9]+]] = call double @fake.extract.element2(<2 x double> [[D2]], i32 0)
 ; CHECK: [[F1:%[_a-z0-9]+]] = call double @fake.extract.element3(<2 x double> [[D2]], i32 1)
-; CHECK: [[D3:%[_a-z0-9]+]] = call <2 x double> @_Z17sincos_scalarizedd(double
+; CHECK: [[D3:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double
 ; CHECK: [[F2:%[_a-z0-9]+]] = call double @fake.extract.element4(<2 x double> [[D3]], i32 0)
 ; CHECK: [[F3:%[_a-z0-9]+]] = call double @fake.extract.element5(<2 x double> [[D3]], i32 1)
-; CHECK: [[D4:%[_a-z0-9]+]] = call <2 x double> @_Z17sincos_scalarizedd(double
+; CHECK: [[D4:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double
 ; CHECK: [[F4:%[_a-z0-9]+]] = call double @fake.extract.element6(<2 x double> [[D4]], i32 0)
 ; CHECK: [[F5:%[_a-z0-9]+]] = call double @fake.extract.element7(<2 x double> [[D4]], i32 1)
-; CHECK: [[D5:%[_a-z0-9]+]] = call <2 x double> @_Z17sincos_scalarizedd(double
+; CHECK: [[D5:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double
 ; CHECK: [[F6:%[_a-z0-9]+]] = call double @fake.extract.element8(<2 x double> [[D5]], i32 0)
 ; CHECK: [[F7:%[_a-z0-9]+]] = call double @fake.extract.element9(<2 x double> [[D5]], i32 1)
 ; CHECK: [[A0:%[._a-z0-9]+]] = insertelement <4 x double> undef, double [[F0]], i32 0
@@ -58,17 +58,17 @@ entry:
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
   %0 = load <4 x double> addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
-  %1 = call [2 x <4 x double>] @_Z18_retbyarray_sincosDv4_d(<4 x double> %0)
-  %_Z18_retbyarray_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
-  %_Z18_retbyarray_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
-  store <4 x double> %_Z18_retbyarray_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
+  %1 = call [2 x <4 x double>] @_Z19__retbyarray_sincosDv4_d(<4 x double> %0)
+  %_Z19__retbyarray_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
+  %_Z19__retbyarray_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
+  store <4 x double> %_Z19__retbyarray_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
   %arrayidx3 = getelementptr inbounds <4 x double> addrspace(1)* %out, i64 %idxprom
-  store <4 x double> %_Z18_retbyarray_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
+  store <4 x double> %_Z19__retbyarray_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
   ret void
 }
 
 define void @native_sincos_kernel(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double {{%[_a-z0-9]+}}) nounwind readnone
+; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double {{%[_a-z0-9]+}}) nounwind readnone
 ; CHECK: [[E0:%[_a-z0-9]+]] = call double @fake.extract.element10(<2 x double> [[C1]], i32 0)
 ; CHECK: [[E1:%[_a-z0-9]+]] = call double @fake.extract.element11(<2 x double> [[C1]], i32 1)
 ; CHECK: store double [[E1]], double addrspace(1)*
@@ -81,26 +81,26 @@ entry:
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
   %0 = load double addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds double addrspace(1)* %out2, i64 %idxprom
-  %1 = call <2 x double> @_Z24native_sincos_scalarizedd(double %0) nounwind readnone
-  %_Z24native_sincos_scalarizedd_extract. = extractelement <2 x double> %1, i32 0
-  %_Z24native_sincos_scalarizedd_extract.1 = extractelement <2 x double> %1, i32 1
-  store double %_Z24native_sincos_scalarizedd_extract.1, double addrspace(1)* %add.ptr
+  %1 = call <2 x double> @_Z27__retbyvector_native_sincosd(double %0) nounwind readnone
+  %_Z27__retbyvector_native_sincosd_extract. = extractelement <2 x double> %1, i32 0
+  %_Z27__retbyvector_native_sincosd_extract.1 = extractelement <2 x double> %1, i32 1
+  store double %_Z27__retbyvector_native_sincosd_extract.1, double addrspace(1)* %add.ptr
   %arrayidx3 = getelementptr inbounds double addrspace(1)* %out, i64 %idxprom
-  store double %_Z24native_sincos_scalarizedd_extract., double addrspace(1)* %arrayidx3, align 128
+  store double %_Z27__retbyvector_native_sincosd_extract., double addrspace(1)* %arrayidx3, align 128
   ret void
 }
 
 define void @native_sincos4_kernel(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[D2:%[_a-z0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double
+; CHECK: [[D2:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double
 ; CHECK: [[F0:%[_a-z0-9]+]] = call double @fake.extract.element12(<2 x double> [[D2]], i32 0)
 ; CHECK: [[F1:%[_a-z0-9]+]] = call double @fake.extract.element13(<2 x double> [[D2]], i32 1)
-; CHECK: [[D3:%[_a-z0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double
+; CHECK: [[D3:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double
 ; CHECK: [[F2:%[_a-z0-9]+]] = call double @fake.extract.element14(<2 x double> [[D3]], i32 0)
 ; CHECK: [[F3:%[_a-z0-9]+]] = call double @fake.extract.element15(<2 x double> [[D3]], i32 1)
-; CHECK: [[D4:%[_a-z0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double
+; CHECK: [[D4:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double
 ; CHECK: [[F4:%[_a-z0-9]+]] = call double @fake.extract.element16(<2 x double> [[D4]], i32 0)
 ; CHECK: [[F5:%[_a-z0-9]+]] = call double @fake.extract.element17(<2 x double> [[D4]], i32 1)
-; CHECK: [[D5:%[_a-z0-9]+]] = call <2 x double> @_Z24native_sincos_scalarizedd(double
+; CHECK: [[D5:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double
 ; CHECK: [[F6:%[_a-z0-9]+]] = call double @fake.extract.element18(<2 x double> [[D5]], i32 0)
 ; CHECK: [[F7:%[_a-z0-9]+]] = call double @fake.extract.element19(<2 x double> [[D5]], i32 1)
 ; CHECK: [[A0:%[._a-z0-9]+]] = insertelement <4 x double> undef, double [[F0]], i32 0
@@ -120,12 +120,12 @@ entry:
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
   %0 = load <4 x double> addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
-  %1 = call [2 x <4 x double>] @_Z25_retbyarray_native_sincosDv4_d(<4 x double> %0)
-  %_Z25_retbyarray_native_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
-  %_Z25_retbyarray_native_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
-  store <4 x double> %_Z25_retbyarray_native_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
+  %1 = call [2 x <4 x double>] @_Z26__retbyarray_native_sincosDv4_d(<4 x double> %0)
+  %_Z26__retbyarray_native_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
+  %_Z26__retbyarray_native_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
+  store <4 x double> %_Z26__retbyarray_native_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
   %arrayidx3 = getelementptr inbounds <4 x double> addrspace(1)* %out, i64 %idxprom
-  store <4 x double> %_Z25_retbyarray_native_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
+  store <4 x double> %_Z26__retbyarray_native_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
   ret void
 }
 
@@ -135,8 +135,8 @@ declare i64 @get_local_size(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-declare <2 x double> @_Z17sincos_scalarizedd(double) nounwind readnone
-declare <2 x double> @_Z24native_sincos_scalarizedd(double) nounwind readnone
+declare <2 x double> @_Z20__retbyvector_sincosd(double) nounwind readnone
+declare <2 x double> @_Z27__retbyvector_native_sincosd(double) nounwind readnone
 
-declare [2 x <4 x double>] @_Z18_retbyarray_sincosDv4_d(<4 x double>) nounwind readnone
-declare [2 x <4 x double>] @_Z25_retbyarray_native_sincosDv4_d(<4 x double>) nounwind readnone
+declare [2 x <4 x double>] @_Z19__retbyarray_sincosDv4_d(<4 x double>) nounwind readnone
+declare [2 x <4 x double>] @_Z26__retbyarray_native_sincosDv4_d(<4 x double>) nounwind readnone

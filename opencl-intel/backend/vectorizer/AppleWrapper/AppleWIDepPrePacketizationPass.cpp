@@ -1,9 +1,19 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "AppleWIDepPrePacketizationPass.h"
-#include "llvm/Support/InstIterator.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "Mangler.h"
+
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+#include "llvm/Support/InstIterator.h"
 
 
 namespace intel{
@@ -26,10 +36,10 @@ AppleWIDepPrePacketizationPass::~AppleWIDepPrePacketizationPass() {
 bool AppleWIDepPrePacketizationPass::runOnFunction(Function& F) {
   bool changed = false;
   m_curModule = F.getParent();
-  m_appleRuntimeServices = (AppleOpenclRuntime *)RuntimeServices::get();
+  m_appleRuntimeServices = (OpenclRuntime*) RuntimeServices::get();
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii))  {
-      std::string funcName = CI->getCalledFunction()->getName();
+      std::string funcName = CI->getCalledFunction()->getName().str();
       if (m_appleRuntimeServices->isFakeWriteImage(funcName)) {
         handleWriteImage(CI, funcName);
         changed = true;

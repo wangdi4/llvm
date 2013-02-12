@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  LocalBuffers.h
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #ifndef __LOCAL_BUFFERS_H__
 #define __LOCAL_BUFFERS_H__
@@ -44,7 +33,7 @@ namespace intel{
 
     /// @brief Constructor with debug parameter
     /// @param isNatveiDBG true if native debug set
-    LocalBuffers(bool isNativeDBG);
+    LocalBuffers(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG);
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -60,8 +49,6 @@ namespace intel{
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LocalBuffAnalysis>();
     }
-
-    friend void getKernelLocalBufferInfoMap(ModulePass *pPass, std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>& infoMap);
 
   protected:
     /// @brief Resolves the internal local variables and map them to local buffer
@@ -93,7 +80,7 @@ namespace intel{
     LocalBuffAnalysis       *m_localBuffersAnalysis;
 
     /// @brief map between kernel and its kernel info
-    std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>  m_mapKernelInfo;
+    std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>  *m_pMapKernelInfo;
 
     /// @brief vector of llvm instructions
     typedef std::vector<llvm::Instruction*> TInstVector;

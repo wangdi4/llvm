@@ -8,6 +8,8 @@
 #include "DXWrapperParamsCheck.h"
 #include "Mangler.h"
 
+#include "llvm/Module.h"
+
 namespace intel {
 
 bool DXWrapperParamsCheck::checkSameTypeScalar(Type* packetizeType,
@@ -73,7 +75,7 @@ DXWrapperParamsCheck::DXWrapperRetType DXWrapperParamsCheck::checkRet
 }
 
 bool DXWrapperParamsCheck::isDXScalarWrapperMasked (CallInst* CI, const RuntimeServices* rtServices){
-  std::string name = CI->getCalledFunction()->getName();
+  std::string name = CI->getCalledFunction()->getName().str();
   bool isMangled = Mangler::isMangledCall(name);
   if (!isMangled){
     return false;

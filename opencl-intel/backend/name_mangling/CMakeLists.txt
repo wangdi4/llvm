@@ -13,6 +13,7 @@ set(NAME_MANGLE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 if (NOT APPLE)
     add_subdirectory(unittests)
 endif (NOT APPLE)
+
 add_subdirectory(antlruntime)
 
 add_custom_command(
@@ -21,15 +22,14 @@ add_custom_command(
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParser.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParserTokenTypes.hpp
   COMMAND ${ANTLR_COMMAND}
   -o ${CMAKE_CURRENT_SOURCE_DIR}/gen ${CMAKE_CURRENT_SOURCE_DIR}/demangler.g
   DEPENDS demangler.g
   COMMENT "running ${ANTLR_COMMAND} on ${CMAKE_CURRENT_SOURCE_DIR}/demangler.g"
 )
 
-add_library(
-  ${TARGET_NAME}
-  STATIC
+set(TARGET_SOURCE_FILES
   Type.cpp
   Demangler.cpp
   Mangler.cpp
@@ -40,8 +40,32 @@ add_library(
   gen/DemangleParser.cpp
 )
 
+set(TARGET_INCLUDE_FILES
+  Type.h
+  NameMangleAPI.h
+  FunctionDescriptor.h
+  Refcount.h
+  TypeCast.h
+  Utils.h
+  gen/DemangleLexer.hpp
+  gen/DemangleParser.hpp
+  gen/DemangleParserTokenTypes.hpp
+)
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
+)
+
+if (NOT APPLE)
+  include_directories(
+    ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
+  )
+endif (NOT APPLE)
+
 include_directories(
-  ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/include
   ${CMAKE_CURRENT_SOURCE_DIR}/gen
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -53,3 +77,10 @@ target_link_libraries(
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

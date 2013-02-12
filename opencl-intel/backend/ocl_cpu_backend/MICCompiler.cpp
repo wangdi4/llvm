@@ -72,7 +72,7 @@ void MICCompiler::SelectMICConfiguration(const ICompilerConfig& config)
     Intel::ECPU CPU = Intel::CPUId::GetCPUByName(config.GetCpuArch().c_str());
     m_CpuId = Intel::CPUId(CPU, 0, true);
     Utils::SplitString( config.GetCpuFeatures(), ",", m_forcedCpuFeatures);
-    assert(m_CpuId.IsMIC());
+    assert(m_CpuId.HasGatherScatter());
 }
 
 MICCompiler::MICCompiler(const IMICCompilerConfig& config):
@@ -103,8 +103,8 @@ void MICCompiler::CreateExecutionEngine(llvm::Module* m)
     // !!!WORKAROUND!!! if module wasn't built previously than we use
     // optimizer output to create execution engine in compiler
     // spModule is now owned by the execution engine
- 
-	if(!m_needLoadBuiltins) 
+
+	if(!m_needLoadBuiltins)
 	{
 		m_pCGEngine = CreateMICCodeGenerationEngine( m );
 	}

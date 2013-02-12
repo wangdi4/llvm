@@ -67,7 +67,6 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
      m_stAlignedKernelParamSize(0),
      m_stPrivateMemorySize(pKernelProperties->GetPrivateMemorySize()),
      m_pLocalParams(NULL), 
-     m_totalImplSize(pKernelProperties->GetImplicitLocalMemoryBufferSize()),
      m_DAZ( pKernelProperties->GetDAZ()),
      m_cpuId( pKernelProperties->GetCpuId()),
      m_bJitCreateWIids(pKernelProperties->GetJitCreateWIids()),
@@ -115,7 +114,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
     
     m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
     m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN( 
-                            m_uiWGSize * sizeof(size_t) * CPU_MAX_WI_DIM_POW_OF_2);
+                            m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
 
 }
 
@@ -178,10 +177,11 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
     m_stFormalParamSize = pArgValueDest - m_pLocalParams;
 
     m_stKernelParamSize = m_stFormalParamSize +
-                          4*sizeof(void*)+ // OCL specific argument (WG Info, pBaseGlobalID, ect)
-                          sizeof(void*)+   // pWI-ids[]
-                          sizeof(void*)+   // Pointer to IDevExecutable
-                          sizeof(size_t)+2*sizeof(void*); // iterCount, pSpecialBuffer, pcurrWI
+                          3*sizeof(void*)+ // OCL specific argument: WG Info, pWGID, pBaseGlobalID
+                          sizeof(void*)  + // pWI-ids[]
+                          sizeof(void*)  + // Pointer to IDevExecutable
+                          sizeof(size_t) + // iterCount
+                          sizeof(void*);   //  pSpecialBuffer
 
     m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
 }
@@ -227,8 +227,8 @@ cl_dev_err_code Binary::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes,
     if ( (NULL == pBufferSizes) )
     {
         size_t buffCount = m_kernelLocalMem.size();
-        buffCount += (m_totalImplSize != 0);    // Implicit local buffers
-        ++buffCount;                            // Stack size
+        // +1 for additional area for: kernel params + WI ids buffer + private memory [see below]
+        ++buffCount;
         *pBufferCount = buffCount;
         return CL_DEV_SUCCESS;
     }
@@ -239,12 +239,6 @@ cl_dev_err_code Binary::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes,
     for (i = 0; i < m_kernelLocalMem.size(); ++i)
     {
         pBufferSizes[i] = m_kernelLocalMem[i].getBufferSize();
-    }
-    // Fill size of the implicit local buffer
-    if ( m_totalImplSize  != 0 )
-    {
-        pBufferSizes[i] = m_totalImplSize;
-        ++i;
     }
 
     // Fill size of private area for all work-items

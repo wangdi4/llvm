@@ -1,6 +1,9 @@
-/*********************************************************************************************
- * TODO: add Copyright � 2011, Intel Corporation
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "DataPerInternalFunctionPass.h"
 #include "OCLPassSupport.h"
@@ -70,7 +73,11 @@ namespace intel {
     for ( Value::use_iterator ui = F.use_begin(),
       ue = F.use_end(); ui != ue; ++ui ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-        assert( pCallInst && "Something other than CallInst is calling a function!" );
+        // usage of pFunc can be a global variable!
+        if( !pCallInst ) {
+          // usage of pFunc is not a CallInst
+          continue;
+        }
         assert( numOfArgs == pCallInst->getNumArgOperands() &&
           "calling function with different number of operands!" );
         TCounterVector &argsCall = m_dataPerCallMap[pCallInst].m_argsOffsets;

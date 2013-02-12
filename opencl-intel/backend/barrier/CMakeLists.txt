@@ -1,6 +1,6 @@
 set( TARGET_NAME LLVMBarrier)
 
-file(GLOB_RECURSE headers *.h)
+file(GLOB_RECURSE TARGET_INCLUDE_FILES *.h)
 
 include_directories(BEFORE "include")
 include_directories(
@@ -8,8 +8,8 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/passes
     )
-    
-add_library( ${TARGET_NAME}
+
+set(TARGET_SOURCE_FILES
   BarrierInFunctionPass.cpp
   BarrierMain.cpp
   BarrierPass.cpp
@@ -22,7 +22,19 @@ add_library( ${TARGET_NAME}
   RemoveDuplicationBarrierPass.cpp
   SplitBBonBarrierPass.cpp
   WIRelatedValuePass.cpp
-  ${headers}
+)
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
 )
 
 
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)

@@ -77,5 +77,8 @@ bool PrintIRPass::runOnModule(llvm::Module &M)
 
 extern "C" llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir) 
 {
-    return new PrintIRPass((IRDumpOptions)option, (dump_IR_options)optionLocation, dumpDir);
+  return new Intel::OpenCL::DeviceBackend::PrintIRPass(
+    (Intel::OpenCL::DeviceBackend::IRDumpOptions)option,
+    (Intel::OpenCL::DeviceBackend::dump_IR_options)optionLocation,
+    dumpDir);
 }

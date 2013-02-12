@@ -1,4 +1,19 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #define DEBUG_TYPE "predicate"
+#include "Predicator.h"
+#include "VectorizerUtils.h"
+#include "Specializer.h"
+#include "Linearizer.h"
+#include "Mangler.h"
+#include "Logger.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Support/CFG.h"
@@ -13,16 +28,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/InstrTypes.h"
 #include "llvm/Type.h"
-
-#include "VectorizerUtils.h"
-#include "Specializer.h"
-#include "Predicator.h"
-#include "Linearizer.h"
-#include "Mangler.h"
-#include "Logger.h"
 #include "llvm/Constants.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
+
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -525,7 +532,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
   // Replace function call with masked function call
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
-    std::string desc = call->getCalledFunction()->getName();
+    std::string desc = call->getCalledFunction()->getName().str();
     std::string maskedName = Mangler::mangle(desc);
     //if the predicated is a faked one, we need to create it artificially.
     //Otherwise, we simply import it from the builtin module.
@@ -688,7 +695,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         m_toPredicate.push_back(it);
       }
       else if (CallInst *CI = dyn_cast<CallInst>(it)) {
-        std::string funcname = CI->getCalledFunction()->getName();
+        std::string funcname = CI->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(funcname))  {
           m_toPredicate.push_back(it);
         }

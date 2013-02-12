@@ -1,17 +1,21 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "Scalarize.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Constants.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "FakeExtractInsert.h"
+#include "TypeConversion.h"
+#include "FunctionDescriptor.h"
+#include "NameMangleAPI.h"
+
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Constants.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
@@ -678,7 +682,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_ASSERT(CI && "instruction type dynamic cast failed");
 
   // Find corresponding entry in functions hash (in runtimeServices)
-  std::string funcName = CI->getCalledFunction()->getName();
+  std::string funcName = CI->getCalledFunction()->getName().str();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
@@ -712,12 +716,18 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   // Find scalar function, using hash entry
   std::string strScalarFuncName = foundFunction->getVersion(0);
   const char *scalarFuncName = strScalarFuncName.c_str();
-  const Function *LibScalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
-  V_ASSERT(NULL != LibScalarFunc && "function hash error");
+  FunctionType * funcType;
+  AttrListPtr funcAttr;
+  if(!getScalarizedFunctionType(strScalarFuncName, funcType, funcAttr)) {
+    V_ASSERT(false && "function hash error");
+    // In release mode - fail scalarizing function call "gracefully"
+    recoverNonScalarizableInst(CI);
+    return;
+  }
 
   // Declare function in current module (if not declared already)
   Constant *scalarFunctionConstant = m_currFunc->getParent()->getOrInsertFunction(
-      scalarFuncName, LibScalarFunc->getFunctionType(), LibScalarFunc->getAttributes());
+      scalarFuncName, funcType, funcAttr);
   V_ASSERT(scalarFunctionConstant && "Failed finding or generating function");
   Function *scalarFunction = dyn_cast<Function>(scalarFunctionConstant);
   V_ASSERT(scalarFunction && "Function type mismatch, caused a constant expression cast!");
@@ -726,7 +736,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::vector<Value*> newArgs[MAX_INPUT_VECTOR_WIDTH];
 
   // Iterate over all function arguments, and grab their scalarized counterparts.
-  // When grabbing the arguments from the actual CALL operands.
+  // When grabbing the arguments from the actual CALL operands, the first argument is 
+  // either the first operand, or the return value (passed
+  // by reference, if the CALL inst returns a VOID).
+  unsigned argStart = 0;
+  if (CI->getType()->isVoidTy()) ++argStart;
 
   // Collect all the arguments that are NOT scalarized (meaning kept the same for vector
   // and scalar function call). After the scalarization of the CALL, make sure they
@@ -735,12 +749,10 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   SmallPtrSet<Value*, 2> nonScalarizedVectors;
 
   unsigned numArguments = scalarFunction->getFunctionType()->getNumParams();
-  V_ASSERT (CI->getNumArgOperands() == numArguments && "CALL arguments number error");
-  // The assertion below was added after removing code which handles the following case:
-  // In older version of Clang, it would emit a function which returns large types, such as double16,
+  V_ASSERT (CI->getNumArgOperands() == numArguments + argStart && "CALL arguments number error");
+  // In some versions of Clang, it would emit a function which returns large types, such as double16,
   // as a function which returns void and takes an extra argument which is a pointer to store the return
-  // value to. This is no longer the case, and we might remove this assert eventually.
-  V_ASSERT (!CI->getType()->isVoidTy() && "Unexpectedly encounterd function which returns void");
+  // value to.
   // Iterate over function operands (using the operand index of the CALL instruction)
   for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex)
   {
@@ -748,7 +760,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     Value *operand[MAX_INPUT_VECTOR_WIDTH];
 
     // Check if arg has same type for scalar & vector functions (means it shouldn't be scalarized)
-    bool isScalarized = (CI->getArgOperand(argIndex)->getType() !=
+    bool isScalarized = (CI->getArgOperand(argStart + argIndex)->getType() !=
       scalarFunction->getFunctionType()->getParamType(argIndex));
 
     if (isScalarized)
@@ -764,11 +776,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     {
       // Place pointers to the same value in all the argument vectors
       for (unsigned dup = 0; dup < vectorWidth; ++dup)
-        newArgs[dup].push_back(CI->getArgOperand(argIndex));
+        newArgs[dup].push_back(CI->getArgOperand(argStart + argIndex));
 
       // Save vector arguments (which werent scalarized)
-      if (isa<VectorType>(CI->getArgOperand(argIndex)->getType()))
-        nonScalarizedVectors.insert(CI->getArgOperand(argIndex));
+      if (isa<VectorType>(CI->getArgOperand(argStart + argIndex)->getType()))
+        nonScalarizedVectors.insert(CI->getArgOperand(argStart + argIndex));
     }
   }
 
@@ -1057,7 +1069,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 
 void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
-  std::string name = CI->getCalledFunction()->getName();
+  std::string name = CI->getCalledFunction()->getName().str();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");
@@ -1315,6 +1327,28 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   return assembledVector;
 }
 
+bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr) {
+
+  if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
+    reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
+    V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
+    reflection::Type* refType = fdesc.parameters[0];
+    Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), refType);
+    SmallVector<Type *, 1> types(1, scalarType);
+    Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
+    funcType = FunctionType::get(retType, types, false);
+    funcAttr.addAttr(~0, Attribute::ReadNone);
+    funcAttr.addAttr(~0, Attribute::NoUnwind);
+    return true;
+  }
+
+  const Function *LibScalarFunc = m_rtServices->findInRuntimeModule(strScalarFuncName.c_str());
+  if (!LibScalarFunc) return false;
+
+  funcType = LibScalarFunc->getFunctionType();
+  funcAttr = LibScalarFunc->getAttributes();
+  return true;
+}
 
 ScalarizeFunction::SCMEntry *ScalarizeFunction::getSCMEntry(Value *origValue)
 {

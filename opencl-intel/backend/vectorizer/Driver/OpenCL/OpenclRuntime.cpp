@@ -1,20 +1,20 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "OpenclRuntime.h"
-#include "Mangler.h"
-#include "Logger.h"
-#include "llvm/Constants.h"
-
 #include "VectorizerFunction.h"
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
+#include "Mangler.h"
+#include "Logger.h"
+
+#include "llvm/Constants.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Module.h"
 
 using namespace reflection;
 namespace intel {
@@ -27,6 +27,8 @@ public:
 
   OpenClVFunction(const std::string& s): m_name(s){
   }
+  
+  ~OpenClVFunction() {  }
 
   unsigned getWidth()const{
     assert(!isNull() && "Null function");
@@ -118,26 +120,27 @@ const dotProdInlineData dotInlineTable [] = {
 	{"_Z3dotDv4_dS_",4},
     {NULL,0}
 };
-
-const char *volacanoScalarSelect[] = {
-  "_Z6selectccc", "_Z6selectcch", "_Z6selecthhc", "_Z6selecthhh",
-  "_Z6selectsss", "_Z6selectsst", "_Z6selecttts", "_Z6selectttt",
-  "_Z6selectiii", "_Z6selectiij", "_Z6selectjji", "_Z6selectjjj",
-  "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
-  "_Z6selectffi", "_Z6selectffj",
-  "_Z6selectddl", "_Z6selectddm",
-  NULL
+  
+const char* BuiltinReturnByPtr[] = {
+  "fract",
+  "modf",
+  "native_fract",
+  "native_modf",
+  "native_sincos",
+  "sincos",
 };
+const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
+  
 
 /// @brief Constructor which get arbitraty table as input
 OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
                              const char  **scalarSelects):
 m_runtimeModule(runtimeModule),
 m_packetizationWidth(0) {
-  initDotMap();
   initScalarSelectSet(scalarSelects);
+  initDotMap();
 }
-
+  
 void OpenclRuntime::initDotMap() {
   const dotProdInlineData *entryPtr = dotInlineTable;
   while (entryPtr->name) {
@@ -169,7 +172,7 @@ bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigne
   *err = false; // By default, no error expected..
   const CallInst * CI = dyn_cast<CallInst>(inst);
   if (!CI) return false; // ID generator is a function call.
-  std::string funcName = CI->getCalledFunction()->getName();
+  std::string funcName = CI->getCalledFunction()->getName().str();
   unsigned dimensionIndex = 0; // Index of argument to CALL instruction, which is the dimension
   if (Mangler::isMangledCall(funcName)) {
     funcName = Mangler::demangle(funcName); // Remove mangling (masking) prefix
@@ -221,6 +224,7 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   if (isSafeLLVMIntrinsic(func_name)) return true;
   if (Mangler::isFakeExtract(func_name)) return true;
   if (Mangler::isFakeInsert(func_name)) return true;
+  if (Mangler::isRetByVectorBuiltin(func_name)) return true;
 
   // If it is not a built-in, don't know if it has side effect.
   Function *funcRT = findInRuntimeModule(func_name);
@@ -318,10 +322,6 @@ bool OpenclRuntime::needSpecialCaseResolving(const std::string &funcName) const{
   return Mangler::isFakeBuiltin(funcName);
 }
 
-bool OpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
-  return false;
-}
-
 bool OpenclRuntime::isScalarSelect(const std::string &funcName) const{
   if (m_scalarSelectSet.count(funcName)) return true;
   return false;
@@ -341,19 +341,15 @@ bool OpenclRuntime::isFakedFunction(StringRef fname)const{
   //the function resides within the runtime module.
   return (pMaskedFunction == NULL);
 }
-
-bool OpenclRuntime::isWriteImage(const std::string &funcName) const{
-  return false;
-}
-
+  
 unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{
   std::map<std::string, unsigned>::const_iterator it = m_dotOpWidth.find(funcName);
   if (it != m_dotOpWidth.end()) {
-	return it->second;
+    return it->second;
   }
   return 0;
 }
-
+  
 bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
   Function *bltn = findInRuntimeModule(func_name);
   if (!bltn) return false;
@@ -381,20 +377,10 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
       basicType != reflection::primitives::ULONG)  return false;
   return true;
 }
-
+  
 } // Namespace
 
-/// Support for static linking of modules for Windows
-/// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createOpenclRuntimeSupport(const Module *runtimeModule) {
-    V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::OpenclRuntime * rt =
-      new intel::OpenclRuntime(runtimeModule);
-    intel::RuntimeServices::set(rt);
-    return (void*)(rt);
-  }
-
   void* destroyOpenclRuntimeSupport() {
     delete intel::RuntimeServices::get();
     intel::RuntimeServices::set(0);

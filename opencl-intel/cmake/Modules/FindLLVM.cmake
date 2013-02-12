@@ -7,6 +7,11 @@
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 #  LLVM_FOUND       - True if llvm found.
 
+if (APPLE)
+  set(LLVM_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
+  set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
+else (APPLE)
+
 if(CMAKE_CROSSCOMPILING)
     find_host_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
 else()
@@ -207,3 +212,4 @@ endif( INCLUDE_MIC_DEVICE)
     
 endif (LLVM_CONFIG_EXECUTABLE)
 
+endif (APPLE)

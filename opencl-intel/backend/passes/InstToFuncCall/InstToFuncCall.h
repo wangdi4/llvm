@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2012).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  InstToFuncCall.h
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #ifndef __INSTTOFUNCCALL_H__
 #define __INSTTOFUNCCALL_H__
@@ -38,7 +27,7 @@ namespace intel{
     public:
         typedef std::pair<const char*, CallingConv::ID> LookupValue;
 
-        Inst2FunctionLookup(bool isMic) {
+        Inst2FunctionLookup(bool isV16Supported) {
             //TODO: move this away from here
             Type2ValueLookup FPToUI_Lookup;
             Type2ValueLookup FPToSI_Lookup;
@@ -69,7 +58,7 @@ namespace intel{
             /// %call_conv = call double @_Z14convert_doublel(i64 %tmp2) nounwind
             SIToFP_Lookup[std::make_pair(Double,Integer64)] = std::make_pair("_Z14convert_doublel", CallingConv::C);
 
-            if (isMic)
+            if (isV16Supported)
             {
                 /// Replaces:
                 /// %conv = fptoui <16 x float> %tmp2 to <16 x i64>
@@ -234,7 +223,7 @@ namespace intel{
     public:
         static char ID; // Pass identification, replacement for typeid
 
-        InstToFuncCall(bool isMic = true);
+        InstToFuncCall(bool isV16Supported = true);
 
         bool runOnModule(Module &M);
 
@@ -247,7 +236,7 @@ namespace intel{
 
 /// Returns an instance of the Inst2Func pass,
 /// which will be added to a PassManager and run on a Module.
-    llvm::ModulePass *createInstToFuncCallPass(bool isMic);
+    llvm::ModulePass *createInstToFuncCallPass(bool isV16Supported);
 
 }
 

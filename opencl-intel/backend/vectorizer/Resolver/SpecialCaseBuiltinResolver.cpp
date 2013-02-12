@@ -1,8 +1,17 @@
-
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "SpecialCaseBuiltinResolver.h"
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
+#include "llvm/Module.h"
+#include "llvm/Function.h"
+#include "llvm/Instructions.h"
+
 #include <vector>
 
 namespace llvm {
@@ -32,7 +41,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
   SmallVector<Function *, 8> fakeFunctions;
 
   for (Module::iterator it = M.begin(), e = M.end(); it!=e; ++it) {
-    std::string curFuncName = it->getName();
+    std::string curFuncName = it->getName().str();
     if (m_runtimeServices->needSpecialCaseResolving(curFuncName)) {
       fakeFunctions.push_back(it);
       fillWrapper(it , curFuncName);

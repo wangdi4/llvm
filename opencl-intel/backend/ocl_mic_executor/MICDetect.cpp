@@ -17,7 +17,6 @@ File Name:  MICDetect.cpp
 \*****************************************************************************/
 
 #include "MICDetect.h"
-#include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 

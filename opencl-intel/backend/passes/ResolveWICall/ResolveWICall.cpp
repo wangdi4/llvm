@@ -1,31 +1,20 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2010-2011).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  ResolveWICall.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 
 #include "ResolveWICall.h"
 #include "CompilationUtils.h"
-
-#include "cl_device_api.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Target/TargetData.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+  const unsigned int BYTE_SIZE = 8;
   char ResolveWICall::ID = 0;
 
   ModulePass* createResolveWICallPass() {
@@ -75,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ie = toHandleCalls.end(); ii != ie; ++ii ) {
     
       CallInst *pCall = dyn_cast<CallInst>(*ii);
-      std::string calledFuncName = pCall->getCalledFunction()->getName();
+      std::string calledFuncName = pCall->getCalledFunction()->getName().str();
       TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 
       Value *pNewRes = NULL;
@@ -106,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         pNewRes = updateGetFunction(pCall, calledFuncType);
         assert(pNewRes && "Expected updateGetFunction to succeed");
         break;
-
+#ifndef __APPLE__
       case ICT_PRINTF:
         addPrintfDeclaration();
         pNewRes = updatePrintf(pCall);
@@ -140,7 +129,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         updatePrefetch(pCall);
         // prefetch* function returns void, no need to replace its usages!
         break;
-
+#endif // __APPLE__
       default:
         continue;
       }

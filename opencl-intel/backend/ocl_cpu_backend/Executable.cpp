@@ -96,21 +96,12 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
   m_implicitArgsUtils.createImplicitArgs(pWIParams);
   // Set implicit local buffer pointer
-  void* pLocalMemoryBuffer;
-  if ( m_pBinary->GetImplicitLocalMemoryBufferSize() ) {
-    // Is the next buffer after explicit locals
-    pLocalMemoryBuffer = pLocalMemoryBuffers[m_pBinary->m_kernelLocalMem.size()];
-  } else {
-    //Initialize an easily identifiable junk address to catch uninitialized memory accesses
-    pLocalMemoryBuffer = (void *)0x000DEAD0;
-  }
   memset(&m_GlobalId[0], 0, sizeof(m_GlobalId));
   size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize());
   assert( (m_pBinary->m_bJitCreateWIids || uiWICount > 0) && "uiWICount is zero!" );
   char* pBarrierBuffer = ((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize() + m_pBinary->GetLocalWIidsSize();
   // Set implicit arguments per executable
   m_implicitArgsUtils.setImplicitArgsPerExecutable(
-            pLocalMemoryBuffer,
             &m_pBinary->m_WorkInfo,
             &m_GlobalId[0],
             &m_callbackContext,
@@ -118,8 +109,7 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
             m_pBinary->m_uiVectorWidth,
             pWIids,
             uiWICount-1,
-            pBarrierBuffer,
-            &m_CurrWI);
+            pBarrierBuffer);
 
 
   // Set CSR flags

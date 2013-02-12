@@ -30,7 +30,7 @@ MicPasses("mic-passes",
 
 
 extern "C" {
-extern void* createOpenclRuntimeSupport(const Module *runtimeModule,
+extern void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule,
                                         unsigned packetizationWidth);
 extern void* createDXRuntimeSupport(const Module *runtimeModule,
                                         unsigned packetizationWidth);
@@ -49,13 +49,12 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePacketizeFunctionPass(Registry);
     intel::initializeX86ResolverPass(Registry);
     intel::initializeMICResolverPass(Registry);
-    intel::initializeX86LowerPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
     intel::initializeAppleWIDepPrePacketizationPassPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeCLWGLoopCreatorPass(Registry);
-	intel::initializeCLWGLoopBoundariesPass(Registry);
+    intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
@@ -112,7 +111,7 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
 
   // Generate runtimeSupport object, to be used as input for vectorizer
   if (VectorizerServices == "ocl") {
-    createOpenclRuntimeSupport(runtimeModule.release(), 4);
+    createVolcanoOpenclRuntimeSupport(runtimeModule.release(), 4);
   } else if (VectorizerServices == "dx") {
     createDXRuntimeSupport(runtimeModule.release(), 4);
   } else if (VectorizerServices == "apple") {

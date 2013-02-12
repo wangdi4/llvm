@@ -79,7 +79,7 @@ public:
     {
         m_pContext.reset(NULL);
 
-        void*   pBuffPtr[CPU_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
+    	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
 
         // Allocate local memories
         char*   pCurrPtr = m_pLocalMem.get();

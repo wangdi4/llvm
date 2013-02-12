@@ -1,24 +1,30 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION >= 3425
-#include "llvm/IRBuilder.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#endif
-#include "llvm/Intrinsics.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "Packetizer.h"
 #include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "FunctionDescriptor.h"
 #include "FakeExtractInsert.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
+
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Intrinsics.h"
+#include "llvm/Version.h"
+
+#if LLVM_VERSION >= 3425
+#include "llvm/IRBuilder.h"
+#else
+#include "llvm/Support/IRBuilder.h"
+#endif
+
+static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
+#define LOG_(x) __logs_vals[x]
 
 static cl::opt<unsigned>
 CLIPacketSize("packet-size", cl::init(0), cl::Hidden,
@@ -579,7 +585,7 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
   }
   else if (CallInst *inst = dyn_cast<CallInst>(I)) {
     // It can be a masked load/store instruction!
-    std::string origFuncName = inst->getCalledFunction()->getName();
+    std::string origFuncName = inst->getCalledFunction()->getName().str();
     if (Mangler::isMangledLoad(origFuncName)) {
       ptrOpIndex = 1;
     }
@@ -779,7 +785,13 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(indexType->isVectorTy() && "index of scatter/gather is not a vector!");
     indexType = cast<VectorType>(indexType)->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
+#if LLVM_VERSION >= 3425
+    // Not replacing with ConstantDataVector here because the type isn't known to be
+    // compatible.
+    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+#else
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+#endif
     std::vector<Constant *> laneVec;
     for (unsigned int i=0; i < m_packetWidth; ++i) {
       laneVec.push_back(ConstantInt::get(indexType, i));
@@ -810,7 +822,14 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(MO.Index->getType()->isVectorTy() && "index of scatter/gather is not a vector!");
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
+    
+#if LLVM_VERSION >= 3425
+    // Not replacing with ConstantDataVector here because the type isn't known to be
+    // compatible.
+    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+#else
     vecWidthVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecWidthVal));
+#endif
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
@@ -870,7 +889,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
+#if LLVM_VERSION >= 3425
+    vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
+#else
     vecVal = ConstantVector::get(std::vector<Constant *>(m_packetWidth, vecVal));
+#endif
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
         SmallVector<Attributes, 4>(), MO.Orig);
@@ -1121,13 +1144,15 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
       MO.Index = Index;
       MO.Base = Base;
     }
-    else
+    else {
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
+    }
   }
-  else if (!Gep)
+  else if (!Gep) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
-  else
+  } else {
     V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
+  }
 }
 
 
@@ -1162,8 +1187,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !(DT->isVectorTy() &&  MO.type == PREFETCH)) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
     V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
-    if (MO.Index)
+    if (MO.Index) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
+    }
     return duplicateNonPacketizableInst(MO.Orig);
   }
 
@@ -1212,7 +1238,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   V_PRINT(packetizer, "\t\tCall Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
   Function *origFunc = CI->getCalledFunction();
-  std::string origFuncName = origFunc->getName();
+  std::string origFuncName = origFunc->getName().str();
 
   // Avoid packetizing fake insert\extract that are used to
   // obtain the scalar elements of vector arguments\return of scalar built-ins.
@@ -1364,7 +1390,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // TODO:: is it the way we want to support masked calls ?
   // currently we have only the DX calls and this works for them.
   bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
-  std::string vectorFuncNameStr = LibFunc->getName();
+  std::string vectorFuncNameStr = LibFunc->getName().str();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
@@ -1441,7 +1467,11 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       obtainVectorizedValue(&maskV, mask, CI);
     } else {
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(1,1));
+#if LLVM_VERSION >= 3425
+      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+#else
       maskV = ConstantVector::get(std::vector<Constant *>(m_packetWidth, mask));
+#endif
     }
     newArgs.push_back(maskV);
   }
@@ -1458,7 +1488,6 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     Value *curScalarArg = CI->getArgOperand(argIndex);
     Type *curScalarArgType = curScalarArg->getType();
 
-    // Incase current argument is a vector and runtime says we always
     // In case current argument is a vector and runtime says we always
     // spread vector operands, then try to do it.
     if (m_rtServices->alwaysSpreadVectorParams() && curScalarArgType->isVectorTy()) {
@@ -1494,7 +1523,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   }
 
   // In case the scalar built-in returns a vector and the vector built-in
-  // returns void, than the return values are expected to be returned by
+  // returns void, then the return values are expected to be returned by
   // pointer arguments. here we create alloca in the entry block and add them
   // to the argument list. when handling return we will create load from these
   // pointers.
@@ -1678,7 +1707,7 @@ bool PacketizeFunction::spreadVectorParam(CallInst* CI, Value *scalarParam,
   /// Here we handle vector argument to a scalar built-in by adding the
   /// corresponding vectors of the it's elements to the argumnet list. the
   /// scalar elements are obtained by fake insert calls added by the scalarizer.
-  /// foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  /// foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expexted vector type");
   VectorType *vTy = cast<VectorType>(scalarParam->getType());
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
@@ -1757,8 +1786,8 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
       // b) Are uniform values.
       // This is because we expect the vectorizer to turn most things that
       // are not uniform or gathers into SoA.
-      // Note that this is probably not a good idea for MIC, since it has
-      // real gathers. However MIC does not use transpose builtins yet,
+      // Note that this is probably not a good idea if real gather supported.
+      // However in that case we do not use transpose builtins yet,
       // so that is irrelevant.
       bool badForTranspose = false;
 
@@ -1904,7 +1933,7 @@ void PacketizeFunction::generateShuffles (unsigned AOSVectorWidth, Instruction *
 
 void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 {
-//  V_PRINT(packetizer, "\t\InsertElement Instruction\n");
+  V_PRINT(packetizer, "\t\tInsertElement Instruction\n");
   V_ASSERT(IEI && "instruction type dynamic cast failed");
 
   if (m_packetWidth!=8 && m_packetWidth!=4) {
@@ -2303,11 +2332,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   // The number of arguments used for input depends on whether this is a load
   // or a gather. Loads only get one base pointer, gathers receive N pointers
   // one for each gathered value.
-  int numInputPointers;
-  if (isScatterGather)
-    numInputPointers = m_packetWidth;
-  else
-    numInputPointers = 1;
+  int numInputPointers = (isScatterGather) ? m_packetWidth : 1;
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numInputPointers; ++i) {
@@ -2318,7 +2343,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   Builder.SetInsertPoint(m_currFunc->getEntryBlock().begin());
   for (unsigned int i = 0; i < numDestVectors; ++i) {
     // Create the destination vectors that will contain the transposed matrix
-    AllocaInst*  alloca = Builder.CreateAlloca(destVecType);
+    AllocaInst* alloca = Builder.CreateAlloca(destVecType);
     // Set alignment of funtion arguments, size in bytes of the destination vector
     alloca->setAlignment((destVecType->getScalarSizeInBits() / 8) * numDestVectElems);
     funcArgs.push_back(alloca);
@@ -2377,7 +2402,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   Value *inAddr[MAX_PACKET_WIDTH];
   obtainMultiScalarValues(inAddr, storePtrVal, I);
 
-  // Obtain the vctorized version of the values need to be transposed and stored
+  // Obtain the vectorized version of the values need to be transposed and stored
   SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
   SmallVector<Value *, MAX_PACKET_WIDTH> vectorizedInputs;
   vectorizedInputs.assign(numOrigVectors, NULL);
@@ -2387,8 +2412,8 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
 
   // Creates:
   // bitcasr pStoreAddr
-  // call load_transpose(pStoreAddr, xIn, yIn,...)
-  // xIn, yIn, ... - source vectors of matrixto be transposed, vectorized values of the inserts
+  // call transpose_store(pStoreAddr, xIn, yIn,...)
+  // xIn, yIn, ... - source vectors of matrix to be transposed, vectorized values of the inserts
 
   IRBuilder<> Builder(I);
 
@@ -2398,11 +2423,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   // The number of arguments used for output depends on whether this is a store
   // or a scatter. Stores only get one base pointer, scatters receive N pointers
   // one for each scattered value.
-  int numOutputPointers;
-  if (isScatterGather)
-    numOutputPointers = m_packetWidth;
-  else
-    numOutputPointers = 1;
+  const int numOutputPointers = (isScatterGather) ? m_packetWidth : 1;
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numOutputPointers; ++i) {
@@ -2410,15 +2431,18 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
     funcArgs.push_back(pStoreAddr);
   }
 
-  for (unsigned int i = 0; i < numOrigVectors; ++i) {
-    funcArgs.push_back(vectorizedInputs[i]);
-  }
-
   // Create function call with prepared arguments
   Function* transposeFunc = getTransposeFunc(false, origVecType, isScatterGather, isMasked);
+  FunctionType* pFuncType = transposeFunc->getFunctionType();
 
-  if (isMasked)
-  {
+  for (unsigned int i = 0; i < numOrigVectors; ++i) {
+    Value* pInputArg = VectorizerUtils::getCastedArgIfNeeded(
+      vectorizedInputs[i], pFuncType->getParamType(numOutputPointers + i), I);
+    V_ASSERT(pInputArg && "Mismatch between input argument & transpose param");
+    funcArgs.push_back(pInputArg);
+  }
+
+  if (isMasked) {
     // Get a vectorized mask to pass to the transpose function
     Value* VectorMask;
     obtainVectorizedValue(&VectorMask, Mask, I);
@@ -2558,7 +2582,6 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
 
 
 
-
 Constant *PacketizeFunction::createIndicesForShuffles(unsigned width, int *values)
 {
   // Generate a vector and fill with given values (as constant integers)
@@ -2577,7 +2600,6 @@ Constant *PacketizeFunction::createIndicesForShuffles(unsigned width, int *value
   }
   return ConstantVector::get(pre_vect);
 }
-
 
 void PacketizeFunction::generateSequentialIndices(Instruction *I)
 {

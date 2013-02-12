@@ -27,7 +27,7 @@
 #include "BuiltinKeeper.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
-#include "OpenclRuntime.h"
+#include "VolcanoOpenclRuntime.h"
 
 using namespace reflection;
 
@@ -261,7 +261,7 @@ TEST(DriverUse, oclVectorizer){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   std::string biname = "_Z3mixddd";
   std::auto_ptr<intel::VectorizerFunction> pFunction =
     pRuntime->findBuiltinFunction(biname);
@@ -281,7 +281,7 @@ TEST(DriverUse, soaDescriptorsWidth){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   std::string biname = "_Z6lengthDv2_f";
   std::auto_ptr<intel::VectorizerFunction> pFunction =
     pRuntime->findBuiltinFunction(biname);
@@ -310,7 +310,7 @@ TEST(DriverUse, nonVersioned){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
 
   std::string fract = "_Z5fractDv16_fPU3AS1S_";
   std::auto_ptr<intel::VectorizerFunction> pFunction =
@@ -326,7 +326,7 @@ TEST(DriverUse, soaVersion3){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   const std::auto_ptr<intel::VectorizerFunction> foundFunction =
     pRuntime->findBuiltinFunction(scalarFunction);
   std::string actual = foundFunction->getVersion(2);
@@ -341,7 +341,7 @@ TEST(DriverUse, soaVersion4){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   const std::auto_ptr<intel::VectorizerFunction> foundFunction =
     pRuntime->findBuiltinFunction(scalarFunction);
   std::string actual = foundFunction->getVersion(2);
@@ -356,7 +356,7 @@ TEST(DriverUse, normalize){
   llvm::Module* pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
   pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   const std::auto_ptr<intel::VectorizerFunction> foundFunction =
     pRuntime->findBuiltinFunction(scalarFunction);
   std::string actual = foundFunction->getVersion(2);
@@ -370,7 +370,7 @@ TEST(GenTest, soaGenTest){
   llvm::LLVMContext context;
   llvm::SMDiagnostic errDiagnostic;
   llvm::Module* pModule = llvm::ParseIRFile("mybi.ll", errDiagnostic, context);
-  intel::RuntimeServices* pRuntime = new intel::OpenclRuntime(pModule);
+  intel::RuntimeServices* pRuntime = new intel::VolcanoOpenclRuntime(pModule);
   const std::auto_ptr<intel::VectorizerFunction> pFunc =
     pRuntime->findBuiltinFunction(scalarVersion);
   std::string strActual = pFunc->getVersion(2);

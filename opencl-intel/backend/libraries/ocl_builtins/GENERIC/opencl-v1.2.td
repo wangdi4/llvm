@@ -181,15 +181,15 @@ def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (
 }
 }
 //Vectorizer generated table
-//{{"_Z17sincos_scalarizedd" , "_Z18_retbyarray_sincosDv2_d" , "_Z18_retbyarray_sincosDv4_d" , "_Z18_retbyarray_sincosDv8_d" , "_Z18_retbyarray_sincosDv16_d" , "_Z18_retbyarray_sincosDv3_d" },1, 0}
+//{{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" },1, 0}
 foreach bi = ["sincos", "native_sincos", "modf", "native_modf", "fract", "native_fract"] in {
   let Types = [v1f32, v1f64], Attrs = [CONSTFUNC, OVERLOADABLE] in {
-        def bi#_scalarized :  OclBuiltin<bi#"_scalarized", (outs v2gentype:$ret), (ins gentype:$x), [], []>;
+        def bi#_scalarized :  OclBuiltin<"__retbyvector_"#bi, (outs v2gentype:$ret), (ins gentype:$x), [], []>;
   }
   let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
       v2f64, v3f64, v4f64, v8f64, v16f64],
       Attrs = [CONSTFUNC, OVERLOADABLE] in {
-        def retbyarray_#bi : OclBuiltin<"_retbyarray_"#bi, (outs), (ins gentype:$x), [], []>;
+        def retbyarray_#bi : OclBuiltin<"__retbyarray_"#bi, (outs), (ins gentype:$x), [], []>;
   }
  //float:
   //Cells

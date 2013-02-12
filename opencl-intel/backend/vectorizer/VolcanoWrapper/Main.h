@@ -1,25 +1,24 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
-#include "llvm/Pass.h"
 #include "Logger.h"
 
-
-// Used for setting the size of a container, which holds pointers to all the functions
-#define ESTIMATED_NUM_OF_FUNCTIONS 8
-// Maximum supported value for vector width
-#define MAX_SUPPORTED_VECTOR_WIDTH 16
+#include "llvm/Pass.h"
 
 using namespace llvm;
 
+
 namespace intel {
 class OptimizerConfig;
+
+// Used for setting the size of a container, which holds pointers to all the functions
+#define ESTIMATED_NUM_OF_FUNCTIONS 8
 
 /// @brief Vectorizer pass is used to abstract all the Vectorizer's work
 ///  as a single module pass, which is to be scheduled by the compiler
@@ -63,7 +62,7 @@ public:
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const { AU.addRequired<LoopInfo>(); }
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
 
 private:
     Vectorizer(); // Do not implement

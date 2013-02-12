@@ -1,20 +1,9 @@
-/*****************************************************************************\
-
-Copyright (c) Intel Corporation (2012).
-
-    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
-    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
-    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
-    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
-    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
-    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
-    including liability for infringement of any proprietary rights, relating to
-    use of the code. No license, express or implied, by estoppels or otherwise,
-    to any intellectual property rights is granted herein.
-
-File Name:  InstToFuncCall.cpp
-
-\*****************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "InstToFuncCall.h"
 #include "OCLPassSupport.h"
 
@@ -26,8 +15,8 @@ using namespace llvm;
 extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
-    void* createInstToFuncCallPass(bool isMic) {
-        return new intel::InstToFuncCall(isMic);
+    void* createInstToFuncCallPass(bool isV16Supported) {
+        return new intel::InstToFuncCall(isV16Supported);
     }
 }
 
@@ -38,7 +27,7 @@ namespace intel{
 
     OCL_INITIALIZE_PASS(InstToFuncCall, "inst-to-func-call", "Replaces LLVM IR instructions with calls to functions", false, false)
 
-    InstToFuncCall::InstToFuncCall(bool isMic) : ModulePass(ID), m_I2F(isMic) {}
+    InstToFuncCall::InstToFuncCall(bool isV16Supported) : ModulePass(ID), m_I2F(isV16Supported) {}
 
     /// Replaces instruction 'inst' with call to function 'funcName' which has a
     /// calling convention 'CC'.
@@ -93,7 +82,7 @@ namespace intel{
         return changed;
     }
 
-    ModulePass *createInstToFuncCallPass(bool isMic) { return new InstToFuncCall(isMic); }
+    ModulePass *createInstToFuncCallPass(bool isV16Supported) { return new InstToFuncCall(isV16Supported); }
 
     } // namespace
 

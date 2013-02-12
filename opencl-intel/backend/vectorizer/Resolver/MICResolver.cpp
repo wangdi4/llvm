@@ -1,15 +1,16 @@
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "micresolver"
+#include "MICResolver.h"
+#include "VectorizerUtils.h"
+#include "Logger.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "MICResolver.h"
-#include "Logger.h"
 #include "llvm/Constants.h"
-#include "VectorizerUtils.h"
+
 #include "OCLPassSupport.h"
 #include <vector>
 #include <sstream>
-
 
 static bool isGatherScatterType(VectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();
@@ -41,7 +42,7 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 
 bool MICResolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
-  std::string calledName = called->getName();
+  std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "MICSpecificResolve Inspecting "<<calledName<<"\n");
 
   // Use name to decide what to do
@@ -54,10 +55,11 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     VectorType *RetTy = dyn_cast<VectorType>(caller->getType());
     if (!MaskTy || !RetTy) {
       V_PRINT(DEBUG_TYPE, "Non vector type unsupported for gather "<<calledName<<"\n");
-      if (!MaskTy && !RetTy)
+      if (!MaskTy && !RetTy) {
         V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR GATHER " << *caller << "\n");
-      else
+      } else {
         V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR GATHER " << *caller << "\n");
+      }
       return false;
     }
 
@@ -98,10 +100,11 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     VectorType *DataTy = dyn_cast<VectorType>(Data->getType());
     if (!MaskTy || !DataTy) {
       V_PRINT(DEBUG_TYPE, "Non vector type unsupported for scatter "<<calledName<<"\n");
-      if (!MaskTy && !DataTy)
+      if (!MaskTy && !DataTy) {
         V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR SCATTER " << *caller << "\n");
-      else
+      } else {
         V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR SCATTER " << *caller << "\n");
+      }
       return false;
     }
 
@@ -337,7 +340,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createMICResolverPass() {
+  FunctionPass* createGatherScatterResolverPass() {
     return new intel::MICResolver();
   }
 }

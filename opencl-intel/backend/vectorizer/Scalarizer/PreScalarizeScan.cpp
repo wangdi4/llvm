@@ -1,9 +1,9 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "Scalarize.h"
 #include "VectorizerUtils.h"
 
@@ -42,7 +42,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   llvm::SmallVectorImpl<Value*> &args = getArgs(rootVals);
   // Look for the called function in the built-in functions hash 
   Function *vectorFunc = CI->getCalledFunction();
-  std::string vectorFuncName = vectorFunc->getName();
+  std::string vectorFuncName = vectorFunc->getName().str();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(vectorFuncName);
@@ -59,19 +59,17 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   V_ASSERT(vectorWidth > 1 && "Only scalarize vector functions");
 
   // Vector function was found in hash. Now find the function prototype of the scalar function
-  std::string strScalarFname = foundFunction->getVersion(0);
-  const char *scalarFuncName = strScalarFname.c_str();
-  Function *scalarFunc = m_rtServices->findInRuntimeModule(scalarFuncName);
-  if (!scalarFunc)
-  {
-    V_ASSERT(0 && "Functions hash mismatch with runtime module!");
+  std::string strScalarFuncName = foundFunction->getVersion(0);
+  FunctionType * scalarFuncType;
+  AttrListPtr funcAttrDummy;
+  if(!getScalarizedFunctionType(strScalarFuncName, scalarFuncType, funcAttrDummy)) {
+    V_ASSERT(false && "Functions hash mismatch with runtime module!");
     // In release mode - fail scalarizing function call "gracefully"
     return false;
   }
 
   // Define the "desired" type of vectorized function, by expanding
   // the scalar function's argument types to vector width
-  FunctionType *scalarFuncType = scalarFunc->getFunctionType();
   FunctionType *vectorFuncType = vectorFunc->getFunctionType();
   Type *SFRT = scalarFuncType->getReturnType();
   unsigned numInputParams = scalarFuncType->getNumParams();
@@ -112,7 +110,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     if (SFRT->isVectorTy()) {
       //Sort usages (which are assumed to be all extractvalue's) by index
       
-      rets.resize(SFRT->getNumElements());
+      rets.resize(cast<VectorType>(SFRT)->getNumElements());
       for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui!=ue;
           ++ui) {
         unsigned idx = cast<ExtractValueInst>(*ui)->getIndices()[0];
@@ -152,7 +150,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // Second, obtain the input arguments, and fill the rootVals vector
   for (unsigned i = 0; i < numInputParams; ++i)
   {
-    Value *rootInputArg =  VectorizerUtils::RootInputArgument(
+    Value *rootInputArg = VectorizerUtils::RootInputArgument(
       CI->getArgOperand(callArgumentIndex), desiredArgsTypes[i], CI);
     // If root value was not found, give up on the scanning
     if (!rootInputArg) return false;

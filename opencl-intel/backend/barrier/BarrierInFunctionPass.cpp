@@ -1,6 +1,9 @@
-/*********************************************************************************************
- * TODO: add Copyright © 2011-2012, Intel Corporation
- *********************************************************************************************/
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "BarrierInFunctionPass.h"
 #include "OCLPassSupport.h"
 
@@ -51,7 +54,11 @@ namespace intel {
       Function::use_iterator ue = pFuncToHandle->use_end();
       for ( ; ui != ue; ui++ ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-        assert( pCallInst && "function use is not a call instruction!" );
+        // usage of pFunc can be a global variable!
+        if( !pCallInst ) {
+          // usage of pFunc is not a CallInst
+          continue;
+        }
 
         // Add Barrier before function call instruction
         m_util.createBarrier(pCallInst);

@@ -6,9 +6,9 @@
  *********************************************************************************************/
 #ifndef _FUNCTIONS_H_
 #define _FUNCTIONS_H_
-#include "llvm/ADT/StringMap.h"
-#include "RuntimeServices.h"
 
+#include "RuntimeServices.h"
+#include "llvm/ADT/StringMap.h"
 #include <string>
 
 namespace intel {
