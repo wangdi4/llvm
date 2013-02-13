@@ -133,6 +133,9 @@ void LoopWIAnalysis::getHeaderPHiStride() {
     // be updated in the following lines of code.
     m_deps[PN] = LoopWIAnalysis::RANDOM;
 
+    // Currently support only scalar phi in the header block.
+    if (PN->getType()->isVectorTy()) continue;
+
     // The latch entry is and addition.
     Value *latchVal = PN->getIncomingValueForBlock(m_latch);
     Instruction *Inc = dyn_cast<Instruction>(latchVal);
