@@ -1114,7 +1114,7 @@ private:
         if (!is_initialized(bucket))
             init_bucket(bucket);
 
-        size_type new_count;
+        size_type new_count = 0;
         order_key = split_order_key_regular(order_key);
         raw_iterator it = get_bucket(bucket);
         raw_iterator last = my_solist.raw_end();
