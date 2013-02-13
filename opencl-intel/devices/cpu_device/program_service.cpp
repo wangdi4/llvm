@@ -274,6 +274,8 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cann't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
     }
+
+	pEntry->programType = PTCompiledProgram;
     pEntry->pProgram = NULL;
     pEntry->clBuildStatus = CL_BUILD_NONE;
 
@@ -324,6 +326,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_OUT_OF_MEMORY;
     }
 
+	pEntry->programType = PTBuiltInProgram;
     pEntry->pProgram = pProg;
 	pEntry->clBuildStatus = CL_BUILD_SUCCESS;
 	assert(NULL!=prog&&"prog expected to be valid pointer");
@@ -858,10 +861,9 @@ void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
     assert(m_pBackendCompiler);
 
 #ifdef __INCLUDE_MKL__
-	// Ugly code because BE team decided to remove Release() method from the IDevBEProgram
-	BuiltInProgram* pBIProgram = dynamic_cast<BuiltInProgram*>(pEntry->pProgram);
-	if ( NULL != pBIProgram )
+	if ( PTBuiltInProgram == pEntry->programType )
 	{
+		BuiltInProgram* pBIProgram = static_cast<BuiltInProgram*>(pEntry->pProgram);
 		delete pBIProgram;
 	}
 	else

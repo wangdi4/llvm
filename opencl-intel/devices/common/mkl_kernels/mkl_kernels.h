@@ -262,7 +262,7 @@ public:
 	int GetKernelParamsCount() const {return (int)MKL_EXECUTOR_CLASS::GetParamCount();}
 	const cl_kernel_argument* GetKernelParams() const { return MKL_EXECUTOR_CLASS::GetKernelParams();}
 	const cl_kernel_argument_info* GetKernelArgInfo() const { return MKL_EXECUTOR_CLASS::GetKernelArgInfo();}
-	const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
+	const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return NULL;}
 
 protected:
 	class MKLKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties

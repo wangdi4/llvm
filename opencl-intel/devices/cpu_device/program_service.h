@@ -130,9 +130,15 @@ public:
 protected:
     friend class ProgramBuildTask;
     typedef std::map<std::string, cl_dev_kernel>            TName2IdMap;
+	enum tProgramType
+	{
+		PTCompiledProgram = 0,
+		PTBuiltInProgram
+	};
     struct  TProgramEntry
     {
         ICLDevBackendProgram_*  pProgram;
+		tProgramType			programType;
         cl_build_status         clBuildStatus;
         TName2IdMap             mapKernels;
         OclMutex                muMap;

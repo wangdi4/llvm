@@ -759,9 +759,10 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 #ifdef __INCLUDE_MKL__
 	// First to check if the requried NDRange is one of the built-in kernels
 	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
-	
-    IBuiltInKernel* pBIKernel;
-	if ( NULL != (pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel)) )
+
+	// Built-in kernel currently returns NULL properties.
+	// Must be changed to return explicit info.
+	if ( NULL == pKernel->GetKernelProporties() )
 	{
 		return NativeKernelTask::Create(pTD, pCmd, pTask);
 	}
