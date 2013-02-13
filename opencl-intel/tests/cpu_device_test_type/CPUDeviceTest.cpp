@@ -686,17 +686,12 @@ int main(int argc, char* argv[])
 {	
 	::testing::InitGoogleTest(&argc, argv);
 
-	// Initialize Task Executor
-	int iThreads = GetTaskExecutor()->Init(0, false);
-	EXPECT_TRUE(iThreads>0);
-
-#if 0   // There are some non-deterministic failures in this test. I guess it's a bug in the test, which doesn't take into account all the new behavior of the new arenas. TODO: fix it
-	test_task_executor();
-#endif
-
 	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
+	EXPECT_TRUE(pTaskExecutor!=NULL);
 
-	EXPECT_TRUE(pTaskExecutor->Activate());
+	// Initialize Task Executor
+	int iThreads = pTaskExecutor->Init(0, false);
+	EXPECT_TRUE(iThreads>0);
 
 	//Create and Init the device
 	cl_uint						dev_id = 0;
@@ -731,8 +726,6 @@ int main(int argc, char* argv[])
 	
 	dev_entry->clDevCloseDevice();
 
-	pTaskExecutor->Deactivate();
-	
 	if (rc == 0) {
 		printf("\n==============\nTEST SUCCEDDED\n==============\n");
 	}

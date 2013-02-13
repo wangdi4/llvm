@@ -145,17 +145,18 @@ void SubdevArenaObserver::on_scheduler_exit(bool bIsWorker)
 // ArenaHandler's methods:
 
 ArenaHandler::ArenaHandler(unsigned int uiNumComputeUnits, unsigned int uiNumTotalComputeUnits, TBBTaskExecutor& taskExecutor) :
-// the global scheduler is initialized with P+1 threads because of a bug in TBB (see TBBTaskExecutor::m_pScheduler)
-m_wgContexts(uiNumTotalComputeUnits + 1), // TODO: fix this after TBB bug #1968 is fixed
+	// the global scheduler is initialized with P+1 threads because of a bug in TBB (see TBBTaskExecutor::m_pScheduler)
+	m_wgContexts(uiNumTotalComputeUnits + 1), // TODO: fix this after TBB bug #1968 is fixed
     m_taskExecutor(taskExecutor), m_uiNumSubdevComputeUnits(uiNumComputeUnits), m_isTerminating(false)
 {
     for (std::vector<WGContextBase*>::iterator iter = m_wgContexts.begin(); iter != m_wgContexts.end(); iter++)
     {
         *iter = NULL;
     }
-	/* We get P slots for work threads + 1 slot for master. However, when the master joins the arena, one of the worker threads will leave and maximum concurrency of P (except for temporary
-	   oversubscription). */
-    m_arena.initialize(uiNumComputeUnits);
+	// For root device we get P-1 slots for work threads + 1 slot for master
+	// For sub-devices, we have P slots for workers.
+	unsigned int uiMasterSlots = uiNumComputeUnits == uiNumTotalComputeUnits ? 1 : 0;
+    m_arena.initialize(uiNumComputeUnits, uiMasterSlots);
 }
 
 void ArenaHandler::Init(DevArenaObserver* pArenaObserver)

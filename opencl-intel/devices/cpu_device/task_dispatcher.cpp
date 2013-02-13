@@ -217,6 +217,7 @@ TaskDispatcher::~TaskDispatcher()
         {
 		    TaskExecutor::GetTaskExecutor()->Deactivate();
         }
+		TaskExecutor::GetTaskExecutor()->SetWGContextPool(NULL);
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)

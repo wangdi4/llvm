@@ -2219,7 +2219,7 @@ void CPUDevice::clDevCloseDevice(void)
     }
     if ( NULL != m_pTaskDispatcher )
     {
-        m_pTaskDispatcher->setWgContextPool(NULL);
+		// The WGContextPool will set to NULL in the destructor
         delete m_pTaskDispatcher;
         m_pTaskDispatcher = NULL;
     }

@@ -553,14 +553,15 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 
 	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
 	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
-	LOG_INFO(TEXT("%s"),"Done");	
+	LOG_INFO(TEXT("%s"),"Done");
+
 	return gWorker_threads;
 }
 
 bool TBBTaskExecutor::Activate()
 {
-	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 	assert(gWorker_threads && "TBB executor should be initialized first");
+	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
 	OclAutoMutex mu(&m_mutex);
 
 	if ( 0 != m_lActivateCount )
@@ -739,30 +740,27 @@ void TBBTaskExecutor::WaitUntilEmpty(void* pSubdevData)
 
 void TBBTaskExecutor::SetWGContextPool(IWGContextPool* pWgContextPool)
 {
-    OclAutoMutex mu(&m_contextPoolMutex);
     m_pWgContextPool = pWgContextPool;
 }
 
 WGContextBase* TBBTaskExecutor::GetWGContext(bool bBelongsToMasterThread)
 {
-    OclAutoMutex mu(&m_contextPoolMutex);
-    if (NULL != m_pWgContextPool)
-    {
-        return m_pWgContextPool->GetWGContext(bBelongsToMasterThread);
-    }
-    else
+	//assert(NULL!=m_pWgContextPool && "The pool should be set by this time");
+    if (NULL == m_pWgContextPool)
     {
         return NULL;
-    }            
+    }
+	return m_pWgContextPool->GetWGContext(bBelongsToMasterThread);
 }
 
 void TBBTaskExecutor::ReleaseWorkerWGContext(WGContextBase* wgContext)
 {
-    OclAutoMutex mu(&m_contextPoolMutex);
-    if (NULL != m_pWgContextPool)
+	//assert(NULL!=m_pWgContextPool && "The pool should be set by this time");
+    if (NULL == m_pWgContextPool)
     {
-        m_pWgContextPool->ReleaseWorkerWGContext(wgContext);
-    }            
+        return;
+    }
+	m_pWgContextPool->ReleaseWorkerWGContext(wgContext);
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor
