@@ -1,6 +1,12 @@
 add_subdirectory( cl_hw_utils )
 add_subdirectory( cl_logger )
 add_subdirectory( cl_sys_utils )
+
+if(WIN32)
+    add_subdirectory( dyn_cl_sys_utils )
+    add_subdirectory( dyn_cl_hw_utils )
+endif(WIN32)
+
 add_subdirectory( task_executor )
 
 macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )

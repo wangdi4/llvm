@@ -1,3 +1,7 @@
+if(WIN32)
+    ocl_replace_compiler_option_to_dynamic()
+endif(WIN32)
+
 # set project's name
 set(TARGET KernelBuilder_module)
 

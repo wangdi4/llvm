@@ -40,7 +40,7 @@ if (WIN32)
 		ARCHIVE DESTINATION lib/x64)   
 endif (WIN32)
         
-target_link_libraries( ${TARGET_NAME} cl_sys_utils )
+target_link_libraries( ${TARGET_NAME} LINK_PRIVATE cl_sys_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRAMEWORK_FOLDER_NAME} )
 
 if (NOT WIN32)

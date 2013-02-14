@@ -80,6 +80,33 @@ endfunction ( FIND_SOURCES )
 
 #
 # Usage
+#     FIND_SOURCES_IN_FOLDER( optional FOLDER_ARG optional FILER_OUT_REGEXP )
+#
+# Creates HEADER_FILES, EXPORT_HEADER_FILES and SOURCE_FILES variables
+# by globbing CMAKE_CURRENT_SOURCE_DIR
+#
+function ( FIND_SOURCES_IN_FOLDER )
+    if (${ARGC} EQUAL 0 )
+        set( FOLDER_ARG "not used folder" )
+    else()
+        set( FOLDER_ARG ${ARGV0} )
+    endif (${ARGC} EQUAL  0 )
+    
+    file(GLOB HEADER_FILES_1 ${FOLDER_ARG}/*.h ${FOLDER_ARG}/*.hpp)
+    file(GLOB EXPORT_HEADER_FILES_1 ${FOLDER_ARG}/export/*.h ${FOLDER_ARG}/export/*.hpp)
+    file(GLOB SOURCE_FILES_1 ${FOLDER_ARG}/*.c ${FOLDER_ARG}/*.cpp ${FOLDER_ARG}/*.cc)
+
+    if (${ARGC} EQUAL 1 OR ${ARGC} EQUAL 0)
+        set( FILER_OUT_REGEXP "not used regexp" )
+    else()
+        set( FILER_OUT_REGEXP ${ARGV1} )
+    endif (${ARGC} EQUAL  1 OR ${ARGC} EQUAL 0 )
+
+    FILTER_SOURCES( ${FILER_OUT_REGEXP} )
+endfunction ( FIND_SOURCES_IN_FOLDER )
+
+#
+# Usage
 #     FIND_SOURCES_RECURSE( optional FILER_OUT_REGEXP )
 #
 # Creates HEADER_FILES and SOURCE_FILES variables
@@ -239,3 +266,45 @@ function( remove_path PATHARG )
     endforeach(PATH)
     set(ENV{PATH} "${NEW_PATH}")
 endfunction( remove_path )
+
+
+#
+# Replaces a compiler option or switch `old' in `var' by `new'.
+# If `old' is not in `var', appends `new' to `var'.
+# If the option already is on the variable, don't add it
+# Usage: llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
+#
+function(ocl_replace_compiler_option var old new)
+  if( "${${var}}" MATCHES "(^| )${new}($| )" )
+    set(n "")
+  else()
+    set(n "${new}")
+  endif()
+  if( "${${var}}" MATCHES "(^| )${old}($| )" )
+    string( REGEX REPLACE "(^| )${old}($| )" " ${n} " ${var} "${${var}}" )
+  else()
+    set( ${var} "${${var}} ${n}" )
+  endif()
+  set( ${var} "${${var}}" PARENT_SCOPE )
+endfunction(ocl_replace_compiler_option)
+
+#
+# Replaces compiler options to dynamic linking
+#
+function(ocl_replace_compiler_option_to_dynamic)
+    ocl_replace_compiler_option(CMAKE_C_FLAGS_RELEASE "/MT" "/MD")
+    ocl_replace_compiler_option(CMAKE_C_FLAGS_DEBUG "/MTd" "/MDd")
+    ocl_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "/MT" "/MD")
+    ocl_replace_compiler_option(CMAKE_CXX_FLAGS_DEBUG "/MTd" "/MDd")
+    ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_RELEASE "/NODEFAULTLIB:LIBCMTD" "")
+    ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_RELEASE "/NODEFAULTLIB:LIBCPMTD" "")
+    ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_DEBUG "/NODEFAULTLIB:LIBCMT" "")
+    ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_DEBUG "/NODEFAULTLIB:LIBCPMT" "")
+    
+    set(CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE} PARENT_SCOPE)
+    set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} PARENT_SCOPE)
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE ${CMAKE_EXE_LINKER_FLAGS_RELEASE} PARENT_SCOPE)
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG} PARENT_SCOPE)
+endfunction(ocl_replace_compiler_option_to_dynamic)
