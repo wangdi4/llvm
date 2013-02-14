@@ -4427,7 +4427,7 @@ public:
     {
         typename detail::param_traits<
             detail::cl_kernel_arg_info, name>::param_type param;
-        cl_int result = getArgInfo(name, argIndex, &param);
+        cl_int result = getArgInfo(argIndex, name, &param);
         if (err != NULL) {
             *err = result;
         }

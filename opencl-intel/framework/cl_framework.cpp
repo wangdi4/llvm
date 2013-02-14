@@ -1162,14 +1162,14 @@ REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9ObjectsINTEL, clEnqueueReleaseDX9
 cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(cl_platform_id platform,
                                                         cl_uint num_media_adapters,
                                                         cl_dx9_media_adapter_type_khr* media_adapters_type,
-                                                        void* media_adapters,
+                                                        void* media_adapters[],
                                                         cl_dx9_media_adapter_set_khr media_adapter_set,
                                                         cl_uint num_entries,
                                                         cl_device_id* devices,
                                                         cl_uint* num_devices)
 {
     return PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, num_media_adapters, (int*)media_adapters_type,
-        (void**)media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
+        media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
 }
 SET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
 
