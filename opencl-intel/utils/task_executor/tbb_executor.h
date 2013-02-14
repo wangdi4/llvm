@@ -101,7 +101,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
         tbb::task_scheduler_init*           m_pScheduler;		
-        IWGContextPool* volatile			m_pWgContextPool;
+        IWGContextPool* volatile m_pWgContextPool;
+		OclMutex m_contextPoolMutex;
 
 	private:
 		TBBTaskExecutor(const TBBTaskExecutor&);
