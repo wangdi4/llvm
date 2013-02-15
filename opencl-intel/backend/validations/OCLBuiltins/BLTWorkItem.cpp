@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011-2012).
+Copyright (c) Intel Corporation (2011-2013).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -18,13 +18,23 @@ File Name:  BLTWorkItem.cpp
 
 #include <vector>
 #include <llvm/ExecutionEngine/GenericValue.h>
-#include "IWorkItemBuiltins.h"
 #include "BLTWorkItem.h"
+#include "IWorkItemBuiltins.h"
 
 using namespace llvm;
-using std::map;
 using std::string;
 using std::vector;
+using namespace Validation::OCLBuiltins;
+
+#ifndef BUILTINS_API
+   #if defined(_WIN32)
+      #define BUILTINS_API __declspec(dllexport)
+   #else
+      #define BUILTINS_API
+   #endif
+#endif
+
+
 namespace Validation {
 namespace OCLBuiltins {
 
@@ -151,22 +161,17 @@ GenericValue lle_X_get_global_offset_impl(FunctionType *FT,
   return gv;
 }
 
-
-void WorkItemMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
-{
-    /*
-    funcNames["lle_X_get_work_dim"]              =     lle_X_get_work_dim;
-    funcNames["lle_X_get_global_size"]           =     lle_X_get_global_size;
-    funcNames["lle_X_get_global_id"]             =     lle_X_get_global_id;
-    funcNames["lle_X_get_local_size"]            =     lle_X_get_local_size;
-    funcNames["lle_X_get_local_id"]              =     lle_X_get_local_id;
-    funcNames["lle_X_get_num_groups"]            =     lle_X_get_num_groups;
-    funcNames["lle_X_get_group_id"]              =     lle_X_get_group_id;
-    funcNames["lle_X_get_global_offset"]         =     lle_X_get_global_offset;
-    */
-}
-
-
-} // namespace Validation
 } // namespace OCLBuiltins
+} // namespace Validation
 
+extern "C" {
+BUILTINS_API void initOCLBuiltinsWorkItem() {return;}
+BUILTINS_API llvm::GenericValue lle_X_get_work_dim(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_get_work_dim_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_size(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_size_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_local_size(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_local_size_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_local_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_local_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_num_groups(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_num_groups_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_group_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_group_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_offset(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_offset_impl(FT,Args);}
+  }

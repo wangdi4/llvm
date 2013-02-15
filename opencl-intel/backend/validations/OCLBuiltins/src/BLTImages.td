@@ -1,6 +1,49 @@
+// vim:ts=2:sw=2:et:
+
+include "ref-opencl-builtin.td"
+include "BLTRef.td"
+
+def image3d: OclType<"image3d_t", "image3d_t", 1, 0, 0>;
+def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
+
+
+let Types = [ v4f32, v4i32 ],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def read_imagef_2d  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image2d:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_2d  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image2d:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_2d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image2d:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_3d  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_3d  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_3d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+}
+
+let Types = [ v4i32 ],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def write_imagef  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d:$image, gentype2:$coord, f32gentype:$color), [], [], TemplateAttr< [] > >;
+def write_imagei  : REF_OclBuiltin<"write_imagei",  (outs), (ins image2d:$image, gentype2:$coord, i32gentype:$color), [], [], TemplateAttr< [] > >;
+def write_imageui  : REF_OclBuiltin<"write_imageui",  (outs), (ins image2d:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [] > >;
+}
+
+let Types = [ v1i32 ],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def get_image_width_2d  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_width_3d  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_height_2d  : REF_OclBuiltin<"get_image_height",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_height_3d  : REF_OclBuiltin<"get_image_height",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_depth : REF_OclBuiltin<"get_image_depth",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_2d : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_3d : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_2d : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_3d : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_dim_2d : REF_OclBuiltin<"get_image_dim",  (outs gentype2:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_dim_3d : REF_OclBuiltin<"get_image_dim",  (outs gentype4:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+}
+
+class Generic {
+  code Prolog = [{
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2013).
 
 INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
 LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -26,46 +69,34 @@ File Name:  BLTImages.cpp
 #include "Helpers.h"
 #include "BLTImages.h"
 
+// !!!! HACK 
+// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it generates
+// Removing annoying ‘ceil’ : attributes not present on previous declaration warning C4985
+#include "cl_types.h"
+#include "CL/cl.h"
 
 
-
-using std::map;
+using namespace llvm;
 using std::string;
 using std::vector;
+using namespace Validation::OCLBuiltins;
+
+#ifndef BUILTINS_API
+   #if defined(_WIN32)
+      #define BUILTINS_API __declspec(dllexport)
+   #else
+      #define BUILTINS_API
+   #endif
+#endif
+
+extern "C" {
+BUILTINS_API void initOCLBuiltinsImages() {return;}
+  }];
+  
+  code Epilog = [{
+}
 namespace Validation {
 namespace OCLBuiltins {
-
-
-void ImageMapFiller::addOpenCLBuiltins( map<string, PBLTFunc>& funcNames )
-{
-    funcNames["lle_X__Z11read_imagef9image2d_tjDv2_i"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagef9image2d_tjDv2_f"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagei9image2d_tjDv2_i"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z11read_imagei9image2d_tjDv2_f"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z12read_imageui9image2d_tjDv2_i"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12read_imageui9image2d_tjDv2_f"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12write_imagef9image2d_tDv2_iDv4_f"] = lle_X_write_image;
-    funcNames["lle_X__Z12write_imagei9image2d_tDv2_iDv4_i"] = lle_X_write_image;
-    funcNames["lle_X__Z13write_imageui9image2d_tDv2_iDv4_j"] = lle_X_write_image;
-    funcNames["lle_X__Z11read_imagef9image3d_tjDv4_i"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagef9image3d_tjDv4_f"] = lle_X_read_image<float>;
-    funcNames["lle_X__Z11read_imagei9image3d_tjDv4_i"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z11read_imagei9image3d_tjDv4_f"] = lle_X_read_image<int32_t>;
-    funcNames["lle_X__Z12read_imageui9image3d_tjDv4_i"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z12read_imageui9image3d_tjDv4_f"] = lle_X_read_image<uint32_t>;
-    funcNames["lle_X__Z15get_image_width9image2d_t"] = lle_X_get_image_width;
-    funcNames["lle_X__Z15get_image_width9image3d_t"] = lle_X_get_image_width;
-    funcNames["lle_X__Z16get_image_height9image2d_t"] = lle_X_get_image_height;
-    funcNames["lle_X__Z16get_image_height9image3d_t"] = lle_X_get_image_height;
-    funcNames["lle_X__Z15get_image_depth9image3d_t"] = lle_X_get_image_depth;
-    funcNames["lle_X__Z27get_image_channel_data_type9image2d_t"] = lle_X_get_image_channel_data_type;
-    funcNames["lle_X__Z27get_image_channel_data_type9image3d_t"] = lle_X_get_image_channel_data_type;
-    funcNames["lle_X__Z23get_image_channel_order9image2d_t"] = lle_X_get_image_channel_order;
-    funcNames["lle_X__Z23get_image_channel_order9image3d_t"] = lle_X_get_image_channel_order;
-    funcNames["lle_X__Z13get_image_dim9image2d_t"] = lle_X_get_image_dim2;
-    funcNames["lle_X__Z13get_image_dim9image3d_t"] = lle_X_get_image_dim3;
-}
-
 // convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
 cl_channel_order ConvertChannelOrderFromIntelOCLToCL(const cl_channel_order& val )
 {
@@ -328,6 +359,9 @@ llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT,
     return gv;
 
 }
-
-} // namespace OCLBuiltins
-} // namespace Validation
+}
+}
+  }];
+  
+}
+  def inc : Generic;
