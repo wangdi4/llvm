@@ -1,13 +1,9 @@
 #
-# Global and platform settings
-#
-cmake_minimum_required(VERSION 2.8.4)
-cmake_policy(SET CMP0001 NEW)
-cmake_policy(SET CMP0011 OLD)
-
 # Settings for Linux compilation
 #
-set(LLVM_REQUIRES_EH 1)
+use_eh(TRUE)
+
+set (TARGET_NAME OCLBuiltins)
 
 if (NOT WIN32)
 
@@ -32,71 +28,40 @@ set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}"
 
 endif (NOT WIN32)
 
-set (TARGET_NAME "ref_cl_builtins")
+if(MSVC)
+    # /bigobj is required for windows builds because of the size of
+    # some object files (CastImage for instance)
+    set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj" )
+    set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj" )
+endif()
 
-project( ${TARGET_NAME} )
-
-# remember OCL builtins source dir
-set (REF_CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message ("Reference built-ins sources are in: ${REF_CL_BUILTIN_SOURCE_DIR}")
-
-#------------------- Utility functions ---------------------------
-function(tblgenrefoclblt OUTPUT_VAR OUTPUT_DIR IFN)
-    string(REPLACE ".td" ".cpp" OFN ${IFN})
-    file(GLOB_RECURSE depend_tds "${REF_CL_BUILTIN_SOURCE_DIR}/*.td")
-    add_custom_command(
-        OUTPUT ${OUTPUT_DIR}/${OFN}
-        COMMAND  ref-ocl-tblgen ${ARGN} -I=${REF_CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${REF_CL_BUILTIN_SOURCE_DIR}/${IFN}
-        DEPENDS  ref-ocl-tblgen ${depend_tds}
-        COMMENT "Generating reference built-in file ${OFN}..."
-        )
-    set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
-    set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
-endfunction(tblgenrefoclblt)
-
-
-#------------------ Main -----------------------
-
-list (APPEND TD_FILES
-./src/BLTAsyncCopiesAndPrefetch.td
-./src/BLTAtomic.td
-./src/BLTCommon.td
-./src/BLTConversionsChar.td
-./src/BLTConversionsShort.td
-./src/BLTConversionsInt.td
-./src/BLTConversionsLong.td
-./src/BLTConversionsFPoint.td
-./src/BLTGeometric.td
-./src/BLTImages.td
-./src/BLTInteger.td
-./src/BLTMath.td
-./src/BLTMiscellaneousVector.td
-./src/BLTRelational.td
-./src/VLoadStore.td)
-
-foreach (FILE ${TD_FILES})
-  tblgenrefoclblt(OCL_TABLEGEN_SOURCE ${REF_CL_BUILTIN_SOURCE_DIR} ${FILE} -gen-ocl-src)
-  list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-endforeach (FILE)
-
-  add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${OCL_SOURCE_FILES} ref-ocl-tblgen
-    COMMENT "Target ${TARGET_NAME} build completed"
-    VERBATIM
-    SOURCES ${OCL_SOURCE_FILES}
-    )
-
-  add_library(OCLBuiltins
-  ${OCL_SOURCE_FILES}
+add_library(OCLBuiltins
+  IBLTMapFiller.h
+  IWorkItemBuiltins.h
   BLTWorkItem.cpp
-  Helpers.cpp
+  BLTCommon.cpp
+  BLTMath.cpp
+  BLTImages.cpp
+  BLTInteger.cpp
+  BLTGeometric.cpp
+  BLTConversion.cpp
+  BLTRelational.cpp
+  BLTAsyncCopiesAndPrefetch.cpp
+  BLTMiscellaneousVector.cpp
+  BLTAtomic.cpp
   OCLBuiltinParser.cpp
+  OCLBuiltins.cpp
+  VLoadStore.cpp
+  Helpers.cpp
+  Wrappers.cpp
   )
 
+  
+  
 include_directories (
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/name_mangling
   ${VALIDATIONS_ROOT}/Common
   ${VALIDATIONS_ROOT}/REFALU
-  ${REF_CL_BUILTIN_SOURCE_DIR}
   )
+

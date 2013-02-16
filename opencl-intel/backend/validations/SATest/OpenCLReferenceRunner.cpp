@@ -92,22 +92,7 @@ static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
 static ManagedStatic<sys::Mutex> InterpreterLock;
 
-extern "C" void initOCLBuiltinsAsync();
-extern "C" void initOCLBuiltinsAtomic();
-extern "C" void initOCLBuiltinsCommon();
-extern "C" void initOCLBuiltinsConvChar();
-extern "C" void initOCLBuiltinsConvShort();
-extern "C" void initOCLBuiltinsConvInt();
-extern "C" void initOCLBuiltinsConvLong();
-extern "C" void initOCLBuiltinsConvFPoint();
-extern "C" void initOCLBuiltinsGeometric();
-extern "C" void initOCLBuiltinsImages();
-extern "C" void initOCLBuiltinsInteger();
-extern "C" void initOCLBuiltinsMath();
-extern "C" void initOCLBuiltinsMisc();
-extern "C" void initOCLBuiltinsRelational();
-extern "C" void initOCLBuiltinsWorkItem();
-extern "C" void initOCLBuiltinsVLoadStore();
+extern "C" void initOCLBuiltins();
 
 OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pLLVMContext(NULL),
@@ -119,22 +104,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_bUseNEAT(bUseNEAT),
     m_bUseFmaNEAT(bUseFmaNEAT)
 {
-    initOCLBuiltinsAsync();
-    initOCLBuiltinsAtomic();
-    initOCLBuiltinsCommon();
-    initOCLBuiltinsConvChar();
-    initOCLBuiltinsConvShort();
-    initOCLBuiltinsConvInt();
-    initOCLBuiltinsConvLong();
-    initOCLBuiltinsConvFPoint();
-    initOCLBuiltinsGeometric();
-    initOCLBuiltinsImages();
-    initOCLBuiltinsInteger();
-    initOCLBuiltinsMath();
-    initOCLBuiltinsMisc();
-    initOCLBuiltinsRelational();
-    initOCLBuiltinsWorkItem();
-    initOCLBuiltinsVLoadStore();
+    initOCLBuiltins();
 }
 
 OpenCLReferenceRunner::~OpenCLReferenceRunner(void)

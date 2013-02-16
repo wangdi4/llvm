@@ -23,6 +23,7 @@ File Name:  BLTImages.h
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/Support/Debug.h"
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 #include "RefALU.h"
 #include "ImagesALU.h"
 // !!!! HACK
@@ -46,6 +47,14 @@ namespace OCLBuiltins {
 Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc, cl_image_format& out_ImageFmt);
 Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler);
 cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& val );
+
+    /// This class adds references to the implementations of OpenCL built-in functions
+    /// from 6.11.13 section Images
+    class ImageMapFiller : public IBLTMapFiller
+    {
+    public:
+        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+    };
 
     template<typename T>
     llvm::GenericValue lle_X_read_image( llvm::FunctionType *FT,

@@ -22,11 +22,19 @@ File Name:  BLTMiscellaneousVector.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 #include "RefALU.h"
 #include "Utils.h"
 
 namespace Validation {
 namespace OCLBuiltins {
+
+    // This class adds references to the implementations of OpenCL built-in functions from 6.11.5 section.
+    class MiscellaneousVectorFiller : public IBLTMapFiller
+    {
+    public:
+        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+    };
 
     template<typename T1, typename T2, int n>
     llvm::GenericValue lle_X_shuffle(llvm::FunctionType *FT,

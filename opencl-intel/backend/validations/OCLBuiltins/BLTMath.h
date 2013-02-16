@@ -22,10 +22,18 @@ File Name:  BLTMath.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 #include "RefALU.h"
 
 namespace Validation {
 namespace OCLBuiltins {
+
+    // This class adds references to the implementations of OpenCL built-in functions from 6.11.2 section.
+    class MathMapFiller : public IBLTMapFiller
+    {
+    public:
+        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+    };
 
     DEFINE_BLT_ONE_ARG(sqrt)
     DEFINE_BLT_ONE_ARG(rsqrt)

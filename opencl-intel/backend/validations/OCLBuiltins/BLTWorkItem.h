@@ -20,11 +20,18 @@ File Name:  BLTWorkItem.h
 
 #include <map>
 #include <string>
-#include <llvm/DerivedTypes.h>
+#include "IBLTMapFiller.h"
 #include <llvm/ExecutionEngine/GenericValue.h>
 
 namespace Validation {
 namespace OCLBuiltins {
+
+// This class adds references to the implementations of OpenCL built-in functions from 6.11.4 section.
+class WorkItemMapFiller : public IBLTMapFiller
+{
+public:
+    void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+};
 
 llvm::GenericValue lle_X_get_work_dim_impl(llvm::FunctionType *FT,
                          const std::vector<llvm::GenericValue> &Args);

@@ -22,10 +22,18 @@ File Name:  BLTRelational.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 #include "RefALU.h"
 
 namespace Validation {
 namespace OCLBuiltins {
+
+    // This class adds references to the implementations of OpenCL built-in functions from 6.2 section.
+    class RelationalMapFiller : public IBLTMapFiller
+    {
+    public:
+        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+    };
 
     template<typename T>
     llvm::GenericValue lle_X_isinf(llvm::FunctionType *FT,
@@ -363,6 +371,46 @@ namespace OCLBuiltins {
             T out = cond ? getVal<T,n>(arg1, i) : getVal<T,n>(arg0, i);
             R.AggregateVal[i] = selectResult<T>(out);
         }
+        return R;
+    }
+
+    template<>
+    llvm::GenericValue localBitselect( float inA, float inB, float inC )
+    {
+        llvm::GenericValue R;
+        union {uint32_t u; float f;} a, b, c, out;
+        a.f = inA;
+        b.f = inB;
+        c.f = inC;
+        out.u = ( a.u & ~c.u ) | ( b.u & c.u );
+        getRef<float>(R) = out.f;
+        return R;
+    }
+    template<>
+    llvm::GenericValue localBitselect( double inA, double inB, double inC )
+    {
+        llvm::GenericValue R;
+        union {uint64_t u; double f;} a, b, c, out;
+        a.f = inA;
+        b.f = inB;
+        c.f = inC;
+        out.u = ( a.u & c.u ) | ( b.u & c.u );
+        getRef<double>(R) = out.f;
+        return R;
+    }
+
+    template<>
+    llvm::GenericValue selectResult( float inC )
+    {
+        llvm::GenericValue R;
+        getRef<float>(R) = inC;
+        return R;
+    }
+    template<>
+    llvm::GenericValue selectResult( double inC )
+    {
+        llvm::GenericValue R;
+        getRef<double>(R) = inC;
         return R;
     }
 

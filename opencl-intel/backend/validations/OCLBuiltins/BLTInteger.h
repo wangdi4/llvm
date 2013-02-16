@@ -22,9 +22,17 @@ File Name:  BLTInteger.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 
 namespace Validation {
 namespace OCLBuiltins {
+
+    // This class adds references to the implementations of OpenCL built-in functions from 6.11.3 section.
+    class IntegerMapFiller : public IBLTMapFiller
+    {
+    public:
+        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+    };
 
     template <typename T>
     llvm::APInt ExtAPInt(llvm::APInt& a, unsigned width)
@@ -397,6 +405,11 @@ namespace OCLBuiltins {
         }
         return ret;
     }
+	
+    template <> llvm::APInt ExtAPInt<int8_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int16_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int32_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
+    template <> llvm::APInt ExtAPInt<int64_t>(llvm::APInt& a, unsigned width){return a.sext(width);}
 
 } // namespace OCLBuiltins
 } // namespace Validation

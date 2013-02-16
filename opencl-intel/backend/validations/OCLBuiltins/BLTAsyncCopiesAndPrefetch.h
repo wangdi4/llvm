@@ -22,10 +22,18 @@ File Name:  BLTAsyncCopiesAndPrefetch.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
+#include "IBLTMapFiller.h"
 #include <RefALU.h>
 
 namespace Validation {
 namespace OCLBuiltins {
+
+// This class adds references to the implementations of OpenCL built-in functions from 6.11.10 section.
+class AsyncCopiesAndPrefetchMapFiller : public IBLTMapFiller
+{
+public:
+    void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
+};
 
 llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
 llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
