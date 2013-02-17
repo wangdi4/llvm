@@ -306,7 +306,7 @@ namespace Validation
         return &*it;
     }
 
-    RecorderContext::RecorderContext( const std::string& logsPath, const std::string& prefix):
+    RecorderContext::RecorderContext(const std::string& logsPath, const std::string& prefix):
         m_TD(NULL),
         m_logsPath(logsPath)
     {
@@ -572,9 +572,7 @@ namespace Validation
         MD5Code code = md5.digest();
         Frontend::SourceFile sourceFile;
         if (NeedSourceRecording(code, OUT &sourceFile))
-        {
             RecordSourceCode(*spContext, sourceFile);
-        }
         else
         {
             RecordByteCode(pContainer, *spContext);
@@ -603,21 +601,34 @@ namespace Validation
         context.Flush();
     }
 
+    static bool isDot(char c){
+      return '.' == c;
+    }
+
+    static std::string::iterator fitsDot(std::string& s){
+      return std::find_if(s.begin(), s.end(), isDot);
+    }
+
     void OCLRecorder::RecordSourceCode(RecorderContext& context,
-                                       const Frontend::SourceFile& sourceFile)
-    {
+      const Frontend::SourceFile& sourceFile){
         assert (m_pSourceRecorder && "NULL source recorder!");
         std::string error;
-        std::string fileName = m_prefix + sourceFile.getName();
+        std::string strName = sourceFile.getName();
+        //we append an 'a' for the basic file name, as long as the file name
+        //until the name is unique within this context
+        while (IsRecordedFile(strName))
+          strName.insert(fitsDot(strName), 'a');
+        AddRecordedFile(strName);
+        strName.insert(0, m_prefix);
         llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
-        path.appendComponent (fileName.c_str());
+        path.appendComponent (strName.c_str());
         llvm::raw_fd_ostream clStream(path.c_str(), error);
         clStream << sourceFile.getContents();
         clStream.close();
         TiXmlElement* pSourceNode = AddChildTextNode(
           context.m_pRunConfig, //configuration file
           "ProgramFile",        //the name of the node to be added
-          fileName              //file name is the text in the node
+          strName               //file name is the text in the node
         );
         std::string compilationFlags = sourceFile.getCompilationFlags();
         pSourceNode->SetAttribute(std::string("compilation_flags"),
@@ -811,6 +822,16 @@ namespace Validation
 
         BinaryContainerListWriter bufferWriter(programContext.getInputFilePath( binaryContext.getBaseName()));
         bufferWriter.Write(&bufferList);
+    }
+
+    void OCLRecorder::AddRecordedFile(const std::string& f){
+      assert(!IsRecordedFile(f) && "file allready exists!");
+      m_recordedFiles.push_back(f); 
+    }
+
+    bool OCLRecorder::IsRecordedFile(const std::string& f)const{
+      const std::vector<std::string>::const_iterator e = m_recordedFiles.end();
+      return std::find(m_recordedFiles.begin(), e, f) != e;
     }
 
     void OCLRecorder::RecordByteCode(const _cl_prog_container_header* pContainer, const RecorderContext& context)

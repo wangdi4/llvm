@@ -14,10 +14,13 @@ endif( BUILD_QTGUI AND INCLUDE_TOOLS )
 add_subdirectory( debugger_test_type )
 if( INCLUDE_TOOLS )
   add_subdirectory( tools_test_type)
+  add_subdirectory(recorder)
 endif( INCLUDE_TOOLS )
+
 add_subdirectory( task_executor_test_type )
+
 if ( INCLUDE_MIC_DEVICE )
-    add_subdirectory( mic_device_test_type )
+  add_subdirectory( mic_device_test_type )
 endif( INCLUDE_MIC_DEVICE )
 
 if( USE_VALGRIND )
@@ -25,7 +28,6 @@ if( USE_VALGRIND )
 endif( USE_VALGRIND )
 
 add_subdirectory(type_conversion)
-
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
 if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)

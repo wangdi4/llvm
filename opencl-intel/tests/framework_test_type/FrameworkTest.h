@@ -25,7 +25,7 @@
 	#else
 		#define SET_FPOS_T(var, val) ((var).__pos = (val))
 		#define GET_FPOS_T(var) ((var).__pos)
-		#define STDCALL __attribute((stdcall))
+		#define STDCALL
 	#endif // __ANDROID__
 	#define SLEEP(mili) usleep(mili * 1000)
 	#define FOPEN(file, name, mode) (file) = fopen((name), (mode))
@@ -134,6 +134,3 @@ bool cl_ALL_Devices_SubBuffer_Simple_Test();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release();
 //#define CUDA_DEVICE
-
-
-

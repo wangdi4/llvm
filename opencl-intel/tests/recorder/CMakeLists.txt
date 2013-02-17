@@ -1,0 +1,66 @@
+#exectuable name
+set(TARGET_NAME "OclRecorderTest")
+
+#overcomming (the many!) warning issued on linux from the runtime
+remove_definitions( -Werror )
+
+#setting the path to the recorder we test
+if(WIN32)
+  add_definitions(-DRECORDER=${CMAKE_INSTALL_PREFIX}/bin/OclRecorder.dll)
+else(WIN32)
+  add_definitions(-DRECORDER=${CMAKE_INSTALL_PREFIX}/bin/libOclRecorder.so)
+endif(WIN32)
+
+#include dirs
+include_directories( ${CMAKE_SOURCE_DIR}/externals/gtest/include
+  ${CMAKE_SOURCE_DIR}/cl_api
+  ${CMAKE_SOURCE_DIR}/tests/framework_test_type/
+)
+
+#adding the executable
+add_executable(
+  ${TARGET_NAME}
+  cpy_kernel.cpp
+  ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
+  ${CMAKE_SOURCE_DIR}/tests/framework_test_type/test_utils.cpp
+)
+
+#setting TBB directory
+if (WIN32)
+    if (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2008
+        set( TBB_LIB_DIR
+${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR}
+)
+    else (${MSVC_VERSION} EQUAL 1500)
+        # Visual Studio 2010
+        set( TBB_LIB_DIR
+${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR}
+)
+    endif (${MSVC_VERSION} EQUAL 1500)
+else (WIN32)
+    set( TBB_LIB_DIR
+${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
+#linking
+link_directories( ${TBB_LIB_DIR} )
+
+target_link_libraries( ${TARGET_NAME} googletest cl_logger OpenCL )
+
+if (NOT WIN32)
+	if( ANDROID )
+  		target_link_libraries( ${TARGET_NAME} gnustl_shared )
+	endif( ANDROID )
+  target_link_libraries(${TARGET_NAME} pthread)
+else (NOT WIN32)
+	target_link_libraries( ${TARGET_NAME}  delayimp)
+	set_target_properties(${TARGET_NAME} PROPERTIES
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
+	)
+endif (NOT WIN32)
+
+#install the executable
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+

@@ -178,7 +178,7 @@ namespace Validation
         ///\brief Ctor
         ///\param logsPath [in] path to store all the recorded output
         ///\param prefix   [in] prefix used for the recorder files
-        RecorderContext( const std::string& logsPath, const std::string& prefix);
+        RecorderContext(const std::string& logsPath, const std::string& prefix);
 
         ~RecorderContext();
 
@@ -219,7 +219,7 @@ namespace Validation
         bool containsKernel( const ICLDevBackendKernel_* pKernel );
 
         KernelContext* getKernelContext(const ICLDevBackendKernel_* pKernel );
-
+        
         TiXmlDocument   m_config;
         TiXmlElement   *m_pRunConfig;
         llvm::sys::Mutex m_configLock;
@@ -299,6 +299,14 @@ namespace Validation
                                 const ICLDevBackendKernel_* pKernel,
                                 size_t bufSize,
                                 void* pArgsBuffer);
+        //adds a file name to be recorded in this context
+        //
+        void AddRecordedFile(const std::string&);
+        //indicates whether the given file name has allredy been recorded
+        //within this context
+        //
+        bool IsRecordedFile(const std::string&)const;
+
     private: // Utility methods
 
         // XML configuration handling helper
@@ -329,6 +337,8 @@ namespace Validation
     private: // Data members
         typedef std::map<const ICLDevBackendProgram_*,  RecorderContext*> RecorderContextMap;
 
+        //files names that has been recorded in this session (avoid overruns)
+        std::vector<std::string> m_recordedFiles;
         RecorderContextMap m_contexts;     // container for program specific contexts
         llvm::sys::Mutex   m_contextsLock; // synchronization for the contexts container
         std::string        m_logsDir;      // optional path to log directory
