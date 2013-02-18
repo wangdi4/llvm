@@ -25,11 +25,6 @@ cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
 std::map<cl_device_type, openBcFunc> gBcfuncMap;
 
-TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
-{
-	EXPECT_TRUE(fission_backwards_compatability_test());
-}
-
 TEST(FrameworkTestType, Test_clfissionBasicTest)
 {
 	EXPECT_TRUE(fission_basic_test());
@@ -408,6 +403,11 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
 TEST(FrameWorkTestType, Test_ShutdownFromChildThread)
 {
 	EXPECT_TRUE(ShutdownFromChildThread());
+}
+
+TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
+{
+	EXPECT_TRUE(fission_backwards_compatability_test());
 }
 
 template <typename T>

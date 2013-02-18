@@ -203,7 +203,6 @@ public:
 	int	    AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
 	int	    DetachFromThread(WGContextBase* pWgContext);
 	void    ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext); 
-    void    ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext);
 	bool    Finish(FINISH_REASON reason);
 
 protected:

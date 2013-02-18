@@ -104,8 +104,6 @@ public:
 
     virtual void ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) { }
 
-    virtual void ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext = NULL) { }
-
 	virtual bool Finish(FINISH_REASON reason)
     {
         m_bIsComplete = true;

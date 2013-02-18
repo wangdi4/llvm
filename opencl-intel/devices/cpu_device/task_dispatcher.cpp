@@ -139,7 +139,16 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
-        pTaskSet->ExecuteAllIterations(dim, m_pMasterWGContext);
+        for (size_t page = 0; page < dim[2]; ++page)
+        {
+            for (size_t col = 0; col < dim[1]; ++col)
+            {
+                for (size_t row = 0; row < dim[0]; ++row)
+                {
+                    pTaskSet->ExecuteIteration(row, col, page, m_pMasterWGContext);
+                }
+            }
+        }
         pTaskSet->DetachFromThread(m_pMasterWGContext);
         pTaskSet->Finish(FINISH_COMPLETED);
         pTaskSet->Release();

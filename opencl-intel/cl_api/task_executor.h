@@ -168,8 +168,6 @@ public:
 	// The function is called with different 'inx' parameters for each iteration number
 	virtual void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) = 0;
 
-    virtual void	ExecuteAllIterations(size_t* dims, WGContextBase* pWgContext = NULL) = 0;
-
     // Final stage, free execution resources
 	// Return false when command execution fails
 	virtual bool	Finish(FINISH_REASON reason) = 0;

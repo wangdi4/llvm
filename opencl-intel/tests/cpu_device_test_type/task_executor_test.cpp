@@ -101,10 +101,6 @@ public:
 		}
 
 	}
-    void	ExecuteAllIterations(size_t* x, WGContextBase* pWgContext)
-    {
-        return;
-    }
 	bool	Finish(FINISH_REASON reason)
 	{
 #ifdef EXTENDED_PRINT
