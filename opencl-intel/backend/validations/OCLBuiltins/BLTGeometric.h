@@ -22,18 +22,10 @@ File Name:  BLTGeometric.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
-#include "IBLTMapFiller.h"
 #include "RefALU.h"
 
 namespace Validation {
 namespace OCLBuiltins {
-
-    // This class adds references to the implementations of OpenCL built-in functions from 6.11.5 section.
-    class GeometricMapFiller : public IBLTMapFiller
-    {
-    public:
-        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
-    };
 
     template<typename T, int n>
     llvm::GenericValue lle_X_dot(llvm::FunctionType *FT,

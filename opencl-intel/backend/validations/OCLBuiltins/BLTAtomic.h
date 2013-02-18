@@ -22,18 +22,10 @@ File Name:  BLTAtomic.h
 #include <llvm/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
-#include "IBLTMapFiller.h"
 #include "RefALU.h"
 
 namespace Validation {
 namespace OCLBuiltins {
-
-    // This class adds references to the implementations of OpenCL built-in functions from 6.11.5 section.
-    class AtomicMapFiller : public IBLTMapFiller
-    {
-    public:
-        void addOpenCLBuiltins(std::map<std::string, PBLTFunc>& funcNames);
-    };
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_add(llvm::FunctionType *FT,
@@ -217,23 +209,6 @@ namespace OCLBuiltins {
         *p = old ^ getVal<T>(arg1);
 
         getRef<T>(R) = llvm::APInt(sizeof(T)*8, old);
-
-        return R;
-    }
-
-    template<>
-    llvm::GenericValue lle_X_atomic_xchg<float>(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        float* p = static_cast<float*>(arg0.PointerVal);
-        
-        float old = *p;
-        *p = getVal<float>(arg1);
-
-        getRef<float>(R) = old;
 
         return R;
     }
