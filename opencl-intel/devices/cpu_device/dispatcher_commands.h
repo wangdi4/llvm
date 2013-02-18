@@ -82,6 +82,7 @@ public:
 	CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
 	  DispatcherCommand(pTD, pCmd)
 	{
+		ITaskClass::IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
 		m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
 		m_aIsSyncPoint = FALSE;
 	}

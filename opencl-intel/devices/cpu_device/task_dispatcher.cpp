@@ -551,7 +551,6 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(SharedPtr<ITaskList> pList, cl_d
 		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);        
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
-            pCommand.IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
 			pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
 		} else
 		{
