@@ -400,9 +400,14 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
     EXPECT_TRUE(EventDependenciesTest());
 }
 
-TEST(FrameWorkTestType, Test_ShutdownFromChildThread)
+TEST(FrameworkTestType, Test_ShutdownFromChildThread)
 {
 	EXPECT_TRUE(ShutdownFromChildThread());
+}
+
+TEST(FrameworkTestType, DISABLED_Test_PredictablePartition)
+{
+	EXPECT_TRUE(predictable_partition_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
