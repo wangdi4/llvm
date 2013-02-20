@@ -605,8 +605,29 @@ namespace Validation
       return '.' == c;
     }
 
-    static std::string::iterator fitsDot(std::string& s){
+    static std::string::iterator firstDot(const std::string& cs){
+      std::string& s = const_cast<std::string&>(cs);
       return std::find_if(s.begin(), s.end(), isDot);
+    }
+
+    class SameBase{
+      std::string name;
+    public:
+      SameBase(const std::string& s):name(s){}
+
+      bool operator()(const std::string& s)const{
+        return s.substr(0, firstDot(s)- s.begin()) == name;
+      }
+    };
+
+    static std::string dupNameSuffix(const std::vector<std::string>& v,
+      const std::string& n){
+      std::stringstream stream;
+      SameBase sb(n);
+      int count = std::count_if(v.begin(), v.end(), sb);
+      if (count)
+        stream << "." << count;
+      return stream.str();
     }
 
     void OCLRecorder::RecordSourceCode(RecorderContext& context,
@@ -614,10 +635,10 @@ namespace Validation
         assert (m_pSourceRecorder && "NULL source recorder!");
         std::string error;
         std::string strName = sourceFile.getName();
-        //we append an 'a' for the basic file name, as long as the file name
-        //until the name is unique within this context
-        while (IsRecordedFile(strName))
-          strName.insert(fitsDot(strName), 'a');
+        //we append a serial number to name of the file, so it would be unique
+        std::string suf = dupNameSuffix(m_recordedFiles, strName);
+        if( !suf.empty() )
+          strName.insert(firstDot(strName) - strName.begin(), suf);
         AddRecordedFile(strName);
         strName.insert(0, m_prefix);
         llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
@@ -826,7 +847,7 @@ namespace Validation
 
     void OCLRecorder::AddRecordedFile(const std::string& f){
       assert(!IsRecordedFile(f) && "file allready exists!");
-      m_recordedFiles.push_back(f); 
+      m_recordedFiles.push_back(f);
     }
 
     bool OCLRecorder::IsRecordedFile(const std::string& f)const{

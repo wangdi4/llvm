@@ -20,7 +20,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/externals/gtest/include
 #adding the executable
 add_executable(
   ${TARGET_NAME}
-  cpy_kernel.cpp
+  recorder_test.cpp
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
   ${CMAKE_SOURCE_DIR}/tests/framework_test_type/test_utils.cpp
 )
@@ -60,6 +60,9 @@ else (NOT WIN32)
 		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
 	)
 endif (NOT WIN32)
+
+#adding dependency to the test subject
+add_dependencies(${TARGET_NAME} OclRecorder)
 
 #install the executable
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
