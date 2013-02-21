@@ -28,13 +28,117 @@ def masktype: OclGenType<"masktype"> {
   list<string> Tout = Tg;
 }
 
+// replace all vectors' length with v16
+class SubSt_v16<list<string> IN>
+{
+  string n; // used in foreach
+  list<string> R1  = !foreach(n,  IN, !subst( "v8",   "v16", n));
+  list<string> R2  = !foreach(n,  R1, !subst( "v4",   "v16", n));
+  list<string> R3  = !foreach(n,  R2, !subst( "v3",   "v16", n));
+  list<string> R4  = !foreach(n,  R3, !subst( "v2",   "v16", n));
+  list<string> R5  = !foreach(n,  R4, !subst( "v1",   "v16", n));
+  list<string> res = !foreach(n,  R5, !subst( "v166", "v16", n));
+}
+
+// replace 8 and 16-bit integers with 32-bit
+class SubSt_ui32<list<string> IN>
+{
+  string n; // used in foreach
+  list<string> R1  = !foreach(n,  IN, !subst( "u8",   "u32", n));
+  list<string> R2  = !foreach(n,  R1, !subst( "u16",  "u32", n));
+  list<string> R3  = !foreach(n,  R2, !subst( "i8",   "i32", n));
+  list<string> res = !foreach(n,  R3, !subst( "i16",  "i32", n));
+}
+
+// remove vector length
+class SubSt_delVecLength<list<string> IN>
+{
+  string n; // used in foreach
+  list<string> T1   = !foreach(n, IN, !subst("v16", "", n));
+  list<string> T2   = !foreach(n, T1, !subst("v1", "", n));
+  list<string> T3   = !foreach(n, T2, !subst("v2", "", n));
+  list<string> T4   = !foreach(n, T3, !subst("v3", "", n));
+  list<string> T5   = !foreach(n, T4, !subst("v4", "", n));
+  list<string> res  = !foreach(n, T5, !subst("v8", "", n));
+}
+
+// remove integer width
+class SubSt_delUIWidth<list<string> IN>
+{
+  string n; // used in foreach
+  list<string> T1  = !foreach(n, IN, !subst("u8",  "u", n));
+  list<string> T2  = !foreach(n, T1, !subst("u16", "u", n));
+  list<string> T3  = !foreach(n, T2, !subst("u32", "u", n));
+  list<string> T4  = !foreach(n, T3, !subst("u64", "u", n));
+  list<string> T5  = !foreach(n, T4, !subst("i8",  "i", n));
+  list<string> T6  = !foreach(n, T5, !subst("i16", "i", n));
+  list<string> T7  = !foreach(n, T6, !subst("i32", "i", n));
+  list<string> res = !foreach(n, T7, !subst("i64", "i", n));
+}
+
+// expand integer type to 32-bit values
+def ui32gentype : OclGenType<"ui32gentype"> {
+  list<string> Tout = SubSt_ui32<ocl_types.Names>.res;
+}
+
+// generate v16<u|i>32  type
+def v16ui32gentype : OclGenType<"v16ui32gentype"> {
+  list<string> T1   = SubSt_ui32<ocl_types.Names>.res;
+  list<string> Tout = SubSt_v16<T1>.res;
+}
+
+// generate "epu32" and "epi32" suffixes
+// Can only be used with $ArgXSym macro
+def epuigentype : OclGenType<"epuigentype"> {
+  list<string> T1   = SubSt_delVecLength<Tin>.res;
+  list<string> T2   = SubSt_delUIWidth<T1>.res;
+  list<string> T3   = !foreach(n, T2, !subst("u",  "epu32", n));
+  list<string> Tout = !foreach(n, T3, !subst("i",  "epi32", n));
+}
+
+// generate "ps" and "pd" suffixes
+// Can only be used with $ArgXSym macro
+def pspdgentype : OclGenType<"pspdgentype"> {
+  list<string> T1   = SubSt_delVecLength<Tin>.res;
+  list<string> T2   = !foreach(n, T1,  !subst("f32", "ps", n));
+  list<string> Tout = !foreach(n, T2,  !subst("f64", "pd", n));
+}
+ 
+// generate "__m512", "__m512d", and "__m512i" types
+// Can only be used with $ArgXSym macro
+def m512gentype : OclGenType<"m512gentype"> {
+  list<string> T1   = SubSt_delVecLength<Tin>.res;
+  list<string> T2   = SubSt_delUIWidth<T1>.res;
+  list<string> T3   = !foreach(n, T2,  !subst("p",   "", n));
+  list<string> T4   = !foreach(n, T3,  !subst("f32", "__m512", n));
+  list<string> T5   = !foreach(n, T4,  !subst("f64", "__m512d", n));
+  list<string> T6   = !foreach(n, T5,  !subst("u", "__m512i", n));
+  list<string> Tout = !foreach(n, T6,  !subst("i", "__m512i", n));
+}
+
+// generate MIC native types from any type
+// Can only be used with $ArgXSym macro
+def micnativegentype : OclGenType<"micnativegentype"> {
+  list<string> T1   = SubSt_delVecLength<Tin>.res;
+  list<string> T2   = !foreach(n, T1,  !subst("p",   "", n));
+  list<string> T3   = !foreach(n, T2,  !subst("f32", "float16", n));
+  list<string> T4   = !foreach(n, T3,  !subst("f64", "double8", n));
+  list<string> T5   = !foreach(n, T4,  !subst("u8",  "uchar16", n));
+  list<string> T6   = !foreach(n, T5,  !subst("i8",  "char16", n));
+  list<string> T7   = !foreach(n, T6,  !subst("u16", "ushort16", n));
+  list<string> T8   = !foreach(n, T7,  !subst("i16", "short16", n));
+  list<string> T9   = !foreach(n, T8,  !subst("u32", "uint16", n));
+  list<string> T10  = !foreach(n, T9,  !subst("i32", "int16", n));
+  list<string> T11  = !foreach(n, T10, !subst("u64", "ulong8", n));
+  list<string> Tout = !foreach(n, T11, !subst("i64", "long8", n));
+}
+
 // math builtins
 let Types = [v16f32, v8f64],
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def mask_fmax : OclBuiltin<"mask_fmax", (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
 def mask_fmin : OclBuiltin<"mask_fmin", (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
-def mask_mad  : OclBuiltin<"mask_mad",  (outs gentype:$ret), (ins masktype:$mask, gentype:$a, gentype:$b, gentype:$c), [], []>;
 }
 
 // lprefetch builtin
@@ -203,13 +307,6 @@ def mask_vstoread_half_rtn_las  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (i
 def mask_vstoread_half_rtn_gas  : OclBuiltin<"mask_vstorea_half_rtn", (outs), (ins masktype:$mask, up2_gentype:$data, size_t:$offset, psgentype:$p), [], []>, GLOBAL;
 }
 
-// conversions
-let Types = [v8f32],
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1 in {
-def mask_convert_f64 : OclBuiltin<"mask_convert_$ReturnType", (outs f64gentype:$ret), (ins masktype:$mask, gentype:$x), [], []>;
-}
-
 // any/all
 let Types = [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE],
@@ -243,22 +340,22 @@ class KNC : Generic {
 
   code NonMaskPromote1 = [{
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName);
+    $ReturnBaseType$NativeArg0VecLength $ReturnVarName = $NativeFunc(n$Arg0VarName);
     return $ReturnVarName$Pattern;
   }];
 
   code NonMaskPromote2 = [{
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
-    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
+    $Arg1BaseType$NativeArg0VecLength n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $ReturnBaseType$NativeArg0VecLength $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
     return $ReturnVarName$Pattern;
   }];
 
   code NonMaskPromote3 = [{
     $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
-    $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
-    $NativeReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
+    $Arg1BaseType$NativeArg0VecLength n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
+    $Arg2BaseType$NativeArg0VecLength n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
+    $ReturnBaseType$NativeArg0VecLength $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
     return $ReturnVarName$Pattern;
   }];
 
@@ -281,27 +378,6 @@ class KNC : Generic {
     $NativeArg2Type n$Arg2VarName; n$Arg2VarName$Pattern = $Arg2VarName;
     $NativeReturnType $ReturnVarName = mask_$NativeFunc($Mask, n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
     return $ReturnVarName$Pattern;
-  }];
-
-  code ScalarReturnPromote1 = [{
-    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $ReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName);
-    return $ReturnVarName;
-  }];
-
-  code ScalarReturnPromote2 = [{
-    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
-    $ReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
-    return $ReturnVarName;
-  }];
-
-  code ScalarReturnPromote3 = [{
-    $NativeArg0Type n$Arg0VarName; n$Arg0VarName$Pattern = $Arg0VarName;
-    $NativeArg1Type n$Arg1VarName; n$Arg1VarName$Pattern = $Arg1VarName;
-    $NativeArg2Type n$Arg1VarName; n$Arg2VarName$Pattern = $Arg2VarName;
-    $ReturnType $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
-    return $ReturnVarName;
   }];
 
 include "KNCni/atomic.td"

@@ -26,7 +26,7 @@ if (KNC_CARD)
 		set( MIC_TBB_LIB_PATH_RELEASE  ${MIC_TBB_PATH}/bin/Knc_Release )
         
 		set( BACKEND_FILES_TO_COPY
-								${BACKEND_SVML_DIR}/__ocl_svml_b2.so.3.0
+								${BACKEND_SVML_DIR}/libsvml.so
 								)
 else (KNC_CARD)
         set( BACKEND_VTUNE_DIR   )

@@ -20,7 +20,7 @@ if (KNC_CARD)
         set( BACKEND_VTUNE_DIR 		 -L ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
         set( VTUNE_PROFILING_LIB     -ljitprofiling)  
 	set( BACKEND_FILES_TO_COPY
-								${BACKEND_SVML_DIR}/__ocl_svml_b2.so.3.0
+								${BACKEND_SVML_DIR}/libsvml.so
 								)
 else (KNC_CARD)
         set( BACKEND_VTUNE_DIR   )

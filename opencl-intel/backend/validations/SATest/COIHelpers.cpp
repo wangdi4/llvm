@@ -110,7 +110,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     std::string svmlFileName = std::string("__ocl_svml_") + pCPUPrefix + ".so";
     if (std::string(pCPUPrefix) == "b2")
     {
-        svmlFileName += ".3.0";
+        svmlFileName = "libsvml.so";
     }
     // Load SVML built-ins library.
     res = COIProcessLoadLibraryFromFile(

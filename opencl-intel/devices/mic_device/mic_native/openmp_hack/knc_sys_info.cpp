@@ -146,7 +146,7 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
 // additional DLLs required for device
 static const char* const knc_device_dlls[] =
     {
-		"__ocl_svml_b2.so.3.0",
+        "libsvml.so",
         "libiomp5.so"
     };
 
