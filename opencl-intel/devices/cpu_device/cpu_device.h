@@ -33,6 +33,7 @@
 #include "backend_wrapper.h"
 #include "task_executor.h"
 #include "wg_context_pool.h"
+#include "task_dispatcher.h"
 #include <cl_synch_objects.h>
 
 
@@ -44,10 +45,9 @@ extern const char* VENDOR_STRING;
 
 class ProgramService;
 class MemoryAllocator;
-class TaskDispatcher;
 struct ThreadMapping;
 
-class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public TaskExecutor::IAffinityChangeObserver
+class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver
 
 {
 private:

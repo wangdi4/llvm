@@ -48,7 +48,29 @@ using Intel::OpenCL::Utils::ObjectPool;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-class TaskDispatcher
+typedef struct _cl_dev_internal_subdevice_id
+{
+	//Arch. data
+	cl_uint  num_compute_units;
+	cl_uint  numa_id;
+	bool     is_numa;
+	bool     is_by_names;
+	cl_uint* legal_core_ids;
+
+	//Task dispatcher for this sub-device
+	TaskDispatcher*                     task_dispatcher;
+	Intel::OpenCL::Utils::AtomicCounter task_dispatcher_ref_count;
+	volatile bool                       task_dispatcher_init_complete;
+    void*    taskExecutorData;
+} cl_dev_internal_subdevice_id;
+
+class IAffinityChangeObserver
+{
+public:
+    virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
+};
+
+class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
 {
 	friend class DispatcherCommand;
 	friend class AffinitizeThreads;
@@ -76,19 +98,23 @@ public:
 	virtual size_t*         getAffinityPermutation() const                       { return m_pAffinityPermutation; }
 	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
 
-    void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer);
+    void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
     void                    releaseSubdevice(void* pSubdevData);
 
     void                    waitUntilEmpty(void* pSubdevData);    
 
-    void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pTaskExecutor->SetWGContextPool(pWgContextPool); }
+    void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pWgContextPool = pWgContextPool; }
 
-    ITaskExecutor*          getTaskExecutor() { return m_pTaskExecutor; }
+    ITaskExecutor&          getTaskExecutor() { return *m_pTaskExecutor; }
+
+    // ITaskExecutorObserver
+    virtual void*           OnThreadEntry();
+    virtual void            OnThreadExit( void* currentThreadData );
+    TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData ) { return TE_USE_DEFAULT; }
 
 #ifdef __INCLUDE_MKL__
 	OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif
-
 protected:
 	cl_int						m_iDevId;
 	IOCLDevLogDescriptor*		m_pLogDescriptor;
@@ -98,15 +124,17 @@ protected:
 	ProgramService*				m_pProgramService;
 	MemoryAllocator*			m_pMemoryAllocator;
 	CPUDeviceConfig*			m_pCPUDeviceConfig;
-	ITaskExecutor*				m_pTaskExecutor;
+	ITaskExecutor*	            m_pTaskExecutor;
+    SharedPtr<ITEDevice>        m_pRootDevice;
+    WgContextPool*              m_pWgContextPool;
     unsigned int				m_uiNumThreads;
 	bool						m_bTEActivated;
 
 	// Contexts required for execution of NDRange
-	WGContext*						m_pWGContexts;
+	WGContext*					m_pWGContexts;
 
-	IAffinityChangeObserver*        m_pObserver;
-	size_t*                         m_pAffinityPermutation;    
+	IAffinityChangeObserver*    m_pObserver;
+	size_t*                     m_pAffinityPermutation;    
 
 	// Internal implementation of functions
 	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
@@ -130,11 +158,12 @@ protected:
 		virtual ~TaskFailureNotification() {};
 
 		// ITask interface
-		bool	CompleteAndCheckSyncPoint() {return false;}
-		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
-		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
-		bool	Execute();
-		long	Release() { return 0; }
+		bool	        CompleteAndCheckSyncPoint() {return false;}
+		bool	        SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+		bool	        IsCompleted() const {assert(0&&"Should not be called");return true;}
+		bool	        Execute();
+		long	        Release() { return 0; }
+        TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 	protected:
 		TaskDispatcher*			m_pTaskDispatcher;
 		const cl_dev_cmd_desc*	m_pCmd;
@@ -144,7 +173,6 @@ protected:
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
 	};
 	cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
-
 #ifdef __INCLUDE_MKL__
 	OMPExecutorThread*	m_pOMPExecutionThread;
 #endif
@@ -195,33 +223,39 @@ public:
 	
     PREPARE_SHARED_PTR(AffinitizeThreads)
 
-    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD)
+    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks)
     {
-        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, pObserver, pTD)); 
+        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks)); 
     }
 
 	virtual ~AffinitizeThreads();
 
 	// ITaskSet interface
-	bool SetAsSyncPoint()  { return false;}
-	bool CompleteAndCheckSyncPoint() { return true;}
-	bool IsCompleted() const { return true;}
-	int	Init(size_t region[], unsigned int &regCount);
-	int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int	DetachFromThread(WGContextBase* pWgContext);
-	void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext); 
-	bool	Finish(FINISH_REASON reason) {return false;}
+	bool    SetAsSyncPoint()  { return false;}
+	bool    CompleteAndCheckSyncPoint() { return true;}
+	bool    IsCompleted() const { return true;}
+	int	    Init(size_t region[], unsigned int &regCount);
+	void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	void	DetachFromThread(void* data);
+	bool	ExecuteIteration(size_t x, size_t y, size_t z, void* data); 
+	bool	Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
 	long    Release() { return 0;}
+    
+    TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+
+    void WaitForEndOfTask() const;
 
 protected:
 	unsigned int						m_numThreads;
 	cl_ulong      						m_timeOut;
 	Intel::OpenCL::Utils::AtomicCounter	m_barrier;
-	IAffinityChangeObserver* 			m_pObserver;
-	TaskDispatcher* 					m_pTD;
 	volatile bool 						m_failed;
 
-    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD);
+    Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
+
+    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks);
 };
 
 }}}

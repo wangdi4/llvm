@@ -43,9 +43,6 @@
 
 #define STR_LEN 100
 
-using namespace Intel::OpenCL::TaskExecutor;
-
-
 extern bool memoryTest(bool profiling);
 extern bool mapTest();
 
@@ -686,14 +683,6 @@ int main(int argc, char* argv[])
 {	
 	::testing::InitGoogleTest(&argc, argv);
 
-	// Initialize Task Executor
-	int iThreads = GetTaskExecutor()->Init(0, false);
-	EXPECT_TRUE(iThreads>0);
-
-	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
-
-	EXPECT_TRUE(pTaskExecutor->Activate());
-
 	//Create and Init the device
 	cl_uint					dev_id = 0;
 	static MICTestCallbacks		dev_callbacks;
@@ -727,8 +716,6 @@ int main(int argc, char* argv[])
 	
 	dev_entry->clDevCloseDevice();
 
-	pTaskExecutor->Deactivate();
-	
 	if (rc == 0) {
 		printf("\n==============\nTEST SUCCEDDED\n==============\n");
 	}

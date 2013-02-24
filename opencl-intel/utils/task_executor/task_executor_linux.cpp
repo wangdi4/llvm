@@ -32,11 +32,13 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
+#include "cl_shared_ptr.h"
 #include "cl_shared_ptr.hpp"
 #include <stdio.h>
 #include <pthread.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::Utils;
 
 template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::SyncTask>;
 template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::ITaskBase>;
@@ -57,6 +59,10 @@ void dll_init(void)
 	thkShedMaster = 0;
 	pthread_key_create(&thkShedMaster, thread_cleanup_callback);
 
+#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+     InitSharedPtrs();
+#endif
+
 #ifdef __TBB_EXECUTOR__
 	g_pTaskExecutor = new TBBTaskExecutor;
 #endif
@@ -75,7 +81,12 @@ void dll_fini(void)
 	if ( thkShedMaster )
 	{
 		pthread_key_delete(thkShedMaster);
+        thkShedMaster = 0;  
 	}
+
+#if _DEBUG
+    FiniSharedPts();
+#endif
 }
 
 TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor()

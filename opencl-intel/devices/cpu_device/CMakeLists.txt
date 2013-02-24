@@ -79,7 +79,9 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if(WIN32)
 	list(APPEND LINK_LIBS delayimp.lib)
-endif(WIN32)
+else (WIN32)
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
+endif (WIN32)
 
 install( TARGETS ${TARGET_NAME}     
 			RUNTIME DESTINATION bin

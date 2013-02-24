@@ -146,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate;}
 
-        std::string GetTypeName() const { return m_typename; }
+        const char* GetTypeName() const { return m_typename.c_str(); }
 
     protected:        
 

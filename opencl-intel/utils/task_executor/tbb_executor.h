@@ -26,16 +26,16 @@
 */
 #pragma once
 
-#include <set>
 #include "task_executor.h"
 #include <tbb/tbb.h>
 
 #include "cl_synch_objects.h"
 #include "cl_dynamic_lib.h"
-#include "arena_handler.h"
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
 #include "base_command_list.h"
+#include "tbb_thread_manager.h"
+#include "arena_handler.h"
 
 using Intel::OpenCL::Utils::SharedPtr;
 using Intel::OpenCL::Utils::AtomicPointer;
@@ -48,85 +48,47 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
      */
     extern volatile bool gIsExiting;
 
-	#define MAX_BATCH_SIZE			128 
-
 	class TBBTaskExecutor : public ITaskExecutor
 	{
 	public:
-		TBBTaskExecutor();
+   		TBBTaskExecutor();
 		virtual ~TBBTaskExecutor();
-		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);        
 
-		bool Activate();
-		void Deactivate();
+        int	 Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL);    
+        void Finalize();
 
-		unsigned int GetNumWorkingThreads() const;
-		SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData);
-		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
-		te_wait_result	WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData = NULL);
+		Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice( 
+                                                const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
+                                                void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
 
-		bool AllocateResources();
-		void ReleaseResources();
+		unsigned int GetMaxNumOfConcurrentThreads() const;
 
 		ocl_gpa_data* GetGPAData() const;
 
-        virtual void* CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer);
+		virtual DeviceHandleStruct GetCurrentDevice() const;
+		virtual bool IsMaster() const;
+		virtual unsigned int GetPosition( unsigned int level = 0 ) const;
 
-        virtual void  ReleaseSubdevice(void* pSubdevData);
-
-        virtual void  WaitUntilEmpty(void* pSubdevData);
-
-        void SetWGContextPool(IWGContextPool* pWgContextPool);
-
-        WGContextBase* GetWGContext(bool bBelongsToMasterThread);
-
-        void ReleaseWorkerWGContext(WGContextBase* wgContext);
+        typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
+        ThreadManager& GetThreadManager() { return m_threadManager; };
 
 	protected:
 		// Load TBB library explicitly
 		bool LoadTBBLibrary();
 
-		mutable OclMutex m_mutex;		
-
-		long								m_lActivateCount;
-
-
-		// Independent tasks will be executed by this task group
-        SharedPtr<ITaskList> m_pExecutorList;
-
+        ThreadManager                       m_threadManager;
 		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;				
-        ArenaHandler*                       m_pGlobalArenaHandler;
 
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
-        tbb::task_scheduler_init*           m_pScheduler;		
-        IWGContextPool* volatile m_pWgContextPool;
-		OclMutex m_contextPoolMutex;
+        tbb::task_scheduler_init*           m_pScheduler;	
 
 	private:
 		TBBTaskExecutor(const TBBTaskExecutor&);
 		TBBTaskExecutor& operator=(const TBBTaskExecutor&);
 	};
 
-    class MyObserver;
-
-    class TBBThreadPoolPartitioner : public IThreadPoolPartitioner
-    {
-    public:
-		TBBThreadPoolPartitioner(int numThreads, unsigned int* legalCoreIDs, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData);
-        virtual ~TBBThreadPoolPartitioner();
-        bool Activate();
-        void Deactivate();
-
-    protected:
-        MyObserver* m_observer;
-	
-	private:
-		TBBThreadPoolPartitioner(const TBBThreadPoolPartitioner&);
-		TBBThreadPoolPartitioner& operator=(const TBBThreadPoolPartitioner&);
-    };    
-    
     class in_order_executor_task
     {
     public:
@@ -156,6 +118,20 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         SharedPtr<ITaskBase> GetTask();
 
 	    SharedPtr<out_of_order_command_list> m_list;
+    };
+
+    class immediate_executor_task
+    {
+    public:
+        immediate_executor_task(immediate_command_list* list, const SharedPtr<ITaskBase>& pTask ) : 
+            m_list(list), m_pTask( pTask ) {}
+
+        void operator()();
+
+    protected:
+        immediate_command_list*     m_list;
+        SharedPtr<ITaskBase>        m_pTask;
+        
     };
 
 }}}

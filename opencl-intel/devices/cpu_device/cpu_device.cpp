@@ -159,22 +159,6 @@ extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
     }
 }
 
-typedef struct _cl_dev_internal_subdevice_id
-{
-	//Arch. data
-	cl_uint  num_compute_units;
-	cl_uint  numa_id;
-	bool     is_numa;
-	bool     is_by_names;
-	cl_uint* legal_core_ids;
-
-	//Task dispatcher for this sub-device
-	TaskDispatcher*                     task_dispatcher;
-	Intel::OpenCL::Utils::AtomicCounter task_dispatcher_ref_count;
-	volatile bool                       task_dispatcher_init_complete;
-    void*    taskExecutorData;
-} cl_dev_internal_subdevice_id;
-
 typedef struct _cl_dev_internal_cmd_list
 {
     void*                         cmd_list;     
@@ -1391,7 +1375,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
 }
 
-//! This function return IDs list for all devices supported by the device agent.
+//! This function return IDs list for all devices in the same device type.
 /*!
     \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
 	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
@@ -1420,7 +1404,7 @@ cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize
 	return CL_DEV_SUCCESS;
 }
 
-// CPUDevice class methods implementation
+
 // Device Fission support
 
 static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, cl_uint num_successfully_allocated)
@@ -1761,7 +1745,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     for (size_t i = 0; i < *num_subdevices; i++)
     {
         cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
-        subdevId.taskExecutorData = m_pTaskDispatcher->createSubdevice(subdevId.num_compute_units, subdevId.legal_core_ids, *this);
+        subdevId.taskExecutorData = m_pTaskDispatcher->createSubdevice(subdevId.num_compute_units, &subdevId);
         if (NULL == subdevId.taskExecutorData)
         {
             for (size_t j = 0; j < i; j++)

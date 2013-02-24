@@ -39,7 +39,6 @@
 
 
 using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::TaskExecutor;
 
 // In this file we use CompileTask, LinkTask and PostBuildTask as building blocks to create a general build tree.
 // for a full build we use CompileTask -> LinkTask -> PostBuildTask where CompileTask and LinkTask are created 
@@ -70,9 +69,9 @@ void BuildTask::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
     BuildEvent::DoneWithDependencies(pEvent);
 }
 
-unsigned int BuildTask::Launch()
+bool BuildTask::Launch()
 {
-    return TaskExecutor::GetTaskExecutor()->Execute(SharedPtr<BuildTask>(this));
+    return FrameworkProxy::Instance()->Execute(SharedPtr<BuildTask>(this));
 }
 
 void BuildTask::SetComplete(cl_int returnCode)

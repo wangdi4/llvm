@@ -1060,7 +1060,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 }
 
 
-int NDRange::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
 #ifdef _DEBUG_PRINT
 	printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", (int)GetCurrentThreadId(), (int)uiWorkerId, (int)m_pCmd->id);
@@ -1075,16 +1075,16 @@ int NDRange::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGrou
 	++m_lAttaching ;
 #endif
 	
-    if ( NULL == pWgContext )
+    if ( NULL == pWgContextBase )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context"));
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
 #ifdef _DEBUG
 	--m_lAttaching ;
 #endif	
-		return (cl_int)CL_DEV_ERROR_FAIL;
+		return NULL;
 	}
-    WGContext* pCtx = static_cast<WGContext*>(pWgContext);
+    WGContext* pCtx = static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase));
 	if (m_lNDRangeId != pCtx->GetNDRCmdId() )
 	{
 		cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
@@ -1095,13 +1095,13 @@ int NDRange::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGrou
 	#ifdef _DEBUG
 			--m_lAttaching ;
 	#endif
-			return (int)ret;
+			return NULL;
 		}
 	}
 
 	if (NULL == pCtx->GetExecutable())
 	{
-		return (cl_int)CL_DEV_ERROR_FAIL;
+		return NULL;
 	}
 	pCtx->GetExecutable()->PrepareThread();
 
@@ -1149,10 +1149,10 @@ int NDRange::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGrou
 	-- m_lAttaching;
 #endif
 
-	return CL_DEV_SUCCESS;
+	return pCtx;
 }
 
-int NDRange::DetachFromThread(WGContextBase* pWgContext)
+void NDRange::DetachFromThread(void* pWgContext)
 {
 	// End execution task
 #if defined(USE_ITT)
@@ -1165,21 +1165,18 @@ int NDRange::DetachFromThread(WGContextBase* pWgContext)
 	}
 #endif // ITT
     
-    WGContext* const pCtx = static_cast<WGContext*>(pWgContext);
+    WGContext* const pCtx = reinterpret_cast<WGContext*>(pWgContext);
     assert(NULL != pCtx);
 	if (NULL == pCtx->GetExecutable())
 	{
 		m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
-		return (cl_int)CL_DEV_ERROR_FAIL;
+		return;
 	}
 
-    int ret = pCtx->GetExecutable()->RestoreThreadState();
-
-    return ret;
-
+    pCtx->GetExecutable()->RestoreThreadState();
 }
 
-void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
+bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 {
 #ifdef _DEBUG
 	long lVal = m_lFinish.test_and_set(0, 0);
@@ -1187,8 +1184,9 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgC
 	++ m_lExecuting;
 #endif
 
-	assert(NULL != pWgContext);
-    ICLDevBackendExecutable_* pExec = static_cast<WGContext*>(pWgContext)->GetExecutable();
+	assert(NULL != pWgCtx);
+    WGContext* pWgContext = reinterpret_cast<WGContext*>(pWgCtx);
+    ICLDevBackendExecutable_* pExec = pWgContext->GetExecutable();
 	// We always start from (0,0,0) and process whole WG
 	// No Need in parameters now
 #ifdef _DEBUG
@@ -1222,13 +1220,14 @@ void NDRange::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgC
 		#ifdef _DEBUG
 			-- m_lExecuting;
 		#endif
-		return;
+		return true;
 	}
 	pExec->Execute(groupId, NULL, NULL);
 
 #ifdef _DEBUG
 	-- m_lExecuting;
 #endif
+    return true;
 
 }
 

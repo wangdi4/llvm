@@ -286,6 +286,7 @@ SET_UNICODE_OFF()
 #set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )
 include_directories( BEFORE
         utils/cl_logger/export
+        utils/cl_hw_utils/export
         utils/cl_sys_utils/export
         externals/tbb/include
         ${OCL_GLOBAL_INCLUDE}

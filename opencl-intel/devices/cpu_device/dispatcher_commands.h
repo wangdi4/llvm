@@ -92,10 +92,11 @@ public:
     }
 
 	// ITaskBase
-	bool	SetAsSyncPoint();
-	bool	CompleteAndCheckSyncPoint();
-	bool	IsCompleted() const {return m_bCompleted;}
-    long    Release() { return 0; }
+	bool	        SetAsSyncPoint();
+	bool	        CompleteAndCheckSyncPoint();
+	bool	        IsCompleted() const {return m_bCompleted;}
+    long            Release() { return 0; }
+    TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
 protected:
 	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
@@ -201,10 +202,14 @@ public:
 
 	// ITaskSet interface
 	int	    Init(size_t region[], unsigned int &regCount);
-	int	    AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	int	    DetachFromThread(WGContextBase* pWgContext);
-	void    ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext); 
+	void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+	void    DetachFromThread(void* pWgContext);
+	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext); 
 	bool    Finish(FINISH_REASON reason);
+    
+    // Optimize By
+    TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
 protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);

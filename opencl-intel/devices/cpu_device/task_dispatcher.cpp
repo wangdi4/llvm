@@ -71,7 +71,6 @@ public:
 	virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
     virtual void            Retain();
 	virtual void			Release();
-    std::string GetTypeName() const { return "InPlaceTaskList"; }
 
 protected:
 	WGContextBase* const m_pMasterWGContext;
@@ -134,8 +133,8 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
-        res = pTaskSet->AttachToThread(m_pMasterWGContext, dim[0] * dim[1] * dim[2], firstWGID, dim);
-        if (res != 0)
+        void* local = pTaskSet->AttachToThread(m_pMasterWGContext, dim[0] * dim[1] * dim[2], firstWGID, dim);
+        if (NULL == local)
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
@@ -145,11 +144,11 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
             {
                 for (size_t row = 0; row < dim[0]; ++row)
                 {
-                    pTaskSet->ExecuteIteration(row, col, page, m_pMasterWGContext);
+                    pTaskSet->ExecuteIteration(row, col, page, local);
                 }
             }
         }
-        pTaskSet->DetachFromThread(m_pMasterWGContext);
+        pTaskSet->DetachFromThread(local);
         pTaskSet->Finish(FINISH_COMPLETED);
         pTaskSet->Release();
     }
@@ -182,7 +181,8 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-		m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0), m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver), m_pAffinityPermutation(NULL)
+		m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0), 
+        m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver), m_pAffinityPermutation(NULL)
 #ifdef __INCLUDE_MKL__
 		,m_pOMPExecutionThread(NULL)
 #endif
@@ -221,12 +221,12 @@ TaskDispatcher::~TaskDispatcher()
 
 	if (m_bTEActivated)
 	{	
-		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "TaskExecutor::GetTaskExecutor()->Deactivate();");
-        if (NULL != TaskExecutor::GetTaskExecutor())
+		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
+        if ((NULL != m_pTaskExecutor) && (NULL != m_pRootDevice ))
         {
-		    TaskExecutor::GetTaskExecutor()->Deactivate();
+            m_pRootDevice->ResetObserver();
+            m_pRootDevice = NULL;
         }
-		TaskExecutor::GetTaskExecutor()->SetWGContextPool(NULL);
 	}
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
 	if (0 != m_iLogHandle)
@@ -242,13 +242,18 @@ TaskDispatcher::~TaskDispatcher()
 cl_dev_err_code TaskDispatcher::init()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
-	m_bTEActivated = m_pTaskExecutor->Activate();
+
+    // create root device in flat mode with maximum threads and no support for masters joining
+    m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN), NULL, this );
+
+	m_bTEActivated = (NULL != m_pRootDevice);
 	if ( !m_bTEActivated )
 	{
 		return CL_DEV_ERROR_FAIL;
 	}
 
-	unsigned int uiNumThreads = m_pTaskExecutor->GetNumWorkingThreads();
+	unsigned int uiNumThreads = m_pTaskExecutor->GetMaxNumOfConcurrentThreads();
 	// Init WGContexts
 	// Allocate required number of working contexts
 	if ( 0 == m_uiNumThreads )
@@ -292,15 +297,16 @@ cl_dev_err_code TaskDispatcher::init()
 	}
 
 	//Pin threads
-    SharedPtr<ITaskSet> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver, this);
+    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0);
 	if (NULL == pAffinitizeThreads)
 	{
 		//Todo
 		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    m_pTaskExecutor->Execute(SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(pAffinitizeThreads), NULL);
-	m_pTaskExecutor->WaitForCompletion(NULL, NULL);
+    m_pRootDevice->Execute(pAffinitizeThreads);
+	m_pRootDevice->WaitForCompletion(NULL);
+ //  pAffinitizeThreads->WaitForEndOfTask();
 	
 	return CL_DEV_SUCCESS;
 }
@@ -338,21 +344,27 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
 	assert( list );
     SharedPtr<ITaskList> pList = NULL;
+    ITEDevice*           pDevice = NULL;
+
+    if (NULL != pSubdevTaskExecData)
+    {
+        pDevice = reinterpret_cast<ITEDevice*>(pSubdevTaskExecData);
+    }
+    else
+    {
+        pDevice = m_pRootDevice.GetPtr();
+    }
 
     bool isInPlace   = (0 != ((int)props & (int)CL_DEV_LIST_IN_PLACE));
     if (!isInPlace)
     {
-        bool isSubdevice = (0 != ((int)props & (int)CL_DEV_LIST_SUBDEVICE));
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-        CommandListCreationParam p;
-        p.isOOO       = isOOO;
-        p.isSubdevice = isSubdevice;
-	    pList = m_pTaskExecutor->CreateTaskList(&p, pSubdevTaskExecData);
+	    pList = pDevice->CreateTaskList( isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER );
     }
     else
     {
         //Todo: handle non-immediate lists
-        pList = InPlaceTaskList::Allocate(m_pTaskExecutor->GetWGContext(true));
+        pList = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true));
     }
 	*list = pList.GetPtr();    
 	if ( NULL == pList )
@@ -499,11 +511,8 @@ cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_
 	// If list id is 0, submit tasks directly to execution
 	if ( NULL == pList )
 	{
-        CommandListCreationParam p;
-        p.isOOO = false;
-        p.isSubdevice = false;
 		// Create temporary list
-		pList = m_pTaskExecutor->CreateTaskList(&p, NULL);
+		pList = m_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER );
 	}
 
 	// Lock current list for insert operations
@@ -594,20 +603,57 @@ bool TaskDispatcher::TaskFailureNotification::Execute()
 	return true;
 }
 
-void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer)
+void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr )
 {
-    return m_pTaskExecutor->CreateSubdevice(uiNumSubdevComputeUnits, pLegalCores, observer);
+    // we need to return a void* here, but ITEDevice is referenced counted. So do a manual reference counting.
+    // DecRefCnt() is called in TaskDispatcher::releaseSubdevice(void* pSubdevData)
+    SharedPtr<ITEDevice> pSubDev = m_pRootDevice->CreateSubDevice( uiNumSubdevComputeUnits, (void*)dev_ptr );
+    ITEDevice* pDev = pSubDev.GetPtr();
+    pDev->IncRefCnt();
+    return pDev;
 }
 
 void TaskDispatcher::waitUntilEmpty(void* pSubdevData)
 {
-    m_pTaskExecutor->WaitUntilEmpty(pSubdevData);
+    ITEDevice* pDev = (NULL != pSubdevData) ? reinterpret_cast<ITEDevice*>(pSubdevData) : m_pRootDevice.GetPtr();
+    pDev->WaitUntilEmpty();
 }
 
 void TaskDispatcher::releaseSubdevice(void* pSubdevData)
 {
-    m_pTaskExecutor->ReleaseSubdevice(pSubdevData);
+    // Manual IncRefCnt() is called in TaskDispatcher::createSubdevice()
+    assert( NULL != pSubdevData );
+    reinterpret_cast<ITEDevice*>(pSubdevData)->DecRefCnt();
 }
+
+void* TaskDispatcher::OnThreadEntry()
+{
+    WGContextBase* pCtx = m_pWgContextPool->GetWGContext( m_pTaskExecutor->IsMaster() );
+    unsigned int   position_in_device = m_pTaskExecutor->GetPosition();
+    pCtx->SetThreadId( position_in_device );
+
+    if (!pCtx->DoesBelongToMasterThread())
+	{
+	    if ( isThreadAffinityRequried() )
+	    {
+            cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(
+                                                                    m_pTaskExecutor->GetCurrentDevice().user_handle);
+            unsigned int coreId = (NULL == pSubDevID) ? 
+                Intel::OpenCL::Utils::GetCpuId() : pSubDevID->legal_core_ids[position_in_device];
+            m_pObserver->NotifyAffinity( position_in_device, coreId );
+	    }
+    }
+
+    return pCtx;
+}
+
+void  TaskDispatcher::OnThreadExit( void* currentThreadData )
+{
+    WGContextBase* pCtx = (WGContextBase*)currentThreadData;
+    pCtx->SetThreadId( -1 );
+    m_pWgContextPool->ReleaseWorkerWGContext( pCtx );
+}
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -651,7 +697,6 @@ cl_dev_err_code SubdeviceTaskDispatcher::init()
 
 cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props props, void* IN pSubdevTaskExecData, cl_dev_cmd_list *list)
 {
-	props = (cl_dev_cmd_list_props)((unsigned int)props | (unsigned int)CL_DEV_LIST_SUBDEVICE);
 	return TaskDispatcher::createCommandList(props, pSubdevTaskExecData, list);
 }
 
@@ -677,13 +722,21 @@ bool SubdeviceTaskDispatcher::isDestributedAllocationRequried()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* pObserver, TaskDispatcher* pTD) :
-	m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_pObserver(pObserver), m_pTD(pTD), m_failed(false)
+AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks) :
+	m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false)
 {
 }
 
 AffinitizeThreads::~AffinitizeThreads()
 {
+}
+
+void AffinitizeThreads::WaitForEndOfTask() const
+{
+	while ((!m_failed) && (0 == m_endBarrier))
+	{
+		hw_pause();
+	}
 }
 
 int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
@@ -701,32 +754,29 @@ int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
 	return CL_DEV_SUCCESS;
 }
 
-int AffinitizeThreads::AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
-	return CL_DEV_SUCCESS;
+    // cast to WGContext* and only then to void* - in order to pass WGContext* to ExecuteIteration
+    // casting to and from void* must be done to the same type
+	return static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase)); // return non-NULL
 }
 
-int AffinitizeThreads::DetachFromThread(WGContextBase* pWgContext)
+void AffinitizeThreads::DetachFromThread(void* pWgContext)
 {
-	return CL_DEV_SUCCESS;
+	return;
 }
 
-void AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
+bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
 	if (m_failed)
 	{
-		return;
+		return false;
 	}
 	
-    WGContext* pContext = (WGContext*)pWgContext;
+    WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
     assert (NULL!= pContext);
     if (!pContext->DoesBelongToMasterThread())
 	{
-		if ( m_pTD->isThreadAffinityRequried() )
-		{
-            m_pObserver->NotifyAffinity(pContext->GetThreadId(), Intel::OpenCL::Utils::GetCpuId());
-		}
-		
 		// Set NUMA node prior to allocation
 		clNUMASetLocalNodeAlloc();
 		pContext->Init();
@@ -742,9 +792,11 @@ void AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, WGContext
 			if (now - start > m_timeOut)
 			{
 				m_failed = true;
-				return;
+				return false;
 			}
 		}
-		clSleep(0);
+		hw_pause();
 	}
+
+    return true;
 }

@@ -1234,6 +1234,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool	Execute();
 		long	Release(); 
 
+        Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
+                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;} 
 	private:
 
         RuntimeCommandTask() : m_owner(NULL) {};

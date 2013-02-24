@@ -37,6 +37,8 @@
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
 
+static SharedPtr<ITEDevice> g_pRootDevice = NULL;
+
 //#define EXTENDED_PRINT
 // OCL Kernel execution
 class TestSet : public ITaskSet
@@ -76,30 +78,30 @@ public:
 		region[0] = 1000;
 		return 0;
 	}
-	int		AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
+	void*  AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 	{
 		m_attached++;
 #ifdef EXTENDED_PRINT
 		printf("TestSet::AttachToThread() - %d - %d was joined as %d, attached: %d\n",  m_id, GET_THREAD_ID, uiWorkerId, long(m_attached));
 #endif
-		return 0;
+		return (void*)1; // return non-NULL
 	}
-	int		DetachFromThread(WGContextBase* pWgContext)
+	void  DetachFromThread(void* pWgContext)
 	{
 		m_attached--;
 #ifdef EXTENDED_PRINT
 		printf("TestSet::DetachFromThread() - %d - %d left execution, attached: %d\n",  m_id, uiWorkerId, long(m_attached));
 #endif
-		return 0;
+		return;
 	}
-	void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext)
+	bool	ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 	{
 		//printf("TestSet::ExecuteIteration() - %d executing\n", uiWorkerId);
 		for (unsigned int i=0;i<x;++i)
 		{
 			SLEEP(0);
 		}
-
+        return true;
 	}
 	bool	Finish(FINISH_REASON reason)
 	{
@@ -115,6 +117,10 @@ public:
 		delete this;
         return 0;
 	}
+    // Optimize By
+    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
 private:
 
@@ -124,12 +130,7 @@ private:
 
 RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 {
-	ITaskExecutor *pTE = (ITaskExecutor*)pParam;
-    CommandListCreationParam p;
-    p.isOOO = false;
-    p.isSubdevice = false;
- 
-    SharedPtr<ITaskList> pList = pTE->CreateTaskList(&p, NULL);
+    SharedPtr<ITaskList> pList = g_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER);
 
 	volatile int done = 0;
     pList->Enqueue(SharedPtr<ITaskBase>(TestSet::Allocate(1, &done)));
@@ -144,31 +145,15 @@ RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void* pParam)
 	return 0;
 }
 
-class WGContextPool : public IWGContextPool
-{
-    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) { return m_pool.Malloc(); }
-
-    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) { m_pool.Free(wgContext); }
-
-private:
-
-    Intel::OpenCL::Utils::ObjectPool<WGContextBase> m_pool;
-};
-
 bool test_task_executor()
 {
 	printf("test_task_executor - Start test\n");
 
-    WGContextPool pool;
 	for(int i=0; i<100; ++i)
 	{
 		ITaskExecutor* pTaskExecutor = GetTaskExecutor();        
-        pTaskExecutor->SetWGContextPool(&pool);
-		pTaskExecutor->Activate();
-		CommandListCreationParam p;
-		p.isOOO = false;
-		p.isSubdevice = false;
-        SharedPtr<ITaskList> pList = pTaskExecutor->CreateTaskList(&p, NULL);
+		g_pRootDevice = pTaskExecutor->CreateRootDevice( RootDeviceCreationParam() );
+        SharedPtr<ITaskList> pList = g_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER);
 #if 0
 #ifdef _WIN32
 		HANDLE hMaster = (HANDLE)_beginthreadex(NULL, 0, &MasterThread, GetTaskExecutor(), 0, NULL);
@@ -199,7 +184,7 @@ bool test_task_executor()
 #endif
 #endif
 		
-		pTaskExecutor->Deactivate();
+		g_pRootDevice = NULL;
 		printf(".");
 		fflush(stdout);
 		if ( ((i % 10) == 0) && (0 != i))

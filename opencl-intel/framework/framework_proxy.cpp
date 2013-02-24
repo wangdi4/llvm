@@ -11,6 +11,7 @@
 #include "cl_sys_info.h"
 #include "cl_sys_defines.h"
 #include <task_executor.h>
+#include <cl_shared_ptr.hpp>
 
 #if defined (_WIN32)
 #include <windows.h>
@@ -34,6 +35,8 @@ ocl_entry_points            FrameworkProxy::OclEntryPoints;
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
 
+volatile bool FrameworkProxy::gIsExiting = false;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,6 +48,9 @@ FrameworkProxy::FrameworkProxy()
 	m_pFileLogHandler = NULL;
 	m_pConfig = NULL;
 	m_pLoggerClient = NULL;
+    m_pTaskExecutor = NULL;
+    m_pTERootDevice = NULL;
+    m_uiTEActivationCount = NULL;
 	
 	Initialize();
 }	
@@ -338,7 +344,8 @@ void FrameworkProxy::Initialize()
 
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%s"), TEXT("Initialize Executor"));
-	GetTaskExecutor()->Init(0, &m_GPAData);
+    m_pTaskExecutor = GetTaskExecutor();
+	m_pTaskExecutor->Init(TE_AUTO_THREADS, &m_GPAData);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -361,6 +368,11 @@ void FrameworkProxy::Release(bool bTerminate)
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
 
+    if (gIsExiting)
+    {
+        bTerminate = true;
+    }
+
     if (NULL != m_pExecutionModule)
     {
         m_pExecutionModule->Release(bTerminate);
@@ -379,6 +391,19 @@ void FrameworkProxy::Release(bool bTerminate)
         delete m_pPlatformModule;
     }
 
+    if (!bTerminate && (NULL != m_pTERootDevice))
+    {
+        // looks like this is the normal deletion - force root device deletion
+        m_uiTEActivationCount = 1;
+        DeactivateTaskExecutor();
+    }
+    else
+    {
+        // TaskExecutor is managed inside it's own DLL and may be already deleted at this point
+        // we should avoid deletion of root device here - leave one extra counter
+        m_pTERootDevice = NULL;
+    }
+    m_pTaskExecutor = NULL;
 	
 	if (NULL != m_pFileLogHandler)
 	{
@@ -395,6 +420,14 @@ void FrameworkProxy::Release(bool bTerminate)
 	cl_monitor_summary;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::TerminateProcess()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void FrameworkProxy::TerminateProcess()
+{
+    // references to other DLLs are not safe on Linux at exit 
+    gIsExiting = true;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy* FrameworkProxy::Instance()
@@ -404,8 +437,84 @@ FrameworkProxy* FrameworkProxy::Instance()
 		OclAutoMutex cs(&m_initializationMutex);
 		if (NULL == m_pInstance)
 		{
+#ifndef _WIN32            
+            // Linux
+            atexit(TerminateProcess);
+#endif
 			m_pInstance = new FrameworkProxy();
 		}
 	}
 	return m_pInstance;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::ActivateTaskExecutor()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool FrameworkProxy::ActivateTaskExecutor() const
+{
+    OclAutoMutex cs(&m_initializationMutex);
+
+    if (NULL == m_pTERootDevice)
+    {
+        // During shutdown task_executor dll may finish before current dll and destroy all internal objects
+        // We can discover this case but we cannot access any task_executor object at that time point because
+        // it may be already destroyed. As SharedPtr accesses the object itself to manage counters, we cannot use
+        // SharedPointers at all.
+
+        // create root device in flat mode. Use all available HW threads 
+        // and allow non-worker threads to participate in execution but do not assume they will join.
+        SharedPtr<ITEDevice> pTERootDevice = m_pTaskExecutor->CreateRootDevice(
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 0));
+
+        if (NULL != pTERootDevice)
+        {
+            m_pTERootDevice = pTERootDevice.GetPtr();
+            m_pTERootDevice->IncRefCnt();
+        }
+    }
+
+    if (NULL != m_pTERootDevice)
+    {
+        ++m_uiTEActivationCount;
+    }
+    
+    return (NULL != m_pTERootDevice);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::ActivateTaskExecutor()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void FrameworkProxy::DeactivateTaskExecutor() const
+{
+    if (gIsExiting)
+    {
+        return;
+    }
+    
+    OclAutoMutex cs(&m_initializationMutex);
+
+    if (NULL != m_pTERootDevice)
+    {
+        --m_uiTEActivationCount;
+
+        if (0 == m_uiTEActivationCount)
+        {
+            // this is the normal deletion - undo the counting here to delete the object
+            m_pTERootDevice->DecRefCnt();
+            m_pTERootDevice = NULL;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::Execute()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool FrameworkProxy::Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const
+{
+    if (NULL == m_pTERootDevice)
+    {
+        return false;
+    }
+
+    return m_pTERootDevice->Execute(pTask);
 }

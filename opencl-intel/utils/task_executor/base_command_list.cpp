@@ -28,29 +28,31 @@ using namespace Intel::OpenCL::TaskExecutor;
 void TaskGroup::WaitForAll()
 {
     ArenaFunctorWaiter waiter(m_rootTask);
-    m_arenaHandler.Execute(waiter);
+    m_device->Execute(waiter);
 }
 
-base_command_list::base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) :
-	m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), m_devArenaHandler(devArenaHandler), m_taskGroup(devArenaHandler)
+base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device) :
+	m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), 
+    m_device(device), m_pDevice(device.GetPtr()), 
+    m_taskGroup(device.GetPtr())
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
-    m_devArenaHandler.AddCommandList(this);
+    m_pDevice->AddCommandList(this);
 }
 
 base_command_list::~base_command_list()
 {
-    if (!m_devArenaHandler.isTerminating())
+    if (!m_pDevice->isTerminating())
     {
 		WaitForIdle();
-        m_devArenaHandler.RemoveCommandList(this);
+        m_pDevice->RemoveCommandList(this);
     }
 }
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
 {
-	if (!m_devArenaHandler.ShouldMasterJoinWork())
+	if (!m_pDevice->ShouldMasterJoinWork())
     {
         return TE_WAIT_NOT_SUPPORTED;
     }
@@ -118,8 +120,10 @@ bool base_command_list::Flush()
 	return true;
 }
 
-unsigned int in_order_command_list::LaunchExecutorTask(bool blocking)
+unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
 {
+    assert( NULL == pTask );
+    
 	in_order_executor_task functor(this); 
 	if (!blocking)
 	{
@@ -128,13 +132,15 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking)
 	}
 	else
 	{
-		m_devArenaHandler.Execute<in_order_executor_task>(functor);
+		m_pDevice->Execute<in_order_executor_task>(functor);
 		return 0;
 	}
 }
 
-unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
+unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
 {
+    assert( NULL == pTask );
+    
     out_of_order_executor_task functor(this);
     if (!blocking)
     {
@@ -143,7 +149,7 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking)
     }
     else
     {
-        m_devArenaHandler.Execute<out_of_order_executor_task>(functor);
+        m_pDevice->Execute<out_of_order_executor_task>(functor);
         return 0;
     }
 }
@@ -152,8 +158,19 @@ out_of_order_command_list::~out_of_order_command_list()
 {
 	/* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
 	   ~base_command_list */
-	if (!m_devArenaHandler.isTerminating())
+	if (!m_pDevice->isTerminating())
     {
 		WaitForIdle();
 	}
 }
+
+unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
+{
+    assert( NULL != pTask );
+    assert( true == blocking );
+    
+	immediate_executor_task functor(this, pTask); 
+	m_pDevice->Execute<immediate_executor_task>(functor);
+	return 0;
+}
+

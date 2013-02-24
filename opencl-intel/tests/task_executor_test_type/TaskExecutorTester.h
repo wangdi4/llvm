@@ -29,6 +29,7 @@ using Intel::OpenCL::Utils::SharedPtr;
 
 class WGContextPool : public IWGContextPool
 {
+public:
     virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) { return m_pool.Malloc(); }
 
     virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) { m_pool.Free(wgContext); }
@@ -42,7 +43,7 @@ private:
  * This class represents a tester object for TaskExecutor module.
  * Currently just testing of TBBTaskExecutor is implemented.
  */
-class TaskExecutorTester
+class TaskExecutorTester : public ITaskExecutorObserver
 {
 public:
 
@@ -51,17 +52,35 @@ public:
         if (NULL == m_pTaskExecutor)
         {
             m_pTaskExecutor = Intel::OpenCL::TaskExecutor::GetTaskExecutor();
-            m_pTaskExecutor->Init(0, NULL);            
+            m_pTaskExecutor->Init(TE_AUTO_THREADS, NULL);            
         }
-        m_pTaskExecutor->SetWGContextPool(&m_wgContextPool);
     }
 
     ~TaskExecutorTester()
     {
-        m_pTaskExecutor->SetWGContextPool(NULL);
     }
 
-    ITaskExecutor& GetTaskExecutor() { return *m_pTaskExecutor; }
+    ITaskExecutor* GetTaskExecutor() { return m_pTaskExecutor; }
+
+    // ITaskExecutorObserver
+    virtual void*  OnThreadEntry() 
+    {
+        WGContextBase* pCtx = m_wgContextPool.GetWGContext( m_pTaskExecutor->IsMaster() );
+        pCtx->SetThreadId( m_pTaskExecutor->GetPosition() );
+        return pCtx;
+    }
+
+    virtual void   OnThreadExit( void* currentThreadData )
+    {
+        WGContextBase* pCtx = static_cast<WGContextBase*>(currentThreadData);
+        pCtx->SetThreadId( -1 );
+        m_wgContextPool.ReleaseWorkerWGContext( pCtx );
+    }
+
+    TE_BOOLEAN_ANSWER  MayThreadLeaveDevice( void* currentThreadData ) 
+    { 
+        return TE_USE_DEFAULT; 
+    }
 
 private:
 
@@ -98,11 +117,11 @@ public:
         return 0;
     }
 
-    virtual int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) { return 0; }
+    virtual void* AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) { return pWgContext; }
 
-    virtual int	DetachFromThread(WGContextBase* pWgContext) { return 0; }
+    virtual void DetachFromThread(void* pWgContext) {}
 
-    virtual void ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) { }
+    virtual bool ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL) { return true; }
 
 	virtual bool Finish(FINISH_REASON reason)
     {
@@ -110,19 +129,18 @@ public:
         return true;
     }
 
+    
+    // Optimize By
+    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+
 private:
 
     TesterTaskSet(unsigned int uiNumDims) : m_bIsComplete(false), m_uiNumDims(uiNumDims) { }
 
-    bool m_bIsComplete;
+    volatile bool m_bIsComplete;
     const unsigned int m_uiNumDims;
 
 };
 
-class TesterAffinityChangeObserver : public IAffinityChangeObserver
-{
-public:
-
-    void NotifyAffinity(unsigned int tid, unsigned int core) { }
-
-};

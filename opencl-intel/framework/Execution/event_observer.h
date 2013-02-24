@@ -53,8 +53,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode) = 0;
 
         virtual cl_int  GetExpectedExecState() const = 0;
-
-        std::string GetTypeName() const { return "IEventObserver"; }
     };
 
 }}}    // Intel::OpenCL::Framework

@@ -40,6 +40,7 @@
 #include <stdio.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::Utils;
 
 #ifndef _USRDLL
 // Shared memory for singleton object storage
@@ -156,6 +157,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+        InitSharedPtrs();
+#endif
 #ifdef __TBB_EXECUTOR__
 		g_pTaskExecutor = new TBBTaskExecutor;
 #endif
@@ -171,7 +175,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		{
 			delete ((PTR_CAST*)g_pTaskExecutor);
 			g_pTaskExecutor = NULL;						
-			}
+		}
+#if _DEBUG
+        FiniSharedPts();
+#endif
 		return TRUE;
 	}
 	return g_pTaskExecutor != NULL;

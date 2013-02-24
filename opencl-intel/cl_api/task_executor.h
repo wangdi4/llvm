@@ -40,9 +40,12 @@
 
 #include <stddef.h>
 #include <cl_sys_defines.h>
-#include "ocl_itt.h"
 #include "cl_shared_ptr.h"
 #include "cl_device_api.h"
+
+#ifndef DEVICE_NATIVE
+#include "ocl_itt.h"
+#endif
 
 #if defined (_WIN32)
 #ifdef TASK_EXECUTOR_EXPORTS
@@ -58,6 +61,8 @@
 struct ocl_gpa_data;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
+class ITaskExecutor; 
 
 // The following enum is used for defining task priority
 typedef enum
@@ -84,10 +89,107 @@ typedef enum
 	TE_WAIT_NOT_SUPPORTED				// Wait for completion doesn't supported
 } te_wait_result;
 
+// The following enum defines CommandList type
+typedef enum 
+{
+	TE_CMD_LIST_IN_ORDER            = 0,// Process tasks in order of enqueing
+	TE_CMD_LIST_OUT_OF_ORDER,           // Process tasks in any order
+    TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
+} TE_CMD_LIST_TYPE;
+
+// preferred CommandList scheduling type
+typedef enum  
+{
+    TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC = 0,             // in TBB case - use auto_partitioner for TaskSets
+    TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet        
+
+    TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
+} TE_CMD_LIST_PREFERRED_SCHEDULING;
+
+// TaskSets optimizations
+typedef enum 
+{
+    TASK_SET_OPTIMIZE_DEFAULT = 0,      // in TBB case - use TBB internal by-tile approach in 2D/3D cases
+    TASK_SET_OPTIMIZE_BY_ROW,           // Optimize 2D/3D cases by row
+    TASK_SET_OPTIMIZE_BY_COLUMN,        // Optimize 2D/3D cases by column
+    TASK_SET_OPTIMIZE_BY_TILE,          // Optimize 2D/3D cases by tile
+
+    TASK_SET_OPTIMIZE_BY_LAST
+} TASK_SET_OPTIMIZATION;
+
+// Boolean answers with default
+typedef enum
+{
+    TE_NO           = 0,
+    TE_YES          = 1,
+    TE_USE_DEFAULT  = 2
+} TE_BOOLEAN_ANSWER;
+
+// Command List Creation params
 struct CommandListCreationParam
 {
-    bool  isOOO;
-    bool  isSubdevice;
+    TE_CMD_LIST_TYPE                    cmdListType;
+    TE_CMD_LIST_PREFERRED_SCHEDULING    preferredScheduling;
+
+    CommandListCreationParam( TE_CMD_LIST_TYPE type, 
+                              TE_CMD_LIST_PREFERRED_SCHEDULING sched = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC ) :
+        cmdListType(type), preferredScheduling(sched) {}
+};
+
+// Root device Creation params
+
+// Init task executor to use uiNumThreads for execution
+// if uiNumThreads == AUTO_THREADS, number of threads will be defined by implementation
+static const unsigned int TE_AUTO_THREADS = (unsigned int)(-1);
+static const unsigned int TE_MAX_LEVELS_COUNT = 2;
+static const unsigned int TE_UNKNOWN      = (unsigned int)(-1);
+enum TE_MASTERS_JOINING
+{
+    TE_ENABLE_MASTERS_JOIN,         // enable  master threads join execution in specific Root Device
+    TE_DISABLE_MASTERS_JOIN         // disable master threads join execution in specific Root Device
+};
+
+struct RootDeviceCreationParam
+{
+    unsigned int        uiNumOfLevels;
+    unsigned int        uiThreadsPerLevel[TE_MAX_LEVELS_COUNT];
+    TE_MASTERS_JOINING  mastersJoining;
+    unsigned int        uiNumOfExecPlacesForMasters; // if TE_ENABLE_MASTERS_JOIN, how many cores in device should be reserved for masters only.
+                                                     // Only 0 or 1 is supported now and cannot exceed number of threads on the top level
+
+	/**
+	 * Create Root Device in hierarchical mode - threads are splitted into levels. 
+	 * Each thread belongs to all levels where the top level is 0. Use this to express HW structure.
+	 * TE_AUTO_THREADS cannot be used if uiNumOfLevels > 1.
+	 * @param levels		    - number of levels in Root Device. Must be >0 and <TE_MAX_LEVELS_COUNT
+	 * @param threadsPerLevel   - pointer to array with number of threads per each level. Must be > 0 and overall number is limited to GetMaxNumOfConcurrentThreads().
+	 * @param joining           - can user threads join the execution in this device?
+     * @param reservedForMasters- if joining is enabled, how many places should be reserved in the top level device for masters. Extra joining masters will either replace
+     *                            workers or will not allow joining
+	 */
+    RootDeviceCreationParam( unsigned int levels, const unsigned int threadsPerLevel[], 
+                             TE_MASTERS_JOINING joining = TE_ENABLE_MASTERS_JOIN, unsigned int reservedForMasters = 0 ) :
+        uiNumOfLevels( levels ), mastersJoining( joining ), uiNumOfExecPlacesForMasters( reservedForMasters )
+    {
+        if (NULL != threadsPerLevel)
+        {
+            MEMCPY_S( uiThreadsPerLevel, sizeof(uiThreadsPerLevel), threadsPerLevel, sizeof(unsigned int)*((levels < TE_MAX_LEVELS_COUNT) ? levels : TE_MAX_LEVELS_COUNT ));
+        }
+    }
+
+	/**
+	 * Create Root Device in flat mode - threads are not splitted into levels. This means that all threads are at level 0 only.
+	 * @param overallThreads    - number of threads in the root device or TE_AUTO_THREADS.
+	 * @param joining           - can user threads join the execution in this device?
+     * @param reservedForMasters- if joining is enabled, how many places should be reserved in the top level device for masters. Extra joining masters will either replace
+     *                            workers or will not allow joining
+	 */
+    RootDeviceCreationParam( unsigned int overallThreads = TE_AUTO_THREADS,  
+                             TE_MASTERS_JOINING joining  = TE_ENABLE_MASTERS_JOIN, unsigned int reservedForMasters = 0 ) :
+        uiNumOfLevels( 1 ), mastersJoining( joining ), uiNumOfExecPlacesForMasters( reservedForMasters )
+    {
+        uiThreadsPerLevel[0] = overallThreads;
+    }
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -103,7 +205,7 @@ public:
 	// Returns whether the executed task is a task set.
     virtual bool	IsTaskSet() const = 0;
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
-    virtual TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    virtual TASK_PRIORITY	GetPriority() const = 0; 
 
 	// Returns true in case current task is a syncronization point
 	// No more tasks will be executed in this case
@@ -118,9 +220,6 @@ public:
 
     // Releases task object, shall be called instead of delete operator.
     virtual long	Release() = 0;
-
-    // overriden from ReferenceCountedObject
-    std::string GetTypeName() const { return "ITaskBase"; }
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -135,8 +234,6 @@ public:
 	// Task execution routine, will be called by task executor
 	// return false when task execution fails
 	virtual bool	Execute() = 0;
-    // Affinitizes the calling thread to this task's affinity mask if applicable
-    virtual void    AffinitizeToTask() {}
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -144,7 +241,6 @@ public:
 class ITaskSet: public ITaskBase
 {
 public:
-
     PREPARE_SHARED_PTR(ITaskSet)
 
 	bool	IsTaskSet() const {return true;}
@@ -153,24 +249,30 @@ public:
 	// Fills the buffer with 3D number of iterations to run
 	// Fills regCount with actual number of regions
 	// Returns 0 if initialization success, otherwise an error code
-	virtual int		Init(size_t region[], unsigned int& regCount) = 0;
+	virtual int	    Init(size_t region[], unsigned int& regCount) = 0;
 
-	// Is called when the task is going to be called for the first time
-	// within specific thread. 
-	// Returns 0, if attach process succeeded, otherwise -1
-	virtual int	AttachToThread(WGContextBase* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
+	// Is called when the task is going to be called for the first time within specific thread. 
+	// @param currentThreadData - data returned by OnThreadEntry()
+	// Returns data to be passed to ExecuteIteration methods, if attach process succeeded, otherwise NULL to abort
+	virtual void*   AttachToThread(void* currentThreadData, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) = 0;
 
 	// Is called when the task will not be executed by the specific thread	
-	// Returns 0, if detach process succeeded, otherwise -1
-	virtual int	DetachFromThread(WGContextBase* pWgContext) = 0;
+	// Receives data returned by AttachToThread.
+	virtual void    DetachFromThread(void* data_from_AttachToThread) = 0;
 
 	// "Main loop"
 	// The function is called with different 'inx' parameters for each iteration number
-	virtual void	ExecuteIteration(size_t x, size_t y, size_t z, WGContextBase* pWgContext = NULL) = 0;
+    // Return false to abort 
+	virtual bool    ExecuteIteration(size_t x, size_t y, size_t z, void* data_from_AttachToThread) = 0;
 
     // Final stage, free execution resources
 	// Return false when command execution fails
-	virtual bool	Finish(FINISH_REASON reason) = 0;
+	virtual bool    Finish(FINISH_REASON reason) = 0;
+
+    // Optimize By
+    virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const = 0;
+    virtual unsigned int          PreferredSequentialItemsPerThread() const = 0;
+    
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -181,7 +283,8 @@ public:
 
     PREPARE_SHARED_PTR(ITaskList)
 
-    // Enqueue a given task for execution, the function is asynchronous and exits immediately.
+    // Enqueue a given task for execution, the function is asynchronous and exits immediately in in-order and out-of-order lists.
+    // In immediate list the task is enqueued, flushed and executes immediately. Functions returns only after the task completes.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
 	virtual unsigned int	Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
@@ -192,86 +295,154 @@ public:
 	// Add the calling thread to execution pool
 	// Function blocks, until the pTask is completed or in case of NULL
 	// all tasks belonging to the list are completed.
+	// Not supported for immediate lists
     virtual te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;    
 
 };
 
-// IAffinityChangeObserver - recieves notification on change of thread affinity
-class IAffinityChangeObserver
+/////////////////////////////////////////////////////////////////////////////
+// ITEDevice interface - defines a function set for TaskExecutor Device and SubDevice paradigm
+class ITEDevice : public Intel::OpenCL::Utils::ReferenceCountedObject
 {
 public:
-	virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
-};
 
-// Implementation specific class
-class ITaskExecutor
-{
-public:
-	// Init task executor to use uiNumThreads for execution
-	// if uiNumThreads == 0, number of threads will be defined by implementation
-	// Returns 0, if succeeded, else -1
-    virtual int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData) = 0;
+    PREPARE_SHARED_PTR(ITEDevice)
 
     /**
-     * Set the IWGContextPool of the device agent
-     * @param wgContextPool the IWGContextPool to be set
+     * @param  uiNumSubdevComputeUnits - number of computing units in the sub-device. In the hiearachical mode it must be a subset of the level 0 units.
+     * @return an object representing the sub-device in the TaskExecutor module
+     * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
-    virtual void SetWGContextPool(IWGContextPool* pWgContextPool) = 0;
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL ) = 0;
 
     /**
-     * @param bBelongsToMasterThread whether the WG context belong to a master thread
-     * @return a pointer to an allocated work group context for a worker thread or NULL if the IWGContextPool is not available any more
+     * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.
+     * Reaset means no observer calls will be done after from this device and its sub-devices.
      */
-    virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread) = 0;
+    virtual void ResetObserver() = 0;
 
     /**
-     * @param pWgContext a pointer to a work group context for a worker thread to be freed
-     */
-    virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) = 0;
+	 * Create Task Execution List to the given sub-device
+	 * @return pointer to the new list or NULL on error
+	 */
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
 
-	// Activate thread pool. All worker threads are created
-	virtual bool Activate() = 0;
+	/**
+	 * Execute task immediately, independently to "listed" tasks. 
+     * @return false on error
+	 */
+    virtual bool Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask ) = 0; // Dynamically detect Task or TaskSet
 
-	// Deactivate thread pool. All workrer threads are destroyed
-	virtual void Deactivate() = 0;
-
-	// Return number of initialized worker threads
-	virtual unsigned int GetNumWorkingThreads() const = 0;
-
-    // pSubdevTaskExecData is private data of the TaskExecutor for the specific sub-device or NULL for the root device
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData) = 0;
-
-	// Execute task immediately, independently to "listed" tasks. If pSubdevTaskExecData is not NULL, the task will be executed on this sub-device
-    virtual unsigned int Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL) = 0; // Dynamically detect Task or TaskSet
-
-	// Add the calling thread to execution pool
-	// Function blocks, until all independent tasks are completed.
-	// Return false, if the calling thread was not joined the execution
-	// If pSubdevTaskExecData is not NULL, wait on this sub-device
-	virtual te_wait_result WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData = NULL) = 0;
-
-	virtual ocl_gpa_data* GetGPAData() const = 0;    
-
-    /**
-     * @param uiNumSubdevComputeUnits   number of computing units in the sub-device
-     * @return a pointer to an object representing the sub-device in the TaskExecutor module
-     * @param pLegalCores       an array of the core IDs which it is legal for the worker threads to affinitize to (size of the array is uiNumSubdevComputeUnits)
-     * @param observer          the IAffinityChangeObserver that observers changes in the affinity of worker threads																		
-     */
-    virtual void* CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer) = 0;
-
-    /**
-     * Release a sub-device
-     * @param pSubdevData a pointer to the object representing the sub-device in the TaskExecutor module
-     */
-    virtual void ReleaseSubdevice(void* pSubdevData) = 0;
+	/**
+	 * Add the calling thread to execution pool
+	 * Function blocks, until all independent tasks are completed.
+	 * @return error, if the calling thread was not joined the execution
+	 */
+	virtual te_wait_result WaitForCompletion(ITaskBase * pTask) = 0;
 
     /**
      * Wait until all work in a sub-device is complete
-     * @param pSubdevData a pointer to the object representing the sub-device in the TaskExecutor module
      */
-    virtual void WaitUntilEmpty(void* pSubdevData) = 0;
+    virtual void WaitUntilEmpty() = 0;
+};
 
+// ITaskExecutorObserver - recieves notification on ITaskExecutor events
+// Note: ITaskExecutorObserver methods are called inside observer lock, used also by ITEDevice::ResetObserver()
+class ITaskExecutorObserver
+{
+public:
+	/**
+	*
+	*  In each notification following ITaskExecutor can be used:
+	*       GetCurrentDevice()      - to determine relevant TE Device
+	*       IsMaster()              - to determine is current thread a master or worker
+	*       GetPosition()           - to determine current thread position inside a TE Device
+	*/
+
+    /**
+	 * Notify about caller thread entry into either ITaskExecutor Root Device or some SubDevice 
+	 * @return per-thread data to associate with caller thread. NULL - error
+	 */
+	virtual void* OnThreadEntry() = 0;
+
+	/**
+	 * Notify about caller thread exit from either ITaskExecutor Root Device or some SubDevice 
+	 * @param  currentThreadData - per-thread data currently associated with caller thread
+     */
+	virtual void  OnThreadExit( void* currentThreadData ) = 0;
+
+  	/**
+	 * Can thread leave the device? The question is asked only when there is no hard demand. If there is high
+     *      demand thread leavs the device unconditionally.
+	 * @param  currentThreadData - per-thread data currently associated with caller thread
+	 * @return TE_YES - may leave, TE_NO - prefer not to leave, TE_USE_DEFAULT - decide yourself
+     */
+	virtual TE_BOOLEAN_ANSWER MayThreadLeaveDevice( void* currentThreadData ) = 0;
+};
+
+// Implementation specific class
+class ITaskExecutor  
+{
+public:
+	/**
+	 * Init TE for specified number of threads. The first call specifies the number of threads to be used, 
+	 * all subsequent calls are ignored, just return number of threads from the first call.
+	 * @param  AUTO_THREADS cannot be used if uiNumOfLevels > 1.
+	 * @return the number of threads initialized, if succeeded, else -1
+	 */
+    virtual int	Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL) = 0;
+
+    virtual void Finalize() = 0;
+
+	/**
+	 * Return number of threads that may participate in execution at the same time. Initialized at the first Init(). 
+     * It is the same value Init() returns on success.
+	 * @return real number of threads that may concurrently participate in execution overall
+	 */
+	virtual unsigned int GetMaxNumOfConcurrentThreads() const = 0;
+
+	/**
+	 * Create Root Device 
+	 * @param device_desc       - device description. Specifies device structure and behavior
+	 * @param user_data         - some user data to associate with RootDevice - will be returned back by GetCurrentDevice()
+	 * @return Root Device, if succeeded, else NULL
+	 */
+	virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateRootDevice( 
+                                    const RootDeviceCreationParam& device_desc,  
+                                    void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL ) = 0;
+
+    virtual ocl_gpa_data* GetGPAData() const = 0;    
+
+	// Methods to discover current thread state
+
+	/**
+	 * Get current sub-device or root device that is executing as part of.
+	 * @return array of 2 handles - root or sub-device pointer + user handle to root or sub-device
+     *                              If thread is outside of any TE Device or sub-device teDevice is set to NULL
+	 */
+	struct DeviceHandleStruct 
+	{
+		ITEDevice* teDevice;       // returned by CreateRootDevice() or CreateSubdevice()
+		void*      user_handle;    // received by CreateRootDevice() or CreateSubdevice()
+
+        DeviceHandleStruct(ITEDevice* dev = NULL, void* user = NULL) : teDevice(dev), user_handle(user) {};
+	};
+	virtual DeviceHandleStruct GetCurrentDevice() const = 0;
+
+	/**
+	 * Is current thread a user created thread (master) or internall created thread (worker)
+	 * @return true if master or outside of any TE Device or sub-device
+	 */
+	virtual bool IsMaster() const = 0;
+
+	/**
+	 * Get current thread position inside a sub-device
+	 * @param  level - request position at the given hierachy level. 0 - top level. Must be 0 in the flat mode.
+	 * @return 0-based position inside sub-device at given level or TE_UNKNOWN if level is above maximum or 
+     *                 thread is outside of any TE Device or sub-device
+	 */
+	virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
+	
 protected:
 
     ITaskExecutor() : m_pGPAData(NULL) { }
@@ -282,14 +453,5 @@ protected:
 
 // Function which retrieves TaskExecutor singleton object
 TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor();
-
-// IThreadPartitioner class - a class enabling controlling executing threads by affinity mask / count
-class IThreadPoolPartitioner
-{
-public:
-	virtual ~IThreadPoolPartitioner() {}
-    virtual bool Activate()   = 0;
-    virtual void Deactivate() = 0;
-};
 
 }}}

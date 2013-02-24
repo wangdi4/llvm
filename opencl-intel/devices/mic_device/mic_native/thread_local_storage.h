@@ -64,22 +64,22 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
 
 		enum
 		{
-			WG_CONTEXT = 0,
-			HW_EXCEPTION,
+			HW_EXCEPTION = 0,
 
 			NUM_TLS_TYPES
 		};
 	};
 
-	struct TbbTls : TlsGeneralAccessor
+	struct ExecutorTls : TlsGeneralAccessor
 	{
 	public:
-		TbbTls(TlsAccessor* tlsAccessor);
+		ExecutorTls(TlsAccessor* tlsAccessor);
 
 		enum
 		{
 			WORKER_ID = 0,
 			SCHEDULER,
+			WG_CONTEXT,
 
 			NUM_TLS_TYPES
 		};
@@ -107,7 +107,7 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
 		friend class TlsGeneralAccessor;
 		friend class ProgramServiceTls;
 		friend class NDrangeTls;
-		friend class TbbTls;
+		friend class ExecutorTls;
 		friend class QueueTls;
 
         public:
@@ -122,9 +122,9 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
 		enum 
 		{
 			PROGRAM_SERVICE = 0,
-			NDRANGE = PROGRAM_SERVICE + ProgramServiceTls::NUM_TLS_TYPES,
-			TBB = NDRANGE + NDrangeTls::NUM_TLS_TYPES,
-			QUEUE = TBB + TbbTls::NUM_TLS_TYPES,
+			NDRANGE         = PROGRAM_SERVICE + ProgramServiceTls::NUM_TLS_TYPES,
+			EXECUTOR        = NDRANGE + NDrangeTls::NUM_TLS_TYPES,
+			QUEUE           = EXECUTOR + ExecutorTls::NUM_TLS_TYPES,
 
 			NUM_OF_TLS_OBJECTS = QUEUE + QueueTls::NUM_TLS_TYPES
 		};

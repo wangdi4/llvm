@@ -17,14 +17,13 @@
 #include "native_common_macros.h"
 #include "memory_manager.h"
 #include "thread_local_storage.h"
-#include "execution_task.h"
 #include "hw_exceptions_handler.h"
 
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
 #include <common/COIEngine_common.h>
 
-using namespace Intel::OpenCL::MICDevice;
+using namespace Intel::OpenCL::UtilsNative;
 using namespace Intel::OpenCL::MICDeviceNative;
 
 // main is automatically called whenever the source creates a process.
@@ -70,6 +69,7 @@ int main(int , char**)
     // shutdown
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
+    HWExceptionsWrapper::Fini();
 
     NATIVE_PRINTF("main shut down on the  sink (device index = %d)\n", out_pIndex);
 

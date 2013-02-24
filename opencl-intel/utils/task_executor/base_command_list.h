@@ -23,6 +23,7 @@
 #include "cl_synch_objects.h"
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
+#include "tbb/tbb.h"
 #include "tbb/task_group.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -31,7 +32,7 @@ typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::Shar
 typedef std::vector<Intel::OpenCL::Utils::SharedPtr<ITaskBase> >             TaskVector;
 
 class TBBTaskExecutor;
-class ArenaHandler;
+class TEDevice;
 
 using Intel::OpenCL::Utils::SharedPtr;
 using Intel::OpenCL::Utils::OclOsDependentEvent;
@@ -52,11 +53,12 @@ public:
 	void	Reset() { m_bFired = false;}
 
 	// ITask interface
-	bool	SetAsSyncPoint() {return false;}
-	bool	CompleteAndCheckSyncPoint() { return m_bFired;}
-	bool	IsCompleted() const {return m_bFired;}
-	bool	Execute() { m_bFired = true; return true;}
-	long	Release() { return 0; }	//Persistent member, don't release
+	bool	        SetAsSyncPoint() {return false;}
+	bool	        CompleteAndCheckSyncPoint() { return m_bFired;}
+	bool	        IsCompleted() const {return m_bFired;}
+	bool	        Execute() { m_bFired = true; return true;}
+	long	        Release() { return 0; }	//Persistent member, don't release
+	TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
 protected:
 
@@ -75,10 +77,10 @@ public:
 
     /**
      * Constructor
-     * @param arenaHandler the ArenaHandler for enqueuing and executing tasks
+     * @param device the TEDevice for enqueuing and executing tasks
      */
-    TaskGroup(ArenaHandler& arenaHandler) : m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
-        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_arenaHandler(arenaHandler)
+    TaskGroup(TEDevice* device) : m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
     {
         m_rootTask.increment_ref_count();
     }
@@ -109,7 +111,7 @@ private:
 
     tbb::task_group_context m_taskGroupContext;
     tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed    
-    ArenaHandler& m_arenaHandler;
+    TEDevice* m_device;
 
     // auxiliary functor classes to be replaced by lambda functions
     class ArenaFunctor
@@ -189,10 +191,12 @@ public:
 		m_taskGroup.WaitForAll();
 	}
 
-    ArenaHandler& GetDevArenaHandler() { return m_devArenaHandler; }
+    TEDevice& GetDevice() { return *m_pDevice; }
 
-    std::string GetTypeName() const { return "base_command_list"; }
-
+    virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() { return TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC; }
+    
+    virtual tbb::affinity_partitioner* GetAffinityPartitioner() { return NULL; }
+   
     /**
      * Enqueue a functor to be run on the device's arena
      * @param F type of functor
@@ -203,23 +207,29 @@ public:
     {
         m_taskGroup.EnqueueFunc(func);
     }
+	friend class immediate_executor_task;
 
     bool HaveIncomingWork() const
 	{
 		return !m_quIncomingWork.IsEmpty();
 	}
 
+    // Special SharedPtr cycle breaking method for default command lists
+    // The same pointer is backed by non-counted m_pDevice to be used in default command lists
+    void DeleteDeviceSharedPtr() { m_device = NULL; }
+
 protected:
 	friend class in_order_executor_task;
 	friend class out_of_order_executor_task;
 
-    base_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler);	    	
+    base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device);	    	
 
-	virtual unsigned int LaunchExecutorTask(bool blocking) = 0;
+	virtual unsigned int LaunchExecutorTask(bool blocking,
+                                            const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
 
 	inline unsigned int InternalFlush(bool blocking);
 
-	TBBTaskExecutor*		m_pTBBExecutor;
+	TBBTaskExecutor&		m_pTBBExecutor;
 
 	ConcurrentTaskQueue		m_quIncomingWork;
 
@@ -231,7 +241,10 @@ protected:
 	// the master if another master is running
 	tbb::atomic<bool>		m_bMasterRunning;
 
-    ArenaHandler&           m_devArenaHandler;
+    // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
+    // invisible from outside, we need it not to cointain pointer to TEDevice.
+    SharedPtr<TEDevice>     m_device;
+    TEDevice*               m_pDevice; // contain the same pointer as shared one, except the case of default command list
     TaskGroup               m_taskGroup;	
 
 private:
@@ -246,18 +259,26 @@ public:
 
     PREPARE_SHARED_PTR(in_order_command_list)
 
-    static SharedPtr<in_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
+    static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
+                                                      const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
+                                                      const CommandListCreationParam* param = NULL )
     {
-        return new in_order_command_list(subdevice, pTBBExec, devArenaHandler);
+        return new in_order_command_list(pTBBExec, device, param);
     }
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
+    tbb::affinity_partitioner        m_ap;
+    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
-    in_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler) { }
+    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, device) 
+    {
+        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
+    }
 };
 
 class out_of_order_command_list : public base_command_list
@@ -266,9 +287,11 @@ public:
 
     PREPARE_SHARED_PTR(out_of_order_command_list)
 
-    static SharedPtr<out_of_order_command_list> Allocate(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler)
+    static SharedPtr<out_of_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
+                                                          const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
+                                                          const CommandListCreationParam* param = NULL )
     {
-        return new out_of_order_command_list(subdevice, pTBBExec, devArenaHandler);
+        return new out_of_order_command_list(pTBBExec, device, param);
     }
 
 	/**
@@ -306,12 +329,53 @@ public:
         
 private:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
 
     TaskGroup m_oooTaskGroup;
 
-    out_of_order_command_list(bool subdevice, TBBTaskExecutor* pTBBExec, ArenaHandler& devArenaHandler) : base_command_list(subdevice, pTBBExec, devArenaHandler),
-        m_oooTaskGroup(devArenaHandler) { }
+    out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, device), m_oooTaskGroup(device.GetPtr()) { }
+};
+
+class immediate_command_list : public base_command_list
+{
+public:
+
+    PREPARE_SHARED_PTR(immediate_command_list)
+
+    static SharedPtr<immediate_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
+                                                       const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
+                                                       const CommandListCreationParam* param )
+    {
+        return new immediate_command_list(pTBBExec, device, param);
+    }
+
+    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+    {        
+        return LaunchExecutorTask( true, pTask );
+    }
+
+    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait)
+    {
+        return TE_WAIT_NOT_SUPPORTED;
+    }
+
+    bool Flush() { return true; }
+
+protected:
+
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
+
+private:
+    tbb::affinity_partitioner m_ap;
+    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
+    
+    immediate_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
+        base_command_list(pTBBExec, device) 
+    {
+        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
+    }
 };
 
 }}}
+

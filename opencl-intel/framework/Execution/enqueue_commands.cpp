@@ -35,6 +35,7 @@
 #include <Logger.h>
 #include "context_module.h"
 #include "cl_shared_ptr.hpp"
+#include "framework_proxy.h"
 
 //For debug
 #include <stdio.h>
@@ -2716,9 +2717,9 @@ void PrePostFixRuntimeCommand::DoAction()
 cl_err_code PrePostFixRuntimeCommand::Execute()
 {
 	cl_err_code			ret  = CL_SUCCESS;
-	unsigned int task_err = TaskExecutor::GetTaskExecutor()->Execute(SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(m_task));
+	bool ok = FrameworkProxy::Instance()->Execute(SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>(m_task));
 
-	if (0 != task_err)
+	if (!ok)
 	{
 		LogDebugA("PrePostFixRuntimeCommand - Execute: Task submission failed for PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 

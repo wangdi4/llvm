@@ -29,7 +29,10 @@
     private:   /* this is to prevent taking SharedPtrs of non-heap objects */ \
     Intel::OpenCL::Utils::SharedPtr<T > operator&() { return Intel::OpenCL::Utils::SharedPtr<T >(this); } \
     Intel::OpenCL::Utils::ConstSharedPtr<T > operator&() const { return Intel::OpenCL::Utils::ConstSharedPtr<T >(this); } \
+    public:  \
+    const char* GetTypeName() const { return #T ; } \
     public:
+
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -84,7 +87,7 @@ public:
     /**
      * @return the type name of this object
      */
-    virtual std::string GetTypeName() const = 0;
+    virtual const char* GetTypeName() const = 0;
 
     /**
      * @return an address which identifies this ReferenceCountedObject uniquely

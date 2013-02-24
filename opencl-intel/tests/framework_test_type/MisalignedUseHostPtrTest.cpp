@@ -3,6 +3,7 @@
 
 #define NUM_VECS   1000
 #define NUM_LOOPS  100000
+#define POINTS_INTERVAL (NUM_LOOPS/100)
 
 extern cl_device_type gDeviceType;
 
@@ -39,6 +40,7 @@ bool MisalignedUseHostPtrTest()
 	cl_program program;
 	cl_command_queue queue1;
 	void* ptr;
+    unsigned int points_interval = 0;
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
@@ -84,6 +86,8 @@ bool MisalignedUseHostPtrTest()
 	bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 
+    points_interval = 0;
+
 	cl_mem buf;
 	for (size_t i = 0; i < NUM_LOOPS; ++i)
 	{
@@ -109,9 +113,19 @@ bool MisalignedUseHostPtrTest()
 		if (!bResult) goto release_buf;
 
 		clReleaseMemObject(buf);
+        
+        if (0 == points_interval)
+        {
+            printf(".");fflush(0);
+            points_interval = POINTS_INTERVAL;
+        };
+        --points_interval;
+        
 	}
 	//Ensure all commands are done executing
+    printf("\nWaiting to clFinish....");fflush(0);
 	iRet = clFinish(queue1);
+    printf("\n");fflush(0);
 	bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);
 	goto release_kernel;
 

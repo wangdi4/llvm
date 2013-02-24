@@ -690,7 +690,7 @@ int main(int argc, char* argv[])
 	EXPECT_TRUE(pTaskExecutor!=NULL);
 
 	// Initialize Task Executor
-	int iThreads = pTaskExecutor->Init(0, false);
+	int iThreads = pTaskExecutor->Init(TE_AUTO_THREADS);
 	EXPECT_TRUE(iThreads>0);
 
 	//Create and Init the device

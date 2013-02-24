@@ -171,8 +171,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Get the return code of the command associated with the event.
 		virtual cl_int     GetReturnCode() const		{ return m_returnCode; }
 
-        virtual std::string GetTypeName() const { return "OclEvent"; }
-
         virtual void Cleanup(bool bIsTerminate = false) { delete this; }
 
 	protected:

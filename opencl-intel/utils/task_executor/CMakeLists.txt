@@ -60,6 +60,8 @@ install(TARGETS ${TARGET_NAME}
 
 if (WIN32)
 	list(APPEND LINK_LIBS delayimp.lib )
+else (WIN32)
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} task_executor_linux_exports.txt )
 endif(WIN32)
 
 if (WIN32)
@@ -97,5 +99,5 @@ else (WIN32)
 	endif ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
 endif (WIN32)
 
-target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils )
+target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils cl_hw_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

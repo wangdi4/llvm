@@ -127,7 +127,10 @@ if (WIN32)
     endif(INSTALL_PDBS)   
     
 	list( APPEND LINK_LIBS delayimp.lib )
-endif(WIN32)
+else (WIN32)
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
+endif (WIN32)
+
 
 target_link_libraries( ${TARGET_NAME} Context
                                       Execution

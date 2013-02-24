@@ -24,6 +24,9 @@
 *		Implementnation of Task system on Threads
 *
 */
+
+#ifdef __THREAD_EXECUTOR__
+
 #include "stdafx.h"
 #include "thread_executor.h"
 #include "cl_shared_ptr.hpp"
@@ -710,7 +713,7 @@ int	ThreadTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 		return g_iThreadPoolSize;
 	}
 
-	if ( 0 == uiNumThreads)
+	if ( AUTO_THREADS == uiNumThreads)
 	{
 		SYSTEM_INFO siSysInfo;
 		GetSystemInfo(&siSysInfo); 
@@ -789,3 +792,5 @@ bool ThreadTaskExecutor::ClearThreadPool()
 
 	return true;
 }
+
+#endif // #ifdef __THREAD_EXECUTOR__

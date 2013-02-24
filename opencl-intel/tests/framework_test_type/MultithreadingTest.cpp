@@ -11,20 +11,29 @@ extern cl_device_type gDeviceType;
 class RetainReleaseTestThread : public SynchronizedThread
 {
 public:
-	RetainReleaseTestThread(size_t iterations, cl_context contextHandle) : m_iterations(iterations), m_contextHandle(contextHandle) {}
+	RetainReleaseTestThread(size_t iterations, size_t print_period, cl_context contextHandle) : 
+            m_iterations(iterations), m_print_period(print_period), m_contextHandle(contextHandle) {}
 	virtual ~RetainReleaseTestThread() {}
 
 protected:
 	virtual void ThreadRoutine();
 
 	size_t     m_iterations;
+    size_t     m_print_period;
 	cl_context m_contextHandle;
 };
 
 void RetainReleaseTestThread::ThreadRoutine()
 {
+    size_t period = 0;
 	for (size_t i = 0; i < m_iterations; ++i)
 	{
+        if (0 == period)
+        {
+            printf(".");fflush(0);
+            period = m_print_period;
+        }
+        --period;
 		clRetainContext(m_contextHandle);
 		clReleaseContext(m_contextHandle);
 	}
@@ -288,6 +297,7 @@ bool MultithreadedContextRefCount()
 	cl_int iRet  = CL_SUCCESS;
 
 	const size_t numIterations   = 10000;
+	const size_t print_period    = numIterations/10;
 	const size_t initialRefCount = 1;
 	const size_t numThreads      = 20;
 
@@ -343,12 +353,14 @@ bool MultithreadedContextRefCount()
 	SynchronizedThread* threads[numThreads];
 	for (size_t i = 0; i < numThreads; ++i)
 	{
-		threads[i] = new RetainReleaseTestThread(numIterations, context);
+		threads[i] = new RetainReleaseTestThread(numIterations, print_period, context);
 	}
+    printf("Running\n");fflush(0);
 	SynchronizedThreadPool pool;
 	pool.Init(threads, numThreads);
 	pool.StartAll();
 	pool.WaitAll();
+    printf("\nDone\n");fflush(0);
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		delete threads[i];

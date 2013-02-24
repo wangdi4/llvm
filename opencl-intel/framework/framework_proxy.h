@@ -30,6 +30,7 @@
 #include <platform_module.h>
 #include <context_module.h>
 #include <execution_module.h>
+#include <task_executor.h>
 #include "Logger.h"
 #include "ocl_config.h"
 #include "cl_synch_objects.h"
@@ -95,6 +96,36 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		PlatformModule * GetPlatformModule() const { return m_pPlatformModule; }
 
+   		/******************************************************************************************
+		* Function: 	Activate
+		* Description:	Simple TaskExecutor Interface for Framework
+		* Arguments:		
+		* Return value:	false on error
+		* Author:		
+		* Date:			
+		******************************************************************************************/
+		bool            ActivateTaskExecutor() const;
+
+   		/******************************************************************************************
+		* Function: 	Deactivate
+		* Description:	Simple TaskExecutor Interface for Framework
+		* Arguments:		
+		* Return value:	
+		* Author:		
+		* Date:			
+		******************************************************************************************/
+		void            DeactivateTaskExecutor() const;
+
+        /******************************************************************************************
+		* Function: 	Execute task on TaskExecutor
+		* Description:	Simple TaskExecutor Interface for Framework
+		* Arguments:		
+		* Return value:	false on error
+		* Author:		
+		* Date:			
+		******************************************************************************************/
+		bool            Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
+
 	private:
 		/******************************************************************************************
 		* Function: 	FrameworkProxy
@@ -143,8 +174,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		ocl_gpa_data m_GPAData;
 
+        // handle to TaskExecutor
+        // During shutdown task_executor dll may finish before current dll and destroy all internal objects
+        // We can discover this case but we cannot access any task_executor object at that time point because
+        // it may be already destroyed. As SharedPtr accesses the object itself to manage counters, we cannot use
+        // SharedPointers at all.
+        Intel::OpenCL::TaskExecutor::ITaskExecutor*         m_pTaskExecutor;
+        mutable Intel::OpenCL::TaskExecutor::ITEDevice*     m_pTERootDevice;
+        mutable unsigned int    m_uiTEActivationCount;
+
 		// a lock to prevent double initialization
 		static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
+
+        // Linux shutdown process
+        static void TerminateProcess();
+        static volatile bool gIsExiting;
 
 		// handle to the logger client
 		DECLARE_LOGGER_CLIENT;

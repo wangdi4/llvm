@@ -323,12 +323,14 @@ void ProgramService::add_program(
     }
 
     // 1. Reserve execution memory
-    if (prog_info->required_executable_size)
+    if (prog_info->required_executable_size || prog_blob_size)
     {
+        size_t required_exec_size = MAX( prog_info->required_executable_size, prog_blob_size );
+        //required_exec_size = ALIGN_UP(required_exec_size, PAGE_4K_SIZE)
         prog_entry->exec_memory_manager = new ProgramMemoryManager();
-        if (! prog_entry->exec_memory_manager->reserveExecutableMemory(prog_info->required_executable_size, 1))
+        if (! prog_entry->exec_memory_manager->reserveExecutableMemory(required_exec_size, 1))
         {
-            NATIVE_PRINTF("ProgramService::add_program: Cannot reserve %lu executable bytes for passed program\n",prog_info->required_executable_size );
+            NATIVE_PRINTF("ProgramService::add_program: Cannot reserve %lu executable bytes for passed program\n",required_exec_size );
 
             delete prog_entry;
             return;

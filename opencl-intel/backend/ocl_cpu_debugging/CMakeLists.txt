@@ -20,6 +20,7 @@ set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_CPU_DEBUGGING_IMPORT_DIRS 
   ${BACKEND_ROOT_DIR}/../cl_api
   ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
+  ${BACKEND_ROOT_DIR}/../utils/cl_hw_utils/export
   ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
 )
 set(OCL_CPU_DEBUGGING_EXPORT_DIR  ${OCL_CPU_DEBUGGING_DIR}/export)

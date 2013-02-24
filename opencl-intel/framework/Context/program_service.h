@@ -154,19 +154,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         PREPARE_SHARED_PTR(BuildTask)
 
-	    virtual bool	Execute() = 0;
+        virtual bool	Execute() = 0;
 
 	    virtual long	Release();
 
         virtual void    DoneWithDependencies(const SharedPtr<OclEvent>& pEvent); 
 
-        unsigned int    Launch();
+        bool            Launch();
 		
 		virtual	void	SetComplete(cl_int returnCode); 
 
-        std::string GetTypeName() const { return "BuildTask"; }
-
         virtual void Cleanup(bool bIsTerminate = false) { delete this; }
+        
+        virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
+                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;} 
 
     protected:
 
@@ -206,7 +207,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	CompleteAndCheckSyncPoint() {return false;}
-
+        
     protected:
 
         CompileTask(_cl_context_int*        context,

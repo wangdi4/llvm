@@ -26,6 +26,8 @@
 */
 #pragma once
 
+#ifdef __THREAD_EXECUTOR__
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -34,7 +36,6 @@
 #include "cl_synch_objects.h"
 #include <list>
 #include <queue>
-#include <map>
 using namespace Intel::OpenCL::Utils;
 
 #define	MAX_WORKING_THREADS_COUNT	128		// We're assuming that there won't be more than 128 working
@@ -291,7 +292,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		// ITaskExecutor interface
 		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
-		unsigned int GetNumWorkingThreads() const
+		unsigned int GetMaxNumOfConcurrentThreads() const
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
 		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
@@ -315,3 +316,5 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 	};
 }}}
+
+#endif // #ifdef __THREAD_EXECUTOR__

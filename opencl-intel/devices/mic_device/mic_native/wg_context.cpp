@@ -30,9 +30,6 @@
 #include "mic_dev_limits.h"
 #include "cl_sys_defines.h"
 #include "native_program_service.h"
-#ifdef WIN32
-#include <windows.h>
-#endif
 #include <malloc.h>
 #include <assert.h>
 
@@ -112,3 +109,4 @@ void WGContext::InvalidateContext()
 	m_pPrintHandle = NULL;
     m_cmdId = (cl_dev_cmd_id)-1;
 }
+

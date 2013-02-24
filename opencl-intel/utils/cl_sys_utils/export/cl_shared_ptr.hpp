@@ -41,10 +41,10 @@ void SharedPtrBase<T>::IncRefCnt()
         this->m_ptr->IncRefCnt();
 #if _DEBUG
     // TODO: In some DLLs (like task_executor.dll) we always get NULL for the mutex and map - we need to fix this.
-    if (lRefCnt >= 0 && NULL != allocatedObjectsMapMutex && NULL != allocatedObjectsMap)   // otherwise the object isn't reference counted
+    if (lRefCnt >= 0 && NULL != allocatedObjectsMapMutex && NULL != allocatedObjectsMap && NULL != this->m_ptr->GetTypeName())   // otherwise the object isn't reference counted
     {
         allocatedObjectsMapMutex->Lock();
-        (*allocatedObjectsMap)[this->m_ptr->GetTypeName()][this->m_ptr->GetThis()] = lRefCnt;
+        (*allocatedObjectsMap)[std::string(this->m_ptr->GetTypeName())][this->m_ptr->GetThis()] = lRefCnt;
         allocatedObjectsMapMutex->Unlock();        
     }
 #endif
@@ -57,7 +57,7 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
     {
 #if _DEBUG
         // This isn't thread safe, but these object are freed when the library is unloaded, so there is just one thread at this point.
-        const bool bIsAllocationDbNull = NULL == allocatedObjectsMap || NULL == allocatedObjectsMapMutex;
+        const bool bIsAllocationDbNull = NULL == allocatedObjectsMap || NULL == allocatedObjectsMapMutex || NULL == ptr->GetTypeName();
 
         if (!bIsAllocationDbNull)
         {
@@ -70,11 +70,11 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
         {
             if (lNewVal > 0)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()][ptr->GetThis()] = lNewVal;
+                (*allocatedObjectsMap)[std::string(ptr->GetTypeName())][ptr->GetThis()] = lNewVal;
             }
             else if (0 == lNewVal)
             {
-                (*allocatedObjectsMap)[ptr->GetTypeName()].erase(ptr->GetThis());
+                (*allocatedObjectsMap)[std::string(ptr->GetTypeName())].erase(ptr->GetThis());
             }
             allocatedObjectsMapMutex->Unlock();
         }

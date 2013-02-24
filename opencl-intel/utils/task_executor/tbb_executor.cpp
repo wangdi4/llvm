@@ -20,12 +20,23 @@
 
 // means config.h
 #include "tbb_executor.h"
-#include "Logger.h"
 
-#include <stdafx.h>
+#ifdef DEVICE_NATIVE
+    // no logger on discrete device
+    #define LOG_ERROR(...)
+    #define LOG_INFO(...)
+    
+    #define DECLARE_LOGGER_CLIENT
+    #define INIT_LOGGER_CLIENT(...)
+    #define RELEASE_LOGGER_CLIENT
+#else
+    #include "Logger.h"
+#endif // DEVICE_NATIVE
+
 #include <vector>
 #include <cassert>
 #ifdef WIN32
+#include <stdafx.h>
 #include <Windows.h>
 #endif
 #include <cl_sys_defines.h>
@@ -39,6 +50,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include "cl_shared_ptr.hpp"
 #include "base_command_list.hpp"
+#include "tbb_execution_schedulers.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -47,303 +59,23 @@ using namespace Intel::OpenCL::Utils;
 #define VECTOR_RESERVE 16
 #endif
 
+#define MAX_BATCH_SIZE			128
+#define SPARE_STATIC_DATA       8
+
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 void RegisterReleaseSchedulerForMasterThread();
 // Logger
 DECLARE_LOGGER_CLIENT;
 
+// TBB thread manager
+INSTANTIATE_THREAD_MANAGER( TBB_PerActiveThreadData );
+
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
 AtomicCounter	glTaskSchedCounter;
 
 volatile bool gIsExiting = false;
-
-#ifdef __LOCAL_RANGES__
-	class Range1D {
-	public:
-		//! Type of a value
-		/** Called a const_iterator for sake of algorithms that need to treat a blocked_range
-		as an STL container. */
-		typedef size_t const_iterator;
-
-		//! Type for size of a range
-		typedef std::size_t size_type;
-
-		//! Construct range with default-constructed values for begin and end.
-		/** Requires that Value have a default constructor. */
-		Range1D() : my_begin(0), my_end(0) {}
-
-		//! Construct range over half-open interval [begin,end), with the given grainsize.
-		Range1D( size_t begin_, size_t end_) : 
-		my_end(end_), my_begin(begin_)
-		{
-			my_grain_size = (unsigned int)((size()+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		}
-
-		//! Beginning of range.
-		const_iterator begin() const {return my_begin;}
-
-		//! One past last value in range.
-		const_iterator end() const {return my_end;}
-
-		//! Size of the range
-		/** Unspecified if end()<begin(). */
-		size_type size() const {
-			__TBB_ASSERT( !(end()<begin()), "size() unspecified if end()<begin()" );
-			return size_type(my_end-my_begin);
-		}
-
-		//------------------------------------------------------------------------
-		// Methods that implement Range concept
-		//------------------------------------------------------------------------
-
-		//! True if range is empty.
-		bool empty() const {return !(my_begin<my_end);}
-
-		//! True if range is divisible.
-		/** Unspecified if end()<begin(). */
-		bool is_divisible() const
-			{ return  my_grain_size < size();}
-
-		//! Split range.  
-		/** The new Range *this has the second half, the old range r has the first half. 
-		Unspecified if end()<begin() or !is_divisible(). */
-		Range1D( Range1D& r, tbb::split ) : 
-		my_end(r.my_end),
-			my_begin(do_split(r))
-		{
-			my_grain_size = (unsigned int)((size()+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		}
-
-	private:
-		/** NOTE: my_end MUST be declared before my_begin, otherwise the forking constructor will break. */
-		size_t my_end;
-		size_t my_begin;
-		size_type	my_grain_size;
-
-		//! Auxiliary function used by forking constructor.
-		/** Using this function lets us not require that Value support assignment or default construction. */
-		static unsigned int do_split( Range1D& r ) {
-			__TBB_ASSERT( r.is_divisible(), "cannot split blocked_range that is not divisible" );
-			unsigned int middle = r.my_begin + (r.my_end-r.my_begin)/2u;
-			r.my_end = middle;
-			return middle;
-		}
-
-		friend class Range3D;
-		friend class Range2D;
-	};
-
-	// A 3-dimensional range that models the Range concept.
-	class Range2D {
-	public:
-	private:
-		Range1D				my_rows;
-		Range1D				my_cols;
-		Range1D::size_type	my_grain_size;
-	public:
-
-		Range2D( unsigned int range[2]) : 
-			  my_rows(0,range[1]),
-			  my_cols(0,range[0])
-		  {
-			  __int64 n = 1;
-			  for(int i =0; i<2; ++i)
-				  n *= range[i];
-			  my_grain_size = (unsigned int)((n+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		  }
-
-		  //! True if range is empty
-		  bool empty() const {
-			  // Yes, it is a logical OR here, not AND.
-			  return my_rows.empty() || my_cols.empty();
-		  }
-
-		  //! True if range is divisible into two pieces.
-		  bool is_divisible() const {
-			  return  my_grain_size < (my_rows.size()*my_cols.size());
-		  }
-
-		  Range2D( Range2D& r, tbb::split ) : 
-			  my_rows(r.my_rows),
-			  my_cols(r.my_cols)
-		  {
-			  if ( my_rows.size() < my_cols.size() ) {
-				  my_cols.my_begin = Range1D::do_split(r.my_cols);
-			  } else {
-				  my_rows.my_begin = Range1D::do_split(r.my_rows);
-			  }
-
-			  // Recalculate grain size
-			  __int64 n = my_rows.size()*my_cols.size();
-			  my_grain_size = (unsigned int)((n+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		  }
-
-		  //! The rows of the iteration space 
-		  const Range1D& rows() const {return my_rows;}
-
-		  //! The columns of the iteration space 
-		  const Range1D& cols() const {return my_cols;}
-
-	};
-
-	// A 3-dimensional range that models the Range concept.
-	class Range3D {
-	public:
-	private:
-		Range1D				my_pages;
-		Range1D				my_rows;
-		Range1D				my_cols;
-		Range1D::size_type	my_grain_size;
-	public:
-
-		Range3D( unsigned int range[3]) : 
-				my_pages(0,range[2]),
-				my_rows(0,range[1]),
-				my_cols(0,range[0])
-		{
-			__int64 n = 1;
-			for(int i =0; i<3; ++i)
-				n *= range[i];
-			my_grain_size = (unsigned int)((n+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		}
-
-		//! True if range is empty
-		bool empty() const {
-			// Yes, it is a logical OR here, not AND.
-			return my_pages.empty() || my_rows.empty() || my_cols.empty();
-		}
-
-		//! True if range is divisible into two pieces.
-		bool is_divisible() const {
-			return  my_grain_size < (my_pages.size()*my_rows.size()*my_cols.size());
-		}
-
-		Range3D( Range3D& r, tbb::split ) : 
-		my_pages(r.my_pages),
-			my_rows(r.my_rows),
-			my_cols(r.my_cols)
-		{
-			if( my_pages.size() < my_rows.size() ) {
-				if ( my_rows.size() < my_cols.size() ) {
-					my_cols.my_begin = Range1D::do_split(r.my_cols);
-				} else {
-					my_rows.my_begin = Range1D::do_split(r.my_rows);
-				}
-			} else {
-				if ( my_pages.size() < my_cols.size() ) {
-					my_cols.my_begin = Range1D::do_split(r.my_cols);
-				} else {
-					my_pages.my_begin = Range1D::do_split(r.my_pages);
-				}
-			}
-
-			// Recalculate grain size
-			__int64 n = my_pages.size()*my_rows.size()*my_cols.size();
-			my_grain_size = (unsigned int)((n+(gWorker_threads-1)*16-1)/((gWorker_threads-1)*16));
-		}
-
-		//! The pages of the iteration space 
-		const Range1D& pages() const {return my_pages;}
-
-		//! The rows of the iteration space 
-		const Range1D& rows() const {return my_rows;}
-
-		//! The columns of the iteration space 
-		const Range1D& cols() const {return my_cols;}
-
-	};
-#endif
-
-    struct TaskLoopBody
-    {
-    protected:
-
-        ArenaHandler& m_devArenaHandler;
-
-        TaskLoopBody(ArenaHandler& devArenaHandler) : m_devArenaHandler(devArenaHandler) { }
-    };
-
-	struct TaskLoopBody3D : public TaskLoopBody {
-		ITaskSet &task;
-        TaskLoopBody3D(ArenaHandler& devArenaHandler, ITaskSet &t) : TaskLoopBody(devArenaHandler), task(t) {}
-		void operator()(const tbb::blocked_range3d<size_t>& r) const {
-			size_t uiNumberOfWorkGroups;
-
-            size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
-			size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
-
-			uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
-            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-
-            WGContextBase* const pWGContext = m_devArenaHandler.GetWGContext();
-            if ( task.AttachToThread(pWGContext, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
-				return;
-            for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
-				for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
-					for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-                        task.ExecuteIteration(k, j, i, pWGContext);
-            task.DetachFromThread(pWGContext);
-		}
-	};
-
-	struct TaskLoopBody2D : public TaskLoopBody {
-		ITaskSet &task;
-        TaskLoopBody2D(ArenaHandler& devArenaHandler, ITaskSet &t) : TaskLoopBody(devArenaHandler), task(t) {}
-		void operator()(const tbb::blocked_range2d<size_t>& r) const {
-			size_t uiNumberOfWorkGroups;
-            size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
-			size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
-
-			uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
-            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-
-            WGContextBase* const pWGContext = m_devArenaHandler.GetWGContext();
-            if ( task.AttachToThread(pWGContext, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
-				return;
-			for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
-				for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
-					task.ExecuteIteration(k, j, 0, pWGContext);
-            task.DetachFromThread(pWGContext);
-		}
-	};    
-
-	struct TaskLoopBody1D : public TaskLoopBody {
-		ITaskSet &task;
-        TaskLoopBody1D(ArenaHandler& devArenaHandler, ITaskSet &t) : TaskLoopBody(devArenaHandler), task(t) {}
-		void operator()(const tbb::blocked_range<size_t>& r) const {
-
-			size_t uiNumberOfWorkGroups;
-			size_t firstWGID[1] = {r.begin()}; 
-			size_t lastWGID[1] = {r.end()}; 
-
-			uiNumberOfWorkGroups = r.size();
-            assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
-            
-            WGContextBase* const pWGContext = m_devArenaHandler.GetWGContext();
-            if ( task.AttachToThread(pWGContext, uiNumberOfWorkGroups, firstWGID, lastWGID) != 0 )
-				return;
-
-			for(size_t k = r.begin(), f = r.end(); k < f; k++ )
-					task.ExecuteIteration(k, 0, 0, pWGContext);
-            task.DetachFromThread(pWGContext);
-		}
-	};
-
-// The following functor classes can be replaced by lambda expressions once C++11 is supported by all compilers we use:
-
-class ParallelForFunctor
-{
-protected:
-
-    const size_t* const m_dim;
-    ITaskSet& m_task;
-    ArenaHandler& m_devArenaHandler;
-
-    ParallelForFunctor(const size_t* dim, ITaskSet& task, ArenaHandler& devArenaHandler) : m_dim(dim), m_task(task), m_devArenaHandler(devArenaHandler) { }
-
-};
 
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
@@ -363,23 +95,11 @@ static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list&
 			pTask->Finish(FINISH_INIT_FAILED);
 			return false;
 		}
-		if (1 == dimCount)
-		{
-			assert(dim[0] <= CL_MAX_INT32);
 
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, dim[0]), TaskLoopBody1D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
-		} else if (2 == dimCount)
-		{
-			assert(dim[0] <= CL_MAX_INT32);
-			assert(dim[1] <= CL_MAX_INT32);
-            tbb::parallel_for(tbb::blocked_range2d<size_t>(0, dim[1], 0, dim[0]), TaskLoopBody2D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
-		} else
-		{
-			assert(dim[0] <= CL_MAX_INT32);
-			assert(dim[1] <= CL_MAX_INT32);
-			assert(dim[2] <= CL_MAX_INT32);
-            tbb::parallel_for(tbb::blocked_range3d<size_t>(0, dim[2], 0, dim[1], 0, dim[0]), TaskLoopBody3D(cmdList.GetDevArenaHandler(), *pTask), tbb::auto_partitioner());
-		}
+        // fork execution
+        TBB_ExecutionSchedulers::parallel_execute( cmdList, dim, dimCount, *pTask );
+        // join execution
+
 		runNextCommand = pTask->Finish(FINISH_COMPLETED);
 	}
 	else
@@ -487,16 +207,24 @@ SharedPtr<ITaskBase> out_of_order_executor_task::GetTask()
     }        
 }
 
+void immediate_executor_task::operator()()
+{    
+	assert(m_list);
+    assert(m_pTask);
+
+    execute_command(m_pTask, *m_list);
+}
+
 static void Terminate()
 {
     gIsExiting = true;
 }
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor() :
-    m_lActivateCount(0), m_pExecutorList(NULL), m_pGlobalArenaHandler(NULL), m_pWgContextPool(NULL)
+TBBTaskExecutor::TBBTaskExecutor()
 {
 	INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_DEBUG);
+
 #if _DEBUG
     const int ret =
 #endif
@@ -509,7 +237,6 @@ TBBTaskExecutor::TBBTaskExecutor() :
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-    m_pExecutorList = NULL;
     /* We don't delete m_pGlobalArenaHandler because of all kind of TBB issues in the shutdown sequence, but since this destructor is called when the whole library goes down and m_pGlobalArenaHandler
        is a singleton, it doesn't really matter. */
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
@@ -517,7 +244,7 @@ TBBTaskExecutor::~TBBTaskExecutor()
 	RELEASE_LOGGER_CLIENT;
 }
 
-int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
+int	TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
 {
 	if ( 0 != gWorker_threads )
 	{
@@ -534,14 +261,12 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 		return 0;
 	}
 
-	if (uiNumThreads > 0)
-	{
-		gWorker_threads = uiNumThreads;
-	}
-	else
+	gWorker_threads = uiNumOfThreads;
+	if (gWorker_threads == TE_AUTO_THREADS)
 	{
 		gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
 	}
+
     m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);
     if (NULL == m_pScheduler)
     {
@@ -549,128 +274,84 @@ int	TBBTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
         return 0;
     }
     m_pScheduler->initialize(gWorker_threads + 1);   // see comment above the definition of m_pScheduler
-    m_pGlobalArenaHandler = new RootDevArenaHandler(gWorker_threads, *this);
+    m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
 
 	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
-	LOG_INFO(TEXT("TBBTaskExecutor initialized to %u threads"), uiNumThreads);
+	LOG_INFO(TEXT("TBBTaskExecutor initialized to %d threads"), uiNumOfThreads);
 	LOG_INFO(TEXT("%s"),"Done");	
 	return gWorker_threads;
 }
 
-bool TBBTaskExecutor::Activate()
+void TBBTaskExecutor::Finalize()
 {
-	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
+    if (NULL != m_pScheduler)
+    {
+        delete m_pScheduler;
+        m_pScheduler = NULL;
+    }
+
+    gWorker_threads = 0;
+}
+
+SharedPtr<ITEDevice>
+TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, void* user_data,  ITaskExecutorObserver* my_observer )
+{
+	LOG_INFO(TEXT("Enter%s"),"");
 	assert(gWorker_threads && "TBB executor should be initialized first");
-	OclAutoMutex mu(&m_mutex);
 
-	if ( 0 != m_lActivateCount )
-	{
-		// We are already acticated
-		long newCount = ++m_lActivateCount;
-		long newSchedCount = ++glTaskSchedCounter;
-		LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), newCount, newSchedCount);
-		return true;
-	}
-	m_lActivateCount++;
-	glTaskSchedCounter++;
-	LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
-    AllocateResources();
-	return true;
+    RootDeviceCreationParam device( device_desc );
+
+    if ((TE_AUTO_THREADS == device.uiThreadsPerLevel[0]) && (1 == device.uiNumOfLevels))
+    {
+        device.uiThreadsPerLevel[0] = gWorker_threads;
+    }
+
+    // check params
+    if ((0 == device.uiNumOfLevels) || (device.uiNumOfLevels > TE_MAX_LEVELS_COUNT))
+    {
+    	LOG_ERROR(TEXT("Wrong uiNumOfLevels parameter = %d, must be between 1 and %d"), device.uiNumOfLevels, TE_MAX_LEVELS_COUNT);
+    	LOG_INFO(TEXT("Leave%s"), "");
+        return NULL;
+    }
+
+    // check for overall number of threads
+    unsigned int overall_threads = 1;
+    for (unsigned int i = 0; i < device.uiNumOfLevels; ++i)
+    {
+        unsigned int uiThreadsPerLevel =  device.uiThreadsPerLevel[i];
+        if ((0 == uiThreadsPerLevel) || (1 == uiThreadsPerLevel) || (TE_AUTO_THREADS == uiThreadsPerLevel))
+        {
+            assert( false && "Cannot specify 0, 1 or TE_AUTO_THREADS threads per level" );
+    	    LOG_ERROR(TEXT("Wrong number of threads per level: %u, must not be 0, 1 and %u"), uiThreadsPerLevel, TE_AUTO_THREADS);
+    	    LOG_INFO(TEXT("Leave%s"), "");
+            return NULL;
+        }
+        overall_threads *= device.uiThreadsPerLevel[i];
+    }
+
+    if ((overall_threads == 0) || (overall_threads > gWorker_threads))
+    {
+        assert( false && "Too many threads requested - above maximum configured" );
+    	LOG_ERROR(TEXT("Wrong number of threads specified per level. Amount of threads on each level should be above 0, overall number not exceed %d"), gWorker_threads);
+    	LOG_INFO(TEXT("Leave%s"), "");
+        return NULL;
+    }
+
+    // Create root device
+    SharedPtr<TEDevice> root = TEDevice::Allocate( device, user_data, my_observer, *this );
+
+    if (NULL == root)
+    {
+        LOG_ERROR(TEXT("Cannot allocate root device - exiting%s"), ""); // make gcc happy
+    }
+
+   	LOG_INFO(TEXT("Leave%s"), "");
+	return root;
 }
 
-bool TBBTaskExecutor::AllocateResources()
-{
-	LOG_INFO(TEXT("%s"), "Enter");
-
-	m_pExecutorList = in_order_command_list::Allocate(false, this, *m_pGlobalArenaHandler); // TODO: Why not unordered
-	if ( NULL == m_pExecutorList )
-	{
-		LOG_ERROR(TEXT("%s"), "Failed to allocate m_pExecutorList");
-		return false;
-	}
-
-	LOG_INFO(TEXT("%s"), "Leave");
-	return true;
-}
-
-void TBBTaskExecutor::ReleaseResources()
-{
-	LOG_INFO(TEXT("%s"), "Enter");
-	if ( NULL != m_pExecutorList )
-	{
-		m_pExecutorList = NULL;
-	}	
-	LOG_INFO(TEXT("%s"), "Leave");
-}
-
-void TBBTaskExecutor::Deactivate()
-{
-	OclAutoMutex mu(&m_mutex);
-	LOG_INFO(TEXT("Enter count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
-        
-	long count = --m_lActivateCount;
-	long sched_count = --glTaskSchedCounter;
-	if ( 0 != count )
-	{
-		// Need to keep active instance
-		LOG_INFO(TEXT("Leave count = %ld, ShedCounter=%ld"), count, sched_count);
-		return;
-	}
-    ReleaseResources();    
-	LOG_INFO(TEXT("%s"),"Shutting down...");
-	LOG_INFO(TEXT("Leave count = %ld, SchedCount=%ld"), m_lActivateCount, (long)glTaskSchedCounter);
-}
-
-unsigned int TBBTaskExecutor::GetNumWorkingThreads() const
+unsigned int TBBTaskExecutor::GetMaxNumOfConcurrentThreads() const
 {
 	return gWorker_threads;
-}
-
-SharedPtr<ITaskList> TBBTaskExecutor::CreateTaskList(CommandListCreationParam* param, void* pSubdevTaskExecData)
-{
-    bool       subdevice = param->isSubdevice;
-    bool       OOO       = param->isOOO;
-
-    ArenaHandler* const pDevArena = NULL != pSubdevTaskExecData ? (ArenaHandler*)pSubdevTaskExecData : m_pGlobalArenaHandler;
-	SharedPtr<ITaskList> pList = NULL;
-	if (OOO) 
-	{
-        pList = out_of_order_command_list::Allocate(subdevice, this, *pDevArena);
-	}
-	else
-	{
-        pList = in_order_command_list::Allocate(subdevice, this, *pDevArena);
-	}
-
-	return pList;
-}
-
-unsigned int TBBTaskExecutor::Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData)
-{
-    if (NULL == pSubdevTaskExecData)
-    {
-        m_pExecutorList->Enqueue(pTask);
-	    m_pExecutorList->Flush();		
-    }
-    else
-    {
-        SubdevArenaHandler& arenaHandler = *(SubdevArenaHandler*)pSubdevTaskExecData;
-        arenaHandler.GetInternalCommandList().Enqueue(pTask);
-        arenaHandler.GetInternalCommandList().Flush();
-    }
-	return 0;
-}
-
-te_wait_result TBBTaskExecutor::WaitForCompletion(ITaskBase * pTask, void* pSubdevTaskExecData)
-{
-    if (NULL == pSubdevTaskExecData)
-    {
-        return m_pExecutorList->WaitForCompletion(pTask);
-    }
-    else
-    {
-        return ((SubdevArenaHandler*)pSubdevTaskExecData)->GetInternalCommandList().WaitForCompletion(pTask);
-    }	
 }
 
 ocl_gpa_data* TBBTaskExecutor::GetGPAData() const
@@ -705,64 +386,38 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 	return bLoadRes;
 }
 
-void* TBBTaskExecutor::CreateSubdevice(unsigned int uiNumSubdevComputeUnits, const unsigned int* pLegalCores, IAffinityChangeObserver& observer)
+ITaskExecutor::DeviceHandleStruct TBBTaskExecutor::GetCurrentDevice() const
 {
-    if (uiNumSubdevComputeUnits < gWorker_threads)
+    TBB_PerActiveThreadData* tls = m_threadManager.GetCurrentThreadDescriptor();
+    
+    if (NULL == tls)
     {
-        return new SubdevArenaHandler(uiNumSubdevComputeUnits, gWorker_threads, *this, pLegalCores, observer);
+        return DeviceHandleStruct();
     }
     else
     {
-        return m_pGlobalArenaHandler;   // since m_pGlobalArenaHandler lives as long as TBBTaskExecutor, no reference counting is needed.
+        return DeviceHandleStruct( tls->device, (NULL != tls->device) ? tls->device->GetUserData() : NULL );
     }
 }
 
-void TBBTaskExecutor::ReleaseSubdevice(void* pSubdevData)
+bool TBBTaskExecutor::IsMaster() const
 {
-	if (pSubdevData != m_pGlobalArenaHandler)
-	{
-		delete (ArenaHandler*)pSubdevData;
-	}
+    TBB_PerActiveThreadData* tls = m_threadManager.GetCurrentThreadDescriptor();
+    return ( (NULL != tls) ? tls->is_master : true);
 }
 
-void TBBTaskExecutor::WaitUntilEmpty(void* pSubdevData)
+unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
 {
-    if (NULL != pSubdevData)
+    if (level > TE_MAX_LEVELS_COUNT)
     {
-        ((ArenaHandler*)pSubdevData)->WaitUntilEmpty();
+        assert( false && "Cannot return thread position for the level more then supported" );
+        return TE_UNKNOWN;
     }
-    else
-    {
-        m_pGlobalArenaHandler->WaitUntilEmpty();
-    }
+
+    TBB_PerActiveThreadData* tls = m_threadManager.GetCurrentThreadDescriptor();
+
+    return (((NULL != tls) && (NULL != tls->device) && (level < tls->device->GetNumOfLevels())) ? tls->position[level] : TE_UNKNOWN);
 }
 
-void TBBTaskExecutor::SetWGContextPool(IWGContextPool* pWgContextPool)
-{
-    OclAutoMutex mu(&m_contextPoolMutex);
-    m_pWgContextPool = pWgContextPool;
-}
-
-WGContextBase* TBBTaskExecutor::GetWGContext(bool bBelongsToMasterThread)
-{
-    OclAutoMutex mu(&m_contextPoolMutex);
-    if (NULL != m_pWgContextPool)
-    {
-        return m_pWgContextPool->GetWGContext(bBelongsToMasterThread);
-    }
-    else
-    {
-        return NULL;
-    }            
-}
-
-void TBBTaskExecutor::ReleaseWorkerWGContext(WGContextBase* wgContext)
-{
-    OclAutoMutex mu(&m_contextPoolMutex);
-    if (NULL != m_pWgContextPool)
-    {
-        m_pWgContextPool->ReleaseWorkerWGContext(wgContext);
-    }            
-}
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

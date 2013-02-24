@@ -55,6 +55,7 @@
 
 //forward declaration
 #include "cl_utils.h"
+#include "hw_utils.h"
 
 #include <tbb/concurrent_queue.h>
 #include <queue>
@@ -372,6 +373,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		volatile bool m_isInitialize;
 		OclOsDependentEvent m_eventLock;
 	};
+	
+	///////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////
     class OclReaderWriterLock
     {
     public:
@@ -380,7 +384,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
         void EnterRead()  { m_writeLock.Lock(); m_readers++; m_writeLock.Unlock();}
         void LeaveRead()  { m_readers--; }
-        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) clSleep(0); }
+        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) hw_pause(); }
         void LeaveWrite() { m_writeLock.Unlock();  }
 
     protected:

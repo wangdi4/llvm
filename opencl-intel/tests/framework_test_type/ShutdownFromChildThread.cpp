@@ -95,21 +95,21 @@ void ShutdownThread::ThreadRoutine()
 
 bool ShutdownFromChildThread()
 {
-    printf("Begin bringup-shutdown from a child thread test\n");
+    printf("Begin bringup-shutdown from a child thread test\n");fflush(0);
     SynchronizedThread* pThread;
     SynchronizedThread::Signal();
 	for (int i = 0; i < 10; ++i)
 	{
-        printf("Iteration %d\n", i);
+        printf("Iteration %d\n", i);fflush(0);
         pThread = new ShutdownThread();
         if (NULL == pThread)
         {
-            printf("Failed to allocate thread\n");
+            printf("Failed to allocate thread\n");fflush(0);
             return false;
         }
         pThread->Run();
         pThread->WaitForCompletion();
 	}
-    printf("test passed\n");
+    printf("test passed\n");fflush(0);
 	return true;
 }

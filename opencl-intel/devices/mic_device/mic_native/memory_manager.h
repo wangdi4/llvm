@@ -3,11 +3,11 @@
 #include "pragmas.h"
 #include "memory_pool.h"
 #include "ocl_list.h"
-#include "native_synch_objects.h"
+#include "cl_synch_objects.h"
 
 #include <map>
 
-using namespace Intel::OpenCL::UtilsNative;
+using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
@@ -66,9 +66,9 @@ private:
     map<void*, OclList<MemoryPool*>::Node*> m_startAddressToMemPool;
 
     // back up memory pool
-    MemoryPool* m_backupPool;
+    MemoryPool*  m_backupPool;
 
-    OclMutexNative m_mutex;
+    OclSpinMutex m_mutex;
 
 };
 
