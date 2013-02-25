@@ -246,10 +246,18 @@ TEST(OclRecorder, dupKernels){
   const char*const REC_FILE = "recorder_testrecorder_test__sample_test0.cl";
   const char*const REC_FILE1= "recorder_testrecorder_test__sample_test0.1.cl";
   std::fstream file(REC_FILE);
+#if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
+#else
+  ASSERT_FALSE(file.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
   file.open(REC_FILE1);
+#if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
+#else
+  ASSERT_FALSE(file.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
   remove(REC_FILE);
   remove(REC_FILE1);
 }

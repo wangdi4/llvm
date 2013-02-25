@@ -84,6 +84,7 @@ private:
   size_t m_bufferSize;
 };
 
+#ifdef OCL_DEV_BACKEND_PLUGINS
 //
 //Sanity test for the plugin mechanism
 //
@@ -380,3 +381,5 @@ TEST(OCLSourceRecorder1_1, DISABLED_referenceContension){
   delete pCompileData;
   CompileDataFactory::free(pFactory);
 }
+
+#endif //OCL_DEV_BACKEND_PLUGINS

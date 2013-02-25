@@ -385,9 +385,9 @@ if ( INCLUDE_MIC_DEVICE )
         svml
     )
 endif(INCLUDE_MIC_DEVICE)
-    
-    
-add_definitions( -DOCL_DEV_BACKEND_PLUGINS )
+  
+set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
+
 add_definitions( -DOclCpuBackEnd_EXPORTS )
 if (KNC_CARD) 
   add_definitions( -DKNC_CARD )

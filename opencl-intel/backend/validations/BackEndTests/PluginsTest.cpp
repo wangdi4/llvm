@@ -81,7 +81,11 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 
     // now, plugin's method OnCreateProgram should have changed the 'pluginWorked' flag
     // check if the flag really changed - should be true
+#ifdef OCL_DEV_BACKEND_PLUGINS 
     ASSERT_TRUE(getFlag());
+#else
+    ASSERT_FALSE(getFlag());
+#endif
 }
 
 
