@@ -1,0 +1,21 @@
+; XFAIL: win32
+
+; RUN: llc < %s -mtriple=x86_64-pc-linux \
+; RUN:        -march=y86-64 -mcpu=knc 
+
+;
+
+target datalayout = "e-p:64:64"
+
+declare <16 x float> @llvm.x86.mic.undef.ps()
+
+define <16 x float> @f_undef_ps() {
+; KNF: f_undef_ps:
+; KNF: ..B{{[0-9]*}}.{{[0-9]*}}:
+; KNF-NEXT: ret
+entry:
+  %ret = call <16 x float> @llvm.x86.mic.undef.ps()
+
+ ret <16 x float> %ret
+}
+

@@ -242,6 +242,11 @@ else(LLVM_BUILD_APPLE_BACKEND)
         #add_subdirectory(tests/ocl_ref_conf/   	"${CMAKE_CURRENT_BINARY_DIR}/test_ocl_ref_conformance/")
     endif ()
 
+    if (INCLUDE_MIC_DEVICE)
+        add_subdirectory(tests/MIC/codegen/      "${CMAKE_CURRENT_BINARY_DIR}/test_MIC_codegen/")
+        #add_subdirectory(tests/MIC/workloads/       "${CMAKE_CURRENT_BINARY_DIR}/test_MIC_workloads/")
+    endif (INCLUDE_MIC_DEVICE)
+    
     if (BACKEND_BUILD_VERIFICATION_LIB) 
     #    set_target_properties( check PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
     #    set_target_properties( check.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
