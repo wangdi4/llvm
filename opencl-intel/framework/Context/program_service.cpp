@@ -724,11 +724,18 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
           pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
         }
 
-        char* szUnrecognizedOptions = NULL;
+        char* szUnrecognizedOptions = new char[strlen(szBuildOptions) + 1];
         if (!pfeCompilers[i]->CheckCompileOptions(szBuildOptions, &szUnrecognizedOptions))
         {
             for (cl_uint j = 0; j < uiNumDevices; ++j)
             {
+                program->SetBuildLogInternal(pDevices[j], "Compilation failed\n");
+                program->SetBuildLogInternal(pDevices[j], "Unrecognized build options: ");
+                program->SetBuildLogInternal(pDevices[j], szUnrecognizedOptions);
+                program->SetBuildLogInternal(pDevices[j], "\n");
+
+                program->SetStateInternal(pDevices[j], DEVICE_PROGRAM_COMPILE_FAILED);
+
                 program->Unacquire(pDevices[j]);
             }
 
@@ -743,10 +750,11 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
 
             delete[] pszHeaders;
             delete[] pszHeadersNames;
-			delete[] pfeCompilers;
+			      delete[] pfeCompilers;
             delete[] szUnrecognizedOptions;
             return CL_INVALID_COMPILER_OPTIONS;
         }
+        delete[] szUnrecognizedOptions;
     }
 
 
@@ -1316,12 +1324,19 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
       }
 
-      char* szUnrecognizedOptions = NULL;
+      char* szUnrecognizedOptions = new char[strlen(szBuildOptions) + 1];
       if (!pfeCompilers[i]->CheckCompileOptions(szBuildOptions, &szUnrecognizedOptions))
       {
           for (cl_uint j = 0; j < uiNumDevices; ++j)
           {
-              program->Unacquire(pDevices[j]);
+            program->SetBuildLogInternal(pDevices[j], "Compilation failed\n");
+            program->SetBuildLogInternal(pDevices[j], "Unrecognized build options: ");
+            program->SetBuildLogInternal(pDevices[j], szUnrecognizedOptions);
+            program->SetBuildLogInternal(pDevices[j], "\n");
+
+            program->SetStateInternal(pDevices[j], DEVICE_PROGRAM_COMPILE_FAILED);
+
+            program->Unacquire(pDevices[j]);
           }
 
           delete[] szBuildOptions;
@@ -1329,9 +1344,10 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
           delete[] ppCompileTasks;
           delete[] ppLinkTasks;
           delete[] szUnrecognizedOptions;
-		  delete[] pfeCompilers;
+		      delete[] pfeCompilers;
           return CL_INVALID_BUILD_OPTIONS;
       }
+      delete[] szUnrecognizedOptions;
     }
 
     bool bNeedToBuild = false;

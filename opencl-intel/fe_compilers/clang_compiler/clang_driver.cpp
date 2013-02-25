@@ -1366,11 +1366,10 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     {
         if ( !UnrecognizedArgs.empty() )
         {
-            *szUnrecognizedOptions = new char[UnrecognizedArgsLength];
-            *szUnrecognizedOptions[0] = '\0';
-
             if ( *szUnrecognizedOptions != NULL )
             {
+                *szUnrecognizedOptions[0] = '\0';
+
                 STRCAT_S(*szUnrecognizedOptions, UnrecognizedArgsLength, UnrecognizedArgs.front().c_str());
                 UnrecognizedArgs.pop_front();
 
