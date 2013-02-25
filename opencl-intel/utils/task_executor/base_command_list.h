@@ -227,7 +227,7 @@ protected:
 	virtual unsigned int LaunchExecutorTask(bool blocking,
                                             const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
 
-	inline unsigned int InternalFlush(bool blocking);
+	unsigned int InternalFlush(bool blocking);
 
 	TBBTaskExecutor&		m_pTBBExecutor;
 

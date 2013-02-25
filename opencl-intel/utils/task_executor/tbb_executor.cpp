@@ -142,7 +142,10 @@ void in_order_executor_task::operator()()
 
 		if ( mustExit )
 		{
-			m_list->m_execTaskRequests.fetch_and_store(0);
+			if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
+			{
+				m_list->InternalFlush(false);
+			}
 			break;
 		}
 		if ( 1 == m_list->m_execTaskRequests-- )
@@ -184,7 +187,10 @@ void out_of_order_executor_task::operator()()
             // synchronization point
             m_list->WaitForAllCommands();
             static_cast<SyncTask*>(pTask.GetPtr())->Execute();
-            m_list->m_execTaskRequests.fetch_and_store(0);
+			if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
+			{
+				m_list->InternalFlush(false);
+			}
             break;
         }
         if (1 == m_list->m_execTaskRequests--)

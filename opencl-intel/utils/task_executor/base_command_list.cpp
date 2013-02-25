@@ -102,7 +102,7 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
 	return TE_WAIT_COMPLETED;
 }
 
-inline unsigned int base_command_list::InternalFlush(bool blocking)
+unsigned int base_command_list::InternalFlush(bool blocking)
 {    
 	unsigned int runningTaskRequests = m_execTaskRequests++;    
 	if ( 0 == runningTaskRequests )
