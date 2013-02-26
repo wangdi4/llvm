@@ -20,7 +20,7 @@ File Name:  InterpreterPluggable.h
 #ifndef LLI_INTERPRETER_PLUGGABLE_H
 #define LLI_INTERPRETER_PLUGGABLE_H
 
-#include "Interpreter.h"
+#include "llvm/ExecutionEngine/Interpreter/Interpreter.h"
 #include "InterpreterPlugIn.h"
 #include <list>
 namespace llvm {
