@@ -93,8 +93,12 @@ typedef TypedBiList::const_iterator TypedBiIter;
     std::string code = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
     typedbiList.sort(isLess);
     TypedBiIter typeit, typee = typedbiList.end();
-    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
-      code += generateBuiltinOverload(typeit->first, typeit->second);
+    OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();
+    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
+      OclBuiltin *B = const_cast<OclBuiltin*>(typeit->first);
+      B->removeAttribute(IA);
+      code += generateBuiltinOverload(B, typeit->second);
+    }
     build(code, fileName);
     pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");

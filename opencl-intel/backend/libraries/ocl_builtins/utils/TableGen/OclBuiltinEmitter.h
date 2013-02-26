@@ -128,6 +128,11 @@ public:
 
   const std::string& getCAttr() const { return m_CAttribute; }
 
+  static OclBuiltinAttr CreateInilineAttribute();
+
+  bool operator == (const OclBuiltinAttr&)const;
+private:
+  explicit OclBuiltinAttr(const std::string&);
 protected:
   std::string m_CAttribute;
 };
@@ -206,6 +211,10 @@ public:
   bool hasConst() const { return m_HasConst; }
 
   bool hasVolatile() const { return m_HasVolatile; }
+
+  void addAttribute(const OclBuiltinAttr&);
+  
+  void removeAttribute(const OclBuiltinAttr&);
 
 protected:
   const OclBuiltinDB& m_DB;

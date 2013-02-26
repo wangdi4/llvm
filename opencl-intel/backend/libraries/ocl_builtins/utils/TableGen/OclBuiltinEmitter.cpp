@@ -296,6 +296,20 @@ OclBuiltinAttr::OclBuiltinAttr(const Record* R)
   assert(R->isSubClassOf("OclBuiltinAttr") && "Invalid OclType record.");
 }
 
+const char*const INLINE = "inline __attribute__((always_inline))";
+
+OclBuiltinAttr OclBuiltinAttr::CreateInilineAttribute(){
+  return OclBuiltinAttr(INLINE);
+}
+
+OclBuiltinAttr::OclBuiltinAttr(const std::string& S):m_CAttribute(S){
+}
+
+bool OclBuiltinAttr::operator == (const OclBuiltinAttr& A)const{
+  if(this == &A)
+    return true;
+  return m_CAttribute == A.m_CAttribute;
+}
 
 /// OclBuiltin
 OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
@@ -701,6 +715,32 @@ OclBuiltin::isValidType(const std::string& TyName) const
 
   return false;
 }
+
+void OclBuiltin::addAttribute(const OclBuiltinAttr& A){
+  std::vector<const OclBuiltinAttr*>::iterator it = m_Attrs.begin(),
+    e = m_Attrs.end();
+  while(it != e){
+    const OclBuiltinAttr *LHS = *it++;
+    if(*LHS == A)
+      return;
+  }
+  m_Attrs.push_back(new OclBuiltinAttr(A));
+}
+  
+void OclBuiltin::removeAttribute(const OclBuiltinAttr& A){
+  std::vector<const OclBuiltinAttr*>::iterator it = m_Attrs.begin(),
+    e = m_Attrs.end();
+  while(it != e){
+    const OclBuiltinAttr *LHS = *it;
+    if(*LHS == A){
+      m_Attrs.erase(it);
+      delete const_cast<OclBuiltinAttr*>(LHS);
+      return;
+    }
+    ++it;
+  }
+}
+
 
 
 /// OclBuiltinImpl
