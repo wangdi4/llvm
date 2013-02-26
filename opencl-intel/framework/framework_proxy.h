@@ -180,7 +180,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // it may be already destroyed. As SharedPtr accesses the object itself to manage counters, we cannot use
         // SharedPointers at all.
         Intel::OpenCL::TaskExecutor::ITaskExecutor*         m_pTaskExecutor;
-        mutable Intel::OpenCL::TaskExecutor::ITEDevice*     m_pTERootDevice;
+        mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList;
         mutable unsigned int    m_uiTEActivationCount;
 
 		// a lock to prevent double initialization

@@ -117,28 +117,17 @@ void in_order_executor_task::operator()()
 	assert(m_list);
 	ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 	assert(work);
-	TaskVector currentCommandBatch;
-	SharedPtr<ITaskBase> currentTask;
 	bool mustExit = false;
 
 	while(true)
 	{
+    	SharedPtr<ITaskBase> currentTask;
 		//First check if we need to stop interating, next get next available record
 		while( !(mustExit && m_list->m_bMasterRunning) && work->TryPop(currentTask))
 		{
-			mustExit = !execute_command(currentTask, *m_list); //stop requested            
-
-			currentCommandBatch.push_back(currentTask);
-
-			if ( currentCommandBatch.size() >= MAX_BATCH_SIZE )
-			{
-				// When we excide maximum allowed command batch
-				// We need to release, prevent memory overflow
-                currentCommandBatch.clear();
-			}
+			mustExit = !execute_command(currentTask, *m_list); //stop requested    
+            currentTask = NULL;
 		}
-
-        currentCommandBatch.clear();
 
 		if ( mustExit )
 		{
@@ -166,7 +155,7 @@ struct ExecuteContainerBody
 	void operator()()
 	{
         execute_command(m_pTask, m_list);
-	}
+    }
 };
 
 void out_of_order_executor_task::operator()()

@@ -177,23 +177,10 @@ public:
 	 */
 	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
-	/**
-	 * Execute task immediately, independently to "listed" tasks. 
-     * @return false on error
-	 */
-    virtual bool Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask ); // Dynamically detect Task or TaskSet
-
-	/**
-	 * Add the calling thread to execution pool
-	 * Function blocks, until all independent tasks are completed.
-	 * @return error, if the calling thread was not joined the execution
-	 */
-	virtual te_wait_result WaitForCompletion(ITaskBase * pTask);
-
     /**
      * Wait until all work in a sub-device is complete
      */
-    virtual void WaitUntilEmpty();
+    virtual te_wait_result WaitUntilEmpty();
 
     //
     //   Extra methods
@@ -243,11 +230,6 @@ public:
     bool ShouldMasterJoinWork() const { return (TE_ENABLE_MASTERS_JOIN == m_deviceDescriptor.mastersJoining); }
 
     /**
-     * Get default device queue. Create on demand.
-     */
-    Intel::OpenCL::Utils::SharedPtr<base_command_list> GetDefaultCommandList();
-
-    /**
      * Get number of threads in top level arena
      */
     unsigned int GetNumOfTopLevelThreads() const { return m_deviceDescriptor.uiThreadsPerLevel[0]  ; }
@@ -286,8 +268,6 @@ private:
 
     ArenaHandler            m_mainArena;
     ArenaHandler*           m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
-
-    Intel::OpenCL::Utils::SharedPtr<base_command_list> m_pInternalCmdList;
 
     Intel::OpenCL::Utils::AtomicCounter                m_numOfActiveThreads; 
     mutable Intel::OpenCL::Utils::OclReaderWriterLock  m_cmdListsRWLock;

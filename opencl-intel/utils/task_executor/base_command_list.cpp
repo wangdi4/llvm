@@ -33,26 +33,25 @@ void TaskGroup::WaitForAll()
 
 base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device) :
 	m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), 
-    m_device(device), m_pDevice(device.GetPtr()), 
-    m_taskGroup(device.GetPtr())
+    m_device(device), m_taskGroup(device.GetPtr())
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
-    m_pDevice->AddCommandList(this);
+    m_device->AddCommandList(this);
 }
 
 base_command_list::~base_command_list()
 {
-    if (!m_pDevice->isTerminating())
+    if (!m_device->isTerminating())
     {
 		WaitForIdle();
-        m_pDevice->RemoveCommandList(this);
+        m_device->RemoveCommandList(this);
     }
 }
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
 {
-	if (!m_pDevice->ShouldMasterJoinWork())
+	if (!m_device->ShouldMasterJoinWork())
     {
         return TE_WAIT_NOT_SUPPORTED;
     }
@@ -132,7 +131,7 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Inte
 	}
 	else
 	{
-		m_pDevice->Execute<in_order_executor_task>(functor);
+		m_device->Execute<in_order_executor_task>(functor);
 		return 0;
 	}
 }
@@ -149,7 +148,7 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const 
     }
     else
     {
-        m_pDevice->Execute<out_of_order_executor_task>(functor);
+        m_device->Execute<out_of_order_executor_task>(functor);
         return 0;
     }
 }
@@ -158,7 +157,7 @@ out_of_order_command_list::~out_of_order_command_list()
 {
 	/* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
 	   ~base_command_list */
-	if (!m_pDevice->isTerminating())
+	if (!m_device->isTerminating())
     {
 		WaitForIdle();
 	}
@@ -170,7 +169,7 @@ unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Int
     assert( true == blocking );
     
 	immediate_executor_task functor(this, pTask); 
-	m_pDevice->Execute<immediate_executor_task>(functor);
+	m_device->Execute<immediate_executor_task>(functor);
 	return 0;
 }
 

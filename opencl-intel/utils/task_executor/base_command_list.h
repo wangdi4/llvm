@@ -180,9 +180,6 @@ public:
 		return &m_quIncomingWork;
 	}    
 
-    template<typename F>
-    void ExecuteFunction(F& f);
-
 	/**
      * Wait for all tasks (commands and executor tasks) to be completed
      */
@@ -191,7 +188,7 @@ public:
 		m_taskGroup.WaitForAll();
 	}
 
-    TEDevice& GetDevice() { return *m_pDevice; }
+    TEDevice& GetDevice() { return *m_device; }
 
     virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() { return TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC; }
     
@@ -213,10 +210,6 @@ public:
 	{
 		return !m_quIncomingWork.IsEmpty();
 	}
-
-    // Special SharedPtr cycle breaking method for default command lists
-    // The same pointer is backed by non-counted m_pDevice to be used in default command lists
-    void DeleteDeviceSharedPtr() { m_device = NULL; }
 
 protected:
 	friend class in_order_executor_task;
@@ -244,7 +237,6 @@ protected:
     // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
     // invisible from outside, we need it not to cointain pointer to TEDevice.
     SharedPtr<TEDevice>     m_device;
-    TEDevice*               m_pDevice; // contain the same pointer as shared one, except the case of default command list
     TaskGroup               m_taskGroup;	
 
 private:

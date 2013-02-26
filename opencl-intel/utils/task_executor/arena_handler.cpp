@@ -175,8 +175,8 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
 
 TEDevice::~TEDevice()
 {
+    WaitUntilEmpty();
     m_isTerminating = true;
-    m_pInternalCmdList = NULL;
 
     for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
     {
@@ -220,23 +220,26 @@ TEDevice::~TEDevice()
     m_cmdLists.clear();
 }
 
-void TEDevice::WaitUntilEmpty()
+te_wait_result TEDevice::WaitUntilEmpty()
 {
 	/* We don't wait in worker thread, since we would deadlock waiting for our own task. */
-    if (m_taskExecutor.IsMaster())
-	{
-		/* We put the base_command_lists in a SharedPtr vector to temporarily increase their reference count. Otherwise they might be deleted while the lock is reader-locked and then they would try
-		   to write-lock it in order to remove themselves from the list in their destructor. */
-		m_cmdListsRWLock.EnterRead();	// protect against base_command_lists adding themselves to the list during the copy
-		std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.begin(), m_cmdLists.end());
-		m_cmdListsRWLock.LeaveRead();
+    if (!m_taskExecutor.IsMaster())
+    {
+         return TE_WAIT_NOT_SUPPORTED;
+    }
 
-		// we're iterating over a local list, so no lock is needed
-		for (std::vector<SharedPtr<base_command_list> >::iterator iter = cmdLists.begin(); iter != cmdLists.end(); iter++)
-		{
-			(*iter)->WaitForIdle();
-		}    
-	}
+	/* We put the base_command_lists in a SharedPtr vector to temporarily increase their reference count. Otherwise they might be deleted while the lock is reader-locked and then they would try
+		to write-lock it in order to remove themselves from the list in their destructor. */
+	m_cmdListsRWLock.EnterRead();	// protect against base_command_lists adding themselves to the list during the copy
+	std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.begin(), m_cmdLists.end());
+	m_cmdListsRWLock.LeaveRead();
+
+	// we're iterating over a local list, so no lock is needed
+	for (std::vector<SharedPtr<base_command_list> >::iterator iter = cmdLists.begin(); iter != cmdLists.end(); iter++)
+	{
+		(*iter)->WaitForIdle();
+	}  
+    return TE_WAIT_COMPLETED;
 }
 
 bool TEDevice::AreEnqueuedTasks() const
@@ -252,19 +255,6 @@ void TEDevice::AddCommandList(base_command_list* pCmdList)
 	OclAutoWriter autoWriter(&m_cmdListsRWLock);
     const std::pair<std::set<base_command_list*>::iterator, bool> res = m_cmdLists.insert(pCmdList);
     assert( res.second && "Add to std::set failed" );
-}
-
-SharedPtr<base_command_list> TEDevice::GetDefaultCommandList()
-{
-    if (NULL != m_pInternalCmdList)
-    {
-        return m_pInternalCmdList;
-    }
-
-    // are we sure it should be in-order and not OOO?
-    m_pInternalCmdList = in_order_command_list::Allocate( m_taskExecutor, this );
-    m_pInternalCmdList->DeleteDeviceSharedPtr(); // break SharedPtr cycle
-    return m_pInternalCmdList;
 }
 
 void TEDevice::RemoveCommandList(base_command_list* pCmdList)
@@ -505,34 +495,3 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
 
 	return pList;
 }
-
-bool TEDevice::Execute(const SharedPtr<ITaskBase>& pTask)
-{
-    SharedPtr<ITaskList> pList = GetDefaultCommandList();
-
-    assert( (NULL != pList) && "Null default command list return by TEDevice" );
-    if (NULL == pList)
-    {
-        return false;
-    }
-
-    pList->Enqueue(pTask);
-    pList->Flush();	
-
-	return true;
-}
-
-te_wait_result TEDevice::WaitForCompletion(ITaskBase * pTask)
-{
-    SharedPtr<ITaskList> pList = GetDefaultCommandList();
-
-    assert( (NULL != pList) && "Null default command list return by TEDevice" );
-    if (NULL == pList)
-    {
-        return TE_WAIT_NOT_SUPPORTED;
-    }
-
-    return pList->WaitForCompletion(pTask);
-}
-
-

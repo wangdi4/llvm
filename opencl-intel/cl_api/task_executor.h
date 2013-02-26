@@ -327,23 +327,11 @@ public:
 	 */
 	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
 
-	/**
-	 * Execute task immediately, independently to "listed" tasks. 
-     * @return false on error
-	 */
-    virtual bool Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask ) = 0; // Dynamically detect Task or TaskSet
-
-	/**
-	 * Add the calling thread to execution pool
-	 * Function blocks, until all independent tasks are completed.
-	 * @return error, if the calling thread was not joined the execution
-	 */
-	virtual te_wait_result WaitForCompletion(ITaskBase * pTask) = 0;
-
     /**
      * Wait until all work in a sub-device is complete
+     * @return only TE_WAIT_COMPLETED for master threads and TE_WAIT_NOT_SUPPORTED for workers
      */
-    virtual void WaitUntilEmpty() = 0;
+    virtual te_wait_result WaitUntilEmpty() = 0;
 };
 
 // ITaskExecutorObserver - recieves notification on ITaskExecutor events

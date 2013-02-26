@@ -49,9 +49,17 @@ struct TaskLoopBody3D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
         TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        if (NULL == tls)
+        {
+            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+            return;
+        }
+
         void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
+        {
             return;
+        }
 
         for(size_t i = r.pages().begin(), e = r.pages().end(); i < e; i++ )
         {
@@ -85,9 +93,17 @@ struct TaskLoopBody2D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
         TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        if (NULL == tls)
+        {
+            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+            return;
+        }
+
         void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
+        {
             return;
+        }
 
         for(size_t j = r.rows().begin(), d = r.rows().end(); j < d; j++ )
         {
@@ -118,9 +134,17 @@ struct TaskLoopBody1D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
         
         TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        if (NULL == tls)
+        {
+            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+            return;
+        }
+
         void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
+        {
             return;
+        }
 
         for(size_t k = r.begin(), f = r.end(); k < f; k++ )
         {

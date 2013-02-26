@@ -224,6 +224,7 @@ TaskDispatcher::~TaskDispatcher()
 		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
         if ((NULL != m_pTaskExecutor) && (NULL != m_pRootDevice ))
         {
+            m_pRootDevice->WaitUntilEmpty();
             m_pRootDevice->ResetObserver();
             m_pRootDevice = NULL;
         }
@@ -304,8 +305,16 @@ cl_dev_err_code TaskDispatcher::init()
 		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    m_pRootDevice->Execute(pAffinitizeThreads);
-	m_pRootDevice->WaitForCompletion(NULL);
+    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+    if (NULL == pTaskList)
+    {
+		//Todo
+		assert(0);
+		return CL_DEV_OUT_OF_MEMORY;
+    }
+    pTaskList->Enqueue(pAffinitizeThreads);
+    pTaskList->Flush();
+	pTaskList->WaitForCompletion(NULL);
  //  pAffinitizeThreads->WaitForEndOfTask();
 	
 	return CL_DEV_SUCCESS;
@@ -623,7 +632,9 @@ void TaskDispatcher::releaseSubdevice(void* pSubdevData)
 {
     // Manual IncRefCnt() is called in TaskDispatcher::createSubdevice()
     assert( NULL != pSubdevData );
-    reinterpret_cast<ITEDevice*>(pSubdevData)->DecRefCnt();
+    ITEDevice* pSubDev = reinterpret_cast<ITEDevice*>(pSubdevData);
+    pSubDev->WaitUntilEmpty();
+    pSubDev->DecRefCnt();
 }
 
 void* TaskDispatcher::OnThreadEntry()

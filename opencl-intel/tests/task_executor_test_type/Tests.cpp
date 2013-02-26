@@ -121,8 +121,11 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize, TaskExecutorTester& task
     if (0 == uiSubdevSize)   // subdevices with size 1 don't support WaitForCompletion
     {
         SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(1);
-        pSubdevData->Execute(pTaskSet);
-        pSubdevData->WaitForCompletion(pTaskSet.GetPtr());
+        SharedPtr<ITaskList>     pTaskList = pSubdevData->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+
+        pTaskList->Enqueue(pTaskSet);
+        pTaskList->Flush();
+        pTaskList->WaitForCompletion(pTaskSet.GetPtr());
         if (!pTaskSet->IsCompleted())
         {
             cerr << "pTaskSet is not completed after taskExecutor.Execute" << endl;

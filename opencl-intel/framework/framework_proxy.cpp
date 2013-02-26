@@ -49,7 +49,7 @@ FrameworkProxy::FrameworkProxy()
 	m_pConfig = NULL;
 	m_pLoggerClient = NULL;
     m_pTaskExecutor = NULL;
-    m_pTERootDevice = NULL;
+    m_pTaskList     = NULL;
     m_uiTEActivationCount = NULL;
 	
 	Initialize();
@@ -391,7 +391,7 @@ void FrameworkProxy::Release(bool bTerminate)
         delete m_pPlatformModule;
     }
 
-    if (!bTerminate && (NULL != m_pTERootDevice))
+    if (!bTerminate && (NULL != m_pTaskList))
     {
         // looks like this is the normal deletion - force root device deletion
         m_uiTEActivationCount = 1;
@@ -401,7 +401,7 @@ void FrameworkProxy::Release(bool bTerminate)
     {
         // TaskExecutor is managed inside it's own DLL and may be already deleted at this point
         // we should avoid deletion of root device here - leave one extra counter
-        m_pTERootDevice = NULL;
+        m_pTaskList     = NULL;
     }
     m_pTaskExecutor = NULL;
 	
@@ -454,7 +454,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
 {
     OclAutoMutex cs(&m_initializationMutex);
 
-    if (NULL == m_pTERootDevice)
+    if (NULL == m_pTaskList)
     {
         // During shutdown task_executor dll may finish before current dll and destroy all internal objects
         // We can discover this case but we cannot access any task_executor object at that time point because
@@ -466,19 +466,26 @@ bool FrameworkProxy::ActivateTaskExecutor() const
         SharedPtr<ITEDevice> pTERootDevice = m_pTaskExecutor->CreateRootDevice(
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 0));
 
+        SharedPtr<ITaskList> pTaskList;
+
         if (NULL != pTERootDevice)
         {
-            m_pTERootDevice = pTERootDevice.GetPtr();
-            m_pTERootDevice->IncRefCnt();
+            pTaskList = pTERootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+        }
+
+        if (NULL != pTaskList)
+        {
+            m_pTaskList = pTaskList.GetPtr();
+            m_pTaskList->IncRefCnt();
         }
     }
 
-    if (NULL != m_pTERootDevice)
+    if (NULL != m_pTaskList)
     {
         ++m_uiTEActivationCount;
     }
     
-    return (NULL != m_pTERootDevice);
+    return (NULL != m_pTaskList);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -493,15 +500,15 @@ void FrameworkProxy::DeactivateTaskExecutor() const
     
     OclAutoMutex cs(&m_initializationMutex);
 
-    if (NULL != m_pTERootDevice)
+    if (NULL != m_pTaskList)
     {
         --m_uiTEActivationCount;
 
         if (0 == m_uiTEActivationCount)
         {
             // this is the normal deletion - undo the counting here to delete the object
-            m_pTERootDevice->DecRefCnt();
-            m_pTERootDevice = NULL;
+            m_pTaskList->DecRefCnt();
+            m_pTaskList = NULL;
         }
     }
 }
@@ -511,10 +518,12 @@ void FrameworkProxy::DeactivateTaskExecutor() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool FrameworkProxy::Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const
 {
-    if (NULL == m_pTERootDevice)
+    if (NULL == m_pTaskList)
     {
         return false;
     }
 
-    return m_pTERootDevice->Execute(pTask);
+    m_pTaskList->Enqueue(pTask);
+    m_pTaskList->Flush();
+    return true;
 }
