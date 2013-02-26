@@ -23,13 +23,11 @@ using namespace Intel::OpenCL::MICDevice;
 #ifdef __DOUBLE_ENABLED__
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_fp64 cl_khr_global_int32_base_atomics "\
                                                 "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-                                                "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-                                                "cl_intel_printf cl_ext_device_fission";
+                                                "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store";
 #else
 static const char OCL_SUPPORTED_EXTENSIONS[] = "cl_khr_global_int32_base_atomics "\
                                                "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-                                                "cl_khr_local_int32_extended_atomics cl_khr_gl_sharing cl_khr_byte_addressable_store "\
-                                                "cl_intel_printf cl_ext_device_fission";
+                                                "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store";
 #endif
 
 static const size_t MIC_MAX_WORK_ITEM_SIZES[MIC_MAX_WORK_ITEM_DIMENSIONS] =

@@ -1,4 +1,3 @@
-
 // Copyright (c) 2006-2008 Intel Corporation
 // All rights reserved.
 //
@@ -250,6 +249,27 @@ public:
     unsigned long   GetWriteMapsCount( void ) const { return (unsigned long)(m_write_maps_count); };
     bool            ImmediateTransferForced( void ) const { return m_Allocator.ImmediateTransferForced(); };
     size_t          GetRawDataSize( void )    const { return m_raw_size; };
+
+	typedef vector<COIPROCESS>  COI_ProcessesArray;
+	COI_ProcessesArray&	get_active_processes( void ) { return m_buffActiveProcesses; };
+
+	/* Check if ptr is mapped OCL Buffer, if yes store in *ppOutMemObj the appropriate MICDevMemoryObject */
+	static bool getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
+
+	/* If u get MICDevMemoryObject from 'getMemObjFromMapBuffersPool()' return it back when u finish to use it. */
+	void returnMemObjToMapBuffersPool() { decRefCounter(); };
+
+	/* Add each OCL Bufer that mapped to m_buffersMemoryPool */
+	void addMemObjToMapBuffersPool() { m_buffersMemoryPool.addBufferToPool(this); };
+
+	/* Remove this object from m_buffersMemoryPool */
+	void removeMemObjFromMapBuffersPool() { m_buffersMemoryPool.removeBufferFromPool(this); };
+
+	/* Set this memObj that already inserted to m_buffersMemoryPool, ready to use */
+	void setMemObjInMapBuffersPoolReady() { m_buffersMemoryPool.setBufferReady(this); };
+
+	/* Return true if this mem object is root buffer */
+	virtual bool isRootBuffer() { return true; };
     
 protected:
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
@@ -274,12 +294,50 @@ protected:
     COIBUFFER                   m_coi_top_level_buffer;
     size_t                      m_coi_top_level_buffer_offset;
 
-    typedef vector<COIPROCESS>  COI_ProcessesArray;
-    COI_ProcessesArray          get_active_processes( void );
+    COI_ProcessesArray          get_active_processes_int( void );
     MICDevice*                  get_owning_device( void );
 
 private:
-    ~MICDevMemoryObject() {};
+
+	// Inc this buffer memory counter.
+	void incRefCounter();
+
+	// Dec this buffer memory counter.
+	void decRefCounter();
+    
+	~MICDevMemoryObject() {};
+
+	struct MapBuffersMemoryPool
+	{
+	public:
+
+		bool getBuffer(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
+
+		void addBufferToPool(MICDevMemoryObject* pMicMemObj);
+
+		void removeBufferFromPool(MICDevMemoryObject* pMicMemObj);
+
+		void setBufferReady(MICDevMemoryObject* pMicMemObj);
+
+	private:
+
+		struct mem_obj_directive
+		{
+			mem_obj_directive(MICDevMemoryObject* memObj) : pMemObj(memObj), refCounter(1), isReady(false) {};
+			MICDevMemoryObject* pMemObj;
+			size_t				refCounter;
+			bool				isReady;
+		};
+
+		map<void*, mem_obj_directive>	m_addressToMemObj;
+		OclReaderWriterLock		m_multiReadSingleWriteMutex;
+	};
+
+	COI_ProcessesArray	m_buffActiveProcesses;
+
+	AtomicCounter	m_bufferRefCounter;
+
+	static MapBuffersMemoryPool m_buffersMemoryPool;
 };
 
 class MICDevMemorySubObject : public MICDevMemoryObject
@@ -288,6 +346,8 @@ public:
     MICDevMemorySubObject(MemoryAllocator& allocator, MICDevMemoryObject& pParent);
 
     cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, IOCLDevRTMemObjectService IN *pBSService);
+
+	virtual bool isRootBuffer() { return false; };
 
 protected:
     MICDevMemoryObject& m_Parent;

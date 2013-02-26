@@ -125,15 +125,26 @@ public:
 	   That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( CommonMemoryChunk::Chunk& chunk );
 
-	ProcessCommonMemoryChunk( const COIEVENT* external_dependency ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
-        m_readyToFireChunk(false) {};
+	ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = NULL ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
+        m_readyToFireChunk(false), m_memObjOfHostPtr(NULL), m_processOfTarget(processOfTarget) {};
+
+	/* return the hostPtr of the memobj that we use in order to execute Copy instead of read / write */
+	MICDevMemoryObject* getUsedMemObjOfHostPtr() { return m_memObjOfHostPtr; };
 
 	virtual ~ProcessCommonMemoryChunk() {};
+
+protected:
+
+	/* Perform optimized Copy / Read / Write */
+	bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice = true);
 
 private:
 
 	bool				m_readyToFireChunk;
 
+	MICDevMemoryObject*	m_memObjOfHostPtr;
+
+	COIPROCESS			m_processOfTarget;
 };
 
 
@@ -221,10 +232,14 @@ public:
 
 	cl_dev_err_code execute();
 
+	virtual ~ReadWriteMemObject();
+
 private:
 
 	/* Private constructor because We like to create Commands only by the factory method */
     ReadWriteMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+	MICDevMemoryObject*	m_memObjOfHostPtr;
 
 };
 
@@ -247,6 +262,8 @@ private:
 
 	char* m_srcBufferMirror;
 
+	MICDevMemoryObject*	m_memObjOfHostPtr;
+
 };
 
 class MapMemObject : public BufferCommands
@@ -258,6 +275,8 @@ public:
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
 
 	cl_dev_err_code execute();
+
+	virtual void fireCallBack(void* arg);
 
 private:
 

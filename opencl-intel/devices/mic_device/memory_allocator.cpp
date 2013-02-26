@@ -276,7 +276,10 @@ size_t MemoryAllocator::CalculateOffset(cl_uint dim_count, const size_t* origin,
 //-----------------------------------------------------------------------------------------------------
 // MICDevMemoryObject
 //-----------------------------------------------------------------------------------------------------
-MICDevMemoryObject::COI_ProcessesArray MICDevMemoryObject::get_active_processes( void )
+
+MICDevMemoryObject::MapBuffersMemoryPool MICDevMemoryObject::m_buffersMemoryPool;
+
+MICDevMemoryObject::COI_ProcessesArray MICDevMemoryObject::get_active_processes_int( void )
 {
     COI_ProcessesArray coi_processes;
     
@@ -371,7 +374,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // create COI buffer on top of allocated memory
 
     // we will need to filter MIC DAs from all devices supported by current memory object
-    COI_ProcessesArray coi_processes = get_active_processes();
+    m_buffActiveProcesses = get_active_processes_int();
 
     //
     // COI can use 2 different resource pools - 2MB pages and 4K pages. It may be that one of pools is already 
@@ -388,7 +391,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
                                 m_raw_size, COI_BUFFER_OPENCL, 
 								flags[i],
                                 m_objDescr.pData,
-                                coi_processes.size(), &(coi_processes[0]),
+                                m_buffActiveProcesses.size(), &(m_buffActiveProcesses[0]),
                                 &m_coi_buffer);
 
         if (COI_RESOURCE_EXHAUSTED != coi_err)
@@ -405,12 +408,35 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
     m_coi_top_level_buffer        = m_coi_buffer;
     m_coi_top_level_buffer_offset = 0;
+	// Increment ref counter of this buffer.
+	incRefCounter();
     return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 {
-    COIRESULT coi_err = COI_SUCCESS;
+    decRefCounter();
+    return CL_DEV_SUCCESS;
+}
+
+bool MICDevMemoryObject::getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj)
+{
+	return m_buffersMemoryPool.getBuffer(ptr, size, ppOutMemObj);
+}
+
+void MICDevMemoryObject::incRefCounter()
+{
+	m_bufferRefCounter ++;
+}
+
+void MICDevMemoryObject::decRefCounter()
+{
+	m_bufferRefCounter --;
+	if (0 < m_bufferRefCounter)
+	{
+		return;
+	}
+	COIRESULT coi_err = COI_SUCCESS;
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), TEXT("%s"), TEXT("ReleaseObject enter"));
 
@@ -426,7 +452,6 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
     }
 
     delete this;
-    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle)
@@ -633,6 +658,63 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
     return (all_is_ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
+bool MICDevMemoryObject::MapBuffersMemoryPool::getBuffer(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj)
+{
+	map<void*, mem_obj_directive>::iterator iter;
+	OclAutoReader mutex(&m_multiReadSingleWriteMutex);
+	iter = m_addressToMemObj.lower_bound(ptr);
+	if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
+	{
+		iter --;
+	}
+	if ((m_addressToMemObj.end() == iter) || (false == iter->second.isReady) || ((size_t)ptr < (size_t)(iter->first)) || ((size_t)ptr + size > (size_t)(iter->first) + iter->second.pMemObj->GetRawDataSize()))
+	{
+		return false;
+	}
+	*ppOutMemObj = iter->second.pMemObj;
+	(*ppOutMemObj)->incRefCounter();
+	return true;
+}
+
+void MICDevMemoryObject::MapBuffersMemoryPool::addBufferToPool(MICDevMemoryObject* pMicMemObj)
+{
+	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+	if (m_addressToMemObj.end() == iter)
+	{
+		m_addressToMemObj.insert( pair<void*, mem_obj_directive>( pMicMemObj->clDevMemObjGetDescriptorRaw().pData, mem_obj_directive(pMicMemObj) ) );
+	}
+	else
+	{
+		iter->second.refCounter ++;
+	}
+	pMicMemObj->incRefCounter();
+}
+
+void MICDevMemoryObject::MapBuffersMemoryPool::removeBufferFromPool(MICDevMemoryObject* pMicMemObj)
+{
+	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+	assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
+	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+	if (iter->second.refCounter == 1)
+	{
+		m_addressToMemObj.erase(iter);
+	}
+	else
+	{
+		iter->second.refCounter --;
+	}
+	pMicMemObj->decRefCounter();
+}
+
+void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj)
+{
+	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+	assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
+	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+	iter->second.isReady = true;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -702,6 +784,10 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
-      return CL_DEV_SUCCESS;
+	m_buffActiveProcesses = m_Parent.m_buffActiveProcesses;
+	// Increment ref counter of this buffer.
+	incRefCounter();
+
+    return CL_DEV_SUCCESS;
 }
 
