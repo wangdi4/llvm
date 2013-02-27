@@ -5,7 +5,7 @@
 #error "MIC is not enabled!"
 #endif
 
-#include "llvm/IntrinsicsY86.h" 
+#include "llvm/IntrinsicsY86.h"
 
 typedef double __v8df __attribute__((__vector_size__(64)));
 typedef float __v16sf __attribute__((__vector_size__(64)));
@@ -4829,7 +4829,7 @@ _mm512_mask_modf_ps(__m512 v1_old, __mmask8 k1, __m512 v2, __m512 * pv3)
 {
   return __builtin_ia32_mask_math2ptr_ps512(y86_mic_auxiid_modf, v1_old, k1, v2, pv3);
 }
- 
+
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_frexp_pd(__m512d v1, __m512i * pv2)
 {
@@ -4975,25 +4975,25 @@ _mm512_mask_div_pd(__m512d v1_old, __mmask8 k1, __m512d v2, __m512d v3)
 }
 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_invsqrt_pd(__m512d v2)
+_mm512_invsqrt_pd(__m512d v1)
 {
-  return __builtin_ia32_invsqrtpd512(v2);
+  return __builtin_ia32_math1_pd512(y86_mic_auxiid_invsqrt, v1);
 }
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_invsqrt_pd(__m512d v1_old, __mmask8 k1, __m512d v2)
 {
-  return __builtin_ia32_mask_invsqrtpd512(v1_old, k1, v2);
+  return __builtin_ia32_mask_math1_pd512(y86_mic_auxiid_invsqrt, v1_old, k1, v2);
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_invsqrt_ps(__m512 v2)
+_mm512_invsqrt_ps(__m512 v1)
 {
-  return __builtin_ia32_invsqrtps512(v2);
+  return __builtin_ia32_math1_ps512(y86_mic_auxiid_invsqrt, v1);
 }
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_invsqrt_ps(__m512 v1_old, __mmask16 k1, __m512 v2)
 {
-  return __builtin_ia32_mask_invsqrtps512(v1_old, k1, v2);
+  return __builtin_ia32_mask_math1_ps512(y86_mic_auxiid_invsqrt, v1_old, k1, v2);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
@@ -5031,25 +5031,25 @@ _mm512_mask_nearbyint_ps(__m512 v1_old, __mmask16 k1, __m512 v2)
 }
 
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
-_mm512_recip_pd(__m512d v2)
+_mm512_recip_pd(__m512d v1)
 {
-  return __builtin_ia32_recippd512(v2);
+  return __builtin_ia32_math1_pd512(y86_mic_auxiid_recip, v1);
 }
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_recip_pd(__m512d v1_old, __mmask8 k1, __m512d v2)
 {
-  return __builtin_ia32_mask_recippd512(v1_old, k1, v2);
+  return __builtin_ia32_mask_math1_pd512(y86_mic_auxiid_recip, v1_old, k1, v2);
 }
 
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_recip_ps(__m512 v2)
+_mm512_recip_ps(__m512 v1)
 {
-  return __builtin_ia32_recipps512(v2);
+  return __builtin_ia32_math1_ps512(y86_mic_auxiid_recip, v1);
 }
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_recip_ps(__m512 v1_old, __mmask16 k1, __m512 v2)
 {
-  return __builtin_ia32_mask_recipps512(v1_old, k1, v2);
+  return __builtin_ia32_mask_math1_ps512(y86_mic_auxiid_recip, v1_old, k1, v2);
 }
 
 __inline__ __m512i __attribute__((__always_inline__, __nodebug__))
@@ -5082,7 +5082,7 @@ _mm512_mask_rem_pu(__m512i v1_old, __mmask16 k1, __m512i v2, __m512i v3)
 
 /*
  * Half math intrinsics
- */ 
+ */
 __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_half_cos_ps(__m512 v1)
 {
@@ -5239,7 +5239,7 @@ _mm512_mask_half_powr_ps(__m512 v1_old, __mmask16 k1, __m512 v2, __m512 v3)
 
 /*
  * Native math intrinsics
- */ 
+ */
 __inline__ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_native_acos_pd(__m512d v1)
 {
