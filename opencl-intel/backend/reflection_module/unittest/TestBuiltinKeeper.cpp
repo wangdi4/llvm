@@ -63,28 +63,22 @@ TEST(isBuiltin, positiveTest){
   ASSERT_TRUE(BuiltinKeeper::instance()->isBuiltin("_Z5clampDv2_cS_S_"));
 }
 
+#if defined(_M_X64) || defined(__LP64__)
+const char*const vstoreHalf16 = "_Z17vstore_half16_rtzDv16_fmPU3AS1Dh";
+#else
+const char*const vstoreHalf16 = "_Z17vstore_half16_rtzDv16_fjPU3AS1Dh";
+#endif
+
 //this bi is among the last, so testing it will indicate for the worst lookup
 //time
 TEST(isBuiltin, addressSpaceTest){
-  ASSERT_TRUE(BuiltinKeeper::instance()->isBuiltin(
-#if defined(_M_X64) || defined(__LP64__)
-    "_Z17vstore_half16_rtzDv16_fmPU3AS1Dh"
-#else
-    "_Z17vstore_half16_rtzDv16_fjPU3AS1Dh"
-#endif
-  ));
+  ASSERT_TRUE(BuiltinKeeper::instance()->isBuiltin(vstoreHalf16));
 }
 
 //cache hits should make this test run almost as fast as the previous one
 TEST(isBuiltin, performanceTest){
   for (int i=0 ; i<10 ; ++i)
-    ASSERT_TRUE(BuiltinKeeper::instance()->isBuiltin(
-#if defined(_M_X64) || defined(__LP64__)
-      "_Z17vstore_half16_rtzDv16_fmPU3AS1Dh"
-#else
-      "_Z17vstore_half16_rtzDv16_fjPU3AS1Dh"
-#endif
-    ));
+    ASSERT_TRUE(BuiltinKeeper::instance()->isBuiltin(vstoreHalf16));
 }
 
 TEST(isBuiltin, negativeTest){
