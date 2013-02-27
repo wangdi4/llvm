@@ -208,8 +208,8 @@ TEST(VectorizerReference, syntesizedFunctions){
 
 //BuiltinKepper functionality tests
 TEST(Functionality, duplicatedScalarEntry){
-  const char*const sincosToscalarize = "_Z18_retbyarray_sincosDv4_d";
-  const char*const sincosScalarVersion = "_Z17sincos_scalarizedd";
+  const char*const sincosToscalarize = "_Z19__retbyarray_sincosDv4_d";
+  const char*const sincosScalarVersion = "_Z20__retbyvector_sincosd";
   const char*const sincosExpectedVectorized = "_Z14sincos_ret2ptrDv4_dPS_S0_";
   const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
   PairSW scalarVersion = pKeeper->getVersion(sincosToscalarize, width::SCALAR);
