@@ -546,12 +546,24 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   }
 
   // Generate a Call the new function
-  CallInst* call = CallInst::Create(
+  CallInst* pcall = CallInst::Create(
     func, ArrayRef<Value*>(params), "", caller);
-  VectorizerUtils::SetDebugLocBy(call, caller);
-  caller->replaceAllUsesWith(call);
+  //Update new call instruction with calling convention and attributes
+  pcall->setCallingConv(caller->getCallingConv());
+  for (unsigned int i=1; i < caller->getNumArgOperands(); ++i) {
+    //Parameter attributes starts with index 1-NumOfParams
+    unsigned int idx = i+1;
+    //pcall starts with mask argument, skip it when setting original argument attributes.
+    pcall->addAttribute(idx - 1, caller->getAttributes().getParamAttributes(idx));
+  }
+  //set function attributes of pcall
+  pcall->addAttribute(~0, caller->getAttributes().getFnAttributes());
+  //set return value attributes of pcall
+  pcall->addAttribute(0, caller->getAttributes().getRetAttributes());
+  VectorizerUtils::SetDebugLocBy(pcall, caller);
+  caller->replaceAllUsesWith(pcall);
   // Replace predicate with control flow
-  toPredicate(call, caller->getArgOperand(0));
+  toPredicate(pcall, caller->getArgOperand(0));
   // Remove original call
   caller->eraseFromParent();
 }

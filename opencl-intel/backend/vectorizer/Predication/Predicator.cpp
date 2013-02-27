@@ -571,6 +571,18 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     }
     CallInst* pcall =
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
+    //Update new call instruction with calling convention and attributes
+    pcall->setCallingConv(call->getCallingConv());
+    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
+      //Parameter attributes starts with index 1-NumOfParams
+      unsigned int idx = i+1;
+      //pcall starts with mask argument, skip it when setting original argument attributes.
+      pcall->addAttribute(1 + idx, call->getAttributes().getParamAttributes(idx));
+    }
+    //set function attributes of pcall
+    pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
+    //set return value attributes of pcall
+    pcall->addAttribute(0, call->getAttributes().getRetAttributes());
     VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();
